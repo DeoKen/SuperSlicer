@@ -74,6 +74,8 @@ public:
         float e() const { return m_axis[E]; }
         float f() const { return m_axis[F]; }
 
+        char e_char() const { return m_e_char; }
+
         static bool cmd_is(const std::string &gcode_line, const char *cmd_test) {
             const char *cmd = GCodeReader::skip_whitespaces(gcode_line.c_str());
             // Skip line number
@@ -100,6 +102,7 @@ public:
         std::string      m_raw;
         float            m_axis[NUM_AXES];
         uint32_t         m_mask;
+        char             m_e_char;
         friend class GCodeReader;
     };
     class FakeGCodeLine : public GCodeLine {
