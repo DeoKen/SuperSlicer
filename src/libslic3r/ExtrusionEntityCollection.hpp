@@ -67,6 +67,10 @@ public:
         this->append(std::move(src.m_entities));
         src.m_entities = {};
     }
+    void append_move_from(ExtrusionEntityCollection &&src) {
+        this->append(std::move(src.m_entities));
+        src.m_entities = {};
+    }
 
     /// Operator to convert and flatten this collection to a single vector of ExtrusionPaths.
     explicit operator ExtrusionPaths() const;

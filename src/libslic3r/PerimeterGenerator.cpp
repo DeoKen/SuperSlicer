@@ -645,12 +645,45 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
                     has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)),
                     &children_after_me
                     );
-            } else if (in_out_in && (!loop.is_contour && loop.depth == 2)) {
+            } else if (in_out_in && (loop.depth == 2)) {
+                if (!loop.is_contour) {
+                        children.append_move_from(
+                            this->_traverse_loops_classic(params, loop.children, thin_walls,
+                                has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang + 1)),
+                                &children_after_me));
+                } else {
                 // call with children_after_me to trigger the case below  
-                children = this->_traverse_loops_classic(params, loop.children, thin_walls,
-                    has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)),
-                    &children_after_me
-                    );
+                    for (const PerimeterGeneratorLoop &child : loop.children) {
+                        bool is_touching = false;
+                        if (child.depth == 1 && !child.is_contour) {
+                            // check if we touch that child
+                            coordf_t max_width = std::max(params.get_ext_perimeter_width(), params.get_perimeter_width()) * 1.1;
+                            Polygons checker = offset(loop.polygon, loop.polygon.is_counter_clockwise() ? -max_width : max_width);
+                            bool is_touching = checker.empty();
+                            if (!is_touching) {
+                                for (auto it = checker.begin(); !is_touching && it != checker.end(); ++it) {
+                                    is_touching = child.polygon.contains(it->front());
+                                }
+                            }
+                            if (!is_touching) {
+                                for (auto it = checker.begin(); !is_touching && it != checker.end(); ++it) {
+                                    is_touching = !intersection_pl(to_polylines(child.polygon), *it).empty();
+                                }
+                            }
+                            if (is_touching) {
+                                children.append_move_from(
+                                    this->_traverse_loops_classic(params, {child}, thin_walls,
+                                        has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang + 1)),
+                                        &children_after_me));
+                            }
+                        }
+                        if (!is_touching) {
+                            children.append_move_from(
+                                this->_traverse_loops_classic(params, {child}, thin_walls,
+                                    has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang + 1))));
+                        }
+                    }
+                }
             } else if (in_out_in && (!loop.is_contour && loop.depth == 1 && in_out_in_child_to_merge != nullptr)) {
                 child_first = true;
                 children = this->_traverse_loops_classic(params, loop.children, thin_walls, has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)));
@@ -3502,10 +3535,20 @@ ProcessSurfaceResult PerimeterGenerator::process_arachne(const Parameters &param
         blocking[map_extrusion_to_idx.find(before)->second].emplace_back(after_it->second);
     }
 
+    
+
     std::vector<bool> processed(all_extrusions.size(), false);          // Indicate that the extrusion was already processed.
     Point             current_position = all_extrusions.empty() ? Point::Zero() : all_extrusions.front()->junctions.front().p; // Some starting position.
     std::vector<PerimeterGeneratorArachneExtrusion> ordered_extrusions;         // To store our result in. At the end we'll std::swap.
     ordered_extrusions.reserve(all_extrusions.size());
+    
+    // === inside-outside-inside ===
+    // number of external still to be printed to print this last internal
+    ankerl::unordered_dense::map<size_t, size_t>  last_internal_blocked; 
+    ankerl::unordered_dense::map<size_t, std::vector<size_t>>  external_to_last_internals; 
+    //the last internal
+    ankerl::unordered_dense::map<size_t, PerimeterGeneratorArachneExtrusion> in_out_in_extrusions; 
+    bool in_out_in = true;
 
     while (ordered_extrusions.size() < all_extrusions.size()) {
         this->throw_if_canceled();
@@ -3547,7 +3590,45 @@ ProcessSurfaceResult PerimeterGenerator::process_arachne(const Parameters &param
         }
 
         Arachne::ExtrusionLine* best_path = all_extrusions[best_candidate];
-        ordered_extrusions.push_back({ best_path, best_path->is_contour(), false });
+        bool add_to_ordered_extrusion = true;
+        if (in_out_in) {
+            // in_out_in for contour
+            if (best_path->inset_idx == 2) {
+                // tag all its "childs" as available for in-ou-in printing
+                for (size_t child_idx : blocking[best_candidate]) {
+                    assert(all_extrusions[child_idx]->inset_idx == 1);
+                    if (last_internal_blocked.find(child_idx) == last_internal_blocked.end()) {
+                        last_internal_blocked[child_idx] = 0;
+                    }
+                }
+            } else if (best_path->inset_idx == 1 &&
+                       last_internal_blocked.find(best_candidate) != last_internal_blocked.end()) {
+                // we are a last internal that cna be printed after the external(s)
+                for (size_t child_idx : blocking[best_candidate]) {
+                    if (all_extrusions[child_idx]->inset_idx == 0) {
+                        external_to_last_internals[child_idx].push_back(best_candidate);
+                        last_internal_blocked[best_candidate]++;
+                    }
+                }
+                in_out_in_extrusions[best_candidate] = {best_path, best_path->is_contour(), false};
+                add_to_ordered_extrusion = false;
+            }
+        }
+        if (add_to_ordered_extrusion) {
+            ordered_extrusions.push_back({best_path, best_path->is_contour(), false});
+        }
+        if (in_out_in && best_path->inset_idx == 0) {
+                // add back last internal into ordered_extrusions after us
+                for (size_t parent_idx : external_to_last_internals[best_candidate]) {
+                    if (last_internal_blocked.find(parent_idx) != last_internal_blocked.end()) {
+                        last_internal_blocked[parent_idx]--;
+                        if (last_internal_blocked[parent_idx] == 0) {
+                            assert(in_out_in_extrusions.find(parent_idx) != in_out_in_extrusions.end());
+                            ordered_extrusions.push_back(std::move(in_out_in_extrusions[parent_idx]));
+                        }
+                    }
+                }
+            }
         processed[best_candidate] = true;
         for (size_t unlocked_idx : blocking[best_candidate])
             blocked[unlocked_idx]--;
