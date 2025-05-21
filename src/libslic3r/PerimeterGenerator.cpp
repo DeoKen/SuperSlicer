@@ -415,7 +415,8 @@ static void fuzzy_extrusion_line(Arachne::ExtrusionLine &ext_lines, double fuzzy
 }
 
 ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Parameters &params,
-    const PerimeterGeneratorLoops &loops, ThickPolylines &thin_walls, int count_since_overhang /*= -1*/) const
+    const PerimeterGeneratorLoops &loops, ThickPolylines &thin_walls, int count_since_overhang /*= -1*/,
+    ExtrusionEntityCollection *in_out_in_child_to_merge) const
 {
     // loops is an arrayref of ::Loop objects
     // turn each one into an ExtrusionLoop object
@@ -617,7 +618,10 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
             assert(thin_walls.empty());
             // special case: external all first
             ExtrusionEntityCollection children_ext_holes;
+            ExtrusionEntityCollection children_after_me;
             ExtrusionEntityCollection children;
+            bool in_out_in = true;
+            bool child_first = (loop.is_contour && !reverse_contour) || (!loop.is_contour && reverse_hole);
             if (params.config.external_perimeters_first_force.value) {
                 if (loop.is_contour && loop.depth == 0) {
                     // here, i may have some external hole as childs
@@ -631,6 +635,25 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
                     }
                 }
                 children = this->_traverse_loops_classic(params, children_no_ext_hole, thin_walls, has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)));
+            } else if (in_out_in && (loop.is_contour && loop.depth == 0)) {
+                // check if there is a third loop smowhere
+                bool has_third_somewhere = false;
+                for (const PerimeterGeneratorLoop &child : loop.children) {
+                    has_third_somewhere = !child.children.empty();
+                }
+                children = this->_traverse_loops_classic(params, loop.children, thin_walls,
+                    has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)),
+                    &children_after_me
+                    );
+            } else if (in_out_in && (!loop.is_contour && loop.depth == 2)) {
+                // call with children_after_me to trigger the case below  
+                children = this->_traverse_loops_classic(params, loop.children, thin_walls,
+                    has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)),
+                    &children_after_me
+                    );
+            } else if (in_out_in && (!loop.is_contour && loop.depth == 1 && in_out_in_child_to_merge != nullptr)) {
+                child_first = true;
+                children = this->_traverse_loops_classic(params, loop.children, thin_walls, has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)));
             } else {
                 //normal case
                 children = this->_traverse_loops_classic(params, loop.children, thin_walls, has_overhang ? 1 : (count_since_overhang < 0 ? -1 : (count_since_overhang+1)));
@@ -640,7 +663,7 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
             if (loop.is_steep_overhang && params.layer->id() % 2 == 1 && !params.config.perimeter_reverse) {
                 has_steep_overhangs_this_loop = HasRoleVisitor::search(*eloop, HasThisRoleVisitor{ExtrusionRole::OverhangPerimeter});
             }
-            if ((loop.is_contour && !reverse_contour) || (!loop.is_contour && reverse_hole)) {
+            if (child_first) {
                 //note: params.layer->id() % 2 == 1 already taken into account in the is_steep_overhang compute (to save time).
                 // if CCW: reverse if steep_overhang & odd. if CW: the opposite
                 bool clockwise = !(loop.is_contour ? CCW_contour : CCW_hole);
@@ -662,7 +685,10 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
                     }
                 }
                 //ensure that our children are printed before us
-                if (!children.empty() || !children_ext_holes.empty()) {
+                if (in_out_in && loop.depth == 1 && in_out_in_child_to_merge != nullptr && !(!loop.is_contour && loop.depth == 1)) {
+                    in_out_in_child_to_merge->append(*eloop);
+                    coll_out.append(children);
+                } else if (!children.empty() || !children_ext_holes.empty()) {
                     ExtrusionEntityCollection print_child_beforeplz;
                     print_child_beforeplz.set_can_sort_reverse(false, false);
                     if (children.entities().size() > 1 && (children.can_reverse() || children.can_sort())) {
@@ -675,6 +701,9 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
                     coll_out.append(std::move(print_child_beforeplz));
                 } else {
                     coll_out.append(*eloop);
+                }
+                if (!children_after_me.empty()) {
+                    coll_out.append(children_after_me);
                 }
             } else {
                 bool counter_clockwise = (loop.is_contour ? CCW_contour : CCW_hole);
