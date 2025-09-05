@@ -32,12 +32,13 @@
 #include "libslic3r/libslic3r.h"
 
 #include <cassert>
+#include <filesystem>
 #include <stdexcept>
 #include <cctype>
 
 #include <boost/format/format_fwd.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/nowide/cstdio.hpp>
 #include "I18N.hpp"
 #include "RemovableDriveManager.hpp"
@@ -116,7 +117,7 @@ std::pair<std::string, bool> SlicingProcessCompletedEvent::format_error_message(
 
 BackgroundSlicingProcess::BackgroundSlicingProcess()
 {
-    boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+    std::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
     temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
 	m_temp_output_path = temp_path.string();
 }
@@ -151,7 +152,7 @@ PrinterTechnology BackgroundSlicingProcess::current_printer_technology() const
 	return m_print->technology();
 }
 
-std::string BackgroundSlicingProcess::output_filepath_for_project(const boost::filesystem::path &project_path)
+std::string BackgroundSlicingProcess::output_filepath_for_project(const std::filesystem::path &project_path)
 {
 	assert(m_print != nullptr);
     if (project_path.empty())
@@ -730,7 +731,7 @@ void BackgroundSlicingProcess::finalize_gcode()
 	auto remove_post_processed_temp_file = [post_processed, &output_path]() {
 		if (post_processed)
 			try {
-				boost::filesystem::remove(output_path);
+				std::filesystem::remove(output_path);
 			} catch (const std::exception &ex) {
 				BOOST_LOG_TRIVIAL(error) << "Failed to remove temp file " << output_path << ": " << ex.what();
 			}
@@ -779,8 +780,10 @@ void BackgroundSlicingProcess::finalize_gcode()
 void BackgroundSlicingProcess::prepare_upload()
 {
 	// Generate a unique temp path to which the gcode/zip file is copied/exported
-	boost::filesystem::path source_path = boost::filesystem::temp_directory_path()
-		/ boost::filesystem::unique_path("." SLIC3R_APP_KEY ".upload.%%%%-%%%%-%%%%-%%%%");
+    std::filesystem::path source_path(
+        (boost::filesystem::temp_directory_path() /
+         boost::filesystem::unique_path("." SLIC3R_APP_KEY ".upload.%%%%-%%%%-%%%%-%%%%"))
+            .string());
 
 	if (m_print == m_fff_print) {
 		m_print->set_status(90, _u8L("Running post-processing scripts"));

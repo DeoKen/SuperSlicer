@@ -2,15 +2,16 @@
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <numeric>
 #include <algorithm>
+#include <condition_variable>
+#include <filesystem>
+#include <numeric>
 #include <optional>
 #include <thread>
-#include <condition_variable>
 #include <stdexcept>
+
 #include <boost/format.hpp>
 #include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
 #if _WIN32
@@ -46,8 +47,6 @@
 #include <wx/msgdlg.h>
 #include <wx/filefn.h>
 
-
-namespace fs = boost::filesystem;
 namespace asio = boost::asio;
 using boost::system::error_code;
 using std::optional;
@@ -590,7 +589,7 @@ bool FirmwareDialog::priv::get_serial_port()
 		std::smatch matches;
 		if (std::regex_match(path_u8, matches, com_pattern)) {
 #else
-		if (fs::is_other(fs::path(path_u8))) {
+		if (std::filesystem::is_other(std::filesystem::path(path_u8))) {
 #endif
 			port = SerialPortInfo(std::move(path_u8));
 		} else {

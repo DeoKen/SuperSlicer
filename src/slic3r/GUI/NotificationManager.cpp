@@ -2342,7 +2342,7 @@ void  NotificationManager::push_upload_job_notification(int id, float filesize, 
 			return;
 		}
 	}
-	// filename is created from boost::filesystem::path.string() which if created by path / "file" return \\ as folder division. But could also contain / as folder division. Lets unite this into "/" only.
+	// filename is created from std::filesystem::path.string() which if created by path / "file" return \\ as folder division. But could also contain / as folder division. Lets unite this into "/" only.
 	std::string correct_filename(filename);
 	std::replace(correct_filename.begin(), correct_filename.end(), '\\', '/');
 	std::string text = correct_filename + " -> " + host;

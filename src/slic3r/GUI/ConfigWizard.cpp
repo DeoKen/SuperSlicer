@@ -88,7 +88,7 @@ static const std::unordered_map<PrinterTechnology, std::string> tech_to_string{ 
     } };
 
 // Configuration data structures extensions needed for the wizard
-
+namespace fs = std::filesystem;
 bool Bundle::load(fs::path source_path, BundleLocation location, bool ais_prusa_bundle)
 {
     this->preset_bundle = std::make_unique<PresetBundle>();
@@ -130,20 +130,20 @@ BundleMap BundleMap::load()
 {
     BundleMap res;
 
-    const auto vendor_dir = (boost::filesystem::path(Slic3r::data_dir()) / "vendor").make_preferred();
-    const auto archive_dir = (boost::filesystem::path(Slic3r::data_dir()) / "cache" / "vendor").make_preferred();
-    const auto rsrc_vendor_dir = (boost::filesystem::path(resources_dir()) / "profiles").make_preferred();
-    const auto cache_dir = boost::filesystem::path(Slic3r::data_dir()) / "cache"; // for Index
+    const auto vendor_dir = (std::filesystem::path(Slic3r::data_dir()) / "vendor").make_preferred();
+    const auto archive_dir = (std::filesystem::path(Slic3r::data_dir()) / "cache" / "vendor").make_preferred();
+    const auto rsrc_vendor_dir = (std::filesystem::path(resources_dir()) / "profiles").make_preferred();
+    const auto cache_dir = std::filesystem::path(Slic3r::data_dir()) / "cache"; // for Index
     // Load Prusa bundle from the datadir/vendor directory or from datadir/cache/vendor (archive) or from resources/profiles.
 #ifdef ALLOW_PRUSA_FIRST
     // prusa bundle mandatory check at startup
     auto prusa_bundle_path = (vendor_dir / ALLOW_PRUSA_FIRST).replace_extension(".ini");
     BundleLocation prusa_bundle_loc = BundleLocation::IN_VENDOR;
-    if (! boost::filesystem::exists(prusa_bundle_path)) {
+    if (! std::filesystem::exists(prusa_bundle_path)) {
         prusa_bundle_path = (archive_dir / ALLOW_PRUSA_FIRST).replace_extension(".ini");
         prusa_bundle_loc = BundleLocation::IN_ARCHIVE;
     }
-    if (!boost::filesystem::exists(prusa_bundle_path)) {
+    if (!std::filesystem::exists(prusa_bundle_path)) {
         prusa_bundle_path = (rsrc_vendor_dir / PresetBundle::PRUSA_BUNDLE).replace_extension(".ini");
         prusa_bundle_loc = BundleLocation::IN_RESOURCES;
     }
@@ -163,7 +163,7 @@ BundleMap BundleMap::load()
         if (!fs::exists(dir.first))
             continue;
       try {
-        for (const auto &dir_entry : boost::filesystem::directory_iterator(dir.first)) {
+        for (const auto &dir_entry : std::filesystem::directory_iterator(dir.first)) {
             if (Slic3r::is_ini_file(dir_entry)) {
                 std::string id = dir_entry.path().stem().string();  // stem() = filename() without the trailing ".ini" part
 
@@ -174,15 +174,15 @@ BundleMap BundleMap::load()
                 // Then if not in archive or cache - it could be 3rd party profile that user just copied to vendor folder (both ini and cache)
                 
                 fs::path idx_path (cache_dir / (id + ".idx"));
-                if (!boost::filesystem::exists(idx_path)) {
+                if (!std::filesystem::exists(idx_path)) {
                     BOOST_LOG_TRIVIAL(error) << format("Missing index %1% when loading bundle %2%. Going to search for it in cache folder.", idx_path.string(), id);
                     idx_path = fs::path(cache_dir / (id + ".idx"));
                 }
-                if (!boost::filesystem::exists(idx_path)) {
+                if (!std::filesystem::exists(idx_path)) {
                     BOOST_LOG_TRIVIAL(error) << format("Missing index %1% when loading bundle %2%. Going to search for it in vendor folder. Is it a 3rd party profile?", idx_path.string(), id);
                     idx_path = fs::path(vendor_dir / (id + ".idx"));
                 }
-                if (!boost::filesystem::exists(idx_path)) {
+                if (!std::filesystem::exists(idx_path)) {
                     BOOST_LOG_TRIVIAL(error) << format("Could not load bundle %1% due to missing index %2%.", id, idx_path.string());
                     continue;
                 }
@@ -1445,7 +1445,7 @@ Worker::Worker(wxWindow* parent)
     wxGetApp().SetWindowVariantForButton(button_path);
     this->Add(button_path, 0, wxEXPAND | wxTOP | wxLEFT, 5);
     button_path->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
-        boost::filesystem::path chosen_dest(boost::nowide::narrow(m_input_path->GetValue()));
+        std::filesystem::path chosen_dest(boost::nowide::narrow(m_input_path->GetValue()));
 
         wxDirDialog dialog(m_parent, _L("Choose folder") + ":", chosen_dest.string() );
         if (dialog.ShowModal() == wxID_OK)
@@ -1557,15 +1557,15 @@ bool PageDownloader::on_finish_downloader() const
 
 bool DownloaderUtils::Worker::perform_register(const std::string& path_override/* = {}*/)
 {
-    boost::filesystem::path aux_dest (GUI::into_u8(path_name()));
+    std::filesystem::path aux_dest (GUI::into_u8(path_name()));
     if (!path_override.empty())
-        aux_dest = boost::filesystem::path(path_override);
+        aux_dest = std::filesystem::path(path_override);
     boost::system::error_code ec;
-    boost::filesystem::path chosen_dest = boost::filesystem::absolute(aux_dest, ec);
+    std::filesystem::path chosen_dest = std::filesystem::absolute(aux_dest, ec);
     if(ec)
         chosen_dest = aux_dest;
     ec.clear();
-    if (chosen_dest.empty() || !boost::filesystem::is_directory(chosen_dest, ec) || ec) {
+    if (chosen_dest.empty() || !std::filesystem::is_directory(chosen_dest, ec) || ec) {
         std::string err_msg = GUI::format("%1%\n\n%2%",_L("Chosen directory for downloads does not exist.") ,chosen_dest.string());
         BOOST_LOG_TRIVIAL(error) << err_msg;
         show_error(m_parent, err_msg);
@@ -1576,7 +1576,7 @@ bool DownloaderUtils::Worker::perform_register(const std::string& path_override/
 #ifdef _WIN32
     // Registry key creation for "prusaslicer://" URL
 
-    boost::filesystem::path binary_path(boost::filesystem::canonical(boost::dll::program_location()));
+    std::filesystem::path binary_path(std::filesystem::canonical(std::filesystem::path(boost::dll::program_location().string())));
     // the path to binary needs to be correctly saved in string with respect to localized characters
     wxString wbinary = wxString::FromUTF8(binary_path.string());
     std::string binary_string = (boost::format("%1%") % wbinary).str();

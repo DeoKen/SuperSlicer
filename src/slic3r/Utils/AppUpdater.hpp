@@ -5,12 +5,12 @@
 #ifndef slic3r_AppUpdate_hpp_
 #define slic3r_AppUpdate_hpp_
 
+#include <filesystem>
 #include <optional>
-#include <boost/filesystem.hpp>
-#include "libslic3r/Utils.hpp"
-#include "wx/event.h"
 
-//class boost::filesystem::path;
+#include "libslic3r/Utils.hpp"
+
+#include "wx/event.h"
 
 namespace Slic3r {
 
@@ -25,7 +25,7 @@ struct DownloadAppData
 	bool					start_after;
 	std::optional<Semver> version;
 	size_t				    size;
-	boost::filesystem::path target_path;
+	std::filesystem::path target_path;
 };
 
 class AppUpdater

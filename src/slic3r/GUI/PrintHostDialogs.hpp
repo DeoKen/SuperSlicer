@@ -6,9 +6,9 @@
 #ifndef slic3r_PrintHostSendDialog_hpp_
 #define slic3r_PrintHostSendDialog_hpp_
 
+#include <filesystem>
 #include <set>
 #include <string>
-#include <boost/filesystem/path.hpp>
 
 #include <wx/string.h>
 #include <wx/event.h>
@@ -33,8 +33,8 @@ namespace GUI {
 class PrintHostSendDialog : public GUI::MsgDialog
 {
 public:
-    PrintHostSendDialog(const boost::filesystem::path &path, PrintHostPostUploadActions post_actions, const wxArrayString& groups, const wxArrayString& storage_paths, const wxArrayString& storage_names);
-    boost::filesystem::path filename() const;
+    PrintHostSendDialog(const std::filesystem::path &path, PrintHostPostUploadActions post_actions, const wxArrayString& groups, const wxArrayString& storage_paths, const wxArrayString& storage_names);
+    std::filesystem::path filename() const;
     PrintHostPostUploadAction post_action() const;
     std::string group() const;
     std::string storage() const;

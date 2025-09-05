@@ -42,7 +42,6 @@
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp> // serialize deserialize facenames
 #include <boost/functional/hash.hpp>
-#include <boost/filesystem.hpp>
 
 // cache font list by cereal
 #include <cereal/cereal.hpp>
@@ -52,6 +51,7 @@
 
 #include <GL/glew.h>
 #include <chrono> // measure enumeration of fonts
+#include <filesystem>
 
 // uncomment for easier debug
 //#define ALLOW_DEBUG_MODE
@@ -3408,8 +3408,8 @@ std::string concat(std::vector<wxString> data) {
     return ss.str();
 }
 
-boost::filesystem::path get_fontlist_cache_path(){
-    return boost::filesystem::path(data_dir()) / "cache" / "fonts.cereal";
+std::filesystem::path get_fontlist_cache_path(){
+    return std::filesystem::path(data_dir()) / "cache" / "fonts.cereal";
 }
 
 bool store(const Facenames &facenames) {
@@ -3434,9 +3434,9 @@ bool store(const Facenames &facenames) {
 }
 
 bool load(Facenames &facenames) {
-    boost::filesystem::path path = get_fontlist_cache_path();
+    std::filesystem::path path = get_fontlist_cache_path();
     std::string             path_str = path.string();
-    if (!boost::filesystem::exists(path)) {
+    if (!std::filesystem::exists(path)) {
         BOOST_LOG_TRIVIAL(warning) << "Fontlist cache - '" << path_str << "' does not exists.";
         return false;
     }

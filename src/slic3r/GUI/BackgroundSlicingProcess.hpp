@@ -116,7 +116,7 @@ public:
 	const SLAPrint* 	sla_print() const { return m_sla_print; }
     // Take the project path (if provided), extract the name of the project, run it through the macro processor and save it next to the project file.
     // If the project_path is empty, just run output_filepath().
-	std::string 		output_filepath_for_project(const boost::filesystem::path &project_path);
+	std::string 		output_filepath_for_project(const std::filesystem::path &project_path);
 
 	// Start the background processing. Returns false if the background processing was already running.
 	bool start();

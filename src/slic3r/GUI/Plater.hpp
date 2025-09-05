@@ -17,9 +17,9 @@
 #ifndef slic3r_Plater_hpp_
 #define slic3r_Plater_hpp_
 
+#include <filesystem>
 #include <memory>
 #include <vector>
-#include <boost/filesystem/path.hpp>
 
 #include <wx/panel.h>
 
@@ -166,7 +166,7 @@ private:
 class Plater: public wxPanel
 {
 public:
-    using fs_path = boost::filesystem::path;
+    using fs_path = std::filesystem::path;
 
     Plater(wxWindow *parent, MainFrame *main_frame);
     void init_after_tabs();
@@ -213,16 +213,17 @@ public:
     void convert_gcode_to_binary();
     void refresh_print();
 
-    //std::vector<size_t> load_files(const std::vector<boost::filesystem::path>& input_files, bool load_model = true, bool load_config = true, bool update_dirs = true, bool imperial_units = false);
+    //std::vector<size_t> load_files(const std::vector<std::filesystem::path>& input_files, bool load_model = true, bool load_config = true, bool update_dirs = true, bool imperial_units = false);
     // To be called when providing a list of files to the GUI slic3r on command line.
     //std::vector<size_t> load_files(const std::vector<std::string>& input_files, bool load_model = true, bool load_config = true, bool update_dirs = true, bool imperial_units = false);
-    std::vector<size_t> load_files(const std::vector<boost::filesystem::path> &input_files, LoadFileOptions options);
+    std::vector<size_t> load_file(const std::filesystem::path &input_file, LoadFileOptions options);
+    std::vector<size_t> load_files(const std::vector<std::filesystem::path> &input_files, LoadFileOptions options);
     std::vector<size_t> load_files(const std::vector<std::string> &input_files, LoadFileOptions options);
     // to be called on drag and drop
     bool load_files(const wxArrayString& filenames, bool delete_after_load = false);
     void notify_about_installed_presets();
 
-    bool preview_zip_archive(const boost::filesystem::path& input_file);
+    bool preview_zip_archive(const std::filesystem::path& input_file);
 
     const wxString& get_last_loaded_gcode() const { return m_last_loaded_gcode; }
 
@@ -314,7 +315,7 @@ public:
     void export_platter();
     void export_stl_obj(std::string path, bool extended = false, bool selection_only = false);
     void export_amf();
-    bool export_3mf(const boost::filesystem::path& output_path = boost::filesystem::path());
+    bool export_3mf(const std::filesystem::path& output_path = std::filesystem::path());
     void reload_from_disk();
     void replace_with_stl();
     void reload_all_from_disk();

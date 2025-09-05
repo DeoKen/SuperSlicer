@@ -15,11 +15,11 @@
 #include "Geometry.hpp"
 #include "Thread.hpp"
 
+#include <filesystem>
 #include <unordered_set>
 #include <numeric>
 
 #include <oneapi/tbb/parallel_for.h>
-#include <boost/filesystem/path.hpp>
 #include <boost/log/trivial.hpp>
 
 // #define SLAPRINT_DO_BENCHMARK
@@ -1254,7 +1254,7 @@ std::string SLAPrintStatistics::finalize_output_path(const std::string &path_in)
 {
     std::string final_path;
     try {
-        boost::filesystem::path path(path_in);
+        std::filesystem::path path(path_in);
         DynamicConfig cfg = this->config();
         PlaceholderParser pp;
         std::string new_stem = pp.process(path.stem().string(), 0, &cfg);

@@ -11,8 +11,7 @@
 #include <wx/display.h>
 #include <wx/file.h>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
+#include <filesystem>
 
 #if ENABLE_SCROLLABLE
 static wxSize get_screen_size(wxWindow* window)
@@ -46,7 +45,7 @@ CalibrationAbstractDialog::CalibrationAbstractDialog(GUI_App* app, MainFrame* ma
 
     }
 
-void CalibrationAbstractDialog::create(boost::filesystem::path html_path, std::string html_name, wxSize dialog_size, bool include_close_button){
+void CalibrationAbstractDialog::create(std::filesystem::path html_path, std::string html_name, wxSize dialog_size, bool include_close_button){
 
     const AppConfig* app_config = get_app_config();
 
@@ -59,17 +58,17 @@ void CalibrationAbstractDialog::create(boost::filesystem::path html_path, std::s
     
     //language
     wxString language = wxGetApp().current_language_code();
-    boost::filesystem::path full_file_path = (boost::filesystem::path(Slic3r::resources_dir()) / html_path/ (into_u8(language) + "_"+ html_name));
+    std::filesystem::path full_file_path = (std::filesystem::path(Slic3r::resources_dir()) / html_path/ (into_u8(language) + "_"+ html_name));
     if (language == "en") {
-        full_file_path = (boost::filesystem::path(Slic3r::resources_dir()) / html_path / (html_name));
-    }else if (!boost::filesystem::exists(full_file_path)) {
+        full_file_path = (std::filesystem::path(Slic3r::resources_dir()) / html_path / (html_name));
+    }else if (!std::filesystem::exists(full_file_path)) {
         language = wxGetApp().current_language_code_safe();
-        full_file_path = (boost::filesystem::path(Slic3r::resources_dir()) / html_path / (into_u8(language) + "_" + html_name));
-        if (!boost::filesystem::exists(full_file_path)) {
+        full_file_path = (std::filesystem::path(Slic3r::resources_dir()) / html_path / (into_u8(language) + "_" + html_name));
+        if (!std::filesystem::exists(full_file_path)) {
             language = language.IsEmpty() ? "en" : language.BeforeFirst('_');
-            full_file_path = (boost::filesystem::path(Slic3r::resources_dir()) / html_path / (into_u8(language) + "_" + html_name));
-            if (!boost::filesystem::exists(full_file_path)) {
-                full_file_path = (boost::filesystem::path(Slic3r::resources_dir()) / html_path / (html_name));
+            full_file_path = (std::filesystem::path(Slic3r::resources_dir()) / html_path / (into_u8(language) + "_" + html_name));
+            if (!std::filesystem::exists(full_file_path)) {
+                full_file_path = (std::filesystem::path(Slic3r::resources_dir()) / html_path / (html_name));
             }
         }
     }
@@ -156,7 +155,7 @@ void CalibrationAbstractDialog::add_part(ModelObject* model_object, std::string 
                 volume->rotate(Geometry::deg2rad(this->main_frame->plater()->config()->opt_float("init_z_rotate")), Axis::Z);
             ModelVolume* new_volume = model_object->add_volume(*volume);
             new_volume->set_type(ModelVolumeType::MODEL_PART);
-            new_volume->name = boost::filesystem::path(input_file).filename().string();
+            new_volume->name = std::filesystem::path(input_file).filename().string();
 
             //volumes_info.push_back(std::make_pair(from_u8(new_volume->name), new_volume->get_mesh_errors_count() > 0));
 

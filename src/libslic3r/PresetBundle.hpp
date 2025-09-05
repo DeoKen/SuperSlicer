@@ -13,7 +13,6 @@
 #include <memory>
 #include <unordered_map>
 #include <array>
-#include <boost/filesystem/path.hpp>
 
 namespace Slic3r {
 

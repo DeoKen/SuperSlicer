@@ -23,7 +23,8 @@
 #include <imgui/imgui_internal.h>
 #endif // ENABLE_GLMODEL_STATISTICS
 
-#include <boost/filesystem/operations.hpp>
+#include <filesystem>
+
 #include <boost/algorithm/string/predicate.hpp>
 
 #if ENABLE_SMOOTH_NORMALS
@@ -677,7 +678,7 @@ void GLModel::init_from(const Polygons& polygons, float z)
 
 bool GLModel::init_from_file(const std::string& filename)
 {
-    if (!boost::filesystem::exists(filename))
+    if (!std::filesystem::exists(filename))
         return false;
 
     if (!boost::algorithm::iends_with(filename, ".stl"))

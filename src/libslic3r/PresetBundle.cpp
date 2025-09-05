@@ -14,10 +14,10 @@
 #include "PrintConfig.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <set>
 #include <fstream>
 #include <unordered_set>
-#include <boost/filesystem.hpp>
 #include <boost/algorithm/clamp.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -161,8 +161,8 @@ void PresetBundle::reset(bool delete_files)
 
 void PresetBundle::setup_directories()
 {
-    boost::filesystem::path data_dir = boost::filesystem::path(Slic3r::data_dir());
-    std::initializer_list<boost::filesystem::path> paths = { 
+    std::filesystem::path data_dir = std::filesystem::path(Slic3r::data_dir());
+    std::initializer_list<std::filesystem::path> paths = { 
         data_dir,
 		data_dir / "vendor",
         data_dir / "cache",
@@ -187,25 +187,25 @@ void PresetBundle::setup_directories()
         data_dir / "physical_printer" 
 #endif
     };
-    for (const boost::filesystem::path &path : paths) {
-		boost::filesystem::path subdir = path;
+    for (const std::filesystem::path &path : paths) {
+		std::filesystem::path subdir = path;
         subdir.make_preferred();
-        if (! boost::filesystem::is_directory(subdir) && 
-            ! boost::filesystem::create_directory(subdir))
+        if (! std::filesystem::is_directory(subdir) && 
+            ! std::filesystem::create_directory(subdir))
             throw Slic3r::RuntimeError(std::string("Slic3r was unable to create its data directory at ") + subdir.string());
     }
 }
 
 // recursively copy all files and dirs in from_dir to to_dir
-static void copy_dir(const boost::filesystem::path& from_dir, const boost::filesystem::path& to_dir)
+static void copy_dir(const std::filesystem::path& from_dir, const std::filesystem::path& to_dir)
 {
-    if(!boost::filesystem::is_directory(from_dir))
+    if(!std::filesystem::is_directory(from_dir))
         return;
     // i assume to_dir.parent surely exists
-    if (!boost::filesystem::is_directory(to_dir))
-        boost::filesystem::create_directory(to_dir);
-    for (auto& dir_entry : boost::filesystem::directory_iterator(from_dir)) {
-        if (!boost::filesystem::is_directory(dir_entry.path())) {
+    if (!std::filesystem::is_directory(to_dir))
+        std::filesystem::create_directory(to_dir);
+    for (auto& dir_entry : std::filesystem::directory_iterator(from_dir)) {
+        if (!std::filesystem::is_directory(dir_entry.path())) {
             std::string em;
             CopyFileResult cfr = copy_file(dir_entry.path().string(), (to_dir / dir_entry.path().filename()).string(), em, false);
             if (cfr != SUCCESS) {
@@ -223,23 +223,23 @@ static void copy_dir(const boost::filesystem::path& from_dir, const boost::files
 // while old vendors and cache folders are being deleted before newer are copied.
 void PresetBundle::import_newer_configs(const std::string& from)
 {
-    boost::filesystem::path data_dir = boost::filesystem::path(Slic3r::data_dir());
+    std::filesystem::path data_dir = std::filesystem::path(Slic3r::data_dir());
     // Clean-up vendors from the target directory, as the existing vendors will not be referenced
     // by the copied PrusaSlicer.ini
     try {
-        boost::filesystem::remove_all(data_dir / "cache");
+        std::filesystem::remove_all(data_dir / "cache");
     } catch (const std::exception &ex) {
         BOOST_LOG_TRIVIAL(error) << "Error deleting old cache " << (data_dir / "cache").string() << ": " << ex.what();
     }
     try {
-        boost::filesystem::remove_all(data_dir / "vendor");
+        std::filesystem::remove_all(data_dir / "vendor");
     } catch (const std::exception &ex) {
         BOOST_LOG_TRIVIAL(error) << "Error deleting old vendors " << (data_dir / "vendor").string() << ": " << ex.what();
     }
     // list of searched paths based on current directory system in setup_directories()
     // do not copy cache and snapshots
-    boost::filesystem::path from_data_dir = boost::filesystem::path(from);
-    std::initializer_list<boost::filesystem::path> from_dirs= {
+    std::filesystem::path from_data_dir = std::filesystem::path(from);
+    std::initializer_list<std::filesystem::path> from_dirs= {
         from_data_dir / "cache",
         from_data_dir / "vendor",
         from_data_dir / "shapes",
@@ -262,7 +262,7 @@ void PresetBundle::import_newer_configs(const std::string& from)
 #endif
     };
     // copy recursively all files
-    for (const boost::filesystem::path& from_dir : from_dirs) {
+    for (const std::filesystem::path& from_dir : from_dirs) {
         copy_dir(from_dir, data_dir / from_dir.filename());
     }
 }
@@ -336,11 +336,11 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
         compatibility_rule = ForwardCompatibilitySubstitutionRule::Disable;
 
     // Here the vendor specific read only Config Bundles are stored.
-    boost::filesystem::path     dir = (boost::filesystem::path(data_dir()) / "vendor").make_preferred();
+    std::filesystem::path     dir = (std::filesystem::path(data_dir()) / "vendor").make_preferred();
     PresetsConfigSubstitutions  substitutions;
     std::string                 errors_cummulative;
     bool                        first = true;
-    for (auto &dir_entry : boost::filesystem::directory_iterator(dir))
+    for (auto &dir_entry : std::filesystem::directory_iterator(dir))
         if (Slic3r::is_ini_file(dir_entry)) {
             std::string name = dir_entry.path().filename().string();
             // Remove the .ini suffix.
@@ -1025,7 +1025,7 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
 
     // 1) Create a name from the file name.
     // Keep the suffix (.ini, .gcode, .amf, .3mf etc) to differentiate it from the normal profiles.
-    std::string name = is_external ? boost::filesystem::path(name_or_path).filename().string() : name_or_path;
+    std::string name = is_external ? std::filesystem::path(name_or_path).filename().string() : name_or_path;
 
     // 2) If the loading succeeded, split and load the config into print / filament / printer settings.
     // First load the print and printer presets.
@@ -1570,7 +1570,7 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
             }
             // Decide a full path to this .ini file.
             auto file_name = boost::algorithm::iends_with(preset_name, ".ini") ? preset_name : preset_name + ".ini";
-            auto file_path = (boost::filesystem::path(data_dir()) 
+            auto file_path = (std::filesystem::path(data_dir()) 
 #ifdef SLIC3R_PROFILE_USE_PRESETS_SUBDIR
                 // Store the print/filament/printer presets into a "presets" directory.
                 / "presets" 
@@ -1659,7 +1659,7 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
 
             // Decide a full path to this .ini file.
             auto file_name = boost::algorithm::iends_with(ph_printer_name, ".ini") ? ph_printer_name : ph_printer_name + ".ini";
-            auto file_path = (boost::filesystem::path(data_dir())
+            auto file_path = (std::filesystem::path(data_dir())
 #ifdef SLIC3R_PROFILE_USE_PRESETS_SUBDIR
                 // Store the physical printers into a "presets" directory.
                 / "presets"
@@ -2029,16 +2029,16 @@ void PresetBundle::set_default_suppressed(bool default_suppressed)
 
 void copy_bed_model_and_texture_if_needed(DynamicPrintConfig& config)
 {
-    const boost::filesystem::path user_dir = boost::filesystem::absolute(boost::filesystem::path(data_dir()) / "printer").make_preferred();
-    const boost::filesystem::path res_dir  = boost::filesystem::absolute(boost::filesystem::path(resources_dir()) / "profiles").make_preferred();
+    const std::filesystem::path user_dir = std::filesystem::absolute(std::filesystem::path(data_dir()) / "printer").make_preferred();
+    const std::filesystem::path res_dir  = std::filesystem::absolute(std::filesystem::path(resources_dir()) / "profiles").make_preferred();
 
     auto do_copy = [&user_dir, &res_dir](ConfigOptionString* cfg, const std::string& type) {
         if (cfg == nullptr || cfg->value.empty())
             return;
 
-        const boost::filesystem::path src_dir = boost::filesystem::absolute(boost::filesystem::path(cfg->value)).make_preferred().parent_path();
+        const std::filesystem::path src_dir = std::filesystem::absolute(std::filesystem::path(cfg->value)).make_preferred().parent_path();
         if (src_dir != user_dir && src_dir.parent_path() != res_dir) {
-            const std::string dst_value = (user_dir / boost::filesystem::path(cfg->value).filename()).string();
+            const std::string dst_value = (user_dir / std::filesystem::path(cfg->value).filename()).string();
             std::string error;
             if (copy_file_inner(cfg->value, dst_value, error) == SUCCESS)
                 cfg->value = dst_value;

@@ -12,8 +12,8 @@
 #include <boost/algorithm/string/trim_all.hpp>
 #include <boost/algorithm/string/erase.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/filesystem.hpp>
 
+#include <filesystem>
 #include <string>
 
 #include <angelscript/source/as_config.h>
@@ -24,7 +24,6 @@
 #include <angelscript/add_on/scriptmath/scriptmath.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
@@ -907,8 +906,8 @@ void ScriptContainer::remove_from_reset(const std::string &key) {
 void ScriptContainer::init(const std::string& tab_key, Tab* tab)
 {
     m_tab = tab;
-    const boost::filesystem::path ui_script_file = Slic3r::GUI::get_app_config()->layout_config_path() / (tab_key + ".as");
-    if (boost::filesystem::exists(ui_script_file)) {
+    const std::filesystem::path ui_script_file = Slic3r::GUI::get_app_config()->layout_config_path() / (tab_key + ".as");
+    if (std::filesystem::exists(ui_script_file)) {
         //launch the engine if not yet
         if (m_script_engine.get() == nullptr) {
 
@@ -1046,7 +1045,7 @@ void ScriptContainer::init(const std::string& tab_key, Tab* tab)
         //res = builder.AddSectionFromFile(ui_script_file.string().c_str()); //seems to be problematic on cyrillic locale
         {
             //std::string all_file;
-            //boost::filesystem::load_string_file(ui_script_file, all_file);
+            //std::filesystem::load_string_file(ui_script_file, all_file);
 	        boost::nowide::ifstream file(ui_script_file.string());
 	        std::string all_file { std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
             res = builder.AddSectionFromMemory(ui_script_file.string().c_str(), all_file.c_str(), (unsigned int)(all_file.length()), 0);

@@ -24,9 +24,9 @@
 #include "libslic3r/Polygon.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
 
 #include <algorithm>
+#include <filesystem>
 
 namespace Slic3r {
 namespace GUI {
@@ -335,8 +335,8 @@ wxPanel* BedShapePanel::init_texture_panel()
             }));
 
         filename_lbl->Bind(wxEVT_UPDATE_UI, ([this](wxUpdateUIEvent& e) {
-                boost::filesystem::path absolute_texture_path = Slic3r::find_full_path(m_custom_texture);
-                e.SetText(_(boost::filesystem::path(m_custom_texture).filename().string()));
+                std::filesystem::path absolute_texture_path = Slic3r::find_full_path(m_custom_texture);
+                e.SetText(_(std::filesystem::path(m_custom_texture).filename().string()));
                 wxStaticText* lbl = dynamic_cast<wxStaticText*>(e.GetEventObject());
                 if (lbl != nullptr) {
                     bool exists = (m_custom_texture == NONE) || !absolute_texture_path.empty();
@@ -417,8 +417,8 @@ wxPanel* BedShapePanel::init_model_panel()
             }));
 
         filename_lbl->Bind(wxEVT_UPDATE_UI, ([this](wxUpdateUIEvent& e) {
-                boost::filesystem::path absolute_model_path = Slic3r::find_full_path(m_custom_model);
-                e.SetText(_(boost::filesystem::path(m_custom_model).filename().string()));
+                std::filesystem::path absolute_model_path = Slic3r::find_full_path(m_custom_model);
+                e.SetText(_(std::filesystem::path(m_custom_model).filename().string()));
                 wxStaticText* lbl = dynamic_cast<wxStaticText*>(e.GetEventObject());
                 if (lbl != nullptr) {
                     bool exists = (m_custom_model == NONE) || !absolute_model_path.empty();

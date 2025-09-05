@@ -5,6 +5,7 @@
 #include "PrintHostDialogs.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <iomanip>
 
 #include <wx/frame.h>
@@ -20,7 +21,6 @@
 #include <wx/msgdlg.h>
 
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/nowide/convert.hpp>
 
 #include "GUI.hpp"
@@ -34,8 +34,6 @@
 #include "ExtraRenderers.hpp"
 #include "format.hpp"
 
-namespace fs = boost::filesystem;
-
 namespace Slic3r {
 namespace GUI {
 
@@ -43,7 +41,7 @@ static const char *CONFIG_KEY_PATH  = "printhost_path";
 static const char *CONFIG_KEY_GROUP = "printhost_group";
 static const char* CONFIG_KEY_STORAGE = "printhost_storage";
 
-PrintHostSendDialog::PrintHostSendDialog(const fs::path &path, PrintHostPostUploadActions post_actions, const wxArrayString &groups, const wxArrayString& storage_paths, const wxArrayString& storage_names)
+PrintHostSendDialog::PrintHostSendDialog(const std::filesystem::path &path, PrintHostPostUploadActions post_actions, const wxArrayString &groups, const wxArrayString& storage_paths, const wxArrayString& storage_names)
     : MsgDialog(static_cast<wxWindow*>(wxGetApp().mainframe), _L("Send G-Code to printer host"), _L("Upload to Printer Host with the following filename:"), 0) // Set style = 0 to avoid default creation of the "OK" button. 
                                                                                                                                                                // All buttons will be added later in this constructor 
     , txt_filename(new wxTextCtrl(this, wxID_ANY))
@@ -179,7 +177,7 @@ PrintHostSendDialog::PrintHostSendDialog(const fs::path &path, PrintHostPostUplo
     });
 }
 
-fs::path PrintHostSendDialog::filename() const
+std::filesystem::path PrintHostSendDialog::filename() const
 {
     return into_path(txt_filename->GetValue());
 }
@@ -374,7 +372,7 @@ void PrintHostQueueDialog::append_job(const PrintHostJob &job)
     fields.push_back(wxVariant(_L("Enqueued")));
     fields.push_back(wxVariant(job.printhost->get_host()));
     boost::system::error_code ec;
-    boost::uintmax_t size_i = boost::filesystem::file_size(job.upload_data.source_path, ec);
+    boost::uintmax_t size_i = std::filesystem::file_size(job.upload_data.source_path, ec);
     std::stringstream stream;
     if (ec) {
         stream << "unknown";

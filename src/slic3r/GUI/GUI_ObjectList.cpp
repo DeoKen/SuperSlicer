@@ -1590,7 +1590,7 @@ void ObjectList::load_from_files(const wxArrayString& input_files, ModelObject& 
         const std::string input_file = input_files.Item(i).ToUTF8().data();
 
         dlg.Update(static_cast<int>(100.0f * static_cast<float>(i) / static_cast<float>(input_files.size())),
-            _L("Loading file") + ": " + from_path(boost::filesystem::path(input_file).filename()));
+            _L("Loading file") + ": " + from_path(std::filesystem::path(input_file).filename()));
         dlg.Fit();
 
         Model model;
@@ -1620,7 +1620,7 @@ void ObjectList::load_from_files(const wxArrayString& input_files, ModelObject& 
         TriangleMesh mesh = model.mesh();
         // Mesh will be centered when loading.
         ModelVolume* new_volume = model_object.add_volume(std::move(mesh), type);
-        new_volume->name = boost::filesystem::path(input_file).filename().string();
+        new_volume->name = std::filesystem::path(input_file).filename().string();
         // set a default extruder value, since user can't add it manually
         new_volume->config.set_key_value("extruder", new ConfigOptionInt(0));
         // update source data
@@ -1820,7 +1820,7 @@ void ObjectList::load_shape_object_from_gallery()
 
 void ObjectList::load_shape_object_from_gallery(const wxArrayString& input_files)
 {
-    std::vector<boost::filesystem::path> paths;
+    std::vector<std::filesystem::path> paths;
     for (const auto& file : input_files)
         paths.push_back(into_path(file));
 

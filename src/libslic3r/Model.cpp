@@ -33,10 +33,10 @@
 #include "Format/SVG.hpp"
 
 #include <cfloat>
+#include <filesystem>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/iostream.hpp>
 
@@ -514,7 +514,7 @@ void Model::convert_multipart_object(unsigned int max_extruders)
     
     ModelObject* object = new ModelObject(this);
     object->input_file = this->objects.front()->input_file;
-    object->name = boost::filesystem::path(this->objects.front()->input_file).stem().string();
+    object->name = std::filesystem::path(this->objects.front()->input_file).stem().string();
     //FIXME copy the config etc?
 
     unsigned int extruder_counter = 0;
@@ -673,7 +673,7 @@ end:
 
 std::string Model::propose_export_file_name_and_path(const std::string &new_extension) const
 {
-    return boost::filesystem::path(this->propose_export_file_name_and_path()).replace_extension(new_extension).string();
+    return std::filesystem::path(this->propose_export_file_name_and_path()).replace_extension(new_extension).string();
 }
 
 bool Model::is_fdm_support_painted() const
@@ -1692,7 +1692,7 @@ void ModelObject::print_info() const
 {
     using namespace std;
     cout << fixed;
-    boost::nowide::cout << "[" << boost::filesystem::path(this->input_file).filename().string() << "]" << endl;
+    boost::nowide::cout << "[" << std::filesystem::path(this->input_file).filename().string() << "]" << endl;
     
     TriangleMesh mesh = this->raw_mesh();
     BoundingBoxf3 bb = mesh.bounding_box();
@@ -1741,8 +1741,8 @@ std::string ModelObject::get_export_filename() const
         else
         {
             // Replace file name in input_file with name, but keep the path and file extension.
-            ret = (boost::filesystem::path(name).parent_path().empty()) ?
-                (boost::filesystem::path(ret).parent_path() / name).make_preferred().string() : name;
+            ret = (std::filesystem::path(name).parent_path().empty()) ?
+                (std::filesystem::path(ret).parent_path() / name).make_preferred().string() : name;
         }
     }
 

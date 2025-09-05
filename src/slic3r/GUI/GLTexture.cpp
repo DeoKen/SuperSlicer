@@ -17,12 +17,12 @@
 #include <wx/image.h>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
-#include <vector>
 #include <algorithm>
+#include <filesystem>
 #include <thread>
+#include <vector>
 
 #define STB_DXT_IMPLEMENTATION
 #include "stb_dxt/stb_dxt.h"
@@ -142,7 +142,7 @@ bool GLTexture::load_from_file(const std::string& filename, bool use_mipmaps, EC
 {
     reset();
 
-    if (!boost::filesystem::exists(filename))
+    if (!std::filesystem::exists(filename))
         return false;
 
     if (boost::algorithm::iends_with(filename, ".png"))
@@ -155,7 +155,7 @@ bool GLTexture::load_from_svg_file(const std::string& filename, bool use_mipmaps
 {
     reset();
 
-    if (!boost::filesystem::exists(filename))
+    if (!std::filesystem::exists(filename))
         return false;
 
     if (boost::algorithm::iends_with(filename, ".svg"))
@@ -205,7 +205,7 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
     for (const std::string& filename : filenames) {
         ++sprite_id;
 
-        if (!boost::filesystem::exists(filename))
+        if (!std::filesystem::exists(filename))
             continue;
 
         if (!boost::algorithm::iends_with(filename, ".svg"))
@@ -441,7 +441,7 @@ bool GLTexture::load_from_png(const std::string& filename, bool use_mipmaps, ECo
     bool requires_rescale = false;
 
     if (use_mipmaps && compression_enabled && OpenGLManager::force_power_of_two_textures()) {
-        if (to_squared_power_of_two(boost::filesystem::path(filename).filename().string(), OpenGLManager::get_gl_info().get_max_tex_size(), m_width, m_height))
+        if (to_squared_power_of_two(std::filesystem::path(filename).filename().string(), OpenGLManager::get_gl_info().get_max_tex_size(), m_width, m_height))
             requires_rescale = true;
     }
 
@@ -594,7 +594,7 @@ bool GLTexture::load_from_svg(const std::string& filename, bool use_mipmaps, boo
     m_height = (int)(scale * image->height);
 
     if (use_mipmaps && compression_enabled && OpenGLManager::force_power_of_two_textures())
-        to_squared_power_of_two(boost::filesystem::path(filename).filename().string(), max_size_px, m_width, m_height);
+        to_squared_power_of_two(std::filesystem::path(filename).filename().string(), max_size_px, m_width, m_height);
 
     float scale_w = (float)m_width / image->width;
     float scale_h = (float)m_height / image->height;

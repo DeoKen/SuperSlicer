@@ -136,9 +136,9 @@ void CalibrationRetractionDialog::create_geometry(wxCommandEvent& event_args) {
     int temp_decr = (decr_temp->GetSelection() < 4) ? 10 : 5;
 
 
-    std::vector<std::string> items;
+    std::vector<std::filesystem::path> items;
     for (size_t i = 0; i < nb_items; i++)
-        items.emplace_back((boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "retraction" / "retraction_calibration.amf").string());
+        items.emplace_back((std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "retraction" / "retraction_calibration.amf"));
     std::vector<size_t> objs_idx = plat->load_files(items, LoadFileOption::LoadModel | LoadFileOption::DontUpdateDirs);
 
 
@@ -199,7 +199,7 @@ void CalibrationRetractionDialog::create_geometry(wxCommandEvent& event_args) {
         if (mytemp <= 285 && mytemp >= 180 && mytemp % 5 == 0) {
             filament_temp_item_name.push_back("t" + std::to_string(mytemp) + ".amf");
             assert(model.objects[objs_idx[id_item]]->volumes.size() == 1);
-            add_part(model.objects[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / filament_temp_item_name.back()).string(),
+            add_part(model.objects[objs_idx[id_item]], (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / filament_temp_item_name.back()).string(),
                 Vec3d{ 0,0, scale * 0.0 - 4.8 }, Vec3d{ scale,scale,scale });
             assert(model.objects[objs_idx[id_item]]->volumes.size() == 2);
             model.objects[objs_idx[id_item]]->volumes[1]->rotate(PI / 2, Vec3d(0, 0, 1));
@@ -208,7 +208,7 @@ void CalibrationRetractionDialog::create_geometry(wxCommandEvent& event_args) {
         }
         for (int num_retract = 0; num_retract < nb_retract; num_retract++) {
             add_part(model.objects[objs_idx[id_item]], 
-                (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "retraction" / "retraction_calibration_pillar.amf").string(),
+                (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "retraction" / "retraction_calibration_pillar.amf").string(),
                 Vec3d{ 0,0,scale * 0.7 - 0.3 + scale * num_retract }, Vec3d{ scale,scale,scale });
         }
     }

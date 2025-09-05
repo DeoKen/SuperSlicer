@@ -38,8 +38,6 @@
 
 #include <boost/locale.hpp>
 #include <boost/locale/generator.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>

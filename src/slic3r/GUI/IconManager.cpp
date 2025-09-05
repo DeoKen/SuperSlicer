@@ -1,11 +1,14 @@
 #include "IconManager.hpp"
-#include <boost/algorithm/string/predicate.hpp>
+
 #include <cmath>
+#include <filesystem>
 #include <numeric>
+
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string.hpp>
+
 #include "nanosvg/nanosvg.h"
 #include "nanosvg/nanosvgrast.h"
 #include "libslic3r/Utils.hpp" // ScopeGuard   
@@ -157,10 +160,10 @@ IconManager::Icons IconManager::init(const InitTypes &input)
         const InitType &i = input[j];
         if (i.filepath.empty())
             continue; // no file path only reservation of space for texture
-        boost::filesystem::path file_boot_path;
+        std::filesystem::path file_boot_path;
         file_boot_path = i.filepath;
-        assert(boost::filesystem::exists(file_boot_path));
-        if (!boost::filesystem::exists(file_boot_path))
+        assert(std::filesystem::exists(file_boot_path));
+        if (!std::filesystem::exists(file_boot_path))
             continue;
         assert(boost::algorithm::iends_with(i.filepath, ".svg"));
         if (!boost::algorithm::iends_with(i.filepath, ".svg"))

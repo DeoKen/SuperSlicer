@@ -66,8 +66,8 @@ protected:
     void on_key_type(wxKeyEvent& event);
     void on_char_type(wxKeyEvent& event);
     void on_autocomp_complete(wxStyledTextEvent& event);
-    bool write_text_in_file(const wxString &towrite, const boost::filesystem::path &file);
-    bool load_text_from_file(const boost::filesystem::path &file);
+    bool write_text_in_file(const wxString &towrite, const std::filesystem::path &file);
+    bool load_text_from_file(const std::filesystem::path &file);
     void test_update_script_file(std::string &json);
     void comment(bool is_switch);
 
@@ -84,7 +84,7 @@ protected:
     std::regex word_regex;
     bool update_done = false;
 
-    boost::filesystem::path opened_file;
+    std::filesystem::path opened_file;
     ExecVar* exec_var = nullptr;
 
     bool ready = false;

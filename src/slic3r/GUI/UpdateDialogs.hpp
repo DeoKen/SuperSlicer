@@ -5,12 +5,11 @@
 #ifndef slic3r_UpdateDialogs_hpp_
 #define slic3r_UpdateDialogs_hpp_
 
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <wx/hyperlink.h>
-
-#include <boost/filesystem.hpp>
 
 #include "libslic3r/Semver.hpp"
 #include "MsgDialog.hpp"
@@ -63,7 +62,7 @@ private:
 class AppUpdateDownloadDialog : public MsgDialog
 {
 public:
-	AppUpdateDownloadDialog(const Semver& ver_online, boost::filesystem::path& path);
+	AppUpdateDownloadDialog(const Semver& ver_online, std::filesystem::path& path);
 	AppUpdateDownloadDialog(AppUpdateDownloadDialog&&) = delete;
 	AppUpdateDownloadDialog(const AppUpdateDownloadDialog&) = delete;
 	AppUpdateDownloadDialog& operator=(AppUpdateDownloadDialog&&) = delete;
@@ -72,7 +71,7 @@ public:
 
 	// Tells whether the user checked the "don't bother me again" checkbox
 	bool		run_after_download() const;
-	boost::filesystem::path	get_download_path() const;
+	std::filesystem::path	get_download_path() const;
 
 private:
 	wxCheckBox* cbox_run;

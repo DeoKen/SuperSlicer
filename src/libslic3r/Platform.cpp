@@ -4,8 +4,9 @@
 ///|/
 #include "Platform.hpp"
 
+#include <filesystem>
+
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem/operations.hpp>
 
 #if defined(__APPLE__)
 #include <sys/types.h>
@@ -74,7 +75,7 @@ void detect_platform()
 					s_platform_flavor = PlatformFlavor::LinuxOnChromium;
 				    BOOST_LOG_TRIVIAL(info) << "Platform flavor: LinuxOnChromium";
 				} else if (strstr(buf, "microsoft") != nullptr || strstr(buf, "Microsoft") != nullptr) {
-					if (boost::filesystem::exists("/run/WSL") && getenv("WSL_INTEROP") != nullptr) {
+					if (std::filesystem::exists("/run/WSL") && getenv("WSL_INTEROP") != nullptr) {
 						BOOST_LOG_TRIVIAL(info) << "Platform flavor: WSL2";
 						s_platform_flavor = PlatformFlavor::WSL2;
 					} else {

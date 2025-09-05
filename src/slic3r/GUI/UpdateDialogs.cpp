@@ -139,7 +139,7 @@ bool AppUpdateAvailableDialog::disable_version_check() const
 }
 
 // AppUpdateDownloadDialog
-AppUpdateDownloadDialog::AppUpdateDownloadDialog( const Semver& ver_online, boost::filesystem::path& path)
+AppUpdateDownloadDialog::AppUpdateDownloadDialog( const Semver& ver_online, std::filesystem::path& path)
 	: MsgDialog(nullptr, _L("App Update download"), format_wxstr(_L("New version of %1% is available."), SLIC3R_APP_NAME))
 {
 	auto* versions = new wxFlexGridSizer(2, 0, VERT_SPACING);
@@ -173,7 +173,7 @@ AppUpdateDownloadDialog::AppUpdateDownloadDialog( const Semver& ver_online, boos
 			wildcard = GUI::format_wxstr("%1% Files (*.%2%)|*.%2%", wxext.Upper(), wxext);
 		}
 		boost::system::error_code ec;
-		boost::filesystem::path dir = boost::filesystem::absolute(boost::filesystem::path(GUI::format(txtctrl_path->GetValue())), ec);
+		std::filesystem::path dir = std::filesystem::absolute(std::filesystem::path(GUI::format(txtctrl_path->GetValue())), ec);
 		if (ec)
 			dir = GUI::format(txtctrl_path->GetValue());
 		wxDirDialog save_dlg(
@@ -199,11 +199,11 @@ AppUpdateDownloadDialog::AppUpdateDownloadDialog( const Semver& ver_online, boos
 		btn_ok->Bind(wxEVT_BUTTON, ([this, path](wxCommandEvent& e){
 			boost::system::error_code ec;
 			std::string input = GUI::into_u8(txtctrl_path->GetValue());
-			boost::filesystem::path dir = boost::filesystem::absolute(boost::filesystem::path(input), ec);
+			std::filesystem::path dir = std::filesystem::absolute(std::filesystem::path(input), ec);
 			if (ec)
-				dir = boost::filesystem::path(input);
+				dir = std::filesystem::path(input);
 			bool show_change = (dir.string() != input);
-			boost::filesystem::path path = dir / GUI::format(filename);
+			std::filesystem::path path = dir / GUI::format(filename);
 			ec.clear();
 			if (dir.string().empty()) {
 				MessageDialog msgdlg(nullptr, _L("Directory path is empty."), _L("Notice"), wxOK);
@@ -211,9 +211,9 @@ AppUpdateDownloadDialog::AppUpdateDownloadDialog( const Semver& ver_online, boos
 				return;
 			}
 			ec.clear();
-			if (!boost::filesystem::exists(dir, ec) || !boost::filesystem::is_directory(dir,ec) || ec) {
+			if (!std::filesystem::exists(dir, ec) || !std::filesystem::is_directory(dir,ec) || ec) {
 				ec.clear();
-				if (!boost::filesystem::exists(dir.parent_path(), ec) || !boost::filesystem::is_directory(dir.parent_path(), ec) || ec) {
+				if (!std::filesystem::exists(dir.parent_path(), ec) || !std::filesystem::is_directory(dir.parent_path(), ec) || ec) {
 					MessageDialog msgdlg(nullptr, _L("Directory path is incorrect."), _L("Notice"), wxOK);
 					msgdlg.ShowModal();
 					return;
@@ -223,13 +223,13 @@ AppUpdateDownloadDialog::AppUpdateDownloadDialog( const Semver& ver_online, boos
 				if (msgdlg.ShowModal() != wxID_YES)
 					return;
 				ec.clear();
-				if(!boost::filesystem::create_directory(dir, ec) || ec) {
+				if(!std::filesystem::create_directory(dir, ec) || ec) {
 					MessageDialog msgdlg(nullptr, _L("Failed to create directory."), _L("Notice"), wxOK);
 					msgdlg.ShowModal();
 					return;
 				}
 			}
-			if (boost::filesystem::exists(path)) {
+			if (std::filesystem::exists(path)) {
 				show_change = false;
 				MessageDialog msgdlg(nullptr, GUI::format_wxstr(_L("File %1% already exists. Do you wish to overwrite it?"), path.string()),_L("Notice"), wxYES_NO);
 				if (msgdlg.ShowModal() != wxID_YES)
@@ -259,13 +259,13 @@ bool AppUpdateDownloadDialog::run_after_download() const
 	return false;
 }
 
-boost::filesystem::path AppUpdateDownloadDialog::get_download_path() const
+std::filesystem::path AppUpdateDownloadDialog::get_download_path() const
 {
 	boost::system::error_code ec;
 	std::string input = GUI::into_u8(txtctrl_path->GetValue());
-	boost::filesystem::path dir = boost::filesystem::absolute(boost::filesystem::path(input), ec);
+	std::filesystem::path dir = std::filesystem::absolute(std::filesystem::path(input), ec);
 	if (ec)
-		dir = boost::filesystem::path(input);
+		dir = std::filesystem::path(input);
 	return dir / GUI::format(filename);
 }
 

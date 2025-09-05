@@ -54,6 +54,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <chrono>
+#include <filesystem>
 #include <map>
 #include <unordered_set>
 #include <optional>
@@ -65,7 +66,6 @@
 #include <boost/algorithm/string/regex.hpp>
 #include <boost/foreach.hpp>
 #include <boost/format.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
 #include <boost/nowide/iostream.hpp>
@@ -783,7 +783,7 @@ void GCodeGenerator::do_export(Print* print, const char* path, GCodeProcessorRes
     // Does the file exist? If so, we hope that it is still valid.
     {
         PrintStateBase::StateWithTimeStamp state = print->step_state_with_timestamp(psGCodeExport);
-        if (! state.enabled || (state.is_done() && boost::filesystem::exists(boost::filesystem::path(path))))
+        if (! state.enabled || (state.is_done() && std::filesystem::exists(std::filesystem::path(path))))
             return;
     }
     
@@ -6502,6 +6502,10 @@ std::string GCodeGenerator::_extrude(ExtrusionPath &path, const std::string_view
                     double       angle         = Geometry::ArcWelder::arc_angle(current_pos, segment.point, radius);
                     assert(angle != 0);
                     const coordf_t line_length = angle * std::abs(radius);
+                    gcode += "; extrude arc from " + std::to_string(this->point_to_gcode(polyline.get_point(idx-1)).x()) + ":"+std::to_string(this->point_to_gcode(polyline.get_point(idx-1)).y())
+                        +" to "+std::to_string(this->point_to_gcode(segment.point).x()) + ":"+std::to_string(this->point_to_gcode(segment.point).y())
+                        + "\n; length : "+std::to_string(unscaled(line_length))+"\n";
+                    gcode += "; center_offset=" +std::to_string(center_offset.x()) + ":"+std::to_string(center_offset.y())+", angle = "+std::to_string(angle)+ (segment.ccw()?" is ccw" : "is CW") +"\n";
                     gcode += m_writer.extrude_arc_to_xy(this->point_to_gcode(segment.point), center_offset, e_per_mm * unscaled(line_length),
                                                         segment.ccw(), comment);
                 }

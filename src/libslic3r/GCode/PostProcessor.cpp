@@ -152,7 +152,7 @@ static int run_script(const std::string &script, const std::string &gcode, std::
         absolute_command_path = command;
     } else {
         //try to find the file, in different directories
-        absolute_command_path = Slic3r::find_full_path(boost::filesystem::path(command)).generic_wstring();
+        absolute_command_path = Slic3r::find_full_path(std::filesystem::path(command)).generic_wstring();
         if (absolute_command_path.empty()) {
             if (need_absolute_path) {
                 BOOST_LOG_TRIVIAL(warning) << "The configured post-processing script may not exist: " << command;
@@ -209,7 +209,7 @@ static int run_script(const std::string &script, const std::string &gcode, std::
         absolute_command_path = command;
     } else {
         //try to find the file, in different directories
-        absolute_command_path = Slic3r::find_full_path(boost::filesystem::path(command)).generic_string();
+        absolute_command_path = Slic3r::find_full_path(std::filesystem::path(command)).generic_string();
         if (absolute_command_path.empty()) {
             if (need_absolute_path) {
                 BOOST_LOG_TRIVIAL(warning) << "The configured post-processing script may not exist: " << command;
@@ -273,8 +273,8 @@ bool run_post_process_scripts(std::string &src_path, bool make_copy, const std::
         path = src_path + ".pp";
         // First delete an old file if it exists.
         try {
-            if (boost::filesystem::exists(path))
-                boost::filesystem::remove(path);
+            if (std::filesystem::exists(path))
+                std::filesystem::remove(path);
         } catch (const std::exception &err) {
             BOOST_LOG_TRIVIAL(error) << Slic3r::format("Failed deleting an old temporary file %1% before running a post-processing script: %2%", path, err.what());
         }
@@ -290,15 +290,15 @@ bool run_post_process_scripts(std::string &src_path, bool make_copy, const std::
     auto delete_copy = [&path, &src_path, make_copy]() {
         if (make_copy)
             try {
-                if (boost::filesystem::exists(path))
-                    boost::filesystem::remove(path);
+                if (std::filesystem::exists(path))
+                    std::filesystem::remove(path);
             } catch (const std::exception &err) {
                 BOOST_LOG_TRIVIAL(error) << Slic3r::format("Failed deleting a temporary copy %1% of a G-code file %2% : %3%", path, src_path, err.what());
             }
     };
 
-    auto gcode_file = boost::filesystem::path(path);
-    if (! boost::filesystem::exists(gcode_file))
+    auto gcode_file = std::filesystem::path(path);
+    if (! std::filesystem::exists(gcode_file))
         throw Slic3r::RuntimeError(std::string("Post-processor can't find exported gcode file"));
 
     // Store print configuration into environment variables.
@@ -313,8 +313,8 @@ bool run_post_process_scripts(std::string &src_path, bool make_copy, const std::
     std::string path_output_name = path + ".output_name";
     auto remove_output_name_file = [&path_output_name, &src_path]() {
         try {
-            if (boost::filesystem::exists(path_output_name))
-                boost::filesystem::remove(path_output_name);
+            if (std::filesystem::exists(path_output_name))
+                std::filesystem::remove(path_output_name);
         } catch (const std::exception &err) {
             BOOST_LOG_TRIVIAL(error) << Slic3r::format("Failed deleting a file %1% carrying the final name / path of a G-code file %2%: %3%", path_output_name, src_path, err.what());
         }
@@ -341,7 +341,7 @@ bool run_post_process_scripts(std::string &src_path, bool make_copy, const std::
                     delete_copy();
                     throw Slic3r::RuntimeError(msg);
                 }
-                if (! boost::filesystem::exists(gcode_file)) {
+                if (! std::filesystem::exists(gcode_file)) {
                     const std::string msg = (boost::format(_u8L(
                         "Post-processing script %1% failed.\n\n"
                         "The post-processing script is expected to change the G-code file %2% in place, but the G-code file was deleted and likely saved under a new name.\n"
@@ -352,7 +352,7 @@ bool run_post_process_scripts(std::string &src_path, bool make_copy, const std::
                 }
             }
         }
-        if (boost::filesystem::exists(path_output_name)) {
+        if (std::filesystem::exists(path_output_name)) {
             try {
                 // Read a single line from path_output_name, which should contain the new output name of the post-processed G-code.
                 boost::nowide::fstream f;
@@ -362,7 +362,7 @@ bool run_post_process_scripts(std::string &src_path, bool make_copy, const std::
                 f.close();
 
                 if (host == "File") {
-                    namespace fs = boost::filesystem;
+                    namespace fs = std::filesystem;
                     fs::path op(new_output_name);
                     if (op.is_relative() && op.has_filename() && op.parent_path().empty()) {
                         // Is this just a filename? Make it an absolute path.

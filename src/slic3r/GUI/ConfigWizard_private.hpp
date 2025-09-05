@@ -8,11 +8,12 @@
 
 #include "ConfigWizard.hpp"
 
+#include <filesystem>
 #include <vector>
 #include <set>
 #include <unordered_map>
 #include <functional>
-#include <boost/filesystem.hpp>
+
 #include <boost/log/trivial.hpp>
 
 #include <wx/panel.h>
@@ -33,8 +34,6 @@
 #include "wxExtensions.hpp"
 
 #include "Widgets/SpinInput.hpp"
-
-namespace fs = boost::filesystem;
 
 namespace Slic3r {
 namespace GUI {
@@ -82,7 +81,7 @@ struct Bundle
 	Bundle(Bundle&& other);
 
 	// Returns false if not loaded. Reason for that is logged as boost::log error.
-	bool load(fs::path source_path, BundleLocation location, bool is_prusa_bundle = false);
+	bool load(std::filesystem::path source_path, BundleLocation location, bool is_prusa_bundle = false);
 
 	const std::string& vendor_id() const { return vendor_profile->id; }
 };

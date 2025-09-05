@@ -9,12 +9,12 @@
 
 #include "libslic3r/SlicesToTriangleMesh.hpp"
 
-#include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
 
 #include "SLAArchiveFormatRegistry.hpp"
 
 #include <array>
+#include <filesystem>
 #include <map>
 
 namespace Slic3r {
@@ -32,7 +32,7 @@ std::unique_ptr<SLAArchiveReader> SLAArchiveReader::create(
     // with the advertised extensions of registered readers and the first
     // match will be used.
 
-    std::string ext = boost::filesystem::path(fname).extension().string();
+    std::string ext = std::filesystem::path(fname).extension().string();
     boost::algorithm::to_lower(ext);
 
     std::unique_ptr<SLAArchiveReader> ret;

@@ -7,12 +7,13 @@
 #include "RemovableDriveManager.hpp"
 #include "MsgDialog.hpp"
 
+#include <filesystem>
+
 #include <wx/stattext.h>
 #include <wx/button.h>
 #include <boost/nowide/convert.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
 #include "Widgets/ComboBox.hpp"
@@ -239,7 +240,7 @@ void WifiConfigDialog::on_ok(wxCommandEvent& e)
         return;
     }
 
-    boost::filesystem::path file_path = boost::filesystem::path(selected_path) / WIFI_CONFIGFILE_NAME;
+    std::filesystem::path file_path = std::filesystem::path(selected_path) / WIFI_CONFIGFILE_NAME;
 
     bool path_on_removable_media = m_removable_manager->set_and_verify_last_save_path(file_path.string());
     if (!path_on_removable_media) {
@@ -249,7 +250,7 @@ void WifiConfigDialog::on_ok(wxCommandEvent& e)
         return;
     }
 
-    if (boost::filesystem::exists(file_path)) {
+    if (std::filesystem::exists(file_path)) {
         // TRN placeholder 1 is path to file
         wxString msg_text = GUI::format_wxstr(_L("%1% already exists. Do you want to rewrite it?\n(Other items than Wi-Fi credentials will stay unchanged)"), file_path.string());
         WarningDialog dialog(m_parent, msg_text, _L("Warning"), wxYES | wxNO);
@@ -262,7 +263,7 @@ void WifiConfigDialog::on_ok(wxCommandEvent& e)
     namespace pt = boost::property_tree;
     pt::ptree tree;
     // File already exist and we only need to add data to it rather than rewrite it.
-    if (boost::filesystem::exists(file_path)) {
+    if (std::filesystem::exists(file_path)) {
         
         boost::nowide::ifstream ifs(file_path.string());
         try {

@@ -65,9 +65,6 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/date_time/posix_time/posix_time_duration.hpp>
 #include <boost/endian/conversion.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/locale.hpp>

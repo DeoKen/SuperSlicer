@@ -7,13 +7,13 @@
 #include "Http.hpp"
 
 #include <cstdlib>
-#include <functional>
-#include <thread>
 #include <deque>
-#include <sstream>
 #include <exception>
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem.hpp>
+#include <filesystem>
+#include <functional>
+#include <sstream>
+#include <thread>
+
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
@@ -29,17 +29,17 @@
 #include <slic3r/GUI/I18N.hpp>
 #include <slic3r/GUI/format.hpp>
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 
 namespace Slic3r {
 
 
 	// Downloads a file (http get operation). Cancels if the Updater is being destroyed.
-	bool get_file_from_web(const std::string& url, const boost::filesystem::path& target_path)
+	bool get_file_from_web(const std::string& url, const std::filesystem::path& target_path)
 	{
 		bool res = false;
-		boost::filesystem::path tmp_path = target_path;
+		std::filesystem::path tmp_path = target_path;
 		tmp_path += (boost::format(".%1%%2%") % get_current_pid() % ".download").str();
 
 		BOOST_LOG_TRIVIAL(info) << boost::format("Get: `%1%`\n\t-> `%2%`\n\tvia tmp path `%3%`")
@@ -61,7 +61,7 @@ namespace Slic3r {
 				boost::nowide::fstream file(tmp_path.string(), std::ios::out | std::ios::binary | std::ios::trunc);
 				file.write(body.c_str(), body.size());
 				file.close();
-				boost::filesystem::rename(tmp_path, target_path);
+				std::filesystem::rename(tmp_path, target_path);
 				res = true;
 			})
 			.perform_sync();
@@ -90,7 +90,7 @@ struct CurlGlobalInit
             "/etc/ssl/ca-bundle.pem"              // OpenSUSE Tumbleweed
         };
 
-        namespace fs = boost::filesystem;
+        namespace fs = std::filesystem;
         // Env var name for the OpenSSL CA bundle (SSL_CERT_FILE nomally)
         const char *const SSL_CA_FILE = X509_get_default_cert_file_env();
         const char * ssl_cafile = ::getenv(SSL_CA_FILE);

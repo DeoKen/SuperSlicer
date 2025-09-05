@@ -21,6 +21,7 @@
 #include "MainFrame.hpp"
 #include "wxExtensions.hpp"
 
+#include <filesystem>
 #include <iostream>
 #include <ctime>
 #include <cstdio>
@@ -38,8 +39,6 @@
 #include <wx/wrapsizer.h>
 #include "wxExtensions.hpp"
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -301,7 +300,7 @@ namespace GUI {
         //if (!image.LoadFile(Slic3r::GUI::from_u8(Slic3r::var("C:/Users/VR-REMI/Downloads/1649109736.png")), wxBITMAP_TYPE_PNG) ||
         //    image.GetWidth() == 0 || image.GetHeight() == 0)
         //    return ;
-        if (boost::filesystem::exists(path))
+        if (std::filesystem::exists(path))
             this->bmp = wxBitmap(path, wxBITMAP_TYPE_PNG);
         else
             this->bmp = wxBitmap();
@@ -578,12 +577,12 @@ void CreateMMUTiledCanvas::save_config()
     for (const std::string& key : m_config.keys())
         config_str += key + " = " + m_config.opt_serialize(key) + "\n";
 
-    boost::filesystem::path path_dir = Slic3r::data_dir();
+    std::filesystem::path path_dir = Slic3r::data_dir();
     path_dir = path_dir / "generator";
-    if (!boost::filesystem::exists(path_dir))
-        boost::filesystem::create_directories(path_dir);
-    boost::filesystem::path path_ini = path_dir / "config.ini";
-    boost::filesystem::path path_temp = path_dir / "config.ini.temp";
+    if (!std::filesystem::exists(path_dir))
+        std::filesystem::create_directories(path_dir);
+    std::filesystem::path path_ini = path_dir / "config.ini";
+    std::filesystem::path path_temp = path_dir / "config.ini.temp";
 
     boost::nowide::ofstream c;
     c.open(path_temp.string(), std::ios::out | std::ios::trunc);
@@ -598,7 +597,7 @@ void CreateMMUTiledCanvas::save_config()
 #ifdef WIN32
     // Make a backup of the configuration file before copying it to the final destination.
     std::string error_message;
-    boost::filesystem::path path_bak = path_dir / "config.ini.bak";
+    std::filesystem::path path_bak = path_dir / "config.ini.bak";
     // Copy configuration file with PID suffix into the configuration file with "bak" suffix.
     if (copy_file(path_temp.string(), path_bak.string(), error_message, false) != SUCCESS)
         BOOST_LOG_TRIVIAL(error) << "Copying from " << path_temp.string() << " to " << path_bak.string() << " failed. Failed to create a backup configuration.";
@@ -773,9 +772,9 @@ void CreateMMUTiledCanvas::load_config()
         m_config.set_key_value("background_color", def.default_value.get()->clone());
     }
 
-    boost::filesystem::path path_dir = Slic3r::data_dir();
+    std::filesystem::path path_dir = Slic3r::data_dir();
     path_dir = path_dir / "generator";
-    if (!boost::filesystem::exists(path_dir))
+    if (!std::filesystem::exists(path_dir))
         return;
     std::string path = (path_dir / "config.ini").string();
 
@@ -812,17 +811,17 @@ void CreateMMUTiledCanvas::load_config()
         // The configuration file is corrupted, try replacing it with the backup configuration.
         ifs.close();
         std::string backup_path = (boost::format("%1%.bak") % path).str();
-        if (boost::filesystem::exists(backup_path)) {
+        if (std::filesystem::exists(backup_path)) {
             // Compute checksum of the configuration backup file and try to load configuration from it when the checksum is correct.
             boost::nowide::ifstream backup_ifs(backup_path);
             if (const AppConfig::ConfigFileInfo config_file_info = AppConfig::check_config_file_and_verify_checksum(backup_ifs); !config_file_info.correct_checksum || config_file_info.contains_null) {
                 BOOST_LOG_TRIVIAL(error) << format(R"(Both "%1%" and "%2%" are corrupted. It isn't possible to restore configuration from the backup.)", path, backup_path);
                 backup_ifs.close();
-                boost::filesystem::remove(backup_path);
+                std::filesystem::remove(backup_path);
             } else if (std::string error_message; copy_file(backup_path, path, error_message, false) != SUCCESS) {
                 BOOST_LOG_TRIVIAL(error) << format(R"(Configuration file "%1%" is corrupted. Failed to restore from backup "%2%": %3%)", path, backup_path, error_message);
                 backup_ifs.close();
-                boost::filesystem::remove(backup_path);
+                std::filesystem::remove(backup_path);
             } else {
                 BOOST_LOG_TRIVIAL(info) << format(R"(Configuration file "%1%" was corrupted. It has been successfully restored from the backup "%2%".)", path, backup_path);
                 // Try parse configuration file after restore from backup.
@@ -970,14 +969,14 @@ void CreateMMUTiledCanvas::create_main_tab(wxPanel* tab)
     wxGetApp().UpdateDarkUI(bt_open);
     horiSizer->Add(bt_open, 0, wxALIGN_CENTER_VERTICAL);
     bt_open->Bind(wxEVT_BUTTON, ([this](wxCommandEvent& e) {
-        if (!boost::filesystem::exists(m_filename_ctrl->GetValue().ToStdString())) {
+        if (!std::filesystem::exists(m_filename_ctrl->GetValue().ToStdString())) {
             return;
         }
         //open default program
         std::unique_ptr<wxFileType> ftype(wxTheMimeTypesManager->GetFileTypeFromExtension("png"));
         std::unique_ptr<wxFileType> ftypejpg(wxTheMimeTypesManager->GetFileTypeFromExtension("jpg"));
         if (ftype) {
-            boost::filesystem::path path(m_filename_ctrl->GetValue().ToStdString());
+            std::filesystem::path path(m_filename_ctrl->GetValue().ToStdString());
             path.make_preferred();
             try {
                 wxString command = ftype->GetOpenCommand(path.string());
@@ -1058,7 +1057,7 @@ void CreateMMUTiledCanvas::create_main_tab(wxPanel* tab)
         int result = dialog->ShowModal();
         if (result == wxID_OK) {
             GetRPlaceDialog::last_timestamp = dialog->timestamp;
-            boost::filesystem::path object_path(Slic3r::data_dir());
+            std::filesystem::path object_path(Slic3r::data_dir());
             object_path = object_path / "temp" / (std::to_string(dialog->timestamp) + ".png");
             if (!exists(object_path)) {
                 get_file_from_web("https://rplace.space/combined/" + std::to_string(dialog->timestamp) + ".png", object_path);
@@ -1072,11 +1071,11 @@ void CreateMMUTiledCanvas::create_main_tab(wxPanel* tab)
 
     //load default file
     {
-        boost::filesystem::path object_path(Slic3r::data_dir());
+        std::filesystem::path object_path(Slic3r::data_dir());
         object_path = object_path / "temp" / "1649112424.png";
-        if (!boost::filesystem::exists(object_path)) {
-            if (!boost::filesystem::exists(boost::filesystem::path(Slic3r::data_dir()) / "temp"))
-                boost::filesystem::create_directories(boost::filesystem::path(Slic3r::data_dir()) / "temp");
+        if (!std::filesystem::exists(object_path)) {
+            if (!std::filesystem::exists(std::filesystem::path(Slic3r::data_dir()) / "temp"))
+                std::filesystem::create_directories(std::filesystem::path(Slic3r::data_dir()) / "temp");
             get_file_from_web("https://rplace.space/combined/1649112424.png", object_path);
         }
 

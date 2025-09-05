@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm> // copy
+#include <filesystem>
 #include <iterator> // begin, end
 #include <string> // string
 #include <tuple> // tuple, get
@@ -8,8 +9,6 @@
 #include <utility> // move, forward, declval, pair
 #include <valarray> // valarray
 #include <vector> // vector
-
-#include <boost/filesystem.hpp>
 
 #include <nlohmann/detail/macro_scope.hpp>
 #include <nlohmann/detail/iterators/iteration_proxy.hpp>
@@ -390,7 +389,7 @@ void to_json(BasicJsonType& j, const T& t)
 }
 
 template<typename BasicJsonType>
-void to_json(BasicJsonType& j, const boost::filesystem::path& p)
+void to_json(BasicJsonType& j, const std::filesystem::path& p)
 {
     j = p.string();
 }

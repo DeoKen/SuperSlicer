@@ -1301,7 +1301,7 @@ GCodeViewer::GCodeViewer()
 
         //try to load colors from ui file
         boost::property_tree::ptree tree_colors;
-        boost::filesystem::path path_colors = Slic3r::GUI::get_app_config()->layout_config_path() / "colors.ini";
+        std::filesystem::path path_colors = Slic3r::GUI::get_app_config()->layout_config_path() / "colors.ini";
         try {
             boost::nowide::ifstream ifs;
             ifs.imbue(boost::locale::generator()("en_US.UTF-8"));
@@ -1832,7 +1832,7 @@ void GCodeViewer::export_toolpaths_to_obj(const char* filename) const
     sort_remove_duplicates(colors);
 
     // save materials file
-    boost::filesystem::path mat_filename(filename);
+    std::filesystem::path mat_filename(filename);
     mat_filename.replace_extension("mtl");
 
     CNumericLocalesSetter locales_setter;

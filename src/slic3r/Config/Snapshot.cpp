@@ -4,6 +4,7 @@
 ///|/
 #include "Snapshot.hpp"
 
+#include <filesystem>
 #include <time.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -11,7 +12,6 @@
 #include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "libslic3r/PresetBundle.hpp"
@@ -277,18 +277,18 @@ bool Snapshot::equal_to_active(const AppConfig &app_config) const
     }
 
     // 2) Check, whether this snapshot references the same set of ini files as the current state.
-    boost::filesystem::path data_dir     = boost::filesystem::path(Slic3r::data_dir());
-    boost::filesystem::path snapshot_dir = boost::filesystem::path(Slic3r::data_dir()) / SLIC3R_SNAPSHOTS_DIR / this->id;
+    std::filesystem::path data_dir     = std::filesystem::path(Slic3r::data_dir());
+    std::filesystem::path snapshot_dir = std::filesystem::path(Slic3r::data_dir()) / SLIC3R_SNAPSHOTS_DIR / this->id;
     for (const char *subdir : snapshot_subdirs) {
-        boost::filesystem::path path1 = data_dir / subdir;
-        boost::filesystem::path path2 = snapshot_dir / subdir;
+        std::filesystem::path path1 = data_dir / subdir;
+        std::filesystem::path path2 = snapshot_dir / subdir;
         std::vector<std::string> files1, files2;
-        if (boost::filesystem::is_directory(path1))
-            for (auto &dir_entry : boost::filesystem::directory_iterator(path1))
+        if (std::filesystem::is_directory(path1))
+            for (auto &dir_entry : std::filesystem::directory_iterator(path1))
                 if (Slic3r::is_ini_file(dir_entry))
                     files1.emplace_back(dir_entry.path().filename().string());
-        if (boost::filesystem::is_directory(path2))
-            for (auto &dir_entry : boost::filesystem::directory_iterator(path2))
+        if (std::filesystem::is_directory(path2))
+            for (auto &dir_entry : std::filesystem::directory_iterator(path2))
                 if (Slic3r::is_ini_file(dir_entry))
                     files2.emplace_back(dir_entry.path().filename().string());
         std::sort(files1.begin(), files1.end());
@@ -325,16 +325,16 @@ bool Snapshot::equal_to_active(const AppConfig &app_config) const
 
 size_t SnapshotDB::load_db()
 {
-	boost::filesystem::path snapshots_dir = SnapshotDB::create_db_dir();
+	std::filesystem::path snapshots_dir = SnapshotDB::create_db_dir();
 
 	m_snapshots.clear();
 
     // Walk over the snapshot directories and load their index.
     std::string errors_cummulative;
-	for (auto &dir_entry : boost::filesystem::directory_iterator(snapshots_dir))
-        if (boost::filesystem::is_directory(dir_entry.status())) {
+	for (auto &dir_entry : std::filesystem::directory_iterator(snapshots_dir))
+        if (std::filesystem::is_directory(dir_entry.status())) {
         	// Try to read "snapshot.ini".
-            boost::filesystem::path path_ini = dir_entry.path() / SLIC3R_SNAPSHOT_FILE;
+            std::filesystem::path path_ini = dir_entry.path() / SLIC3R_SNAPSHOT_FILE;
             Snapshot 			    snapshot;
             try {
             	snapshot.load_ini(path_ini.string());
@@ -373,31 +373,31 @@ void SnapshotDB::update_slic3r_versions(std::vector<Index> &index_db)
 	}
 }
 
-static void copy_config_dir_single_level(const boost::filesystem::path &path_src, const boost::filesystem::path &path_dst)
+static void copy_config_dir_single_level(const std::filesystem::path &path_src, const std::filesystem::path &path_dst)
 {
-    if (! boost::filesystem::is_directory(path_dst) && 
-        ! boost::filesystem::create_directory(path_dst))
+    if (! std::filesystem::is_directory(path_dst) && 
+        ! std::filesystem::create_directory(path_dst))
         throw Slic3r::RuntimeError(std::string(SLIC3R_APP_NAME " was unable to create a directory at ") + path_dst.string());
 
-    for (auto &dir_entry : boost::filesystem::directory_iterator(path_src))
+    for (auto &dir_entry : std::filesystem::directory_iterator(path_src))
         if (Slic3r::is_ini_file(dir_entry))
             if (std::string error_message; copy_file(dir_entry.path().string(), (path_dst / dir_entry.path().filename()).string(), error_message, false) != SUCCESS)
                 throw Slic3r::RuntimeError(format("Failed copying \"%1%\" to \"%2%\": %3%", path_src.string(), path_dst.string(), error_message));
 }
 
-static void delete_existing_ini_files(const boost::filesystem::path &path)
+static void delete_existing_ini_files(const std::filesystem::path &path)
 {
-    if (! boost::filesystem::is_directory(path))
+    if (! std::filesystem::is_directory(path))
     	return;
-    for (auto &dir_entry : boost::filesystem::directory_iterator(path))
-        if (boost::filesystem::is_regular_file(dir_entry.status()) && boost::algorithm::iends_with(dir_entry.path().filename().string(), ".ini"))
-		    boost::filesystem::remove(dir_entry.path());
+    for (auto &dir_entry : std::filesystem::directory_iterator(path))
+        if (std::filesystem::is_regular_file(dir_entry.status()) && boost::algorithm::iends_with(dir_entry.path().filename().string(), ".ini"))
+		    std::filesystem::remove(dir_entry.path());
 }
 
 const Snapshot&	SnapshotDB::take_snapshot(const AppConfig &app_config, Snapshot::Reason reason, const std::string &comment)
 {
-	boost::filesystem::path data_dir        = boost::filesystem::path(Slic3r::data_dir());
-	boost::filesystem::path snapshot_db_dir = SnapshotDB::create_db_dir();
+	std::filesystem::path data_dir        = std::filesystem::path(Slic3r::data_dir());
+	std::filesystem::path snapshot_db_dir = SnapshotDB::create_db_dir();
 
 	// 1) Prepare the snapshot structure.
 	Snapshot snapshot;
@@ -452,10 +452,10 @@ const Snapshot&	SnapshotDB::take_snapshot(const AppConfig &app_config, Snapshot:
         snapshot.vendor_configs.emplace_back(std::move(cfg));
     }
 
-	boost::filesystem::path snapshot_dir = snapshot_db_dir / snapshot.id;
+	std::filesystem::path snapshot_dir = snapshot_db_dir / snapshot.id;
 
     try {
-	    boost::filesystem::create_directory(snapshot_dir);
+	    std::filesystem::create_directory(snapshot_dir);
 
         // Backup the presets.
         for (const char *subdir : snapshot_subdirs)
@@ -464,10 +464,10 @@ const Snapshot&	SnapshotDB::take_snapshot(const AppConfig &app_config, Snapshot:
         assert(m_snapshots.empty() || m_snapshots.back().time_captured <= snapshot.time_captured);
         m_snapshots.emplace_back(std::move(snapshot));
     } catch (...) {
-        if (boost::filesystem::is_directory(snapshot_dir)) {
+        if (std::filesystem::is_directory(snapshot_dir)) {
             try {
                 // Clean up partially copied snapshot.
-                boost::filesystem::remove_all(snapshot_dir);
+                std::filesystem::remove_all(snapshot_dir);
             } catch (...) {
                 BOOST_LOG_TRIVIAL(error) << "Failed taking snapshot and failed removing the snapshot directory " << snapshot_dir;
             }
@@ -489,15 +489,15 @@ const Snapshot& SnapshotDB::restore_snapshot(const std::string &id, AppConfig &a
 
 void SnapshotDB::restore_snapshot(const Snapshot &snapshot, AppConfig &app_config)
 {
-	boost::filesystem::path data_dir        = boost::filesystem::path(Slic3r::data_dir());
-	boost::filesystem::path snapshot_db_dir = SnapshotDB::create_db_dir();
-    boost::filesystem::path snapshot_dir 	= snapshot_db_dir / snapshot.id;
+	std::filesystem::path data_dir        = std::filesystem::path(Slic3r::data_dir());
+	std::filesystem::path snapshot_db_dir = SnapshotDB::create_db_dir();
+    std::filesystem::path snapshot_dir 	= snapshot_db_dir / snapshot.id;
     // Remove existing ini files and restore the ini files from the snapshot.
     for (const char *subdir : snapshot_subdirs) {
-        boost::filesystem::path src = snapshot_dir / subdir;
-        boost::filesystem::path dst = data_dir / subdir;
+        std::filesystem::path src = snapshot_dir / subdir;
+        std::filesystem::path dst = data_dir / subdir;
 		delete_existing_ini_files(dst);
-        if (boost::filesystem::is_directory(src))
+        if (std::filesystem::is_directory(src))
     	    copy_config_dir_single_level(src, dst);
     }
     // Update AppConfig with the selections of the print / sla_print / filament / sla_material / printer profiles
@@ -550,15 +550,15 @@ SnapshotDB::const_iterator SnapshotDB::snapshot(const std::string &id) const
     return m_snapshots.end();
 }
 
-boost::filesystem::path SnapshotDB::create_db_dir()
+std::filesystem::path SnapshotDB::create_db_dir()
 {
-    boost::filesystem::path data_dir 	  = boost::filesystem::path(Slic3r::data_dir());
-    boost::filesystem::path snapshots_dir = data_dir / SLIC3R_SNAPSHOTS_DIR;
-    for (const boost::filesystem::path &path : { data_dir, snapshots_dir }) {
-		boost::filesystem::path subdir = path;
+    std::filesystem::path data_dir 	  = std::filesystem::path(Slic3r::data_dir());
+    std::filesystem::path snapshots_dir = data_dir / SLIC3R_SNAPSHOTS_DIR;
+    for (const std::filesystem::path &path : { data_dir, snapshots_dir }) {
+		std::filesystem::path subdir = path;
         subdir.make_preferred();
-        if (! boost::filesystem::is_directory(subdir) && 
-            ! boost::filesystem::create_directory(subdir))
+        if (! std::filesystem::is_directory(subdir) && 
+            ! std::filesystem::create_directory(subdir))
             throw Slic3r::RuntimeError(std::string(SLIC3R_APP_NAME " was unable to create a directory at ") + subdir.string());
     }
     return snapshots_dir;

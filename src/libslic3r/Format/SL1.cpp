@@ -4,9 +4,7 @@
 ///|/
 #include "SL1.hpp"
 
-#include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
-
+#include <filesystem>
 #include <sstream>
 
 #include "libslic3r/Time.hpp"
@@ -32,9 +30,9 @@
 #include "libslic3r/SLA/RasterBase.hpp"
 
 
-#include <boost/property_tree/ini_parser.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/property_tree/ini_parser.hpp>
 
 namespace Slic3r {
 
@@ -196,7 +194,7 @@ void SL1Archive::export_print(Zipper               &zipper,
 {
     std::string project =
         prjname.empty() ?
-            boost::filesystem::path(zipper.get_filename()).stem().string() :
+            std::filesystem::path(zipper.get_filename()).stem().string() :
             prjname;
 
     ConfMap iniconf, slicerconf;

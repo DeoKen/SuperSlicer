@@ -23,9 +23,9 @@
 #include "Widgets/SpinInput.hpp"
 #include "wxExtensions.hpp"
 
+#include <filesystem>
+
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
 
 #include <wx/display.h>
@@ -1100,7 +1100,7 @@ void PreferencesDialog::build()
             {"random", L("Random")}
             };
         //get all images in the spashscreen dir
-        for (const boost::filesystem::directory_entry& dir_entry : boost::filesystem::directory_iterator(boost::filesystem::path(Slic3r::resources_dir()) / "splashscreen")) {
+        for (const std::filesystem::directory_entry& dir_entry : std::filesystem::directory_iterator(std::filesystem::path(Slic3r::resources_dir()) / "splashscreen")) {
             if (dir_entry.path().has_extension() && std::set<std::string>{ ".jpg", ".JPG", ".jpeg" }.count(dir_entry.path().extension().string()) > 0) {
                 enum_key_values.push_back({dir_entry.path().filename().string(), dir_entry.path().stem().string()});
             }

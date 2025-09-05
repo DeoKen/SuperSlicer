@@ -11,9 +11,8 @@
 #include <windows.h>
 #endif //_WIN32
 
+#include <filesystem>
 #include <string>
-
-#include <boost/filesystem.hpp>
 
 #if __linux__
 #include <boost/thread.hpp>
@@ -46,7 +45,7 @@ class MainFrame;
     #define BACKGROUND_MESSAGE_LISTENER
 #endif // __linux__
 
-using LoadFromOtherInstanceEvent = Event<std::vector<boost::filesystem::path>>;
+using LoadFromOtherInstanceEvent = Event<std::vector<std::filesystem::path>>;
 using StartDownloadOtherInstanceEvent = Event<std::vector<std::string>>;
 wxDECLARE_EVENT(EVT_LOAD_MODEL_OTHER_INSTANCE, LoadFromOtherInstanceEvent);
 wxDECLARE_EVENT(EVT_START_DOWNLOAD_OTHER_INSTANCE, StartDownloadOtherInstanceEvent);

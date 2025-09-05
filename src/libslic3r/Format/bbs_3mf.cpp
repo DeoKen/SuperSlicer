@@ -22,6 +22,7 @@
 #include "../I18N.hpp"
 
 
+#include <filesystem>
 #include <limits>
 #include <mutex>
 #include <stdexcept>
@@ -33,7 +34,6 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/nowide/cstdio.hpp>
 #include <boost/spirit/include/karma.hpp>
@@ -1396,7 +1396,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         //    m_backup_path = filename.substr(0, filename.size() - 5);
         //    model.set_backup_path(m_backup_path);
         //    try {
-        //        if (boost::filesystem::exists(model.get_backup_path() + "/origin.txt"))
+        //        if (std::filesystem::exists(model.get_backup_path() + "/origin.txt"))
         //            load_string_file(model.get_backup_path() + "/origin.txt", m_origin_file);
         //    } catch (...) {}
         //    save_string_file(
@@ -1721,7 +1721,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
         mz_zip_archive_file_stat stat;
 
-        m_name = boost::filesystem::path(filename).stem().string();
+        m_name = std::filesystem::path(filename).stem().string();
 
         //BBS progress point
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ":" << __LINE__ << boost::format("import 3mf IMPORT_STAGE_READ_FILES\n");
@@ -2380,7 +2380,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 if (!m_origin_file.empty()) paths.push_back(m_origin_file);
                 for (auto & path2 : paths) {
                     bool result = false;
-                    if (boost::filesystem::exists(path2)) {
+                    if (std::filesystem::exists(path2)) {
                         mz_zip_archive archive;
                         mz_zip_zero_struct(&archive);
                         if (open_zip_reader(&archive, path2)) {
@@ -2753,12 +2753,12 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 return;
 
             if (dest_file.find('/') != std::string::npos) {
-                boost::filesystem::path src_path = boost::filesystem::path(dest_file);
-                boost::filesystem::path parent_path = src_path.parent_path();
+                std::filesystem::path src_path = std::filesystem::path(dest_file);
+                std::filesystem::path parent_path = src_path.parent_path();
                 std::string temp_path = dir.string() + std::string("/") + parent_path.string();
-                boost::filesystem::path parent_full_path =  boost::filesystem::path(temp_path);
-                if (!boost::filesystem::exists(parent_full_path))
-                    boost::filesystem::create_directories(parent_full_path);
+                std::filesystem::path parent_full_path =  std::filesystem::path(temp_path);
+                if (!std::filesystem::exists(parent_full_path))
+                    std::filesystem::create_directories(parent_full_path);
             }
             dest_file = dir.string() + std::string("/") + dest_file;
             std::string dest_zip_file = encode_path(dest_file.c_str());
@@ -2777,7 +2777,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             std::string src_file = decode_path(stat.m_filename);
             // BBS: use backup path
             //aux directory from model
-            boost::filesystem::path dest_path = boost::filesystem::path(m_backup_path + "/" + src_file);
+            std::filesystem::path dest_path = std::filesystem::path(m_backup_path + "/" + src_file);
             std::string dest_zip_file = encode_path(dest_path.string().c_str());
             mz_bool res = mz_zip_reader_extract_to_file(&archive, stat.m_file_index, dest_zip_file.c_str(), 0);
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", extract  %1% from 3mf %2%, ret %3%\n") % dest_path % stat.m_filename % res;
@@ -5713,16 +5713,16 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //        //} //Susi_not_impl
 //        boost::system::error_code ec;
 //        std::string filename = std::string(store_params.path);
-//        boost::filesystem::remove(filename + ".tmp", ec);
+//        std::filesystem::remove(filename + ".tmp", ec);
 //
 //        bool result = _save_model_to_file(filename + ".tmp", *store_params.model, store_params.plate_data_list, store_params.project_presets, store_params.config,
 //            store_params.thumbnail_data, store_params.top_thumbnail_data, store_params.pick_thumbnail_data, store_params.proFn,
 //            store_params.calibration_thumbnail_data, /*store_params.id_bboxes, store_params.project, */store_params.export_plate_idx);
 //        if (result) {
-//            boost::filesystem::rename(filename + ".tmp", filename, ec);
+//            std::filesystem::rename(filename + ".tmp", filename, ec);
 //            if (ec) {
 //                add_error("Failed to rename file: " + ec.message());
-//                boost::filesystem::remove(filename + ".tmp", ec);
+//                std::filesystem::remove(filename + ".tmp", ec);
 //                return false;
 //            }
 //            if (!(store_params.strategy & SaveStrategy::Silence))
@@ -5746,7 +5746,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //        std::string filepath = temp_path + "/" + filename.str();
 //        std::string filepath_tmp = filepath + ".tmp";
 //        boost::system::error_code ec;
-//        boost::filesystem::remove(filepath_tmp, ec);
+//        std::filesystem::remove(filepath_tmp, ec);
 //        if (!open_zip_writer(&archive, filepath_tmp)) {
 //            add_error("Unable to open the file"+filepath_tmp);
 //            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ":" << __LINE__ << boost::format(", Unable to open the file\n");
@@ -5765,7 +5765,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //                if (filename) {
 //                    close_zip_writer(&archive);
 //                    boost::system::error_code ec;
-//                    boost::filesystem::remove(*filename, ec);
+//                    std::filesystem::remove(*filename, ec);
 //                }
 //            }
 //        } lock{archive, &filepath_tmp};
@@ -5782,7 +5782,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //
 //        mz_zip_writer_finalize_archive(&archive);
 //        lock.close();
-//        boost::filesystem::rename(filepath_tmp, filepath, ec);
+//        std::filesystem::rename(filepath_tmp, filepath, ec);
 //        return true;
 //    }
 //
@@ -5831,7 +5831,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //                close_zip_writer(&archive);
 //                if (filename) {
 //                    boost::system::error_code ec;
-//                    boost::filesystem::remove(*filename, ec);
+//                    std::filesystem::remove(*filename, ec);
 //                }
 //            }
 //        } lock{ archive, &filename};
@@ -5925,7 +5925,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //            for (int i = 0; i < plate_data_list.size(); i++) {
 //                PlateData *plate_data = plate_data_list[i];
 //
-//                if (!thumbnail_status[i] && !plate_data->thumbnail_file.empty() && (boost::filesystem::exists(plate_data->thumbnail_file))){
+//                if (!thumbnail_status[i] && !plate_data->thumbnail_file.empty() && (std::filesystem::exists(plate_data->thumbnail_file))){
 //                    std::string dst_in_3mf = (boost::format("Metadata/plate_%1%.png") % (i + 1)).str();
 //                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ":" <<__LINE__ << boost::format(", add thumbnail %1% from file %2%") % (i+1) %plate_data->thumbnail_file;
 //
@@ -5935,7 +5935,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //                    }
 //                }
 //
-//                if (!top_thumbnail_status[i] && !plate_data->top_file.empty() && (boost::filesystem::exists(plate_data->top_file))){
+//                if (!top_thumbnail_status[i] && !plate_data->top_file.empty() && (std::filesystem::exists(plate_data->top_file))){
 //                    std::string dst_in_3mf = (boost::format("Metadata/top_%1%.png") % (i + 1)).str();
 //
 //                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ":" <<__LINE__ << boost::format(", add top thumbnail %1% from file %2%") % (i+1) %plate_data->top_file;
@@ -5946,7 +5946,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //                    top_thumbnail_status[i] = true;
 //                }
 //
-//                if (!pick_thumbnail_status[i] && !plate_data->pick_file.empty() && (boost::filesystem::exists(plate_data->pick_file))){
+//                if (!pick_thumbnail_status[i] && !plate_data->pick_file.empty() && (std::filesystem::exists(plate_data->pick_file))){
 //                    std::string dst_in_3mf = (boost::format("Metadata/pick_%1%.png") % (i + 1)).str();
 //
 //                    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ":" <<__LINE__ << boost::format(", add pick thumbnail %1% from file %2%") % (i+1) %plate_data->pick_file;
@@ -6109,14 +6109,14 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //        if (!m_skip_static && m_save_gcode) {
 //            for (int i = 0; i < plate_data_list.size(); i++) {
 //                PlateData *plate_data = plate_data_list[i];
-//                if (!plate_data->gcode_file.empty() && plate_data->is_sliced_valid && boost::filesystem::exists(plate_data->gcode_file)) {
+//                if (!plate_data->gcode_file.empty() && plate_data->is_sliced_valid && std::filesystem::exists(plate_data->gcode_file)) {
 //                    unsigned char digest[16];
 //                    MD5_CTX       ctx;
 //                    MD5_Init(&ctx);
 //                    auto                        src_gcode_file = plate_data->gcode_file;
-//                    boost::filesystem::ifstream ifs(src_gcode_file, std::ios::binary);
+//                    std::filesystem::ifstream ifs(src_gcode_file, std::ios::binary);
 //                    std::string                 buf(64 * 1024, 0);
-//                    const std::size_t &         size      = boost::filesystem::file_size(src_gcode_file);
+//                    const std::size_t &         size      = std::filesystem::file_size(src_gcode_file);
 //                    std::size_t                 left_size = size;
 //                    while (ifs) {
 //                        ifs.read(buf.data(), buf.size());
@@ -7500,7 +7500,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //
 //                            // stores volume's source data
 //                            {
-//                                std::string input_file = xml_escape(m_fullpath_sources ? volume->source.input_file : boost::filesystem::path(volume->source.input_file).filename().string());
+//                                std::string input_file = xml_escape(m_fullpath_sources ? volume->source.input_file : std::filesystem::path(volume->source.input_file).filename().string());
 //                                //std::string prefix = std::string("      <") + METADATA_TAG + " " + KEY_ATTR + "=\"";
 //                                std::string prefix = std::string("      <") + METADATA_TAG + " " + KEY_ATTR + "=\"";
 //                                if (! volume->source.input_file.empty()) {
@@ -7597,7 +7597,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //                    std::string thumbnail_file_in_3mf = (boost::format(THUMBNAIL_FILE_FORMAT) % (plate_data->plate_index + 1)).str();
 //                    stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << THUMBNAIL_FILE_ATTR << "\" " << VALUE_ATTR << "=\"" << std::boolalpha << thumbnail_file_in_3mf << "\"/>\n";
 //                }
-//                else if (!plate_data->thumbnail_file.empty() && (boost::filesystem::exists(plate_data->thumbnail_file))){
+//                else if (!plate_data->thumbnail_file.empty() && (std::filesystem::exists(plate_data->thumbnail_file))){
 //                    std::string thumbnail_file_in_3mf = (boost::format(THUMBNAIL_FILE_FORMAT) % (plate_data->plate_index + 1)).str();
 //                    stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << THUMBNAIL_FILE_ATTR << "\" " << VALUE_ATTR << "=\"" << std::boolalpha << thumbnail_file_in_3mf << "\"/>\n";
 //                }
@@ -7822,7 +7822,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //        }
 //
 //        PlateData* plate_data = plate_data_list[i];
-//        if (!plate_data->gcode_file.empty() && plate_data->is_sliced_valid && boost::filesystem::exists(plate_data->gcode_file)) {
+//        if (!plate_data->gcode_file.empty() && plate_data->is_sliced_valid && std::filesystem::exists(plate_data->gcode_file)) {
 //            plate_data_list2.push_back(plate_data);
 //        }
 //    }
@@ -7842,12 +7842,12 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //            {
 //                mz_zip_writer_add_staged_open(&archive, &context, gcode_in_3mf.c_str(), m_zip64 ? (uint64_t(1) << 30) * 16 : (uint64_t(1) << 32) - 1, nullptr, nullptr, 0,
 //                    MZ_DEFAULT_COMPRESSION, nullptr, 0, nullptr, 0);
-//                boost::filesystem::path src_gcode_path(src_gcode_file);
-//                if (!boost::filesystem::exists(src_gcode_path)) {
+//                std::filesystem::path src_gcode_path(src_gcode_file);
+//                if (!std::filesystem::exists(src_gcode_path)) {
 //                    BOOST_LOG_TRIVIAL(error) << "Gcode is missing, filename = " << src_gcode_file;
 //                    result = false;
 //                }
-//                boost::filesystem::ifstream ifs(src_gcode_file, std::ios::binary);
+//                std::filesystem::ifstream ifs(src_gcode_file, std::ios::binary);
 //                std::string buf(64 * 1024, 0);
 //                while (ifs) {
 //                    ifs.read(buf.data(), buf.size());
@@ -7937,30 +7937,30 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //        return result;
 //    }
 //
-//    boost::filesystem::path dir = boost::filesystem::path(aux_dir);
-//    if (!boost::filesystem::exists(dir))
+//    std::filesystem::path dir = std::filesystem::path(aux_dir);
+//    if (!std::filesystem::exists(dir))
 //    {
 //        //no accessory directories
 //        return result;
 //    }
 //
 //    static std::string const nocomp_exts[] = {".png", ".jpg", ".mp4", ".jpeg"};
-//    std::deque<boost::filesystem::path> directories({dir});
+//    std::deque<std::filesystem::path> directories({dir});
 //    int root_dir_len = dir.string().length() + 1;
 //    //boost file access
 //    while (!directories.empty()) {
-//        boost::filesystem::directory_iterator iterator(directories.front());
+//        std::filesystem::directory_iterator iterator(directories.front());
 //        directories.pop_front();
 //        for (auto &dir_entry : iterator)
 //        {
 //            std::string src_file;
 //            std::string dst_in_3mf;
-//            if (boost::filesystem::is_directory(dir_entry.path()))
+//            if (std::filesystem::is_directory(dir_entry.path()))
 //            {
 //                directories.push_back(dir_entry.path());
 //                continue;
 //            }
-//            if (boost::filesystem::is_regular_file(dir_entry.path()) && !m_skip_auxiliary)
+//            if (std::filesystem::is_regular_file(dir_entry.path()) && !m_skip_auxiliary)
 //            {
 //                src_file = dir_entry.path().string();
 //                dst_in_3mf = dir_entry.path().string();
@@ -8230,8 +8230,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //            case RemoveBackup:
 //                if (t.removeAll) {
 //                    try {
-//                        boost::filesystem::remove(t.path + "/lock.txt");
-//                        boost::filesystem::remove_all(t.path);
+//                        std::filesystem::remove(t.path + "/lock.txt");
+//                        std::filesystem::remove_all(t.path);
 //                        BOOST_LOG_TRIVIAL(info) << "process_ui_task: remove all of backup path " << t.path;
 //                    } catch (std::exception &ex) {
 //                        BOOST_LOG_TRIVIAL(error) << "process_ui_task: failed to remove backup path" << t.path << ": " << ex.what();
@@ -8258,17 +8258,17 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 //            }
 //            case RemoveObject: {
 //                boost::system::error_code ec;
-//                boost::filesystem::remove(t.path + "/mesh_" + boost::lexical_cast<std::string>(t.id) + ".xml", ec);
+//                std::filesystem::remove(t.path + "/mesh_" + boost::lexical_cast<std::string>(t.id) + ".xml", ec);
 //                t.type = None;
 //                break;
 //            }
 //            case RemoveBackup: {
 //                try {
 //                    boost::system::error_code ec;
-//                    boost::filesystem::remove(t.path + "/.3mf", ec);
+//                    std::filesystem::remove(t.path + "/.3mf", ec);
 //                    // We Saved with SplitModel now, so we can safe delete these sub models.
-//                    boost::filesystem::remove_all(t.path + "/3D/Objects");
-//                    boost::filesystem::create_directory(t.path + "/3D/Objects");
+//                    std::filesystem::remove_all(t.path + "/3D/Objects");
+//                    std::filesystem::create_directory(t.path + "/3D/Objects");
 //                }
 //                catch (...) {}
 //            }
@@ -8500,7 +8500,7 @@ bool is_project_bambu_3mf(const std::string& filename)
 //        origin = "<lock>";
 //        return false;
 //    }
-//    if (boost::filesystem::exists(path + "/lock.txt")) {
+//    if (std::filesystem::exists(path + "/lock.txt")) {
 //        std::string pid;
 //        load_string_file(path + "/lock.txt", pid);
 //        try {
@@ -8515,10 +8515,10 @@ bool is_project_bambu_3mf(const std::string& filename)
 //        }
 //    }
 //    std::string file3mf = path + "/.3mf";
-//    if (!boost::filesystem::exists(file3mf))
+//    if (!std::filesystem::exists(file3mf))
 //        return false;
 //    try {
-//        if (boost::filesystem::exists(path + "/origin.txt"))
+//        if (std::filesystem::exists(path + "/origin.txt"))
 //            load_string_file(path + "/origin.txt", origin);
 //    }
 //    catch (...) {

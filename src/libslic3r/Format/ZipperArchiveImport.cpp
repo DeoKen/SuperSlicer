@@ -9,7 +9,6 @@
 #include "libslic3r/PrintConfig.hpp"
 
 #include <boost/property_tree/ini_parser.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
 
 namespace Slic3r {

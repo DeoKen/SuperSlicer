@@ -20,21 +20,20 @@
 #include "Plater.hpp"
 #include "slic3r/GUI/Jobs/UIThreadWorker.hpp"
 
-#include <cstddef>
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <filesystem>
+#include <future>
 #include <numeric>
 #include <optional>
-#include <vector>
-#include <string>
 #include <regex>
-#include <future>
+#include <string>
 #include <utility>
+#include <vector>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/nowide/cstdio.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/convert.hpp>
 
@@ -149,7 +148,7 @@
 
 
 using std::optional;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 using Slic3r::_3DScene;
 using Slic3r::Preset;
 using Slic3r::PrintHostJob;
@@ -3290,7 +3289,7 @@ std::pair<wxString, int> Plater::priv::get_export_file(
         default: break;
     }
 
-    std::string out_dir = (boost::filesystem::path(output_file).parent_path()).string();
+    std::string out_dir = (std::filesystem::path(output_file).parent_path()).string();
     std::string temp_dir = wxStandardPaths::Get().GetTempDir().utf8_str().data();
     
     wxFileDialog dlg(q, dlg_title,
@@ -4953,8 +4952,8 @@ wxString Plater::priv::get_project_filename(const wxString& extension) const
 
 void Plater::priv::set_project_filename(const wxString& filename)
 {
-    boost::filesystem::path full_path = into_path(filename);
-    boost::filesystem::path ext = full_path.extension();
+    std::filesystem::path full_path = into_path(filename);
+    std::filesystem::path ext = full_path.extension();
     if (boost::iequals(ext.string(), ".amf")) {
         // Remove the first extension.
         full_path.replace_extension("");
@@ -5757,7 +5756,7 @@ void Plater::load_project(const wxString& filename, bool unbake_trsf)
 
     p->reset();
 
-    if (! load_files({ into_path(filename) }, LoadFileOption::LoadModel | LoadFileOption::LoadConfig | only_if(unbake_trsf, LoadFileOption::UnbakeTransformation)).empty()) {
+    if (! load_file(into_path(filename), LoadFileOption::LoadModel | LoadFileOption::LoadConfig | only_if(unbake_trsf, LoadFileOption::UnbakeTransformation)).empty()) {
         // At least one file was loaded.
         p->set_project_filename(filename);
         // Save the names of active presets and project specific config into ProjectDirtyStateManager.
@@ -5802,7 +5801,7 @@ void Plater::add_model(bool imperial_units/* = false*/)
 }
 
 void Plater::load_model_hueforge(const std::string &path) {
-    boost::filesystem::path hfp_path(path);
+    std::filesystem::path hfp_path(path);
 
     if (path.empty()) {
         wxString input_file;
@@ -5810,7 +5809,7 @@ void Plater::load_model_hueforge(const std::string &path) {
         if (input_file.empty()) {
             return;
         }
-        hfp_path = boost::filesystem::path(input_file.ToStdString());
+        hfp_path = std::filesystem::path(input_file.ToStdString());
     }
 
     if (hfp_path.extension() == ".hfp") {
@@ -5822,7 +5821,7 @@ void Plater::load_model_hueforge(const std::string &path) {
             // is the stl already loaded?
             bool model_found = false;
             std::vector<size_t> objs_idx;
-            boost::filesystem::path stl_path(hueforge.get_stl_path());
+            std::filesystem::path stl_path(hueforge.get_stl_path());
             for (size_t object_idx = 0; !model_found && object_idx < this->model().objects.size(); object_idx++) {
                 if (this->model().objects[object_idx]->name == stl_path.filename()) {
                     objs_idx = {object_idx};
@@ -5892,7 +5891,7 @@ void Plater::extract_config_from_project()
     wxGetApp().load_project(this, input_file);
 
     if (! input_file.empty())
-        load_files({ into_path(input_file) }, LoadFileOption::LoadConfig);
+        load_file(into_path(input_file), LoadFileOption::LoadConfig);
 }
 
 void Plater::load_gcode()
@@ -5973,7 +5972,7 @@ void Plater::reload_gcode_from_disk()
 
 static std::string rename_file(const std::string& filename, const std::string& extension)
 {
-    const boost::filesystem::path src_path(filename);
+    const std::filesystem::path src_path(filename);
     std::string src_stem = src_path.stem().string();
     int value = 0;
     if (src_stem.back() == ')') {
@@ -5992,7 +5991,7 @@ static std::string rename_file(const std::string& filename, const std::string& e
         }
     }
 
-    boost::filesystem::path dst_path(filename);
+    std::filesystem::path dst_path(filename);
     dst_path.remove_filename();
     dst_path /= src_stem + "(" + std::to_string(value + 1) + ")" + extension;
     return dst_path.string();
@@ -6015,8 +6014,8 @@ void Plater::convert_gcode_to_ascii()
     }
 
     // Set out filename
-    const boost::filesystem::path input_path(into_u8(input_file));
-    boost::filesystem::path output_path(into_u8(input_file));
+    const std::filesystem::path input_path(into_u8(input_file));
+    std::filesystem::path output_path(into_u8(input_file));
     std::string output_file = output_path.replace_extension("gcode").string();
 
     if (input_file == output_file) {
@@ -6037,7 +6036,7 @@ void Plater::convert_gcode_to_ascii()
         }
     }
 
-    const bool exists = boost::filesystem::exists(output_file);
+    const bool exists = std::filesystem::exists(output_file);
     if (exists) {
         MessageDialog msg_dlg(this, GUI::format_wxstr(_L("File %1% already exists. Do you wish to overwrite it?"), output_file), _L("Notice"), wxYES_NO);
         if (msg_dlg.ShowModal() != wxID_YES)
@@ -6060,7 +6059,7 @@ void Plater::convert_gcode_to_ascii()
         if (res == EResult::InvalidMagicNumber) {
             in_file.close();
             out_file.close();
-            boost::filesystem::copy_file(input_path, output_path, boost::filesystem::copy_options::overwrite_existing);
+            std::filesystem::copy_file(input_path, output_path, std::filesystem::copy_options::overwrite_existing);
         }
         else if (res != EResult::Success) {
             MessageDialog msg_dlg(this, _L(std::string(translate_result(res))), _L("Error converting G-code file"), wxICON_INFORMATION | wxOK);
@@ -6093,8 +6092,8 @@ void Plater::convert_gcode_to_binary()
     }
 
     // Set out filename
-    const boost::filesystem::path input_path(into_u8(input_file));
-    boost::filesystem::path output_path(into_u8(input_file));
+    const std::filesystem::path input_path(into_u8(input_file));
+    std::filesystem::path output_path(into_u8(input_file));
     std::string output_file = output_path.replace_extension("bgcode").string();
 
     if (input_file == output_file) {
@@ -6115,7 +6114,7 @@ void Plater::convert_gcode_to_binary()
         }
     }
 
-    const bool exists = boost::filesystem::exists(output_file);
+    const bool exists = std::filesystem::exists(output_file);
     if (exists) {
         MessageDialog msg_dlg(this, GUI::format_wxstr(_L("File %1% already exists. Do you wish to overwrite it?"), output_file), _L("Notice"), wxYES_NO);
         if (msg_dlg.ShowModal() != wxID_YES)
@@ -6139,7 +6138,7 @@ void Plater::convert_gcode_to_binary()
         if (res == EResult::AlreadyBinarized) {
             in_file.close();
             out_file.close();
-            boost::filesystem::copy_file(input_path, output_path, boost::filesystem::copy_options::overwrite_existing);
+            std::filesystem::copy_file(input_path, output_path, std::filesystem::copy_options::overwrite_existing);
         }
         else if (res != EResult::Success) {
             MessageDialog msg_dlg(this, _L(std::string(translate_result(res))), _L("Error converting G-code file"), wxICON_INFORMATION | wxOK);
@@ -6160,9 +6159,14 @@ void Plater::refresh_print()
     p->preview->refresh_print();
 }
 
+std::vector<size_t> Plater::load_file(const fs::path& input_file, LoadFileOptions options) { 
+    return p->load_files(std::vector<fs::path>{input_file}, options);
+}
+
 std::vector<size_t> Plater::load_files(const std::vector<fs::path>& input_files, LoadFileOptions options) { 
     return p->load_files(input_files, options);
 }
+
 // To be called when providing a list of files to the GUI slic3r on command line.
 std::vector<size_t> Plater::load_files(const std::vector<std::string>& input_files, LoadFileOptions options)
 {
@@ -6318,7 +6322,7 @@ void LoadProjectsDialog::on_dpi_changed(const wxRect& suggested_rect)
 
 
 
-bool Plater::preview_zip_archive(const boost::filesystem::path& archive_path)
+bool Plater::preview_zip_archive(const std::filesystem::path& archive_path)
 {
     //std::vector<fs::path> unzipped_paths;
     std::vector<fs::path> non_project_paths;
@@ -6396,7 +6400,7 @@ bool Plater::preview_zip_archive(const boost::filesystem::path& archive_path)
                                 break;
                             }
                             // write buffer to file
-                            fs::fstream file(final_path, std::ios::out | std::ios::binary | std::ios::trunc);
+                            std::fstream file(final_path, std::ios::out | std::ios::binary | std::ios::trunc);
                             file.write(buffer.c_str(), buffer.size());
                             file.close();
                             if (!fs::exists(final_path)) {
@@ -6745,11 +6749,11 @@ bool Plater::load_files(const wxArrayString& filenames, bool delete_after_load/*
             }
             case ProjectDropDialog::LoadType::LoadGeometry: {
 //                Plater::TakeSnapshot snapshot(this, _L("Import Object"));
-                load_files({ *it }, LoadFileOption::LoadModel);
+                load_file(*it, LoadFileOption::LoadModel);
                 break;
             }
             case ProjectDropDialog::LoadType::LoadConfig: {
-                load_files({ *it },  LoadFileOption::LoadConfig);
+                load_file(*it,  LoadFileOption::LoadConfig);
                 break;
             }
             case ProjectDropDialog::LoadType::OpenWindow: {
@@ -7287,7 +7291,7 @@ void Plater::export_gcode(bool prefer_removable)
         if (dlg.ShowModal() == wxID_OK) {
             output_path = into_path(dlg.GetPath());
 
-            auto check_for_error = [this](const boost::filesystem::path& path, wxString& err_out) -> bool {
+            auto check_for_error = [this](const std::filesystem::path& path, wxString& err_out) -> bool {
                 const std::string filename = path.filename().string();
                 const std::string ext      = boost::algorithm::to_lower_copy(path.extension().string());
                 if (has_illegal_filename_characters(filename)) {
@@ -7447,7 +7451,7 @@ void Plater::export_platter()
     output_file.replace_extension("");
     dlg_title = _L("Export Platter:");
 
-    std::string out_dir = (boost::filesystem::path(output_file).parent_path()).string();
+    std::string out_dir = (std::filesystem::path(output_file).parent_path()).string();
 
     wxFileDialog dlg(this, dlg_title,
         is_shapes_dir(out_dir) ? from_u8(wxGetApp().app_config->get_last_dir()) : from_path(output_file.parent_path()), from_path(output_file.filename()),
@@ -7847,7 +7851,7 @@ void publish(Model &model) {
 } // namespace
 
 
-bool Plater::export_3mf(const boost::filesystem::path& output_path)
+bool Plater::export_3mf(const std::filesystem::path& output_path)
 {
     if (p->model.objects.empty()) {
         MessageDialog dialog(nullptr, _L("The platter is empty.\nDo you want to save the project?"), _L("Save project"), wxYES_NO);
@@ -7905,7 +7909,7 @@ bool Plater::export_3mf(const boost::filesystem::path& output_path)
                                     .set_thumbnail_data(&thumbnail_data)
                                     .set_bake_transformation_in_mesh(merge_transformation));
     }
-    catch (boost::filesystem::filesystem_error& e)
+    catch (std::filesystem::filesystem_error& e)
     {
         const wxString what = _("Unable to save file") + ": " + path_u8 + "\n" + e.code().message();
         MessageDialog dlg(this, what, _("Error saving 3mf file"), wxOK | wxICON_ERROR);

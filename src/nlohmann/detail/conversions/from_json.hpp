@@ -2,6 +2,7 @@
 
 #include <algorithm> // transform
 #include <array> // array
+#include <filesystem>
 #include <forward_list> // forward_list
 #include <iterator> // inserter, front_inserter, end
 #include <map> // map
@@ -11,8 +12,6 @@
 #include <unordered_map> // unordered_map
 #include <utility> // pair, declval
 #include <valarray> // valarray
-
-#include <boost/filesystem.hpp>
 
 #include <nlohmann/detail/exceptions.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
@@ -448,7 +447,7 @@ void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyE
 }
 
 template<typename BasicJsonType>
-void from_json(const BasicJsonType& j, boost::filesystem::path& p)
+void from_json(const BasicJsonType& j, std::filesystem::path& p)
 {
     if (JSON_HEDLEY_UNLIKELY(!j.is_string()))
     {

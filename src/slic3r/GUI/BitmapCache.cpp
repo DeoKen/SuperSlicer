@@ -10,7 +10,6 @@
 #include "GUI.hpp"
 #include "GUI_Utils.hpp"
 
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
 #include <boost/algorithm/string/replace.hpp>

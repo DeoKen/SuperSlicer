@@ -46,12 +46,12 @@ void CalibrationBedDialog::create_geometry(wxCommandEvent& event_args) {
         //disable aut-ocenter for this calibration.
         gui_app->app_config->set("autocenter", "0");
     }
-    std::vector<size_t> objs_idx = plat->load_files(std::vector<std::string>{
-            (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf").string(),
-            (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf").string(),
-            (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf").string(),
-            (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf").string(),
-            (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf").string()},
+    std::vector<size_t> objs_idx = plat->load_files(std::vector<std::filesystem::path>{
+            (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf"),
+            (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf"),
+            (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf"),
+            (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf"),
+            (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "bed_leveling" / "patch.amf")},
         LoadFileOption::LoadModel | LoadFileOption::DontUpdateDirs);
 
     assert(objs_idx.size() == 5);

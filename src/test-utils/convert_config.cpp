@@ -21,7 +21,6 @@
 #include <libslic3r/format.hpp>
 #include <libslic3r/PrintConfig.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/algorithm/clamp.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/nowide/cenv.hpp>
@@ -453,7 +452,7 @@ void load_preset(const VendorProfile &vendor_profile, PrstPtr preset_to_load)
 
 //    // Decide a full path to this .ini file 
 //    auto file_name = boost::algorithm::iends_with(preset_to_load->name_with_template, ".ini") ? preset_to_load->name_with_template : preset_to_load->name_with_template + ".ini";
-//    auto file_path = (boost::filesystem::path(data_dir()) 
+//    auto file_path = (std::filesystem::path(data_dir()) 
 //#ifdef SLIC3R_PROFILE_USE_PRESETS_SUBDIR
 //        // Store the print/filament/printer presets into a "presets" directory.
 //        / "presets" 
@@ -1140,7 +1139,7 @@ void save(boost::nowide::ofstream &c, VendorProfile &vp, std::vector<PrstPtr> &p
     }
 }
 
-void convert_config(boost::filesystem::path &path_in, boost::filesystem::path &path_out){
+void convert_config(std::filesystem::path &path_in, std::filesystem::path &path_out){
     //if(path_in.string().find("Tri") == std::string::npos) return;
     //Semver slic3r_2_7_61("2.7.61-alpha+UNKNOWN");
     //Semver slic3r_2_7_alpha("2.7-alpha+UNKNOWN");
@@ -1177,8 +1176,8 @@ void convert_config(boost::filesystem::path &path_in, boost::filesystem::path &p
     // get path & name
 
     //copy directory
-    boost::filesystem::path path_dir = path_in.parent_path();
-    boost::filesystem::path path_dir_out = path_out.parent_path();
+    std::filesystem::path path_dir = path_in.parent_path();
+    std::filesystem::path path_dir_out = path_out.parent_path();
     //path_dir_out /= "converted";
     path_dir /= path_in.stem();
     path_dir_out /= path_out.stem();
@@ -1200,8 +1199,8 @@ void convert_config(boost::filesystem::path &path_in, boost::filesystem::path &p
     ver_susi.set_metadata(nullptr);
 
     //copy idx
-    boost::filesystem::path path_idx = path_in.parent_path();
-    boost::filesystem::path path_idx_out = path_out.parent_path();
+    std::filesystem::path path_idx = path_in.parent_path();
+    std::filesystem::path path_idx_out = path_out.parent_path();
     path_idx /= path_in.stem();
     path_idx_out /= path_in.stem();
     path_idx += ".idx";
@@ -1285,16 +1284,16 @@ int main(int argc, char const *argv[]) {
         std::string path_str = argv[1];
         if (path_str.front() == '\"' && path_str.back() == '\"')
             path_str = path_str.substr(1, path_str.size() - 2);
-        boost::filesystem::path path_in(path_str);
-        if (boost::filesystem::is_directory(path_in)) {
+        std::filesystem::path path_in(path_str);
+        if (std::filesystem::is_directory(path_in)) {
             std::cout<<"error, path \"" << path_in.string() <<"\" is a directory\n";
             return 1;
         }
 
         // get path out
-        boost::filesystem::path path_out = path_in.parent_path();
+        std::filesystem::path path_out = path_in.parent_path();
         path_out /= "converted";
-        boost::filesystem::create_directory(path_out);
+        std::filesystem::create_directory(path_out);
         path_out /= path_in.filename();
         std::cout << path_in.string() << "\n";
         std::cout << path_out.string() << "\n";
@@ -1304,8 +1303,8 @@ int main(int argc, char const *argv[]) {
         std::string path_str = argv[1];
         if (path_str.front() == '\"' && path_str.back() == '\"')
             path_str = path_str.substr(1, path_str.size() - 2);
-        boost::filesystem::path dir_in(path_str);
-        if (!boost::filesystem::is_directory(dir_in)) {
+        std::filesystem::path dir_in(path_str);
+        if (!std::filesystem::is_directory(dir_in)) {
             std::cout<<"error, path \"" << dir_in.string() <<"\" isn't a directory\n";
             return 1;
         }
@@ -1313,19 +1312,19 @@ int main(int argc, char const *argv[]) {
         path_str = argv[2];
         if (path_str.front() == '\"' && path_str.back() == '\"')
             path_str = path_str.substr(1, path_str.size() - 2);
-        boost::filesystem::path dir_out(path_str);
-        if (!boost::filesystem::exists(dir_out)) {
-                boost::filesystem::create_directory(dir_out);
+        std::filesystem::path dir_out(path_str);
+        if (!std::filesystem::exists(dir_out)) {
+                std::filesystem::create_directory(dir_out);
         }
-        if (!boost::filesystem::is_directory(dir_out)) {
+        if (!std::filesystem::is_directory(dir_out)) {
             std::cout<<"error, path \"" << dir_in.string() <<"\" isn't a directory\n";
             return 1;
         }
 
-        for (boost::filesystem::directory_entry &entry : boost::make_iterator_range(boost::filesystem::directory_iterator(dir_in), {})) {
-            if (boost::filesystem::is_regular_file(entry.status()) && entry.path().extension() == ".ini") {
-                boost::filesystem::path path_in = entry.path();
-                boost::filesystem::path path_out = dir_out;
+        for (const std::filesystem::directory_entry &entry : boost::make_iterator_range(std::filesystem::directory_iterator(dir_in), {})) {
+            if (std::filesystem::is_regular_file(entry.status()) && entry.path().extension() == ".ini") {
+                std::filesystem::path path_in = entry.path();
+                std::filesystem::path path_out = dir_out;
                 path_out /= path_in.filename();
                 std::cout << "convert \"" << path_in.string()
                           << "\" to \"path_out.string()"

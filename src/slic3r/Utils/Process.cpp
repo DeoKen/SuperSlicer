@@ -13,10 +13,10 @@
 // localization
 #include "../GUI/I18N.hpp"
 
-#include <iostream>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
 // For starting another PrusaSlicer instance on OSX.
@@ -44,7 +44,7 @@ static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance
 	wxString path;
 	wxFileName::SplitPath(wxStandardPaths::Get().GetExecutablePath(), &path, nullptr, nullptr, wxPATH_NATIVE);
 	//check directory exist
-	if (!boost::filesystem::is_directory(boost::filesystem::wpath(path.ToStdWstring()))) {
+	if (!std::filesystem::is_directory(std::filesystem::path(path.ToStdWstring()))) {
 		BOOST_LOG_TRIVIAL(info) << "Fail to find directory \"" << path << "\", trying another method.";
 		//try an other way
 		std::vector<wchar_t> pathBuf;
@@ -54,10 +54,10 @@ static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance
 			copied = GetModuleFileName(0, pathBuf.data(), pathBuf.size());
 		} while (copied >= pathBuf.size());
 		pathBuf.resize(copied);
-		std::wstring path2(pathBuf.begin(), pathBuf.end());
-		boost::filesystem::wpath boostpath(path2);
-		BOOST_LOG_TRIVIAL(info) << "get current path: \"" << into_u8(path2) << "\" which is in dir \""<< boostpath.parent_path().wstring() <<"\"";
-		path = boostpath.parent_path().wstring();
+		std::wstring path2_ws(pathBuf.begin(), pathBuf.end());
+		std::filesystem::path path2(path2_ws);
+		BOOST_LOG_TRIVIAL(info) << "get current path: \"" << into_u8(path2.wstring()) << "\" which is in dir \""<< path2.parent_path().wstring() <<"\"";
+		path = path2.parent_path().wstring();
 	}
 	path += "\\";
 	path += (instance_type == NewSlicerInstanceType::Slicer) ? SLIC3R_APP_CMD ".exe" : GCODEVIEWER_APP_CMD ".exe";
@@ -83,7 +83,7 @@ static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance
 		BOOST_LOG_TRIVIAL(error) << "Failed to spawn a new slicer \"" << into_u8(path);
 #else  // Win32 (else not)
 	// Own executable path.
-	boost::filesystem::path bin_path = into_path(wxStandardPaths::Get().GetExecutablePath());
+	std::filesystem::path bin_path = into_path(wxStandardPaths::Get().GetExecutablePath());
 #if defined(__APPLE__)
 	{
 		// Maybe one day we will be able to run PrusaGCodeViewer, but for now the Apple notarization 

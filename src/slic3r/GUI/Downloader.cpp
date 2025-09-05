@@ -74,12 +74,12 @@ std::string filename_from_url(const std::string& url)
 }
 }
 
-Download::Download(int ID, std::string url, wxEvtHandler* evt_handler, const boost::filesystem::path& dest_folder)
+Download::Download(int ID, std::string url, wxEvtHandler* evt_handler, const std::filesystem::path& dest_folder)
     : m_id(ID)
 	, m_filename(filename_from_url(url))
 	, m_dest_folder(dest_folder)
 {
-	assert(boost::filesystem::is_directory(dest_folder));
+	assert(std::filesystem::is_directory(dest_folder));
 	m_final_path = dest_folder / m_filename;
     m_file_get = std::make_shared<FileGet>(ID, std::move(url), m_filename, evt_handler, dest_folder);
 }

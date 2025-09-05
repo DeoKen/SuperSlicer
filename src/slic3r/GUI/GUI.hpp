@@ -7,7 +7,6 @@
 #define slic3r_GUI_hpp_
 
 namespace boost { class any; }
-namespace boost::filesystem { class path; }
 
 #include <wx/string.h>
 
@@ -74,16 +73,16 @@ wxString	from_u8(const std::string &str);
 // std::string in UTF8 from wxString
 std::string	into_u8(const wxString &str);
 // wxString from boost path
-wxString	from_path(const boost::filesystem::path &path);
+wxString	from_path(const std::filesystem::path &path);
 // boost path from wxString
-boost::filesystem::path	into_path(const wxString &str);
+std::filesystem::path	into_path(const wxString &str);
 
 // Display an About dialog
 extern void about();
 // Ask the destop to open the datadir using the default file explorer.
 extern void desktop_open_datadir_folder();
 // Ask the destop to open the directory specified by path using the default file explorer.
-void desktop_open_folder(const boost::filesystem::path& path);
+void desktop_open_folder(const std::filesystem::path& path);
 
 #ifdef __linux__
 // Calling wxExecute on Linux with proper handling of AppImage's env vars.
@@ -98,7 +97,7 @@ void desktop_execute_get_result(wxString command, wxArrayString& output);
 // path should contain path to the process
 // cmd_opt can be empty or contain command line options. Example: L"/silent"
 // error_msg will contain error message if create_process return false
-bool create_process(const boost::filesystem::path& path, const std::wstring& cmd_opt, std::string& error_msg);
+bool create_process(const std::filesystem::path& path, const std::wstring& cmd_opt, std::string& error_msg);
 #endif //_WIN32
 
 } // namespace GUI

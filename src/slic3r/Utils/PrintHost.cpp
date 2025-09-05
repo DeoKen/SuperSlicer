@@ -9,12 +9,13 @@
 ///|/
 #include "PrintHost.hpp"
 
-#include <optional>
-#include <vector>
-#include <thread>
 #include <exception>
+#include <filesystem>
+#include <optional>
+#include <thread>
+#include <vector>
+
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
 
 #include <wx/string.h>
 #include <wx/app.h>
@@ -35,7 +36,7 @@
 #include "../GUI/GUI.hpp"
 #include "slic3r/GUI/I18N.hpp"
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 using std::optional;
 using Slic3r::GUI::PrintHostQueueDialog;
 

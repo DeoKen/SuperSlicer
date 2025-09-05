@@ -5,12 +5,12 @@
 #ifndef slic3r_AppConfig_hpp_
 #define slic3r_AppConfig_hpp_
 
+#include <filesystem>
 #include <set>
 #include <map>
 #include <string>
 
 #include <boost/algorithm/string/trim_all.hpp>
-#include <boost/filesystem/path.hpp>
 #ifdef WIN32
 #include <boost/nowide/fstream.hpp>
 #endif
@@ -19,6 +19,7 @@
 #include "libslic3r/Semver.hpp"
 
 namespace Slic3r {
+
 
 class AppConfig
 {
@@ -62,10 +63,10 @@ public:
 	struct LayoutEntry {
 		std::string name;
 		std::string description;
-		boost::filesystem::path path;
+		std::filesystem::path path;
 		Semver version;
 		LayoutEntry() {}
-		LayoutEntry(std::string name, std::string description, boost::filesystem::path path, Semver version) : name(name), description(description), path(path), version(version) {}
+		LayoutEntry(std::string name, std::string description, std::filesystem::path path, Semver version) : name(name), description(description), path(path), version(version) {}
 	};
 	struct Tag {
 		ConfigOptionMode tag;
@@ -76,17 +77,36 @@ public:
 		Tag(std::string name, std::string description, ConfigOptionMode tag, std::string color_hash) : name(name), description(description), tag(tag), color_hash(color_hash) {}
 	};
 
+    struct ConfigurationEntry
+    {
+        std::string installed_name;
+        Semver      version;
+        std::filesystem::path config_path;
+        std::filesystem::path exe_path;
+        std::map<std::string, std::string> other_keys;
+        std::filesystem::path get_config_path(const std::string &data_dir_root) const;
+    };
+
 	explicit AppConfig(EAppMode mode) :
 		m_mode(mode)
 	{
 		this->reset();
 	}
 
-	// Clear and reset to defaults.
-	void 			   	reset();
-	// Override missing or keys with their defaults.
-	void 			   	set_defaults();
-	void				init_ui_layout();
+    // Clear and reset to defaults.
+    void                reset();
+    // Override missing or keys with their defaults.
+    void                set_defaults();
+    void                init_ui_layout();
+    ConfigurationEntry  get_installation() { return m_data_dir; }
+    std::filesystem::path data_dir() { return m_data_dir.config_path; }
+    // return false if already init
+    bool                init_root_data_dir(const std::string &default_app_data_path);
+    std::string         get_root_data_dir() { return m_data_dir_root; }
+    void                load_installed_repo(const std::filesystem::path &filename);
+    void                save_installed_repo();
+    const std::vector<ConfigurationEntry> &get_all_slicer_installed() const { return m_all_slic3r_installed; }
+    void                set_new_installation(ConfigurationEntry new_install);
 
 	// Load the slic3r.ini from a user profile directory (or a datadir, if configured).
 	// return error string or empty strinf
@@ -194,7 +214,7 @@ public:
 	std::string			config_path() const;
 
     // Get the current path to ui_layout directory
-    boost::filesystem::path  layout_config_path();
+    std::filesystem::path  layout_config_path();
     LayoutEntry              get_ui_layout();
     std::vector<LayoutEntry> get_ui_layouts() { return m_ui_layout; }
 
@@ -281,6 +301,7 @@ private:
 	    return true;
 	}
 
+
 	// Type of application: Editor or GCodeViewer
 	EAppMode													m_mode { EAppMode::Editor };
 	// Map of section, name -> value
@@ -301,6 +322,11 @@ private:
 	std::pair<std::string,std::string>                          m_default_splashscreen;
 	// hardware type
 	HardwareType												m_hardware;
+    // our installation. can be empty if data_dir() is set by command line
+    ConfigurationEntry                                          m_data_dir;
+    // directory of all configurations for all "installed" version.
+    std::string                                                 m_data_dir_root;
+    std::vector<ConfigurationEntry>                             m_all_slic3r_installed;
 };
 
 } // namespace Slic3r

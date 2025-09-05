@@ -6,11 +6,11 @@
 #include "AppUpdater.hpp"
 
 #include <atomic>
+#include <filesystem>
 #include <regex>
 #include <thread>
 #include <string>
 
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/nowide/convert.hpp>
@@ -42,7 +42,7 @@ namespace Slic3r {
 namespace {
 	
 #ifdef _WIN32
-	bool run_file(const boost::filesystem::path& path)
+	bool run_file(const std::filesystem::path& path)
 	{
 		std::string msg;
 		bool res = GUI::create_process(path, std::wstring(), msg);
@@ -68,9 +68,9 @@ namespace {
 		return ret;
 	}
 #elif  __APPLE__
-	bool run_file(const boost::filesystem::path& path)
+	bool run_file(const std::filesystem::path& path)
 	{
-		if (boost::filesystem::exists(path)) {
+		if (std::filesystem::exists(path)) {
 			// attach downloaded dmg file
             const char* argv1[] = { "hdiutil", "attach", path.string().c_str(), nullptr };
             ::wxExecute(const_cast<char**>(argv1), wxEXEC_ASYNC, nullptr);
@@ -88,7 +88,7 @@ namespace {
 		return get_downloads_path_mac();
 	}
 #else
-	bool run_file(const boost::filesystem::path& path)
+	bool run_file(const std::filesystem::path& path)
 	{	
 		return false;
 	}
@@ -126,9 +126,9 @@ struct AppUpdater::priv {
 	) const;
 
 	// Download installer / app
-	boost::filesystem::path download_file(const DownloadAppData& data) const;
+	std::filesystem::path download_file(const DownloadAppData& data) const;
 	// Run file in m_last_dest_path
-	bool run_downloaded_file(boost::filesystem::path path);
+	bool run_downloaded_file(std::filesystem::path path);
 	// gets version file via http
 	void version_check(const std::string& version_check_url);
 #if 0
@@ -145,7 +145,7 @@ struct AppUpdater::priv {
 	std::atomic_bool		m_download_ongoing { false };
 	bool					get_download_ongoing() const { return m_download_ongoing; }
 	// read only variable used to init m_online_version_data.target_path
-	boost::filesystem::path m_default_dest_folder; // readonly
+	std::filesystem::path m_default_dest_folder; // readonly
 	// DownloadAppData read / write needs to be locked by m_data_mutex
 	DownloadAppData			m_online_version_data;
 	DownloadAppData get_app_data();
@@ -159,12 +159,12 @@ struct AppUpdater::priv {
 AppUpdater::priv::priv() :
 	m_cancel (false)
 #ifdef __linux__
-    , m_default_dest_folder (boost::filesystem::path("/tmp"))
+    , m_default_dest_folder (std::filesystem::path("/tmp"))
 #else
-	, m_default_dest_folder (boost::filesystem::path(data_dir()) / "cache")
+	, m_default_dest_folder (std::filesystem::path(data_dir()) / "cache")
 #endif //_WIN32
 {	
-	boost::filesystem::path downloads_path = boost::filesystem::path(get_downloads_path());
+	std::filesystem::path downloads_path = std::filesystem::path(get_downloads_path());
 	if (!downloads_path.empty()) {
 		m_default_dest_folder = std::move(downloads_path);
 	}
@@ -202,9 +202,9 @@ bool  AppUpdater::priv::http_get_file(const std::string& url, size_t size_limit,
 	return res;
 }
 
-boost::filesystem::path AppUpdater::priv::download_file(const DownloadAppData& data) const
+std::filesystem::path AppUpdater::priv::download_file(const DownloadAppData& data) const
 {
-	boost::filesystem::path dest_path;
+	std::filesystem::path dest_path;
 	size_t last_gui_progress = 0;
 	size_t expected_size = data.size;
 	dest_path = data.target_path;
@@ -218,10 +218,10 @@ boost::filesystem::path AppUpdater::priv::download_file(const DownloadAppData& d
 		wxCommandEvent* evt = new wxCommandEvent(EVT_SLIC3R_APP_DOWNLOAD_FAILED);
 		evt->SetString(message);
 		GUI::wxGetApp().QueueEvent(evt);
-		return boost::filesystem::path();
+		return std::filesystem::path();
 	}
 
-	boost::filesystem::path tmp_path = dest_path;
+	std::filesystem::path tmp_path = dest_path;
 	tmp_path += format(".%1%%2%", std::to_string(GUI::GLCanvas3D::timestamp_now()), ".download");
 	FILE* file;
 	wxString temp_path_wstring(tmp_path.wstring());
@@ -235,7 +235,7 @@ boost::filesystem::path AppUpdater::priv::download_file(const DownloadAppData& d
 		wxCommandEvent* evt = new wxCommandEvent(EVT_SLIC3R_APP_DOWNLOAD_FAILED);
 		evt->SetString(message);
 		GUI::wxGetApp().QueueEvent(evt);
-		return boost::filesystem::path();
+		return std::filesystem::path();
 	}
 
 	std::string error_message;
@@ -281,7 +281,7 @@ boost::filesystem::path AppUpdater::priv::download_file(const DownloadAppData& d
 			{
 				fwrite(body.c_str(), 1, body.size(), file);
 				fclose(file);
-				boost::filesystem::rename(tmp_path, dest_path);
+				std::filesystem::rename(tmp_path, dest_path);
 			}
 			catch (const std::exception& e)
 			{
@@ -309,13 +309,13 @@ boost::filesystem::path AppUpdater::priv::download_file(const DownloadAppData& d
 			}
 			GUI::wxGetApp().QueueEvent(evt);
 		}
-		return boost::filesystem::path();
+		return std::filesystem::path();
 	}
 	
 	return dest_path;
 }
 
-bool AppUpdater::priv::run_downloaded_file(boost::filesystem::path path)
+bool AppUpdater::priv::run_downloaded_file(std::filesystem::path path)
 {
 	assert(!path.empty());
 	return run_file(path);
@@ -658,7 +658,7 @@ void AppUpdater::sync_download()
  	p->m_thread = std::thread(
 		[this, input_data]() {
 			p->m_download_ongoing = true;
-			if (boost::filesystem::path dest_path = p->download_file(input_data); boost::filesystem::exists(dest_path)){
+			if (std::filesystem::path dest_path = p->download_file(input_data); std::filesystem::exists(dest_path)){
 				if (input_data.start_after) {
 					p->run_downloaded_file(std::move(dest_path));
 				} else {

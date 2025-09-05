@@ -8,14 +8,13 @@
 
 #include <locale>
 #include <utility>
+#include <filesystem>
 #include <functional>
 #include <type_traits>
 #include <system_error>
 #include <cmath>
 
-#include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/filesystem/path.hpp>
 
 #include "libslic3r.h"
 
@@ -44,6 +43,11 @@ const std::string& var_dir();
 std::string var(const std::string &file_name);
 
 // Set a path with various static definition data (for example the initial config bundles).
+void set_binary_dir(const std::filesystem::path &path);
+// Return a full path to the resources directory.
+const std::filesystem::path& binary_dir();
+
+// Set a path with various static definition data (for example the initial config bundles).
 void set_resources_dir(const std::string &path);
 // Return a full path to the resources directory.
 const std::string& resources_dir();
@@ -70,6 +74,7 @@ const std::string& custom_gcodes_dir();
 void set_data_dir(const std::string &path);
 // Return a full path to the GUI resource files.
 const std::string& data_dir();
+bool has_data_dir();
 
 // Format an output path for debugging purposes.
 // Writes out the output path prefix to the console for the first time the function is called,
@@ -96,10 +101,10 @@ extern size_t get_utf8_sequence_length(const char *seq, size_t size);
 
 // If the file has a relative path, it tries to find it in the exe directory, the configuration directory and the user directory.
 // If it can't find it, it returns an empty path
-extern boost::filesystem::path find_full_path(const boost::filesystem::path filename, const boost::filesystem::path return_fail = "");
+extern std::filesystem::path find_full_path(const std::filesystem::path filename, const std::filesystem::path return_fail = "");
 
 // If the filename is an absolute path, it remove the exe directory path, the configuration directory path or the user directory path to create a relative path.
-extern boost::filesystem::path shorten_path(const boost::filesystem::path filename);
+extern std::filesystem::path shorten_path(const std::filesystem::path filename);
 
 // Safely rename a file even if the target exists.
 // On Windows, the file explorer (or anti-virus or whatever else) often locks the file
@@ -116,7 +121,7 @@ enum CopyFileResult {
 };
 // Copy a file, adjust the access attributes, so that the target is writable.
 CopyFileResult copy_file_inner(const std::string& from, const std::string& to, std::string& error_message);
-CopyFileResult copy_file_inner(const boost::filesystem::path& from, const boost::filesystem::path& to, std::string& error_message);
+CopyFileResult copy_file_inner(const std::filesystem::path& from, const std::filesystem::path& to, std::string& error_message);
 // Copy file to a temp file first, then rename it to the final file name.
 // If with_check is true, then the content of the copied file is compared to the content
 // of the source file before renaming.
@@ -128,12 +133,12 @@ extern CopyFileResult check_copy(const std::string& origin, const std::string& c
 
 // Ignore system and hidden files, which may be created by the DropBox synchronisation process.
 // https://github.com/prusa3d/PrusaSlicer/issues/1298
-extern bool is_plain_file(const boost::filesystem::directory_entry &path);
-extern bool is_ini_file(const boost::filesystem::directory_entry &path);
-extern bool is_idx_file(const boost::filesystem::directory_entry &path);
+extern bool is_plain_file(const std::filesystem::directory_entry &path);
+extern bool is_ini_file(const std::filesystem::directory_entry &path);
+extern bool is_idx_file(const std::filesystem::directory_entry &path);
 extern bool is_gcode_file(const std::string &path);
 extern bool is_img_file(const std::string& path);
-extern bool is_gallery_file(const boost::filesystem::directory_entry& path, char const* type);
+extern bool is_gallery_file(const std::filesystem::directory_entry& path, char const* type);
 extern bool is_gallery_file(const std::string& path, char const* type);
 extern bool is_shapes_dir(const std::string& dir);
 

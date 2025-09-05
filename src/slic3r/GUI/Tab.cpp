@@ -56,6 +56,7 @@
 #include "Widgets/CheckBox.hpp"
 #include "WipeTowerDialog.hpp"
 
+#include <filesystem>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -63,8 +64,6 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/exception/diagnostic_information.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
@@ -1927,8 +1926,8 @@ t_change Tab::set_or_add(t_change previous, t_change toadd) {
 std::vector<Slic3r::GUI::PageShp> Tab::create_pages(std::string setting_type_name, int32_t idx_page, Preset::Type type_override)
 {
     //search for the file
-    const boost::filesystem::path ui_layout_file = Slic3r::GUI::get_app_config()->layout_config_path() / setting_type_name;
-    if (!boost::filesystem::exists(ui_layout_file)) {
+    const std::filesystem::path ui_layout_file = Slic3r::GUI::get_app_config()->layout_config_path() / setting_type_name;
+    if (!std::filesystem::exists(ui_layout_file)) {
         std::cerr << "Error: cannot create " << setting_type_name << "settings, cannot find file " << ui_layout_file << "\n";
         return {};
     } else
@@ -5073,7 +5072,7 @@ void Tab::rename_preset()
     Preset& edited_preset   = m_presets->get_edited_preset();
 
     const std::string old_name      = selected_preset.name;
-    const std::string old_file_name = selected_preset.file;
+    const std::filesystem::path old_file_name(selected_preset.file);
 
     assert(old_name == edited_preset.name);
 
@@ -5089,7 +5088,7 @@ void Tab::rename_preset()
 
         // rename file with renamed preset configuration
 
-        filesystem::rename(old_file_name, selected_preset.file);
+        std::filesystem::rename(old_file_name, std::filesystem::path(selected_preset.file));
 
         // rename selected preset in printers, if it's needed
 

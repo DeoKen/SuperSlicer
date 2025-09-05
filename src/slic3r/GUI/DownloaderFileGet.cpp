@@ -104,19 +104,19 @@ struct FileGet::priv
 	std::string m_filename;
 	std::thread m_io_thread;
 	wxEvtHandler* m_evt_handler;
-	boost::filesystem::path m_dest_folder;
-	boost::filesystem::path m_tmp_path; // path when ongoing download
+	std::filesystem::path m_dest_folder;
+	std::filesystem::path m_tmp_path; // path when ongoing download
 	std::atomic_bool m_cancel { false };
 	std::atomic_bool m_pause  { false };
 	std::atomic_bool m_stopped { false }; // either canceled or paused - download is not running
 	size_t m_written { 0 };
 	size_t m_absolute_size { 0 };
-	priv(int ID, std::string&& url, const std::string& filename, wxEvtHandler* evt_handler, const boost::filesystem::path& dest_folder);
+	priv(int ID, std::string&& url, const std::string& filename, wxEvtHandler* evt_handler, const std::filesystem::path& dest_folder);
 
 	void get_perform();
 };
 
-FileGet::priv::priv(int ID, std::string&& url, const std::string& filename, wxEvtHandler* evt_handler, const boost::filesystem::path& dest_folder)
+FileGet::priv::priv(int ID, std::string&& url, const std::string& filename, wxEvtHandler* evt_handler, const std::filesystem::path& dest_folder)
 	: m_id(ID)
 	, m_url(std::move(url))
 	, m_filename(filename)
@@ -130,21 +130,21 @@ void FileGet::priv::get_perform()
 	assert(m_evt_handler);
 	assert(!m_url.empty());
 	assert(!m_filename.empty());
-	assert(boost::filesystem::is_directory(m_dest_folder));
+	assert(std::filesystem::is_directory(m_dest_folder));
 
 	m_stopped = false;
 
 	// open dest file
 	if (m_written == 0)
 	{
-		boost::filesystem::path dest_path = m_dest_folder / m_filename;
+		std::filesystem::path dest_path = m_dest_folder / m_filename;
 		std::string extension = dest_path.extension().string();
 		std::string just_filename = m_filename.substr(0, m_filename.size() - extension.size());
 		std::string final_filename = just_filename;
         // Find unsed filename 
 		try {
 			size_t version = 0;
-			while (boost::filesystem::exists(m_dest_folder / (final_filename + extension)) || boost::filesystem::exists(m_dest_folder / (final_filename + extension + "." + std::to_string(get_current_pid()) + ".download")))
+			while (std::filesystem::exists(m_dest_folder / (final_filename + extension)) || std::filesystem::exists(m_dest_folder / (final_filename + extension + "." + std::to_string(get_current_pid()) + ".download")))
 			{
 				++version;
 				if (version > 999) {
@@ -156,7 +156,7 @@ void FileGet::priv::get_perform()
 				}
 				final_filename = GUI::format("%1%(%2%)", just_filename, std::to_string(version));
 			}
-		} catch (const boost::filesystem::filesystem_error& e)
+		} catch (const std::filesystem::filesystem_error& e)
 		{
 			wxCommandEvent* evt = new wxCommandEvent(EVT_DWNLDR_FILE_ERROR);
 			evt->SetString(e.what());
@@ -175,7 +175,7 @@ void FileGet::priv::get_perform()
 		m_evt_handler->QueueEvent(evt);
 	}
 	
-	boost::filesystem::path dest_path = m_dest_folder / m_filename;
+	std::filesystem::path dest_path = m_dest_folder / m_filename;
 
 	wxString temp_path_wstring(m_tmp_path.wstring());
 	
@@ -301,7 +301,7 @@ void FileGet::priv::get_perform()
 				}
 				*/
 				fclose(file);
-				boost::filesystem::rename(m_tmp_path, dest_path);
+				std::filesystem::rename(m_tmp_path, dest_path);
 			}
 			catch (const std::exception& /*e*/)
 			{
@@ -323,7 +323,7 @@ void FileGet::priv::get_perform()
 
 }
 
-FileGet::FileGet(int ID, std::string url, const std::string& filename, wxEvtHandler* evt_handler, const boost::filesystem::path& dest_folder)
+FileGet::FileGet(int ID, std::string url, const std::string& filename, wxEvtHandler* evt_handler, const std::filesystem::path& dest_folder)
 	: p(new priv(ID, std::move(url), filename, evt_handler, dest_folder))
 {}
 

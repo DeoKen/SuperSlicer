@@ -6,14 +6,14 @@
 #include "PresetUpdater.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <ostream>
+#include <stdexcept>
 #include <thread>
 #include <unordered_map>
-#include <ostream>
 #include <utility>
-#include <stdexcept>
+
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/log/trivial.hpp>
@@ -41,7 +41,7 @@
 #include "slic3r/Config/Version.hpp"
 #include "slic3r/Config/Snapshot.hpp"
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 using Slic3r::GUI::Config::Index;
 using Slic3r::GUI::Config::Version;
 using Slic3r::GUI::Config::Snapshot;
@@ -72,7 +72,7 @@ void copy_file_fix(const fs::path &source, const fs::path &target)
 	}
 	// Permissions should be copied from the source file by copy_file(). We are not sure about the source
 	// permissions, let's rewrite them with 644.
-	static constexpr const auto perms = fs::owner_read | fs::owner_write | fs::group_read | fs::others_read;
+	static constexpr const fs::perms perms = fs::perms::owner_read | fs::perms::owner_write | fs::perms::group_read | fs::perms::others_read;
 	fs::permissions(target, perms);
 }
 std::string escape_string_url(const std::string& unescaped)
@@ -251,7 +251,7 @@ bool PresetUpdater::priv::get_file(const std::string &url, const fs::path &targe
 				error);
 		})
 		.on_complete([&](std::string body, unsigned /* http_status */) {
-			fs::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
+			std::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
 			file.write(body.c_str(), body.size());
 			file.close();
 			fs::rename(tmp_path, target_path);
@@ -265,7 +265,7 @@ bool PresetUpdater::priv::get_file(const std::string &url, const fs::path &targe
 // Remove leftover paritally downloaded files, if any.
 void PresetUpdater::priv::prune_tmps() const
 {
-    for (auto &dir_entry : boost::filesystem::directory_iterator(cache_path))
+    for (auto &dir_entry : std::filesystem::directory_iterator(cache_path))
 		if (is_plain_file(dir_entry) && dir_entry.path().extension() == TMP_EXTENSION) {
 			BOOST_LOG_TRIVIAL(debug) << "Cache prune: " << dir_entry.path().string();
 			fs::remove(dir_entry.path());
@@ -426,7 +426,7 @@ void PresetUpdater::priv::sync_config(const VendorMap vendors, const std::string
 						continue;
 					}
 					fs::path target_path(cache_vendor_path / name);
-					fs::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
+					std::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
 					file.write(buffer.c_str(), buffer.size());
 					file.close();
 					boost::system::error_code ec;
@@ -790,7 +790,7 @@ void PresetUpdater::priv::check_install_indices() const
 	BOOST_LOG_TRIVIAL(info) << "Checking if indices need to be installed from resources...";
 	if (!fs::exists(rsrc_path))
 		return;
-	for (auto& dir_entry : boost::filesystem::directory_iterator(rsrc_path)) {
+	for (auto& dir_entry : std::filesystem::directory_iterator(rsrc_path)) {
 		if (is_idx_file(dir_entry)) {
 			const auto& path = dir_entry.path();
 			const auto path_in_cache = cache_path / path.filename();
@@ -1444,11 +1444,11 @@ bool PresetUpdater::install_bundles_rsrc_or_cache_vendor(std::vector<std::string
 		// Fresh index should be in archive_dir, otherwise look for it in cache 
 		fs::path idx_path (path_in_cache_vendor);
 		idx_path.replace_extension(".idx");
-		if (!boost::filesystem::exists(idx_path)) {
+		if (!std::filesystem::exists(idx_path)) {
 			BOOST_LOG_TRIVIAL(error) << GUI::format("Couldn't locate idx file %1% when performing updates.", idx_path.string());
 			idx_path = fs::path(p->cache_path / idx_path.filename());
 		}
-		if (!boost::filesystem::exists(idx_path)) {
+		if (!std::filesystem::exists(idx_path)) {
 			std::string msg = GUI::format(_L("Couldn't locate index file for vendor %1% when performing updates. The profile will not be installed."), bundle);
 			BOOST_LOG_TRIVIAL(error) << msg;
 			GUI::show_error(nullptr, msg);

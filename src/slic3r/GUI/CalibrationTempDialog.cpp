@@ -68,8 +68,8 @@ void CalibrationTempDialog::create_geometry(wxCommandEvent& event_args) {
     wxGetApp().Yield();
     
     std::unique_ptr<wxWindowUpdateLocker> freeze_gui = std::make_unique<wxWindowUpdateLocker>(this);
-    std::vector<size_t> objs_idx = plat->load_files(std::vector<std::string>{
-            (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / "Smart_compact_temperature_calibration_item.amf").string()},
+    std::vector<size_t> objs_idx = plat->load_file(
+        std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / "Smart_compact_temperature_calibration_item.amf",
         LoadFileOption::LoadModel | LoadFileOption::DontUpdateDirs);
 
     assert(objs_idx.size() == 1);
@@ -133,17 +133,17 @@ void CalibrationTempDialog::create_geometry(wxCommandEvent& event_args) {
     float zshift = (1 - xyzScale) / 2;
     if (temperature > 175 && temperature < 290 && temperature%5==0) {
         Vec3d translate{ 0 - xyzScale * 3.75, -xyzScale * 2.7, xyzScale * (0 * 10 - 2.45) };
-        add_part(model.objects[objs_idx[0]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / ("t"+std::to_string(temperature)+".amf")).string(),
+        add_part(model.objects[objs_idx[0]], (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / ("t"+std::to_string(temperature)+".amf")).string(),
             translate, Vec3d{ xyzScale, xyzScale, xyzScale * 0.43 });
         translate_from_rotation(0, translate);
     }
     for (int16_t i = 1; i < nb_items; i++) {
-        add_part(model.objects[objs_idx[0]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / ("Smart_compact_temperature_calibration_item.amf")).string(),
+        add_part(model.objects[objs_idx[0]], (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / ("Smart_compact_temperature_calibration_item.amf")).string(),
             Vec3d{ 0,0, i * 10 * xyzScale }, Vec3d{ xyzScale, xyzScale * 0.5, xyzScale });
         int sub_temp = temperature - i * step_temp;
         if (sub_temp > 175 && sub_temp < 290 && sub_temp % 5 == 0) {
             Vec3d translate{ 0 - xyzScale * 3.75, -xyzScale * 2.7, xyzScale * (0 * 10 - 2.45) };
-            add_part(model.objects[objs_idx[0]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / ("t" + std::to_string(sub_temp) + ".amf")).string(),
+            add_part(model.objects[objs_idx[0]], (std::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / ("t" + std::to_string(sub_temp) + ".amf")).string(),
                 translate, Vec3d{ xyzScale, xyzScale, xyzScale * 0.43 });
             translate_from_rotation(0, translate);
         }

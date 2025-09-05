@@ -9,9 +9,9 @@
 #include "libslic3r/Time.hpp"
 #include "libslic3r/Zipper.hpp"
 
+#include <filesystem>
+
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 
 namespace Slic3r {
 
@@ -115,7 +115,7 @@ void MaskedCWSArchive::export_print(const std::string     fname,
 {
     std::string project =
         prjname.empty() ?
-            boost::filesystem::path(fname).stem().string() :
+            std::filesystem::path(fname).stem().string() :
             prjname;
     
     ConfMap iniconf, slicerconf;

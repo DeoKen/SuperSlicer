@@ -7,8 +7,6 @@
 
 #include <string>
 
-#include <boost/filesystem.hpp>
-
 #include "../libslic3r.h"
 #include "../PrintConfig.hpp"
 

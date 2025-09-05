@@ -24,12 +24,11 @@
 
 
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <unordered_map>
 #include <boost/format.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -90,7 +89,7 @@ ConfigFileType guess_config_file_type(const ptree &tree)
 }
 
 
-VendorProfile VendorProfile::from_ini(const boost::filesystem::path &path, bool load_all)
+VendorProfile VendorProfile::from_ini(const std::filesystem::path &path, bool load_all)
 {
     ptree tree;
     boost::nowide::ifstream ifs(path.string());
@@ -108,7 +107,7 @@ static const std::unordered_map<std::string, std::string> pre_family_model_map {
     { "SL1",        "SL1" },
 }};
 
-VendorProfile VendorProfile::from_ini(const ptree &tree, const boost::filesystem::path &path, bool load_all)
+VendorProfile VendorProfile::from_ini(const ptree &tree, const std::filesystem::path &path, bool load_all)
 {
     static const std::string printer_model_key = "printer_model:";
     static const std::string filaments_section = "default_filaments";
@@ -116,7 +115,7 @@ VendorProfile VendorProfile::from_ini(const ptree &tree, const boost::filesystem
 
     const std::string id = path.stem().string();
 
-    if (! boost::filesystem::exists(path)) {
+    if (! std::filesystem::exists(path)) {
         throw Slic3r::RuntimeError((boost::format("Cannot load Vendor Config Bundle `%1%`: File not found: `%2%`.") % id % path).str());
     }
 
@@ -1217,15 +1216,15 @@ void PresetCollection::load_presets(
     const std::string &dir_path, const std::string &subdir, 
     PresetsConfigSubstitutions& substitutions, ForwardCompatibilitySubstitutionRule substitution_rule)
 {
-    // Don't use boost::filesystem::canonical() on Windows, it is broken in regard to reparse points,
+    // Don't use std::filesystem::canonical() on Windows, it is broken in regard to reparse points,
     // see https://github.com/prusa3d/PrusaSlicer/issues/732
-    boost::filesystem::path dir = boost::filesystem::absolute(boost::filesystem::path(dir_path) / subdir).make_preferred();
+    std::filesystem::path dir = std::filesystem::absolute(std::filesystem::path(dir_path) / subdir).make_preferred();
     m_dir_path = dir.string();
     std::string errors_cummulative;
     // Store the loaded presets into a new vector, otherwise the binary search for already existing presets would be broken.
     // (see the "Preset already present, not loading" message).
     std::deque<Preset> presets_loaded;
-    for (auto &dir_entry : boost::filesystem::directory_iterator(dir))
+    for (auto &dir_entry : std::filesystem::directory_iterator(dir))
         if (Slic3r::is_ini_file(dir_entry)) {
             std::string name = dir_entry.path().filename().string();
             // Remove the .ini suffix.
@@ -2104,7 +2103,7 @@ std::vector<std::string> PresetCollection::system_preset_names() const
 std::string PresetCollection::path_from_name(const std::string &new_name) const
 {
     std::string file_name = boost::iends_with(new_name, ".ini") ? new_name : (new_name + ".ini");
-    return (boost::filesystem::path(m_dir_path) / file_name).make_preferred().string();
+    return (std::filesystem::path(m_dir_path) / file_name).make_preferred().string();
 }
 
 const Preset& PrinterPresetCollection::default_preset_for(const DynamicPrintConfig &config) const
@@ -2362,14 +2361,14 @@ void PhysicalPrinterCollection::load_printers(
     const std::string& dir_path, const std::string& subdir, 
     PresetsConfigSubstitutions& substitutions, ForwardCompatibilitySubstitutionRule substitution_rule)
 {
-    // Don't use boost::filesystem::canonical() on Windows, it is broken in regard to reparse points,
+    // Don't use std::filesystem::canonical() on Windows, it is broken in regard to reparse points,
     // see https://github.com/prusa3d/PrusaSlicer/issues/732
-    boost::filesystem::path dir = boost::filesystem::absolute(boost::filesystem::path(dir_path) / subdir).make_preferred();
+    std::filesystem::path dir = std::filesystem::absolute(std::filesystem::path(dir_path) / subdir).make_preferred();
     m_dir_path = dir.string();
     std::string errors_cummulative;
     // Store the loaded printers into a new vector, otherwise the binary search for already existing presets would be broken.
     std::deque<PhysicalPrinter> printers_loaded;
-    for (auto& dir_entry : boost::filesystem::directory_iterator(dir))
+    for (auto& dir_entry : std::filesystem::directory_iterator(dir))
         if (Slic3r::is_ini_file(dir_entry)) {
             std::string name = dir_entry.path().filename().string();
             // Remove the .ini suffix.
@@ -2538,7 +2537,7 @@ PhysicalPrinter* PhysicalPrinterCollection::find_printer_with_same_config(const 
 std::string PhysicalPrinterCollection::path_from_name(const std::string& new_name) const
 {
     std::string file_name = boost::iends_with(new_name, ".ini") ? new_name : (new_name + ".ini");
-    return (boost::filesystem::path(m_dir_path) / file_name).make_preferred().string();
+    return (std::filesystem::path(m_dir_path) / file_name).make_preferred().string();
 }
 
 void PhysicalPrinterCollection::save_printer(PhysicalPrinter& edited_printer, const std::string& renamed_from/* = ""*/)
@@ -2880,7 +2879,7 @@ namespace PresetUtils {
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
         if (pm != nullptr && !pm->bed_model.empty()) {
             out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_model;
-            if (!boost::filesystem::exists(boost::filesystem::path(out)))
+            if (!std::filesystem::exists(std::filesystem::path(out)))
                 out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_model;
         }
         return out;
@@ -2892,7 +2891,7 @@ namespace PresetUtils {
         const VendorProfile::PrinterModel* pm = PresetUtils::system_printer_model(preset);
         if (pm != nullptr && !pm->bed_texture.empty()) {
             out = Slic3r::data_dir() + "/vendor/" + preset.vendor->id + "/" + pm->bed_texture;
-            if (!boost::filesystem::exists(boost::filesystem::path(out)))
+            if (!std::filesystem::exists(std::filesystem::path(out)))
                 out = Slic3r::resources_dir() + "/profiles/" + preset.vendor->id + "/" + pm->bed_texture;
         }
         return out;
@@ -2900,7 +2899,7 @@ namespace PresetUtils {
 
     bool vendor_profile_has_all_resources(const VendorProfile& vp)
     {
-        namespace fs = boost::filesystem;
+        namespace fs = std::filesystem;
 
         std::string vendor_folder = Slic3r::data_dir()      + "/vendor/"   + vp.id + "/";
         std::string rsrc_folder   = Slic3r::resources_dir() + "/profiles/" + vp.id + "/";

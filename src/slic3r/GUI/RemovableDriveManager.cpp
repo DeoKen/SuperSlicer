@@ -6,6 +6,8 @@
 #include "libslic3r/Platform.hpp"
 #include <libslic3r/libslic3r.h>
 
+#include <filesystem>
+
 #include <boost/nowide/convert.hpp>
 #include <boost/log/trivial.hpp>
 
@@ -33,7 +35,6 @@
 #include <sys/stat.h>
 #include <glob.h>
 #include <pwd.h>
-#include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/process.hpp>
 #endif
@@ -751,14 +752,14 @@ namespace search_for_drives_internal
 			! compare_filesystem_id(path, parent_path)) {
 			//free space
 			boost::system::error_code ec;
-			boost::filesystem::space_info si = boost::filesystem::space(path, ec);
+			std::filesystem::space_info si = std::filesystem::space(path, ec);
 			if (!ec && si.available != 0) {
 				//user id
 				struct stat buf;
 				stat(path.c_str(), &buf);
 				uid_t uid = buf.st_uid;
 				if (getuid() == uid)
-                    out.emplace_back(DriveData{ boost::filesystem::path(path).stem().string(), path });
+                    out.emplace_back(DriveData{ std::filesystem::path(path).stem().string(), path });
 			}
 		}
 	}

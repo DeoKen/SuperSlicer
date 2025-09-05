@@ -8,6 +8,7 @@
 #include "I18N.hpp"
 
 #include <atomic>
+#include <filesystem>
 #include <locale>
 #include <ctime>
 #include <cstdarg>
@@ -44,12 +45,8 @@
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
-
 #include <boost/locale.hpp>
-
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/nowide/convert.hpp>
 #include <boost/nowide/cstdio.hpp>
@@ -173,8 +170,20 @@ const std::string& var_dir()
 
 std::string var(const std::string &file_name)
 {
-    auto file = (boost::filesystem::path(g_var_dir) / file_name).make_preferred();
+    auto file = (std::filesystem::path(g_var_dir) / file_name).make_preferred();
     return file.string();
+}
+
+static std::filesystem::path g_binary_dir;
+
+void set_binary_dir(const std::filesystem::path &dir)
+{
+    g_binary_dir = dir;
+}
+
+const std::filesystem::path& binary_dir()
+{
+    return g_binary_dir;
 }
 
 static std::string g_resources_dir;
@@ -233,18 +242,21 @@ static std::string g_data_dir;
 void set_data_dir(const std::string &dir)
 {
     // make sure the path is well formed for the os.
-    boost::filesystem::path fixpath(dir);
+    std::filesystem::path fixpath(dir);
     g_data_dir = fixpath.make_preferred().string();
 }
 
 const std::string& data_dir()
 {
+    assert(!g_data_dir.empty());
     return g_data_dir;
 }
 
+bool has_data_dir() { return !g_data_dir.empty(); }
+
 std::string custom_shapes_dir()
 {
-    return (boost::filesystem::path(g_data_dir) / "shapes").string();
+    return (std::filesystem::path(g_data_dir) / "shapes").string();
 }
 
 static std::atomic<bool> debug_out_path_called(false);
@@ -253,6 +265,7 @@ std::string debug_out_path(const char *name, ...)
 {
     static constexpr const char *SLIC3R_DEBUG_OUT_PATH_PREFIX = "out/";
     if (!debug_out_path_called.exchange(true)) {
+        //std::string path = std::filesystem::system_complete(std::filesystem::path(SLIC3R_DEBUG_OUT_PATH_PREFIX)).string();
         std::string path = boost::filesystem::system_complete(SLIC3R_DEBUG_OUT_PATH_PREFIX).string();
         printf("Debugging output files will be written to %s\n", path.c_str());
     }
@@ -277,6 +290,7 @@ std::string debug_out_path_uniqueid(std::string name, ...) {
     
     static constexpr const char *SLIC3R_DEBUG_OUT_PATH_PREFIX = "out/";
     if (!debug_out_path_called.exchange(true)) {
+        //std::string path = std::filesystem::system_complete(SLIC3R_DEBUG_OUT_PATH_PREFIX).string();
         std::string path = boost::filesystem::system_complete(SLIC3R_DEBUG_OUT_PATH_PREFIX).string();
         printf("Debugging output files will be written to %s\n", path.c_str());
     }
@@ -548,22 +562,22 @@ namespace WindowsSupport
 
 
 // Try to find where the file can be.
-// First try without any modification, for absolute apth and relative path fromt he current directory
+// First try without any modification, for absolute path and relative path from the current directory
 // Then try from the slic3r.exe directory
 // Then from the configuration directory
 // Then from the USER directory
-boost::filesystem::path find_full_path(const boost::filesystem::path filename, const boost::filesystem::path return_fail) {
+std::filesystem::path find_full_path(const std::filesystem::path filename, const std::filesystem::path return_fail) {
     if (filename.empty()) return return_fail;
-    boost::filesystem::path ret = filename;
-    if (!boost::filesystem::exists(filename)) {
+    std::filesystem::path ret = filename;
+    if (!std::filesystem::exists(filename)) {
         // try from our install directory 
 #ifdef WIN32
         wchar_t wpath_exe[_MAX_PATH + 1];
         ::GetModuleFileNameW(nullptr, wpath_exe, _MAX_PATH);
-        boost::filesystem::path local_dir = boost::filesystem::path(wpath_exe).parent_path();
+        std::filesystem::path test_dir = std::filesystem::path(wpath_exe).parent_path();
 #else
         char result[PATH_MAX + 1];
-        boost::filesystem::path local_dir(".");
+        std::filesystem::path test_dir(".");
 #ifdef __APPLE__
         uint32_t count = uint32_t(PATH_MAX + 1);
         if (_NSGetExecutablePath(result, &count) == 0) {
@@ -571,38 +585,38 @@ boost::filesystem::path find_full_path(const boost::filesystem::path filename, c
         int32_t count = readlink("/proc/self/exe", result, sizeof(result) - 1);
         if (count != -1) {
 #endif
-            local_dir = boost::filesystem::path(std::string(result, (count > 0) ? count : 0)).parent_path();
+            test_dir = std::filesystem::path(std::string(result, (count > 0) ? count : 0)).parent_path();
         }
 #endif
-        if (!boost::filesystem::exists(local_dir / filename)) {
+        if (!std::filesystem::exists(test_dir / filename)) {
             //try with configuration directory
-            local_dir = boost::filesystem::path(Slic3r::data_dir());
+            test_dir = std::filesystem::path(Slic3r::data_dir());
         }
-        if (!boost::filesystem::exists(local_dir / filename)) {
+        if (!std::filesystem::exists(test_dir / filename)) {
             //try with configuration directory
 #ifdef WIN32
-            local_dir = boost::filesystem::path(::getenv("USERPROFILE"));
+            test_dir = std::filesystem::path(::getenv("USERPROFILE"));
 #else
-            local_dir = boost::filesystem::path(::getenv("HOME"));
+            test_dir = std::filesystem::path(::getenv("HOME"));
 #endif
         }
-        if (!boost::filesystem::exists(local_dir / filename)) {
+        if (!std::filesystem::exists(test_dir / filename)) {
             return return_fail;
         } else {
-            ret = local_dir / filename;
+            ret = test_dir / filename;
         }
     }
     return ret;
 }
 
-boost::filesystem::path shorten_path(const boost::filesystem::path filename) {
+std::filesystem::path shorten_path(const std::filesystem::path filename) {
     if (filename.empty()) return filename;
     std::string current_filename = filename.generic_string();
     // try from our install directory 
 #ifdef WIN32
     wchar_t wpath_exe[_MAX_PATH + 1];
     ::GetModuleFileNameW(nullptr, wpath_exe, _MAX_PATH);
-    std::string local_dir = boost::filesystem::path(wpath_exe).parent_path().generic_string();
+    std::string local_dir = std::filesystem::path(wpath_exe).parent_path().generic_string();
 #else
     char result[PATH_MAX + 1];
     std::string local_dir = ".";
@@ -613,25 +627,25 @@ boost::filesystem::path shorten_path(const boost::filesystem::path filename) {
     int32_t count = readlink("/proc/self/exe", result, sizeof(result) - 1);
     if (count != -1) {
 #endif
-        local_dir = boost::filesystem::path(std::string(result, (count > 0) ? count : 0)).parent_path().generic_string();
+        local_dir = std::filesystem::path(std::string(result, (count > 0) ? count : 0)).parent_path().generic_string();
     }
 #endif
     if (boost::starts_with(current_filename, local_dir)) {
-        return boost::filesystem::path(current_filename.substr(local_dir.size() + 1));
+        return std::filesystem::path(current_filename.substr(local_dir.size() + 1));
     }
     //try with configuration directory
     local_dir = Slic3r::data_dir();
     if (boost::starts_with(current_filename, local_dir)) {
-        return boost::filesystem::path(current_filename.substr(local_dir.size() + 1));
+        return std::filesystem::path(current_filename.substr(local_dir.size() + 1));
     }
     //try with configuration directory
 #ifdef WIN32
-    local_dir = boost::filesystem::path(::getenv("USERPROFILE")).generic_string();
+    local_dir = std::filesystem::path(::getenv("USERPROFILE")).generic_string();
 #else
-    local_dir = boost::filesystem::path(::getenv("HOME")).generic_string();
+    local_dir = std::filesystem::path(::getenv("HOME")).generic_string();
 #endif
     if (boost::starts_with(current_filename, local_dir)) {
-        return boost::filesystem::path(current_filename.substr(local_dir.size() + 1));
+        return std::filesystem::path(current_filename.substr(local_dir.size() + 1));
     }
     return filename;
 }
@@ -649,7 +663,7 @@ std::error_code rename_file(const std::string &from, const std::string &to)
 }
 
 #ifdef __linux__
-// Copied from boost::filesystem. 
+// Copied from std::filesystem. 
 // Called by copy_file_linux() in case linux sendfile() API is not supported.
 int copy_file_linux_read_write(int infile, int outfile, uintmax_t file_size)
 {
@@ -696,13 +710,13 @@ int copy_file_linux_read_write(int infile, int outfile, uintmax_t file_size)
     return 0;
 }
 
-// Copied from boost::filesystem, to support copying a file to a weird filesystem, which does not support changing file attributes,
+// Copied from std::filesystem, to support copying a file to a weird filesystem, which does not support changing file attributes,
 // for example ChromeOS Linux integration or FlashAIR WebDAV.
-// Copied and simplified from boost::filesystem::detail::copy_file() with option = overwrite_if_exists and with just the Linux path kept,
+// Copied and simplified from std::filesystem::detail::copy_file() with option = overwrite_if_exists and with just the Linux path kept,
 // and only features supported by Linux 3.10 (on our build server with CentOS 7) are kept, namely sendfile with ranges and statx() are not supported.
-bool copy_file_linux(const boost::filesystem::path &from, const boost::filesystem::path &to, boost::system::error_code &ec)
+bool copy_file_linux(const std::filesystem::path &from, const std::filesystem::path &to, boost::system::error_code &ec)
 {
-	using namespace boost::filesystem;
+	using namespace std::filesystem;
 
 	struct fd_wrapper
 	{
@@ -844,14 +858,16 @@ bool copy_file_linux(const boost::filesystem::path &from, const boost::filesyste
 
 CopyFileResult copy_file_inner(const std::string& from, const std::string& to, std::string& error_message)
 {
-	const boost::filesystem::path source(from);
-	const boost::filesystem::path target(to);
+	const std::filesystem::path source(from);
+	const std::filesystem::path target(to);
 	return copy_file_inner(source, target, error_message);
 }
 
-CopyFileResult copy_file_inner(const boost::filesystem::path& source, const boost::filesystem::path& target, std::string& error_message)
+CopyFileResult copy_file_inner(const std::filesystem::path& source, const std::filesystem::path& target, std::string& error_message)
 {
-	static const auto perms = boost::filesystem::owner_read | boost::filesystem::owner_write | boost::filesystem::group_read | boost::filesystem::others_read;   // aka 644
+    static const std::filesystem::perms perms = std::filesystem::perms::owner_read |
+        std::filesystem::perms::owner_write | std::filesystem::perms::group_read |
+        std::filesystem::perms::others_read; // aka 644
 
 	// Make sure the file has correct permission both before and after we copy over it.
 	// NOTE: error_code variants are used here to supress expception throwing.
@@ -860,25 +876,25 @@ CopyFileResult copy_file_inner(const boost::filesystem::path& source, const boos
 	// calls to cause needless failures on permissionless filesystems (ie. FATs on SD cards etc.)
 	// or when the target file doesn't exist.
 	boost::system::error_code ec;
-	boost::filesystem::permissions(target, perms, ec);
+	std::filesystem::permissions(target, perms, ec);
 	if (ec)
-		BOOST_LOG_TRIVIAL(debug) << "boost::filesystem::permisions before copy error message (this could be irrelevant message based on file system): " << ec.message();
+		BOOST_LOG_TRIVIAL(debug) << "std::filesystem::permisions before copy error message (this could be irrelevant message based on file system): " << ec.message();
 	ec.clear();
 #ifdef __linux__
 	// We want to allow copying files on Linux to succeed even if changing the file attributes fails.
 	// That may happen when copying on some exotic file system, for example Linux on Chrome.
 	copy_file_linux(source, target, ec);
 #else // __linux__
-	boost::filesystem::copy_file(source, target, boost::filesystem::copy_options::overwrite_existing, ec);
+	std::filesystem::copy_file(source, target, std::filesystem::copy_options::overwrite_existing, ec);
 #endif // __linux__
 	if (ec) {
 		error_message = ec.message();
 		return FAIL_COPY_FILE;
 	}
 	ec.clear();
-	boost::filesystem::permissions(target, perms, ec);
+	std::filesystem::permissions(target, perms, ec);
 	if (ec)
-		BOOST_LOG_TRIVIAL(debug) << "boost::filesystem::permisions after copy error message (this could be irrelevant message based on file system): " << ec.message();
+		BOOST_LOG_TRIVIAL(debug) << "std::filesystem::permisions after copy error message (this could be irrelevant message based on file system): " << ec.message();
 	return SUCCESS;
 }
 
@@ -936,9 +952,9 @@ CopyFileResult check_copy(const std::string &origin, const std::string &copy)
 
 // Ignore system and hidden files, which may be created by the DropBox synchronisation process.
 // https://github.com/prusa3d/PrusaSlicer/issues/1298
-bool is_plain_file(const boost::filesystem::directory_entry &dir_entry)
+bool is_plain_file(const std::filesystem::directory_entry &dir_entry)
 {
-    if (! boost::filesystem::is_regular_file(dir_entry.status()))
+    if (! std::filesystem::is_regular_file(dir_entry.status()))
         return false;
 #ifdef _MSC_VER
     DWORD attributes = GetFileAttributesW(boost::nowide::widen(dir_entry.path().string()).c_str());
@@ -948,12 +964,12 @@ bool is_plain_file(const boost::filesystem::directory_entry &dir_entry)
 #endif
 }
 
-bool is_ini_file(const boost::filesystem::directory_entry &dir_entry)
+bool is_ini_file(const std::filesystem::directory_entry &dir_entry)
 {
     return is_plain_file(dir_entry) && strcasecmp(dir_entry.path().extension().string().c_str(), ".ini") == 0;
 }
 
-bool is_idx_file(const boost::filesystem::directory_entry &dir_entry)
+bool is_idx_file(const std::filesystem::directory_entry &dir_entry)
 {
 	return is_plain_file(dir_entry) && strcasecmp(dir_entry.path().extension().string().c_str(), ".idx") == 0;
 }
@@ -970,7 +986,7 @@ bool is_img_file(const std::string &path)
 	return boost::iends_with(path, ".png") || boost::iends_with(path, ".svg");
 }
 
-bool is_gallery_file(const boost::filesystem::directory_entry& dir_entry, char const* type)
+bool is_gallery_file(const std::filesystem::directory_entry& dir_entry, char const* type)
 {
 	return is_plain_file(dir_entry) && strcasecmp(dir_entry.path().extension().string().c_str(), type) == 0;
 }

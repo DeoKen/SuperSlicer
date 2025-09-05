@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <condition_variable>
 #include <exception>
+#include <filesystem>
 #include <string>
 #include <thread>
 
@@ -363,7 +364,7 @@ bool fix_model_by_win10_sdk_gui(ModelObject &model_object, int volume_idx, wxPro
 			meshes_repaired.reserve(volumes.size());
 			for (; ivolume < volumes.size(); ++ ivolume) {
 				on_progress(L("Exporting source model"), 0);
-				boost::filesystem::path path_src = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+				std::filesystem::path path_src = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
 				path_src += ".3mf";
 				Model model;
                 ModelObject *mo = model.add_object();
@@ -380,22 +381,22 @@ bool fix_model_by_win10_sdk_gui(ModelObject &model_object, int volume_idx, wxPro
                 OptionStore3mf opt3mf;
                 if (!Slic3r::store_3mf(path_src.string().c_str(), &model, nullptr,
                                        opt3mf.set_fullpath_sources(false).set_zip64(false))) {
-					boost::filesystem::remove(path_src);
+					std::filesystem::remove(path_src);
 					throw Slic3r::RuntimeError("Export of a temporary 3mf file failed");
 				}
 				model.clear_objects();
 				model.clear_materials();
-				boost::filesystem::path path_dst = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+				std::filesystem::path path_dst = std::filesystem::temp_directory_path() / boost::filesystem::unique_path().string();
 				path_dst += ".3mf";
 				fix_model_by_win10_sdk(path_src.string().c_str(), path_dst.string(), on_progress, 
 					[&canceled]() { if (canceled) throw RepairCanceledException(); });
-				boost::filesystem::remove(path_src);
+				std::filesystem::remove(path_src);
 	            // PresetBundle bundle;
 				on_progress(L("Loading repaired model"), 80);
 				DynamicPrintConfig config;
 				ConfigSubstitutionContext config_substitutions{ ForwardCompatibilitySubstitutionRule::EnableSilent };
 				bool loaded = Slic3r::load_3mf(path_dst.string().c_str(), config, config_substitutions, &model, false, false);
-			    boost::filesystem::remove(path_dst);
+			    std::filesystem::remove(path_dst);
 				if (! loaded)
 	 				throw Slic3r::RuntimeError("Import of the repaired 3mf file failed");
 	 			if (model.objects.size() == 0)

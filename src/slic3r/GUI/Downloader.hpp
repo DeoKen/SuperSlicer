@@ -6,7 +6,9 @@
 #define slic3r_Downloader_hpp_
 
 #include "DownloaderFileGet.hpp"
-#include <boost/filesystem/path.hpp>
+
+#include <filesystem>
+
 #include <wx/wx.h>
 
 namespace Slic3r {
@@ -35,14 +37,14 @@ enum DownloaderUserAction
 
 class Download { 
 public:
-    Download(int ID, std::string url, wxEvtHandler* evt_handler, const boost::filesystem::path& dest_folder);
+    Download(int ID, std::string url, wxEvtHandler* evt_handler, const std::filesystem::path& dest_folder);
     void start();
     void cancel();
     void pause();
     void resume();
 
     int get_id() const { return m_id; }
-    boost::filesystem::path get_final_path() const { return m_final_path; }
+    std::filesystem::path get_final_path() const { return m_final_path; }
     std::string get_filename() const { return m_filename; }
     DownloadState get_state() const { return m_state; }
     void set_state(DownloadState state) { m_state = state; }
@@ -50,8 +52,8 @@ public:
 private: 
     const int m_id;
     std::string m_filename;
-    boost::filesystem::path m_final_path;
-    boost::filesystem::path m_dest_folder;
+    std::filesystem::path m_final_path;
+    std::filesystem::path m_dest_folder;
     std::shared_ptr<FileGet> m_file_get;
     DownloadState m_state { DownloadState::DownloadPending };
 };
@@ -61,7 +63,7 @@ public:
     Downloader();
     
     bool get_initialized() { return m_initialized; }
-    void init(const boost::filesystem::path& dest_folder) 
+    void init(const std::filesystem::path& dest_folder) 
     { 
         m_dest_folder = dest_folder;
         m_initialized = true; 
@@ -73,7 +75,7 @@ private:
     bool m_initialized { false };
 
     std::vector<std::unique_ptr<Download>> m_downloads;
-    boost::filesystem::path m_dest_folder;
+    std::filesystem::path m_dest_folder;
 
     size_t m_next_id { 0 };
     size_t get_next_id() { return ++m_next_id; }

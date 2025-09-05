@@ -56,7 +56,7 @@ public:
 	void    uninit();
 private:
 	void	init();
-	void	load_hints_from_file(const boost::filesystem::path& path);
+	void	load_hints_from_file(const std::filesystem::path& path);
 	bool    is_used(const std::string& id);
 	void    set_used(const std::string& id);
 	void    clear_used();

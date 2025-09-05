@@ -30,6 +30,7 @@
 #include "wxExtensions.hpp"
 
 #include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/locale.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -305,7 +306,7 @@ FreeCADDialog::FreeCADDialog(GUI_App* app, MainFrame* mainframe)
 }
 
 void FreeCADDialog::close_me(wxCommandEvent& event_args) {
-    this->write_text_in_file(m_text->GetText(), boost::filesystem::path(Slic3r::data_dir()) / "temp" / "current_pyscad.py");
+    this->write_text_in_file(m_text->GetText(), std::filesystem::path(Slic3r::data_dir()) / "temp" / "current_pyscad.py");
     this->gui_app->change_calibration_dialog(this, nullptr);
     this->Destroy();
 }
@@ -319,13 +320,13 @@ void FreeCADDialog::load_script(wxCommandEvent& event_args) {
         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
     if (dialog.ShowModal() == wxID_OK) {
-        opened_file = boost::filesystem::path(dialog.GetPath().wx_str());
+        opened_file = std::filesystem::path(dialog.GetPath().wx_str());
         load_text_from_file(opened_file);
     }
 }
 
-bool FreeCADDialog::load_text_from_file(const boost::filesystem::path &path) {
-    if (boost::filesystem::exists(path)) {
+bool FreeCADDialog::load_text_from_file(const std::filesystem::path &path) {
+    if (std::filesystem::exists(path)) {
         try {
             std::locale loc = boost::locale::generator()("en_US.UTF-8");
             // Open the stream to 'lock' the file.
@@ -333,7 +334,7 @@ bool FreeCADDialog::load_text_from_file(const boost::filesystem::path &path) {
             in.imbue(loc);
             in.open(path.string());
             // Obtain the size of the file.
-            const uintmax_t sz = boost::filesystem::file_size(path);
+            const uintmax_t sz = std::filesystem::file_size(path);
             // Create a buffer.
             std::string result(sz, '\0');
             // Read the whole file into the buffer.
@@ -359,21 +360,21 @@ void FreeCADDialog::save_script(wxCommandEvent& event_args) {
         wxFD_SAVE);
 
     if (dialog.ShowModal() == wxID_OK) {
-        opened_file = boost::filesystem::path(dialog.GetPath().wx_str());
+        opened_file = std::filesystem::path(dialog.GetPath().wx_str());
         write_text_in_file(m_text->GetText(), opened_file);
     }
 }
 void FreeCADDialog::quick_save(wxCommandEvent& event_args) {
 
-    if (boost::filesystem::exists(opened_file) ){
+    if (std::filesystem::exists(opened_file) ){
         write_text_in_file(m_text->GetText(), opened_file);
     }
 }
 
-bool FreeCADDialog::write_text_in_file(const wxString &towrite, const boost::filesystem::path &file) {
+bool FreeCADDialog::write_text_in_file(const wxString &towrite, const std::filesystem::path &file) {
     try {
         //add text if the saved file exist
-        boost::filesystem::create_directories(file.parent_path());
+        std::filesystem::create_directories(file.parent_path());
         std::locale loc = boost::locale::generator()("en_US.UTF-8");
         // Open the stream to 'lock' the file.
         boost::nowide::ofstream out;
@@ -715,7 +716,7 @@ void FreeCADDialog::createSTC()
     m_text->StyleSetForeground(wxSTC_P_IDENTIFIER, wxColour(255u, 64u, 255u)); // function call and almost all defined words in the language, violet
 
     //add text if the saved file exist
-    boost::filesystem::path temp_file(Slic3r::data_dir());
+    std::filesystem::path temp_file(Slic3r::data_dir());
     temp_file = temp_file / "temp" / "current_pyscad.py";
     load_text_from_file(temp_file);
 
@@ -755,7 +756,7 @@ void FreeCADDialog::test_update_script_file(std::string &json) {
     ss << json;
     boost::property_tree::ptree root;
     boost::property_tree::read_json(ss, root);
-    const boost::filesystem::path pyscad_path(boost::filesystem::path(Slic3r::data_dir()) / "scripts" / "FreePySCAD");
+    const std::filesystem::path pyscad_path(std::filesystem::path(Slic3r::data_dir()) / "scripts" / "FreePySCAD");
     try {
         std::string str_date;
         for (const auto &entry : root.get_child("commit.committer")) {
@@ -772,9 +773,14 @@ void FreeCADDialog::test_update_script_file(std::string &json) {
         BOOST_LOG_TRIVIAL(debug) << "root.commit.committer.date=" << str_date;
         std::time_t commit_time = parse_iso_time(str_date);
         BOOST_LOG_TRIVIAL(debug) << "github time_t = " << commit_time;
-        std::time_t last_modif = boost::filesystem::last_write_time(pyscad_path / "freepyscad.py");
+        // to be used when c++20 will be the min version
+        //std::filesystem::file_time_type last_modif = std::filesystem::last_write_time(pyscad_path / "freepyscad.py");
+        //const std::chrono::system_clock systemTime = std::chrono::clock_cast<std::chrono::system_clock>(last_modif);
+        //const std::time_t last_modif_time = std::chrono::system_clock::to_time_t(systemTime);
+        // boost verison in the meantime
+        std::time_t last_modif_time = boost::filesystem::last_write_time(boost::filesystem::path(pyscad_path.string()) / "freepyscad.py");
         BOOST_LOG_TRIVIAL(debug) << "pyscad_path time_t = " << commit_time;
-        if (commit_time > last_modif) {
+        if (commit_time > last_modif_time) {
             get_file_from_web("https://raw.githubusercontent.com/supermerill/FreePySCAD/master/__init__.py", pyscad_path / "__init__.py");
             get_file_from_web("https://raw.githubusercontent.com/supermerill/FreePySCAD/master/Init.py", pyscad_path / "Init.py");
             get_file_from_web("https://raw.githubusercontent.com/supermerill/FreePySCAD/master/freepyscad.py", pyscad_path / "freepyscad.py");
@@ -793,7 +799,7 @@ bool FreeCADDialog::init_start_python() {
 
 #ifdef __WINDOWS__
     // Get the freecad path (python path)
-    boost::filesystem::path pythonpath(gui_app->app_config->get("freecad_path"));
+    std::filesystem::path pythonpath(gui_app->app_config->get("freecad_path"));
     if (pythonpath.filename().string().find("python") == std::string::npos) {
         if (pythonpath.filename().string() != "bin") {
             pythonpath = pythonpath / "bin";
@@ -804,20 +810,20 @@ bool FreeCADDialog::init_start_python() {
         m_errors->AppendText("Error, cannot find the freecad (version 0.19 or higher) python at '" + pythonpath.string() + "', please update your freecad python path in the preferences.");
         return false;
     }
-    boost::filesystem::path freecadpath = pythonpath.parent_path().parent_path();
+    std::filesystem::path freecadpath = pythonpath.parent_path().parent_path();
     if (!exists(freecadpath / "lib")) {
         m_errors->AppendText("Error, cannot find the freecad (version 0.19 or higher) lib directory at '" + (freecadpath / "lib").string() + "', please update your freecad python path in the preferences.");
         return false;
     }
 #else
     // Get the freecad path
-    boost::filesystem::path freecadpath = gui_app->app_config->get("freecad_path");
+    std::filesystem::path freecadpath = gui_app->app_config->get("freecad_path");
     // using the system python (as freecad don't come with its own)
-    boost::filesystem::path pythonpath("python3");
+    std::filesystem::path pythonpath("python3");
     // or the freecad one if it exists
-    if (boost::filesystem::exists(freecadpath / "bin" / "python")) {
+    if (std::filesystem::exists(freecadpath / "bin" / "python")) {
         pythonpath = freecadpath / "bin" / "python";
-    } else if (boost::filesystem::exists(freecadpath / "bin" / "python3")) {
+    } else if (std::filesystem::exists(freecadpath / "bin" / "python3")) {
         pythonpath = freecadpath / "bin" / "python3";
     }
     //TODO check if python3 exists in the PATH, and use an exiting python if it doesn't.
@@ -827,10 +833,10 @@ bool FreeCADDialog::init_start_python() {
     }
 #endif
 
-    const boost::filesystem::path scripts_path(boost::filesystem::path(Slic3r::data_dir()) / "scripts");
-    boost::filesystem::create_directories(scripts_path / "FreePySCAD");
+    const std::filesystem::path scripts_path(std::filesystem::path(Slic3r::data_dir()) / "scripts");
+    std::filesystem::create_directories(scripts_path / "FreePySCAD");
 
-    if (!boost::filesystem::exists(scripts_path / "FreePySCAD" / "freepyscad.py")) {
+    if (!std::filesystem::exists(scripts_path / "FreePySCAD" / "freepyscad.py")) {
         get_file_from_web("https://raw.githubusercontent.com/supermerill/FreePySCAD/master/__init__.py", scripts_path / "FreePySCAD" / "__init__.py");
         get_file_from_web("https://raw.githubusercontent.com/supermerill/FreePySCAD/master/Init.py", scripts_path / "FreePySCAD" / "Init.py");
         get_file_from_web("https://raw.githubusercontent.com/supermerill/FreePySCAD/master/freepyscad.py", scripts_path / "FreePySCAD" / "freepyscad.py");
@@ -838,7 +844,7 @@ bool FreeCADDialog::init_start_python() {
         this->update_done = true;
         //try to check last version on website
         //it's async so maybe you won't update it in time, but it's not the end of the world. 
-        const boost::filesystem::path pyscad_path = scripts_path / "FreePySCAD";
+        const std::filesystem::path pyscad_path = scripts_path / "FreePySCAD";
         std::function<void(FreeCADDialog*, std::string&)> truc = &FreeCADDialog::test_update_script_file;
         get_string_from_web_async("https://api.github.com/repos/supermerill/FreePySCAD/commits/master", this, &FreeCADDialog::test_update_script_file);
     }
@@ -879,7 +885,7 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
     //Create the script
 
     // cleaning
-    boost::filesystem::path object_path(Slic3r::data_dir());
+    std::filesystem::path object_path(Slic3r::data_dir());
     object_path = object_path / "temp" / "temp.amf";
     m_errors->Clear();
     if (exists(object_path)) {
@@ -894,9 +900,9 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
 
     //create file
     //search for scene().redraw(...), add it if not present (without defs)
-    boost::filesystem::path temp_file(Slic3r::data_dir());
+    std::filesystem::path temp_file(Slic3r::data_dir());
     temp_file = temp_file / "temp";
-    boost::filesystem::create_directories(temp_file);
+    std::filesystem::create_directories(temp_file);
     temp_file = temp_file / "exec_temp.py";
     wxString text = m_text->GetText();
     if (text.find("scene().redraw(") == std::string::npos) {
@@ -921,7 +927,7 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
         int nb = std::stoi((*it)[1]);
         object_used.insert(nb);
         std::stringstream ss; ss << "plater_" << nb << ".stl";
-        boost::filesystem::path temp_stl(Slic3r::data_dir());
+        std::filesystem::path temp_stl(Slic3r::data_dir());
         temp_stl = temp_stl / "temp" / ss.str();
         //add replaced
         std::wstring txt_new = L"importStl(\"";
@@ -936,7 +942,7 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
     for (size_t idx_plater_obj : object_used) {
         if (idx_plater_obj <= this->main_frame->plater()->model().objects.size()) {
             std::stringstream ss; ss << "plater_" << idx_plater_obj << ".stl";
-            boost::filesystem::path temp_stl(Slic3r::data_dir());
+            std::filesystem::path temp_stl(Slic3r::data_dir());
             temp_stl = temp_stl / "temp" / ss.str();
             TriangleMesh mesh = (idx_plater_obj == 0) ? this->main_frame->plater()->model().mesh() : this->main_frame->plater()->model().objects[idx_plater_obj - 1]->mesh();
             Slic3r::store_stl(temp_stl.generic_string().c_str(), 
@@ -954,7 +960,7 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
         return;
     }
     //also write the current temp file
-    this->write_text_in_file(m_text->GetText(), boost::filesystem::path(Slic3r::data_dir()) / "temp" / "current_pyscad.py");
+    this->write_text_in_file(m_text->GetText(), std::filesystem::path(Slic3r::data_dir()) / "temp" / "current_pyscad.py");
 
 
     //exec_var->pyin << "scene().redraw("<< boost::replace_all_copy(boost::replace_all_copy(m_text->GetText(), "\r", ""), "\n", "") <<")" << std::endl;
@@ -986,7 +992,7 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
     Model& model = plat->model();
     if(cmb_add_replace->GetSelection() == 0)
         plat->new_project();
-    std::vector<size_t> objs_idx = plat->load_files(std::vector<std::string>{ object_path.generic_string() }, LoadFileOption::LoadModel | LoadFileOption::DontUpdateDirs);
+    std::vector<size_t> objs_idx = plat->load_file(object_path, LoadFileOption::LoadModel | LoadFileOption::DontUpdateDirs);
     if (objs_idx.empty()) return;
     //don't save in the temp directory: erase the link to it
     for (int idx : objs_idx)

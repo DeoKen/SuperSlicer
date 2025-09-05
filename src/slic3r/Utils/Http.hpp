@@ -7,16 +7,15 @@
 #ifndef slic3r_Http_hpp_
 #define slic3r_Http_hpp_
 
+#include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
-#include <functional>
-#include <boost/filesystem/path.hpp>
-
 
 namespace Slic3r {
 
 	// simple download
-	bool get_file_from_web(const std::string& url, const boost::filesystem::path& target_path);
+	bool get_file_from_web(const std::string& url, const std::filesystem::path& target_path);
 
 /// Represetns a Http request
 class Http : public std::enable_shared_from_this<Http> {
@@ -93,9 +92,9 @@ public:
 	// Add a HTTP multipart form field
 	Http& form_add(const std::string &name, const std::string &contents);
 	// Add a HTTP multipart form file data contents, `name` is the name of the part
-	Http& form_add_file(const std::string &name, const boost::filesystem::path &path);
+	Http& form_add_file(const std::string &name, const std::filesystem::path &path);
 	// Same as above except also override the file's filename with a custom one
-	Http& form_add_file(const std::string &name, const boost::filesystem::path &path, const std::string &filename);
+	Http& form_add_file(const std::string &name, const std::filesystem::path &path, const std::string &filename);
 
 #ifdef WIN32
 	// Tells libcurl to ignore certificate revocation checks in case of missing or offline distribution points for those SSL backends where such behavior is present. 
@@ -106,7 +105,7 @@ public:
 	// Set the file contents as a POST request body.
 	// The data is used verbatim, it is not additionally encoded in any way.
 	// This can be used for hosts which do not support multipart requests.
-	Http& set_post_body(const boost::filesystem::path &path);
+	Http& set_post_body(const std::filesystem::path &path);
 
 	// Set the POST request body.
 	// The data is used verbatim, it is not additionally encoded in any way.
@@ -116,7 +115,7 @@ public:
 	// Set the file contents as a PUT request body.
 	// The data is used verbatim, it is not additionally encoded in any way.
 	// This can be used for hosts which do not support multipart requests.
-	Http& set_put_body(const boost::filesystem::path &path);
+	Http& set_put_body(const std::filesystem::path &path);
 
 	// Callback called on HTTP request complete
 	Http& on_complete(CompleteFn fn);

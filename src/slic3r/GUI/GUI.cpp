@@ -12,12 +12,12 @@
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/LocalesUtils.hpp"
 
+#include <filesystem>
 #include <string>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/any.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
 #if __APPLE__
@@ -414,18 +414,18 @@ std::string into_u8(const wxString &str)
 	return std::string(buffer_utf8.data());
 }
 
-wxString from_path(const boost::filesystem::path &path)
+wxString from_path(const std::filesystem::path &path)
 {
 #ifdef _WIN32
-	return wxString(path.string<std::wstring>());
+    return wxString(path.wstring());
 #else
-	return from_u8(path.string<std::string>());
+    return from_u8(path.string());
 #endif
 }
 
-boost::filesystem::path into_path(const wxString &str)
+std::filesystem::path into_path(const wxString &str)
 {
-	return boost::filesystem::path(str.wx_str());
+	return std::filesystem::path(str.wx_str());
 }
 
 void about()
@@ -436,13 +436,13 @@ void about()
 
 void desktop_open_datadir_folder()
 {
-	boost::filesystem::path path(data_dir());
+	std::filesystem::path path(data_dir());
 	desktop_open_folder(std::move(path));
 }
 
-void desktop_open_folder(const boost::filesystem::path& path)
+void desktop_open_folder(const std::filesystem::path& path)
 {
-	if (!boost::filesystem::is_directory(path)) 
+	if (!std::filesystem::is_directory(path)) 
 		return;
 
 	// Execute command to open a file explorer, platform dependent.
@@ -520,10 +520,10 @@ void desktop_execute_get_result(wxString command, wxArrayString& output)
 #endif // __linux__
 
 #ifdef _WIN32
-bool create_process(const boost::filesystem::path& path, const std::wstring& cmd_opt, std::string& error_msg)
+bool create_process(const std::filesystem::path& path, const std::wstring& cmd_opt, std::string& error_msg)
 {
 	// find updater exe
-	if (boost::filesystem::exists(path)) {
+	if (std::filesystem::exists(path)) {
 		// Using quoted string as mentioned in CreateProcessW docs.
 		std::wstring wcmd = L"\"" + path.wstring() + L"\"";
 		if (!cmd_opt.empty())

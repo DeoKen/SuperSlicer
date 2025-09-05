@@ -5,12 +5,12 @@
 #include "GalleryDialog.hpp"
 
 #include <cstddef>
+#include <filesystem>
 #include <vector>
 #include <string>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
 
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -45,7 +45,7 @@ namespace GUI {
 #define BORDER_W    10
 #define IMG_PX_CNT  64
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 // Gallery::DropTarget
 class GalleryDropTarget : public wxFileDropTarget

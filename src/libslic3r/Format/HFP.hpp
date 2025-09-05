@@ -11,8 +11,6 @@
 #include <utility>
 
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 #include "../libslic3r.h"
 #include "../Exception.hpp"
 #include "../Model.hpp"

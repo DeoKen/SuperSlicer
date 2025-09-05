@@ -38,12 +38,12 @@ private:
     // m_texture_filename can be relative or absolute
     std::string m_texture_filename;
     // absolute path for m_texture_filename
-    boost::filesystem::path m_texture_path;
+    std::filesystem::path m_texture_path;
     bool m_texture_with_grid = false;
     // m_model_filename can be relative or absolute
     std::string m_model_filename;
     // absolute path for m_model_filename
-    boost::filesystem::path m_model_path;
+    std::filesystem::path m_model_path;
     // Print volume bounding box exteded with axes and model.
     BoundingBoxf3 m_extended_bounding_box;
     // Print bed polygon

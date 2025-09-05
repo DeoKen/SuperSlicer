@@ -6,6 +6,8 @@
 #include "BlacklistedLibraryCheck.hpp"
 
 #include <cstdio>
+#include <filesystem>
+
 #include <boost/nowide/convert.hpp>
 
 #ifdef  WIN32
@@ -70,7 +72,7 @@ bool BlacklistedLibraryCheck::perform_check()
 
 bool BlacklistedLibraryCheck::is_blacklisted(const std::wstring &dllpath)
 {
-    std::wstring dllname = boost::filesystem::path(dllpath).filename().wstring();
+    std::wstring dllname = std::filesystem::path(dllpath).filename().wstring();
     //std::transform(dllname.begin(), dllname.end(), dllname.begin(), std::tolower);
     if (std::find(BlacklistedLibraryCheck::blacklist.begin(), BlacklistedLibraryCheck::blacklist.end(), dllname) != BlacklistedLibraryCheck::blacklist.end()) {
         //std::wprintf(L"%s is blacklisted\n", dllname.c_str());

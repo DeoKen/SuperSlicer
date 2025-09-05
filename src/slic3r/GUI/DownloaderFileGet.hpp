@@ -7,11 +7,12 @@
 
 #include "../Utils/Http.hpp"
 
+#include <filesystem>
 #include <memory>
 #include <string>
+
 #include <wx/event.h>
 #include <wx/frame.h>
-#include <boost/filesystem.hpp>
 
 namespace Slic3r {
 namespace GUI {
@@ -19,7 +20,7 @@ class FileGet : public std::enable_shared_from_this<FileGet> {
 private:
 	struct priv;
 public:
-	FileGet(int ID, std::string url, const std::string& filename, wxEvtHandler* evt_handler,const boost::filesystem::path& dest_folder);
+	FileGet(int ID, std::string url, const std::string& filename, wxEvtHandler* evt_handler,const std::filesystem::path& dest_folder);
 	FileGet(FileGet&& other);
 	~FileGet();
 
