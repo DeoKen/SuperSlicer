@@ -11,16 +11,17 @@
       InstallerVersion="500"
       Compressed="yes"
       InstallScope="perMachine"
+      Platform="x64"
       Description="@SLIC3R_APP_NAME@ - Advanced 3D printing slicer"
       Comments="@SLIC3R_APP_NAME@ installer package"
     />
 
     <MediaTemplate EmbedCab="yes" />
 
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." AllowSameVersionUpgrades="yes"/>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="ProgramFilesFolder">
+      <Directory Id="ProgramFiles64Folder">
         <Directory Id="INSTALLFOLDER" Name="@SLIC3R_APP_KEY@"></Directory>
       </Directory>
       <Directory Id="ProgramMenuFolder">
