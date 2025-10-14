@@ -37,6 +37,8 @@ jobs:
         make
         sudo make install
         automake --version
+    - name: Install makeinfo
+      run: brew install texinfo
     - name: mkdir in deps
       run: mkdir deps/build
     - name: dep cache
@@ -74,6 +76,8 @@ jobs:
         make
         sudo make install
         automake --version
+    - name: Install makeinfo
+      run: brew install texinfo
     - name: dep cache
       id: cache-action
       uses: actions/cache@v3
