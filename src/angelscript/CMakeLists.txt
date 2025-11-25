@@ -14,7 +14,7 @@ if(APPLE)
     option(BUILD_FRAMEWORK "Build Framework bundle for OSX" OFF)
 endif()
 
-file(READ include/angelscript.h ANGELSCRIPT_H)
+file(READ ../../include/angelscript.h ANGELSCRIPT_H)
 string(REGEX MATCH "#define ANGELSCRIPT_VERSION_STRING \"([0-9]*).([0-9]*).([0-9]*)" ANGELSCRIPT_VERSION_REGEX ${ANGELSCRIPT_H})
 set(ANGELSCRIPT_VERSION_MAJOR ${CMAKE_MATCH_1})
 set(ANGELSCRIPT_VERSION_MINOR ${CMAKE_MATCH_2})
@@ -33,97 +33,92 @@ message(STATUS "Configuring angelscript ${PROJECT_VERSION}")
 find_package(Threads)
 
 set(ANGELSCRIPT_HEADERS
-    include/angelscript.h
-    source/as_array.h
-    source/as_builder.h
-    source/as_bytecode.h
-    source/as_callfunc.h
-    source/as_compiler.h
-    source/as_config.h
-    source/as_configgroup.h
-    source/as_context.h
-    source/as_criticalsection.h
-    source/as_datatype.h
-    source/as_debug.h
-    source/as_generic.h
-    source/as_map.h
-    source/as_memory.h
-    source/as_module.h
-    source/as_objecttype.h
-    source/as_outputbuffer.h
-    source/as_parser.h
-    source/as_property.h
-    source/as_restore.h
-    source/as_scriptcode.h
-    source/as_scriptengine.h
-    source/as_scriptfunction.h
-    source/as_scriptnode.h
-    source/as_scriptobject.h
-    source/as_string.h
-    source/as_string_util.h
-    source/as_texts.h
-    source/as_thread.h
-    source/as_tokendef.h
-    source/as_tokenizer.h
-    source/as_typeinfo.h
-    source/as_variablescope.h
-    add_on/autowrapper/aswrappedcall.h
-    add_on/contextmgr/contextmgr.h
-    add_on/scriptarray/scriptarray.h
-    add_on/scriptbuilder/scriptbuilder.h
-    add_on/scriptdictionary/scriptdictionary.h
-    add_on/scriptstdstring/scriptstdstring.h
-    add_on/scriptmath/scriptmath.h
+    ../../include/angelscript.h
+    ../../source/as_array.h
+    ../../source/as_builder.h
+    ../../source/as_bytecode.h
+    ../../source/as_callfunc.h
+    ../../source/as_compiler.h
+    ../../source/as_config.h
+    ../../source/as_configgroup.h
+    ../../source/as_context.h
+    ../../source/as_criticalsection.h
+    ../../source/as_datatype.h
+    ../../source/as_debug.h
+    ../../source/as_generic.h
+    ../../source/as_map.h
+    ../../source/as_memory.h
+    ../../source/as_module.h
+    ../../source/as_objecttype.h
+    ../../source/as_outputbuffer.h
+    ../../source/as_parser.h
+    ../../source/as_property.h
+    ../../source/as_restore.h
+    ../../source/as_scriptcode.h
+    ../../source/as_scriptengine.h
+    ../../source/as_scriptfunction.h
+    ../../source/as_scriptnode.h
+    ../../source/as_scriptobject.h
+    ../../source/as_string.h
+    ../../source/as_string_util.h
+    ../../source/as_texts.h
+    ../../source/as_thread.h
+    ../../source/as_tokendef.h
+    ../../source/as_tokenizer.h
+    ../../source/as_typeinfo.h
+    ../../source/as_variablescope.h
 )
 
 set(ANGELSCRIPT_SOURCE
-    source/as_atomic.cpp
-    source/as_builder.cpp
-    source/as_bytecode.cpp
-    source/as_callfunc.cpp
-    source/as_callfunc_mips.cpp
-    source/as_callfunc_x86.cpp
-    source/as_callfunc_x64_gcc.cpp
-    source/as_callfunc_x64_msvc.cpp
-    source/as_callfunc_x64_mingw.cpp
-    source/as_compiler.cpp
-    source/as_configgroup.cpp
-    source/as_context.cpp
-    source/as_datatype.cpp
-    source/as_gc.cpp
-    source/as_generic.cpp
-    source/as_globalproperty.cpp
-    source/as_memory.cpp
-    source/as_module.cpp
-    source/as_objecttype.cpp
-    source/as_outputbuffer.cpp
-    source/as_parser.cpp
-    source/as_restore.cpp
-    source/as_scriptcode.cpp
-    source/as_scriptengine.cpp
-    source/as_scriptfunction.cpp
-    source/as_scriptnode.cpp
-    source/as_scriptobject.cpp
-    source/as_string.cpp
-    source/as_string_util.cpp
-    source/as_thread.cpp
-    source/as_tokenizer.cpp
-    source/as_typeinfo.cpp
-    source/as_variablescope.cpp
-    add_on/autowrapper/generator/generateheader.cpp
-    add_on/contextmgr/contextmgr.cpp
-    add_on/scriptarray/scriptarray.cpp
-    add_on/scriptbuilder/scriptbuilder.cpp
-    add_on/scriptdictionary/scriptdictionary.cpp
-    add_on/scriptstdstring/scriptstdstring.cpp
-    add_on/scriptstdstring/scriptstdstring_utils.cpp
-    add_on/scriptmath/scriptmath.cpp
+    ../../source/as_atomic.cpp
+    ../../source/as_builder.cpp
+    ../../source/as_bytecode.cpp
+    ../../source/as_callfunc.cpp
+    ../../source/as_callfunc_mips.cpp
+    ../../source/as_callfunc_x86.cpp
+    ../../source/as_callfunc_x64_gcc.cpp
+    ../../source/as_callfunc_x64_msvc.cpp
+    ../../source/as_callfunc_x64_mingw.cpp
+    ../../source/as_compiler.cpp
+    ../../source/as_configgroup.cpp
+    ../../source/as_context.cpp
+    ../../source/as_datatype.cpp
+    ../../source/as_gc.cpp
+    ../../source/as_generic.cpp
+    ../../source/as_globalproperty.cpp
+    ../../source/as_memory.cpp
+    ../../source/as_module.cpp
+    ../../source/as_objecttype.cpp
+    ../../source/as_outputbuffer.cpp
+    ../../source/as_parser.cpp
+    ../../source/as_restore.cpp
+    ../../source/as_scriptcode.cpp
+    ../../source/as_scriptengine.cpp
+    ../../source/as_scriptfunction.cpp
+    ../../source/as_scriptnode.cpp
+    ../../source/as_scriptobject.cpp
+    ../../source/as_string.cpp
+    ../../source/as_string_util.cpp
+    ../../source/as_thread.cpp
+    ../../source/as_tokenizer.cpp
+    ../../source/as_typeinfo.cpp
+    ../../source/as_variablescope.cpp
 )
 
 if(MSVC AND CMAKE_CL_64)
     enable_language(ASM_MASM)
     if(CMAKE_ASM_MASM_COMPILER_WORKS)
-        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} source/as_callfunc_x64_msvc_asm.asm)
+        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_x64_msvc_asm.asm)
+    else()
+        message(FATAL ERROR "MSVC x86_64 target requires a working assembler")
+    endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND WIN32 AND NOT MSVC)
+	enable_language(ASM)
+    if(CMAKE_ASM_COMPILER_WORKS)
+        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_x64_msvc_clang.S)
+		set(AS_NO_EXCEPTIONS 1)
     else()
         message(FATAL ERROR "MSVC x86_64 target requires a working assembler")
     endif()
@@ -132,8 +127,8 @@ endif()
 if(${ARCHFLAGS} MATCHES "^arm")
     enable_language(ASM)
     if(CMAKE_ASM_COMPILER_WORKS)
-        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} source/as_callfunc_arm.cpp source/as_callfunc_arm_gcc.S)
-        set_property(SOURCE source/as_callfunc_arm_gcc.S APPEND PROPERTY COMPILE_FLAGS " -Wa,-mimplicit-it=always")
+        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_arm.cpp ../../source/as_callfunc_arm_gcc.S)
+        set_property(SOURCE ../../source/as_callfunc_arm_gcc.S APPEND PROPERTY COMPILE_FLAGS " -Wa,-mimplicit-it=always")
     else()
         message(FATAL ERROR "ARM target requires a working assembler")
     endif()
@@ -143,9 +138,9 @@ if(${ARCHFLAGS} MATCHES "^aarch64")
     enable_language(ASM)
     if(CMAKE_ASM_COMPILER_WORKS)
         if(NOT APPLE)
-            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} source/as_callfunc_arm64.cpp source/as_callfunc_arm64_gcc.S)
+            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_arm64.cpp ../../source/as_callfunc_arm64_gcc.S)
         else()
-            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} source/as_callfunc_arm64.cpp source/as_callfunc_arm64_xcode.S)
+            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_arm64.cpp ../../source/as_callfunc_arm64_xcode.S)
         endif()
     else()
         message(FATAL ERROR "ARM target requires a working assembler")
@@ -155,7 +150,7 @@ endif()
 if(${ARCHFLAGS} MATCHES "riscv64")
     enable_language(ASM)
     if(CMAKE_ASM_COMPILER_WORKS)
-        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} source/as_callfunc_riscv64.cpp source/as_callfunc_riscv64_gcc.S)
+        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_riscv64.cpp ../../source/as_callfunc_riscv64_gcc.S)
     else()
         message(FATAL ERROR "RISC-V 64 target requires a working assembler")
     endif()
@@ -164,7 +159,7 @@ endif()
 if(${ARCHFLAGS} MATCHES "^e2k")
     enable_language(ASM)
     if(CMAKE_ASM_COMPILER_WORKS)
-        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} source/as_callfunc_e2k.cpp source/as_callfunc_e2k.S)
+        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_e2k.cpp ../../source/as_callfunc_e2k.S)
     else()
         message(FATAL ERROR "E2K target requires a working assembler")
     endif()
@@ -182,10 +177,9 @@ else()
 endif()
 set(ANGELSCRIPT_LIBRARY_NAME ${ANGELSCRIPT_LIBRARY_NAME} CACHE STRING "" FORCE)
 
-#add_library(${ANGELSCRIPT_LIBRARY_NAME} ${ANGELSCRIPT_SOURCE} ${ANGELSCRIPT_HEADERS})
-message( "add_library(${ANGELSCRIPT_LIBRARY_NAME} STATIC ${ANGELSCRIPT_SOURCE} ${ANGELSCRIPT_HEADERS})")
-add_library(${ANGELSCRIPT_LIBRARY_NAME} STATIC ${ANGELSCRIPT_SOURCE} ${ANGELSCRIPT_HEADERS})
-target_include_directories(${ANGELSCRIPT_LIBRARY_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
+add_library(${ANGELSCRIPT_LIBRARY_NAME} ${ANGELSCRIPT_SOURCE} ${ANGELSCRIPT_HEADERS})
+
+target_include_directories(${ANGELSCRIPT_LIBRARY_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>")
 
 if(MSVC)
     target_compile_definitions(${ANGELSCRIPT_LIBRARY_NAME} PRIVATE -D_CRT_SECURE_NO_WARNINGS)    
@@ -207,7 +201,7 @@ if(MSVC AND MSVC_COMPILE_FLAGS)
 endif()
 
 # Don't override the default library output path to avoid conflicts when building for multiple target platforms
-#set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+#set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/../../lib)
 target_link_libraries(${ANGELSCRIPT_LIBRARY_NAME} Threads::Threads)
 
 set_target_properties(${ANGELSCRIPT_LIBRARY_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
@@ -220,13 +214,13 @@ if(BUILD_FRAMEWORK)
 		MACOSX_FRAMEWORK_SHORT_VERSION_STRING ${PROJECT_VERSION}
 		MACOSX_FRAMEWORK_BUNDLE_VERSION ${PROJECT_VERSION}
 		XCODE_ATTRIBUTE_INSTALL_PATH "@rpath"
-		PUBLIC_HEADER include/angelscript.h
+		PUBLIC_HEADER ../../include/angelscript.h
 	)
 endif()
 
 if(NOT AS_DISABLE_INSTALL)
 	# Don't override the default runtime output path to avoid conflicts when building for multiple target platforms
-	#set(RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+	#set(RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../../bin)
 
 	#See https://cmake.org/cmake/help/latest/manual/cmake-packages.7.html#creating-packages for a detailed explanation about this part
 	install(TARGETS ${ANGELSCRIPT_LIBRARY_NAME} EXPORT AngelscriptTargets
@@ -237,7 +231,7 @@ if(NOT AS_DISABLE_INSTALL)
 	)
 
 	install(FILES
-		${CMAKE_CURRENT_SOURCE_DIR}/include/angelscript.h
+		${CMAKE_CURRENT_SOURCE_DIR}/../../include/angelscript.h
 		DESTINATION include
 		COMPONENT Devel
 	)

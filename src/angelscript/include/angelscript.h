@@ -39,8 +39,6 @@
 #ifndef ANGELSCRIPT_H
 #define ANGELSCRIPT_H
 
-#define AS_USE_NAMESPACE
-
 #include <stddef.h>
 #ifndef _MSC_VER
 #include <stdint.h>
@@ -60,8 +58,8 @@ BEGIN_AS_NAMESPACE
 
 // AngelScript version
 
-#define ANGELSCRIPT_VERSION        23800
-#define ANGELSCRIPT_VERSION_STRING "2.38.0"
+#define ANGELSCRIPT_VERSION        23900
+#define ANGELSCRIPT_VERSION_STRING "2.39.0 WIP"
 
 // Data types
 
@@ -212,7 +210,7 @@ enum asECallConvTypes
 };
 
 // Object type flags
-enum asEObjTypeFlags : asQWORD
+enum asEObjTypeFlags
 {
 	asOBJ_REF                         = (1<<0),
 	asOBJ_VALUE                       = (1<<1),
@@ -242,7 +240,6 @@ enum asEObjTypeFlags : asQWORD
 	asOBJ_APP_CLASS_A                 = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_ASSIGNMENT),
 	asOBJ_APP_CLASS_AK                = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_ASSIGNMENT + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
 	asOBJ_APP_CLASS_K                 = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
-	asOBJ_APP_CLASS_MORE_CONSTRUCTORS = (asQWORD(1) << 31),
 	asOBJ_APP_PRIMITIVE               = (1<<13),
 	asOBJ_APP_FLOAT                   = (1<<14),
 	asOBJ_APP_ARRAY                   = (1<<15),
@@ -251,8 +248,6 @@ enum asEObjTypeFlags : asQWORD
 	asOBJ_NOCOUNT                     = (1<<18),
 	asOBJ_APP_CLASS_ALIGN8            = (1<<19),
 	asOBJ_IMPLICIT_HANDLE             = (1<<20),
-	asOBJ_APP_CLASS_UNION             = (asQWORD(1)<<32),
-	asOBJ_MASK_VALID_FLAGS            = 0x1801FFFFFul,
 	// Internal flags
 	asOBJ_SCRIPT_OBJECT               = (1<<21),
 	asOBJ_SHARED                      = (1<<22),
@@ -265,6 +260,11 @@ enum asEObjTypeFlags : asQWORD
 	asOBJ_ABSTRACT                    = (1<<29),
 	asOBJ_APP_ALIGN16                 = (1<<30)
 };
+
+// These need to be here since they are too large for enum underlying type (int32 or uint32) on C++98 compliant compilers
+static const asQWORD asOBJ_MASK_VALID_FLAGS = 0x1801FFFFFLL;
+static const asQWORD asOBJ_APP_CLASS_MORE_CONSTRUCTORS = (asQWORD(1) << 31);
+static const asQWORD asOBJ_APP_CLASS_UNION = (asQWORD(1) << 32);
 
 // Behaviours
 enum asEBehaviours
@@ -723,8 +723,8 @@ public:
 	virtual int GetDefaultArrayTypeId() const = 0;
 
 	// Enums
-	virtual int          RegisterEnum(const char *type) = 0;
-	virtual int          RegisterEnumValue(const char *type, const char *name, int value) = 0;
+	virtual int          RegisterEnum(const char* typeName, const char* underlyingType = "int32") = 0;
+	virtual int          RegisterEnumValue(const char* type, const char* name, asINT64 value) = 0;
 	virtual asUINT       GetEnumCount() const = 0;
 	virtual asITypeInfo *GetEnumByIndex(asUINT index) const = 0;
 
@@ -1092,6 +1092,7 @@ public:
 	virtual int              GetSubTypeId(asUINT subTypeIndex = 0) const = 0;
 	virtual asITypeInfo     *GetSubType(asUINT subTypeIndex = 0) const = 0;
 	virtual asUINT           GetSubTypeCount() const = 0;
+	virtual int              GetUnderlyingTypeId() const = 0;
 
 	// Interfaces
 	virtual asUINT           GetInterfaceCount() const = 0;
@@ -1125,10 +1126,13 @@ public:
 
 	// Enums
 	virtual asUINT      GetEnumValueCount() const = 0;
-	virtual const char *GetEnumValueByIndex(asUINT index, int *outValue) const = 0;
+	virtual const char *GetEnumValueByIndex(asUINT index, asINT64 *outValue) const = 0;
 
+#ifdef AS_DEPRECATED
+	// deprecated since 2025-09-13, 2.39.0
 	// Typedef
 	virtual int GetTypedefTypeId() const = 0;
+#endif
 
 	// Funcdef
 	virtual asIScriptFunction *GetFuncdefSignature() const = 0;
@@ -1200,8 +1204,13 @@ public:
 	virtual asUINT           GetVarCount() const = 0;
 	virtual int              GetVar(asUINT index, const char **name, int *typeId = 0) const = 0;
 	virtual const char      *GetVarDecl(asUINT index, bool includeNamespace = false) const = 0;
+#ifdef AS_DEPRECATED
+	// deprecated since 2025-11-14, 2.39.0
 	virtual int              FindNextLineWithCode(int line) const = 0;
+#endif
 	virtual int              GetDeclaredAt(const char** scriptSection, int* row, int* col) const = 0;
+	virtual int              GetLineEntryCount() const = 0;
+	virtual int              GetLineEntry(asUINT index, int* row, int* col, const char** sectionName, const asDWORD** byteCode) const = 0;
 
 	// For JIT compilation
 	virtual asDWORD         *GetByteCode(asUINT *length = 0) = 0;
