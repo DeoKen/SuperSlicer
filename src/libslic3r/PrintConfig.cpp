@@ -9774,7 +9774,7 @@ void _deserialize_maybe_from_prusa(const std::map<t_config_option_key, std::stri
                         }
                     }
                 }
-            } else if (def != nullptr && !config_substitutions.rule == ForwardCompatibilitySubstitutionRule::Disable) {
+            } else if (def != nullptr && config_substitutions.rule != ForwardCompatibilitySubstitutionRule::Disable) {
                 const ConfigOptionDef *optdef = def->get(key);
                 if (optdef != nullptr) {
                     config_substitutions.emplace(optdef, std::string(pair.second), ConfigOptionUniquePtr(optdef->default_value->clone()));

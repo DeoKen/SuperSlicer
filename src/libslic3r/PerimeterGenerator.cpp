@@ -3284,22 +3284,28 @@ ProcessSurfaceResult PerimeterGenerator::process_arachne(const Parameters &param
     loop_number = int(perimeters.size());
 
 #ifdef ARACHNE_DEBUG
-        {
-            static int iRun = 0;
-            export_perimeters_to_svg(debug_out_path("arachne-perimeters-%d-%d.svg", layer_id, iRun++), to_polygons(last), perimeters, union_ex(wallToolPaths.getInnerContour()));
-        }
+    {
+        static int iRun = 0;
+        export_perimeters_to_svg(debug_out_path("arachne-perimeters-%d-%d.svg", layer_id, iRun++), to_polygons(last), perimeters, union_ex(wallToolPaths.getInnerContour()));
+    }
 #endif
 
     // All closed ExtrusionLine should have the same the first and the last point.
     // But in rare cases, Arachne produce ExtrusionLine marked as closed but without
     // equal the first and the last point.
-    assert([&perimeters = std::as_const(perimeters)]() -> bool {
-        for (const Arachne::VariableWidthLines& perimeter : perimeters)
-            for (const Arachne::ExtrusionLine& el : perimeter)
-                if (el.is_closed && el.junctions.front().p != el.junctions.back().p)
-                    return false;
-        return true;
-    }());
+    for (Arachne::VariableWidthLines &perimeter : perimeters) {
+        for (Arachne::ExtrusionLine &el : perimeter) {
+            if (el.is_closed && el.junctions.front().p != el.junctions.back().p) {
+                if (el.junctions.front().p.distance_to_square(el.junctions.back().p) <= SCALED_EPSILON) {
+                    Point new_pt = (el.junctions.front().p + el.junctions.back().p) / 2;
+                    el.junctions.front().p = new_pt;
+                    el.junctions.back().p = new_pt;
+                } else {
+                    el.junctions.emplace_back(el.junctions.front().p, el.junctions.front().w, el.junctions.front().perimeter_index);
+                }
+            }
+        }
+    }
 
     int start_perimeter = int(perimeters.size()) - 1;
     int end_perimeter = -1;
