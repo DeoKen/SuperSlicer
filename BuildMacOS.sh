@@ -405,8 +405,11 @@ then
     # make Slic3r
     if [[ -z "$BUILD_XCODE" ]]
     then
+        echo -e "\n[5/8] Building angelscript ...\n"
+        make angelscript
         echo -e "\n[5/8] Building Slicer ...\n"
-        make -j$NCORES Slic3r
+        #make -j$NCORES Slic3r
+        make -j1 Slic3r
         if [ $? -eq 0 ]
         then
             echo -e "\n ... done\n"

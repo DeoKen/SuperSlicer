@@ -65,6 +65,9 @@ set(SLIC3R_GTK "2" CACHE STRING "GTK version to use with wxWidgets on Linux")
 
 set(IS_CROSS_COMPILE FALSE)
 
+# from cmake 3.31, we need to inform cmake that add_custom_command() use the old way (until we update our cmakes)
+cmake_policy(SET CMP0175 OLD)
+
 if (SLIC3R_STATIC)
     # Prefer config scripts over find modules. This is helpful when building with
     # the static dependencies. Many libraries have their own export scripts
