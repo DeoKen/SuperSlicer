@@ -33,7 +33,7 @@ function(encoding_check TARGET)
             DEPENDS encoding-check ${T_SOURCES}
             COMMENT "Checking source files encodings for target ${TARGET}"
         )
-
+		cmake_policy(SET CMP0175 OLD)
         # Add checking of each source file as a subcommand of encoding-check-${TARGET}
         foreach(file ${T_SOURCES})
             add_custom_command(TARGET encoding-check-${TARGET}

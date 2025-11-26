@@ -1194,6 +1194,7 @@ function(WXWIDGETS_ADD_RESOURCES _outfiles)
   if(NOT IS_ABSOLUTE "${outfile}")
     set(outfile "${CMAKE_CURRENT_BINARY_DIR}/${outfile}")
   endif()
+  cmake_policy(SET CMP0175 OLD)
   add_custom_command(
     OUTPUT "${outfile}"
     COMMAND ${wxWidgets_wxrc_EXECUTABLE} ${rc_options} ${rc_file_list_abs}

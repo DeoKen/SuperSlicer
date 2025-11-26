@@ -6,7 +6,7 @@ if (MSVC)
     set(_output  ${_dstdir}/include/gmp.h 
                  ${_dstdir}/lib/libgmp-10.lib 
                  ${_dstdir}/bin/libgmp-10.dll)
-
+	cmake_policy(SET CMP0175 OLD)
     add_custom_command(
         OUTPUT  ${_output}
         COMMAND ${CMAKE_COMMAND} -E copy ${_srcdir}/include/gmp.h ${_dstdir}/include/

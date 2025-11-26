@@ -197,6 +197,7 @@ function(add_precompiled_header _target _input)
     set(_pch_flags_file "${_pch_binary_dir}/compile_flags.rsp")
     export_all_flags("${_pch_flags_file}")
     set(_compiler_FLAGS "@${_pch_flags_file}")
+	cmake_policy(SET CMP0175 OLD)
     add_custom_command(
       OUTPUT "${_pchfile}"
       COMMAND "${CMAKE_COMMAND}" -E copy "${_pch_header}" "${_pchfile}"

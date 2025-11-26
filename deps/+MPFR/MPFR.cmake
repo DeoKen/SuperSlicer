@@ -6,7 +6,7 @@ if (MSVC)
                  ${_dstdir}/include/mpf2mpfr.h
                  ${_dstdir}/lib/libmpfr-4.lib 
                  ${_dstdir}/bin/libmpfr-4.dll)
-
+	cmake_policy(SET CMP0175 OLD)
     add_custom_command(
         OUTPUT  ${_output}
         COMMAND ${CMAKE_COMMAND} -E copy ${_srcdir}/include/mpfr.h ${_dstdir}/include/

@@ -230,7 +230,7 @@ if (WIN32)
     set_target_properties(PrusaSlicer_app_gcodeviewer PROPERTIES OUTPUT_NAME "${GCODEVIEWER_APP_CMD}")
     target_link_libraries(PrusaSlicer_app_gcodeviewer PRIVATE boost_headeronly)
 endif ()
-
+cmake_policy(SET CMP0175 OLD)
 # Link the resources dir to where Slic3r GUI expects it
 if (WIN32)
     if (CMAKE_CONFIGURATION_TYPES)
