@@ -5,7 +5,6 @@ on:
     branches:
       - Nigthly
       - nightly_dev
-      - nightly_2.7.62
       - nightly_master
       - nightly_2.7.63
       - debug_win
@@ -81,7 +80,7 @@ jobs:
     - run: mkdir build
     - name: cmake
       working-directory: ./build
-      run: cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="d:\a\${{ github.event.repository.name }}\${{ github.event.repository.name }}\deps\build\destdir\usr\local"
+      run: cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="d:\a\${{ github.event.repository.name }}\${{ github.event.repository.name }}\deps\build\destdir\usr\local" -DCMAKE_IGNORE_PATH="C:/hostedtoolcache/windows/strawberry-perl/5.42.0/x64/c/lib"
     - name: make
       working-directory: ./build
       run: msbuild /m /P:Configuration=RelWithDebInfo INSTALL.vcxproj
