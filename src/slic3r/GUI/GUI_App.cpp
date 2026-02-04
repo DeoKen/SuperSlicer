@@ -191,7 +191,7 @@ public:
             memDC.SelectObject(bitmap);
 
             memDC.SetFont(m_action_font);
-            ///            memDC.SetTextForeground(wxColour(237, 107, 33)); // ed6b21
+///            memDC.SetTextForeground(wxColour(237, 107, 33)); // ed6b21
             uint32_t color = Slic3r::GUI::wxGetApp().app_config->create_color(0.86f, 0.93f);
             memDC.SetTextForeground(wxColour(color & 0xFF, (color & 0xFF00) >> 8, (color & 0xFF0000) >> 16));
             memDC.DrawText(text, int(get_margin() * 2), m_action_line_y_position);
@@ -1059,7 +1059,7 @@ void choose_app_dir(GUI_App &app) {
             same_version.push_back(&installed);
         } else {
             old_versions.push_back(&installed);
-            if (boost::filesystem::exists(installed.exe_path) && boost::filesystem::equivalent(binary_file().parent_path(), installed.exe_path)) {
+            if (boost::filesystem::exists(installed.exe_path) && boost::filesystem::equivalent(install_path(), installed.exe_path)) {
                 same_exe_path.push_back(&installed);
             }
         }
@@ -1130,7 +1130,7 @@ void choose_app_dir(GUI_App &app) {
     for (int i = 1; already_used_name.find(my_default_installation.installed_name) != already_used_name.end(); ++i) {
         my_default_installation.installed_name = format("%1%_(%2%)", SLIC3R_BUILD_ID, i);
     }
-    my_default_installation.exe_path = binary_file().parent_path();
+    my_default_installation.exe_path = install_path();
     my_default_installation.other_keys["exe_path_relative"] = "0";
     my_default_installation.config_path = my_default_installation.installed_name;
     my_default_installation.other_keys["config_path_relative"] = "1";
@@ -1162,30 +1162,28 @@ void choose_app_dir(GUI_App &app) {
             if (it_is_legacy != old_versions[choice]->other_keys.end() && it_is_legacy->second == "1") {
                 boost::filesystem::path dir(app.app_config->get_root_data_dir());
                 assert(dir == old_versions[choice]->get_config_path(app.app_config->get_root_data_dir()));
+                auto copy_or_create =
+                    [&dir, &path](std::string_view dir_name) {
+                    if (boost::filesystem::exists(dir / dir_name))
+                        boost::filesystem::copy(dir / dir_name, path / dir_name,
+                                                boost::filesystem::copy_options::update_existing |
+                                                    boost::filesystem::copy_options::recursive);
+                    else
+                        boost::filesystem::create_directory(path / dir_name);
+                    };
                 boost::filesystem::copy(dir / (SLIC3R_APP_KEY ".ini"), path / (SLIC3R_APP_KEY ".ini"),
                                       boost::filesystem::copy_options::update_existing);
-                boost::filesystem::copy(dir / "cache", path / "cache",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "filament", path / "filament",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "physical_printer", path / "physical_printer",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "print", path / "print",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "printer", path / "printer",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "shapes", path / "shapes",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "sla_material", path / "sla_material",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "sla_print", path / "sla_print",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "snapshots", path / "snapshots",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "ui_layout", path / "ui_layout",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
-                boost::filesystem::copy(dir / "vendor", path / "vendor",
-                                      boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
+                copy_or_create("cache");
+                copy_or_create("filament");
+                copy_or_create("physical_printer");
+                copy_or_create("print");
+                copy_or_create("printer");
+                copy_or_create("shapes");
+                copy_or_create("sla_material");
+                copy_or_create("sla_print");
+                copy_or_create("snapshots");
+                copy_or_create("ui_layout");
+                copy_or_create("vendor");
             } else {
                 boost::filesystem::copy(old_versions[choice]->get_config_path(app.app_config->get_root_data_dir()), path,
                                       boost::filesystem::copy_options::update_existing | boost::filesystem::copy_options::recursive);
@@ -1567,13 +1565,13 @@ bool GUI_App::on_init_inner()
             boost::filesystem::path splash_screen_path = (boost::filesystem::path(Slic3r::resources_dir()) / "splashscreen" / file_name);
             if (boost::filesystem::exists(splash_screen_path)) {
                 wxString path_str = wxString::FromUTF8((splash_screen_path).string().c_str());
-                // make a bitmap with dark grey banner on the left side
+        // make a bitmap with dark grey banner on the left side
                 bmp = SplashScreen::MakeBitmap(wxBitmap(path_str, wxBITMAP_TYPE_JPEG), scrn_scaling);
 
                 //get the artist name from metadata
-                int result;
-                void** ifdArray = nullptr;
-                ExifTagNodeInfo* tag;
+            int result;
+            void** ifdArray = nullptr;
+            ExifTagNodeInfo* tag;
                 ifdArray = exif_createIfdTableArray(path_str.c_str(), &result);
                 if (result > 0 && ifdArray) {
                     tag = exif_getTagInfo(ifdArray, IFD_0TH, TAG_Artist);
