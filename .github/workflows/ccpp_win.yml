@@ -8,6 +8,7 @@ on:
       - nightly_master
       - nightly_2.7.63
       - debug_win
+      - nightly_win
 
 jobs:
   build_dep:
@@ -16,10 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ilammy/msvc-dev-cmd@v1
-    - uses: shogo82148/actions-setup-perl@v1
-      with:
-        perl-version: "5.42"
-        distribution: strawberry
     - name: mkdir in deps
       run: mkdir deps/build
     - name: dep cache
@@ -45,10 +42,6 @@ jobs:
     - name: update submodule profiles
       working-directory: ./resources/profiles
       run: git submodule update --init
-    - uses: shogo82148/actions-setup-perl@v1
-      with:
-        perl-version: "5.42"
-        distribution: strawberry
     - name: change date in version
       shell: powershell
       run: |
@@ -78,6 +71,7 @@ jobs:
       working-directory: msgfmt_bin
       run: echo "$pwd;" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
     - run: mkdir build
+    - run: type d:\a\${{ github.event.repository.name }}\${{ github.event.repository.name }}\deps\build\destdir\usr\local\lib\cmake\boost_locale-1.83.0\boost_locale-config.cmake
     - name: cmake
       working-directory: ./build
       run: cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="d:\a\${{ github.event.repository.name }}\${{ github.event.repository.name }}\deps\build\destdir\usr\local" -DCMAKE_IGNORE_PATH="C:/hostedtoolcache/windows/strawberry-perl/5.42.0/x64/c/lib"
