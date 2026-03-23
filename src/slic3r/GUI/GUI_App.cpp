@@ -91,6 +91,7 @@
 #include "CalibrationTempDialog.hpp"
 #include "CalibrationRetractionDialog.hpp"
 #include "CalibrationPressureAdvDialog.hpp"
+#include "ConfigWizard.hpp"
 #include "ConfigSnapshotDialog.hpp"
 #include "CreateMMUTiledCanvas.hpp"
 #include "FreeCADDialog.hpp"
@@ -315,8 +316,9 @@ public:
         // draw the (white) labels inside of our black box (at the left of the splashscreen)
         memDc.SetTextForeground(wxColour(180, 180, 180));
 
-        memDc.SetFont(m_constant_text.title_font);
-        memDc.DrawLabel(m_constant_text.title, banner_rect, wxALIGN_TOP | wxALIGN_LEFT);
+        // title is in the logo
+        //memDc.SetFont(m_constant_text.title_font);
+        //memDc.DrawLabel(m_constant_text.title, banner_rect, wxALIGN_TOP | wxALIGN_LEFT);
 
         int title_height = memDc.GetTextExtent(m_constant_text.title).GetY();
         banner_rect.SetTop(banner_rect.GetTop() + title_height);
@@ -855,6 +857,18 @@ static void generic_exception_handle()
         BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();
         throw;
     }
+}
+
+std::string GUI_App::logo_name() const {
+    return std::string(is_editor() ? SLIC3R_APP_KEY : GCODEVIEWER_APP_KEY) + std::string("_logo");
+}
+
+std::string GUI_App::dark_icon_name() const {
+    return std::string(is_editor() ? SLIC3R_APP_KEY : GCODEVIEWER_APP_KEY) + std::string("");
+}
+
+std::string GUI_App::light_icon_name() const {
+    return std::string(is_editor() ? SLIC3R_APP_KEY : GCODEVIEWER_APP_KEY) + std::string("");
 }
 
 void GUI_App::post_init()
@@ -2297,9 +2311,9 @@ void GUI_App::update_fonts(const MainFrame *main_frame)
      */
 	if (main_frame == nullptr)
 		main_frame = this->mainframe;
-    m_normal_font   = main_frame->normal_font();
-    m_small_font    = m_normal_font;
-    m_bold_font     = main_frame->normal_font().Bold();
+    m_small_font.SetPointSize(main_frame->normal_font().GetPointSize());
+    m_bold_font.SetPointSize(main_frame->normal_font().GetPointSize());
+    m_normal_font.SetPointSize(main_frame->normal_font().GetPointSize());
     m_link_font     = m_bold_font.Underlined();
     m_em_unit       = main_frame->em_unit();
     m_code_font.SetPointSize(m_normal_font.GetPointSize());
@@ -4019,7 +4033,8 @@ bool GUI_App::run_wizard(ConfigWizard::RunReason reason, ConfigWizard::StartPage
             return false;
     }
 #endif
-    // if nothing installed, show the installatino dialog first
+#ifndef ALLOW_PRUSA_FIRST
+    // if nothing installed, show the installation dialog first
     bool is_synch = this->preset_updater->is_synch;
     if (bypass_bundle_install == RVBM_ALWAYS ||
         (bypass_bundle_install == RVBM_IF_EMPTY && this->preset_updater->count_installed() == 0)) {
@@ -4032,6 +4047,44 @@ bool GUI_App::run_wizard(ConfigWizard::RunReason reason, ConfigWizard::StartPage
             [&](bool is_ok) { if (is_ok) run_wizard(reason, start_page, RunVendorBundleManage::RVBM_NEVER); });
         return false;
     }
+#else //ALLOW_PRUSA_FIRST
+    if (this->preset_updater->count_installed() == 0 && bypass_bundle_install != RVBM_NEVER) {
+        this->preset_updater->reload_all_vendors();
+        // don't run the bundle manager but just install the vendor version
+        this->preset_updater->sync_async([this, reason, start_page](int update_count) {
+            bool found;
+            std::lock_guard<std::recursive_mutex> guard(this->preset_updater->all_vendors_mutex);
+            for (const auto &[id, vendor] : this->preset_updater->all_vendors) {
+                if (vendor.profile.id == ALLOW_PRUSA_FIRST) {
+                    found = true;
+                    if (vendor.best != nullptr) {
+                        this->preset_updater->install_vendor(ALLOW_PRUSA_FIRST, *vendor.best,
+                                                             [this, reason, start_page](const std::string &error_msg) {
+                                                                 run_wizard(reason, start_page,
+                                                                            RunVendorBundleManage::RVBM_NEVER);
+                                                             });
+                    } else {
+                        //TODO: failsafe
+                        for (auto &vendor_loc : vendor.available_profiles) {
+                            if (vendor_loc.local_file.find(Slic3r::resources_dir()) != std::string::npos) {
+                                this->preset_updater->install_vendor(ALLOW_PRUSA_FIRST, vendor_loc,
+                                                                     [this, reason,
+                                                                      start_page](const std::string &error_msg) {
+                                                                         run_wizard(reason, start_page,
+                                                                                    RunVendorBundleManage::RVBM_NEVER);
+                                                                     });
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            assert(found);
+        });
+        return false;
+    }
+#endif
 
     ConfigWizard *wizard = nullptr;
     {
@@ -4433,7 +4486,7 @@ void GUI_App::app_updater(bool from_user)
 {
     DownloadAppData app_data = m_app_updater->get_app_data();
     Semver current_version = *Semver::parse(SLIC3R_VERSION_FULL);
-    if (from_user && app_data.version <= current_version)
+    if (from_user && (app_data.version <= current_version || app_data.url.empty()))
     {
         BOOST_LOG_TRIVIAL(info) << "There is no newer version online.";
         MsgNoAppUpdates no_update_dialog; 
@@ -4444,6 +4497,10 @@ void GUI_App::app_updater(bool from_user)
 
     assert(!app_data.url.empty());
     assert(!app_data.target_path.empty());
+
+    if (app_data.url.empty() || app_data.target_path.empty()) {
+        return;
+    }
 
     // dialog with new version info
     AppUpdateAvailableDialog dialog(current_version, app_data.version, from_user);

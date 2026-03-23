@@ -1964,7 +1964,8 @@ static inline SupportGeneratorLayer* detect_bottom_contacts(
                                           layer_new.scaled_height());
     layer_new.set_scaled_print_z(slicing_params.soluble_interface ? layer.upper_layer->scaled_print_z() :
         layer.scaled_print_z() + layer_new.scaled_height_block() + Layer::scale_to_layer_coord(slicing_params.gap_object_support));
-    layer_new.set_scaled_bottom_z(layer.scaled_print_z());
+    layer_new.set_scaled_bottom_z(slicing_params.soluble_interface ? layer.scaled_print_z() :
+        layer.scaled_print_z() + Layer::scale_to_layer_coord(slicing_params.gap_object_support)));
     //recompute layer height to be in synch with print & bottom
     layer_new.set_scaled_height(layer_new.scaled_print_z() - layer_new.scaled_bottom_z());
     layer_new.idx_object_layer_below = layer_id;
