@@ -36,6 +36,7 @@
 #include "GCode/RetractWhenCrossingPerimeters.hpp"
 // #include "GCode/SmoothPath.hpp"
 #include "GCode/SpiralVase.hpp"
+#include "GCode/TemperatureMover.hpp"
 #include "GCode/ToolOrdering.hpp"
 #include "GCode/Wipe.hpp"
 #include "GCode/WipeTowerIntegration.hpp"
@@ -632,6 +633,7 @@ private:
 
     //some post-processing on the file, with their data class
     std::unique_ptr<FanMover> m_fan_mover;
+    std::unique_ptr<TemperatureMover> m_temperature_mover;
 
     std::function<void()> m_throw_if_canceled = [](){};
 

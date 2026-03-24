@@ -33,6 +33,7 @@
 #include "GCode/FanMover.hpp"
 #include "GCode/LabelObjects.hpp"
 #include "GCode/PrintExtents.hpp"
+#include "GCode/TemperatureMover.hpp"
 #include "GCode/Thumbnails.hpp"
 #include "GCode/WipeTower.hpp"
 #include "GCode/WipeTower2.hpp"
@@ -1917,6 +1918,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
     m_last_mm3_per_mm = 0.;
 #endif // ENABLE_GCODE_VIEWER_DATA_CHECKING
     m_fan_mover.release();
+    m_temperature_mover.release();
 
     status_monitor.stats().color_extruderid_to_used_filament.clear();
     status_monitor.stats().color_extruderid_to_used_weight.clear();
@@ -3377,6 +3379,19 @@ void GCodeGenerator::process_layers(
             output_stream.write(s);
         });
 
+    const auto temperature_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
+            [this, &temperature_mover = this->m_temperature_mover, &config = this->config(), &writer = this->m_writer](std::string in)->std::string {
+        CNumericLocalesSetter locales_setter;
+
+        if (temperature_mover.get() == nullptr)
+            temperature_mover.reset(new Slic3r::TemperatureMover(
+                writer, config, config.temperature_heat_speed.get_values(),
+                config.use_relative_e_distances.value));
+        //flush as it's a whole layer
+        this->m_throw_if_canceled();
+        return temperature_mover->process_gcode(in, true);
+    });
+
     const auto fan_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
             [this, &fan_mover = this->m_fan_mover, &config = this->config(), &writer = this->m_writer](std::string in)->std::string {
         CNumericLocalesSetter locales_setter;
@@ -3400,7 +3415,7 @@ void GCodeGenerator::process_layers(
     if (m_pressure_equalizer)
         pipeline_to_layerresult = pipeline_to_layerresult & pressure_equalizer;
 
-    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & fan_mover;
+    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & temperature_mover & fan_mover;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
@@ -3527,6 +3542,19 @@ void GCodeGenerator::process_layers(
             output_stream.write(s);
         });
 
+    const auto temperature_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
+            [this, &temperature_mover = this->m_temperature_mover, &config = this->config(), &writer = this->m_writer](std::string in)->std::string {
+        CNumericLocalesSetter locales_setter;
+
+        if (temperature_mover.get() == nullptr)
+            temperature_mover.reset(new Slic3r::TemperatureMover(
+                writer, config, config.temperature_heat_speed.get_values(),
+                config.use_relative_e_distances.value));
+        //flush as it's a whole layer
+        this->m_throw_if_canceled();
+        return temperature_mover->process_gcode(in, true);
+    });
+
     const auto fan_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
         [this, &fan_mover = this->m_fan_mover, &config = this->config(), &writer = this->m_writer](std::string in)->std::string {
 
@@ -3549,7 +3577,7 @@ void GCodeGenerator::process_layers(
     if (m_pressure_equalizer)
         pipeline_to_layerresult = pipeline_to_layerresult & pressure_equalizer;
 
-    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & fan_mover;
+    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & temperature_mover & fan_mover;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
