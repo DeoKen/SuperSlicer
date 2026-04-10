@@ -831,18 +831,22 @@ void WipeTowerLayer::init(const std::vector<const Layer *> layers,
                                                                                             ordered_extruders.front()) :
                                                         1);
             const double spacing = brim_flow.spacing();
-            // How many perimeters shall the brim have?
-            size_t loops_num = (m_object_config->wipe_tower_brim_width.get_abs_value(nozzle_diameter) + spacing / 2) /
-                spacing;
+            // create wt brim only if settings allow it
+            if (spacing > 0 && m_object_config->wipe_tower_brim_width.value > 0) {
+                // How many perimeters shall the brim have?
+                size_t loops_num = (m_object_config->wipe_tower_brim_width.get_abs_value(nozzle_diameter) +
+                                    spacing / 2) /
+                    spacing;
 
-            // create
-            for (size_t i = 0; i < loops_num; i++) {
-                Polygons polys = offset(perimeter, scale_(spacing));
-                assert(polys.size() == 1);
-                perimeter = polys.front();
-                brim.push_back(perimeter.split_at_first_point());
+                // create
+                for (size_t i = 0; i < loops_num; i++) {
+                    Polygons polys = offset(perimeter, scale_(spacing));
+                    assert(polys.size() == 1);
+                    perimeter = polys.front();
+                    brim.push_back(perimeter.split_at_first_point());
+                }
+                std::reverse(brim.begin(), brim.end());
             }
-            std::reverse(brim.begin(), brim.end());
         }
 
         //// infill the cone (on first layer)
