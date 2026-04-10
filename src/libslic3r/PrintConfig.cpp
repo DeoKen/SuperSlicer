@@ -9501,9 +9501,9 @@ void _handle_legacy(std::unordered_map<t_config_option_key, std::pair<t_config_o
     // it's not needed to check aliases, because they are taken care of in deserialize().
     // still need as some things check for def and emit a ConfigSubstitutionContext
     for (auto it = dict.begin(); it != dict.end(); ++it) {
-        if (!it->second.first.empty() && !print_config_def.has(it->second.first)) {
+        if (!it->second.first.empty() && !PrintConfigDef::instance().has(it->second.first)) {
             // check the aliases
-            for (const auto &entry : print_config_def.options) {
+            for (const auto &entry : PrintConfigDef::instance().options) {
                 for (const std::string &alias : entry.second.aliases) {
                     if (alias == it->second.first) {
                         // translate
@@ -9526,7 +9526,7 @@ void _handle_legacy(std::unordered_map<t_config_option_key, std::pair<t_config_o
         "gap_fill_fan_speed"s, "infill_fan_speed"s, "internal_bridge_fan_speed"s, "bridge_internal_fan_speed"s, "overhangs_fan_speed"s,
         "perimeter_fan_speed"s, "solid_infill_fan_speed"s, "support_material_fan_speed"s, "support_material_interface_fan_speed"s, "top_fan_speed"s},
                   [](Key &opt_key, Val &value) {
-            assert(print_config_def.get(opt_key) && print_config_def.get(opt_key)->type == coInts);
+            assert(PrintConfigDef::instance().get(opt_key) && PrintConfigDef::instance().get(opt_key)->type == coInts);
             //if vector, split it.
             ConfigOptionInts opt_decoder;
             opt_decoder.set_can_be_disabled();
@@ -9610,7 +9610,7 @@ void _handle_legacy(std::unordered_map<t_config_option_key, std::pair<t_config_o
         }
         // nil-> disabled
         if (value.find("e+") != std::string::npos) {
-            const ConfigOptionDef *def = print_config_def.get(opt_key);
+            const ConfigOptionDef *def = PrintConfigDef::instance().get(opt_key);
             if (def && def->can_be_disabled) {
                 ConfigOption *default_opt = def->default_value->clone();
                 default_opt->deserialize(value);
@@ -9639,7 +9639,7 @@ void _handle_legacy(std::unordered_map<t_config_option_key, std::pair<t_config_o
         }
         // nil-> disabled
         if (value.find("nil") != std::string::npos) {
-            const ConfigOptionDef *def = print_config_def.get(opt_key);
+            const ConfigOptionDef *def = PrintConfigDef::instance().get(opt_key);
             if (def) {
                 if (def->type != coString && def->type != coStrings) {
                     assert(def && def->can_be_disabled);
@@ -9943,7 +9943,7 @@ void PrintConfigDef::handle_legacy_composite(DynamicPrintConfig &config, std::ma
     //}
 }
 
-bool PrintConfigDef::is_defined(const t_config_option_key &opt_key) { return print_config_def.has(opt_key); }
+bool PrintConfigDef::is_defined(const t_config_option_key &opt_key) { return PrintConfigDef::instance().has(opt_key); }
 
 // this is for extra things to add / modify from prusa that can't be handled otherwise.
 // after handle_legacy
@@ -10215,7 +10215,7 @@ void _convert_from_prusa(CONFIG_CLASS& conf, const DynamicPrintConfig& global_co
         results.insert(result.begin(), result.end());
     }
     for (auto entry : results) {
-        const ConfigOptionDef* def = print_config_def.get(entry.first);
+        const ConfigOptionDef* def = PrintConfigDef::instance().get(entry.first);
         if (def) {
             ConfigOption* opt_new = def->default_value.get()->clone();
             opt_new->deserialize(entry.second); // note: deserialize don't set phony, only the ConfigBase::set_deserialize*
@@ -10228,7 +10228,7 @@ void _convert_from_prusa(CONFIG_CLASS& conf, const DynamicPrintConfig& global_co
         for (auto & [opt_key_width, opt_key_spacing] : Handle_legacy_tools::widths_2_spacings_for_phony_fix) {
             // if prusa has defined a width, or if the conf has a default spacing that need to be overwritten
             if (conf.option(opt_key_width) != nullptr || conf.option(opt_key_spacing) != nullptr) {
-                ConfigOption *opt_new = print_config_def.get(opt_key_spacing)->default_value.get()->clone();
+                ConfigOption *opt_new = PrintConfigDef::instance().get(opt_key_spacing)->default_value.get()->clone();
                 opt_new->deserialize(""); // note: deserialize don't set phony, only the ConfigBase::set_deserialize*
                 opt_new->set_phony(true);
                 conf.set_key_value(opt_key_spacing, opt_new);
@@ -11018,15 +11018,15 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
         // ---- filament override ------
         if (boost::starts_with(opt_key, "filament_")) {
             std::string extruder_key = opt_key.substr(strlen("filament_"));
-            if (print_config_def.filament_override_option_keys().find(extruder_key) !=
-                print_config_def.filament_override_option_keys().end()) {
+            if (PrintConfigDef::instance().filament_override_option_keys().find(extruder_key) !=
+                PrintConfigDef::instance().filament_override_option_keys().end()) {
                 value = "nil";
             }
         }
         if (boost::starts_with(opt_key, "material_ow_")) {
             std::string normal_key = opt_key.substr(strlen("material_ow_"));
-            if (print_config_def.material_overrides_option_keys().find(opt_key) !=
-                print_config_def.material_overrides_option_keys().end()) {
+            if (PrintConfigDef::instance().material_overrides_option_keys().find(opt_key) !=
+                PrintConfigDef::instance().material_overrides_option_keys().end()) {
                 value = "nil";
             }
         }
@@ -11062,7 +11062,18 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
     return new_entries;
 }
 
-const PrintConfigDef print_config_def;
+// init singleton
+PrintConfigDef& PrintConfigDef::instance_mutable()
+{
+    // function-initialised instead of legacy cpp-file-init to avoid static init order fiasco & dll boundaries issues
+    static PrintConfigDef static_instance;
+    return static_instance;
+}
+
+const PrintConfigDef& PrintConfigDef::instance()
+{
+    return PrintConfigDef::instance_mutable();
+}
 
 DynamicPrintConfig DynamicPrintConfig::full_print_config()
 {
@@ -11375,7 +11386,7 @@ void  handle_legacy_sla(DynamicPrintConfig& config)
 
 void DynamicPrintConfig::set_num_extruders(unsigned int num_extruders)
 {
-    for (const std::string &key : print_config_def.extruder_option_keys()) {
+    for (const std::string &key : PrintConfigDef::instance().extruder_option_keys()) {
         if (key == "default_filament_profile")
             // Don't resize this field, as it is presented to the user at the "Dependencies" page of the Printer profile and we don't want to present
             // empty fields there, if not defined by the system profile.
@@ -11383,8 +11394,8 @@ void DynamicPrintConfig::set_num_extruders(unsigned int num_extruders)
         auto *opt = this->option(key, false);
         assert(opt != nullptr && opt->is_vector());
         if (opt != nullptr && opt->is_vector()) {
-            auto default_opt_it = print_config_def.options.find(key);
-            assert(default_opt_it != print_config_def.options.end());
+            auto default_opt_it = PrintConfigDef::instance().options.find(key);
+            assert(default_opt_it != PrintConfigDef::instance().options.end());
             static_cast<ConfigOptionVectorBase *>(opt)->resize(num_extruders, default_opt_it->second.default_value.get());
         }
     }
@@ -11392,13 +11403,13 @@ void DynamicPrintConfig::set_num_extruders(unsigned int num_extruders)
 
 void DynamicPrintConfig::set_num_milling(unsigned int num_milling)
 {
-    for (const std::string& key : print_config_def.milling_option_keys()) {
+    for (const std::string& key : PrintConfigDef::instance().milling_option_keys()) {
         auto* opt = this->option(key, false);
         assert(opt != nullptr);
         assert(opt->is_vector());
         if (opt != nullptr && opt->is_vector()) {
-            auto default_opt_it = print_config_def.options.find(key);
-            assert(default_opt_it != print_config_def.options.end());
+            auto default_opt_it = PrintConfigDef::instance().options.find(key);
+            assert(default_opt_it != PrintConfigDef::instance().options.end());
             static_cast<ConfigOptionVectorBase *>(opt)->resize(num_milling, default_opt_it->second.default_value.get());
         }
     }
@@ -11909,33 +11920,33 @@ std::string validate(const FullPrintConfig& cfg)
                 return "--use-firmware-retraction is not compatible with --wipe";
 
     // --gcode-flavor
-    if (! print_config_def.get("gcode_flavor")->has_enum_value(cfg.gcode_flavor.serialize()))
+    if (! PrintConfigDef::instance().get("gcode_flavor")->has_enum_value(cfg.gcode_flavor.serialize()))
         return "Invalid value for --gcode-flavor";
 
     // --fill-pattern
-    if (! print_config_def.get("fill_pattern")->has_enum_value(cfg.fill_pattern.serialize()))
+    if (! PrintConfigDef::instance().get("fill_pattern")->has_enum_value(cfg.fill_pattern.serialize()))
         return "Invalid value for --fill-pattern";
 
     // --top-fill-pattern
-    if (!print_config_def.get("top_fill_pattern")->has_enum_value(cfg.top_fill_pattern.serialize()))
+    if (!PrintConfigDef::instance().get("top_fill_pattern")->has_enum_value(cfg.top_fill_pattern.serialize()))
         return "Invalid value for --top-fill-pattern";
 
     // --bottom-fill-pattern
-    if (! print_config_def.get("bottom_fill_pattern")->has_enum_value(cfg.bottom_fill_pattern.serialize()))
+    if (! PrintConfigDef::instance().get("bottom_fill_pattern")->has_enum_value(cfg.bottom_fill_pattern.serialize()))
         return "Invalid value for --bottom-fill-pattern";
 
     // --solid-fill-pattern
-    if (!print_config_def.get("solid_fill_pattern")->has_enum_value(cfg.solid_fill_pattern.serialize()))
+    if (!PrintConfigDef::instance().get("solid_fill_pattern")->has_enum_value(cfg.solid_fill_pattern.serialize()))
         return "Invalid value for --solid-fill-pattern";
 
     // --brim-ears-pattern
-    if (!print_config_def.get("brim_ears_pattern")->has_enum_value(cfg.brim_ears_pattern.serialize()))
+    if (!PrintConfigDef::instance().get("brim_ears_pattern")->has_enum_value(cfg.brim_ears_pattern.serialize()))
         return "Invalid value for --brim-ears-pattern";
 
     // --fill-density
     if (fabs(cfg.fill_density.value - 100.) < EPSILON &&
-        (! print_config_def.get("top_fill_pattern")->has_enum_value(cfg.fill_pattern.serialize())
-        && ! print_config_def.get("bottom_fill_pattern")->has_enum_value(cfg.fill_pattern.serialize())
+        (! PrintConfigDef::instance().get("top_fill_pattern")->has_enum_value(cfg.fill_pattern.serialize())
+        && ! PrintConfigDef::instance().get("bottom_fill_pattern")->has_enum_value(cfg.fill_pattern.serialize())
         ))
         return "The selected fill pattern is not supposed to work at 100% density";
 
@@ -12000,7 +12011,7 @@ std::string validate(const FullPrintConfig& cfg)
     for (const std::string &opt_key : cfg.keys()) {
         const ConfigOption      *opt    = cfg.optptr(opt_key);
         assert(opt != nullptr);
-        const ConfigOptionDef   *optdef = print_config_def.get(opt_key);
+        const ConfigOptionDef   *optdef = PrintConfigDef::instance().get(opt_key);
         assert(optdef != nullptr);
 
         if (!opt->is_enabled()) {

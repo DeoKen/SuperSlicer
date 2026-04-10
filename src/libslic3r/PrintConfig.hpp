@@ -365,7 +365,9 @@ class PrintConfigDef : public ConfigDef
 {
 public:
     PrintConfigDef();
-    
+
+    // Get print_config_def stored in the singleton
+    static const PrintConfigDef& instance();
     static void handle_legacy_map(std::unordered_map<t_config_option_key, std::pair<t_config_option_key, std::string>> &dict, bool remove_unkown_keys = true);
     static void handle_legacy_pair(t_config_option_key &opt_key, std::string &value, bool remove_unkown_keys = true);
     static bool is_defined(const t_config_option_key& opt_key);
@@ -397,13 +399,12 @@ private:
     std::vector<std::string>    m_extruder_retract_keys;
     std::vector<std::string>    m_milling_option_keys;
     std::set<std::string>       m_material_overrides_option_keys;
+
+    // The one and only global definition of SLic3r configuration options is created as static in get_mutable()
+    // This definition is constant (after initialisation & plugin loaded)
+    // only use get_mutable() directly for initilisation, never after
+    static PrintConfigDef& instance_mutable();
 };
-
-
-
-// The one and only global definition of SLic3r configuration options.
-// This definition is constant.
-extern const PrintConfigDef print_config_def;
 
 class StaticPrintConfig;
 
@@ -453,7 +454,7 @@ public:
     static DynamicPrintConfig* new_from_defaults_keys(const std::vector<std::string> &keys);
 
     // Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here.
-    const ConfigDef*    def() const override { return &print_config_def; }
+    const ConfigDef*    def() const override { return &PrintConfigDef::instance(); }
 
     void                normalize_fdm();
 
@@ -501,7 +502,7 @@ public:
     MultiPtrPrintConfig() = default;
     
     // Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here.
-    const ConfigDef*    def() const override { return &print_config_def; }
+    const ConfigDef*    def() const override { return &PrintConfigDef::instance(); }
 
     // Overrides ConfigResolver::optptr().
     const ConfigOption*     optptr(const t_config_option_key &opt_key) const override;
@@ -523,7 +524,7 @@ public:
     StaticPrintConfig() {}
 
     // Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here.
-    const ConfigDef*    def() const override { return &print_config_def; }
+    const ConfigDef*    def() const override { return &PrintConfigDef::instance(); }
     // Reference to the cached list of keys.
     virtual const t_config_option_keys& keys_ref() const = 0;
 
@@ -654,7 +655,7 @@ protected: \
     STATIC_PRINT_CONFIG_CACHE_BASE(CLASS_NAME) \
 public: \
     /* Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here. */ \
-    const ConfigDef*    def() const override { return &print_config_def; }
+    const ConfigDef*    def() const override { return &PrintConfigDef::instance(); }
 
 #define PRINT_CONFIG_CLASS_ELEMENT_DEFINITION(r, data, elem) BOOST_PP_TUPLE_ELEM(0, elem) BOOST_PP_TUPLE_ELEM(1, elem);
 #define PRINT_CONFIG_CLASS_ELEMENT_INITIALIZATION2(KEY) cache.opt_add(BOOST_PP_STRINGIZE(KEY), base_ptr, this->KEY);
@@ -1846,7 +1847,7 @@ private:
     {
     public:
         PrintAndCLIConfigDef() {
-            this->options.insert(print_config_def.options.begin(), print_config_def.options.end());
+            this->options.insert(PrintConfigDef::instance().options.begin(), PrintConfigDef::instance().options.end());
             this->options.insert(cli_actions_config_def.options.begin(), cli_actions_config_def.options.end());
             this->options.insert(cli_transform_config_def.options.begin(), cli_transform_config_def.options.end());
             this->options.insert(cli_misc_config_def.options.begin(), cli_misc_config_def.options.end());
@@ -2011,8 +2012,8 @@ namespace cereal {
             size_t serialization_key_ordinal;
             archive(serialization_key_ordinal);
             assert(serialization_key_ordinal > 0);
-            auto it = Slic3r::print_config_def.by_serialization_key_ordinal.find(serialization_key_ordinal);
-            assert(it != Slic3r::print_config_def.by_serialization_key_ordinal.end());
+            auto it = Slic3r::PrintConfigDef::instance().by_serialization_key_ordinal.find(serialization_key_ordinal);
+            assert(it != Slic3r::PrintConfigDef::instance().by_serialization_key_ordinal.end());
             config.set_key_value(it->second->opt_key, it->second->load_option_from_archive(archive));
         }
     }
@@ -2022,7 +2023,7 @@ namespace cereal {
         size_t cnt = config.size();
         archive(cnt);
         for (auto it = config.cbegin(); it != config.cend(); ++it) {
-            const Slic3r::ConfigOptionDef* optdef = Slic3r::print_config_def.get(it->first);
+            const Slic3r::ConfigOptionDef* optdef = Slic3r::PrintConfigDef::instance().get(it->first);
             assert(optdef != nullptr);
             assert(optdef->serialization_key_ordinal > 0);
             archive(optdef->serialization_key_ordinal);

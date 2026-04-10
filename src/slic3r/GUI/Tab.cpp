@@ -3320,7 +3320,7 @@ void TabFilament::update_filament_overrides_page()
         m_config->opt_float("filament_retract_lift", extruder_idx) > 0
     );
 
-    for (const std::string& opt_key : print_config_def.filament_override_option_keys()) {
+    for (const std::string& opt_key : PrintConfigDef::instance().filament_override_option_keys()) {
         bool is_checked{true};
         if ( !have_retract_length
             && opt_key != "filament_retract_length"
@@ -6450,7 +6450,7 @@ PageShp TabSLAMaterial::create_material_overrides_page()
     //
     //const int extruder_idx = 0; // #ys_FIXME
 
-    //for (const auto& [title, keys] : print_config_def.material_override_option_keys()) {
+    //for (const auto& [title, keys] : PrintConfigDef::instance().material_override_option_keys()) {
     //    ConfigOptionsGroupShp optgroup = page->new_optgroup(L(title));
     //    for (const std::string& opt_key : keys) {
     //        optgroup->append_line(optgroup->create_single_option_line(optgroup->get_option_and_register(opt_key, extruder_idx)));

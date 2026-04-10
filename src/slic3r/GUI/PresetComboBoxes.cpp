@@ -956,7 +956,7 @@ void PlaterPresetComboBox::update()
         else if (m_type == Preset::TYPE_SLA_MATERIAL) {
             material_rgb = is_selected ? m_preset_bundle->sla_materials.get_edited_preset().config.opt_string("material_colour") : preset.config.opt_string("material_colour");
             if (material_rgb.empty())
-                material_rgb = print_config_def.get("material_colour")->get_default_value<ConfigOptionString>()->value;
+                material_rgb = PrintConfigDef::instance().get("material_colour")->get_default_value<ConfigOptionString>()->value;
         }
 
         auto bmp = get_bmp(bitmap_key, wide_icons, bitmap_type_name,

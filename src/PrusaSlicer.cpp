@@ -912,7 +912,7 @@ void CLI::print_help(bool include_print_options, PrinterTechnology printer_techn
 
     if (include_print_options) {
         boost::nowide::cout << std::endl;
-        print_config_def.print_cli_help(boost::nowide::cout, true, [printer_technology](const ConfigOptionDef &def)
+        PrintConfigDef::instance().print_cli_help(boost::nowide::cout, true, [printer_technology](const ConfigOptionDef &def)
             { return printer_technology == ptAny || def.printer_technology == ptAny || printer_technology == def.printer_technology; });
     } else {
         boost::nowide::cout

@@ -1285,8 +1285,8 @@ const std::vector<std::string>& Preset::filament_options()       { return s_Pres
 const std::vector<std::string>& Preset::machine_limits_options() { return s_Preset_machine_limits_options; }
 // The following nozzle options of a printer profile will be adjusted to match the size
 // of the nozzle_diameter vector.
-const std::vector<std::string>& Preset::nozzle_options()         { return print_config_def.extruder_option_keys(); }
-const std::vector<std::string>& Preset::milling_options()         { return print_config_def.milling_option_keys(); }
+const std::vector<std::string>& Preset::nozzle_options()         { return PrintConfigDef::instance().extruder_option_keys(); }
+const std::vector<std::string>& Preset::milling_options()         { return PrintConfigDef::instance().milling_option_keys(); }
 const std::vector<std::string>& Preset::sla_print_options()      { return s_Preset_sla_print_options; }
 const std::vector<std::string>& Preset::sla_material_options()   { return s_Preset_sla_material_options; }
 const std::vector<std::string>& Preset::sla_printer_options()    { return s_Preset_sla_printer_options; }
@@ -2457,7 +2457,7 @@ PhysicalPrinterCollection::PhysicalPrinterCollection( const std::vector<std::str
 {
     // Default config for a physical printer containing all key/value pairs of PhysicalPrinter::printer_options().
     for (const std::string &key : keys) {
-        const ConfigOptionDef *opt = print_config_def.get(key);
+        const ConfigOptionDef *opt = PrintConfigDef::instance().get(key);
         assert(opt);
         assert(opt->default_value);
         m_default_config.set_key_value(key, opt->default_value->clone());
@@ -2927,7 +2927,7 @@ size_t ExtruderFilaments::update_compatible_internal(const PresetWithVendorProfi
     Preset printer_preset_adjusted = active_printer.preset;
     if (m_extruder_id > 0 && !printer_preset_adjusted.config.opt_bool("single_extruder_multi_material")) {
         DynamicPrintConfig& active_printer_config = printer_preset_adjusted.config;
-        for (const std::string& key : print_config_def.extruder_option_keys()) {
+        for (const std::string& key : PrintConfigDef::instance().extruder_option_keys()) {
             if (key == "default_filament_profile")
                 continue;// Ignore this field, because this parameter is not related to the extruder but to whole printer.
             auto* opt = active_printer_config.option(key, false);

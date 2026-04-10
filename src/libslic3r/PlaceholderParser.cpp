@@ -898,13 +898,13 @@ namespace client
                     if (!static_cast<const ConfigOptionFloatOrPercent*>(raw_opt)->percent)
                         return static_cast<const ConfigOptionFloatOrPercent*>(raw_opt)->value;
                     // Get option definition.
-                    opt_def = print_config_def.get(opt_key);
+                    opt_def = PrintConfigDef::instance().get(opt_key);
                     cast_opt = static_cast<const ConfigOptionFloatOrPercent*>(raw_opt);
                     assert(opt_def != nullptr);
                 }
                 if (raw_opt->type() == coPercent) {
                     // Get option definition.
-                    opt_def = print_config_def.get(opt_key);
+                    opt_def = PrintConfigDef::instance().get(opt_key);
                     assert(opt_def != nullptr);
                     cast_opt = static_cast<const ConfigOptionPercent*>(raw_opt);
                 }
@@ -933,7 +933,7 @@ namespace client
                         if (!opt_fl_per->get_at(current_extruder_id).percent)
                             return opt_fl_per->get_at(current_extruder_id).value;
 
-                        const ConfigOptionDef* opt_def = print_config_def.get(opt_key);
+                        const ConfigOptionDef* opt_def = PrintConfigDef::instance().get(opt_key);
                         if (!opt_def->ratio_over.empty() && opt_def->ratio_over != "depends")
                             return opt_fl_per->get_abs_value(current_extruder_id, this->get_computed_value(opt_def->ratio_over));
                         std::stringstream ss; ss << "ConfigBase::get_abs_value(): " << opt_key << " has no valid ratio_over to compute of";
@@ -941,7 +941,7 @@ namespace client
                     }
                     if (raw_opt->type() == coPercents) {
                         const ConfigOptionPercents* opt_per = static_cast<const ConfigOptionPercents*>(raw_opt);
-                        const ConfigOptionDef* opt_def = print_config_def.get(opt_key);
+                        const ConfigOptionDef* opt_def = PrintConfigDef::instance().get(opt_key);
                         if (!opt_def->ratio_over.empty() && opt_def->ratio_over != "depends")
                             return opt_per->get_abs_value(current_extruder_id, this->get_computed_value(opt_def->ratio_over));
                         std::stringstream ss; ss << "ConfigBase::get_abs_value(): " << opt_key << " has no valid ratio_over to compute of";
@@ -1161,7 +1161,7 @@ namespace client
                     output.set_d(opt.opt->get_float());
                 } else {
                 	// Resolve dependencies using the "ratio_over" link to a parent value.
-                    const ConfigOptionDef  *opt_def = print_config_def.get(opt_key);
+                    const ConfigOptionDef  *opt_def = PrintConfigDef::instance().get(opt_key);
 			        assert(opt_def != nullptr);
 			        double v = opt.opt->get_float() * 0.01; // percent to ratio
                     if (opt_def) for (;;) {
@@ -1184,7 +1184,7 @@ namespace client
 			        	//	v *= 0.01; // percent to ratio
 			        	//}
 		        		//// Continue one level up in the "ratio_over" hierarchy.
-				        //opt_def = print_config_def.get(opt_def->ratio_over);
+				        //opt_def = PrintConfigDef::instance().get(opt_def->ratio_over);
 				        //assert(opt_def != nullptr);
 			        }
                     output.set_d(v);

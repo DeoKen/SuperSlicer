@@ -2117,7 +2117,7 @@ std::string ConfigBase::to_debug_string() const
 {
     std::stringstream c;
     for (const std::string &opt_key : this->keys()) {
-        if (!(*print_config_def.get(opt_key)->default_value == *this->option(opt_key))) {
+        if (!(*PrintConfigDef::instance().get(opt_key)->default_value == *this->option(opt_key))) {
             std::string serialized = this->opt_serialize(opt_key);
             if (!serialized.empty() && serialized.front() == '"' && serialized.back() == '"') {
                 boost::replace_all(serialized, "\"", "\\\"");

@@ -211,7 +211,7 @@ static t_config_option_keys print_config_diffs(
     const DynamicPrintConfig &new_full_config,
     DynamicPrintConfig       &filament_overrides)
 {
-    const std::vector<std::string> &extruder_retract_keys = print_config_def.extruder_retract_keys();
+    const std::vector<std::string> &extruder_retract_keys = PrintConfigDef::instance().extruder_retract_keys();
     const std::string               filament_prefix       = "filament_";
     t_config_option_keys            print_diff;
     for (const t_config_option_key &opt_key : current_config.keys()) {

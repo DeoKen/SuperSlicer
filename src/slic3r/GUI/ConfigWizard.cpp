@@ -1245,7 +1245,7 @@ void PageMaterials::sort_list_data(StringList* list, bool add_All_item, bool mat
     }
     if (material_type_ordering) {
         
-        const ConfigOptionDef* def = print_config_def.get("filament_type");
+        const ConfigOptionDef* def = PrintConfigDef::instance().get("filament_type");
         size_t end_of_sorted = 0;
         for (const std::string &value : def->enum_def->values()) {
             for (size_t profs = end_of_sorted; profs < other_profiles.size(); profs++)
@@ -1810,7 +1810,7 @@ PageVendors::PageVendors(ConfigWizard *parent)
 
 PageFirmware::PageFirmware(ConfigWizard *parent)
     : ConfigWizardPage(parent, _L("Firmware Type"), _L("Firmware"), 1)
-    , gcode_opt(*print_config_def.get("gcode_flavor"))
+    , gcode_opt(*PrintConfigDef::instance().get("gcode_flavor"))
     , gcode_picker(nullptr)
 {
     append_text(_L("Choose the type of firmware used by your printer."));
@@ -1973,11 +1973,11 @@ PageDiameters::PageDiameters(ConfigWizard *parent)
     , diam_nozzle(new DiamTextCtrl(this))
     , diam_filam (new DiamTextCtrl(this))
 {
-    auto *default_nozzle = print_config_def.get("nozzle_diameter")->get_default_value<ConfigOptionFloats>();
+    auto *default_nozzle = PrintConfigDef::instance().get("nozzle_diameter")->get_default_value<ConfigOptionFloats>();
     wxString value = double_to_string(default_nozzle != nullptr && default_nozzle->size() > 0 ? default_nozzle->get_at(0) : 0.5);
     diam_nozzle->SetValue(value);
 
-    auto *default_filam = print_config_def.get("filament_diameter")->get_default_value<ConfigOptionFloats>();
+    auto *default_filam = PrintConfigDef::instance().get("filament_diameter")->get_default_value<ConfigOptionFloats>();
     value = double_to_string(default_filam != nullptr && default_filam->size() > 0 ? default_filam->get_at(0) : 3.0);
     diam_filam->SetValue(value);
 
@@ -2078,13 +2078,13 @@ PageTemperatures::PageTemperatures(ConfigWizard *parent)
     , spin_bed (new SpinCtrlDouble(this))
 {
     spin_extr->SetIncrement(5.0);
-    const auto &def_extr = *print_config_def.get("temperature");
+    const auto &def_extr = *PrintConfigDef::instance().get("temperature");
     spin_extr->SetRange(def_extr.min, def_extr.max);
     auto *default_extr = def_extr.get_default_value<ConfigOptionInts>();
     spin_extr->SetValue(default_extr != nullptr && default_extr->size() > 0 ? default_extr->get_at(0) : 200);
 
     spin_bed->SetIncrement(5.0);
-    const auto &def_bed = *print_config_def.get("bed_temperature");
+    const auto &def_bed = *PrintConfigDef::instance().get("bed_temperature");
     spin_bed->SetRange(def_bed.min, def_bed.max);
     auto *default_bed = def_bed.get_default_value<ConfigOptionInts>();
     spin_bed->SetValue(default_bed != nullptr && default_bed->size() > 0 ? default_bed->get_at(0) : 0);

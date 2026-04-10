@@ -745,7 +745,7 @@ void AMFParserContext::endElement(const char * /* name */)
         }
         else if (strncmp(m_value[0].c_str(), "slic3r.", 7) == 0) {
             const char *key = m_value[0].c_str() + 7;
-            if (print_config_def.options.find(key) != print_config_def.options.end()) {
+            if (PrintConfigDef::instance().options.find(key) != PrintConfigDef::instance().options.end()) {
                 ModelConfig *config = nullptr;
                 if (m_path.size() == 3) {
                     if (m_path[1] == NODE_TYPE_MATERIAL && m_material)
