@@ -2733,8 +2733,6 @@ public:
     bool                                readonly        = false;
     // Can be phony. if not present at laoding, mark it as phony. Also adapt the gui to look for phony status.
     bool                                can_phony       = false;
-    // Can be enabled/disabled by a check box.
-    bool                                can_enable      = false;
     // Height of a multiline GUI text box.
     int                                 height          = -1;
     // Optional width of an input field.
@@ -3291,7 +3289,7 @@ public:
         // ensure set_can_be_disabled is set
         if (def()) {
             const ConfigOptionDef* opt_def = def()->get(opt_key);
-            if (opt_def && opt_def->can_enable && !opt->can_be_disabled()) {
+            if (opt_def && opt_def->can_be_disabled && !opt->can_be_disabled()) {
                 opt->set_can_be_disabled();
             }
         }
