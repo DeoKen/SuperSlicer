@@ -672,7 +672,7 @@ void ObjectList::update_extruder_in_config(const wxDataViewItem& item)
     m_config->set_key_value("extruder", new ConfigOptionInt(extruder));
 
     // update scene
-    wxGetApp().plater()->update();
+    wxGetApp().plater()->update((unsigned int)Plater::UpdateParams::FORCE_BACKGROUND_PROCESSING_UPDATE);
 }
 
 static wxString get_item_name(const std::string& name, const bool is_text_volume)
