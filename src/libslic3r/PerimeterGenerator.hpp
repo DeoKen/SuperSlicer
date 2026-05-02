@@ -117,7 +117,7 @@ struct Parameters
         // external perimeters
         m_ext_mm3_per_mm(ext_perimeter_flow.mm3_per_mm()),
         ext_perimeter_width(ext_perimeter_flow.scaled_width()),
-        overhang_spacing(scale_t(config.overhangs_extrusion_spacing.get_abs_value(perimeter_flow.nozzle_diameter()))),
+        overhang_spacing(scale_t(config.overhangs_extrusion_spacing.get_effective_value(perimeter_flow.nozzle_diameter()))),
         //spacing between two external perimeter (where you don't have the space to add other loops)
         ext_perimeter_spacing(this->ext_perimeter_flow.scaled_spacing()),
         //spacing between external perimeter and the second
@@ -125,10 +125,10 @@ struct Parameters
         // overhang perimeters
         m_mm3_per_mm_overhang(this->overhang_flow.mm3_per_mm()),
         //gap fill
-        //gap_fill_spacing_external(this->config.gap_fill_overlap.get_abs_value(this->ext_perimeter_flow.with_spacing_ratio_from_width(1).scaled_spacing())
-        //    + this->ext_perimeter_flow.scaled_width() * (1 - this->config.gap_fill_overlap.get_abs_value(1.))),
-        //gap_fill_spacing(this->config.gap_fill_overlap.get_abs_value(this->perimeter_flow.with_spacing_ratio_from_width(1).scaled_spacing())
-        //    + this->perimeter_flow.scaled_width() * (1 - this->config.gap_fill_overlap.get_abs_value(1.))),
+        //gap_fill_spacing_external(this->config.gap_fill_overlap.get_effective_value(this->ext_perimeter_flow.with_spacing_ratio_from_width(1).scaled_spacing())
+        //    + this->ext_perimeter_flow.scaled_width() * (1 - this->config.gap_fill_overlap.get_effective_value(1.))),
+        //gap_fill_spacing(this->config.gap_fill_overlap.get_effective_value(this->perimeter_flow.with_spacing_ratio_from_width(1).scaled_spacing())
+        //    + this->perimeter_flow.scaled_width() * (1 - this->config.gap_fill_overlap.get_effective_value(1.))),
         // solid infill
         solid_infill_spacing(this->solid_infill_flow.scaled_spacing()),
         // infill gap to add vs perimeter (useful if using perimeter bonding)

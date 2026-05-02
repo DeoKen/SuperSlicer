@@ -119,7 +119,7 @@ void LayerRegionIsland::simplify_extrusion_entity(const Layer& layer)
         enable_arc_fitting = ArcFittingType::Disabled;
     coordf_t scaled_resolution = scale_d(print_config.resolution.value);
     if (enable_arc_fitting != ArcFittingType::Disabled) {
-        scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_abs_value(std::max(EPSILON, unscaled(scaled_resolution))));
+        scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_effective_value(std::max(EPSILON, unscaled(scaled_resolution))));
     }
     if (scaled_resolution == 0) scaled_resolution = enable_arc_fitting != ArcFittingType::Disabled ? SCALED_EPSILON * 2 : SCALED_EPSILON;
     scaled_resolution = std::max(double(SCALED_EPSILON), scaled_resolution);
@@ -1034,7 +1034,7 @@ void LayerSliceIsland::make_perimeters(LayerRegionIsland &region_island) {
         && params.ext_perimeter_flow.spacing_ratio() == 1
         && params.config.external_perimeters_first
         && params.object_config.perimeter_bonding.value > 0) {
-        params.infill_gap = (1 - params.object_config.perimeter_bonding.get_abs_value(1)) * params.get_ext_perimeter_spacing();
+        params.infill_gap = (1 - params.object_config.perimeter_bonding.get_effective_value(1)) * params.get_ext_perimeter_spacing();
         params.ext_perimeter_spacing2 -= params.infill_gap;
     }
 
@@ -1126,9 +1126,9 @@ bool config_compatible_for_milling(const PrintConfig &print_config, coord_t bott
         config.milling_extra_size == other_config.milling_extra_size &&
         (config.milling_after_z == other_config.milling_after_z ||
          bottom_z > Layer::scale_to_layer_coord(
-                                       std::min(config.milling_after_z.get_abs_value(
+                                       std::min(config.milling_after_z.get_effective_value(
                                                     print_config.milling_diameter.get_at(0)),
-                                                other_config.milling_after_z.get_abs_value(
+                                                other_config.milling_after_z.get_effective_value(
                                                     print_config.milling_diameter.get_at(0)))))) {
         return true;
     }
@@ -1251,7 +1251,7 @@ void SupportLayer::simplify_support_extrusion_path() {
     const bool enable_arc_fitting = print_config.arc_fitting != ArcFittingType::Disabled && !spiral_mode;
     coordf_t scaled_resolution = scale_d(print_config.resolution.value);
     if (enable_arc_fitting) {
-        scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_abs_value(unscaled(scaled_resolution)));
+        scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_effective_value(unscaled(scaled_resolution)));
     }
     if (scaled_resolution == 0) scaled_resolution = enable_arc_fitting ? SCALED_EPSILON * 2 : SCALED_EPSILON;
     SimplifyVisitor visitor{scaled_resolution,

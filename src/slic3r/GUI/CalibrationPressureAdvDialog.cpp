@@ -238,9 +238,9 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
 
 
     //double first_layer_height = full_print_config.get_computed_value("first_layer_height");
-    double first_layer_height = full_print_config.get_abs_value("first_layer_height", nozzle_diameter);
-    double first_layer_width = full_print_config.get_abs_value("first_layer_extrusion_width", nozzle_diameter);
-    double first_layer_spacing = full_print_config.get_abs_value("first_layer_extrusion_spacing", nozzle_diameter);
+    double first_layer_height = full_print_config.option("first_layer_height")->get_effective_value(nozzle_diameter);
+    double first_layer_width = full_print_config.option("first_layer_extrusion_width")->get_effective_value(nozzle_diameter);
+    double first_layer_spacing = full_print_config.option("first_layer_extrusion_spacing")->get_effective_value(nozzle_diameter);
     double first_layer_flow_ratio = full_print_config.get_computed_value("first_layer_flow_ratio");
     double first_layer_size_compensation = full_print_config.get_computed_value("first_layer_size_compensation");
     double infill_every_layers = full_print_config.get_computed_value("infill_every_layers");
@@ -248,16 +248,16 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
     double support_material_interface_layer_height = full_print_config.get_computed_value("support_material_interface_layer_height");
 
     double base_layer_height = full_print_config.get_computed_value("layer_height");
-    double er_width = full_print_config.get_abs_value("solid_infill_extrusion_width", nozzle_diameter);
+    double er_width = full_print_config.option("solid_infill_extrusion_width")->get_effective_value(nozzle_diameter);
     double er_accel = full_print_config.get_computed_value("solid_infill_acceleration");
     double er_speed = full_print_config.get_computed_value("solid_infill_speed");
-    double er_spacing = full_print_config.get_abs_value("external_perimeter_extrusion_spacing",nozzle_diameter);
-    double thin_walls_min_width = full_print_config.get_abs_value("thin_walls_min_width", nozzle_diameter);
+    double er_spacing = full_print_config.option("external_perimeter_extrusion_spacing")->get_effective_value(nozzle_diameter);
+    double thin_walls_min_width = full_print_config.option("thin_walls_min_width")->get_effective_value(nozzle_diameter);
 
-    double default_er_width = full_print_config.get_abs_value("extrusion_width", nozzle_diameter);
+    double default_er_width = full_print_config.option("extrusion_width")->get_effective_value(nozzle_diameter);
     double default_er_speed = full_print_config.get_computed_value("default_speed");
     double default_er_accel = full_print_config.get_computed_value("default_acceleration");
-    double default_er_spacing = full_print_config.get_abs_value("extrusion_spacing", nozzle_diameter);
+    double default_er_spacing = full_print_config.option("extrusion_spacing")->get_effective_value(nozzle_diameter);
     double perimeter_overlap = full_print_config.get_computed_value("perimeter_overlap");
     double external_perimeter_overlap = full_print_config.get_computed_value("external_perimeter_overlap");
     double filament_max_overlap = full_print_config.get_computed_value("filament_max_overlap",0);//maybe check for extruderID ?
@@ -267,7 +267,7 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
     double min_layer_height = full_print_config.get_computed_value("min_layer_height", extruder_count - extruder_count);//why is this now broken after i added multi extruder config then removed it. ??
     double max_layer_height = full_print_config.get_computed_value("max_layer_height", extruder_count - extruder_count);
 
-    //double max_layer_heih = full_print_config.get_abs_value("min_layer_height", nozzle_diameter);
+    //double max_layer_heih = full_print_config.option("min_layer_height")->get_effective_value(nozzle_diameter);
     //double min_layer_height, max_layer_height = 0.0;
 
 
@@ -419,9 +419,9 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                 }
 
                 //move this later
-                double bridge_flow_ratio = full_print_config.get_abs_value("bridge_flow_ratio", nozzle_diameter);
+                double bridge_flow_ratio = full_print_config.option("bridge_flow_ratio")->get_effective_value(nozzle_diameter);
                 
-                //er_width = print_config->get_abs_value(er_width_ToOptionKey[selected_extrusion_role].c_str(), nozzle_diameter);
+                //er_width = print_config->option(er_width_ToOptionKey[selected_extrusion_role].c_str())->get_effective_value(nozzle_diameter);
                 switch (extrusion_role) {
                     case GCodeExtrusionRole::InternalInfill:
                         base_flow = Flow::new_from_config(flow_role, *print_config, nozzle_diameter, modified_layer_height, filament_max_overlap, false);
@@ -492,14 +492,14 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                 if (er_width_ToOptionKey.find(selected_extrusion_role) != er_width_ToOptionKey.end()) {
 
                     //look at maps to match speed/width ect to the selected ER role
-                    er_width = print_config->get_abs_value(er_width_ToOptionKey[selected_extrusion_role].c_str(), nozzle_diameter);
+                    er_width = print_config->option(er_width_ToOptionKey[selected_extrusion_role].c_str())->get_effective_value(nozzle_diameter);
                     const ConfigOptionFloatOrPercent* first_layer_speed_option = dynamic_cast<const ConfigOptionFloatOrPercent*>(full_print_config.option("first_layer_speed"));
                     er_speed = (first_layer_speed_option && first_layer_speed_option->percent && selected_extrusion_role == "FirstLayer") ? default_er_speed : full_print_config.get_computed_value(er_speed_ToOptionKey[selected_extrusion_role].c_str());
                     er_accel = full_print_config.get_computed_value(er_accel_ToOptionKey[selected_extrusion_role].c_str());
                     if (/*selected_extrusion_role == choice_extrusion_role[5] ||*/ selected_extrusion_role == choice_extrusion_role[9] || selected_extrusion_role == choice_extrusion_role[10]){//ironing, SupportMaterial, SupportMaterialInterface, 
                         er_spacing = print_config->option<ConfigOptionFloat>(er_spacing_ToOptionKey[selected_extrusion_role].c_str())->value;
                     }else{
-                        er_spacing = print_config->get_abs_value(er_spacing_ToOptionKey[selected_extrusion_role].c_str(), nozzle_diameter);
+                        er_spacing = print_config->option(er_spacing_ToOptionKey[selected_extrusion_role].c_str())->get_effective_value(nozzle_diameter);
                     }
                     first_layer_flow = Flow::new_from_config(FlowRole::frPerimeter, *print_config, nozzle_diameter, first_layer_height, 1.f, true);
                     first_layer_width = first_layer_flow.width();
@@ -517,7 +517,7 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                     first_layer_width = std::round((first_layer_width * 100 / nozzle_diameter) * 100.0) / 100.0;
 
                 } else {
-                    er_width = print_config->get_abs_value("solid_infill_extrusion_width", nozzle_diameter); //used for gapfill_width/bridges selection. TODO: add the bits for this here since gapfill/bridges need special calculations
+                    er_width = print_config->option("solid_infill_extrusion_width")->get_effective_value(nozzle_diameter); //used for gapfill_width/bridges selection. TODO: add the bits for this here since gapfill/bridges need special calculations
                     er_width = (er_width != 0) ? er_width : default_er_width;
                     er_width = std::round((er_width * 100 / nozzle_diameter) * 100.0) / 100.0;
                     first_layer_width = default_first_layer_width;
@@ -605,11 +605,11 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
             }
 
             if (role_found == true) {
-                er_width =   print_config->get_abs_value(er_width_ToOptionKey[er_role].c_str(), nozzle_diameter);
+                er_width =   print_config->option(er_width_ToOptionKey[er_role].c_str())->get_effective_value(nozzle_diameter);
                 if (/*er_role == choice_extrusion_role[5] ||*/ er_role == choice_extrusion_role[9] || er_role == choice_extrusion_role[10]){//ironing, SupportMaterial, SupportMaterialInterface, 
                     er_spacing = print_config->option<ConfigOptionFloat>(er_spacing_ToOptionKey[er_role].c_str())->value;
                 }else{
-                    er_spacing = print_config->get_abs_value(er_spacing_ToOptionKey[er_role].c_str(), nozzle_diameter);
+                    er_spacing = print_config->option(er_spacing_ToOptionKey[er_role].c_str())->get_effective_value(nozzle_diameter);
                 }
 
                 er_width = (er_width != 0) ? er_width : default_er_width;//found supported role but it has 0 value, need to give it defaults.
@@ -967,14 +967,14 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
             }
 
             if (role_found == true /*&& defaults_broken == false*/) {
-                er_width = print_config->get_abs_value(er_width_ToOptionKey[er_role].c_str(), nozzle_diameter);
+                er_width = print_config->option(er_width_ToOptionKey[er_role].c_str())->get_effective_value(nozzle_diameter);
                 const ConfigOptionFloatOrPercent* first_layer_speed_option = dynamic_cast<const ConfigOptionFloatOrPercent*>(full_print_config.option("first_layer_speed"));
                 er_speed = (first_layer_speed_option && first_layer_speed_option->percent && er_role == "FirstLayer") ? default_er_speed : full_print_config.get_computed_value(er_speed_ToOptionKey[er_role].c_str());
                 er_accel = full_print_config.get_computed_value(er_accel_ToOptionKey[er_role].c_str(), nozzle_diameter);
                 if (/*er_role == choice_extrusion_role[5] ||*/ er_role == choice_extrusion_role[9] || er_role == choice_extrusion_role[10]){//ironing, SupportMaterial, SupportMaterialInterface, 
                     er_spacing = print_config->option<ConfigOptionFloat>(er_spacing_ToOptionKey[er_role].c_str())->value;
                 }else{
-                    er_spacing = print_config->get_abs_value(er_spacing_ToOptionKey[er_role].c_str(), nozzle_diameter);
+                    er_spacing = print_config->option(er_spacing_ToOptionKey[er_role].c_str())->get_effective_value(nozzle_diameter);
                 }
 
                 er_width = (er_width != 0) ? er_width : default_er_width;
@@ -989,11 +989,11 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                 er_accel = default_er_accel;
                 er_spacing = default_er_spacing;
                 
-                //er_width = print_config->get_abs_value(er_width_ToOptionKey[er_role].c_str(), nozzle_diameter);
+                //er_width = print_config->option(er_width_ToOptionKey[er_role].c_str())->get_effective_value(nozzle_diameter);
                 const ConfigOptionFloatOrPercent* first_layer_speed_option = dynamic_cast<const ConfigOptionFloatOrPercent*>(full_print_config.option("first_layer_speed"));
                 er_speed = (first_layer_speed_option && first_layer_speed_option->percent && er_role == "FirstLayer") ? default_er_speed : full_print_config.get_computed_value(er_speed_ToOptionKey[er_role].c_str());
                 er_accel = full_print_config.get_computed_value(er_accel_ToOptionKey[er_role].c_str(), nozzle_diameter);
-                //er_spacing = print_config->get_abs_value(er_spacing_ToOptionKey[er_role].c_str(), nozzle_diameter);
+                //er_spacing = print_config->option(er_spacing_ToOptionKey[er_role].c_str())->get_effective_value(nozzle_diameter);
 
                 //er_width = (er_width != 0) ? er_width : default_er_width;
                 er_speed = (er_speed != 0) ? er_speed : default_er_speed;

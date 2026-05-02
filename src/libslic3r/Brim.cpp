@@ -1245,7 +1245,7 @@ void make_brim_ears(const Print& print, const Flow& flow, const PrintObjectPtrs&
             }
             polys = union_ex(polys);
             //put ears over supports unless it's more than 30% fill
-            if (object->config().raft_first_layer_density.get_abs_value(1.) > 0.3) {
+            if (object->config().raft_first_layer_density.get_effective_value(1.) > 0.3) {
                 for (ExPolygon& poly : polys) {
                     if (brim_offset == 0) {
                         object_islands.push_back(std::move(poly));

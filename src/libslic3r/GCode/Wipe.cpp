@@ -123,7 +123,7 @@ std::string Wipe::wipe(GCodeGenerator &gcodegen, bool toolchange)
     retract_length = extruder.retract_to_go(retract_length);
     double nozzle_diameter = extruder.id() < 0 ? 0.4 : gcodegen.config().nozzle_diameter.get_at(extruder.id());
     const double xy_to_e    = this->calc_xy_to_e_ratio(gcodegen.writer(), extruder.id());
-    /*const*/ double wipe_total_length = std::max(retract_length, gcodegen.config().wipe_min.get_abs_value(extruder.id(), retract_length / xy_to_e));
+    /*const*/ double wipe_total_length = std::max(retract_length, gcodegen.config().wipe_min.get_effective_value(retract_length / xy_to_e, extruder.id()));
     if ( wipe_total_length > 0 && this->has_path()) {
         const double path_dist = unscaled(Geometry::ArcWelder::path_length<coordf_t>(this->path()));
         // if wipe_min == 0, then don't try to go farther than the current path (else, set it to 100%)
@@ -147,7 +147,7 @@ std::string Wipe::wipe(GCodeGenerator &gcodegen, bool toolchange)
             }
         }
         double wipe_length = wipe_total_length;
-        /*const*/double lift_length = extruder.id() < 0 ? 0 : gcodegen.config().wipe_lift_length.get_abs_value(extruder.id(), wipe_length);
+        /*const*/double lift_length = extruder.id() < 0 ? 0 : gcodegen.config().wipe_lift_length.get_effective_value(wipe_length, extruder.id());
         lift_length = std::min(lift_length, wipe_total_length);
         if (gcodegen.writer().get_lift() > 0) {
             // already lifted? weird, but don't lift more.
@@ -156,7 +156,7 @@ std::string Wipe::wipe(GCodeGenerator &gcodegen, bool toolchange)
         }
         double no_lift_length = wipe_total_length - lift_length;
         assert(no_lift_length >= 0);
-        const double lift_mm = extruder.id() < 0 ? 0 : gcodegen.config().wipe_lift.get_abs_value(extruder.id(), gcodegen.layer()->unscaled_height());
+        const double lift_mm = extruder.id() < 0 ? 0 : gcodegen.config().wipe_lift.get_effective_value(gcodegen.layer()->unscaled_height(), extruder.id());
         const double lift_per_mm = lift_mm / lift_length;
         const double initial_z = gcodegen.writer().get_position().z();
         assert(gcodegen.current_z_layer() && gcodegen.current_z_layer()->scaled_print_z() == Layer::scale_to_layer_coord(initial_z));

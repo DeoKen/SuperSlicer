@@ -1018,7 +1018,7 @@ void PrintObject::simplify_extrusion_path()
         );
         //also simplify object skirt & brim
         if (enable_arc_fitting) {
-            coordf_t scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_abs_value(print_config.resolution.value));
+            coordf_t scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_effective_value(print_config.resolution.value));
             if (scaled_resolution == 0) scaled_resolution = enable_arc_fitting ? SCALED_EPSILON * 2 : SCALED_EPSILON;
             const ConfigOptionFloatOrPercent& arc_fitting_tolerance = print_config.arc_fitting_tolerance;
 
@@ -1030,11 +1030,11 @@ void PrintObject::simplify_extrusion_path()
                 [this, &visitor, scaled_resolution, &arc_fitting_tolerance, &print_config](const tbb::blocked_range<size_t>& range) {
                     size_t path_idx = range.begin();
                     for (; path_idx < range.end() && path_idx < visitor.paths.size(); ++path_idx) {
-                        visitor.paths[path_idx]->simplify(scaled_resolution, print_config.arc_fitting, arc_fitting_tolerance.get_abs_value(visitor.paths[path_idx]->width()));
+                        visitor.paths[path_idx]->simplify(scaled_resolution, print_config.arc_fitting, arc_fitting_tolerance.get_effective_value(visitor.paths[path_idx]->width()));
                     }
                     for (; path_idx < range.end() && path_idx - visitor.paths.size() < visitor.paths3D.size(); ++path_idx) {
                         visitor.paths3D[path_idx - visitor.paths.size()]->simplify(scaled_resolution, print_config.arc_fitting,
-                                       arc_fitting_tolerance.get_abs_value(visitor.paths3D[path_idx - visitor.paths.size()]->width()));
+                                       arc_fitting_tolerance.get_effective_value(visitor.paths3D[path_idx - visitor.paths.size()]->width()));
                     }
                 }
             );
@@ -1157,14 +1157,14 @@ void _calculate_overhanging_perimeters(
             const double nozzle_diameter_overhangs = one_layer_region.bridging_flow(frPerimeter).nozzle_diameter();
             double max_width = -1;
             if (region_config.overhangs_width_speed.is_enabled()) {
-                max_width = region_config.overhangs_width_speed.get_abs_value(
+                max_width = region_config.overhangs_width_speed.get_effective_value(
                     nozzle_diameter_overhangs);
             }
             if (region_config.overhangs_width.is_enabled() &&
                 (max_width < 0 ||
                  max_width >
-                     region_config.overhangs_width.get_abs_value(nozzle_diameter_overhangs))) {
-                max_width = region_config.overhangs_width.get_abs_value(nozzle_diameter_overhangs);
+                     region_config.overhangs_width.get_effective_value(nozzle_diameter_overhangs))) {
+                max_width = region_config.overhangs_width.get_effective_value(nozzle_diameter_overhangs);
             }
             if (max_width < 0) {
                 max_width = nozzle_diameter_overhangs;
@@ -2111,7 +2111,7 @@ void PrintObject::tag_under_bridge() {
                                                 for (uint16_t extruder_id : object_extruders()) {
                                                     max_nozzle_diam = std::max(max_nozzle_diam, print()->config().nozzle_diameter.get_at(extruder_id));
                                                 }
-                                                coordf_t min_width = scale_d(max_nozzle_diam) / region->config().fill_density.get_abs_value(1.);
+                                                coordf_t min_width = scale_d(max_nozzle_diam) / region->config().fill_density.get_effective_value(1.);
                                                 ExPolygons smalls = offset_ex(intersect, -min_width);
                                                 //small enough ?
                                                 if (smalls.empty()) {
@@ -2125,7 +2125,7 @@ void PrintObject::tag_under_bridge() {
                                             }
                                             const double perimeter_width = region->config().perimeters == 0 ? 0 :
                                                 (layerm->flow(frExternalPerimeter).width() + layerm->flow(frPerimeter).spacing() * (region->config().perimeters - 1));
-                                            const double offset_expand = layerm->region().config().external_infill_margin.get_abs_value(perimeter_width);
+                                            const double offset_expand = layerm->region().config().external_infill_margin.get_effective_value(perimeter_width);
                                             if (dfaEnlarged == algo) {
                                                 //expand the area a bit
                                                 intersect = offset_ex(intersect, scaled(offset_expand));
@@ -2776,13 +2776,13 @@ void PrintObject::discover_vertical_shells()
                         const bool has_infill = layerm.region().config().fill_density.value > 0.;
                         //if no infill, reduce the margin for everything to only the perimeter
                         if (!has_infill) {
-                            coord_t margin = scale_t(layerm.region().config().external_infill_margin.get_abs_value(unscaled(current_shell_width)));
-                            coord_t margin_bridged = scale_t(layerm.region().config().bridged_infill_margin.get_abs_value(extflow.width()));
+                            coord_t margin = scale_t(layerm.region().config().external_infill_margin.get_effective_value(unscaled(current_shell_width)));
+                            coord_t margin_bridged = scale_t(layerm.region().config().bridged_infill_margin.get_effective_value(extflow.width()));
                             expansion_solid = std::min(margin, current_shell_width);
                             expansion_bottom_bridge = std::min(margin_bridged, current_shell_width);
                         } else {
-                            expansion_solid = scale_t(layerm.region().config().external_infill_margin.get_abs_value(unscaled(current_shell_width)));
-                            expansion_bottom_bridge = scale_t(layerm.region().config().bridged_infill_margin.get_abs_value(extflow.width()));
+                            expansion_solid = scale_t(layerm.region().config().external_infill_margin.get_effective_value(unscaled(current_shell_width)));
+                            expansion_bottom_bridge = scale_t(layerm.region().config().bridged_infill_margin.get_effective_value(extflow.width()));
                         }
                     }
                     // I'm not sure of what I want to do here. this doesn't really grow the resulting surface, it just helps with merging. 
@@ -2871,13 +2871,13 @@ void PrintObject::discover_vertical_shells()
                         //    const bool has_infill = layerm.region().config().fill_density.value > 0.;
                         //    //if no infill, reduce the margin for everything to only the perimeter
                         //    if (!has_infill) {
-                        //        coord_t margin = scale_t(layerm.region().config().external_infill_margin.get_abs_value(unscaled(current_shell_width)));
-                        //        coord_t margin_bridged = scale_t(layerm.region().config().bridged_infill_margin.get_abs_value(extflow.width()));
+                        //        coord_t margin = scale_t(layerm.region().config().external_infill_margin.get_effective_value(unscaled(current_shell_width)));
+                        //        coord_t margin_bridged = scale_t(layerm.region().config().bridged_infill_margin.get_effective_value(extflow.width()));
                         //        expansion_solid = std::min(margin, current_shell_width);
                         //        expansion_bottom_bridge = std::min(margin_bridged, current_shell_width);
                         //    } else {
-                        //        expansion_solid = scale_t(layerm.region().config().external_infill_margin.get_abs_value(unscaled(current_shell_width)));
-                        //        expansion_bottom_bridge = scale_t(layerm.region().config().bridged_infill_margin.get_abs_value(extflow.width()));
+                        //        expansion_solid = scale_t(layerm.region().config().external_infill_margin.get_effective_value(unscaled(current_shell_width)));
+                        //        expansion_bottom_bridge = scale_t(layerm.region().config().bridged_infill_margin.get_effective_value(extflow.width()));
                         //    }
                         //}
                         //coord_t top_bottom_expansion = std::max(expansion_solid, coord_t(layerm.flow(frSolidInfill).scaled_spacing() * top_bottom_expansion_coeff));
@@ -3319,7 +3319,7 @@ void PrintObject::replaceSurfaceType(SurfaceType st_to_replace, SurfaceType st_r
         const PrintRegion& region = this->printing_region(region_id);
 
         // skip over-bridging in case there are no modification
-        if (region.config().over_bridge_flow_ratio.get_abs_value(1) == 1) continue;
+        if (region.config().over_bridge_flow_ratio.get_effective_value(1) == 1) continue;
 
         for (LayerPtrs::iterator layer_it = m_layers.begin(); layer_it != m_layers.end(); ++layer_it) {
             // skip first layer
@@ -3413,7 +3413,7 @@ void PrintObject::bridge_over_infill()
             if (layer->lower_layer != nullptr) {
                 coord_t spacing = coord_t(layer->regions().front()->flow(frSolidInfill).scaled_spacing());
                 bool has_same_internal_bridge_min_width = true;
-                coord_t common_internal_bridge_min_width = scale_t(layer->regions().front()->region().config().internal_bridge_min_width.get_abs_value(unscaled(spacing)));
+                coord_t common_internal_bridge_min_width = scale_t(layer->regions().front()->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
                 // unsupported area will serve as a filter for polygons worth bridging.
                 ExPolygons   unsupported_area;
                 ExPolygons   lower_layer_solids;
@@ -3430,7 +3430,7 @@ void PrintObject::bridge_over_infill()
                     }
                     // check if internal_bridge_min_width is the same in all regions, it simplifies things
                     coord_t region_internal_bridge_min_width = scale_t(
-                        region->region().config().internal_bridge_min_width.get_abs_value(
+                        region->region().config().internal_bridge_min_width.get_effective_value(
                             region->flow(frSolidInfill).spacing()));
                     if (region_internal_bridge_min_width != common_internal_bridge_min_width) {
                         has_same_internal_bridge_min_width = false;
@@ -3453,7 +3453,7 @@ void PrintObject::bridge_over_infill()
                     // get the regions ordered per internal_bridge_min_width value
                     std::map<coord_t, ExPolygons> min_width_to_fills;
                     for (const LayerRegion *region : layer->regions()) {
-                        coord_t region_internal_bridge_min_width = scale_t(region->region().config().internal_bridge_min_width.get_abs_value(unscaled(spacing)));
+                        coord_t region_internal_bridge_min_width = scale_t(region->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
                         append(min_width_to_fills[region_internal_bridge_min_width], region->fill_expolygons());
                     }
                     for (auto &entry : min_width_to_fills) {
@@ -3488,7 +3488,7 @@ void PrintObject::bridge_over_infill()
                 }
 
                 for (const LayerRegion *region : layer->regions()) {
-                    coord_t region_internal_bridge_min_width = scale_t(region->region().config().internal_bridge_min_width.get_abs_value(unscaled(spacing)));
+                    coord_t region_internal_bridge_min_width = scale_t(region->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
                     SurfacesPtr region_internal_solids = region->fill_surfaces().filter_by_type(stPosInternal | stDensSolid);
                     for (const Surface *srf : region_internal_solids) {
                         ExPolygons unsupported         = intersection_ex(unsupported_area, srf->expolygon);
@@ -4044,11 +4044,11 @@ void PrintObject::bridge_over_infill()
                 Polygons           deep_infill_area   = gather_areas_w_depth(po, lidx, target_flow_height);
 
                 bool has_same_internal_bridge_min_width = true;
-                coord_t common_internal_bridge_min_width = scale_t(layer->regions().front()->region().config().internal_bridge_min_width.get_abs_value(unscaled(spacing)));
+                coord_t common_internal_bridge_min_width = scale_t(layer->regions().front()->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
                 for (const LayerRegion *region : layer->regions()) {
                     // check if internal_bridge_min_width is the same in all regions, it simplifies things
                     coord_t region_internal_bridge_min_width = scale_t(
-                        region->region().config().internal_bridge_min_width.get_abs_value(
+                        region->region().config().internal_bridge_min_width.get_effective_value(
                             region->flow(frSolidInfill).spacing()));
                     if (region_internal_bridge_min_width != common_internal_bridge_min_width) {
                         has_same_internal_bridge_min_width = false;
@@ -4097,7 +4097,7 @@ void PrintObject::bridge_over_infill()
                     if (!has_same_internal_bridge_min_width) {
                         // do shrink per region, as the value is different.
                         coord_t internal_bridge_min_width = scale_t(
-                            first_lregion->region().config().internal_bridge_min_width.get_abs_value(region->flow(frSolidInfill).spacing()));
+                            first_lregion->region().config().internal_bridge_min_width.get_effective_value(region->flow(frSolidInfill).spacing()));
                         append(internal_unsupported_area,
                                intersection(to_polygons(region->fill_expolygons()),
                                             shrink(deep_infill_area, spacing * 1.5 + internal_bridge_min_width)));
@@ -4473,7 +4473,7 @@ double PrintObject::get_first_layer_height() const
         object_first_layer_height = 1000000000;
         for (uint16_t extruder_id : object_extruders()) {
             double nozzle_diameter = print()->config().nozzle_diameter.get_at(extruder_id);
-            object_first_layer_height = std::fmin(object_first_layer_height, config().first_layer_height.get_abs_value(nozzle_diameter));
+            object_first_layer_height = std::fmin(object_first_layer_height, config().first_layer_height.get_effective_value(nozzle_diameter));
         }
     }
     assert(object_first_layer_height < 1000000000);

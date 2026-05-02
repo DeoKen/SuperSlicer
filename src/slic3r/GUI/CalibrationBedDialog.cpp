@@ -65,7 +65,7 @@ void CalibrationBedDialog::create_geometry(wxCommandEvent& event_args) {
     float xyScale = nozzle_diameter->get_at(0) / 0.4;
     //scale z with the first_layer_height
     const ConfigOptionFloatOrPercent* first_layer_height = printConfig->option<ConfigOptionFloatOrPercent>("first_layer_height");
-    float zscale = first_layer_height->get_abs_value(nozzle_diameter->get_at(0)) / 0.2;
+    float zscale = first_layer_height->get_effective_value(nozzle_diameter->get_at(0)) / 0.2;
     //do scaling
     if (xyScale < 0.9 || 1.2 < xyScale) {
         for (size_t i = 0; i < 5; i++)

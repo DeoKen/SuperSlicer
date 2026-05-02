@@ -2497,7 +2497,7 @@ std::vector<Slic3r::GUI::PageShp> Tab::create_pages(std::string setting_type_nam
                         option.opt.set_enum_as_closed_for_scripted_enum(values_2_labels); // fake closed
                         // set the first value as default
                         ConfigOption* default_opt = option.opt.create_default_option();
-                        default_opt->set_enum_int(0); // should be generic_enum, set to first.
+                        default_opt->set_int(0); // should be generic_enum, set to first.
                         option.opt.set_default_value(default_opt);
                     } else if (boost::starts_with(params[i], "hints")) {
                         std::vector<std::string> enum_strs;

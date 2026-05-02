@@ -665,7 +665,7 @@ WipeTower::WipeTower(const PrintConfig& config, const PrintObjectConfig& default
     }
     // Read absolute value of first layer speed, if given as percentage,
     // it is taken over wipe_tower_speed.
-    m_first_layer_speed = default_object_config.first_layer_speed.get_abs_value(m_speed);
+    m_first_layer_speed = default_object_config.first_layer_speed.get_effective_value(m_speed);
     if (m_first_layer_speed <= 0.f) { // just to make sure autospeed doesn't break it.
         m_first_layer_speed = m_speed;
     }
@@ -764,7 +764,7 @@ void WipeTower::set_extruder(size_t idx)
         m_filpar[idx].max_e_speed = (max_vol_speed / filament_area());
 
     m_nozzle_diameter = nozzle_diameter; // all extruders are now assumed to have the same diameter
-    m_perimeter_width = m_object_config->wipe_tower_extrusion_width.get_abs_value(nozzle_diameter); // all extruders are now assumed to have the same diameter
+    m_perimeter_width = m_object_config->wipe_tower_extrusion_width.get_effective_value(nozzle_diameter); // all extruders are now assumed to have the same diameter
 
     if (m_semm) {
         std::istringstream stream{m_config->filament_ramming_parameters.get_at(idx)};
@@ -1352,7 +1352,7 @@ void WipeTower::toolchange_Wipe(
     if (target_speed <= 0)
         target_speed = m_infill_speed;
     target_speed = std::min(max_speed, target_speed);
-    float wipe_speed = std::min(max_speed, float(m_config->wipe_tower_wipe_starting_speed.get_abs_value(target_speed)));
+    float wipe_speed = std::min(max_speed, float(m_config->wipe_tower_wipe_starting_speed.get_effective_value(target_speed)));
     if (wipe_speed <= 0) {
         wipe_speed = target_speed;
     }
@@ -1636,9 +1636,9 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
         );
         const double spacing = brim_flow.spacing();
         // How many perimeters shall the brim have?
-        size_t loops_num = (m_object_config->wipe_tower_brim_width.get_abs_value(m_nozzle_diameter) + spacing / 2) / spacing;
+        size_t loops_num = (m_object_config->wipe_tower_brim_width.get_effective_value(m_nozzle_diameter) + spacing / 2) / spacing;
         // ensure the loops_num is within bounds
-        if (m_object_config->wipe_tower_brim_width.get_abs_value(m_nozzle_diameter) <= 0) {
+        if (m_object_config->wipe_tower_brim_width.get_effective_value(m_nozzle_diameter) <= 0) {
             loops_num = 0;
         }
         assert(loops_num < 999);

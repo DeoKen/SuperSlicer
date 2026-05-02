@@ -9780,8 +9780,8 @@ void PrintConfigDef::handle_legacy_composite(DynamicPrintConfig &config, std::ma
         double min = external_perimeter_speed;
         for (int x = 0; x < values.size(); ++x) {
             if (values[x].percent) {
-                min = std::min(min, values[x].get_abs_value(external_perimeter_speed));
-                max = std::max(max, values[x].get_abs_value(external_perimeter_speed));
+                min = std::min(min, values[x].get_effective_value(external_perimeter_speed));
+                max = std::max(max, values[x].get_effective_value(external_perimeter_speed));
             } else {
                 min = std::min(min, values[x].value);
                 max = std::max(max, values[x].value);
@@ -9802,7 +9802,7 @@ void PrintConfigDef::handle_legacy_composite(DynamicPrintConfig &config, std::ma
         // extract values
         Pointfs graph_curve;
         for (int x = 0; x < values.size(); ++x) {
-            double speed = values[x].get_abs_value(external_perimeter_speed);
+            double speed = values[x].get_effective_value(external_perimeter_speed);
             speed = std::clamp(speed, min, max);
             double percent = (speed - min) / (max - min);
             if (min == external_perimeter_speed) {
@@ -10817,7 +10817,7 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
     } else if("first_layer_acceleration" == opt_key || "first_layer_acceleration_over_raft" == opt_key) {
         if (value.find("%") != std::string::npos) {
             // can't support %, so we uese the default accel a baseline for half-assed conversion
-            value = std::to_string(all_conf.get_abs_value(opt_key, all_conf.get_computed_value("default_acceleration")));
+            value = std::to_string(all_conf.option(opt_key)->get_effective_value(all_conf.get_computed_value("default_acceleration")));
         }
     } else if ("infill_acceleration" == opt_key || "solid_infill_acceleration" == opt_key || "top_solid_infill_acceleration" == opt_key
         || "bridge_acceleration" == opt_key || "default_acceleration" == opt_key || "perimeter_acceleration" == opt_key
@@ -10841,7 +10841,7 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
     } else if ("gap_fill_speed" == opt_key && all_conf.has("gap_fill_enabled") && !all_conf.option<ConfigOptionBool>("gap_fill_enabled")->value) {
         value = "0";
     } else if ("bridge_flow_ratio" == opt_key && all_conf.has("bridge_flow_ratio")) {
-        value = to_string_nozero(all_conf.option<ConfigOptionPercent>("bridge_flow_ratio")->get_abs_value(1), 5);
+        value = to_string_nozero(all_conf.option<ConfigOptionPercent>("bridge_flow_ratio")->get_effective_value(1), 5);
     //} else if ("overhangs_width" == opt_key) {
     //    opt_key = "overhangs";
     //    if ((!value.empty() && value.front() == '!') || !all_conf.is_enabled("overhangs_width_speed")) {
@@ -10859,7 +10859,7 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
             if (SupportZDistanceType::zdNone == dist_type) {
                 value = "0";
             } else {
-                double val = all_conf.option<ConfigOptionFloatOrPercent>("support_material_contact_distance_top")->get_abs_value(all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0));
+                double val = all_conf.option<ConfigOptionFloatOrPercent>("support_material_contact_distance_top")->get_effective_value(all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0));
                 if (SupportZDistanceType::zdFilament == dist_type) { // not exact but good enough effort
                     val += all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
                     val -= all_conf.get_computed_value("layer_height", 0);
@@ -10879,7 +10879,7 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
                 if (SupportZDistanceType::zdNone == dist_type) {
                     value = "0";
                 } else {
-                    double val = all_conf.option<ConfigOptionFloatOrPercent>("support_material_contact_distance_bottom")->get_abs_value(all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0));
+                    double val = all_conf.option<ConfigOptionFloatOrPercent>("support_material_contact_distance_bottom")->get_effective_value(all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0));
                     if (SupportZDistanceType::zdFilament == dist_type) { // not exact but good enough effort
                         val += all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
                         val -= all_conf.get_computed_value("layer_height", 0);
@@ -10905,7 +10905,7 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
             const ConfigOptionFloatOrPercent* opt = all_conf.option<ConfigOptionFloatOrPercent>(opt_key);
             if (opt->is_phony() || opt->percent) {
                 if (opt->percent) {
-                    ConfigOptionFloat opt_temp{ opt->get_abs_value(all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0)) };
+                    ConfigOptionFloat opt_temp{ opt->get_effective_value(all_conf.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0)) };
                     value = opt_temp.serialize();
                 } else {
                     //bypass the phony kill switch from Config::opt_serialize
@@ -10976,7 +10976,7 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
             assert(current_opt && nozzle_diameters);
             assert(current_opt->size() == nozzle_diameters->size());
             for (int i = 0; i < current_opt->size(); i++) {
-                computed_opt.set_at(current_opt->get_abs_value(i, nozzle_diameters->get_at(i)), i);
+                computed_opt.set_at(current_opt->get_effective_value(nozzle_diameters->get_at(i), i), i);
             }
             assert(computed_opt.size() == nozzle_diameters->size());
             value = computed_opt.serialize();
@@ -10989,7 +10989,7 @@ std::map<std::string, std::string> PrintConfigDef::to_prusa(t_config_option_key&
         const ConfigOptionFloatOrPercent *current_opt = all_conf.option<ConfigOptionFloatOrPercent>(opt_key);
         assert(current_opt && current_opt->percent);
         const ConfigOptionFloats *nozzle_diameters = all_conf.option<ConfigOptionFloats>("nozzle_diameter");
-        value = std::to_string(current_opt->get_abs_value(nozzle_diameters->get_at(0)));
+        value = std::to_string(current_opt->get_effective_value(nozzle_diameters->get_at(0)));
     }
 
     if ("thumbnails" == opt_key) {
@@ -11217,7 +11217,7 @@ double min_object_distance(const ConfigBase *config, double ref_height /* = 0*/)
             //ideally, we should use print::first_layer_height()
             const double first_layer_height = 
                 dynamic_cast<const ConfigOptionFloatOrPercent *>(config->option("first_layer_height"))
-                    ->get_abs_value(max_nozzle_diam);
+                    ->get_effective_value(max_nozzle_diam);
             //add the skirt
             int skirts = config->option("skirts")->get_int();
             if (skirts > 0 && ref_height == 0)
@@ -11505,10 +11505,10 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
             double max_nozzle_diameter = 0;
             for (double dmr : nozzle_diameter_option->get_values())
                 max_nozzle_diameter = std::max(max_nozzle_diameter, dmr);
-            double spacing_value = spacing_option->get_abs_value(max_nozzle_diameter);
+            double spacing_value = spacing_option->get_effective_value(max_nozzle_diameter);
             float overlap_ratio = 1;
             const ConfigOptionPercents* filament_max_overlap_option = find_option<ConfigOptionPercents>("filament_max_overlap", this, config_collection);
-            if (filament_max_overlap_option) overlap_ratio = filament_max_overlap_option->get_abs_value(0, 1.);
+            if (filament_max_overlap_option) overlap_ratio = filament_max_overlap_option->get_effective_value(1., 0);
             Flow flow = Flow::new_from_spacing(spacing_value, max_nozzle_diameter,layer_height_option->value, overlap_ratio, false);
             //test for valid height. If too high, revert to round shape
             if (spacing_value > 0 && flow.height() > spacing_value / (1 - (1. - 0.25 * PI) * flow.spacing_ratio())) {
@@ -11563,8 +11563,8 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                     if(spacing_value == 0)
                         width_option->value = 0;
                     else {
-                        float spacing_ratio = (std::min(flow.spacing_ratio(), float(perimeter_overlap_option->get_abs_value(1))));
-                        flow = flow.with_width( spacing_option->get_abs_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
+                        float spacing_ratio = (std::min(flow.spacing_ratio(), float(perimeter_overlap_option->get_effective_value(1))));
+                        flow = flow.with_width( spacing_option->get_effective_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
                         width_option->value = (spacing_option->percent) ? std::round(100 * flow.width() / max_nozzle_diameter) : (std::round(flow.width() * 10000) / 10000);
                     }
                     width_option->percent = spacing_option->percent;
@@ -11580,8 +11580,8 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                     if (spacing_value == 0)
                         width_option->value = 0;
                     else {
-                        float spacing_ratio = (std::min(flow.spacing_ratio() / 2, float(external_perimeter_overlap_option->get_abs_value(0.5))));
-                        flow = flow.with_width(spacing_option->get_abs_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
+                        float spacing_ratio = (std::min(flow.spacing_ratio() / 2, float(external_perimeter_overlap_option->get_effective_value(0.5))));
+                        flow = flow.with_width(spacing_option->get_effective_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
                         width_option->value = (spacing_option->percent) ? std::round(100 * flow.width() / max_nozzle_diameter) : (std::round(flow.width() * 10000) / 10000);
                     }
                     width_option->percent = spacing_option->percent;
@@ -11610,8 +11610,8 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                     if (spacing_value == 0)
                         width_option->value = 0;
                     else {
-                        float spacing_ratio = (std::min(flow.spacing_ratio(), float(solid_infill_overlap_option->get_abs_value(1))));
-                        flow = flow.with_width(spacing_option->get_abs_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
+                        float spacing_ratio = (std::min(flow.spacing_ratio(), float(solid_infill_overlap_option->get_effective_value(1))));
+                        flow = flow.with_width(spacing_option->get_effective_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
                         width_option->value = (spacing_option->percent) ? std::round(100 * flow.width() / max_nozzle_diameter) : (std::round(flow.width() * 10000) / 10000);
                     }
                     width_option->percent = spacing_option->percent;
@@ -11627,8 +11627,8 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                     if (spacing_value == 0)
                         width_option->value = 0;
                     else {
-                        float spacing_ratio = (std::min(flow.spacing_ratio(), float(top_solid_infill_overlap_option->get_abs_value(1))));
-                        flow = flow.with_width(spacing_option->get_abs_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
+                        float spacing_ratio = (std::min(flow.spacing_ratio(), float(top_solid_infill_overlap_option->get_effective_value(1))));
+                        flow = flow.with_width(spacing_option->get_effective_value(max_nozzle_diameter) + layer_height_option->value * (1. - 0.25 * PI) * spacing_ratio);
                         width_option->value = (spacing_option->percent) ? std::round(100 * flow.width() / max_nozzle_diameter) : (std::round(flow.width() * 10000) / 10000);
                     }
                     width_option->percent = spacing_option->percent;
@@ -11658,7 +11658,7 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
         ConfigOptionFloatOrPercent* width_option = this->option<ConfigOptionFloatOrPercent>(opt_key);
         float overlap_ratio = 1;
         const ConfigOptionPercents* filament_max_overlap_option = find_option<ConfigOptionPercents>("filament_max_overlap", this, config_collection);
-        if (filament_max_overlap_option) overlap_ratio = filament_max_overlap_option->get_abs_value(0, 1.);
+        if (filament_max_overlap_option) overlap_ratio = filament_max_overlap_option->get_effective_value(1., 0);
         if (layer_height_option && width_option && nozzle_diameter_option) {
             //compute spacing with current height and change the width
             float max_nozzle_diameter = 0;
@@ -11730,7 +11730,7 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                             Flow flow = Flow::new_from_config_width(FlowRole::frExternalPerimeter, 
                                 width_option->value == 0 ? *default_width_option : *width_option,  *spacing_option, 
                                 max_nozzle_diameter, layer_height_option->value, 
-                                std::min(overlap_ratio, (float)perimeter_overlap_option->get_abs_value(1)), 0);
+                                std::min(overlap_ratio, (float)perimeter_overlap_option->get_effective_value(1)), 0);
                             if (flow.width() < flow.height()) flow = flow.with_height(flow.width());
                             spacing_option->value = (width_option->percent) ? std::round(100 * flow.spacing() / max_nozzle_diameter) : (std::round(flow.spacing() * 10000) / 10000);
                         }
@@ -11750,7 +11750,7 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                             Flow ext_perimeter_flow = Flow::new_from_config_width(FlowRole::frPerimeter, 
                                 width_option->value == 0 ? *default_width_option : *width_option, *spacing_option, 
                                 max_nozzle_diameter, layer_height_option->value, 
-                                std::min(overlap_ratio * 0.5f, float(external_perimeter_overlap_option->get_abs_value(0.5))), 0);
+                                std::min(overlap_ratio * 0.5f, float(external_perimeter_overlap_option->get_effective_value(0.5))), 0);
                             if (ext_perimeter_flow.width() < ext_perimeter_flow.height()) ext_perimeter_flow = ext_perimeter_flow.with_height(ext_perimeter_flow.width());
                             spacing_option->value = (width_option->percent) ? std::round(100 * ext_perimeter_flow.spacing() / max_nozzle_diameter) : (std::round(ext_perimeter_flow.spacing() * 10000) / 10000);
                         }
@@ -11786,7 +11786,7 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                             Flow flow = Flow::new_from_config_width(FlowRole::frSolidInfill, 
                                 width_option->value == 0 ? *default_width_option : *width_option, *spacing_option, 
                                 max_nozzle_diameter, layer_height_option->value, 
-                                std::min(overlap_ratio, float(solid_infill_overlap_option->get_abs_value(1.))), 0);
+                                std::min(overlap_ratio, float(solid_infill_overlap_option->get_effective_value(1.))), 0);
                             if (flow.width() < flow.height()) flow = flow.with_height(flow.width());
                             spacing_option->value = (width_option->percent) ? std::round(100 * flow.spacing() / max_nozzle_diameter) : (std::round(flow.spacing() * 10000) / 10000);
                         }
@@ -11806,7 +11806,7 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                             Flow flow = Flow::new_from_config_width(FlowRole::frTopSolidInfill, 
                                 width_option->value == 0 ? *default_width_option : *width_option, *spacing_option, 
                                 max_nozzle_diameter, layer_height_option->value,
-                                std::min(overlap_ratio, float(top_solid_infill_overlap_option->get_abs_value(1.))), 0);
+                                std::min(overlap_ratio, float(top_solid_infill_overlap_option->get_effective_value(1.))), 0);
                             if (flow.width() < flow.height()) flow = flow.with_height(flow.width());
                             spacing_option->value = (width_option->percent) ? std::round(100 * flow.spacing() / max_nozzle_diameter) : (std::round(flow.spacing() * 10000) / 10000);
                         }
@@ -11836,7 +11836,7 @@ const DynamicPrintConfig* DynamicPrintConfig::value_changed(const t_config_optio
                     spacing_option->set_phony(false);
                     spacing_option->value = 100;
                     spacing_option->percent = true;
-                    Flow flow = Flow::new_from_spacing(spacing_option->get_abs_value(max_nozzle_diameter), max_nozzle_diameter, layer_height_option->value, overlap_ratio, false);
+                    Flow flow = Flow::new_from_spacing(spacing_option->get_effective_value(max_nozzle_diameter), max_nozzle_diameter, layer_height_option->value, overlap_ratio, false);
                     width_option->value = (spacing_option->percent) ? std::round(100 * flow.width() / max_nozzle_diameter) : (std::round(flow.width() * 10000) / 10000);
                     width_option->percent = spacing_option->percent;
                     something_changed = true;
@@ -11879,7 +11879,7 @@ std::string validate(const FullPrintConfig& cfg)
         return "--layer-height must be a multiple of print resolution";
 
     // --first-layer-height
-    //if (cfg.get_abs_value("first_layer_height") <= 0) //can't do that, as the extruder isn't defined
+    //if (cfg.get_effective_value("first_layer_height") <= 0) //can't do that, as the extruder isn't defined
     if(cfg.first_layer_height.value <= 0)
         return "Invalid value for --first-layer-height";
 
@@ -12002,7 +12002,7 @@ std::string validate(const FullPrintConfig& cfg)
         for (size_t i = 0; i < sizeof(widths) / sizeof(widths[i]); ++ i) {
             std::string key(widths[i]);
             key += "extrusion_width";
-            if (cfg.get_abs_value(key, max_nozzle_diameter) > 10. * max_nozzle_diameter)
+            if (cfg.option(key)->get_effective_value(max_nozzle_diameter) > 10. * max_nozzle_diameter)
                 return std::string("Invalid extrusion width (too large): ") + key;
         }
     }
@@ -12031,7 +12031,7 @@ std::string validate(const FullPrintConfig& cfg)
         case coFloatOrPercent:
         {
             auto *fopt = static_cast<const ConfigOptionFloatOrPercent*>(opt);
-            out_of_range = fopt->get_abs_value(1) < optdef->min || fopt->get_abs_value(1) > optdef->max;
+            out_of_range = fopt->get_effective_value(1) < optdef->min || fopt->get_effective_value(1) > optdef->max;
             break;
         }
         case coPercents:

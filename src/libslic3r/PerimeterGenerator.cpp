@@ -598,8 +598,8 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
 #endif
         if (loop.fuzzify) {
             double nozle_diameter = is_external ? params.ext_perimeter_flow.nozzle_diameter() : params.perimeter_flow.nozzle_diameter();
-            double fuzzy_skin_thickness = params.config.fuzzy_skin_thickness.get_abs_value(nozle_diameter);
-            double fuzzy_skin_point_dist = params.config.fuzzy_skin_point_dist.get_abs_value(nozle_diameter);
+            double fuzzy_skin_thickness = params.config.fuzzy_skin_thickness.get_effective_value(nozle_diameter);
+            double fuzzy_skin_point_dist = params.config.fuzzy_skin_point_dist.get_effective_value(nozle_diameter);
             fuzzy_paths(paths, scale_d(fuzzy_skin_thickness), scale_d(fuzzy_skin_point_dist));
         }
 #if _DEBUG
@@ -1919,8 +1919,8 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_extrusions(const Paramet
         // Apply fuzzify
         if (!paths.empty() && pg_extrusion.fuzzify) {
             double nozle_diameter = is_external ? params.ext_perimeter_flow.nozzle_diameter() : params.perimeter_flow.nozzle_diameter();
-            double fuzzy_skin_thickness = params.config.fuzzy_skin_thickness.get_abs_value(nozle_diameter);
-            double fuzzy_skin_point_dist = params.config.fuzzy_skin_point_dist.get_abs_value(nozle_diameter);
+            double fuzzy_skin_thickness = params.config.fuzzy_skin_thickness.get_effective_value(nozle_diameter);
+            double fuzzy_skin_point_dist = params.config.fuzzy_skin_point_dist.get_effective_value(nozle_diameter);
            fuzzy_paths(paths, scale_d(fuzzy_skin_thickness), scale_d(fuzzy_skin_point_dist));
         }
 
@@ -3056,7 +3056,7 @@ std::tuple<std::vector<ExtrusionPaths>, ExPolygons, ExPolygons> generate_extra_p
         //max_margin = this->flow(frExternalPerimeter).scaled_width() + this->flow(frPerimeter).scaled_spacing() * (this->region().config().perimeters.value - 1);
         perimeter_depth = params.ext_perimeter_flow.scaled_width() / 2  + params.ext_perimeter_flow.scaled_width() / 2 + params.perimeter_flow.scaled_spacing() * (perimeter_count -1);
     }
-    const coord_t bridged_infill_margin = scale_t(params.config.bridged_infill_margin.get_abs_value(params.ext_perimeter_flow.width()));
+    const coord_t bridged_infill_margin = scale_t(params.config.bridged_infill_margin.get_effective_value(params.ext_perimeter_flow.width()));
     const coord_t anchors_size = std::min(bridged_infill_margin, perimeter_depth);
     const coord_t overhang_scaled_spacing = params.get_overhang_spacing() > 0 ? params.get_overhang_spacing() : params.overhang_flow.scaled_spacing();
 
@@ -3137,7 +3137,7 @@ std::tuple<std::vector<ExtrusionPaths>, ExPolygons, ExPolygons> generate_extra_p
                 union_ex(real_overhang),
                 union_ex(anchors),
                 params.overhang_flow.scaled_spacing(),
-                scale_t(params.print_config.bridge_precision.get_abs_value(params.overhang_flow.spacing())),
+                scale_t(params.print_config.bridge_precision.get_effective_value(params.overhang_flow.spacing())),
                 params.layer->id()
             );
             // set angle
@@ -3423,7 +3423,7 @@ ProcessSurfaceResult PerimeterGenerator::process_arachne(const Parameters &param
                 split_top_surfaces(this->lower_slices, upper_slices, offset_ex(*last_onion, -params.get_ext_perimeter_spacing() / 2),
                     result.top_fills, non_top_polygons, result.fill_clip,
                     loop_number - 1,
-                    scale_d(opt_values.get_abs_value(unscaled(params.perimeter_flow.scaled_width()), &params.config.min_width_top_surface)),
+                    scale_d(opt_values.get_effective_value(unscaled(params.perimeter_flow.scaled_width()), &params.config.min_width_top_surface)),
                     opt_values.get_bool(&params.config.only_one_perimeter_top_other_algo));
             }
         }
@@ -3615,7 +3615,7 @@ ProcessSurfaceResult PerimeterGenerator::process_arachne(const Parameters &param
              params.region_setting.get_areas(&params.config.extra_perimeters_below_area)) {
             if (extra_perimeters_below_area.get_float() > 0) {
                 double area_mm2 = extra_perimeters_below_area.is_percent() ?
-                    sqr(extra_perimeters_below_area.get_abs_value((coordf_t) params.get_perimeter_width())) :
+                    sqr(extra_perimeters_below_area.get_effective_value((coordf_t) params.get_perimeter_width())) :
                     scale_d(scale_d(extra_perimeters_below_area.get_float()));
                 // gather small areas
                 ExPolygons last_onion = union_ex(wallToolPaths.getInnerContour());
@@ -3972,7 +3972,7 @@ void PerimeterGenerator::split_top_surfaces(const ExPolygons *lower_slices,
     // split the polygons with top/not_top
     // get the offset from solid surface anchor*
     const double max_perimeters_width = unscaled(double(params.get_ext_perimeter_width() + perimeter_spacing * int(peri_count - 1))); 
-    coord_t offset_top_surface = scale_t(params.config.external_infill_margin.get_abs_value(peri_count == 0 ? 0. : max_perimeters_width));
+    coord_t offset_top_surface = scale_t(params.config.external_infill_margin.get_effective_value(peri_count == 0 ? 0. : max_perimeters_width));
     // if possible, try to not push the extra perimeters inside the sparse infill
     // 469c6f 
     //offset_top_surface = std::min(offset_top_surface, perimeter_spacing / 3);
@@ -4044,7 +4044,7 @@ void PerimeterGenerator::split_top_surfaces(const ExPolygons *lower_slices,
         Polygons lower_polygons_series_clipped = ClipperUtils::clip_clipper_polygons_with_subject_bbox(*lower_slices, last_box);
         coordf_t bridge_offset = perimeter_spacing * peri_count;
         // SoftFever: improve bridging
-        bridge_offset += scale_d(params.config.bridged_infill_margin.get_abs_value(unscaled(params.get_ext_perimeter_width())));
+        bridge_offset += scale_d(params.config.bridged_infill_margin.get_effective_value(unscaled(params.get_ext_perimeter_width())));
         bridge_checker = diff_ex(orig_polygons, lower_polygons_series_clipped, ApplySafetyOffset::Yes);
         // increase by a perimeter at a time and clip it to avoid going over a gap
         // these quantum tunneling areas can be erased by a offset2, but that big offset2 may also erase evrything. so it needs to be small.
@@ -4097,7 +4097,7 @@ void PerimeterGenerator::split_top_surfaces(const ExPolygons *lower_slices,
     top_fills = union_ex(top_fills, top_polygons);
     // set the clip to the external wall but go back inside by infill_extrusion_width/2 to be sure the extrusion won't
     // go outside even with a 100% overlap.
-    double infill_spacing_unscaled = params.config.infill_extrusion_width.get_abs_value(fill_nozzle_diameter);
+    double infill_spacing_unscaled = params.config.infill_extrusion_width.get_effective_value(fill_nozzle_diameter);
     if (infill_spacing_unscaled == 0)
         infill_spacing_unscaled = Flow::auto_extrusion_width(frInfill, fill_nozzle_diameter);
     fill_clip = offset_ex(orig_polygons, double(params.get_ext_perimeter_spacing() / 2) - scale_(infill_spacing_unscaled / 2));
@@ -4173,12 +4173,12 @@ void PerimeterGenerator::process(// Input:
         // in the current layer
 
         coord_t offset_unprintable = scale_t(this->params.overhang_flow.nozzle_diameter() *
-                                             (1 - params.config.thin_perimeters.get_abs_value(0.5)));
+                                             (1 - params.config.thin_perimeters.get_effective_value(0.5)));
         if (params.region_setting.has_many_config(&params.config.thin_walls) ||
             params.region_setting.get_solo_config(&params.config.thin_walls).get_bool()) {
             // not ideal...
             coord_t min_width = scale_t(
-                params.config.thin_walls_min_width.get_abs_value(params.ext_perimeter_flow.nozzle_diameter()));
+                params.config.thin_walls_min_width.get_effective_value(params.ext_perimeter_flow.nozzle_diameter()));
             offset_unprintable = std::min(offset_unprintable, min_width / 2);
         }
         offset_unprintable -= SCALED_EPSILON;
@@ -4229,7 +4229,7 @@ void PerimeterGenerator::process(// Input:
                         append(full_overhangs, areas.intersections(ExPolygons{island_polygon}));
                         max_offset =
                             std::max(max_offset,
-                                     scale_t(opt_values.get_abs_value(this->params.overhang_flow.nozzle_diameter(),
+                                     scale_t(opt_values.get_effective_value(this->params.overhang_flow.nozzle_diameter(),
                                                                       &params.config.overhangs_width)));
                     }
                 }
@@ -4248,7 +4248,7 @@ void PerimeterGenerator::process(// Input:
                 const bool overhang_flow_enabled = opt_values.is_enabled(&params.config.overhangs_flow_ratio);
                 if (overhang_flow_enabled && opt_values.get_bool(&params.config.overhangs)) {
                 coord_t overhangs_width_flow = scale_t(
-                        opt_values.get_abs_value(this->params.overhang_flow.nozzle_diameter(),
+                        opt_values.get_effective_value(this->params.overhang_flow.nozzle_diameter(),
                                                  &params.config.overhangs_width));
                     append(all_shrinks, offset_ex(areas.intersections(params.overhang_areas), double(overhangs_width_flow)));
                 }
@@ -4284,18 +4284,18 @@ void PerimeterGenerator::process(// Input:
                 coord_t overhangs_width_flow = 0;
                 if (overhang_flow_enabled) {
                     overhangs_width_flow = scale_t(
-                        opt_values.get_abs_value(this->params.overhang_flow.nozzle_diameter(),
+                        opt_values.get_effective_value(this->params.overhang_flow.nozzle_diameter(),
                                                  &params.config.overhangs_width));
                 }
                 coord_t overhangs_width_speed = 0;
                 if (overhang_speed_separate) {
                     if (opt_values.is_enabled(&params.config.overhangs_width_speed)) {
                         overhangs_width_speed = scale_t(
-                            opt_values.get_abs_value(this->params.overhang_flow.nozzle_diameter(),
+                            opt_values.get_effective_value(this->params.overhang_flow.nozzle_diameter(),
                                                      &params.config.overhangs_width_speed));
                     } else {
                         overhangs_width_speed = scale_t(
-                            opt_values.get_abs_value(this->params.overhang_flow.nozzle_diameter(),
+                            opt_values.get_effective_value(this->params.overhang_flow.nozzle_diameter(),
                                                      &params.config.overhangs_width));
                     }
                 } else {
@@ -4369,12 +4369,12 @@ void PerimeterGenerator::process(// Input:
 
     // have to grown the perimeters if mill post-process
     MillingPostProcess miller(&slices, lower_slices, params.config, params.object_config, params.print_config);
-    bool have_to_grow_for_miller = miller.can_be_milled(params.layer) && params.config.milling_extra_size.get_abs_value(1) > 0;
+    bool have_to_grow_for_miller = miller.can_be_milled(params.layer) && params.config.milling_extra_size.get_effective_value(1) > 0;
     this->mill_extra_size = 0;
     if (have_to_grow_for_miller) {
         this->unmillable = miller.get_unmillable_areas(params.layer);
         double spacing_vs_width = params.ext_perimeter_flow.width() - params.ext_perimeter_flow.spacing();
-        this->mill_extra_size = scale_(params.config.milling_extra_size.get_abs_value(spacing_vs_width));
+        this->mill_extra_size = scale_(params.config.milling_extra_size.get_effective_value(spacing_vs_width));
         have_to_grow_for_miller = this->mill_extra_size > SCALED_EPSILON;
     }
 
@@ -4504,7 +4504,7 @@ void PerimeterGenerator::process(// Input:
                 perimeter_spacing_for_encroach = std::min(params.perimeter_flow.spacing(), params.ext_perimeter_flow.spacing());
             else //if(layerm->region().config().perimeters > 1)
                 perimeter_spacing_for_encroach = params.perimeter_flow.spacing();
-            infill_peri_overlap = scale_t(params.config.get_abs_value("infill_overlap", perimeter_spacing_for_encroach));
+            infill_peri_overlap = scale_t(params.config.option("infill_overlap")->get_effective_value(perimeter_spacing_for_encroach));
         }
 
         // simplify infill contours according to resolution
@@ -4708,7 +4708,7 @@ ExPolygons PerimeterGenerator::processs_no_bridge(const Parameters params, const
     //store surface for bridge infill to avoid unsupported perimeters (but the first one, this one is always good)
     if (params.config.no_perimeter_unsupported_algo != npuaNone
         && this->lower_slices != NULL && !this->lower_slices->empty()) {
-        coordf_t bridged_infill_margin = scale_d(params.config.bridged_infill_margin.get_abs_value(unscaled(params.get_ext_perimeter_width())));
+        coordf_t bridged_infill_margin = scale_d(params.config.bridged_infill_margin.get_effective_value(unscaled(params.get_ext_perimeter_width())));
 
         ExPolygons last = {island_expolygon};
         BoundingBox last_box = get_extents(last);
@@ -4735,7 +4735,7 @@ ExPolygons PerimeterGenerator::processs_no_bridge(const Parameters params, const
                         BridgeDetector detector( unsupported,
                             support,
                             params.overhang_flow.scaled_spacing(),
-                            scale_t(params.print_config.bridge_precision.get_abs_value(params.overhang_flow.spacing())),
+                            scale_t(params.print_config.bridge_precision.get_effective_value(params.overhang_flow.spacing())),
                             params.layer->id());
                         double angle = Geometry::deg2rad(params.config.bridge_angle.value);
                         if (detector.detect_angle(params.config.bridge_angle.is_enabled() ? angle :  -1)) {
@@ -5272,7 +5272,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
                     BridgeDetector detector( unsupported,
                         lower_island,
                         params.overhang_flow.scaled_spacing(),
-                        scale_t(params.print_config.bridge_precision.get_abs_value(params.overhang_flow.spacing())),
+                        scale_t(params.print_config.bridge_precision.get_effective_value(params.overhang_flow.spacing())),
                         params.layer->id());
                     double angle = Geometry::deg2rad(params.config.bridge_angle.value);
                     if (detector.detect_angle(params.config.bridge_angle.is_enabled() ? angle : -1))
@@ -5298,7 +5298,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
             && !last.empty() && this->lower_slices != NULL && !this->lower_slices->empty() //has something to work with 
             ) {
             ExPolygons overhangs = diff_ex(last, *lower_slices);
-            coord_t offset = scale_t(params.config.overhangs_reverse_threshold.get_abs_value(unscaled(params.get_perimeter_width())));
+            coord_t offset = scale_t(params.config.overhangs_reverse_threshold.get_effective_value(unscaled(params.get_perimeter_width())));
             //version with: scale_(std::tan(PI * (0.5f / 90) * params.config.overhangs_reverse_threshold.value ) * params.layer->unscaled_height())
 
             if (offset_ex(overhangs, -offset / 2.).size() > 0) {
@@ -5333,9 +5333,9 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
             // }
 
             // allow this perimeter to overlap itself?
-            float thin_perimeter = params.config.thin_perimeters.get_abs_value(1);
+            float thin_perimeter = params.config.thin_perimeters.get_effective_value(1);
             if (perimeter_idx > 0 && thin_perimeter != 0) {
-                thin_perimeter = params.config.thin_perimeters_all.get_abs_value(1);
+                thin_perimeter = params.config.thin_perimeters_all.get_effective_value(1);
             }
             bool allow_perimeter_anti_hysteresis = thin_perimeter >= 0;
             if (thin_perimeter < 0) {
@@ -5422,7 +5422,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
                          params.region_setting.get_areas(&params.config.extra_perimeters_below_area)) {
                         if (extra_perimeters_below_area.get_float() > 0) {
                             double area_mm2 = extra_perimeters_below_area.is_percent() ?
-                                sqr(extra_perimeters_below_area.get_abs_value(
+                                sqr(extra_perimeters_below_area.get_effective_value(
                                                                           (coordf_t) params.get_perimeter_width())) :
                                 scale_d(scale_d(extra_perimeters_below_area.get_float()));
                             // gather small areas
@@ -5560,8 +5560,8 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
 
                     // the following offset2 ensures almost nothing in @thin_walls is narrower than $min_width
                     // (actually, something larger than that still may exist due to mitering or other causes)
-                    //coord_t min_width = scale_t(params.config.thin_walls_min_width.get_abs_value(params.ext_perimeter_flow.nozzle_diameter()));
-                    coord_t min_width = scale_t(thin_walls_config.get_abs_value(params.ext_perimeter_flow.nozzle_diameter(), &params.config.thin_walls_min_width));
+                    //coord_t min_width = scale_t(params.config.thin_walls_min_width.get_effective_value(params.ext_perimeter_flow.nozzle_diameter()));
+                    coord_t min_width = scale_t(thin_walls_config.get_effective_value(params.ext_perimeter_flow.nozzle_diameter(), &params.config.thin_walls_min_width));
 
                     ExPolygons no_thin_zone = offset_ex(*all_next_onion, double(params.get_ext_perimeter_width() / 2), jtSquare);
                     // medial axis requires non-overlapping geometry
@@ -5589,8 +5589,8 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
                             continue;
                         }
                         thins.push_back(thin[0]);
-                        //const coord_t thin_walls_overlap = scale_t(params.config.thin_walls_overlap.get_abs_value(params.ext_perimeter_flow.nozzle_diameter()));
-                        const coord_t thin_walls_overlap = scale_t(thin_walls_config.get_abs_value(params.ext_perimeter_flow.nozzle_diameter(), &params.config.thin_walls_overlap));
+                        //const coord_t thin_walls_overlap = scale_t(params.config.thin_walls_overlap.get_effective_value(params.ext_perimeter_flow.nozzle_diameter()));
+                        const coord_t thin_walls_overlap = scale_t(thin_walls_config.get_effective_value(params.ext_perimeter_flow.nozzle_diameter(), &params.config.thin_walls_overlap));
                         const ExPolygons full_thin_with_overlap = offset_ex(half_thin,
                                                                             double(min_width / 2) + (float) (thin_walls_overlap),
                                                                             jtSquare);
@@ -5961,7 +5961,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
                         split_top_surfaces(this->lower_slices, upper_slices, last,
                                             results.top_fills, next, results.fill_clip,
                                             std::max(contour_count, holes_count) - 1,
-                                            scale_d(opt_values.get_abs_value(unscaled(params.perimeter_flow.scaled_width()), &params.config.min_width_top_surface)),
+                                            scale_d(opt_values.get_effective_value(unscaled(params.perimeter_flow.scaled_width()), &params.config.min_width_top_surface)),
                                             opt_values.get_bool(&params.config.only_one_perimeter_top_other_algo));
                     }
                 }
@@ -6237,9 +6237,9 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
         //be sure we don't gapfill where the perimeters are already touching each other (negative spacing).
         min = std::max(min, double(Flow::new_from_spacing((float)EPSILON, (float)params.perimeter_flow.nozzle_diameter(), (float)params.layer->unscaled_height(), (float)params.perimeter_flow.spacing_ratio(), false).scaled_width()));
         coordf_t real_max = 2.5 * params.get_perimeter_spacing();
-        const coordf_t minwidth = scale_d(params.config.gap_fill_min_width.get_abs_value(unscaled((double)params.get_perimeter_width())));
-        const coordf_t maxwidth = scale_d(params.config.gap_fill_max_width.get_abs_value(unscaled((double)params.get_perimeter_width())));
-        const coord_t minlength = scale_t(params.config.gap_fill_min_length.get_abs_value(unscaled((double)params.get_perimeter_width())));
+        const coordf_t minwidth = scale_d(params.config.gap_fill_min_width.get_effective_value(unscaled((double)params.get_perimeter_width())));
+        const coordf_t maxwidth = scale_d(params.config.gap_fill_max_width.get_effective_value(unscaled((double)params.get_perimeter_width())));
+        const coord_t minlength = scale_t(params.config.gap_fill_min_length.get_effective_value(unscaled((double)params.get_perimeter_width())));
         if (minwidth > 0) {
             min = std::max(min, minwidth);
         }
@@ -6247,11 +6247,11 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
         if (maxwidth > 0) {
             max = std::min(max, maxwidth);
         }
-        const coord_t gapfill_extension = scale_t(params.config.gap_fill_extension.get_abs_value(unscaled((double)params.get_perimeter_width())));
+        const coord_t gapfill_extension = scale_t(params.config.gap_fill_extension.get_effective_value(unscaled((double)params.get_perimeter_width())));
         //remove areas that are too big (shouldn't occur...)
         ExPolygons too_big = offset2_ex(gaps, double(-max / 2), double(+max / 2));
         ExPolygons gaps_ex_to_test = too_big.empty() ? gaps : diff_ex(gaps, too_big, ApplySafetyOffset::Yes);
-        const double minarea = scale_d(scale_d(params.config.gap_fill_min_area.get_abs_value(unscaled((double)params.get_perimeter_width()) * unscaled((double)params.get_perimeter_width()))));
+        const double minarea = scale_d(scale_d(params.config.gap_fill_min_area.get_effective_value(unscaled((double)params.get_perimeter_width()) * unscaled((double)params.get_perimeter_width()))));
         // check each gapfill area to see if it's printable.
         for (const ExPolygon& expoly : gaps_ex_to_test) {
             this->throw_if_canceled();
@@ -6323,7 +6323,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
         Flow gap_fill_flow = Flow::new_from_width(params.perimeter_flow.width(),
                                                   params.perimeter_flow.nozzle_diameter(),
                                                   params.perimeter_flow.height(),
-                                                  params.config.gap_fill_overlap.get_abs_value(1.), false);
+                                                  params.config.gap_fill_overlap.get_effective_value(1.), false);
         if (!polylines.empty()) {
             gap_fill.append(Geometry::thin_variable_width(
                 polylines,
@@ -6861,8 +6861,8 @@ ExtrusionLoop PerimeterGenerator::_extrude_and_cut_loop(const Parameters &params
     if (loop.fuzzify) {
         fuzzy_poly = loop.polygon;
         double nozle_diameter = loop.is_external() ? params.ext_perimeter_flow.nozzle_diameter() : params.perimeter_flow.nozzle_diameter();
-        double fuzzy_skin_thickness = params.config.fuzzy_skin_thickness.get_abs_value(nozle_diameter);
-        double fuzzy_skin_point_dist = params.config.fuzzy_skin_point_dist.get_abs_value(nozle_diameter);
+        double fuzzy_skin_thickness = params.config.fuzzy_skin_thickness.get_effective_value(nozle_diameter);
+        double fuzzy_skin_point_dist = params.config.fuzzy_skin_point_dist.get_effective_value(nozle_diameter);
         fuzzy_polygon(fuzzy_poly, scale_d(fuzzy_skin_thickness), scale_d(fuzzy_skin_point_dist));
     }
     const Polygon& poly_to_use = loop.fuzzify ? fuzzy_poly : loop.polygon;

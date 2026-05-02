@@ -117,7 +117,7 @@ FillConcentric::fill_surface_extrusion(
     ExtrusionEntitiesPtr out_to_check;
 
     double min_gapfill_area = double(params.flow.scaled_width()) * double(params.flow.scaled_width());
-    if (params.config != nullptr) min_gapfill_area = scale_d(params.config->gap_fill_min_area.get_abs_value(params.flow.width())) * double(params.flow.scaled_width());
+    if (params.config != nullptr) min_gapfill_area = scale_d(params.config->gap_fill_min_area.get_effective_value(params.flow.width())) * double(params.flow.scaled_width());
     // Perform offset. //FIXME: can miss gapfill outside of this first perimeter
     Slic3r::ExPolygons expp = offset_ex(surface->expolygon, double(scale_(0 - 0.5 * this->get_spacing())));
     // Create the infills for each of the regions.
@@ -316,9 +316,9 @@ FillConcentric::fill_surface_extrusion(
                 //be sure we don't gapfill where the perimeters are already touching each other (negative spacing).
                 min = std::max(min, double(Flow::new_from_spacing((float)EPSILON, (float)params.flow.nozzle_diameter(), (float)params.flow.height(), (float)params.flow.spacing_ratio(), false).scaled_width()));
                 coordf_t real_max = 2.5 * distance;
-                const coordf_t minwidth = scale_d(params.config->get_abs_value("gap_fill_min_width", params.flow.width()));
-                const coordf_t maxwidth = scale_d(params.config->get_abs_value("gap_fill_max_width", params.flow.width()));
-                const coord_t minlength = scale_t(params.config->get_abs_value("gap_fill_min_length", params.flow.width()));
+                const coordf_t minwidth = scale_d(params.config->option("gap_fill_min_width")->get_effective_value(params.flow.width()));
+                const coordf_t maxwidth = scale_d(params.config->option("gap_fill_max_width")->get_effective_value(params.flow.width()));
+                const coord_t minlength = scale_t(params.config->option("gap_fill_min_length")->get_effective_value(params.flow.width()));
                 if (minwidth > 0) {
                     min = std::max(min, minwidth);
                 }
@@ -326,7 +326,7 @@ FillConcentric::fill_surface_extrusion(
                 if (maxwidth > 0) {
                     max = std::min(max, maxwidth);
                 }
-                const coord_t gapfill_extension = scale_t(params.config->get_abs_value("gap_fill_extension", params.flow.width()));
+                const coord_t gapfill_extension = scale_t(params.config->option("gap_fill_extension")->get_effective_value(params.flow.width()));
 
                 // collapse 
                 ExPolygons gaps_ex = diff_ex(
@@ -421,7 +421,7 @@ FillConcentric::fill_surface_extrusion(
     gapfill_areas = union_safety_offset_ex(gapfill_areas);
     if (gapfill_areas.size() > 0 && no_overlap_expolygons.size() > 0) {
         double minarea = double(params.flow.scaled_width()) * double(params.flow.scaled_width());
-        if (params.config != nullptr) minarea = scale_d(params.config->gap_fill_min_area.get_abs_value(params.flow.width())) * double(params.flow.scaled_width());
+        if (params.config != nullptr) minarea = scale_d(params.config->gap_fill_min_area.get_effective_value(params.flow.width())) * double(params.flow.scaled_width());
         for (int i = 0; i < gapfill_areas.size(); i++) {
             if (gapfill_areas[i].area() < minarea) {
                 gapfill_areas.erase(gapfill_areas.begin() + i);

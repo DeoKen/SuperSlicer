@@ -102,7 +102,7 @@ void CalibrationOverBridgeDialog::create_geometry(bool over_bridge) {
 
     //add sub-part after scale
     const ConfigOptionFloatOrPercent* first_layer_height = print_config->option<ConfigOptionFloatOrPercent>("first_layer_height");
-    float patch_zscale = (first_layer_height->get_abs_value(nozzle_diameter) + nozzle_diameter / 2) / 0.4;
+    float patch_zscale = (first_layer_height->get_effective_value(nozzle_diameter) + nozzle_diameter / 2) / 0.4;
     float zshift =  0.8 * (1 - xyz_scale);
     for (size_t i = 0; i < 6; i++) {
         model.objects[objs_idx[i]]->rotate(PI / 2, { 0,0,1 });
@@ -134,9 +134,9 @@ void CalibrationOverBridgeDialog::create_geometry(bool over_bridge) {
         model.objects[objs_idx[i]]->config.set_key_value("ironing", new ConfigOptionBool(false));
         //calibration setting. Use 100 & 5 step as it's the numbers printed on the samples
         if (over_bridge) {
-            model.objects[objs_idx[i]]->config.set_key_value("over_bridge_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("over_bridge_flow_ratio")->get_abs_value(100)*/100 + i * 5));
+            model.objects[objs_idx[i]]->config.set_key_value("over_bridge_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("over_bridge_flow_ratio")->get_effective_value(100)*/100 + i * 5));
         } else {
-            model.objects[objs_idx[i]]->config.set_key_value("fill_top_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("fill_top_flow_ratio")->get_abs_value(100)*/100 + i * 5));
+            model.objects[objs_idx[i]]->config.set_key_value("fill_top_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("fill_top_flow_ratio")->get_effective_value(100)*/100 + i * 5));
         }
         model.objects[objs_idx[i]]->config.set_key_value("layer_height", new ConfigOptionFloat(nozzle_diameter / 2));
         model.objects[objs_idx[i]]->config.set_key_value("external_infill_margin", new ConfigOptionFloatOrPercent(400,true));

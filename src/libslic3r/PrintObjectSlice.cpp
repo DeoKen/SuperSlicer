@@ -397,7 +397,7 @@ static std::vector<std::vector<ExPolygons>> slices_to_regions(
                             } else if (region.model_volume->is_model_part() || region.model_volume->is_negative_volume()) {
                                 assert(region.model_volume->is_negative_volume() || region.region);
                                 coord_t best_half_min_width = (!region.region) ? 0 :
-                                    scale_t(region.region->config().slice_merge_min_width.get_abs_value(
+                                    scale_t(region.region->config().slice_merge_min_width.get_effective_value(
                                         region.region->width(frExternalPerimeter, false, print_object))) / 2;
                                 // Clip every non-zero region preceding it.
                                 for (int idx_worse_region = 0; idx_worse_region < idx_region; ++ idx_worse_region) {
@@ -408,8 +408,8 @@ static std::vector<std::vector<ExPolygons>> slices_to_regions(
                                             assert(!region.model_volume->is_model_part() || worse_region.region);
                                             if (region.model_volume->is_model_part() && worse_region.model_volume->extruder_id() != region.model_volume->extruder_id()) {
                                                 double his_unscaled_ext_peri_width = worse_region.region->width(frExternalPerimeter, false, print_object);
-                                                coord_t his_half_min_width = scale_t(worse_region.region->config().slice_merge_min_width.get_abs_value(his_unscaled_ext_peri_width)) / 2;
-                                                coord_t his_expansion = scale_t(worse_region.region->config().slice_merge_dent.get_abs_value(his_unscaled_ext_peri_width));
+                                                coord_t his_half_min_width = scale_t(worse_region.region->config().slice_merge_min_width.get_effective_value(his_unscaled_ext_peri_width)) / 2;
+                                                coord_t his_expansion = scale_t(worse_region.region->config().slice_merge_dent.get_effective_value(his_unscaled_ext_peri_width));
                                                 bool is_modified = false;
                                                 ExPolygons collapsed_best_polys = temp_slices[idx_region].expolygons;
                                                 if (best_half_min_width > 0) {
@@ -575,7 +575,7 @@ static std::vector<std::vector<ExPolygons>> slices_to_regions(
         if (pr.get()) {
             std::vector<ExPolygons>& region_polys = slices_by_region[pr->print_object_region_id()];
             const size_t extruder_id = pr->extruder(FlowRole::frPerimeter, print_object) - 1;
-            double scale = print_config.filament_shrink.get_abs_value(extruder_id, 1);
+            double scale = print_config.filament_shrink.get_effective_value(1., extruder_id);
             if (scale != 1) {
                 scale = 1 / scale;
                 for (ExPolygons& polys : region_polys)
@@ -880,7 +880,7 @@ void PrintObject::_max_overhang_threshold() {
         max_nz_diam = scale_t(0.4);
     
     for (size_t region_idx = 0; region_idx < this->num_printing_regions(); ++region_idx) {
-        coord_t enlargement = scale_t(this->printing_region(region_idx).config().overhangs_max_slope.get_abs_value(unscaled(max_nz_diam)));
+        coord_t enlargement = scale_t(this->printing_region(region_idx).config().overhangs_max_slope.get_effective_value(unscaled(max_nz_diam)));
         if (enlargement > 0) {
             has_enlargment = true;
             break;
@@ -900,7 +900,7 @@ void PrintObject::_max_overhang_threshold() {
         // check if it's activated somewhere for this layer
         bool has_modifications = false;
         for (size_t region_idx = 0; region_idx < my_layer->m_regions.size(); ++region_idx) {
-            if (my_layer->get_region(region_idx)->region().config().overhangs_max_slope.get_abs_value(1.) > 0) {
+            if (my_layer->get_region(region_idx)->region().config().overhangs_max_slope.get_effective_value(1.) > 0) {
                 has_modifications = true;
                 break;
             }
@@ -935,7 +935,7 @@ void PrintObject::_max_overhang_threshold() {
                         BridgeDetector detector(to_bridge,
                                                 lower_layer->lslices(),
                                                 bridge_flow.scaled_spacing(),
-                                                scale_t(this->print()->config().bridge_precision.get_abs_value(bridge_flow.spacing())),
+                                                scale_t(this->print()->config().bridge_precision.get_effective_value(bridge_flow.spacing())),
                                                 layer_idx);
                         if (lregion->region().config().overhangs_bridge_threshold.is_enabled()) {
                             detector.max_bridge_length = scale_d(std::max(0., lregion->region().config().overhangs_bridge_threshold.value));
@@ -970,14 +970,14 @@ void PrintObject::_max_overhang_threshold() {
                                 if ( (other_lregion->region().config().overhangs_bridge_threshold.value != 0 ||
                                         !lregion->region().config().overhangs_bridge_threshold.is_enabled())
                                     && other_lregion->region().config().overhangs_max_slope > 0) {
-                                    coord_t enlargement = scale_t(lregion->region().config().overhangs_max_slope.get_abs_value(unscaled(max_nz_diam))); // me or other?
+                                    coord_t enlargement = scale_t(lregion->region().config().overhangs_max_slope.get_effective_value(unscaled(max_nz_diam))); // me or other?
                                     enlargement = std::max(enlargement, max_nz_diam);
                                     for (const ExPolygon &other_to_bridge : intersection_ex(still_unsupported, other_lregion->get_raw_slices())) {
                                         //collapse too small area
                                         if(offset(other_to_bridge, -enlargement).empty())
                                             continue;
                                         BridgeDetector detector(other_to_bridge, previous_supported, bridge_flow.scaled_spacing(),
-                                                     scale_t(this->print()->config().bridge_precision.get_abs_value(bridge_flow.spacing())),
+                                                     scale_t(this->print()->config().bridge_precision.get_effective_value(bridge_flow.spacing())),
                                                      other_layer_bridge_idx);
                                         detector.layer_id = other_layer_bridge_idx;
                                         if (lregion->region().config().overhangs_bridge_threshold.is_enabled()) {
@@ -1014,7 +1014,7 @@ void PrintObject::_max_overhang_threshold() {
             //also modify region surfaces
             //std::map<coord_t, ExPolygons> enlargement_2_support_area;
             // TODO: fuse region with same enlargement
-            coord_t enlargement = scale_t(lregion->region().config().overhangs_max_slope.get_abs_value(unscaled(max_nz_diam)));
+            coord_t enlargement = scale_t(lregion->region().config().overhangs_max_slope.get_effective_value(unscaled(max_nz_diam)));
             if (enlargement > 0) {
                 ExPolygons enlarged_support = offset_ex(supported_area, double(enlargement));
                 if (!bridged_other_layers_areas.empty()) {
@@ -1200,7 +1200,7 @@ void PrintObject::_transform_hole_to_polyholes()
 
 
                                 // SCALED_EPSILON was a bit too harsh. Now using a config, as some may want some harsh setting and some don't.
-                                coord_t max_variation = std::max(SCALED_EPSILON, scale_(this->m_layers[layer_idx]->m_regions[region_idx]->region().config().hole_to_polyhole_threshold.get_abs_value(unscaled(diameter_sum / hole.points.size()))));
+                                coord_t max_variation = std::max(SCALED_EPSILON, scale_(this->m_layers[layer_idx]->m_regions[region_idx]->region().config().hole_to_polyhole_threshold.get_effective_value(unscaled(diameter_sum / hole.points.size()))));
                                 bool twist = this->m_layers[layer_idx]->m_regions[region_idx]->region().config().hole_to_polyhole_twisted.value;
                                 if (diameter_max - diameter_min < max_variation * 2 && diameter_line_max - diameter_line_min < max_variation * 2) {
                                     LayerData ldata{center, diameter_max,

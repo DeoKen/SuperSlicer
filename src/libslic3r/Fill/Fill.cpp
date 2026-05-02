@@ -410,7 +410,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, const LayerSliceIsland&
                 }
                 //adjust spacing/density (to over-extrude when needed)
                 if (surface.has_mod_overBridge()) {
-                    params.density = float(region_config.over_bridge_flow_ratio.get_abs_value(1));
+                    params.density = float(region_config.over_bridge_flow_ratio.get_effective_value(1));
                 }
 
                 //note: same as getRoleFromSurfaceType()
@@ -436,7 +436,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, const LayerSliceIsland&
                 //adjust flow (to over-extrude when needed)
                 params.flow_mult = 1;
                 if (surface.has_pos_top())
-                    params.flow_mult *= float(region_config.fill_top_flow_ratio.get_abs_value(1));
+                    params.flow_mult *= float(region_config.fill_top_flow_ratio.get_effective_value(1));
 
                 params.config = &layerm.region().config();
 
@@ -457,7 +457,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, const LayerSliceIsland&
                     } else /*if (region_config.bridge_type == BridgeType::btFromNozzle)*/ {
                         diameter = nozzle_diameter;
                     }
-                    params.flow = Flow::bridging_flow((float)(diameter * std::sqrt(region_config.bridge_flow_ratio.get_abs_value(1))), nozzle_diameter);
+                    params.flow = Flow::bridging_flow((float)(diameter * std::sqrt(region_config.bridge_flow_ratio.get_effective_value(1))), nozzle_diameter);
                 } else {
                     params.flow = layerm.region().flow(
                         *layer.object(),
@@ -952,7 +952,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
         //FIXME FLOW decide if using surface_fill.params.flow.bridge() or surface_fill.params.bridge (default but deleted)
         if (! surface_fill.params.flow.bridge()) {
 #if 0
-            link_max_length = common_region_config.get_abs_value(surface.is_external() ? "external_fill_link_max_length" : "fill_link_max_length", flow.spacing());
+            link_max_length = common_region_config.option(surface.is_external() ? "external_fill_link_max_length" : "fill_link_max_length")->get_effective_value(flow.spacing());
 //            printf("flow spacing: %f,  is_external: %d, link_max_length: %lf\n", flow.spacing(), int(surface.is_external()), link_max_length);
 #else
             if (surface_fill.params.density > .8) // 80%
@@ -998,7 +998,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
             //set overlap polygons
             f->no_overlap_expolygons.clear();
             if (surface_fill.params.config->perimeters > 0) {
-                f->overlap = surface_fill.params.config->infill_overlap.get_abs_value((perimeter_spacing + (f->get_spacing())) / 2);
+                f->overlap = surface_fill.params.config->infill_overlap.get_effective_value((perimeter_spacing + (f->get_spacing())) / 2);
                 if (f->overlap != 0) {
                     f->no_overlap_expolygons = intersection_ex(island.fill_no_overlap_expolygons(), ExPolygons() = {expoly});
                 } else {
@@ -1023,13 +1023,13 @@ void Layer::_make_fills(LayerSliceIsland& island,
                 surface_fill.surface.expolygon = std::move(expoly);
 
                 //adjust the bridge density
-                if (surface_fill.params.flow.bridge() && surface_fill.params.density > 0.99 /*&& common_region_config.bridge_overlap.get_abs_value(1) != 1*/) {
+                if (surface_fill.params.flow.bridge() && surface_fill.params.density > 0.99 /*&& common_region_config.bridge_overlap.get_effective_value(1) != 1*/) {
                     // bridge have their own spacing, don't try to align it with normal infill.
                     surface_fill.params.max_sparse_infill_spacing = 0;
                     ////varies the overlap to have the best coverage for the bridge
-                    //surface_fill.params.density *= float(common_region_config.bridge_overlap.get_abs_value(1));
-                    double min_spacing = 0.999 * surface_fill.params.spacing / surface_fill.params.config->bridge_overlap.get_abs_value(surface_fill.params.density);
-                    double max_spacing = 1.001 * surface_fill.params.spacing / surface_fill.params.config->bridge_overlap_min.get_abs_value(surface_fill.params.density);
+                    //surface_fill.params.density *= float(common_region_config.bridge_overlap.get_effective_value(1));
+                    double min_spacing = 0.999 * surface_fill.params.spacing / surface_fill.params.config->bridge_overlap.get_effective_value(surface_fill.params.density);
+                    double max_spacing = 1.001 * surface_fill.params.spacing / surface_fill.params.config->bridge_overlap_min.get_effective_value(surface_fill.params.density);
                     double factor = 1.00001;
                     if (min_spacing < max_spacing * 1.01) {
                         // create a bouding box of the rotated surface
@@ -1070,13 +1070,13 @@ void Layer::_make_fills(LayerSliceIsland& island,
                             double new_spacing2 = unscaled(f->_adjust_solid_spacing(bounding_box_size_x, scale_t(min_spacing * 1.999 - new_spacing), 2));
                             if (new_spacing2 < min_spacing) {
                                 if (min_spacing - new_spacing2 < new_spacing - max_spacing) {
-                                    surface_fill.params.density = surface_fill.params.config->bridge_overlap.get_abs_value(surface_fill.params.density);
+                                    surface_fill.params.density = surface_fill.params.config->bridge_overlap.get_effective_value(surface_fill.params.density);
                                 } else {
-                                    surface_fill.params.density = surface_fill.params.config->bridge_overlap_min.get_abs_value(surface_fill.params.density);
+                                    surface_fill.params.density = surface_fill.params.config->bridge_overlap_min.get_effective_value(surface_fill.params.density);
                                 }
                             } else {
                                 //use the highest density
-                                surface_fill.params.density = surface_fill.params.config->bridge_overlap.get_abs_value(surface_fill.params.density);
+                                surface_fill.params.density = surface_fill.params.config->bridge_overlap.get_effective_value(surface_fill.params.density);
                             }
                         }
                         Polygon poly = surface_fill.surface.expolygon.contour;
@@ -1123,9 +1123,9 @@ void Layer::_make_fills(LayerSliceIsland& island,
                         || f->debug_verify_flow_mult <= 0.80001);
                     double area = unscaled(unscaled(real_surface));
                     if(surface_fill.surface.has_pos_top())
-                        area *= surface_fill.params.config->fill_top_flow_ratio.get_abs_value(1);
+                        area *= surface_fill.params.config->fill_top_flow_ratio.get_effective_value(1);
                     //TODO: over-bridge mod
-                    if(surface_fill.params.config->over_bridge_flow_ratio.get_abs_value(1) == 1){
+                    if(surface_fill.params.config->over_bridge_flow_ratio.get_effective_value(1) == 1){
                         assert(compute_volume.volume <= area * surface_fill.params.layer_height * 1.001 ||
                                 f->debug_verify_flow_mult <= 0.8);
                         if(compute_volume.volume > 0) //can fail for thin regions
@@ -1243,7 +1243,7 @@ Polylines Layer::_generate_sparse_infill_polylines_for_anchoring(const LayerSlic
         double link_max_length = 0.;
         if (!surface_fill.params.flow.bridge()) {
 #if 0
-            link_max_length = common_region_config.get_abs_value(surface.is_external() ? "external_fill_link_max_length" : "fill_link_max_length", flow.spacing());
+            link_max_length = common_region_config.option(surface.is_external() ? "external_fill_link_max_length" : "fill_link_max_length")->get_effective_value(flow.spacing());
 //            printf("flow spacing: %f,  is_external: %d, link_max_length: %lf\n", flow.spacing(), int(surface.is_external()), link_max_length);
 #else
             if (surface_fill.params.density > .8) // 80%
@@ -1517,7 +1517,7 @@ void Layer::_make_ironing(LayerSliceIsland &island)
         double extrusion_height = ironing_params.height * fill.get_spacing() / nozzle_dmr;
         //FIXME FLOW decide if it's good
         // note: don't use filament_max_overlap, as it's a top surface
-        double overlap = region_config.top_solid_infill_overlap.get_abs_value(1.);
+        double overlap = region_config.top_solid_infill_overlap.get_effective_value(1.);
         float  extrusion_width = Flow::rounded_rectangle_extrusion_width_from_spacing(float(nozzle_dmr), float(extrusion_height), float(overlap));
         double flow_mm3_per_mm = nozzle_dmr * extrusion_height;
         //Flow flow = Flow::new_from_spacing(float(nozzle_dmr), 0., float(height), 1.f, false);

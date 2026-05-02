@@ -171,7 +171,7 @@ void WipeTower2::init(const Print *print, const SpanOfConstPtrs<PrintObject> &ob
                     init_extruders.insert(extr_id);
                     // compute width
                     const double nozzle_diameter = m_config->nozzle_diameter.get_at(extr_id);
-                    coord_t line_width = scale_t(line_width_config.get_abs_value(nozzle_diameter));
+                    coord_t line_width = scale_t(line_width_config.get_effective_value(nozzle_diameter));
                     if (line_width == 0) {
                         line_width = scale_t(nozzle_diameter * 1.25);
                     }
@@ -203,7 +203,7 @@ void WipeTower2::init(const Print *print, const SpanOfConstPtrs<PrintObject> &ob
                             fil.purge_volume = m_config->filament_multitool_ramming_volume.get_at(extr_id);
                         }
                         fil.purge_width = line_width;
-                        fil.purge_spacing = m_object_config->wipe_tower_extra_spacing.get_abs_value(fil.purge_width);
+                        fil.purge_spacing = m_object_config->wipe_tower_extra_spacing.get_effective_value(fil.purge_width);
                         // wipe
                         fil.wipe_speed = m_config->wipe_tower_speed.value;
                         if (m_config->filament_max_wipe_tower_speed.get_at(extr_id) > 0) {
@@ -213,7 +213,7 @@ void WipeTower2::init(const Print *print, const SpanOfConstPtrs<PrintObject> &ob
                         assert(fil.wipe_speed > 0);
                         fil.wipe_width = line_width;
                         fil.wipe_volume_min = m_config->filament_minimal_purge_on_wipe_tower.get_at(extr_id);
-                        fil.wipe_spacing = m_object_config->wipe_tower_extra_spacing.get_abs_value(fil.wipe_width);
+                        fil.wipe_spacing = m_object_config->wipe_tower_extra_spacing.get_effective_value(fil.wipe_width);
                     }
                 }
             }
@@ -834,7 +834,7 @@ void WipeTowerLayer::init(const std::vector<const Layer *> layers,
             // create wt brim only if settings allow it
             if (spacing > 0 && m_object_config->wipe_tower_brim_width.value > 0) {
                 // How many perimeters shall the brim have?
-                size_t loops_num = (m_object_config->wipe_tower_brim_width.get_abs_value(nozzle_diameter) +
+                size_t loops_num = (m_object_config->wipe_tower_brim_width.get_effective_value(nozzle_diameter) +
                                     spacing / 2) /
                     spacing;
 
@@ -941,7 +941,7 @@ ExtrusionEntityCollection WipeTowerLayer::tool_change(const Layer *layer,
             } else {
                 // travel a bit outside so the ooze won't do a mess in our wipetower.
                 double nozzle_diameter_mm = m_config->nozzle_diameter.get_at(old_tool);
-                coord_t brim_width = scale_t(m_object_config->wipe_tower_brim_width.get_abs_value(nozzle_diameter_mm));
+                coord_t brim_width = scale_t(m_object_config->wipe_tower_brim_width.get_effective_value(nozzle_diameter_mm));
                 const Point center_pos(scale_t(-1) - brim_width / 2, compute_y(m_current_y_pos));
                 ExtrusionNop travel = ExtrusionNop();
                 travel.position = center_pos;
@@ -966,17 +966,17 @@ ExtrusionEntityCollection WipeTowerLayer::tool_change(const Layer *layer,
 
 Flow WipeTower2::get_ramming_flow(const uint16_t tool_id, const bool first_layer, const double layer_height) {
     double nozzle_diameter = m_config->nozzle_diameter.get_at(tool_id);
-    double perimeter_width = m_object_config->wipe_tower_extrusion_width.get_abs_value(nozzle_diameter);
+    double perimeter_width = m_object_config->wipe_tower_extrusion_width.get_effective_value(nozzle_diameter);
     // FIXME use PrintObject function to have first layer flow.
     if (first_layer && m_object_config->first_layer_extrusion_width.is_enabled()) {
         perimeter_width = std::max(perimeter_width,
-                                   m_object_config->first_layer_extrusion_width.get_abs_value(nozzle_diameter));
+                                   m_object_config->first_layer_extrusion_width.get_effective_value(nozzle_diameter));
     }
     // ramming_line_width_multiplicator comes from the ramming widget tool that is parsed afterwards
     // //TODO
     // perimeter_width *= m_filpar[m_current_tool].ramming_line_width_multiplicator; // desired ramming line thickness
     return Flow::new_from_width(perimeter_width, nozzle_diameter, layer_height,
-                                m_region_config->perimeter_overlap.get_abs_value(1), false);
+                                m_region_config->perimeter_overlap.get_effective_value(1), false);
 }
 
 void wait_for_temp_with_fan(ExtrusionEntityCollection &coll, bool enable_fan, int fan_speed) {
@@ -1320,7 +1320,7 @@ void WipeTowerLayer::toolchange_Wipe(ExtrusionEntityCollection &collection,
     if (m_config->retract_length_toolchange.get_at(tool_id) &&
         m_config->retract_restart_wipe_toolchange.get_at(tool_id) > 0 && de_retraction_new_tool > 0) {
         // get speed & length
-        const double wipe_e_length_mm =  m_config->retract_restart_wipe_toolchange.get_abs_value(tool_id, de_retraction_new_tool);
+        const double wipe_e_length_mm =  m_config->retract_restart_wipe_toolchange.get_effective_value(de_retraction_new_tool, tool_id);
         //double unretract_speed_e_mm_per_s = m_config->deretract_speed.get_at(tool_id);
         //if (unretract_speed_e_mm_per_s == 0) {
         //    unretract_speed_e_mm_per_s = m_config->retract_speed.get_at(tool_id);
@@ -1412,9 +1412,9 @@ void WipeTowerLayer::toolchange_Wipe(ExtrusionEntityCollection &collection,
         //path_unretract.add_property(ExtrusionPropertySpeed(dist_xy_mm));
         path_unretract.add_property(ExtrusionPropertyModifier().set_disable_retraction().set_disable_lift());
         path_unretract.add_property(ExtrusionPropertyCustomGcode("; unretract new tool via wipe"));
-        if (m_config->retract_restart_wipe_toolchange.get_abs_value(tool_id, 1.) < 1.) {
+        if (m_config->retract_restart_wipe_toolchange.get_effective_value(1., tool_id) < 1.) {
             const double pre_uwipe_unretract_e = de_retraction_new_tool *
-                (1. - m_config->retract_restart_wipe_toolchange.get_abs_value(tool_id, 1.));
+                (1. - m_config->retract_restart_wipe_toolchange.get_effective_value(1., tool_id));
             // extrusion_flow.force_e_per_mm = true;
             //ExtrusionAttributes travel_flow_attr(ExtrusionRole::Travel, ExtrusionFlow(0,0,0));
             //ExtrusionPath path_travel(Polyline{Points{unretract_lines.front()}}, travel_flow_attr, nullptr, false);

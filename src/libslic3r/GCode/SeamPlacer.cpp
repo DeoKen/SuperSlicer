@@ -968,8 +968,8 @@ struct SeamComparator {
         } else if (setup == spAligned || setup == spExtremlyAligned) {
             angle_importance = SeamPlacer::angle_importance_aligned;
         } else {
-            travel_importance = (float)po.config().seam_travel_cost.get_abs_value(1.f);
-            angle_importance = (float)po.config().seam_angle_cost.get_abs_value(1.f);
+            travel_importance = (float)po.config().seam_travel_cost.get_effective_value(1.f);
+            angle_importance = (float)po.config().seam_angle_cost.get_effective_value(1.f);
         }
         visibility_importance = (po.config().seam_visibility.value &&
                                  po.config().seam_position.value == SeamPosition::spCost) ?

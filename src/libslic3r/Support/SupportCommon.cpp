@@ -2135,7 +2135,7 @@ void generate_support_toolpaths(
                     // if first layer and solid first layer : draw concentric with 100% density
                     if (support_layer.id() == 0 && layer_ex.layer->scaled_bottom_z() <= 0) {
                         filler         = filler_first_layer.get();
-                        supp_density   = float(config.raft_first_layer_density.get_abs_value(1.));
+                        supp_density   = float(config.raft_first_layer_density.get_effective_value(1.));
                         interface_flow = support_params.first_layer_flow;
                         filler->angle  = 0;
                         filler_spacing = interface_flow.spacing();
@@ -2230,7 +2230,7 @@ void generate_support_toolpaths(
                     // Base flange (the 1st layer).
                     filler                  = filler_first_layer.get();
                     filler->angle           = Geometry::deg2rad(float(config.support_material_angle.value + 90.));
-                    density                 = float(config.raft_first_layer_density.get_abs_value(1.f));
+                    density                 = float(config.raft_first_layer_density.get_effective_value(1.f));
                     filler->link_max_length = scale_t(filler_spacing * link_max_length_factor / density);
                     flow = support_params.first_layer_flow;
                     // use the proper spacing for first layer as we don't need to align

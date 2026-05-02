@@ -51,7 +51,7 @@ inline bool test_z_step(const double val, const double z_step) {
 // idx_nozzle began at 0
 inline double min_layer_height_from_nozzle(const PrintConfig &print_config, uint16_t idx_nozzle)
 {
-    double min_layer_height = print_config.min_layer_height.get_abs_value(idx_nozzle, print_config.nozzle_diameter.get_at(idx_nozzle));
+    double min_layer_height = print_config.min_layer_height.get_effective_value(print_config.nozzle_diameter.get_at(idx_nozzle), idx_nozzle);
     return check_z_step( (min_layer_height == 0.) ? (MIN_LAYER_HEIGHT_DEFAULT) : std::max(MIN_LAYER_HEIGHT, min_layer_height), print_config.z_step);
 }
 
@@ -62,7 +62,7 @@ inline double max_layer_height_from_nozzle(const PrintConfig &print_config, uint
 {
     double min_layer_height = min_layer_height_from_nozzle(print_config, idx_nozzle);
     double nozzle_dmr = print_config.nozzle_diameter.get_at(idx_nozzle);
-    double max_layer_height = print_config.max_layer_height.get_abs_value(idx_nozzle, nozzle_dmr);
+    double max_layer_height = print_config.max_layer_height.get_effective_value(nozzle_dmr, idx_nozzle);
     return check_z_step(std::max(min_layer_height, (max_layer_height == 0. || !print_config.max_layer_height.is_enabled()) ? (0.75 * nozzle_dmr) : max_layer_height), print_config.z_step);
 }
 
@@ -104,7 +104,7 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
             if (print_config.nozzle_diameter.size() <= extruder_id)
                 break;
             double nozzle_diameter = print_config.nozzle_diameter.get_at(extruder_id);
-            first_layer_height = std::min(first_layer_height, object_config.first_layer_height.get_abs_value(nozzle_diameter));
+            first_layer_height = std::min(first_layer_height, object_config.first_layer_height.get_effective_value(nozzle_diameter));
             min_nozzle_diameter = std::min(nozzle_diameter, min_nozzle_diameter);
         }
         if (first_layer_height == 1000000000.)
@@ -115,7 +115,7 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
     assert(first_layer_height > 0);
     for (uint16_t extruder_id : object_extruders)
         assert(first_layer_height >=
-               print_config.min_layer_height.get_abs_value(extruder_id, print_config.nozzle_diameter.get_at(extruder_id)) - EPSILON);
+               print_config.min_layer_height.get_effective_value(print_config.nozzle_diameter.get_at(extruder_id), extruder_id) - EPSILON);
     if (first_layer_height <= EPSILON)
         object_config.layer_height.value;
     first_layer_height = check_z_step(first_layer_height, print_config.z_step);
@@ -235,7 +235,7 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
 
     if (object_config.raft_contact_distance_type.value != zdNone) {
         params.gap_raft_object = object_config.raft_contact_distance
-                                     .value; // get_abs_value(support_material_interface_extruder_dmr);
+                                     .value; // get_effective_value(support_material_interface_extruder_dmr);
         if (object_config.raft_contact_distance_type.value == zdFilament) {
             if (default_region_config.bridge_type == BridgeType::btFromNozzle) {
                 float nzd_avg = 0;
@@ -243,7 +243,7 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
                     nzd_avg += print_config.nozzle_diameter.get_at(extruder_id - 1);
                 }
                 nzd_avg /= object_extruders.size();
-                params.gap_raft_object += nzd_avg * sqrt(default_region_config.bridge_flow_ratio.get_abs_value(1)) -
+                params.gap_raft_object += nzd_avg * sqrt(default_region_config.bridge_flow_ratio.get_effective_value(1)) -
                     params.layer_height;
             } else if (default_region_config.bridge_type == BridgeType::btFromFlow) {
                 float nzd_solid_infill = print_config.nozzle_diameter.get_at(
@@ -264,9 +264,9 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
     }
 
     if (!soluble_interface) {
-        params.gap_object_support = object_config.support_material_bottom_contact_distance.get_abs_value(support_material_interface_extruder_dmr);
+        params.gap_object_support = object_config.support_material_bottom_contact_distance.get_effective_value(support_material_interface_extruder_dmr);
         params.gap_object_support = check_z_step(params.gap_object_support, params.z_step);
-        params.gap_support_object = object_config.support_material_contact_distance.get_abs_value(support_material_interface_extruder_dmr);
+        params.gap_support_object = object_config.support_material_contact_distance.get_effective_value(support_material_interface_extruder_dmr);
         params.gap_support_object = check_z_step(params.gap_support_object, params.z_step);
         if (params.gap_object_support <= 0)
             params.gap_object_support = params.gap_support_object;
@@ -283,11 +283,11 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
                 params.base_raft_layer_height = max_support_material_height;
             } else {
                 params.base_raft_layer_height = std::min(max_support_material_height, std::max(min_support_material_height,
-                    object_config.support_material_layer_height.get_abs_value(support_material_extruder_dmr)));
+                    object_config.support_material_layer_height.get_effective_value(support_material_extruder_dmr)));
             }
         } else {
             params.base_raft_layer_height = std::min(max_support_material_height, std::max(min_support_material_height,
-                object_config.raft_layer_height.get_abs_value(support_material_extruder_dmr)));
+                object_config.raft_layer_height.get_effective_value(support_material_extruder_dmr)));
         }
         params.base_raft_layer_height = check_z_step(params.base_raft_layer_height, params.z_step);
         if (object_config.raft_layer_height.value == 0) {
@@ -295,11 +295,11 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
                 params.interface_raft_layer_height = max_support_material_interface_height;
             } else {
                 params.interface_raft_layer_height = std::min(max_support_material_height, std::max(min_support_material_height,
-                    object_config.support_material_interface_layer_height.get_abs_value(support_material_extruder_dmr)));
+                    object_config.support_material_interface_layer_height.get_effective_value(support_material_extruder_dmr)));
             }
         } else {
             params.interface_raft_layer_height = std::min(max_support_material_interface_height, std::max(min_support_material_interface_height,
-                object_config.raft_interface_layer_height.get_abs_value(support_material_interface_extruder_dmr)));
+                object_config.raft_interface_layer_height.get_effective_value(support_material_interface_extruder_dmr)));
         }
         params.interface_raft_layer_height = check_z_step(params.interface_raft_layer_height, params.z_step);
         params.first_object_layer_bridging  = false;
@@ -308,11 +308,11 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
                 params.contact_raft_layer_height = max_support_material_interface_height;
             } else {
                 params.contact_raft_layer_height = std::min(max_support_material_height, std::max(min_support_material_height,
-                    object_config.support_material_interface_layer_height.get_abs_value(support_material_extruder_dmr)));
+                    object_config.support_material_interface_layer_height.get_effective_value(support_material_extruder_dmr)));
             }
         } else {
             params.contact_raft_layer_height = std::min(max_support_material_interface_height, std::max(min_support_material_interface_height,
-                object_config.raft_interface_layer_height.get_abs_value(support_material_interface_extruder_dmr)));
+                object_config.raft_interface_layer_height.get_effective_value(support_material_interface_extruder_dmr)));
         }
         params.contact_raft_layer_height = check_z_step(params.contact_raft_layer_height, params.z_step);
         params.first_object_layer_height    = params.layer_height;

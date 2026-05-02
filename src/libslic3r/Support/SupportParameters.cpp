@@ -51,7 +51,7 @@ SupportParameters::SupportParameters(const PrintObject &object)
     this->support_material_interface_flow    = Slic3r::support_material_interface_flow(&object, float(slicing_params.layer_height));
     this->raft_flow                          = Slic3r::raft_flow(&object, float(slicing_params.base_raft_layer_height));
     this->raft_interface_flow                = Slic3r::raft_interface_flow(&object, float(slicing_params.interface_raft_layer_height));
-    this->raft_bridge_flow_ratio             = this->default_region_config.bridge_flow_ratio.get_abs_value(1.);
+    this->raft_bridge_flow_ratio             = this->default_region_config.bridge_flow_ratio.get_effective_value(1.);
 
     this->resolution                         = scale_t(object.print()->config().resolution_internal);
 
@@ -60,7 +60,7 @@ SupportParameters::SupportParameters(const PrintObject &object)
     const ConfigOptionFloatsOrPercents &min_layer_height = print_config.min_layer_height;
     const ConfigOptionFloats           &nozzle_diameter  = print_config.nozzle_diameter;
     for (int extr_id = 0; extr_id < min_layer_height.size(); ++extr_id) {
-        coord_t min_from_extr = Layer::scale_to_layer_coord(min_layer_height.get_abs_value(extr_id, nozzle_diameter.get_at(extr_id)));
+        coord_t min_from_extr = Layer::scale_to_layer_coord(min_layer_height.get_effective_value(nozzle_diameter.get_at(extr_id), extr_id));
         if (min_from_extr > 0)
             this->_support_layer_height_min = std::min(this->_support_layer_height_min, min_from_extr);
     }
@@ -100,9 +100,9 @@ SupportParameters::SupportParameters(const PrintObject &object)
     for (size_t region_id = 0; region_id < object.num_printing_regions(); ++ region_id) {
         const PrintRegion &region = object.printing_region(region_id);
         external_perimeter_width = std::max(external_perimeter_width, coordf_t(region.flow(object, frExternalPerimeter, slicing_params.layer_height, 2 /*not first layer, even layer*/).width()));
-        bridge_flow_ratio += region.config().bridge_flow_ratio.get_abs_value(1.);
+        bridge_flow_ratio += region.config().bridge_flow_ratio.get_effective_value(1.);
     }
-    this->_gap_xy = Layer::scale_to_layer_coord(object_config.support_material_xy_spacing.get_abs_value(external_perimeter_width));
+    this->_gap_xy = Layer::scale_to_layer_coord(object_config.support_material_xy_spacing.get_effective_value(external_perimeter_width));
     bridge_flow_ratio /= object.num_printing_regions();
 
     this->support_material_bottom_interface_flow = slicing_params.soluble_interface ?

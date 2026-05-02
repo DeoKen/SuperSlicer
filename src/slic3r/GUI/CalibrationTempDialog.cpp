@@ -159,7 +159,7 @@ void CalibrationTempDialog::create_geometry(wxCommandEvent& event_args) {
     /// -- generate the heat change gcode
     //std::string str_layer_gcode = "{if layer_num > 0 and layer_z  <= " + std::to_string(2 * xyzScale) + "}\nM104 S" + std::to_string(temperature - (int8_t)nb_delta * 5);
     //    double print_z, std::string gcode,int extruder, std::string color
-    double firstChangeHeight = print_config->get_abs_value("first_layer_height", nozzle_diameter);
+    double firstChangeHeight = print_config->option("first_layer_height")->get_effective_value(nozzle_diameter);
     //model.custom_gcode_per_print_z.gcodes.emplace_back(CustomGCode::Item{ firstChangeHeight + nozzle_diameter/2, CustomGCode::Type::Custom, -1, "", "M104 S" + std::to_string(temperature) + " ; ground floor temp tower set" });
     model.objects[objs_idx[0]]->config.set_key_value("print_temperature", new ConfigOptionInt(temperature));
     model.objects[objs_idx[0]]->config.set_key_value("print_first_layer_temperature", new ConfigOptionInt(first_layer_temperature));

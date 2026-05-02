@@ -179,7 +179,7 @@ void CalibrationRetractionDialog::create_geometry(wxCommandEvent& event_args) {
     float xyScale = nozzle_diameter / 0.4;
     //scale z to have 6 layers
     const ConfigOptionFloatOrPercent* first_layer_height_setting = print_config->option<ConfigOptionFloatOrPercent>("first_layer_height");
-    double first_layer_height = first_layer_height_setting->get_abs_value(nozzle_diameter);
+    double first_layer_height = first_layer_height_setting->get_effective_value(nozzle_diameter);
     first_layer_height = nozzle_diameter / 2; //TODO remove and use the user's first_layer_height
     double layer_height = nozzle_diameter / 2.;
     first_layer_height = std::max(first_layer_height, nozzle_diameter / 2.);

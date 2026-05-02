@@ -59,10 +59,10 @@ namespace Slic3r {
         double  value;
         bool    percent;
 
-        double get_abs_value(double ratio_over) const {
+        double get_effective_value(double ratio_over) const {
             return this->percent ? (ratio_over * this->value / 100) : this->value;
         }
-        double get_float(size_t idx = 0) const { return get_abs_value(1.); }
+        double get_float(size_t idx = 0) const { return get_effective_value(1.); }
         bool is_percent(size_t idx = 0) const { return this->percent; }
     private:
         friend class cereal::access;
@@ -610,11 +610,15 @@ public:
     // DEPRECATED: please use set()
     ConfigOption&               operator=(const ConfigOption *opt) { this->set(*opt); return *this; }
     // Getters, idx is ignored if it's a scalar value.
+    virtual bool                get_bool(size_t idx = 0)       const { throw BadOptionTypeException("Calling ConfigOption::get_bool on a non-boolean ConfigOption"); }
     virtual int32_t             get_int(size_t idx = 0)        const { throw BadOptionTypeException("Calling ConfigOption::get_int on a non-int ConfigOption"); }
     virtual double              get_float(size_t idx = 0)      const { throw BadOptionTypeException("Calling ConfigOption::get_float on a non-float ConfigOption"); }
-    virtual bool                is_percent(size_t idx = 0)     const { return false;  }
-    virtual bool                get_bool(size_t idx = 0)       const { throw BadOptionTypeException("Calling ConfigOption::get_bool on a non-boolean ConfigOption");  }
-    virtual void                set_enum_int(int32_t /* val */) { throw BadOptionTypeException("Calling ConfigOption::set_enum_int on a non-enum ConfigOption"); }
+    virtual double              get_effective_value(double ratio_over, size_t idx = 0) const { return this->get_float(idx); }
+    virtual bool                is_percent(size_t idx = 0)     const { return false; }
+    virtual void                set_bool(bool /* val */, size_t idx = 0) { throw BadOptionTypeException("Calling ConfigOption::set_int on a non-bool ConfigOption"); }
+    virtual void                set_int(int32_t /* val */, size_t idx = 0) { throw BadOptionTypeException("Calling ConfigOption::set_int on a non-int ConfigOption"); }
+    virtual void                set_float(double /* val */, size_t idx = 0) { throw BadOptionTypeException("Calling ConfigOption::set_float on a non-float ConfigOption"); }
+    virtual void                set_percent(double val, size_t idx = 0) { set_float(val*0.01, idx); }
     // If scalar, idx is ignore, else: if idx < 0 return the vector; if idx >=0 then return the value at theis index; if idx >= size(), then return the first value or a default one.
     virtual boost::any          get_any(int32_t idx = -1)      const { throw BadOptionTypeException("Calling ConfigOption::get_any on a raw ConfigOption"); }
     virtual void                set_any(boost::any, int32_t idx = -1) { throw BadOptionTypeException("Calling ConfigOption::set_any on a raw ConfigOption"); }
@@ -1190,7 +1194,12 @@ public:
 
     static ConfigOptionType static_type() { return coFloat; }
     ConfigOptionType        type()      const override { return static_type(); }
+    bool                    get_bool(size_t idx = 0) const override { return this->value != 0; }
+    int32_t                 get_int(size_t idx = 0) const override { return int32_t(this->value); }
     double                  get_float(size_t idx = 0) const override { return this->value; }
+    void                    set_bool(bool value, size_t idx = 0) override { this->value = value ? 1. : 0.; }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->value = value; }
+    void                    set_float(double value, size_t idx = 0) override { this->value = value; }
     ConfigOption*           clone()     const override { return new ConfigOptionFloat(*this); }
     bool                    operator==(const ConfigOptionFloat &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator< (const ConfigOptionFloat &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value < rhs.value); }
@@ -1245,7 +1254,12 @@ public:
     bool                    operator==(const ConfigOptionFloats &rhs) const throw() { return this->m_enabled == rhs.m_enabled && this->m_values == rhs.m_values; }
     bool operator<(const ConfigOptionFloats &rhs) const throw()
         { return this->m_enabled < rhs.m_enabled || (this->m_enabled == rhs.m_enabled && this->m_values < rhs.m_values); }
-    double                  get_float(size_t idx = 0) const override { return get_at(idx); }
+    bool                    get_bool(size_t idx = 0) const override { return this->get_at(idx) != 0; }
+    int32_t                 get_int(size_t idx = 0) const override { return int32_t(this->get_at(idx)); }
+    double                  get_float(size_t idx = 0) const override { return this->get_at(idx); }
+    void                    set_bool(bool value, size_t idx = 0) override { this->set_at(value ? 1. : 0., idx); }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->set_at(double(value), idx); }
+    void                    set_float(double value, size_t idx = 0) override { this->set_at(value, idx); }
 
     std::string serialize() const override
     {
@@ -1322,8 +1336,12 @@ public:
     
     static ConfigOptionType static_type() { return coInt; }
     ConfigOptionType        type()   const override { return static_type(); }
+    bool                    get_bool(size_t idx = 0) const override { return this->value != 0; }
     int32_t                 get_int(size_t idx = 0) const override { return this->value; }
-    double                  get_float(size_t idx = 0) const override { return this->value; }
+    double                  get_float(size_t idx = 0) const override { return double(this->value); }
+    void                    set_bool(bool value, size_t idx = 0) override { this->value = value ? 1 : 0; }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->value = value; }
+    void                    set_float(double value, size_t idx = 0) override { this->value = int32_t(value); }
     ConfigOption*           clone()  const override { return new ConfigOptionInt(*this); }
     bool                    operator==(const ConfigOptionInt &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator<(const ConfigOptionInt &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value < rhs.value); }
@@ -1376,8 +1394,12 @@ public:
     ConfigOption*           clone() const override { assert(this->m_values.size() == this->m_enabled.size()); return new ConfigOptionInts(*this); }
     bool                    operator==(const ConfigOptionInts &rhs) const throw() { return this->m_enabled == rhs.m_enabled && this->m_values == rhs.m_values; }
     bool                    operator< (const ConfigOptionInts &rhs) const throw() { return this->m_enabled < rhs.m_enabled || (this->m_enabled == rhs.m_enabled && this->m_values < rhs.m_values); }
-    int32_t                 get_int(size_t idx = 0) const override { return get_at(idx); }
-    double                  get_float(size_t idx = 0) const override { return get_at(idx); }
+    bool                    get_bool(size_t idx = 0) const override { return this->get_at(idx) != 0; }
+    int32_t                 get_int(size_t idx = 0) const override { return this->get_at(idx); }
+    double                  get_float(size_t idx = 0) const override { return double(this->get_at(idx)); }
+    void                    set_bool(bool value, size_t idx = 0) override { this->set_at(idx, value ? 1 : 0); }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->set_at(idx, value); }
+    void                    set_float(double value, size_t idx = 0) override { this->set_at(idx, int32_t(value)); }
 
     std::string serialize() const override
     {
@@ -1450,7 +1472,14 @@ public:
     ConfigOption*           clone() const override { return new ConfigOptionString(*this); }
     bool                    operator==(const ConfigOptionString &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator< (const ConfigOptionString &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value < rhs.value); }
-    bool 					empty() const { return this->value.empty(); }
+    bool                    empty() const { return this->value.empty(); }
+
+    bool                    get_bool(size_t idx = 0) const override { return !this->value.empty() && this->value != "0"; }
+    int32_t                 get_int(size_t idx = 0) const override { try { return std::stoi(this->value); } catch (...) { return 0; } }
+    double                  get_float(size_t idx = 0) const override { try { return std::stod(this->value); } catch (...) { return 0.0; } }
+    void                    set_bool(bool value, size_t idx = 0) override { this->value = value ? "1" : "0"; }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->value = std::to_string(value); }
+    void                    set_float(double value, size_t idx = 0) override { this->value = std::to_string(value); }
 
     std::string serialize() const override
     { 
@@ -1505,6 +1534,13 @@ public:
     bool                    operator==(const ConfigOptionStrings &rhs) const throw() { return this->m_enabled == rhs.m_enabled && this->m_values == rhs.m_values; }
     bool                    operator< (const ConfigOptionStrings &rhs) const throw() { return this->m_enabled < rhs.m_enabled || (this->m_enabled == rhs.m_enabled && this->m_values < rhs.m_values); }
 
+    bool                    get_bool(size_t idx = 0) const override { return !this->get_at(idx).empty() && this->get_at(idx) != "0"; }
+    int32_t                 get_int(size_t idx = 0) const override { try { return std::stoi(this->get_at(idx)); } catch (...) { return 0; } }
+    double                  get_float(size_t idx = 0) const override { try { return std::stod(this->get_at(idx)); } catch (...) { return 0.0; } }
+    void                    set_bool(bool value, size_t idx = 0) override { this->set_at(value ? "1" : "0", idx); }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->set_at(std::to_string(value), idx); }
+    void                    set_float(double value, size_t idx = 0) override { this->set_at(std::to_string(value), idx); }
+
     std::string serialize() const override
     {
         if (this->m_enabled.empty() && !this->m_values.empty()) {
@@ -1554,9 +1590,16 @@ public:
     ConfigOption*           clone() const override { return new ConfigOptionPercent(*this); }
     bool                    operator==(const ConfigOptionPercent &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator< (const ConfigOptionPercent &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value < rhs.value); }
-    
-    double                  get_abs_value(double ratio_over) const { return ratio_over * this->value / 100.; }
+
+    double                  get_effective_value(double ratio_over, size_t idx = 0) const override { return ratio_over * this->value / 100.; }
+    bool                    get_bool(size_t idx) const override { return this->value != 0.; }
+    int32_t                 get_int(size_t idx) const override { return int32_t(this->value); }
+    double                  get_float(size_t idx) const override { return this->value / 100; }
     bool                    is_percent(size_t idx = 0) const override { return true; }
+    void                    set_bool(bool value, size_t idx = 0) override { this->value = value ? 1. : 0.; }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->value = value; }
+    void                    set_float(double scalar_value, size_t idx = 0) override { this->value = value * 100; }
+    void                    set_percent(double percent_value, size_t idx = 0) override {  this->value = percent_value; }
     
     std::string serialize() const override 
     {
@@ -1607,8 +1650,16 @@ public:
     bool operator==(const ConfigOptionPercents &rhs) const throw() { return this->m_enabled == rhs.m_enabled && this->m_values == rhs.m_values; }
     bool operator<(const ConfigOptionPercents &rhs) const throw()
         { return this->m_enabled < rhs.m_enabled || (this->m_enabled == rhs.m_enabled && this->m_values < rhs.m_values); }
-    double                  get_abs_value(size_t i, double ratio_over) const { return ratio_over * this->get_at(i) / 100; }
+
+    double                  get_effective_value(double ratio_over, size_t idx = 0) const override { return ratio_over * this->get_at(idx) / 100.; }
+    bool                    get_bool(size_t idx) const override { return this->get_at(idx) != 0.; }
+    int32_t                 get_int(size_t idx) const override { return int32_t(this->get_at(idx)); }
+    double                  get_float(size_t idx) const override { return this->get_at(idx) / 100.; }
     bool                    is_percent(size_t idx = 0) const override { return true; }
+    void                    set_bool(bool value, size_t idx = 0) override { this->set_at(value ? 1. : 0., idx); }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->set_at(value, idx); }
+    void                    set_float(double value, size_t idx = 0) override { this->set_at(value * 100., idx); }
+    void                    set_percent(double percent_value, size_t idx = 0) override {  this->set_at(percent_value, idx); }
 
     std::string serialize() const override
     {
@@ -1673,10 +1724,16 @@ public:
         return std::tie(this_enabled, this->value, this->percent) < std::tie(rhs_enabled, rhs.value, rhs.percent);
     }
 
-    double                      get_abs_value(double ratio_over) const 
+    double                      get_effective_value(double ratio_over, size_t idx = 0) const override
         { return this->percent ? (ratio_over * this->value / 100) : this->value; }
-    double                      get_float(size_t idx = 0) const override { return get_abs_value(1.); }
-    bool                        is_percent(size_t idx = 0) const override { return this->percent;  }
+    bool                        get_bool(size_t idx = 0) const override { return this->value != 0; }
+    int32_t                     get_int(size_t idx = 0) const override { return int32_t(this->value); }
+    double                      get_float(size_t idx = 0) const override { return get_effective_value(1., idx); }
+    bool                        is_percent(size_t idx = 0) const override { return this->percent; }
+    void                        set_bool(bool value, size_t idx = 0) override { this->value = value ? 1. : 0.; }
+    void                        set_int(int32_t value, size_t idx = 0) override { this->value = double(value); }
+    void                        set_float(double value, size_t idx = 0) override { this->value = value; this->percent = false; }
+    void                        set_percent(double percent_value, size_t idx = 0) override { this->value = percent_value; this->percent = true; }
     // special case for get/set any: use a FloatOrPercent like for FloatsOrPercents, to have the is_percent
     boost::any get_any(int32_t idx = 0) const override { return boost::any(FloatOrPercent{value, percent}); }
     void       set_any(boost::any anyval, int32_t idx = -1) override
@@ -1745,13 +1802,19 @@ public:
         { return this->m_enabled == rhs.m_enabled && this->m_values == rhs.m_values; }
     bool                    operator<(const ConfigOptionFloatsOrPercents &rhs) const throw()
         { return this->m_enabled < rhs.m_enabled || (this->m_enabled == rhs.m_enabled && this->m_values < rhs.m_values); }
-    double                  get_abs_value(size_t i, double ratio_over) const {
-        const FloatOrPercent& data = this->get_at(i);
+    double                  get_effective_value(double ratio_over, size_t idx = 0) const override{
+        const FloatOrPercent& data = this->get_at(idx);
         if (data.percent) return ratio_over * data.value / 100;
         return data.value;
     }
-    double                  get_float(size_t idx = 0) const override { return get_abs_value(idx, 1.); }
+    bool                    get_bool(size_t idx = 0) const override { return this->get_at(idx).value != 0.; }
+    int32_t                 get_int(size_t idx = 0) const override { return int32_t(this->get_at(idx).value); }
+    double                  get_float(size_t idx = 0) const override { return get_effective_value(1., idx); }
     bool                    is_percent(size_t idx = 0) const override { return this->get_at(idx).percent; }
+    void                    set_bool(bool value, size_t idx = 0) override { this->get_at(idx).value = value ? 1. : 0.; }
+    void                    set_int(int32_t value, size_t idx = 0) override { this->get_at(idx).value = double(value); }
+    void                    set_float(double scalar_value, size_t idx = 0) override { this->set_at(FloatOrPercent{scalar_value, false}, idx); }
+    void                    set_percent(double percent_value, size_t idx = 0) override { this->set_at(FloatOrPercent{percent_value, true}, idx); }
 
     std::string serialize() const override
     {
@@ -1834,6 +1897,13 @@ public:
     ConfigOption*           clone() const override { return new ConfigOptionPoint(*this); }
     bool                    operator==(const ConfigOptionPoint &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator< (const ConfigOptionPoint &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value <  rhs.value); }
+    
+    bool                    get_bool(size_t idx = 0) const override { assert(idx < 2); return idx == 0 ? this->value.x() != 0 : this->value.y() != 0; }
+    int32_t                 get_int(size_t idx = 0) const override { assert(idx < 2); return int32_t(idx == 0 ? this->value.x() : this->value.y()); }
+    double                  get_float(size_t idx = 0) const override { assert(idx < 2); return double(idx == 0 ? this->value.x() : this->value.y()); }
+    void                    set_bool(bool value, size_t idx = 0) override { assert(idx < 2); (idx == 0 ? this->value.x() : this->value.y()) = value ? 1 : 0; }
+    void                    set_int(int32_t value, size_t idx = 0) override { assert(idx < 2); (idx == 0 ? this->value.x() : this->value.y()) = double(value); }
+    void                    set_float(double value, size_t idx = 0) override { assert(idx < 2); (idx == 0 ? this->value.x() : this->value.y()) = value; }
 
     std::string serialize() const override
     {
@@ -1900,6 +1970,13 @@ public:
                std::lexicographical_compare(this->m_values.begin(), this->m_values.end(), rhs.m_values.begin(),
                                             rhs.m_values.end(), [](const auto &l, const auto &r) { return l < r; }));
     }
+
+    bool                    get_bool(size_t idx = 0) const override { assert(idx < size() * 2); return idx%2 == 0 ? this->get_at(idx/2).x() != 0 : this->get_at(idx/2).y() != 0; }
+    int32_t                 get_int(size_t idx = 0) const override { assert(idx < size() * 2); return int32_t(idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()); }
+    double                  get_float(size_t idx = 0) const override { assert(idx < size() * 2); return double(idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()); }
+    void                    set_bool(bool value, size_t idx = 0) override { assert(idx < size() * 2); (idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()) = value ? 1 : 0; }
+    void                    set_int(int32_t value, size_t idx = 0) override { assert(idx < size() * 2); (idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()) = double(value); }
+    void                    set_float(double value, size_t idx = 0) override { assert(idx < size() * 2); (idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()) = value; }
 
     std::string serialize() const override
     {
@@ -2348,10 +2425,10 @@ public:
     bool                    operator==(const ConfigOptionEnum<T> &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator< (const ConfigOptionEnum<T> &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && int(this->value) < int(rhs.value)); }
     int32_t                 get_int(size_t idx = 0) const override { return int32_t(this->value); }
-    void                    set_enum_int(int32_t val) override { this->value = T(val); }
+    void                    set_int(int32_t val, size_t idx = 0) override { this->value = T(val); }
     // special case for get/set any: use a int like for ConfigOptionEnumGeneric, to simplify
     boost::any get_any(int32_t idx = -1) const override { return boost::any(get_int()); }
-    void       set_any(boost::any anyval, int32_t idx = -1) override { set_enum_int(boost::any_cast<int32_t>(anyval)); }
+    void       set_any(boost::any anyval, int32_t idx = -1) override { set_int(boost::any_cast<int32_t>(anyval)); }
 
     bool operator==(const ConfigOption &rhs) const override
     {
@@ -2452,7 +2529,6 @@ public:
             (this->is_enabled() == rhs.is_enabled() && this->value < rhs.get_int());
     }
 
-    void set_enum_int(int32_t val) override { this->value = val; }
     void set(const ConfigOption &rhs, int32_t idx = -1) override {
         if (rhs.type() != this->type())
             throw ConfigurationError("ConfigOptionEnumGeneric: Assigning an incompatible type");
@@ -3107,7 +3183,6 @@ public:
 
     const ConfigOptionDef* get_option_def(const t_config_option_key& opt_key) const;
     double get_computed_value(const t_config_option_key &opt_key, int extruder_id = -1) const;
-    double get_abs_value(const t_config_option_key &opt_key, double ratio_over) const; //TODO: 2.7: use extruder_id, reform the gat_abs_value to have common signature.
 
     std::string&        opt_string(const t_config_option_key &opt_key, bool create = false)     { return this->option<ConfigOptionString>(opt_key, create)->value; }
     const std::string&  opt_string(const t_config_option_key &opt_key) const                    { return const_cast<ConfigBase*>(this)->opt_string(opt_key); }

@@ -255,7 +255,7 @@ double Extruder::extrusion_multiplier() const
 // Return a "retract_before_wipe" percentage as a factor clamped to <0, 1>
 double Extruder::retract_before_wipe() const
 {
-    return std::min(1., std::max(0., m_config->retract_before_wipe.get_abs_value(m_id,1)));
+    return std::min(1., std::max(0., m_config->retract_before_wipe.get_effective_value(1, m_id)));
 }
 
 double Extruder::retract_length() const

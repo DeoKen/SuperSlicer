@@ -421,7 +421,7 @@ GCodeGenerator::ObjectsLayerToPrint GCodeGenerator::collect_layers_to_print(cons
         const ConfigOptionFloatsOrPercents& min_layer_height = object.print()->config().min_layer_height;
         const ConfigOptionFloats& nozzle_diameter = object.print()->config().nozzle_diameter;
         for(int extr_id = 0; extr_id < min_layer_height.size(); ++extr_id)
-            support_layer_height_min = std::min(support_layer_height_min, std::max(nozzle_diameter.get_at(extr_id)/40, min_layer_height.get_abs_value(extr_id, nozzle_diameter.get_at(extr_id))));
+            support_layer_height_min = std::min(support_layer_height_min, std::max(nozzle_diameter.get_at(extr_id)/40, min_layer_height.get_effective_value(nozzle_diameter.get_at(extr_id), extr_id)));
         gap_over_supports += support_layer_height_min;
     }*/
 
@@ -436,10 +436,10 @@ GCodeGenerator::ObjectsLayerToPrint GCodeGenerator::collect_layers_to_print(cons
     }
     if (max_nozzle == 0)
         max_nozzle = nozzle_diameters.front();
-    coord_t top_cd = Layer::scale_to_layer_coord(object.config().support_material_contact_distance.get_abs_value(max_nozzle));
+    coord_t top_cd = Layer::scale_to_layer_coord(object.config().support_material_contact_distance.get_effective_value(max_nozzle));
     coord_t bottom_cd = object.config().support_material_bottom_contact_distance.value == 0. ?
             top_cd :
-            Layer::scale_to_layer_coord(object.config().support_material_bottom_contact_distance.get_abs_value(max_nozzle));
+            Layer::scale_to_layer_coord(object.config().support_material_bottom_contact_distance.get_effective_value(max_nozzle));
     coord_t raft_cd = Layer::scale_to_layer_coord(object.config().raft_contact_distance.value);
 
     // Pair the object layers with the support layers by z.
@@ -1582,7 +1582,7 @@ namespace DoExport {
                         min_mm3_per_s = std::min(min_mm3_per_s, print.config().filament_max_volumetric_speed.get_at(extruder_id));
                     }
                     min_mm3_per_mm = std::max(min_mm3_per_mm,
-                                              print.config().autospeed_min_thin_flow.get_abs_value(min_mm3_per_s) /
+                                              print.config().autospeed_min_thin_flow.get_effective_value(min_mm3_per_s) /
                                                   max_print_speed);
                 }
             }
@@ -5667,7 +5667,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
     //compute z offset
     const double layer_height_mm = (normal_loop_paths.front().height());
     //TODO seam_slope_min_height from region
-    double min_layer_height_mm = (config().seam_slope_min_height.get_abs_value(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0)));
+    double min_layer_height_mm = (config().seam_slope_min_height.get_effective_value(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0)));
     min_layer_height_mm = std::min(min_layer_height_mm, layer_height_mm/3);
 
     const double start_first_loop_offset_mm = min_layer_height_mm - layer_height_mm;
@@ -5678,7 +5678,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
 
     //TODO seam_slope_max_length from region
     const double max_length_mm = config().seam_slope_max_length.is_enabled() ?
-        (config().seam_slope_max_length.get_abs_value(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0))) :
+        (config().seam_slope_max_length.get_effective_value(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0))) :
         first_loop_length;
     distf_t scarf_length = std::min(first_loop_length, scale_d(max_length_mm));
     const distf_t max_path3d_length = std::max(scarf_length / 100,
@@ -6036,13 +6036,13 @@ void GCodeGenerator::seam_notch(const ExtrusionLoop& original_loop,
     if (building_paths.size() == 1)
         assert(is_full_loop_ccw == Polygon(building_paths.front().polyline.to_polyline().points).is_counter_clockwise());
     if (original_loop.role().is_external_perimeter() && building_paths.front().size() > 1 && building_paths.back().size() > 1
-        && (this->m_config.seam_notch_all.get_abs_value(1.) > 0 || this->m_config.seam_notch_inner.get_abs_value(1.) > 0 
-            || this->m_config.seam_notch_outer.get_abs_value(1.) > 0)) {
+        && (this->m_config.seam_notch_all.get_effective_value(1.) > 0 || this->m_config.seam_notch_inner.get_effective_value(1.) > 0 
+            || this->m_config.seam_notch_outer.get_effective_value(1.) > 0)) {
         //TODO: check there is at least 4 points
         coord_t notch_value = 0;
         //check if applicable to seam_notch_inner
-        if ((is_hole_loop && this->m_config.seam_notch_inner.get_abs_value(1.) > 0)
-            || (!is_hole_loop && this->m_config.seam_notch_outer.get_abs_value(1.) > 0)
+        if ((is_hole_loop && this->m_config.seam_notch_inner.get_effective_value(1.) > 0)
+            || (!is_hole_loop && this->m_config.seam_notch_outer.get_effective_value(1.) > 0)
             ) {
             Polygon polygon_to_test = original_loop.polygon();
             if (polygon_to_test.size() > 8) {
@@ -6080,16 +6080,16 @@ void GCodeGenerator::seam_notch(const ExtrusionLoop& original_loop,
                     coord_t max_variation = std::max(SCALED_EPSILON, scale_t(10 * (unscaled(diameter_sum / polygon_to_test.size()))));
                     if (diameter_max - diameter_min < max_variation * 2 && diameter_line_max - diameter_line_min < max_variation * 2) {
                         if (is_hole_loop) {
-                            notch_value = scale_t(this->m_config.seam_notch_inner.get_abs_value(building_paths.front().width()));
+                            notch_value = scale_t(this->m_config.seam_notch_inner.get_effective_value(building_paths.front().width()));
                         } else {
-                            notch_value = scale_t(this->m_config.seam_notch_outer.get_abs_value(building_paths.front().width()));
+                            notch_value = scale_t(this->m_config.seam_notch_outer.get_effective_value(building_paths.front().width()));
                         }
                     }
                 }
             }
         }
         if (notch_value == 0) {
-            notch_value = scale_t(this->m_config.seam_notch_all.get_abs_value(building_paths.front().width()));
+            notch_value = scale_t(this->m_config.seam_notch_all.get_effective_value(building_paths.front().width()));
         }
         if (notch_value == 0) {
             return;
@@ -6405,9 +6405,9 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     if (building_paths.size() == 1)
         assert(is_full_loop_ccw == Polygon(building_paths.front().polyline.to_polyline().points).is_counter_clockwise());
     if (m_enable_loop_clipping && m_writer.tool_is_extruder()) {
-        distf_t clip_length = scale_(m_config.seam_gap.get_abs_value(m_writer.tool()->id(), nozzle_diam));
+        distf_t clip_length = scale_(m_config.seam_gap.get_effective_value(nozzle_diam, m_writer.tool()->id()));
         if (loop_to_seam.role().is_external_perimeter()) {
-            distf_t clip_length_external = scale_(m_config.seam_gap_external.get_abs_value(m_writer.tool()->id(), unscaled(clip_length)));
+            distf_t clip_length_external = scale_(m_config.seam_gap_external.get_effective_value(unscaled(clip_length), m_writer.tool()->id()));
             if (clip_length_external > 0) {
                 clip_length = clip_length_external;
             }
@@ -6462,8 +6462,8 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
 
     // apply the small perimeter speed
     if (speed == -1 && (paths.front().role().is_perimeter()) && paths.front().role() != ExtrusionRole::ThinWall) {
-        double min_length = scale_d(this->m_config.small_perimeter_min_length.get_abs_value(nozzle_diam));
-        double max_length = scale_d(this->m_config.small_perimeter_max_length.get_abs_value(nozzle_diam));
+        double min_length = scale_d(this->m_config.small_perimeter_min_length.get_effective_value(nozzle_diam));
+        double max_length = scale_d(this->m_config.small_perimeter_max_length.get_effective_value(nozzle_diam));
         if (full_loop_length < max_length) {
             if (full_loop_length <= min_length) {
                 speed = SMALL_PERIMETER_SPEED_RATIO_OFFSET;
@@ -6476,7 +6476,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
 
     std::string gcode;
 
-    coordf_t point_dist_for_vec = std::max(scale_d(nozzle_diam) / 100, scale_d(m_config.seam_gap.get_abs_value(m_writer.tool()->id(), nozzle_diam)) / 2);
+    coordf_t point_dist_for_vec = std::max(scale_d(nozzle_diam) / 100, scale_d(m_config.seam_gap.get_effective_value(nozzle_diam, m_writer.tool()->id())) / 2);
     assert(point_dist_for_vec > 0);
 
     // generate the unretracting/wipe start move (same thing than for the end, but on the other side)
@@ -6513,7 +6513,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
         Vec2d  next_pos = next_point.cast<double>();
         Vec2d  vec_dist = next_pos - current_pos;
         double vec_norm = vec_dist.norm();
-        const double setting_max_depth = (m_config.wipe_inside_depth.get_abs_value(m_writer.tool()->id(), nozzle_diam));
+        const double setting_max_depth = (m_config.wipe_inside_depth.get_effective_value(nozzle_diam, m_writer.tool()->id()));
         distf_t dist = scale_d(nozzle_diam) / 2;
         Point  pt = Point::round(current_pos + vec_dist * (2 * dist / vec_norm));
         pt.rotate(angle, current_point);
@@ -6598,7 +6598,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
         Polyline pl;
         //TODO seam_slope_max_length from region
         if (config().seam_slope_max_length.is_enabled()) {
-            distf_t max_dist = scale_d((config().seam_slope_max_length.get_abs_value(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0))));
+            distf_t max_dist = scale_d((config().seam_slope_max_length.get_effective_value(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0))));
             pl.append(paths.front().polyline.front());
             for (const ExtrusionPath &path : paths){
                 Polyline discretized_polyline = path.polyline.to_polyline(scale_t(max_nozzle / 2));
@@ -6779,7 +6779,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
         const double vec_norm = vec_dist.norm();
         double sin_a    = std::abs(std::sin(angle));
         sin_a = std::max(0.1, sin_a);
-        const double setting_max_depth = (m_config.wipe_inside_depth.get_abs_value(m_writer.tool()->id(), nozzle_diam));
+        const double setting_max_depth = (m_config.wipe_inside_depth.get_effective_value(nozzle_diam, m_writer.tool()->id()));
         distf_t dist   = setting_max_depth <= 0 ? scale_d(nozzle_diam) / 2 : scale_d(setting_max_depth);
         if (nozzle_diam != 0 && setting_max_depth > nozzle_diam * 0.55)
             dist = distf_t(check_wipe::max_depth(wipe_paths, scale_t(setting_max_depth), scale_t(nozzle_diam), 
@@ -7504,7 +7504,7 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
 
     // if the path is too small to be printed, put in the queue to be merge with the next one.
     const distf_t scaled_min_length = this->config().gcode_min_length.is_enabled() ?
-        scale_d(this->config().gcode_min_length.get_abs_value(m_current_perimeter_extrusion_width)) :
+        scale_d(this->config().gcode_min_length.get_effective_value(m_current_perimeter_extrusion_width)) :
         0;
     if (scaled_min_length > 0 && simplifed_path.length() < scaled_min_length) {
         m_last_too_small = simplifed_path;
@@ -7516,7 +7516,7 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
 
     // simplify with gcode_resolution (not used yet). Simplify by junction deviation before the g1/sec count, to be able to use that decimation to reduce max_gcode_per_second triggers.
     // But as it can be visible on cylinders, should only be called if a max_gcode_per_second trigger may come.
-    const coordf_t scaled_min_resolution = scale_d(this->config().gcode_min_resolution.get_abs_value(m_current_perimeter_extrusion_width));
+    const coordf_t scaled_min_resolution = scale_d(this->config().gcode_min_resolution.get_effective_value(m_current_perimeter_extrusion_width));
     const int32_t max_gcode_per_second = (this->config().max_gcode_per_second.is_enabled()) ?
         this->config().max_gcode_per_second.value :
         0;
@@ -8180,7 +8180,7 @@ double GCodeGenerator::_compute_e_per_mm(const ExtrusionPath &path) {
     // compute
     double e_per_mm = path_mm3_per_mm
         * m_writer.tool()->e_per_mm3() // inside is the filament_extrusion_multiplier
-        * this->config().print_extrusion_multiplier.get_abs_value(1);
+        * this->config().print_extrusion_multiplier.get_effective_value(1);
     // extrusion mult per speed
     if (this->config().extruder_extrusion_multiplier_speed.is_enabled()) {
         GraphData eems_graph = this->config().extruder_extrusion_multiplier_speed.get_at(this->m_writer.tool()->id());
@@ -8199,7 +8199,7 @@ double GCodeGenerator::_compute_e_per_mm(const ExtrusionPath &path) {
     }
     // first layer mult
     if (this->m_layer->scaled_bottom_z() <= 0) {
-        e_per_mm *= this->config().first_layer_flow_ratio.get_abs_value(1);
+        e_per_mm *= this->config().first_layer_flow_ratio.get_effective_value(1);
         e_per_mm *= EXTRUDER_CONFIG_WITH_DEFAULT(filament_first_layer_flow_ratio, 100) * 0.01;
     }
     return e_per_mm;
@@ -8225,9 +8225,9 @@ std::string GCodeGenerator::_extrude(ExtrusionPath &path, const std::string_view
         Flow flow = Flow::new_from_width(nozzle_diameter, nozzle_diameter, path.attributes().height, 1);
         ExtrusionPath fake_path(ExtrusionAttributes{ExtrusionRole::ExternalPerimeter, flow}, nullptr);
         double my_e_per_mm = _compute_e_per_mm(fake_path);
-        my_e_per_mm *= this->config().first_layer_flow_ratio.get_abs_value(1);
+        my_e_per_mm *= this->config().first_layer_flow_ratio.get_effective_value(1);
         my_e_per_mm *= EXTRUDER_CONFIG_WITH_DEFAULT(filament_first_layer_flow_ratio, 100) * 0.01;
-        double e_value = my_e_per_mm * config().first_layer_strong_start.get_abs_value(nozzle_diameter);
+        double e_value = my_e_per_mm * config().first_layer_strong_start.get_effective_value(nozzle_diameter);
         // Dicretize the path to have aonly small segments (at the start), to absorb the alsck of extrusion.
         // ensure a point at 5% more than the real place, to have some slack.
         coordf_t distance_needed = scale_d(1.15 * e_value / e_per_mm);
@@ -8429,7 +8429,7 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
         } else if (path.role() == ExtrusionRole::GapFill) {
             speed = m_config.get_computed_value("gap_fill_speed");
             if(comment) *comment = "gap_fill_speed";
-            double max_ratio = m_config.gap_fill_flow_match_perimeter.get_abs_value(1.);
+            double max_ratio = m_config.gap_fill_flow_match_perimeter.get_effective_value(1.);
             if (max_ratio > 0 && m_region) {
                 //compute intended perimeter flow
                 Flow fl = m_region->flow(*m_layer->object(), FlowRole::frPerimeter, (float)m_layer->unscaled_height(), m_layer->id());
@@ -8488,37 +8488,37 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
         // respect the % hierarchy
         if ((path.role().is_overhang() && m_config.overhangs) ||
             (path.overhang_attributes() && path.overhang_attributes()->has_full_overhangs_speed)) {
-            speed = m_config.overhangs_speed.get_abs_value(m_config.bridge_speed.get_abs_value(vol_speed));
+            speed = m_config.overhangs_speed.get_effective_value(m_config.bridge_speed.get_effective_value(vol_speed));
             if(comment) *comment = std::string("overhangs_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::Perimeter) {
-            speed = m_config.perimeter_speed.get_abs_value(vol_speed);
+            speed = m_config.perimeter_speed.get_effective_value(vol_speed);
             if(comment) *comment = std::string("perimeter_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::ExternalPerimeter) {
-            speed = m_config.external_perimeter_speed.get_abs_value(m_config.perimeter_speed.get_abs_value(vol_speed));
+            speed = m_config.external_perimeter_speed.get_effective_value(m_config.perimeter_speed.get_effective_value(vol_speed));
             if(comment) *comment = std::string("external_perimeter_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::BridgeInfill) {
-            speed = m_config.bridge_speed.get_abs_value(vol_speed);
+            speed = m_config.bridge_speed.get_effective_value(vol_speed);
             if(comment) *comment = std::string("bridge_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::InternalBridgeInfill) {
-            speed = m_config.internal_bridge_speed.get_abs_value(m_config.bridge_speed.get_abs_value(vol_speed));
+            speed = m_config.internal_bridge_speed.get_effective_value(m_config.bridge_speed.get_effective_value(vol_speed));
             if(comment) *comment = std::string("internal_bridge_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::InternalInfill) {
-            speed = m_config.infill_speed.get_abs_value(m_config.solid_infill_speed.get_abs_value(vol_speed));
+            speed = m_config.infill_speed.get_effective_value(m_config.solid_infill_speed.get_effective_value(vol_speed));
             if(comment) *comment = std::string("infill_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::SolidInfill) {
-            speed = m_config.solid_infill_speed.get_abs_value(vol_speed);
+            speed = m_config.solid_infill_speed.get_effective_value(vol_speed);
             if(comment) *comment = std::string("solid_infill_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::TopSolidInfill) {
-            speed = m_config.top_solid_infill_speed.get_abs_value(m_config.solid_infill_speed.get_abs_value(vol_speed));
+            speed = m_config.top_solid_infill_speed.get_effective_value(m_config.solid_infill_speed.get_effective_value(vol_speed));
             if(comment) *comment = std::string("top_solid_infill_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::ThinWall) {
-            speed = m_config.thin_walls_speed.get_abs_value(m_config.external_perimeter_speed.get_abs_value(m_config.perimeter_speed.get_abs_value(vol_speed)));
+            speed = m_config.thin_walls_speed.get_effective_value(m_config.external_perimeter_speed.get_effective_value(m_config.perimeter_speed.get_effective_value(vol_speed)));
             if(comment) *comment = std::string("thin_walls_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::GapFill) {
-            speed = m_config.gap_fill_speed.get_abs_value(m_config.perimeter_speed.get_abs_value(vol_speed));
+            speed = m_config.gap_fill_speed.get_effective_value(m_config.perimeter_speed.get_effective_value(vol_speed));
             if(comment) *comment = std::string("gap_fill_speed ") + *comment;
         } else if (path.role() == ExtrusionRole::Ironing) {
-            speed = m_config.ironing_speed.get_abs_value(m_config.top_solid_infill_speed.get_abs_value(m_config.solid_infill_speed.get_abs_value(vol_speed)));
+            speed = m_config.ironing_speed.get_effective_value(m_config.top_solid_infill_speed.get_effective_value(m_config.solid_infill_speed.get_effective_value(vol_speed)));
             if(comment) *comment = std::string("ironing_speed ") + *comment;
         }
         if (speed == 0) {
@@ -8563,9 +8563,9 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
                     vol_speed = max_print_speed;
                 }
                 if (path.role() == ExtrusionRole::OverhangExternalPerimeter) {
-                    other_speed = m_config.external_perimeter_speed.get_abs_value(vol_speed);
+                    other_speed = m_config.external_perimeter_speed.get_effective_value(vol_speed);
                 } else {
-                    other_speed = m_config.perimeter_speed.get_abs_value(vol_speed);
+                    other_speed = m_config.perimeter_speed.get_effective_value(vol_speed);
                 }
                 if (other_speed == 0) {
                     other_speed = vol_speed;
@@ -8596,7 +8596,7 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
     // Don't modify bridge speed
     // modify overhang if it means slow down.
     if (factor < 1 && (!path.role().is_bridge() || path.role().is_overhang())) {
-        float small_speed = (float)m_config.small_perimeter_speed.get_abs_value(m_config.get_computed_value("perimeter_speed"));
+        float small_speed = (float)m_config.small_perimeter_speed.get_effective_value(m_config.get_computed_value("perimeter_speed"));
         // modify overhang if it means slow down.
         if (small_speed > 0 && (!path.role().is_overhang() || small_speed < speed)) {
             // apply factor between feature speed and small speed
@@ -8607,9 +8607,9 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
     // Apply first layer modifier
     if (this->on_first_layer()) {
         const double base_speed = speed;
-        double first_layer_speed = m_config.first_layer_speed.get_abs_value(base_speed);
+        double first_layer_speed = m_config.first_layer_speed.get_effective_value(base_speed);
         if (path.role() == ExtrusionRole::InternalInfill || path.role() == ExtrusionRole::SolidInfill) {
-            double first_layer_infill_speed = m_config.first_layer_infill_speed.get_abs_value(base_speed);
+            double first_layer_infill_speed = m_config.first_layer_infill_speed.get_effective_value(base_speed);
             if (first_layer_infill_speed > 0) {
                 if (first_layer_infill_speed < speed) {
                     speed = first_layer_infill_speed;
@@ -8634,7 +8634,7 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
         }
     } else if (this->object_layer_over_raft()) {
         const double base_speed = speed;
-        double first_layer_over_raft_speed = m_config.first_layer_speed_over_raft.get_abs_value(base_speed);
+        double first_layer_over_raft_speed = m_config.first_layer_speed_over_raft.get_effective_value(base_speed);
         if (first_layer_over_raft_speed > 0 && first_layer_over_raft_speed < speed) {
             speed = first_layer_over_raft_speed;
             if(comment) *comment += ", reduced to first_layer_over_raft_speed";
@@ -8644,7 +8644,7 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
     // the first_layer_flow_ratio is added at the last time to take into account everything. So do the compute like it's here.
     double path_mm3_per_mm = path.mm3_per_mm();
     if (m_layer->scaled_bottom_z() <= 0) {
-        path_mm3_per_mm *= this->config().first_layer_flow_ratio.get_abs_value(1);
+        path_mm3_per_mm *= this->config().first_layer_flow_ratio.get_effective_value(1);
     }
     // cap speed with max_volumetric_speed anyway (even if user is not using autospeed)
     if (m_config.max_volumetric_speed.value > 0 && path_mm3_per_mm > 0 && m_config.max_volumetric_speed.value / path_mm3_per_mm < speed) {
@@ -8819,9 +8819,9 @@ std::pair<double, double> GCodeGenerator::_compute_acceleration(const ExtrusionP
         }
 
         if (this->on_first_layer() && m_config.first_layer_acceleration.value > 0) {
-            acceleration = std::min(acceleration, m_config.first_layer_acceleration.get_abs_value(acceleration));
+            acceleration = std::min(acceleration, m_config.first_layer_acceleration.get_effective_value(acceleration));
         } else if (this->object_layer_over_raft() && m_config.first_layer_acceleration_over_raft.value > 0) {
-            acceleration = m_config.first_layer_acceleration_over_raft.get_abs_value(acceleration);
+            acceleration = m_config.first_layer_acceleration_over_raft.get_effective_value(acceleration);
         }
 
         acceleration = std::min(max_acceleration, acceleration);
@@ -8922,7 +8922,7 @@ std::string GCodeGenerator::_travel_before_extrude(const ExtrusionPath &path, co
                     distf_t min_dist_for_deceleration = distf_t(SCALED_EPSILON);
                     min_dist_for_deceleration = std::max(min_dist_for_deceleration, dist_to_go_extrude_speed / 10);
                     min_dist_for_deceleration = std::max(min_dist_for_deceleration,
-                                                         scale_d(m_config.gcode_min_length.get_abs_value(
+                                                         scale_d(m_config.gcode_min_length.get_effective_value(
                                                              m_current_perimeter_extrusion_width)));
                     cant_use_deceleration = cant_use_deceleration || length < min_dist_for_deceleration;
                     // don't use it their isn't enough acceleration to go to the next speed without going by the travel speed
@@ -9036,7 +9036,7 @@ std::pair<double, double> GCodeGenerator::_compute_pressure_advance(const Extrus
     if (m_config.filament_pressure_advance.is_enabled()) {
         pa = m_config.filament_pressure_advance.get_at(m_writer.tool()->id());
         if (m_config.filament_travel_pa.is_enabled(m_writer.tool()->id())) {
-            travel_pa = m_config.filament_travel_pa.get_abs_value(m_writer.tool()->id(), pa);
+            travel_pa = m_config.filament_travel_pa.get_effective_value(pa, m_writer.tool()->id());
         }
         switch (extrusion_role_to_gcode_extrusion_role(path.role())) {
         case GCodeExtrusionRole::Perimeter:
@@ -9087,9 +9087,9 @@ std::pair<double, double> GCodeGenerator::_compute_pressure_advance(const Extrus
         }
 
         if (this->on_first_layer() && m_config.filament_first_layer_pa.get_at(m_writer.tool()->id()).value > 0) {
-            pa = std::min(pa, m_config.filament_first_layer_pa.get_abs_value(m_writer.tool()->id(), pa));
+            pa = std::min(pa, m_config.filament_first_layer_pa.get_effective_value(pa, m_writer.tool()->id()));
         } else if (this->object_layer_over_raft() && m_config.filament_first_layer_pa_over_raft.get_at(m_writer.tool()->id()).value > 0) {
-            pa = m_config.filament_first_layer_pa_over_raft.get_abs_value(m_writer.tool()->id(), pa);
+            pa = m_config.filament_first_layer_pa_over_raft.get_effective_value(pa, m_writer.tool()->id());
         }
         if (pa < 0) {
             pa = 0;
@@ -9464,9 +9464,9 @@ Polyline GCodeGenerator::travel_to(std::string &gcode, const Point &point, Extru
     //if needed, remove points to avoid surcharging the printer.
     if (this->last_pos_defined()) {
         const coordf_t scaled_min_length = this->config().gcode_min_length.is_enabled() ?
-            scale_d(this->config().gcode_min_length.get_abs_value(m_current_perimeter_extrusion_width)) :
+            scale_d(this->config().gcode_min_length.get_effective_value(m_current_perimeter_extrusion_width)) :
             0;
-        coordf_t scaled_min_resolution = scale_d(this->config().gcode_min_resolution.get_abs_value(m_current_perimeter_extrusion_width));
+        coordf_t scaled_min_resolution = scale_d(this->config().gcode_min_resolution.get_effective_value(m_current_perimeter_extrusion_width));
         if (config().avoid_crossing_perimeters.value) {
             // min with peri/2 because it's less a problem for travels. but if travel don't cross, then they must not deviate much.
             scaled_min_resolution = std::min(scale_d(m_current_perimeter_extrusion_width / 4), scaled_min_resolution);

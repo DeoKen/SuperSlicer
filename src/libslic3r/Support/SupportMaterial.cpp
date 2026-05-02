@@ -1972,7 +1972,7 @@ static inline SupportGeneratorLayer* detect_bottom_contacts(
     layer_new.bridging = !slicing_params.soluble_interface;
     // how much to inflate the bottom surface, for better stability
     if (support_params.bottom_interface_expansion.value > 0) {
-        coordf_t expansion = scale_d(support_params.bottom_interface_expansion.get_abs_value(
+        coordf_t expansion = scale_d(support_params.bottom_interface_expansion.get_effective_value(
             support_params.support_material_bottom_interface_flow.width()));
         layer_new.polygons = expand(touching, expansion, SUPPORT_SURFACES_OFFSET_PARAMETERS);
         layer_new.polygons = intersection(top, layer_new.polygons);
@@ -2372,11 +2372,11 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::raft_and_intermediate_supp
     coord_t support_layer_height = Layer::scale_to_layer_coord(m_object_config->support_material_layer_height.value == 0 ?
         m_slicing_params->max_suport_layer_height :
         std::min(m_slicing_params->max_suport_layer_height, std::max(0.,//m_slicing_params->min_suport_layer_height,
-            m_object_config->support_material_layer_height.get_abs_value(m_support_params.support_material_flow.nozzle_diameter()))));
+            m_object_config->support_material_layer_height.get_effective_value(m_support_params.support_material_flow.nozzle_diameter()))));
     coord_t support_interface_layer_height = Layer::scale_to_layer_coord(m_object_config->support_material_interface_layer_height.value == 0 ?
         m_slicing_params->max_suport_layer_height :
         std::min(m_slicing_params->max_suport_layer_height, std::max(0.,// m_slicing_params->min_suport_layer_height,
-            m_object_config->support_material_interface_layer_height.get_abs_value(m_support_params.support_material_interface_flow.nozzle_diameter()))));
+            m_object_config->support_material_interface_layer_height.get_effective_value(m_support_params.support_material_interface_flow.nozzle_diameter()))));
     if (!extremes.empty() &&
          (extremes.front()->scaled_height() > 0 ||
           (m_slicing_params->raft_interface_top_z > 0 &&

@@ -47,7 +47,7 @@ double LayerRegion::bridging_height_avg_mm() const
     const PrintRegionConfig& region_config = this->region().config();
     if (region_config.bridge_type == BridgeType::btFromNozzle) {
         const PrintConfig& print_config = this->layer()->object()->print()->config();
-        return region().nozzle_dmr_avg(print_config) * sqrt(region_config.bridge_flow_ratio.get_abs_value(1));
+        return region().nozzle_dmr_avg(print_config) * sqrt(region_config.bridge_flow_ratio.get_effective_value(1));
     } else if (region_config.bridge_type == BridgeType::btFromHeight) {
         return this->layer()->unscaled_height();
     } else if (region_config.bridge_type == BridgeType::btFromFlow) {
@@ -81,8 +81,8 @@ Flow LayerRegion::bridging_flow(FlowRole role, BridgeType force_type) const
     }
     assert(!is_perimeter || (region_config.overhangs.get_bool() && region_config.overhangs_flow_ratio.is_enabled()));
     return Flow::bridging_flow(float(sqrt(force_type == BridgeType::btNone ?
-                                              (is_perimeter ? region_config.overhangs_flow_ratio.get_abs_value(1.) :
-                                                              region_config.bridge_flow_ratio.get_abs_value(1.)) :
+                                              (is_perimeter ? region_config.overhangs_flow_ratio.get_effective_value(1.) :
+                                                              region_config.bridge_flow_ratio.get_effective_value(1.)) :
                                               0.95f) *
                                      diameter),
                                nozzle_diameter);
@@ -468,13 +468,13 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
     const bool has_infill = this->region().config().fill_density.value > 0.;
     //if no infill, reduce the margin for everything to only the perimeter
     if (!has_infill) {
-        coord_t margin = scale_t(this->region().config().external_infill_margin.get_abs_value(unscaled(shell_width)));
-        coord_t margin_bridged = scale_t(this->region().config().bridged_infill_margin.get_abs_value(this->flow(frExternalPerimeter).width()));
+        coord_t margin = scale_t(this->region().config().external_infill_margin.get_effective_value(unscaled(shell_width)));
+        coord_t margin_bridged = scale_t(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
         expansion_solid = std::min(margin, shell_width);
         expansion_bottom_bridge = std::min(margin_bridged, shell_width);
     } else {
-        expansion_solid = scale_t(this->region().config().external_infill_margin.get_abs_value(unscaled(shell_width)));
-        expansion_bottom_bridge = scale_t(this->region().config().bridged_infill_margin.get_abs_value(this->flow(frExternalPerimeter).width()));
+        expansion_solid = scale_t(this->region().config().external_infill_margin.get_effective_value(unscaled(shell_width)));
+        expansion_bottom_bridge = scale_t(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
     }
     if (expansion_min <= 0) {
         expansion_min = SCALED_EPSILON;
@@ -709,8 +709,8 @@ void LayerRegion::process_external_surfaces_old(const Layer *lower_layer, const 
     }
     const Surfaces &surfaces = this->m_fill_surfaces.surfaces;
     const bool has_infill = this->region().config().fill_density.value > 0.;
-    coord_t margin = scale_t(this->region().config().external_infill_margin.get_abs_value(unscaled(max_margin)));
-    coord_t margin_bridged = scale_t(this->region().config().bridged_infill_margin.get_abs_value(this->flow(frExternalPerimeter).width()));
+    coord_t margin = scale_t(this->region().config().external_infill_margin.get_effective_value(unscaled(max_margin)));
+    coord_t margin_bridged = scale_t(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
     //if no infill, reduce the margin for everything to only the perimeter
     if (!has_infill) {
         margin = std::min(margin, max_margin);
@@ -1034,7 +1034,7 @@ void LayerRegion::process_external_surfaces_old(const Layer *lower_layer, const 
                         initial,
                         lower_layer->lslices(),
                         this->bridging_flow(frInfill).scaled_spacing(),
-                        scale_t(this->layer()->object()->print()->config().bridge_precision.get_abs_value(this->bridging_flow(frInfill).spacing())),
+                        scale_t(this->layer()->object()->print()->config().bridge_precision.get_effective_value(this->bridging_flow(frInfill).spacing())),
                         this->layer()->id()
                     );
                     #ifdef SLIC3R_DEBUG
@@ -1172,7 +1172,7 @@ void LayerRegion::prepare_fill_surfaces()
         // also Apply solid_infill_below_width
         double   spacing            = this->flow(frSolidInfill).spacing();
         coordf_t scaled_spacing     = scale_d(spacing);
-        coordf_t min_half_width = scale_d(this->region().config().solid_infill_below_width.get_abs_value(spacing)) / 2;
+        coordf_t min_half_width = scale_d(this->region().config().solid_infill_below_width.get_effective_value(spacing)) / 2;
         if (min_half_width > 0) {
             Surfaces srfs_to_add;
             for (Surfaces::iterator surface = this->m_fill_surfaces.surfaces.begin();

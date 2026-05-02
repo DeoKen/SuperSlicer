@@ -708,10 +708,10 @@ void SimplifyVisitor::use(ExtrusionPath& path) {
         return;
     }
     assert(m_scaled_resolution >= SCALED_EPSILON);
-    path.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_abs_value(path.width())));
+    path.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_effective_value(path.width())));
     for (int i = 1; i < path.polyline.size(); ++i)
         if (path.polyline.get_point(i - 1).coincides_with_epsilon(path.polyline.get_point(i))) {
-            path.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_abs_value(path.width())));
+            path.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_effective_value(path.width())));
         }
     for (int i = 1; i < path.polyline.size(); ++i)
         assert(!path.polyline.get_point(i - 1).coincides_with_epsilon(path.polyline.get_point(i)));
@@ -721,7 +721,7 @@ void SimplifyVisitor::use(ExtrusionPath3D& path3D) {
         m_last_deleted = true;
         return;
     }
-    path3D.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_abs_value(path3D.width())));
+    path3D.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_effective_value(path3D.width())));
 }
 void SimplifyVisitor::use(ExtrusionMultiPath &multipath)
 {

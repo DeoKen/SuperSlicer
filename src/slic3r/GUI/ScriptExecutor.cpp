@@ -159,12 +159,7 @@ int32_t as_get_int_idx(std::string& key, int idx)
     const ConfigOption* opt = get_coll(key).second;
     if (opt == nullptr || (opt->type() != ConfigOptionType::coInt && opt->type() != ConfigOptionType::coInts && opt->type() != ConfigOptionType::coEnum))
         throw NoDefinitionExceptionEmitLog("get_int(): error, can't find int option " + key);
-    if (opt->is_vector()) {
-        const ConfigOptionVectorBase* vector = static_cast<const ConfigOptionVectorBase*>(opt);
-        return (int32_t)vector->get_int(idx);
-    } else {
-        return (int32_t)(opt->get_int());
-    }
+    return opt->get_int(idx);
 }
 int32_t as_get_int(std::string &key) { return as_get_int_idx(key, 0); }
 void    _set_int(DynamicPrintConfig &conf, const ConfigOption *opt, std::string &key, int idx, int i_val)
@@ -182,7 +177,7 @@ void    _set_int(DynamicPrintConfig &conf, const ConfigOption *opt, std::string 
         conf.set_key_value(key, new_val);
     } else if (opt->type() == ConfigOptionType::coEnum) {
         ConfigOption *copy = opt->clone();
-        copy->set_enum_int(i_val);
+        copy->set_int(i_val);
         conf.set_key_value(key, copy);
     } else {
         throw NoDefinitionExceptionEmitLog("set_int(): error, can't find int option (wrong type?) " + key);
@@ -208,22 +203,7 @@ float as_get_float_idx(std::string& key, int idx)
     const ConfigOption* opt = get_coll(key).second;
     if (opt == nullptr) //TODO check if  float, etc..
         throw NoDefinitionExceptionEmitLog("get_float(): error, can't find float option " + key);
-    float val = 1;
-    // if precent, divide by 100
-    if (opt->type() == ConfigOptionType::coPercent || opt->type() == ConfigOptionType::coPercents) {
-        val *= 0.01f;
-    }
-    if (opt->type() == ConfigOptionType::coFloatOrPercent && static_cast<const ConfigOptionFloatOrPercent*>(opt)->percent)
-        val *= 0.01f;
-    if (opt->is_vector()) {
-        const ConfigOptionVectorBase* vector = static_cast<const ConfigOptionVectorBase*>(opt);
-        if (opt->type() == ConfigOptionType::coFloatsOrPercents && static_cast<const ConfigOptionFloatsOrPercents*>(vector)->get_at(idx).percent)
-            val *= 0.01f;
-        val *= (float)vector->get_float(idx);
-    } else {
-        val *= (float)(opt->get_float());
-    }
-    return val;
+    return opt->get_float(idx);
 }
 float  as_get_float(std::string &key) { return as_get_float_idx(key, 0); }
 
@@ -240,7 +220,7 @@ void _set_float(DynamicPrintConfig& conf, const ConfigOption* opt, std::string& 
         if (std::abs(old_value - new_val) / std::abs(old_value) < 0.0000001)
             new_val = old_value; // don't return int these check, as it can escpae a refresh of the scripted widget
         ConfigOptionFloat *copy = static_cast<ConfigOptionFloat *>(opt->clone());
-        copy->value = new_val;
+        copy->set_float(new_val);
         conf.set_key_value(key, copy);
     } else if (opt->type() == ConfigOptionType::coFloats) {
         ConfigOptionFloats *new_opt = static_cast<ConfigOptionFloats *>(opt->clone());
@@ -349,7 +329,7 @@ void _set_percent(DynamicPrintConfig& conf, const ConfigOption* opt, std::string
         if (std::abs(old_value - percent_f) / std::abs(old_value) < 0.0000001)
             percent_f = old_value; // don't return int these check, as it can escpae a refresh of the scripted widget
         ConfigOptionFloat *copy = static_cast<ConfigOptionFloat *>(opt->clone());
-        copy->value = percent_f / 100.;
+        copy->set_percent(percent_f);
         conf.set_key_value(key, copy);
     } else if (opt->type() == ConfigOptionType::coFloats) {
         ConfigOptionFloats *new_opt = static_cast<ConfigOptionFloats *>(opt->clone());
@@ -469,7 +449,7 @@ void _set_string(DynamicPrintConfig& conf, const PresetCollection* pcoll, const 
                 throw NoDefinitionExceptionEmitLog("set_string(): error, can't find enum option '" + val + "' in " + key);
         }
         ConfigOption* copy = opt->clone();
-        copy->set_enum_int(*it_idx);
+        copy->set_int(*it_idx);
         conf.set_key_value(key, copy);
     } else {
         throw NoDefinitionExceptionEmitLog("set_string(): error, can't find string option (wrong type?) " + key);

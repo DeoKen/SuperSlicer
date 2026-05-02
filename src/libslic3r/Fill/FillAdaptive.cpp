@@ -305,7 +305,7 @@ std::pair<double, double> adaptive_fill_line_spacing(const PrintObject &print_ob
         bool                     nonempty               = config.fill_density > 0;
         bool                     has_adaptive_infill    = nonempty && config.fill_pattern.value == ipAdaptiveCubic;
         bool                     has_support_infill     = nonempty && config.fill_pattern.value == ipSupportCubic;
-        double                   infill_extrusion_width = config.infill_extrusion_width.get_abs_value(max_nozzle_diameter);
+        double                   infill_extrusion_width = config.infill_extrusion_width.get_effective_value(max_nozzle_diameter);
         region_fill_data.push_back(RegionFillData({
             has_adaptive_infill ? Tristate::Maybe : Tristate::No,
             has_support_infill ? Tristate::Maybe : Tristate::No,

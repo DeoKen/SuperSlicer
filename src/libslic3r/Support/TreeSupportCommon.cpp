@@ -52,7 +52,7 @@ TreeSupportMeshGroupSettings::TreeSupportMeshGroupSettings(const PrintObject &pr
             config.support_material_interface_layers.value);
         
     this->support_material_buildplate_only = config.support_material_buildplate_only;
-    this->support_xy_distance       = scaled<coord_t>(config.support_material_xy_spacing.get_abs_value(external_perimeter_width));
+    this->support_xy_distance       = scaled<coord_t>(config.support_material_xy_spacing.get_effective_value(external_perimeter_width));
     // Separation of interfaces, it is likely smaller than support_xy_distance.
     this->support_xy_distance_overhang = std::min(this->support_xy_distance, scaled<coord_t>(0.5 * external_perimeter_width));
     // compute separate support_material_contact_distance_type. As organic support only support one layer height,

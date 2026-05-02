@@ -383,7 +383,7 @@ std::string PresetHints::maximum_volumetric_flow_description(const PresetBundle 
                 const double base_speed = speed_normal;
                 // Apply the first layer limit.
                 if (first_layer_speed.value > 0)
-                    speed_normal = std::min(first_layer_speed.get_abs_value(base_speed), speed_normal);
+                    speed_normal = std::min(first_layer_speed.get_effective_value(base_speed), speed_normal);
                 speed_normal = std::max(first_layer_min_speed.value, speed_normal);
             }
             return (speed_normal > 0.) ? speed_normal : speed_max;
@@ -395,7 +395,7 @@ std::string PresetHints::maximum_volumetric_flow_description(const PresetBundle 
                 const double base_speed = speed_normal;
                 // Apply the first layer limit.
                 if(first_layer_infill_speed.value > 0)
-                    speed_normal = std::min(first_layer_infill_speed.get_abs_value(base_speed), speed_normal);
+                    speed_normal = std::min(first_layer_infill_speed.get_effective_value(base_speed), speed_normal);
                 speed_normal = std::max(first_layer_min_speed.value, speed_normal);
             }
             return (speed_normal > 0.) ? speed_normal : speed_max;
@@ -406,7 +406,7 @@ std::string PresetHints::maximum_volumetric_flow_description(const PresetBundle 
                 first_positive(first_layer_extrusion_width_ptr, external_perimeter_extrusion_width, extrusion_width),
                 first_positive(first_layer_extrusion_spacing_ptr, external_perimeter_extrusion_spacing, extrusion_spacing),
                 nozzle_diameter, lh, 
-                std::min(filament_max_overlap, (float)print_config.opt<ConfigOptionPercent>("external_perimeter_overlap")->get_abs_value(1)),
+                std::min(filament_max_overlap, (float)print_config.opt<ConfigOptionPercent>("external_perimeter_overlap")->get_effective_value(1)),
                 bfr);
             if (external_flow.height() > external_flow.width())
                 external_flow = external_flow.with_height(external_flow.width());
@@ -421,7 +421,7 @@ std::string PresetHints::maximum_volumetric_flow_description(const PresetBundle 
                 first_positive(first_layer_extrusion_width_ptr, perimeter_extrusion_width, extrusion_width),
                 first_positive(first_layer_extrusion_spacing_ptr, perimeter_extrusion_spacing, extrusion_spacing),
                 nozzle_diameter, lh,
-                std::min(filament_max_overlap, (float)print_config.opt<ConfigOptionPercent>("perimeter_overlap")->get_abs_value(1)),
+                std::min(filament_max_overlap, (float)print_config.opt<ConfigOptionPercent>("perimeter_overlap")->get_effective_value(1)),
                 bfr);
             if (perimeter_flow.height() > perimeter_flow.width())
                 perimeter_flow = perimeter_flow.with_height(perimeter_flow.width());
@@ -550,8 +550,8 @@ std::string PresetHints::recommended_thin_wall_thickness(const PresetBundle& pre
     }
 
     float filament_max_overlap = (float)filament_config.get_computed_value("filament_max_overlap", 0);
-    float ext_peri_overlap = (float)print_config.opt<ConfigOptionPercent>("external_perimeter_overlap")->get_abs_value(1);
-    float peri_overlap = (float)print_config.opt<ConfigOptionPercent>("perimeter_overlap")->get_abs_value(1);
+    float ext_peri_overlap = (float)print_config.opt<ConfigOptionPercent>("external_perimeter_overlap")->get_effective_value(1);
+    float peri_overlap = (float)print_config.opt<ConfigOptionPercent>("perimeter_overlap")->get_effective_value(1);
     Flow  external_perimeter_flow =  Flow::new_from_config(frExternalPerimeter,
         print_config,
         nozzle_diameter,
@@ -606,7 +606,7 @@ std::string PresetHints::recommended_extrusion_width(const PresetBundle& preset_
     for(int i=0; i< nb_nozzles; i++)
         nozzle_diameter = std::max(nozzle_diameter, printer_config.opt_float("nozzle_diameter", i));
     double layer_height = print_config.opt_float("layer_height");
-    double first_layer_height = print_config.option<ConfigOptionFloatOrPercent>("first_layer_height")->get_abs_value(nozzle_diameter);
+    double first_layer_height = print_config.option<ConfigOptionFloatOrPercent>("first_layer_height")->get_effective_value(nozzle_diameter);
 
     std::string out;
 

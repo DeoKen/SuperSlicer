@@ -264,8 +264,8 @@ std::pair<float,float> calculate_overhang_speed(const ExtrusionPath &path,
             assert(config.overhangs);
             float max_dynamic_distance =
                 (float) (config.overhangs_width_speed.is_enabled() ?
-                             config.overhangs_width_speed.get_abs_value(config.nozzle_diameter.get_at(extruder_id)) :
-                             config.overhangs_width.get_abs_value(config.nozzle_diameter.get_at(extruder_id)));
+                             config.overhangs_width_speed.get_effective_value(config.nozzle_diameter.get_at(extruder_id)) :
+                             config.overhangs_width.get_effective_value(config.nozzle_diameter.get_at(extruder_id)));
             GraphData graph = config.overhangs_dynamic_speed.value;
             // ensure it start at 0%, and ensure it ends at 100%
             if (graph.graph_points[graph.begin_idx].x() != 0) {
@@ -327,7 +327,7 @@ void apply_overhang_flow(ExtrusionPath &path,
     const double nzl_diam_mm = print_config.nozzle_diameter.get_at(extruder_id);
 
     GraphData graph = region_config.overhangs_dynamic_flow.value;
-    double max_dynamic_distance_mm = region_config.overhangs_width.get_abs_value(nzl_diam_mm);
+    double max_dynamic_distance_mm = region_config.overhangs_width.get_effective_value(nzl_diam_mm);
     // ensure it start at 0%, and ensure it ends at 100%
     if (graph.graph_points[graph.begin_idx].x() != 0) {
         graph.graph_points.insert(graph.graph_points.begin() + graph.begin_idx, {0, 0});

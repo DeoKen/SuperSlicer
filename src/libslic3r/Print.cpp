@@ -702,7 +702,7 @@ coord_t Print::get_object_first_layer_height(const PrintObject& object) const {
         object_first_layer_height = 1000000000;
         for (uint16_t extruder_id : object_extruders) {
             const double nozzle_diameter = config().nozzle_diameter.get_at(extruder_id);
-            const coord_t first_layer_height = Layer::scale_to_layer_coord(object.config().first_layer_height.get_abs_value(nozzle_diameter));
+            const coord_t first_layer_height = Layer::scale_to_layer_coord(object.config().first_layer_height.get_effective_value(nozzle_diameter));
             object_first_layer_height = std::min(object_first_layer_height, first_layer_height);
         }
     }
@@ -983,8 +983,8 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
                 const coord_t layer_height = Layer::scale_to_layer_coord(object->config().layer_height.value);
                 for (uint16_t extruder_id : object_extruders) {
                     double nozzle_diameter = config().nozzle_diameter.get_at(extruder_id);
-                    const coord_t min_layer_height = Layer::scale_to_layer_coord(config().min_layer_height.get_abs_value(extruder_id, nozzle_diameter));
-                    coord_t max_layer_height = Layer::scale_to_layer_coord(config().max_layer_height.get_abs_value(extruder_id, nozzle_diameter));
+                    const coord_t min_layer_height = Layer::scale_to_layer_coord(config().min_layer_height.get_effective_value(nozzle_diameter, extruder_id));
+                    coord_t max_layer_height = Layer::scale_to_layer_coord(config().max_layer_height.get_effective_value(nozzle_diameter, extruder_id));
                     if (max_layer_height <= 0 || !config().max_layer_height.is_enabled()) {
                         max_layer_height = Layer::scale_to_layer_coord(nozzle_diameter * 0.75);
                     }
@@ -1444,7 +1444,7 @@ void Print::process()
         }
         //also simplify object skirt & brim
         if (enable_arc_fitting && (!this->m_skirt.empty() || !this->m_brim.empty())) {
-            coordf_t scaled_resolution = scale_d(config().arc_fitting_resolution.get_abs_value(config().resolution.value));
+            coordf_t scaled_resolution = scale_d(config().arc_fitting_resolution.get_effective_value(config().resolution.value));
             if (scaled_resolution == 0) scaled_resolution = SCALED_EPSILON * 2 ;
             const ConfigOptionFloatOrPercent& arc_fitting_tolerance = config().arc_fitting_tolerance;
 
@@ -1462,12 +1462,12 @@ void Print::process()
                 [this, &visitor, scaled_resolution, &arc_fitting_tolerance, &atomic_count](const tbb::blocked_range<size_t>& range) {
                     size_t path_idx = range.begin();
                     for (; path_idx < range.end() && path_idx < visitor.paths.size(); ++path_idx) {
-                        visitor.paths[path_idx]->simplify(scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_abs_value(visitor.paths[path_idx]->width())));
+                        visitor.paths[path_idx]->simplify(scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_effective_value(visitor.paths[path_idx]->width())));
                         int nb_items_done = (++atomic_count);
                         this->set_status(int((nb_items_done * 100) / (visitor.paths.size() + visitor.paths3D.size())), L("Optimizing skirt & brim %s%%"), { std::to_string(int(100*nb_items_done / double(visitor.paths.size() + visitor.paths3D.size()))) }, PrintBase::SlicingStatus::SECONDARY_STATE);
                     }
                     for (; path_idx < range.end() && path_idx - visitor.paths.size() < visitor.paths3D.size(); ++path_idx) {
-                        visitor.paths3D[path_idx - visitor.paths.size()]->simplify(scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_abs_value(visitor.paths[path_idx]->width())));
+                        visitor.paths3D[path_idx - visitor.paths.size()]->simplify(scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_effective_value(visitor.paths[path_idx]->width())));
                         int nb_items_done = (++atomic_count);
                         this->set_status(int((nb_items_done * 100) / (visitor.paths.size() + visitor.paths3D.size())), L("Optimizing skirt & brim %s%%"), { std::to_string(int(100*nb_items_done / double(visitor.paths.size() + visitor.paths3D.size()))) }, PrintBase::SlicingStatus::SECONDARY_STATE);
                     }
@@ -2319,13 +2319,13 @@ const WipeTowerData& Print::wipe_tower_data(const ConfigBase* config, double noz
         float maximum = std::accumulate(max_wipe_volumes.begin(), max_wipe_volumes.end(), 0.f);
         maximum = maximum * extruders_cnt / max_wipe_volumes.size();
 
-        float unscaled_brim_width = config->option<ConfigOptionFloatOrPercent>("wipe_tower_brim_width")->get_abs_value(nozzle_diameter);
+        float unscaled_brim_width = config->option<ConfigOptionFloatOrPercent>("wipe_tower_brim_width")->get_effective_value(nozzle_diameter);
         // use min layer height, as it's what wil disctate the wipe tower width.
         float first_layer_height = 0;
         //if (m_objects.empty()) {
             // if no objects, then no extruder selected: use the first one.
-            //first_layer_height = default_object_config().first_layer_height.get_abs_value(config->option("nozzle_diameter")->get_float(0));
-            first_layer_height = config->option<ConfigOptionFloatOrPercent>("first_layer_height")->get_abs_value(config->option("nozzle_diameter")->get_float(0));
+            //first_layer_height = default_object_config().first_layer_height.get_effective_value(config->option("nozzle_diameter")->get_float(0));
+            first_layer_height = config->option<ConfigOptionFloatOrPercent>("first_layer_height")->get_effective_value(config->option("nozzle_diameter")->get_float(0));
         //} else {
         //    first_layer_height = unscaled(get_min_first_layer_height());
         //}

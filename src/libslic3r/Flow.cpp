@@ -98,7 +98,7 @@ double Flow::extrusion_width(const std::string& opt_key, const ConfigOptionFloat
         auto opt_nozzle_diameters = config.option<ConfigOptionFloats>("nozzle_diameter");
         if (opt_nozzle_diameters == nullptr)
             throw_on_missing_variable(opt_key, "nozzle_diameter");
-        return opt->get_abs_value(float(opt_nozzle_diameters->get_at(first_printing_extruder)));
+        return opt->get_effective_value(float(opt_nozzle_diameters->get_at(first_printing_extruder)));
     }
 
     if (opt->value == 0.) {
@@ -314,28 +314,28 @@ Flow Flow::new_from_config(FlowRole role, const DynamicConfig& print_config, flo
         config_spacing.set(*print_config.option("external_perimeter_extrusion_spacing"));
         // external peri spacing is only half spacing -> transform it into a full spacing
         if (!config_spacing.is_phony() && config_spacing.value != 0) {
-            double raw_spacing = config_spacing.get_abs_value(nozzle_diameter);
+            double raw_spacing = config_spacing.get_effective_value(nozzle_diameter);
             config_spacing.percent = false;
             config_spacing.value = rounded_rectangle_extrusion_spacing(
                 rounded_rectangle_extrusion_width_from_spacing(raw_spacing, layer_height, 0.5f),
                 layer_height, 1.f);
         }
-        overlap = (float)print_config.get_abs_value("external_perimeter_overlap", 1.0);
+        overlap = (float)print_config.option("external_perimeter_overlap")->get_effective_value(1.0);
     } else if (role == frPerimeter) {
         config_width.set(*print_config.option("perimeter_extrusion_width"));
         config_spacing.set(*print_config.option("perimeter_extrusion_spacing"));
-        overlap = (float)print_config.get_abs_value("perimeter_overlap", 1.);
+        overlap = (float)print_config.option("perimeter_overlap")->get_effective_value(1.);
     } else if (role == frInfill) {
         config_width.set(*print_config.option("infill_extrusion_width"));
         config_spacing.set(*print_config.option("infill_extrusion_spacing"));
     } else if (role == frSolidInfill) {
         config_width.set(*print_config.option("solid_infill_extrusion_width"));
         config_spacing.set(*print_config.option("solid_infill_extrusion_spacing"));
-        overlap = (float)print_config.get_abs_value("solid_infill_overlap", 1.);
+        overlap = (float)print_config.option("solid_infill_overlap")->get_effective_value(1.);
     } else if (role == frTopSolidInfill) {
         config_width.set(*print_config.option("top_infill_extrusion_width"));
         config_spacing.set(*print_config.option("top_infill_extrusion_spacing"));
-        overlap = (float)print_config.get_abs_value("top_solid_infill_overlap", 1.);
+        overlap = (float)print_config.option("top_solid_infill_overlap")->get_effective_value(1.);
     } else {
         throw Slic3r::InvalidArgument("Unknown role");
     }
@@ -364,7 +364,7 @@ Flow Flow::new_from_config(FlowRole role, const DynamicConfig& print_config, flo
     // Here this->extruder(role) - 1 may underflow to MAX_INT, but then the get_at() will follback to zero'th element, so everything is all right.
     return Flow::new_from_config_width(role, config_width, config_spacing, nozzle_diameter, layer_height, 
         std::min(role == frTopSolidInfill ? 1.f : overlap, filament_max_overlap));
-    //bridge ? (float)m_config.bridge_flow_ratio.get_abs_value(1) : 0.0f);
+    //bridge ? (float)m_config.bridge_flow_ratio.get_effective_value(1) : 0.0f);
 }
 
 // This constructor builds a Flow object from an extrusion width config setting
@@ -388,7 +388,7 @@ Flow Flow::new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent
                 w = auto_extrusion_width(role, nozzle_diameter);
             } else {
                 // If user set a manual value, use it.
-                w = float(width.get_abs_value(nozzle_diameter));
+                w = float(width.get_effective_value(nozzle_diameter));
             }
         } else {
             if (!spacing.percent && spacing.value == 0.) {
@@ -396,7 +396,7 @@ Flow Flow::new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent
                 w = auto_extrusion_width(role, nozzle_diameter);
             } else {
                 // If user set a manual value, use it.
-                return new_from_spacing(float(spacing.get_abs_value(nozzle_diameter)), nozzle_diameter, height, spacing_ratio, false);
+                return new_from_spacing(float(spacing.get_effective_value(nozzle_diameter)), nozzle_diameter, height, spacing_ratio, false);
             }
         }
     }
@@ -419,7 +419,7 @@ Flow Flow::new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent
             w = auto_extrusion_width(role, nozzle_diameter);
         } else {
             // If user set a manual value, use it.
-            w = float(width.get_abs_value(nozzle_diameter));
+            w = float(width.get_effective_value(nozzle_diameter));
         }
     } else {
         if (!spacing.percent && spacing.value == 0.) {
@@ -427,7 +427,7 @@ Flow Flow::new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent
             w = auto_extrusion_width(role, nozzle_diameter);
         } else {
             // If user set a manual value, use it.
-            return new_from_spacing(float(spacing.get_abs_value(nozzle_diameter)), nozzle_diameter, height, spacing_ratio, false);
+            return new_from_spacing(float(spacing.get_effective_value(nozzle_diameter)), nozzle_diameter, height, spacing_ratio, false);
         }
     }
 
@@ -629,12 +629,12 @@ Flow support_material_flow(const PrintObject* object, float layer_height)
         max_height = Flow::auto_extrusion_width(frSupportMaterialInterface, nzd);
     } else {
         // If user set a manual value, use it.
-        max_height = float(width.get_abs_value(nzd));
+        max_height = float(width.get_effective_value(nzd));
     }
     if (layer_height <= 0) { // get default layer height for material interface
-        layer_height = object->config().support_material_layer_height.get_abs_value(nzd);
+        layer_height = object->config().support_material_layer_height.get_effective_value(nzd);
         if (layer_height == 0) {
-            layer_height = object->print()->config().max_layer_height.get_abs_value(extruder_id, nzd);
+            layer_height = object->print()->config().max_layer_height.get_effective_value(nzd, extruder_id);
             if (layer_height == 0 || !object->print()->config().max_layer_height.is_enabled()) {
                 layer_height = nzd * 0.75;
             }
@@ -708,12 +708,12 @@ Flow support_material_interface_flow(const PrintObject* object, float layer_heig
         max_height = Flow::auto_extrusion_width(frSupportMaterialInterface, nzd);
     } else {
         // If user set a manual value, use it.
-        max_height = float(width.get_abs_value(nzd));
+        max_height = float(width.get_effective_value(nzd));
     }
     if (layer_height <= 0) { // get default layer height for material interface
-        layer_height = object->config().support_material_interface_layer_height.get_abs_value(nzd);
+        layer_height = object->config().support_material_interface_layer_height.get_effective_value(nzd);
         if (layer_height == 0) {
-            layer_height = object->print()->config().max_layer_height.get_abs_value(extruder_id, nzd);
+            layer_height = object->print()->config().max_layer_height.get_effective_value(nzd, extruder_id);
             if (layer_height == 0 || !object->print()->config().max_layer_height.is_enabled()) {
                 layer_height = nzd * 0.75;
             }
@@ -748,12 +748,12 @@ Flow raft_flow(const PrintObject* object, float layer_height)
         max_height = Flow::auto_extrusion_width(frSupportMaterial, nzd);
     } else {
         // If user set a manual value, use it.
-        max_height = float(width.get_abs_value(nzd));
+        max_height = float(width.get_effective_value(nzd));
     }
     if (layer_height <= 0) { // get default layer height for material interface
-        layer_height = object->config().raft_interface_layer_height.get_abs_value(nzd);
+        layer_height = object->config().raft_interface_layer_height.get_effective_value(nzd);
         if (layer_height == 0) {
-            layer_height = object->print()->config().max_layer_height.get_abs_value(extruder_id, nzd);
+            layer_height = object->print()->config().max_layer_height.get_effective_value(nzd, extruder_id);
             if (layer_height == 0 || !object->print()->config().max_layer_height.is_enabled()) {
                 layer_height = nzd * 0.75;
             }
@@ -788,12 +788,12 @@ Flow raft_interface_flow(const PrintObject* object, float layer_height)
         max_height = Flow::auto_extrusion_width(frSupportMaterialInterface, nzd);
     } else {
         // If user set a manual value, use it.
-        max_height = float(width.get_abs_value(nzd));
+        max_height = float(width.get_effective_value(nzd));
     }
     if (layer_height <= 0) { // get default layer height for material interface
-        layer_height = object->config().raft_interface_layer_height.get_abs_value(nzd);
+        layer_height = object->config().raft_interface_layer_height.get_effective_value(nzd);
         if (layer_height == 0) {
-            layer_height = object->print()->config().max_layer_height.get_abs_value(extruder_id, nzd);
+            layer_height = object->print()->config().max_layer_height.get_effective_value(nzd, extruder_id);
             if (layer_height == 0 || !object->print()->config().max_layer_height.is_enabled()) {
                 layer_height = nzd * 0.75;
             }

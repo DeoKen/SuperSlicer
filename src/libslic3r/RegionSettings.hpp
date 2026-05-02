@@ -35,7 +35,6 @@ public:
     struct SettingsValue
     {
         std::vector<const ConfigOption*> key_options;
-        //std::vector<FloatOrPercent> values;
         std::vector<const ConfigOption *> val_options;
         SettingsValue() {};
         bool operator==(const SettingsValue &rhs) const;
@@ -55,28 +54,10 @@ public:
             assert(false);
             return opt;
         }
-        //const FloatOrPercent &get_value(const ConfigOption *opt = nullptr) const {
-        //    assert(key_options.size() == values.size());
-        //    if (opt == nullptr && values.size() >= 1) {
-        //        return values.front();
-        //    }
-        //    for (size_t i = 0; i < key_options.size(); i++) {
-        //        if (opt == key_options[i]) {
-        //            return values[i];
-        //        }
-        //    }
-        //    assert(false);
-        //    return NONE;
-        //}
         bool is_percent(const ConfigOption *opt = nullptr) const { return get_value_opt(opt)->is_percent(); }
         double get_float(const ConfigOption *opt = nullptr) const { return get_value_opt(opt)->get_float(); }
-        double get_abs_value(double ratio, const ConfigOption *opt = nullptr) const {
-            const ConfigOption *val_opt = get_value_opt(opt);
-            if (val_opt->is_percent()) {
-                return val_opt->get_float() * ratio;
-            } else {
-                return val_opt->get_float();
-            }
+        double get_effective_value(double ratio, const ConfigOption *opt = nullptr) const {
+            return get_value_opt(opt)->get_effective_value(ratio);
         }
         int32_t get_int(const ConfigOption *opt = nullptr) const { return get_value_opt(opt)->get_int(); }
         bool get_bool(const ConfigOption *opt = nullptr) const { return get_value_opt(opt)->get_bool(); }
@@ -88,8 +69,6 @@ public:
             instance.key_options = std::move(default_options);
             for (const ConfigOption *opt : options) {
                 instance.val_options.push_back(opt);
-                //instance.values.push_back(opt->is_percent() ? FloatOrPercent{opt->get_float(), true} :
-                //                                                FloatOrPercent{opt->get_float(), false});
             }
             return instance;
         }
