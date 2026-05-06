@@ -8,7 +8,7 @@ namespace Slic3r {
     void MillingPostProcess::getExtrusionLoop(const Layer* layer, Polygon& poly, Polylines& entrypoints, ExtrusionEntityCollection& out_coll) {
 
 
-        const coord_t milling_diameter = scale_t(this->print_config.milling_diameter.get_at(0));
+        const coord_t milling_diameter = scale_i(this->print_config.milling_diameter.get_at(0));
 
         //get the longest polyline
         Polyline best_polyline;
@@ -103,7 +103,7 @@ namespace Slic3r {
     {
         if (!can_be_milled(layer)) return ExtrusionEntityCollection();
 
-        const coord_t milling_diameter = scale_t(this->print_config.milling_diameter.get_at(0));
+        const coord_t milling_diameter = scale_i(this->print_config.milling_diameter.get_at(0));
 
         ExPolygons milling_lines;
         for (const ExPolygon& surf_expolygon : *slices) {
@@ -152,7 +152,7 @@ namespace Slic3r {
     {
         if (!can_be_milled(layer)) return ExPolygons();
 
-        const coord_t milling_radius = scale_(this->print_config.milling_diameter.get_at(0)) / 2;
+        const coord_t milling_radius = scale_i(this->print_config.milling_diameter.get_at(0)) / 2;
 
         ExPolygons milling_lines;
         ExPolygons surfaces;

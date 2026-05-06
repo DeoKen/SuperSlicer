@@ -18,8 +18,8 @@ namespace RasterizationImpl {
 using IndexPair = std::pair<int64_t, int64_t>;
 using Grids     = std::vector<IndexPair>;
 
-inline constexpr int64_t RasteXDistance = scale_(1);
-inline constexpr int64_t RasteYDistance = scale_(1);
+inline constexpr int64_t RasteXDistance = int64_t(scale_i(1));
+inline constexpr int64_t RasteYDistance = int64_t(scale_i(1));
 
 inline IndexPair point_map_grid_index(const Point &pt, int64_t xdist, int64_t ydist)
 {
@@ -99,9 +99,9 @@ static std::vector<ExtrusionPaths> getFakeExtrusionPathsFromWipeTower(const Wipe
 {
     float h = wtd.height;
     float lh = wtd.first_layer_height;
-    int   d = scale_(wtd.depth);
-    int   w = scale_(wtd.width);
-    int   bd = scale_(wtd.brim_width);
+    coord_t d = scale_i(wtd.depth);
+    coord_t w = scale_i(wtd.width);
+    coord_t bd = scale_i(wtd.brim_width);
     Point minCorner = { -wtd.brim_width, -wtd.brim_width };
     Point maxCorner = { minCorner.x() + w + bd, minCorner.y() + d + bd };
     float width = wtd.width;
@@ -121,8 +121,8 @@ static std::vector<ExtrusionPaths> getFakeExtrusionPathsFromWipeTower(const Wipe
             for (i=0; i<z_and_depth_pairs.size()-1; ++i)
                 if (hh >= z_and_depth_pairs[i].first && hh < z_and_depth_pairs[i+1].first)
                     break;
-            d = scale_(z_and_depth_pairs[i].second);
-            minCorner = {0, -d/2 + scale_t(z_and_depth_pairs.front().second/2.f)};
+            d = scale_i(z_and_depth_pairs[i].second);
+            minCorner = {0, -d/2 + scale_i(z_and_depth_pairs.front().second/2.f)};
             maxCorner = { minCorner.x() + w, minCorner.y() + d };
         }
 
@@ -133,7 +133,7 @@ static std::vector<ExtrusionPaths> getFakeExtrusionPathsFromWipeTower(const Wipe
 
         // We added the border, now add several parallel lines so we can detect an object that is fully inside the tower.
         // For now, simply use fixed spacing of 3mm.
-        for (coord_t y=minCorner.y()+scale_(3.); y<maxCorner.y(); y+=scale_(3.)) {
+        for (coord_t y = minCorner.y() + scale_i(3.); y < maxCorner.y(); y += scale_i(3.)) {
             path.polyline = ArcPolyline(Points{ {minCorner.x(), y}, {maxCorner.x(), y} });
             assert(path.polyline.is_valid());
             paths.back().emplace_back(path);
@@ -184,7 +184,7 @@ static std::vector<ExtrusionPaths> getFakeExtrusionPathsFromWipeTower(const Wipe
     for (ExtrusionPaths& ps : paths) {
         for (ExtrusionPath& p : ps) {
             p.polyline.rotate(Geometry::deg2rad(wtd.rotation_angle));
-            p.polyline.translate(Vector(scale_t(wtd.position.x()), scale_t(wtd.position.y())));
+            p.polyline.translate(Vector(scale_i(wtd.position.x()), scale_i(wtd.position.y())));
         }
     }
 

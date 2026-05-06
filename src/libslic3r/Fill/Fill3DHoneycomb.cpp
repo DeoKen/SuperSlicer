@@ -157,7 +157,7 @@ void Fill3DHoneycomb::_fill_surface_single(
     
     // generate pattern
     Polylines   polylines = makeGrid(
-        scale_(this->z),
+        scale_i(this->z),
         distance,
         (size_t)ceil(bb.size().x() / distance) + 1,
         (size_t)ceil(bb.size().y() / distance) + 1,
@@ -175,7 +175,7 @@ void Fill3DHoneycomb::_fill_surface_single(
     if (params.connection == icNotConnected || polylines.size() <= 1)
         append(polylines_out, chain_polylines(std::move(polylines)));
     else
-        this->connect_infill(std::move(polylines), expolygon, polylines_out, scale_t(this->get_spacing()), params);
+        this->connect_infill(std::move(polylines), expolygon, polylines_out, scale_i(this->get_spacing()), params);
 }
 
 } // namespace Slic3r

@@ -133,10 +133,10 @@ std::string LabelObjects::all_objects_header(BoundingBoxf3 &global_bounding_box,
             //start EXCLUDE_OBJECT_DEFINE line with name
             out.append("EXCLUDE_OBJECT_DEFINE NAME='").append(label.unique_name).append("'");
             // add centroid of object.
-            std::snprintf(buffer, sizeof(buffer) - 1, " CENTER=%.3f,%.3f", unscale<float>(center[0]), unscale<float>(center[1]));
+            std::snprintf(buffer, sizeof(buffer) - 1, " CENTER=%.3f,%.3f", (float)unscaled(center[0]), (float)unscaled(center[1]));
             out.append(buffer).append(" POLYGON=[");
             for (const Point& point : outline) {
-                std::snprintf(buffer, sizeof(buffer) - 1, "[%.3f,%.3f],", unscale<float>(point[0]), unscale<float>(point[1]));
+                std::snprintf(buffer, sizeof(buffer) - 1, "[%.3f,%.3f],", (float)unscaled(point[0]), (float)unscaled(point[1]));
                 out += buffer;
             }
             out.pop_back(); //remove last ','
@@ -153,7 +153,7 @@ std::string LabelObjects::all_objects_header(BoundingBoxf3 &global_bounding_box,
             .append(",\"id\":\"").append(std::to_string(label.unique_id)).append("\"")
             .append(",\"object_id\":").append(std::to_string(label.unique_id))
             .append(",\"copy\":").append(std::to_string(label.copy_id));
-        std::snprintf(buffer, sizeof(buffer) - 1, "%.3f,%.3f,%.3f", unscale<float>(center[0]), unscale<float>(center[1]), 0.f);
+        std::snprintf(buffer, sizeof(buffer) - 1, "%.3f,%.3f,%.3f", (float)unscaled(center[0]), (float)unscaled(center[1]), 0.f);
         out.append(",\"object_center\":[").append(buffer).append("]");
         std::snprintf(buffer, sizeof(buffer) - 1, "%.3f,%.3f,%.3f",bounding_box.center().x(), bounding_box.center().y(), bounding_box.center().z());
         out.append(",\"boundingbox_center\":[").append(buffer).append("]");
@@ -163,7 +163,7 @@ std::string LabelObjects::all_objects_header(BoundingBoxf3 &global_bounding_box,
         out.append(",\"scale\":[").append(buffer).append("]");
         out.append(",\"outline\":[");
         for (const Point& point : outline) {
-            std::snprintf(buffer, sizeof(buffer) - 1, "[%.3f,%.3f],", unscale<float>(point[0]), unscale<float>(point[1]));
+            std::snprintf(buffer, sizeof(buffer) - 1, "[%.3f,%.3f],", (float)unscaled(point[0]), (float)unscaled(point[1]));
             out += buffer;
         }
         out.pop_back(); //remove last ','
@@ -188,7 +188,7 @@ std::string LabelObjects::all_objects_header(BoundingBoxf3 &global_bounding_box,
         out.append(",\"boundingbox_size\":[").append(buffer).append("]");
         out.append(",\"outline\":[");
         for (const Point &point : global_outline) {
-            std::snprintf(buffer, sizeof(buffer) - 1, "[%.3f,%.3f],", unscale<float>(point[0]), unscale<float>(point[1]));
+            std::snprintf(buffer, sizeof(buffer) - 1, "[%.3f,%.3f],", (float)unscaled(point[0]), (float)unscaled(point[1]));
             out += buffer;
         }
         out.pop_back(); // remove last ','

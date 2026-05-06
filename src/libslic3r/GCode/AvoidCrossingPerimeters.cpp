@@ -616,7 +616,7 @@ static inline coord_t get_default_perimeter_spacing(const PrintObject &print_obj
     assert(!printing_extruders.empty());
     coord_t avg_extruder = 0;
     for(uint16_t extruder_id : printing_extruders)
-        avg_extruder += scale_t(print_object.print()->config().nozzle_diameter.get_at(extruder_id));
+        avg_extruder += scale_i(print_object.print()->config().nozzle_diameter.get_at(extruder_id));
     avg_extruder /= printing_extruders.size();
     return avg_extruder;
 }
@@ -2468,7 +2468,7 @@ static void init_boundary(AvoidCrossingPerimeters::Boundary *boundary, Polygons 
     boundary->bbox = BoundingBoxf(bbox.min.cast<double>(), bbox.max.cast<double>());
     boundary->grid.set_bbox(bbox);
     // FIXME 1mm grid? -> use nozzle size or extrusion width
-    boundary->grid.create(boundary->boundaries, (scale_t(1.)));
+    boundary->grid.create(boundary->boundaries, (scale_i(1.)));
     init_boundary_distances(boundary);
     
     boundary->to_avoid = union_ex(boundary->to_avoid);
@@ -2476,7 +2476,7 @@ static void init_boundary(AvoidCrossingPerimeters::Boundary *boundary, Polygons 
     bbox.offset(SCALED_EPSILON + extra_available_space);
     boundary->to_avoid_grid.set_bbox(bbox);
     // FIXME 1mm grid? -> use nozzle size or extrusion width
-    boundary->to_avoid_grid.create(to_polygons(boundary->to_avoid), (scale_t(1.)));
+    boundary->to_avoid_grid.create(to_polygons(boundary->to_avoid), (scale_i(1.)));
 }
 
 static void init_boundary(AvoidCrossingPerimeters::Boundary *boundary, ExPolygons &&boundary_islands, coord_t extra_available_space)
@@ -2500,7 +2500,7 @@ static void init_boundary(AvoidCrossingPerimeters::Boundary *boundary, ExPolygon
     boundary->bbox = BoundingBoxf(bbox.min.cast<double>(), bbox.max.cast<double>());
     boundary->grid.set_bbox(bbox);
     // FIXME 1mm grid? -> use nozzle size or extrusion width
-    boundary->grid.create(boundary->boundaries, coord_t(scale_(1.)));
+    boundary->grid.create(boundary->boundaries, scale_i(1.));
     init_boundary_distances(boundary);
     
     boundary->to_avoid = union_ex(boundary->to_avoid);
@@ -2508,7 +2508,7 @@ static void init_boundary(AvoidCrossingPerimeters::Boundary *boundary, ExPolygon
     bbox.offset(SCALED_EPSILON + extra_available_space);
     boundary->to_avoid_grid.set_bbox(bbox);
     // FIXME 1mm grid? -> use nozzle size or extrusion width
-    boundary->to_avoid_grid.create(to_polygons(boundary->to_avoid), coord_t(scale_(1.)));
+    boundary->to_avoid_grid.create(to_polygons(boundary->to_avoid), scale_i(1.));
 
     assert(boundary->islands.size() == boundary->boundaries.size());
 }
@@ -2602,11 +2602,11 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCodeGenerator &gcodegen, cons
     const ConfigOptionFloatOrPercent &opt_max_detour             = gcodegen.config().avoid_crossing_perimeters_max_detour;
     bool                              max_detour_length_exceeded = false;
     if (opt_max_detour.value > 0) {
-        double direct_length     = travel.length();
-        double detour            = result_pl.length() - direct_length;
-        double max_detour_length = opt_max_detour.percent ?
+        distf_t direct_length     = travel.length();
+        distf_t detour            = result_pl.length() - direct_length;
+        distf_t max_detour_length = opt_max_detour.percent ?
             direct_length * 0.01 * opt_max_detour.value :
-            scale_(opt_max_detour.value);
+            scale_d(opt_max_detour.value);
         if (detour > max_detour_length) {
             result_pl = {start, end};
             max_detour_length_exceeded = true;
@@ -2656,7 +2656,7 @@ void AvoidCrossingPerimeters::init_layer(const Layer &layer)
     bbox_slice.offset(SCALED_EPSILON);
 
     m_grid_lslices_offset.set_bbox(bbox_slice);
-    m_grid_lslices_offset.create(m_lslices_offset, coord_t(scale_(1.)));
+    m_grid_lslices_offset.create(m_lslices_offset, scale_i(1.));
     m_init = true;
 }
 

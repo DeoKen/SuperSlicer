@@ -2739,7 +2739,7 @@ unsafe_variable_width(const ThickPolyline& polyline, const ExtrusionRole role, c
             assert(path.polyline.is_valid());
         } else {
             assert(path.polyline.is_valid());
-            coord_t thickness_delta = scale_t(fabs(current_flow.width() - wanted_width));
+            coord_t thickness_delta = scale_i(fabs(current_flow.width() - wanted_width));
             if (thickness_delta <= tolerance / 2) {
                 // the width difference between this line and the current flow width is 
                 // within the accepted tolerance

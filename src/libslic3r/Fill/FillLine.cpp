@@ -13,7 +13,7 @@ namespace Slic3r {
 
 void FillLine::init_spacing(coordf_t spacing, const FillParams& params) {
 
-    this->_min_spacing = scale_t(spacing);
+    this->_min_spacing = scale_i(spacing);
     assert(params.density > 0.0001f && params.density <= 1.f);
     this->_line_spacing = coord_t(coordf_t(this->_min_spacing) / params.density);
     this->_diagonal_distance = this->_line_spacing * 2;
@@ -22,7 +22,7 @@ void FillLine::init_spacing(coordf_t spacing, const FillParams& params) {
     // define flow spacing according to requested density
     if (params.density > 0.9999f && !params.dont_adjust) {
         this->_line_spacing = this->_adjust_solid_spacing(bounding_box.size()(0), this->_line_spacing);
-        this->spacing_priv = unscale<double>(this->_line_spacing);
+        this->spacing_priv = unscaled(this->_line_spacing);
     }
 }
 
@@ -76,7 +76,7 @@ void FillLine::_fill_surface_single(
         pts.push_back(it->a);
         pts.push_back(it->b);
     }
-    Polylines polylines = intersection_pl(polylines_src, offset(expolygon, scale_(0.02)));
+    Polylines polylines = intersection_pl(polylines_src, offset(expolygon, scale_d(0.02)));
 
     // FIXME Vojtech: This is only performed for horizontal lines, not for the vertical lines!
     const float INFILL_OVERLAP_OVER_SPACING = 0.3f;

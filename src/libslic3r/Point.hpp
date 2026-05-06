@@ -269,7 +269,7 @@ public:
     Point(int64_t x, int32_t y) : Vec2crd(coord_t(x), coord_t(y)) {}
     Point(int32_t x, int64_t y) : Vec2crd(coord_t(x), coord_t(y)) {}
     Point(int64_t x, int64_t y) : Vec2crd(coord_t(x), coord_t(y)) {}
-    Point(double x, double y) : Vec2crd(coord_t(std::round(x)), coord_t(std::round(y))) {}
+    Point(coordf_t x, coordf_t y) : Vec2crd(coord_t(std::round(x)), coord_t(std::round(y))) {}
     Point(const Point &rhs) { *this = rhs; }
     // I don't know how to call it, as it call the implicit below
 	explicit Point(const Vec2d& rhs) : Vec2crd(coord_t(std::round(rhs.x())), coord_t(std::round(rhs.y()))) {}
@@ -280,9 +280,9 @@ public:
     static Point round(const Vec2d& rhs) { return Point(coord_t(std::round(rhs.x())), coord_t(std::round(rhs.y()))); }
     static Point new_scale(double x, double y) { return Point(scale_d(x), scale_d(y)); }
     // this one shouldn't exist.
-    //static Point new_scale(const Point &p) { return Point(scale_t(p.x()), scale_t(p.y())); }
+    //static Point new_scale(const Point &p) { return Point(scale_i(p.x()), scale_i(p.y())); }
     template<typename OtherDerived>
-    static Point new_scale(const Eigen::MatrixBase<OtherDerived> &v) { return Point(scale_t(v.x()), scale_t(v.y())); }
+    static Point new_scale(const Eigen::MatrixBase<OtherDerived> &v) { return Point(scale_i(v.x()), scale_i(v.y())); }
 
     // This method allows you to assign Eigen expressions to MyVectorType
     template<typename OtherDerived>
@@ -441,7 +441,7 @@ inline bool shorter_then(const Vec2crd& p0, const coord_t len)
     if (p0.y() > len || p0.y() < -len)
         return false;
     //return squared_int_norm(p0) <= Slic3r::coord_int_sqr(len); // should do the same
-    return p0.cast<distsqrf_t>().squaredNorm() <= Slic3r::coord_sqr(len);
+    return p0.cast<distsqrf_t>().squaredNorm() <= coord_sqr(len);
 }
 
 namespace int128 {

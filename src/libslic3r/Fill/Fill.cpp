@@ -569,7 +569,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, const LayerSliceIsland&
         ExPolygons all_expolygons;
         for (SurfaceFill &fill : surface_fills) {
             const coord_t resolution = std::min(fill.params.flow.scaled_width() / 16, 
-                std::max(SCALED_EPSILON, scale_t(layer.object()->print()->config().resolution_internal.value)));
+                std::max(SCALED_EPSILON, scale_i(layer.object()->print()->config().resolution_internal.value)));
             assert_valid(fill.expolygons);
             // note: Bridges are processed first (see SurfaceFill::operator<())
             if (!fill.expolygons.empty()) {
@@ -961,7 +961,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
         }
 
         // Maximum length of the perimeter segment linking two infill lines.
-        f->link_max_length = (coord_t)scale_(link_max_length);
+        f->link_max_length = scale_i(link_max_length);
 
         //give the overlap size to let the infill do his overlap
         //add overlap if at least one perimeter
@@ -975,7 +975,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
             perimeter_spacing = layerm_for_flow->flow(frPerimeter).spacing();
 
         // Used by the concentric infill pattern to clip the loops to create extrusion paths.
-        f->loop_clipping = scale_t(common_region_config.get_computed_value("seam_gap", surface_fill.params.extruder - 1) * surface_fill.params.flow.nozzle_diameter());
+        f->loop_clipping = scale_i(common_region_config.get_computed_value("seam_gap", surface_fill.params.extruder - 1) * surface_fill.params.flow.nozzle_diameter());
 
         // apply half spacing using this flow's own spacing and generate infill
         //FillParams params;
@@ -987,7 +987,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
         //params.use_arachne       = (perimeter_generator == PerimeterGeneratorType::Arachne && surface_fill.params.pattern == ipConcentric) || surface_fill.params.pattern == ipEnsuring;
         //params.layer_height      = this->height;
         surface_fill.params.fill_resolution = std::min(surface_fill.params.flow.scaled_width() / 16, 
-            std::max(SCALED_EPSILON, scale_t(this->object()->print()->config().resolution_internal.value)));
+            std::max(SCALED_EPSILON, scale_i(this->object()->print()->config().resolution_internal.value)));
 
 
         //store default values, before modification.
@@ -1038,9 +1038,9 @@ void Layer::_make_fills(LayerSliceIsland& island,
                         ExPolygons expolys;
                         if (surface_fill.params.bridge_angle > 0 && !f->no_overlap_expolygons.empty()) {
                             //take only the no-overlap area
-                            expolys = offset_ex(intersection_ex(ExPolygons{ ExPolygon{surface_fill.surface.expolygon.contour} }, f->no_overlap_expolygons), -scale_t(surface_fill.params.spacing) / 2 - 10);
+                            expolys = offset_ex(intersection_ex(ExPolygons{ ExPolygon{surface_fill.surface.expolygon.contour} }, f->no_overlap_expolygons), -scale_i(surface_fill.params.spacing) / 2 - 10);
                         } else {
-                            expolys = offset_ex(ExPolygon{surface_fill.surface.expolygon.contour}, -scale_t(surface_fill.params.spacing) / 2 - 10);
+                            expolys = offset_ex(ExPolygon{surface_fill.surface.expolygon.contour}, -scale_i(surface_fill.params.spacing) / 2 - 10);
                         }
                         // if nothing after collapse, then go to next surface_fill.expolygon
                         if (expolys.empty()) {
@@ -1063,11 +1063,11 @@ void Layer::_make_fills(LayerSliceIsland& island,
                         bounding_box_min_x = bb.min.x();
 
                         //compute the dist
-                        double new_spacing = unscaled(f->_adjust_solid_spacing(bounding_box_size_x, scale_t(min_spacing), 2));
+                        double new_spacing = unscaled(f->_adjust_solid_spacing(bounding_box_size_x, scale_i(min_spacing), 2));
                         if (new_spacing <= max_spacing) {
                             surface_fill.params.density = factor * surface_fill.params.spacing / new_spacing;
                         } else {
-                            double new_spacing2 = unscaled(f->_adjust_solid_spacing(bounding_box_size_x, scale_t(min_spacing * 1.999 - new_spacing), 2));
+                            double new_spacing2 = unscaled(f->_adjust_solid_spacing(bounding_box_size_x, scale_i(min_spacing * 1.999 - new_spacing), 2));
                             if (new_spacing2 < min_spacing) {
                                 if (min_spacing - new_spacing2 < new_spacing - max_spacing) {
                                     surface_fill.params.density = surface_fill.params.config->bridge_overlap.get_effective_value(surface_fill.params.density);
@@ -1167,7 +1167,7 @@ Polylines Layer::_generate_sparse_infill_polylines_for_anchoring(const LayerSlic
                                                                 FillLightning::Generator *lightning_generator) const {
     std::vector<SurfaceFill>  surface_fills = group_fills(*this, island);
     const Slic3r::BoundingBox bbox          = this->object()->bounding_box();
-    const coord_t             resolution    = std::max(SCALED_EPSILON, scale_t(this->object()->print()->config().resolution_internal.value));
+    const coord_t             resolution    = std::max(SCALED_EPSILON, scale_i(this->object()->print()->config().resolution_internal.value));
 
     Polylines sparse_infill_polylines{};
 
@@ -1252,9 +1252,9 @@ Polylines Layer::_generate_sparse_infill_polylines_for_anchoring(const LayerSlic
         }
 
         // Maximum length of the perimeter segment linking two infill lines.
-        f->link_max_length = scale_t(link_max_length);
+        f->link_max_length = scale_i(link_max_length);
         // Used by the concentric infill pattern to clip the loops to create extrusion paths.
-        f->loop_clipping = scale_t(common_region_config.get_computed_value("seam_gap", surface_fill.params.extruder - 1) * surface_fill.params.flow.nozzle_diameter());
+        f->loop_clipping = scale_i(common_region_config.get_computed_value("seam_gap", surface_fill.params.extruder - 1) * surface_fill.params.flow.nozzle_diameter());
 
 
         // apply half spacing using this flow's own spacing and generate infill
@@ -1506,14 +1506,14 @@ void Layer::_make_ironing(LayerSliceIsland &island)
                 polys = union_safety_offset(polys);
             }
             // Trim the top surfaces with half the nozzle diameter.
-            ironing_areas = intersection_ex(polys, offset(island.get_slice(), -float(scale_(0.5 * nozzle_dmr))));
+            ironing_areas = intersection_ex(polys, offset(island.get_slice(), -float(scale_d(0.5 * nozzle_dmr))));
         }
 
         // Create the filler object.
         fill.init_spacing(ironing_params.line_spacing, fill_params);
         fill.can_angle_cross = region_config.fill_angle_cross.value;
         fill.angle = float(ironing_params.angle);
-        fill.link_max_length = scale_t(3. * fill.get_spacing());
+        fill.link_max_length = scale_i(3. * fill.get_spacing());
         double extrusion_height = ironing_params.height * fill.get_spacing() / nozzle_dmr;
         //FIXME FLOW decide if it's good
         // note: don't use filament_max_overlap, as it's a top surface

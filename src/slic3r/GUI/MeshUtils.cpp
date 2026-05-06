@@ -302,11 +302,11 @@ void MeshClipper::recalculate_triangles()
 #ifdef CLIPPERLIB_INT32
             const coord_t size = (std::numeric_limits<coord_t>::max()/2 - scale_(std::max(std::abs(e * a), std::abs(e * b)))) / 4;
 #else
-            const coord_t size = (ClipperLib::hiRange/2 - scale_(std::max(std::abs(e * a), std::abs(e * b)))) / 4;
+            const coord_t size = (ClipperLib::hiRange/2 - scale_i(std::max(std::abs(e * a), std::abs(e * b)))) / 4;
 #endif
             Polygons ep {Polygon({Point(-size, coord_t(0)), Point(size, coord_t(0)), Point(size, 2*size), Point(-size, 2*size)})};
             ep.front().rotate(angle);
-            ep.front().translate(scale_(-e * a), scale_(-e * b));
+            ep.front().translate(Vector(scale_i(-e * a), scale_i(-e * b)));
             expolys = diff_ex(expolys, ep);
         }
     }
@@ -375,7 +375,7 @@ void MeshClipper::recalculate_triangles()
                 exp_copy.scale(extra_scale);
             exp_copy.scale(scale_x, scale_y);
 
-            ExPolygons expolys_exp = offset_ex(exp_copy, scale_(m_contour_width));
+            ExPolygons expolys_exp = offset_ex(exp_copy, scale_d(m_contour_width));
             expolys_exp = diff_ex(expolys_exp, ExPolygons({exp_copy}));
 
             for (ExPolygon& e : expolys_exp) {

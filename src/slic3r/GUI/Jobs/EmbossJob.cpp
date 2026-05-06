@@ -851,7 +851,7 @@ template<typename Fnc> TriangleMesh create_mesh_per_glyph(DataBase &input, Fnc w
     // half of font em size for direction of letter emboss
     // double  em_2_mm      = prop.size_in_mm / 2.; // TODO: fix it
     double em_2_mm = 5.;
-    int32_t em_2_polygon = static_cast<int32_t>(std::round(scale_t(em_2_mm)));
+    int32_t em_2_polygon = static_cast<int32_t>(std::round(scale_i(em_2_mm)));
 
     size_t s_i_offset = 0; // shape index offset(for next lines)
     indexed_triangle_set result;
@@ -1300,7 +1300,7 @@ TriangleMesh cut_per_glyph_surface(DataBase &input1, const SurfaceVolumeData &in
         
     // half of font em size for direction of letter emboss
     double  em_2_mm      = 5.; // TODO: fix it
-    int32_t em_2_polygon = static_cast<int32_t>(std::round(scale_(em_2_mm)));
+    int32_t em_2_polygon = static_cast<int32_t>(std::round(scale_i(em_2_mm)));
 
     size_t s_i_offset = 0; // shape index offset(for next lines)
     indexed_triangle_set result;

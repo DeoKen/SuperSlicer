@@ -491,8 +491,8 @@ coord_t Fill::_line_spacing_for_density(const FillParams& params) const
     assert(get_spacing() >= 0);
     assert(params.density > 0);
     if(params.max_sparse_infill_spacing > 0)
-        return scale_t(params.max_sparse_infill_spacing / params.density);
-    return scale_t(this->get_spacing() / params.density);
+        return scale_i(params.max_sparse_infill_spacing / params.density);
+    return scale_i(this->get_spacing() / params.density);
 }
 
 //FIXME: add recent improvmeent from perimetergenerator: avoid thick gapfill
@@ -500,15 +500,15 @@ void
 Fill::do_gap_fill(const ExPolygons& gapfill_areas, const FillParams& params, ExtrusionEntitiesPtr& coll_out) const {
 
     ThickPolylines polylines_gapfill;
-    coord_t min = coord_t(0.4 * scale_t(params.flow.nozzle_diameter()) * (1 - INSET_OVERLAP_TOLERANCE));
+    coord_t min = coord_t(0.4 * scale_i(params.flow.nozzle_diameter()) * (1 - INSET_OVERLAP_TOLERANCE));
     coord_t max = 2 * params.flow.scaled_width();
     // note that the infill surface isn't split by these parameters, so if there is a modifier with them, the one shoosent will be random.
     // most of the parameters % are about "periemter width". But infill can be printed with a bigger nozzl,e so it's
     double unscaled_width = params.flow.width();
     // safer to use the current flow for it.
     if (params.config != nullptr) {
-        const coord_t minwidth = scale_t(params.config->gap_fill_min_width.get_effective_value(unscaled_width));
-        const coord_t maxwidth = scale_t(params.config->gap_fill_max_width.get_effective_value(unscaled_width));
+        const coord_t minwidth = scale_i(params.config->gap_fill_min_width.get_effective_value(unscaled_width));
+        const coord_t maxwidth = scale_i(params.config->gap_fill_max_width.get_effective_value(unscaled_width));
         if (minwidth > 0) {
             min = std::max(min, minwidth);
         }
@@ -521,10 +521,10 @@ Fill::do_gap_fill(const ExPolygons& gapfill_areas, const FillParams& params, Ext
                                                params.config->gap_fill_min_area.get_effective_value(sqr(unscaled_width))));
     const coord_t minlength = (params.config == nullptr) ?
         0 :
-        scale_t(params.config->gap_fill_min_length.get_effective_value(unscaled_width));
+        scale_i(params.config->gap_fill_min_length.get_effective_value(unscaled_width));
     const coord_t gapfill_extension = (params.config == nullptr) ?
         0 :
-        scale_t(params.config->gap_fill_extension.get_effective_value(unscaled_width));
+        scale_i(params.config->gap_fill_extension.get_effective_value(unscaled_width));
     // collapse 
     //be sure we don't gapfill where the perimeters are already touching each other (negative spacing).
     min = std::max(min,
@@ -560,7 +560,7 @@ Fill::do_gap_fill(const ExPolygons& gapfill_areas, const FillParams& params, Ext
 
         ExtrusionEntitiesPtr gap_fill_entities =
             Geometry::thin_variable_width(polylines_gapfill, ExtrusionRole::GapFill, params.flow,
-                                          scale_t((params.config == nullptr) ?
+                                          scale_i((params.config == nullptr) ?
                                                       EPSILON :
                                                       params.config->get_computed_value("resolution_internal")),
                                           true);
@@ -1143,7 +1143,7 @@ namespace PrusaSimpleConnect {
         EdgeGrid::Grid grid;
         grid.set_bbox(boundary_bbox.inflated(distance_colliding * 1.43));
         // Inflate the bounding box by a thick line width.
-        grid.create(boundary, coord_t(clip_distance + scale_(10.)));
+        grid.create(boundary, coord_t(clip_distance + scale_i(10.)));
 
         struct Visitor {
             Visitor(const EdgeGrid::Grid& grid, const std::vector<Points>& boundary, std::vector<std::vector<ContourPointData>>& boundary_data, const double dist2_max) :
@@ -1287,7 +1287,7 @@ namespace PrusaSimpleConnect {
             {
                 EdgeGrid::Grid grid;
                 grid.set_bbox(bbox);
-                grid.create(boundary_src, scale_(10.));
+                grid.create(boundary_src, scale_i(10.));
                 intersection_points.reserve(infill_ordered.size() * 2);
                 for (const Polyline& pl : infill_ordered)
                     for (const Point* pt : { &pl.points.front(), &pl.points.back() }) {
@@ -2169,7 +2169,7 @@ void mark_boundary_segments_touching_infill(
     // Make sure that the the grid is big enough for queries against the thick segment.
 	grid.set_bbox(boundary_bbox.inflated(distance_colliding * 1.43));
 	// Inflate the bounding box by a thick line width.
-	grid.create(boundary, coord_t(std::max(clip_distance, distance_colliding) + scale_(10.)));
+	grid.create(boundary, coord_t(std::max(clip_distance, distance_colliding)) + scale_i(10.));
 
     // Visitor for the EdgeGrid to trim boundary_intersections with existing infill lines.
 	struct Visitor {
@@ -2583,7 +2583,7 @@ BoundaryInfillGraph create_boundary_infill_graph(const Polylines &infill_ordered
         {
             EdgeGrid::Grid grid;
             grid.set_bbox(bbox.inflated(SCALED_EPSILON));
-            grid.create(boundary_src, coord_t(scale_(10.)));
+            grid.create(boundary_src, scale_i(10.));
             intersection_points.reserve(infill_ordered.size() * 2);
             for (const Polyline &pl : infill_ordered)
                 for (const Point *pt : { &pl.points.front(), &pl.points.back() }) {
@@ -2696,11 +2696,11 @@ BoundaryInfillGraph create_boundary_infill_graph(const Polylines &infill_ordered
         // Mark the points and segments of split out.boundary as consumed if they are very close to some of the infill line.
         {
             // @supermerill used 2. * (spacing)
-            const double clip_distance = 1.7 * (spacing);
+            const distf_t clip_distance = 1.7 * (spacing);
             // Allow a bit of overlap. This value must be slightly higher than the overlap of FillAdaptive, otherwise
             // the anchors of the adaptive infill will mask the other side of the perimeter line.
             // (see connect_lines_using_hooks() in FillAdaptive.cpp)
-            const double distance_colliding = 0.8 * (spacing);
+            const distf_t distance_colliding = 0.8 * (spacing);
             mark_boundary_segments_touching_infill(out.boundary, out.boundary_params, boundary_intersection_points, bbox, infill_ordered, clip_distance, distance_colliding);
         }
     }
@@ -2714,8 +2714,8 @@ void connect_infill(Polylines &&infill_ordered, const std::vector<const Polygon*
     assert(params.anchor_length     >= 0.);
     assert(params.anchor_length_max >= 0.01f);
     assert(params.anchor_length_max >= params.anchor_length);
-    const double anchor_length     = scale_(params.anchor_length);
-    const double anchor_length_max = scale_(params.anchor_length_max);
+    const coordf_t anchor_length     = scale_d(params.anchor_length);
+    const coordf_t anchor_length_max = scale_d(params.anchor_length_max);
 
 #if 0
     append(polylines_out, infill_ordered);

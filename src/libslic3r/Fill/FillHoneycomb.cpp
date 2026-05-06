@@ -33,7 +33,7 @@ void FillHoneycomb::_fill_surface_single(
     if (it_m == FillHoneycomb::cache.end()) {
         it_m = FillHoneycomb::cache.insert(it_m, std::pair<CacheID, CacheData>(cache_id, CacheData()));
         CacheData &m = it_m->second;
-        coord_t min_spacing = scale_t(my_spacing);
+        coord_t min_spacing = scale_i(my_spacing);
         m.distance          = coord_t(double(min_spacing) / params.density);
         m.hex_side          = coord_t(double(m.distance) / (sqrt(3)/2));
         m.hex_width = m.distance * 2; // $m->{hex_width} == $m->{hex_side} * sqrt(3);
@@ -92,7 +92,7 @@ void FillHoneycomb::_fill_surface_single(
     if (params.connection == icNotConnected || all_polylines.size() <= 1)
         append(polylines_out, chain_polylines(std::move(all_polylines)));
     else
-        connect_infill(std::move(all_polylines), expolygon, polylines_out, scale_t(this->get_spacing()), params);
+        connect_infill(std::move(all_polylines), expolygon, polylines_out, scale_i(this->get_spacing()), params);
     assert_valid(polylines_out);
 }
 

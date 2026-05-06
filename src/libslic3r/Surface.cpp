@@ -133,16 +133,16 @@ const std::string surface_type_to_color_name(const SurfaceType surface_type, flo
 
 Point export_surface_type_legend_to_svg_box_size()
 {
-    return Point(scale_(1.+10.*8.), scale_(3.)); 
+    return Point(scale_i(1.+10.*8.), scale_i(3.)); 
 }
 
 void export_surface_type_legend_to_svg(SVG &svg, const Point &pos)
 {
     // 1st row
-    coord_t pos_x0 = pos(0) + scale_(1.);
+    coord_t pos_x0 = pos(0) + scale_i(1.);
     coord_t pos_x = pos_x0;
-    coord_t pos_y = pos(1) + scale_(1.5);
-    coord_t step_x = scale_(10.);
+    coord_t pos_y = pos(1) + scale_i(1.5);
+    coord_t step_x = scale_i(10.);
     svg.draw_legend(Point(pos_x, pos_y), "perimeter"      , surface_type_to_color_name(stPosPerimeter));
     pos_x += step_x;
     svg.draw_legend(Point(pos_x, pos_y), "top"            , surface_type_to_color_name(stPosTop));
@@ -154,7 +154,7 @@ void export_surface_type_legend_to_svg(SVG &svg, const Point &pos)
     svg.draw_legend(Point(pos_x, pos_y), "invalid"        , surface_type_to_color_name(SurfaceType(-1)));
     // 2nd row
     pos_x = pos_x0;
-    pos_y = pos(1)+scale_(2.8);
+    pos_y = pos(1) + scale_i(2.8);
     svg.draw_legend(Point(pos_x, pos_y), "internal"       , surface_type_to_color_name(stPosInternal | stDensSparse));
     pos_x += step_x;
     svg.draw_legend(Point(pos_x, pos_y), "dense bridge", surface_type_to_color_name(stPosInternal | stDensSparse | stModBridge));

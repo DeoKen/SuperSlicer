@@ -190,7 +190,7 @@ static std::vector<std::pair<size_t, size_t>> get_segments(const ColoredLines &p
 
 static std::vector<PaintedLine> filter_painted_lines(const Line &line_to_process, const size_t start_idx, const size_t end_idx, const std::vector<PaintedLine> &painted_lines)
 {
-    const int                filter_eps_value = scale_(0.1f);
+    const distf_t            filter_eps_value = scale_d(0.1f);
     std::vector<PaintedLine> filtered_lines;
     filtered_lines.emplace_back(painted_lines[start_idx]);
     for (size_t line_idx = start_idx + 1; line_idx <= end_idx; ++line_idx) {
@@ -201,9 +201,9 @@ static std::vector<PaintedLine> filter_painted_lines(const Line &line_to_process
         PaintedLine &prev = filtered_lines.back();
         const PaintedLine &curr = painted_lines[line_idx];
 
-        double prev_length        = prev.projected_line.length();
-        double curr_dist_start    = (curr.projected_line.a - prev.projected_line.a).cast<double>().norm();
-        double dist_between_lines = curr_dist_start - prev_length;
+        distf_t prev_length        = prev.projected_line.length();
+        distf_t curr_dist_start    = (curr.projected_line.a - prev.projected_line.a).cast<double>().norm();
+        distf_t dist_between_lines = curr_dist_start - prev_length;
 
         if (dist_between_lines >= 0) {
             if (prev.color == curr.color) {
@@ -216,7 +216,7 @@ static std::vector<PaintedLine> filter_painted_lines(const Line &line_to_process
                 filtered_lines.emplace_back(curr);
             }
         } else {
-            double curr_dist_end = (curr.projected_line.b - prev.projected_line.a).cast<double>().norm();
+            distf_t curr_dist_end = (curr.projected_line.b - prev.projected_line.a).cast<double>().norm();
             if (curr_dist_end > prev_length) {
                 if (prev.color == curr.color)
                     prev.projected_line.b = curr.projected_line.b;
@@ -226,10 +226,10 @@ static std::vector<PaintedLine> filter_painted_lines(const Line &line_to_process
         }
     }
 
-    if (double dist_to_start = (filtered_lines.front().projected_line.a - line_to_process.a).cast<double>().norm(); dist_to_start <= filter_eps_value)
+    if (distf_t dist_to_start = (filtered_lines.front().projected_line.a - line_to_process.a).cast<double>().norm(); dist_to_start <= filter_eps_value)
         filtered_lines.front().projected_line.a = line_to_process.a;
 
-    if (double dist_to_end = (filtered_lines.back().projected_line.b - line_to_process.b).cast<double>().norm(); dist_to_end <= filter_eps_value)
+    if (distf_t dist_to_end = (filtered_lines.back().projected_line.b - line_to_process.b).cast<double>().norm(); dist_to_end <= filter_eps_value)
         filtered_lines.back().projected_line.b = line_to_process.b;
 
     return filtered_lines;
@@ -285,10 +285,10 @@ static ColoredLines colorize_line(const Line &line_to_process,
     assert(start_idx < painted_contour.size() && end_idx < painted_contour.size() && start_idx <= end_idx);
     assert(std::all_of(painted_contour.begin() + start_idx, painted_contour.begin() + end_idx + 1, [&painted_contour, &start_idx](const auto &p_line) { return painted_contour[start_idx].line_idx == p_line.line_idx; }));
 
-    const int          filter_eps_value = scale_(0.1f);
+    const distf_t      filter_eps_value = scale_d(0.1f);
     ColoredLines       final_lines;
     const PaintedLine &first_line = painted_contour[start_idx];
-    if (double dist_to_start = (first_line.projected_line.a - line_to_process.a).cast<double>().norm(); dist_to_start > filter_eps_value)
+    if (distf_t dist_to_start = (first_line.projected_line.a - line_to_process.a).cast<double>().norm(); dist_to_start > filter_eps_value)
         final_lines.push_back({Line(line_to_process.a, first_line.projected_line.a), 0});
     final_lines.push_back({first_line.projected_line, first_line.color});
 
@@ -296,7 +296,7 @@ static ColoredLines colorize_line(const Line &line_to_process,
         ColoredLine       &prev = final_lines.back();
         const PaintedLine &curr = painted_contour[line_idx];
 
-        double line_dist = (curr.projected_line.a - prev.line.b).cast<double>().norm();
+        distf_t line_dist = (curr.projected_line.a - prev.line.b).cast<double>().norm();
         if (line_dist <= filter_eps_value) {
             if (prev.color == curr.color) {
                 prev.line.b = curr.projected_line.b;
@@ -311,7 +311,7 @@ static ColoredLines colorize_line(const Line &line_to_process,
     }
 
     // If there is non-painted space, then inserts line painted by a default color.
-    if (double dist_to_end = (final_lines.back().line.b - line_to_process.b).cast<double>().norm(); dist_to_end > filter_eps_value)
+    if (distf_t dist_to_end = (final_lines.back().line.b - line_to_process.b).cast<double>().norm(); dist_to_end > filter_eps_value)
         final_lines.push_back({Line(final_lines.back().line.b, line_to_process.b), 0});
 
     // Make sure all the lines are connected.
@@ -323,7 +323,7 @@ static ColoredLines colorize_line(const Line &line_to_process,
         const ColoredLine &line_2 = final_lines[line_idx - 0];
 
         if (line_0.color == line_2.color && line_0.color != line_1.color)
-            if (line_1.line.length() <= scale_(0.2)) line_1.color = line_0.color;
+            if (line_1.line.length() <= scale_d(0.2)) line_1.color = line_0.color;
     }
 
     ColoredLines colored_lines_simple;
@@ -340,13 +340,13 @@ static ColoredLines colorize_line(const Line &line_to_process,
     final_lines = colored_lines_simple;
 
     if (final_lines.size() > 1)
-        if (final_lines.front().color != final_lines[1].color && final_lines.front().line.length() <= scale_(0.2)) {
+        if (final_lines.front().color != final_lines[1].color && final_lines.front().line.length() <= scale_d(0.2)) {
             final_lines[1].line.a = final_lines.front().line.a;
             final_lines.erase(final_lines.begin());
         }
 
     if (final_lines.size() > 1)
-        if (final_lines.back().color != final_lines[final_lines.size() - 2].color && final_lines.back().line.length() <= scale_(0.2)) {
+        if (final_lines.back().color != final_lines[final_lines.size() - 2].color && final_lines.back().line.length() <= scale_d(0.2)) {
             final_lines[final_lines.size() - 2].line.b = final_lines.back().line.b;
             final_lines.pop_back();
         }
@@ -361,7 +361,7 @@ static ColoredLines filter_colorized_polygon(ColoredLines &&new_lines) {
         const ColoredLine &line_2 = new_lines[line_idx - 0];
 
         if (line_0.color == line_2.color && line_0.color != line_1.color && line_0.color >= 1) {
-            if (line_1.line.length() <= scale_(0.5)) line_1.color = line_0.color;
+            if (line_1.line.length() <= scale_d(0.5)) line_1.color = line_0.color;
         }
     }
 
@@ -372,7 +372,7 @@ static ColoredLines filter_colorized_polygon(ColoredLines &&new_lines) {
         const ColoredLine &line_3 = new_lines[line_idx - 0];
 
         if (line_0.color == line_3.color && (line_0.color != line_1.color || line_0.color != line_2.color) && line_0.color >= 1 && line_3.color >= 1) {
-            if ((line_1.line.length() + line_2.line.length()) <= scale_(0.5)) {
+            if ((line_1.line.length() + line_2.line.length()) <= scale_d(0.5)) {
                 line_1.color = line_0.color;
                 line_2.color = line_0.color;
             }
@@ -381,7 +381,7 @@ static ColoredLines filter_colorized_polygon(ColoredLines &&new_lines) {
 
     std::vector<std::pair<size_t, size_t>> segments       = get_segments(new_lines);
     auto                                   segment_length = [&new_lines](const std::pair<size_t, size_t> &segment) {
-        double total_length = 0;
+        distf_t total_length = 0;
         for (size_t seg_start_idx = segment.first; seg_start_idx != segment.second; seg_start_idx = (seg_start_idx + 1 < new_lines.size()) ? seg_start_idx + 1 : 0)
             total_length += new_lines[seg_start_idx].line.length();
         total_length += new_lines[segment.second].line.length();
@@ -396,10 +396,10 @@ static ColoredLines filter_colorized_polygon(ColoredLines &&new_lines) {
             int color0 = new_lines[segments[curr_idx].first].color;
             int color1 = new_lines[segments[next_idx].first].color;
 
-            double seg0l = segment_length(segments[curr_idx]);
-            double seg1l = segment_length(segments[next_idx]);
+            distf_t seg0l = segment_length(segments[curr_idx]);
+            distf_t seg1l = segment_length(segments[next_idx]);
 
-            if (color0 != color1 && seg0l >= scale_(0.1) && seg1l <= scale_(0.2)) {
+            if (color0 != color1 && seg0l >= scale_d(0.1) && seg1l <= scale_d(0.2)) {
                 for (size_t seg_start_idx = segments[next_idx].first; seg_start_idx != segments[next_idx].second; seg_start_idx = (seg_start_idx + 1 < new_lines.size()) ? seg_start_idx + 1 : 0)
                     new_lines[seg_start_idx].color = color0;
                 new_lines[segments[next_idx].second].color = color0;
@@ -412,11 +412,11 @@ static ColoredLines filter_colorized_polygon(ColoredLines &&new_lines) {
             size_t next_idx = next_idx_modulo(curr_idx, segments.size());
             assert(curr_idx != next_idx);
 
-            int    color0 = new_lines[segments[curr_idx].first].color;
-            int    color1 = new_lines[segments[next_idx].first].color;
-            double seg1l  = segment_length(segments[next_idx]);
+            int     color0 = new_lines[segments[curr_idx].first].color;
+            int     color1 = new_lines[segments[next_idx].first].color;
+            distf_t seg1l  = segment_length(segments[next_idx]);
 
-            if (color0 >= 1 && color0 != color1 && seg1l <= scale_(0.2)) {
+            if (color0 >= 1 && color0 != color1 && seg1l <= scale_d(0.2)) {
                 for (size_t seg_start_idx = segments[next_idx].first; seg_start_idx != segments[next_idx].second; seg_start_idx = (seg_start_idx + 1 < new_lines.size()) ? seg_start_idx + 1 : 0)
                     new_lines[seg_start_idx].color = color0;
                 new_lines[segments[next_idx].second].color = color0;
@@ -433,7 +433,7 @@ static ColoredLines filter_colorized_polygon(ColoredLines &&new_lines) {
             int color1 = new_lines[segments[next_idx].first].color;
             int color2 = new_lines[segments[next_next_idx].first].color;
 
-            if (color0 > 0 && color0 == color2 && color0 != color1 && segment_length(segments[next_idx]) <= scale_(0.5)) {
+            if (color0 > 0 && color0 == color2 && color0 != color1 && segment_length(segments[next_idx]) <= scale_d(0.5)) {
                 for (size_t seg_start_idx = segments[next_next_idx].first; seg_start_idx != segments[next_next_idx].second; seg_start_idx = (seg_start_idx + 1 < new_lines.size()) ? seg_start_idx + 1 : 0)
                     new_lines[seg_start_idx].color = color0;
                 new_lines[segments[next_next_idx].second].color = color0;
@@ -1306,7 +1306,7 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
         // Projected triangles may slightly exceed the input polygons.
         bbox.offset(20 * SCALED_EPSILON);
         edge_grids[layer_idx].set_bbox(bbox);
-        edge_grids[layer_idx].create(input_expolygons[layer_idx], coord_t(scale_(10.)));
+        edge_grids[layer_idx].create(input_expolygons[layer_idx], scale_i(10.));
     }
 
     BOOST_LOG_TRIVIAL(debug) << "MM segmentation - projection of painted triangles - begin";
@@ -1365,8 +1365,8 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
                                 line_end_f = facet[1] + t2 * (facet[2] - facet[1]);
                             }
 
-                            Line line_to_test(Point(scale_(line_start_f.x()), scale_(line_start_f.y())),
-                                              Point(scale_(line_end_f.x()), scale_(line_end_f.y())));
+                            Line line_to_test(Point(scale_i(line_start_f.x()), scale_i(line_start_f.y())),
+                                              Point(scale_i(line_end_f.x()), scale_i(line_end_f.y())));
                             line_to_test.translate(-print_object.center_offset());
 
                             // BoundingBoxes for EdgeGrids are computed from printable regions. It is possible that the painted line (line_to_test) could
@@ -1438,7 +1438,7 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
     throw_on_cancel_callback();
 
     if (auto max_width = print_object.config().mmu_segmented_region_max_width, interlocking_depth = print_object.config().mmu_segmented_region_interlocking_depth; max_width > 0.f) {
-        cut_segmented_layers(input_expolygons, segmented_regions, float(scale_(max_width)), float(scale_(interlocking_depth)), throw_on_cancel_callback);
+        cut_segmented_layers(input_expolygons, segmented_regions, float(scale_d(max_width)), float(scale_d(interlocking_depth)), throw_on_cancel_callback);
         throw_on_cancel_callback();
     }
 

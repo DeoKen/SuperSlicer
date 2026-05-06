@@ -40,7 +40,7 @@ DistanceField::DistanceField(const coord_t& radius, const Polygons& current_outl
     m_supporting_radius(radius),
     m_unsupported_points_bbox(current_outlines_bbox)
 {
-    m_supporting_radius_sqr = Slic3r::coord_int_sqr(radius);
+    m_supporting_radius_sqr = coord_int_sqr(radius);
     // Sample source polygons with a regular grid sampling pattern.
     const BoundingBox overhang_bbox = get_extents(current_overhang);
     for (const ExPolygon &expoly : union_ex(current_overhang)) {

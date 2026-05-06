@@ -31,22 +31,22 @@ public:
     SVG(const char* afilename) :
         arrows(false), fill("grey"), stroke("black"), filename(afilename), flipY(false)
         { open(filename); }
-    SVG(const char* afilename, const BoundingBox &bbox, const coord_t bbox_offset = scale_(1.), bool flipY = true) : 
+    SVG(const char* afilename, const BoundingBox &bbox, const coord_t bbox_offset = scale_i(1.), bool flipY = true) : 
         arrows(false), fill("grey"), stroke("black"), filename(afilename), origin(bbox.min - Point(bbox_offset, bbox_offset)), flipY(flipY)
         { open(filename, bbox, bbox_offset, flipY); }
     SVG(const std::string &filename) :
         arrows(false), fill("grey"), stroke("black"), filename(filename), flipY(false)
         { open(filename); }
-    SVG(const std::string &filename, const BoundingBox &bbox, const coord_t bbox_offset = scale_(1.), bool flipY = true) : 
+    SVG(const std::string &filename, const BoundingBox &bbox, const coord_t bbox_offset = scale_i(1.), bool flipY = true) : 
         arrows(false), fill("grey"), stroke("black"), filename(filename), origin(bbox.min - Point(bbox_offset, bbox_offset)), flipY(flipY)
         { open(filename, bbox, bbox_offset, flipY); }
     ~SVG() { if (f != NULL) Close(); }
 
     bool open(const char* filename);
-    bool open(const char* filename, const BoundingBox &bbox, const coord_t bbox_offset = scale_(1.), bool flipY = true);
+    bool open(const char* filename, const BoundingBox &bbox, const coord_t  bbox_offset = scale_i(1.), bool flipY = true);
     bool open(const std::string &filename) 
         { return open(filename.c_str()); }
-    bool open(const std::string &filename, const BoundingBox &bbox, const coord_t bbox_offset = scale_(1.), bool flipY = true)
+    bool open(const std::string &filename, const BoundingBox &bbox, const coord_t bbox_offset = scale_i(1.), bool flipY = true)
         { return open(filename.c_str(), bbox, bbox_offset, flipY); }
 
     void draw(const Line &line, std::string stroke = "black", coordf_t stroke_width = 0);
@@ -125,7 +125,7 @@ public:
             const std::string &color_fill,
             const std::string &color_contour,
             const std::string &color_holes,
-            const coord_t      outline_width = scale_(0.05),
+            const coord_t      outline_width = scale_i(0.05),
             const float        fill_opacity  = 0.5f,
             const std::string &color_points = "black",
             const coord_t      radius_points = 0) :
@@ -143,7 +143,7 @@ public:
             const std::string &color_fill,
             const std::string &color_contour,
             const std::string &color_holes,
-            const coord_t      outline_width = scale_(0.05),
+            const coord_t      outline_width = scale_i(0.05),
             const float        fill_opacity  = 0.5f,
             const std::string &color_points = "black",
             const coord_t      radius_points = 0) :

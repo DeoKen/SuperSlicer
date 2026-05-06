@@ -1196,7 +1196,7 @@ void Selection::scale_to_fit_print_volume(const BuildVolume& volume)
 
     auto fit_circle = [this, fit](const BuildVolume& volume, bool undoredo_snapshot, double* max_height = nullptr) {
         const Geometry::Circled& print_circle = volume.circle();
-        double print_circle_radius = unscale<double>(print_circle.radius);
+        double print_circle_radius = unscaled(print_circle.radius);
 
         if (print_circle_radius == 0.0)
             return false;
@@ -1217,7 +1217,7 @@ void Selection::scale_to_fit_print_volume(const BuildVolume& volume)
 
         const Geometry::Circled circle = Geometry::smallest_enclosing_circle_welzl(points);
         // adds 1/100th of a mm on all sides to avoid false out of print volume detections due to floating-point roundings
-        const double circle_radius = unscale<double>(circle.radius) + 0.01;
+        const double circle_radius = unscaled(circle.radius) + 0.01;
 
         if (circle_radius == 0.0 || max_z == 0.0)
             return false;
@@ -1225,8 +1225,8 @@ void Selection::scale_to_fit_print_volume(const BuildVolume& volume)
         const double print_volume_max_z = (max_height != nullptr) ? *max_height : volume.max_print_height();
         const double s = std::min(print_circle_radius / circle_radius, print_volume_max_z / max_z);
         const Vec3d sel_center = get_bounding_box().center();
-        const Vec3d offset = s * (Vec3d(unscale<double>(circle.center.x()), unscale<double>(circle.center.y()), 0.5 * max_z) - sel_center);
-        const Vec3d print_center = { unscale<double>(print_circle.center.x()), unscale<double>(print_circle.center.y()), 0.5 * volume.max_print_height() };
+        const Vec3d offset = s * (Vec3d(unscaled(circle.center.x()), unscaled(circle.center.y()), 0.5 * max_z) - sel_center);
+        const Vec3d print_center = { unscaled(print_circle.center.x()), unscaled(print_circle.center.y()), 0.5 * volume.max_print_height() };
         return fit(s, print_center - (sel_center + offset), undoredo_snapshot);
     };
 

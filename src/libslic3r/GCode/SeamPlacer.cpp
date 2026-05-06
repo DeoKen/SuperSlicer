@@ -1569,11 +1569,11 @@ void SeamPlacer::align_seam_points(const PrintObject *po, const SeamPlacerImpl::
                 double nearest_sqr_dist = std::numeric_limits<double>::max();
                 for (const Perimeter* lower_peri : layer2seams[current_layer_idx - 1]) {
                     //old point
-                    Point lower_pt{ scale_t(lower_peri->final_seam_position.x()), scale_t(lower_peri->final_seam_position.y()) };
+                    Point lower_pt{ scale_i(lower_peri->final_seam_position.x()), scale_i(lower_peri->final_seam_position.y()) };
                     //for each segment
                     for (int i = perimeter.start_index; i < perimeter.end_index-1; i++) {
-                        Point pt = lower_pt.projection_onto(Point{scale_t(points[i].position.x()), scale_t(points[i].position.y())},
-                                                            Point{scale_t(points[i + 1].position.x()), scale_t(points[i + 1].position.y())});
+                        Point pt = lower_pt.projection_onto(Point{scale_i(points[i].position.x()), scale_i(points[i].position.y())},
+                                                            Point{scale_i(points[i + 1].position.x()), scale_i(points[i + 1].position.y())});
                         double dist_sqr = pt.distance_to_square(lower_pt);
                         if (dist_sqr < nearest_sqr_dist) {
                             nearest_sqr_dist = dist_sqr;
@@ -1585,8 +1585,8 @@ void SeamPlacer::align_seam_points(const PrintObject *po, const SeamPlacerImpl::
                     }
                     //test last segment
                     {
-                        Point pt = lower_pt.projection_onto(Point{scale_t(points[perimeter.end_index - 1].position.x()), scale_t(points[perimeter.end_index - 1].position.y())},
-                                                            Point{scale_t(points[perimeter.start_index].position.x()), scale_t(points[perimeter.start_index].position.y())} );
+                        Point pt = lower_pt.projection_onto(Point{scale_i(points[perimeter.end_index - 1].position.x()), scale_i(points[perimeter.end_index - 1].position.y())},
+                                                            Point{scale_i(points[perimeter.start_index].position.x()), scale_i(points[perimeter.start_index].position.y())} );
                         double dist_sqr = pt.distance_to_square(lower_pt);
                         if (dist_sqr < nearest_sqr_dist) {
                             nearest_sqr_dist = dist_sqr;
@@ -1949,7 +1949,7 @@ std::tuple<bool,std::optional<Vec3f>> get_seam_from_modifier(const Layer& layer,
                     size_t lidx = 0;
                     for (; lidx < seam_mesh->layers_contour.size() && seam_mesh->zs[lidx] + EPSILON < layer.unscaled_print_z() ; ++lidx) {}
                     // TODO Grid optimisation
-                    Polyline loop_polyline = loop.as_polyline().to_polyline(scale_t(loop.paths.front().width()));
+                    Polyline loop_polyline = loop.as_polyline().to_polyline(scale_i(loop.paths.front().width()));
                     //move the object's polyline to its plater position.
                     loop_polyline.translate(po->instances()[print_object_instance_idx].shift);
                     //first, check if cross bb

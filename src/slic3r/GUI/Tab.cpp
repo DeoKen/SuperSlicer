@@ -4158,14 +4158,14 @@ void TabPrinter::toggle_options()
     //z step checks
     double z_step = m_config->opt_float("z_step");
     if(z_step > 0){
-        coord_t z_step_Mlong = scale_t(z_step);
+        coord_t z_step_Mlong = scale_i(z_step);
         DynamicPrintConfig new_conf;
         bool has_changed = false;
         const std::vector<double>& nozzle_diameters = m_config->option<ConfigOptionFloats>("nozzle_diameter")->get_values();
         const std::vector<FloatOrPercent>& min_layer_height = m_config->option<ConfigOptionFloatsOrPercents>("min_layer_height")->get_values();
         for (int i = 0; i < min_layer_height.size(); i++) {
             if(!min_layer_height[i].percent)
-                if (min_layer_height[i].value != 0 && scale_t(min_layer_height[i].value) % z_step_Mlong != 0) {
+                if (min_layer_height[i].value != 0 && scale_i(min_layer_height[i].value) % z_step_Mlong != 0) {
                     if (!has_changed)
                         new_conf = *m_config;
                     new_conf.option<ConfigOptionFloatsOrPercents>("min_layer_height")->set_at(FloatOrPercent{std::max(z_step, Slic3r::check_z_step(min_layer_height[i].value, z_step)), false}, i);
@@ -4175,7 +4175,7 @@ void TabPrinter::toggle_options()
         std::vector<FloatOrPercent> max_layer_height = m_config->option<ConfigOptionFloatsOrPercents>("max_layer_height")->get_values();
         for (int i = 0; i < max_layer_height.size(); i++) {
             if (!max_layer_height[i].percent)
-                if (scale_t(max_layer_height[i].value) % z_step_Mlong != 0) {
+                if (scale_i(max_layer_height[i].value) % z_step_Mlong != 0) {
                     if (!has_changed)
                         new_conf = *m_config;
                     new_conf.option<ConfigOptionFloatsOrPercents>("max_layer_height")->get_at(i).value = std::max(z_step, Slic3r::check_z_step(max_layer_height[i].value, z_step));

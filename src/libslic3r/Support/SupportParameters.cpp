@@ -53,7 +53,7 @@ SupportParameters::SupportParameters(const PrintObject &object)
     this->raft_interface_flow                = Slic3r::raft_interface_flow(&object, float(slicing_params.interface_raft_layer_height));
     this->raft_bridge_flow_ratio             = this->default_region_config.bridge_flow_ratio.get_effective_value(1.);
 
-    this->resolution                         = scale_t(object.print()->config().resolution_internal);
+    this->resolution                         = scale_i(object.print()->config().resolution_internal);
 
     // Calculate a minimum support layer height as a minimum over all extruders, but not smaller than 10um.
     this->_support_layer_height_min                      = std::numeric_limits<coord_t>::max();

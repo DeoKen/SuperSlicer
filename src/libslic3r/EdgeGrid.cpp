@@ -1643,7 +1643,7 @@ void export_intersections_to_svg(const std::string &filename, const Polygons &po
     	intersecting_contours.insert(ie.second.first);
     }
     // Highlight the contours with intersections.
-    coord_t line_width = scale_t(0.01);
+    coord_t line_width = scale_i(0.01);
     for (const EdgeGrid::Contour *ic : intersecting_contours) {
 		if (ic->open())
 			svg.draw(Polyline(Points(ic->begin(), ic->end())), "green");

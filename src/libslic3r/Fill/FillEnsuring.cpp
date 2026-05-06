@@ -50,7 +50,7 @@ ThickPolylines FillEnsuring::make_fill_polylines(
                (bhigh >= alow && bhigh <= ahigh);
     };
     assert(get_spacing() >= 0);
-    const coord_t           scaled_spacing                      = scale_t(this->get_spacing());
+    const coord_t           scaled_spacing                      = scale_i(this->get_spacing());
     double                  distance_limit_reconnection         = 2.0 * double(scaled_spacing);
     double                  squared_distance_limit_reconnection = distance_limit_reconnection * distance_limit_reconnection;
     Polygons                filled_area                         = to_polygons(surface->expolygon);
@@ -107,7 +107,7 @@ ThickPolylines FillEnsuring::make_fill_polylines(
             std::vector<std::pair<int, int>> neighbours{};
         };
 
-        coord_t length_filter     = scale_(4);
+        coord_t length_filter     = scale_i(4);
         size_t  skips_allowed     = 2;
         size_t  min_removal_conut = 5;
         for (int section_idx = 0; section_idx < int(polygon_sections.size()); ++ section_idx) {

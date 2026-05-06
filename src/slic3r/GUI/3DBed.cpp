@@ -137,7 +137,7 @@ bool Bed3D::set_shape(const Pointfs& bed_shape, const double max_print_height, c
     const BoundingBox bbox = m_contour.contour.bounding_box();
     if (!bbox.defined)
         throw RuntimeError(std::string("Invalid bed shape"));
-    m_polygon = offset(m_contour.contour, (float)bbox.radius() * 1.7f, jtRound, scale_(0.5)).front();
+    m_polygon = offset(m_contour.contour, (float)bbox.radius() * 1.7f, jtRound, (float)scale_d(0.5)).front();
 
     m_triangles.reset();
     m_gridlines.reset();
@@ -286,7 +286,7 @@ void Bed3D::init_gridlines()
     Polylines axes_lines_big;
     Polylines axes_lines_small;
     Polylines axes_lines_camera;
-    coord_t step = scale_t(5);
+    coord_t step = scale_i(5);
     while (bed_bbox.radius() > step * 100) {
         step *= 10;
     }
@@ -333,8 +333,8 @@ void Bed3D::init_gridlines()
 	    init_data.reserve_indices(2 * grid_lines.size());
 
 	    for (const Slic3r::Line& l : grid_lines) {
-	        init_data.add_vertex(Vec3f(unscale<float>(l.a.x()), unscale<float>(l.a.y()), GROUND_Z));
-	        init_data.add_vertex(Vec3f(unscale<float>(l.b.x()), unscale<float>(l.b.y()), GROUND_Z));
+	        init_data.add_vertex(Vec3f((float)unscaled(l.a.x()), (float)unscaled(l.a.y()), GROUND_Z));
+	        init_data.add_vertex(Vec3f((float)unscaled(l.b.x()), (float)unscaled(l.b.y()), GROUND_Z));
 	        const unsigned int vertices_counter = (unsigned int)init_data.vertices_count();
 	        init_data.add_line(vertices_counter - 2, vertices_counter - 1);
 	    }
@@ -363,8 +363,8 @@ void Bed3D::init_contourlines()
     init_data.reserve_indices(2 * contour_lines.size());
 
     for (const Slic3r::Line& l : contour_lines) {
-        init_data.add_vertex(Vec3f(unscale<float>(l.a.x()), unscale<float>(l.a.y()), GROUND_Z));
-        init_data.add_vertex(Vec3f(unscale<float>(l.b.x()), unscale<float>(l.b.y()), GROUND_Z));
+        init_data.add_vertex(Vec3f((float)unscaled(l.a.x()), (float)unscaled(l.a.y()), GROUND_Z));
+        init_data.add_vertex(Vec3f((float)unscaled(l.b.x()), (float)unscaled(l.b.y()), GROUND_Z));
         const unsigned int vertices_counter = (unsigned int)init_data.vertices_count();
         init_data.add_line(vertices_counter - 2, vertices_counter - 1);
     }

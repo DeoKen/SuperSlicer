@@ -43,15 +43,15 @@ FillConcentric::_fill_surface_single(
     coord_t distance = _line_spacing_for_density(params);
     if (params.density > 0.9999f && !params.dont_adjust) {
         //it's == Slic3r::FillConcentric::_adjust_solid_spacing(bounding_box.size()(0), _line_spacing_for_density(params.density)) because of the init_spacing()
-        distance = scale_t(this->get_spacing());
+        distance = scale_i(this->get_spacing());
     }
 
     Polygons   loops = to_polygons(expolygon);
     ExPolygons last { std::move(expolygon) };
     while (! last.empty()) {
         // offset3 to clean the polygon up to fill_resolution
-        last = offset_ex(offset2_ex(last, -double(distance + scale_(this->get_spacing()) / 2),
-                                    +double(scale_(this->get_spacing()) / 2) + params.fill_resolution / 2),
+        last = offset_ex(offset2_ex(last, -double(distance + scale_d(this->get_spacing()) / 2),
+                                    +double(scale_d(this->get_spacing()) / 2) + params.fill_resolution / 2),
                          -params.fill_resolution / 2);
         append(loops, to_polygons(last));
     }
@@ -119,7 +119,7 @@ FillConcentric::fill_surface_extrusion(
     double min_gapfill_area = double(params.flow.scaled_width()) * double(params.flow.scaled_width());
     if (params.config != nullptr) min_gapfill_area = scale_d(params.config->gap_fill_min_area.get_effective_value(params.flow.width())) * double(params.flow.scaled_width());
     // Perform offset. //FIXME: can miss gapfill outside of this first perimeter
-    Slic3r::ExPolygons expp = offset_ex(surface->expolygon, double(scale_(0 - 0.5 * this->get_spacing())));
+    Slic3r::ExPolygons expp = offset_ex(surface->expolygon, scale_d(0 - 0.5 * this->get_spacing()));
     // Create the infills for each of the regions.
     Polylines polylines_out;
     for (size_t i = 0; i < expp.size(); ++i) {
@@ -138,7 +138,7 @@ FillConcentric::fill_surface_extrusion(
 
         coord_t distance = _line_spacing_for_density(params);
         if (params.density > 0.9999f && !params.dont_adjust) {
-            distance = scale_t(this->get_spacing());
+            distance = scale_i(this->get_spacing());
         }
         std::vector<std::vector<Polygons>> bunch_2_shell_2_loops;
         bunch_2_shell_2_loops.emplace_back(); // create a new bunch before a gap
@@ -318,7 +318,7 @@ FillConcentric::fill_surface_extrusion(
                 coordf_t real_max = 2.5 * distance;
                 const coordf_t minwidth = scale_d(params.config->option("gap_fill_min_width")->get_effective_value(params.flow.width()));
                 const coordf_t maxwidth = scale_d(params.config->option("gap_fill_max_width")->get_effective_value(params.flow.width()));
-                const coord_t minlength = scale_t(params.config->option("gap_fill_min_length")->get_effective_value(params.flow.width()));
+                const coord_t minlength = scale_i(params.config->option("gap_fill_min_length")->get_effective_value(params.flow.width()));
                 if (minwidth > 0) {
                     min = std::max(min, minwidth);
                 }
@@ -326,7 +326,7 @@ FillConcentric::fill_surface_extrusion(
                 if (maxwidth > 0) {
                     max = std::min(max, maxwidth);
                 }
-                const coord_t gapfill_extension = scale_t(params.config->option("gap_fill_extension")->get_effective_value(params.flow.width()));
+                const coord_t gapfill_extension = scale_i(params.config->option("gap_fill_extension")->get_effective_value(params.flow.width()));
 
                 // collapse 
                 ExPolygons gaps_ex = diff_ex(
@@ -338,7 +338,7 @@ FillConcentric::fill_surface_extrusion(
                     //remove too small gaps that are too hard to fill.
                     //ie one that are smaller than an extrusion with width of min and a length of max.
                     if (ex.area() > min_gapfill_area) {
-                        Geometry::MedialAxis md{ ex, coord_t(real_max), coord_t(min), scale_t(params.flow.height()) };
+                        Geometry::MedialAxis md{ ex, coord_t(real_max), coord_t(min), scale_i(params.flow.height()) };
                         if (minlength > 0) {
                             md.set_min_length(minlength);
                         }
@@ -374,7 +374,7 @@ FillConcentric::fill_surface_extrusion(
                 //                Geometry::variable_width(
                 //                    poly, ExtrusionRole::GapFill, 
                 //                    params.flow, 
-                //                    scale_t(params.config->get_computed_value("resolution_internal")), 
+                //                    scale_i(params.config->get_computed_value("resolution_internal")), 
                 //                    params.flow.scaled_width() / 10)
                 //            );
                 //            polylines.erase(polylines.begin() + idx_polyline);
@@ -388,7 +388,7 @@ FillConcentric::fill_surface_extrusion(
                 // allow bridged gapfill, mostly for support bottom interface.
                 assert(!good_role.is_bridge());
                 if (!polylines.empty()) {
-                    ExtrusionEntitiesPtr gap_fill_entities = Geometry::thin_variable_width(polylines, ExtrusionRole::GapFill, params.flow, scale_t(params.config->get_computed_value("resolution_internal")), true);
+                    ExtrusionEntitiesPtr gap_fill_entities = Geometry::thin_variable_width(polylines, ExtrusionRole::GapFill, params.flow, scale_i(params.config->get_computed_value("resolution_internal")), true);
                     if (!gap_fill_entities.empty()) {
                         // set role if needed
                         if (fill_bridge || (good_role != ExtrusionRole::SolidInfill && good_role != ExtrusionRole::TopSolidInfill)) {
@@ -417,7 +417,7 @@ FillConcentric::fill_surface_extrusion(
     }
 
     // external gapfill
-    ExPolygons gapfill_areas = diff_ex(ExPolygons{ surface->expolygon }, offset_ex(expp, double(scale_(0.5 * this->get_spacing()))));
+    ExPolygons gapfill_areas = diff_ex(ExPolygons{ surface->expolygon }, offset_ex(expp, scale_d(0.5 * this->get_spacing())));
     gapfill_areas = union_safety_offset_ex(gapfill_areas);
     if (gapfill_areas.size() > 0 && no_overlap_expolygons.size() > 0) {
         double minarea = double(params.flow.scaled_width()) * double(params.flow.scaled_width());
@@ -485,7 +485,7 @@ void FillConcentric::_fill_surface_single(const FillParams              &params,
 
     // no rotation is supported for this infill pattern
     Point   bbox_size   = expolygon.contour.bounding_box().size();
-    coord_t min_spacing = scale_t(this->get_spacing());
+    coord_t min_spacing = scale_i(this->get_spacing());
     coord_t min_width = params.flow.scaled_width();
 
     if (params.density > 0.9999f && !params.dont_adjust) {

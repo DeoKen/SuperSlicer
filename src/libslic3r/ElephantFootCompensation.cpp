@@ -218,7 +218,7 @@ std::vector<float> contour_distance(const EdgeGrid::Grid &grid, const size_t idx
 			out.emplace_back(float(distances.front() * search_radius));
 #endif
 #ifdef CONTOUR_DISTANCE_DEBUG_SVG
-			printf("contour_distance_raycasted-%d-%d.svg - distance %lf\n", iRun, int(&pt_next - contour.data()), unscale<double>(out.back()));
+			printf("contour_distance_raycasted-%d-%d.svg - distance %lf\n", iRun, int(&pt_next - contour.data()), unscaled(out.back()));
 #endif /* CONTOUR_DISTANCE_DEBUG_SVG */
 			pt_this = &pt_next;
 			idx_pt_this = &pt_next - contour.data();
@@ -401,7 +401,7 @@ std::vector<float> contour_distance2(const EdgeGrid::Grid &grid, const size_t id
 				svg.draw_outline(Polygon(contour), "blue", scale_(0.01));
 				svg.draw(pt, "green", coord_t(scale_(0.1)));
 				svg.draw(visitor.closest_point, "red", coord_t(scale_(0.1)));
-				printf("contour_distance_filtered-%d-%d.svg - distance %lf\n", iRun, int(&pt - contour.data()), unscale<double>(out.back()));
+				printf("contour_distance_filtered-%d-%d.svg - distance %lf\n", iRun, int(&pt - contour.data()), unscaled(out.back()));
 			}
 #endif /* CONTOUR_DISTANCE_DEBUG_SVG */
 		}
@@ -578,7 +578,7 @@ ExPolygon elephant_foot_compensation(const ExPolygon &input_expoly, double min_c
 		std::vector<std::vector<float>> deltas;
 		deltas.reserve(simplified.holes.size() + 1);
 		ExPolygon resampled(simplified);
-		double resample_interval = scale_(0.5);
+		double resample_interval = scale_d(0.5);
 		for (size_t idx_contour = 0; idx_contour <= simplified.holes.size(); ++ idx_contour) {
 			Polygon &poly = (idx_contour == 0) ? resampled.contour : resampled.holes[idx_contour - 1];
 			std::vector<ResampledPoint> resampled_point_parameters;
@@ -586,7 +586,7 @@ ExPolygon elephant_foot_compensation(const ExPolygon &input_expoly, double min_c
 			assert(poly.is_counter_clockwise() == (idx_contour == 0));
 			std::vector<float> dists = contour_distance2(grid, idx_contour, poly.points, resampled_point_parameters, scaled_compensation, search_radius);
 			for (float &d : dists) {
-	//			printf("Point %d, Distance: %lf\n", int(&d - dists.data()), unscale<double>(d));
+	//			printf("Point %d, Distance: %lf\n", int(&d - dists.data()), unscaled(d));
 				// Convert contour width to available compensation distance.
 				if (d < scaled_min_contour_width)
 					d = 0.f;

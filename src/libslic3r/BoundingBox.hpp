@@ -318,13 +318,13 @@ inline double bbox_point_distance_squared(const BoundingBox &bbox, const Point &
     if (pt.x() < bbox.min.x())
         return pt.y() < bbox.min.y() ? (bbox.min - pt).cast<double>().squaredNorm() :
                pt.y() > bbox.max.y() ? (Point(bbox.min.x(), bbox.max.y()) - pt).cast<double>().squaredNorm() :
-               Slic3r::coord_sqr(bbox.min.x() - pt.x());
+               coord_sqr(bbox.min.x() - pt.x());
     else if (pt.x() > bbox.max.x())
         return pt.y() < bbox.min.y() ? (Point(bbox.max.x(), bbox.min.y()) - pt).cast<double>().squaredNorm() :
                pt.y() > bbox.max.y() ? (bbox.max - pt).cast<double>().squaredNorm() :
-               Slic3r::coord_sqr(pt.x() - bbox.max.x());
+               coord_sqr(pt.x() - bbox.max.x());
     else
-        return Slic3r::coord_sqr(pt.y() < bbox.min.y() ? bbox.min.y() - pt.y() :
+        return coord_sqr(pt.y() < bbox.min.y() ? bbox.min.y() - pt.y() :
                                    pt.y() > bbox.max.y() ? pt.y() - bbox.max.y() :
                                    coord_t(0));
 }

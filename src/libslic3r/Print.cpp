@@ -688,7 +688,7 @@ static inline bool sequential_print_vertical_clearance_valid(const Print &print)
 	auto it = std::max_element(print_instances_ordered.begin(), print_instances_ordered.end(), [](auto l, auto r) {
 		return l->print_object->height() < r->print_object->height();
 	});
-    return it == print_instances_ordered.end() || (*it)->print_object->height() <= scale_(print.config().extruder_clearance_height.value);
+    return it == print_instances_ordered.end() || (*it)->print_object->height() <= scale_i(print.config().extruder_clearance_height.value);
 }
 
 coord_t Print::get_object_first_layer_height(const PrintObject& object) const {
@@ -1835,12 +1835,12 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
                     append(support_points, island->get_slice().contour.points);
                 }
                 const Polygon hull_support = Slic3r::Geometry::convex_hull(support_points);
-                for (const Polygon& poly : offset(hull_support, scale_(object->config().brim_width)))
+                for (const Polygon& poly : offset(hull_support, scale_d(object->config().brim_width)))
                     append(object_points, poly.points);
             }
             // get object
             for (const ExPolygon& expoly : object->m_layers[0]->lslices())
-                for (const Polygon& poly : offset(expoly.contour, scale_(object->config().brim_width)))
+                for (const Polygon& poly : offset(expoly.contour, scale_d(object->config().brim_width)))
                     append(object_points, poly.points);
             // get brim patchs
             if (has_brim_patch(*object, ModelVolumeType::BRIM_PATCH)) {
@@ -1856,7 +1856,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
         // simplify
         Polygon polygon = Slic3r::Geometry::convex_hull(object_points);
         coord_t scaled_resolution_internal_coarse = std::min(std::max(SCALED_EPSILON * 10,
-                                                                      scale_t(this->config().resolution_internal)),
+                                                                      scale_i(this->config().resolution_internal)),
                                                              this->skirt_flow(0).scaled_width());
         if (!ensure_valid(polygon, scaled_resolution_internal_coarse)) {
             assert(false);
@@ -1913,7 +1913,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
         out_first_layer.emplace();
     // Initial offset of the brim inner edge from the object (possible with a support & raft).
     // The skirt will touch the brim if the brim is extruded.
-    float distance = float(scale_(m_config.skirt_distance.value) - this->skirt_flow(extruders[extruders.size() - 1]).spacing() / 2.);
+    float distance = float(scale_d(m_config.skirt_distance.value) - this->skirt_flow(extruders[extruders.size() - 1]).spacing() / 2.);
 
 
     size_t lines_per_extruder = (n_skirts + extruders.size() - 1) / extruders.size();
@@ -1929,7 +1929,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
         double mm3_per_mm = flow.mm3_per_mm();
         this->throw_if_canceled();
         // Offset the skirt outside.
-        distance += float(scale_(spacing/2));
+        distance += float(scale_d(spacing/2));
         // Generate the skirt centerline.
         Polygon loop;
         {
@@ -1941,7 +1941,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
             assert(loops.size() == 1);
 			loop = loops.front();
         }
-        distance += float(scale_(spacing / 2));
+        distance += float(scale_d(spacing / 2));
         // Extrude the skirt loop.
         ExtrusionLoop eloop(elrSkirt);
         eloop.paths.emplace_back(
@@ -1966,7 +1966,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
             out_first_layer->append(eloop);
         if (m_config.min_skirt_length.value > 0 && !first_layer_only) {
             // The skirt length is limited. Sum the total amount of filament length extruded, in mm.
-            extruded_length[extruder_idx] += unscale<double>(loop.length()) * extruders_e_per_mm[extruder_idx];
+            extruded_length[extruder_idx] += unscaled(loop.length()) * extruders_e_per_mm[extruder_idx];
             if (extruded_length[extruder_idx] < m_config.min_skirt_length.value) {
                 // Not extruded enough yet with the current extruder. Add another loop.
                 if (i == 1 && extruded_length[extruder_idx] > 0)
@@ -1997,7 +1997,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
     DEBUG_VISIT(out, CheckOrientation(true))
 
     // Remember the outer edge of the last skirt line extruded as m_skirt_convex_hull.
-    for (Polygon &poly : offset(convex_hull, distance + 0.5f * float(this->skirt_flow(extruders[extruders.size() - 1]).scaled_spacing()), ClipperLib::jtRound, float(scale_(0.1))))
+    for (Polygon &poly : offset(convex_hull, distance + 0.5f * float(this->skirt_flow(extruders[extruders.size() - 1]).scaled_spacing()), ClipperLib::jtRound, float(scale_d(0.1))))
         append(m_skirt_convex_hull, std::move(poly.points));
 }
 
@@ -2064,7 +2064,7 @@ Points Print::first_layer_wipe_tower_corners() const
         for (Vec2d& pt : pts) {
             pt = Eigen::Rotation2Dd(Geometry::deg2rad(m_default_object_config.wipe_tower_rotation_angle.value)) * pt;
             pt += Vec2d(m_default_object_config.wipe_tower_x.value, m_default_object_config.wipe_tower_y.value);
-            pts_scaled.emplace_back(Point(scale_(pt.x()), scale_(pt.y())));
+            pts_scaled.emplace_back(Point(scale_i(pt.x()), scale_i(pt.y())));
         }
     }
     return pts_scaled;

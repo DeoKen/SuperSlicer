@@ -117,7 +117,7 @@ struct Parameters
         // external perimeters
         m_ext_mm3_per_mm(ext_perimeter_flow.mm3_per_mm()),
         ext_perimeter_width(ext_perimeter_flow.scaled_width()),
-        overhang_spacing(scale_t(config.overhangs_extrusion_spacing.get_effective_value(perimeter_flow.nozzle_diameter()))),
+        overhang_spacing(scale_i(config.overhangs_extrusion_spacing.get_effective_value(perimeter_flow.nozzle_diameter()))),
         //spacing between two external perimeter (where you don't have the space to add other loops)
         ext_perimeter_spacing(this->ext_perimeter_flow.scaled_spacing()),
         //spacing between external perimeter and the second
@@ -248,7 +248,7 @@ private:
 
     ProcessSurfaceResult process_classic(const Parameters &params, int& contour_count, int& holes_count, const ExPolygon& surface_expolygon, ExtrusionEntityCollection &loops, ExtrusionEntityCollection &gapfill);
     ProcessSurfaceResult process_arachne(const Parameters &params, int& loop_number, const ExPolygon& surface_expolygon, ExtrusionEntityCollection &loops);
-    
+
     ExPolygons processs_no_bridge(const Parameters params, const ExPolygon& island_expolygon, ExPolygons &fill_surfaces);
     ExtrusionPaths create_overhangs_classic(const Parameters &params,
         const Polyline& loop_polygons, const ExtrusionRole role, const bool is_external) const;

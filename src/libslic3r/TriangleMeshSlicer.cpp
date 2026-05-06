@@ -1205,7 +1205,7 @@ static void chain_open_polylines_exact(std::vector<OpenPolyline> &open_polylines
 // Depending on "try_connect_reversed", it may or may not connect segments crossing triangles of opposite orientation.
 static void chain_open_polylines_close_gaps(std::vector<OpenPolyline> &open_polylines, Polygons &loops, double max_gap, bool try_connect_reversed)
 {
-    const coord_t max_gap_scaled = (coord_t)scale_(max_gap);
+    const coord_t max_gap_scaled = scale_i(max_gap);
 
     // Sort the open polylines by their length, so the new loops will be seeded from longer chains.
     // Update the polyline lengths, return only not yet consumed polylines.
@@ -1960,13 +1960,13 @@ std::vector<ExPolygons> slice_mesh_ex(
         tbb::blocked_range<size_t>(0, layers_p.size()),
         [&layers_p, &params, &layers, throw_on_cancel]
         (const tbb::blocked_range<size_t>& range) {
-            coord_t resolution = scale_t(params.resolution);
+            coord_t resolution = scale_i(params.resolution);
             for (size_t layer_id = range.begin(); layer_id < range.end(); ++ layer_id) {
                 throw_on_cancel();
                 ExPolygons &expolygons = layers[layer_id];
                 const auto this_mode = layer_id < params.slicing_mode_normal_below_layer ? params.mode_below : params.mode;
                 Slic3r::make_expolygons(
-                    layers_p[layer_id], scale_t(params.closing_radius), scale_t(params.model_resolution), scale_t(params.extra_offset),
+                    layers_p[layer_id], scale_i(params.closing_radius), scale_i(params.model_resolution), scale_i(params.extra_offset),
                     this_mode == MeshSlicingParams::SlicingMode::EvenOdd ? ClipperLib::pftEvenOdd : 
                     this_mode == MeshSlicingParams::SlicingMode::PositiveLargestContour ? ClipperLib::pftPositive : ClipperLib::pftNonZero,
                     &expolygons);

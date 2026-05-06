@@ -602,7 +602,7 @@ public:
             }
 
             // Resolution of the sparse support grid.
-            coord_t grid_resolution = scale_t(m_support_spacing_mm);
+            coord_t grid_resolution = scale_i(m_support_spacing_mm);
             BoundingBox bbox = get_extents(*m_support_polygons);
             bbox.offset(20);
             // Align the bounding box with the sparse support grid.
@@ -611,9 +611,9 @@ public:
     #ifdef SUPPORT_USE_AGG_RASTERIZER
             m_bbox       = bbox;
             // Oversample the grid to avoid leaking of supports through or around the object walls.
-            coord_t extrusion_width_scaled = scale_t(params.extrusion_width);
-            int oversampling = std::clamp(int(scale_t(m_support_spacing_mm) / (extrusion_width_scaled + 100)), 1, 8);
-            m_pixel_size = (coordf_t)std::max(extrusion_width_scaled + 21, scale_t(m_support_spacing_mm / oversampling));
+            coord_t extrusion_width_scaled = scale_i(params.extrusion_width);
+            int oversampling = std::clamp(int(scale_i(m_support_spacing_mm) / (extrusion_width_scaled + 100)), 1, 8);
+            m_pixel_size = (coordf_t)std::max(extrusion_width_scaled + 21, scale_i(m_support_spacing_mm / oversampling));
             // Add one empty column / row boundaries.
             m_bbox.offset(m_pixel_size);
             // Grid size fitting the support polygons plus one pixel boundary around the polygons.
@@ -885,7 +885,7 @@ public:
         //m_support_polygons_deserialized = to_polygons(union_ex(m_support_polygons_deserialized, false));
 
         // Create an EdgeGrid, initialize it with projection, initialize signed distance field.
-        coord_t grid_resolution = scale_t(m_support_spacing_mm);
+        coord_t grid_resolution = scale_i(m_support_spacing_mm);
         BoundingBox bbox = get_extents(*m_support_polygons);
         bbox.offset(20);
         bbox.align_to_grid(grid_resolution);
@@ -1124,7 +1124,7 @@ namespace SupportMaterialInternal {
             if (ep.role().has(ExtrusionRole::OverhangPerimeter) && ! ep.polyline.empty() &&
                 // bridging flow => width == height
                 (!only_flow || is_approx(ep.height(), ep.width(), ep.height()/100))) {
-                float exp = 0.5f * (float)scale_(ep.width()) + expansion_scaled;
+                float exp = 0.5f * (float)scale_d(ep.width()) + expansion_scaled;
                 if (ep.is_closed() && ep.size() >= 3) {
                     // This is a complete loop.
                     // Add the outer contour first.
@@ -1179,7 +1179,7 @@ std::vector<Polygons> PrintObjectSupportMaterial::buildplate_covered(const Print
             // inflate the polygons over and over.
             Polygons &covered = buildplate_covered[layer_id];
             covered = buildplate_covered[layer_id - 1];
-            polygons_append(covered, offset(lower_layer.lslices(), scale_(0.01)));
+            polygons_append(covered, offset(lower_layer.lslices(), scale_d(0.01)));
             covered = union_(covered);
         }
         BOOST_LOG_TRIVIAL(debug) << "PrintObjectSupportMaterial::buildplate_covered() - end";
@@ -1264,7 +1264,7 @@ static inline std::tuple<Polygons, Polygons, Polygons, float> detect_overhangs(
     Polygons enforcer_polygons;
 
     assert_valid(lower_layer_polygons);
-    const coord_t resolution = std::max(SCALED_EPSILON, scale_t(layer.object()->print()->config().resolution.value));
+    const coord_t resolution = std::max(SCALED_EPSILON, scale_i(layer.object()->print()->config().resolution.value));
     const bool   support_auto    = object_config.support_material.value && object_config.support_material_auto.value;
     const bool   buildplate_only = ! annotations.buildplate_covered.empty();
     // If user specified a custom angle threshold, convert it to radians.

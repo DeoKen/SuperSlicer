@@ -698,7 +698,7 @@ std::vector<GCodeGenerator::ObjectsLayerToPrint> GCodeGenerator::separate_island
                             no_clearance = true;
                         } else {
                             min_dist = std::max(min_dist,
-                                                scale_t(extruder_min_dist[region_island_ptr->extruder_id()]
+                                                scale_i(extruder_min_dist[region_island_ptr->extruder_id()]
                                                             .inverse_interpolate(unscaled(max_height))));
                         }
                     } else {
@@ -707,7 +707,7 @@ std::vector<GCodeGenerator::ObjectsLayerToPrint> GCodeGenerator::separate_island
                                 no_clearance = true;
                             } else {
                                 min_dist = std::max(min_dist,
-                                                    scale_t(extr_data.inverse_interpolate(unscaled(max_height))));
+                                                    scale_i(extr_data.inverse_interpolate(unscaled(max_height))));
                             }
                         }
                     }
@@ -5711,7 +5711,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
                     size_t nb_new_seg = std::max(size_t(1), size_t(0.5 + new_length / max_path3d_length));
                     Point last_point = first_section.empty() ? first_loop.front().first_point() :
                                                                first_section.back().last_point();
-                    coord_t last_z = first_section.empty() ? scale_t(start_first_loop_offset_mm) :
+                    coord_t last_z = first_section.empty() ? scale_i(start_first_loop_offset_mm) :
                                                              first_section.back().z_offsets.back();
                     distf_t little_seg_length = new_length / nb_new_seg;
                     current_length_segment = 0;
@@ -5729,7 +5729,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
                         last_point = first_section.back().polyline.back();
                         first_section.back().z_offsets.push_back(last_z);
                         current_length += little_seg_length;
-                        last_z = scale_t(std::min(end_first_loop_offset_mm,
+                        last_z = scale_i(std::min(end_first_loop_offset_mm,
                                                   start_first_loop_offset_mm * (1 - current_length / scarf_length) +
                                                       end_first_loop_offset_mm * (current_length / scarf_length)));
                         first_section.back().z_offsets.push_back(last_z);
@@ -5754,7 +5754,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
                     // add new point
                     first_section.back().polyline.append(path.polyline.get_arc(i));
                     first_section.back().z_offsets.push_back(
-                        scale_t(std::min(end_first_loop_offset_mm,
+                        scale_i(std::min(end_first_loop_offset_mm,
                                          start_first_loop_offset_mm * (1 - current_length / scarf_length) +
                                              end_first_loop_offset_mm * (current_length / scarf_length))));
                     //TODO flow as gradual as z_offsets
@@ -5900,7 +5900,7 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
         // Because the G-code export has 1um resolution, don't generate segments shorter than "1.5 microns" (depends of gcode_precision_xyz)
         double precision = pow(10, -m_config.gcode_precision_xyz.value) * 1.5;
         precision = std::max(precision, double(SCALED_EPSILON * 10));
-        loop.split_at(seam_point, false, scale_t(precision));
+        loop.split_at(seam_point, false, scale_i(precision));
     } else {
         assert(m_layer != nullptr);
         //FIXME update external_perimeters_first
@@ -5929,7 +5929,7 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
             double precision = pow(10, -m_config.gcode_precision_xyz.value);
             precision *= 1.5;
             auto old_loop = loop;
-            loop.split_at(seam_point, true, scale_t(precision));
+            loop.split_at(seam_point, true, scale_i(precision));
             
 #if _DEBUG
     for (const ExtrusionPath &path : loop.paths)
@@ -5942,7 +5942,7 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
     assert(loop.first_point() == loop.last_point());
 #endif
     
-            old_loop.split_at(seam_point, true, scale_t(precision));
+            old_loop.split_at(seam_point, true, scale_i(precision));
         }
         
 #if _DEBUG
@@ -6077,19 +6077,19 @@ void GCodeGenerator::seam_notch(const ExtrusionLoop& original_loop,
                         diameter_line_max = std::max(diameter_line_max, dist);
                     }
                     // allow flat ellipse up to 10*
-                    coord_t max_variation = std::max(SCALED_EPSILON, scale_t(10 * (unscaled(diameter_sum / polygon_to_test.size()))));
+                    coord_t max_variation = std::max(SCALED_EPSILON, scale_i(10 * (unscaled(diameter_sum / polygon_to_test.size()))));
                     if (diameter_max - diameter_min < max_variation * 2 && diameter_line_max - diameter_line_min < max_variation * 2) {
                         if (is_hole_loop) {
-                            notch_value = scale_t(this->m_config.seam_notch_inner.get_effective_value(building_paths.front().width()));
+                            notch_value = scale_i(this->m_config.seam_notch_inner.get_effective_value(building_paths.front().width()));
                         } else {
-                            notch_value = scale_t(this->m_config.seam_notch_outer.get_effective_value(building_paths.front().width()));
+                            notch_value = scale_i(this->m_config.seam_notch_outer.get_effective_value(building_paths.front().width()));
                         }
                     }
                 }
             }
         }
         if (notch_value == 0) {
-            notch_value = scale_t(this->m_config.seam_notch_all.get_effective_value(building_paths.front().width()));
+            notch_value = scale_i(this->m_config.seam_notch_all.get_effective_value(building_paths.front().width()));
         }
         if (notch_value == 0) {
             return;
@@ -6102,7 +6102,7 @@ void GCodeGenerator::seam_notch(const ExtrusionLoop& original_loop,
             return;
         }
         //ensure it doesn't go too far
-        notch_value = std::min(notch_value, scale_t(building_paths.front().width()) / 2);
+        notch_value = std::min(notch_value, scale_i(building_paths.front().width()) / 2);
 
         // found a suitable path, move the seam inner
         if (building_paths.size() == 1)
@@ -6330,7 +6330,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     for (const ExtrusionPath &path : original_loop.paths) {
         std::cout << ", path{ ";
         for (const Point &pt : path.polyline.get_points()) {
-            std::cout << ", " << floor(100 * unscale<double>(pt.x())) / 100.0 << ":" << floor(100 * unscale<double>(pt.y())) / 100.0;
+            std::cout << ", " << floor(100 * unscaled(pt.x())) / 100.0 << ":" << floor(100 * unscaled(pt.y())) / 100.0;
         }
         std::cout << "}";
     }
@@ -6405,14 +6405,14 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     if (building_paths.size() == 1)
         assert(is_full_loop_ccw == Polygon(building_paths.front().polyline.to_polyline().points).is_counter_clockwise());
     if (m_enable_loop_clipping && m_writer.tool_is_extruder()) {
-        distf_t clip_length = scale_(m_config.seam_gap.get_effective_value(nozzle_diam, m_writer.tool()->id()));
+        distf_t clip_length = scale_d(m_config.seam_gap.get_effective_value(nozzle_diam, m_writer.tool()->id()));
         if (loop_to_seam.role().is_external_perimeter()) {
-            distf_t clip_length_external = scale_(m_config.seam_gap_external.get_effective_value(unscaled(clip_length), m_writer.tool()->id()));
+            distf_t clip_length_external = scale_d(m_config.seam_gap_external.get_effective_value(unscaled(clip_length), m_writer.tool()->id()));
             if (clip_length_external > 0) {
                 clip_length = clip_length_external;
             }
         }
-        distf_t min_clip_length = scale_(nozzle_diam) * 0.15;
+        distf_t min_clip_length = scale_d(nozzle_diam) * 0.15;
 
         if (clip_length > full_loop_length / 4) {
             //fall back to min_clip_length
@@ -6527,7 +6527,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
             }
             if (has_retraction) {
                 this->m_throw_if_canceled();
-                dist = distf_t(check_wipe::max_depth(wipe_paths, scale_t(setting_max_depth), scale_t(nozzle_diam), [current_pos, current_point, vec_dist, vec_norm, angle](coord_t dist)->Point {
+                dist = distf_t(check_wipe::max_depth(wipe_paths, scale_i(setting_max_depth), scale_i(nozzle_diam), [current_pos, current_point, vec_dist, vec_norm, angle](coord_t dist)->Point {
                     Point pt = Point::round(current_pos + vec_dist * (2 * dist / vec_norm));
                     pt.rotate(angle, current_point);
                     return pt;
@@ -6591,7 +6591,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
         // TODO: use a nozzle size chart
         Polygons forbidden_offsets;
         for (const std::pair<ArcPolylines, coord_t> &arcpoly_2_width : m_layer_collision_already_printed_2_width) {
-            append(forbidden_offsets, offset(to_polylines(arcpoly_2_width.first, scale_(max_nozzle / 2)), (arcpoly_2_width.second + scale_t(2)) / 2));
+            append(forbidden_offsets, offset(to_polylines(arcpoly_2_width.first, scale_d(max_nozzle / 2)), (arcpoly_2_width.second + scale_i(2)) / 2));
         }
         ExPolygons forbidden = union_ex(forbidden_offsets);
         //construct the path where z will be lower
@@ -6601,7 +6601,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
             distf_t max_dist = scale_d((config().seam_slope_max_length.get_effective_value(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0))));
             pl.append(paths.front().polyline.front());
             for (const ExtrusionPath &path : paths){
-                Polyline discretized_polyline = path.polyline.to_polyline(scale_t(max_nozzle / 2));
+                Polyline discretized_polyline = path.polyline.to_polyline(scale_i(max_nozzle / 2));
                 for (const Point &pt : discretized_polyline.points) {
                     if (pl.points.back() != pt) {
                         pl.append(pt);
@@ -6782,7 +6782,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
         const double setting_max_depth = (m_config.wipe_inside_depth.get_effective_value(nozzle_diam, m_writer.tool()->id()));
         distf_t dist   = setting_max_depth <= 0 ? scale_d(nozzle_diam) / 2 : scale_d(setting_max_depth);
         if (nozzle_diam != 0 && setting_max_depth > nozzle_diam * 0.55)
-            dist = distf_t(check_wipe::max_depth(wipe_paths, scale_t(setting_max_depth), scale_t(nozzle_diam), 
+            dist = distf_t(check_wipe::max_depth(wipe_paths, scale_i(setting_max_depth), scale_i(nozzle_diam), 
                 [current_pos, current_point, vec_dist, vec_norm, angle, sin_a](coord_t dist)->Point {
                     Point pt = Point::round(current_pos + vec_dist * (dist / (vec_norm * sin_a)));
                     pt.rotate(angle, current_point);
@@ -8150,7 +8150,7 @@ void GCodeGenerator::_extrude_line_cut_corner(std::string& gcode_str, const Line
                     sum += e_per_mm * (line_length - length1) * mult2;
                 }
             } else {
-                double mult = std::max(0.1, 1 - coeff * (scale_(path_width) / line_length));
+                double mult = std::max(0.1, 1 - coeff * (scale_d(path_width) / line_length));
                 gcode_str += this->m_writer.extrude_to_xy(
                     this->point_to_gcode(line.b),
                     e_per_mm * line_length * mult,
@@ -8374,7 +8374,7 @@ std::string GCodeGenerator::_extrude(ExtrusionPath &path, const std::string_view
     }
 
     if (m_need_layer_collision_already_printed) {
-        m_layer_collision_already_printed_2_width.emplace_back(path.as_polylines(), scale_(path.width()));
+        m_layer_collision_already_printed_2_width.emplace_back(path.as_polylines(), scale_i(path.width()));
     }
 
     gcode += this->_after_extrude(path);
@@ -9402,7 +9402,7 @@ Polyline GCodeGenerator::travel_to(std::string &gcode, const Point &point, Extru
 
         Point last_post_before_retract = this->last_pos_defined() ? this->last_pos() : Point{0, 0};
 
-        bool no_lift_on_retract = m_writer.get_extra_lift() == 0 && travel.length() <= scale_(EXTRUDER_CONFIG_WITH_DEFAULT(retract_lift_before_travel, 0)) && travel.size() > 1;
+        bool no_lift_on_retract = m_writer.get_extra_lift() == 0 && travel.length() <= scale_d(EXTRUDER_CONFIG_WITH_DEFAULT(retract_lift_before_travel, 0)) && travel.size() > 1;
         gcode += this->retract_and_wipe(false, no_lift_on_retract /*, comment*/);
 
         // When "Wipe while retracting" is enabled, then extruder moves to another position, and travel from this position can cross perimeters.
@@ -9978,7 +9978,7 @@ bool GCodeGenerator::can_cross_perimeter(const Polyline& travel, bool offset)
                 m_layer_slices_offseted.last_instance = m_last_instance;
                 m_layer_slices_offseted.last_object = m_layer->object();
                 m_layer_slices_offseted.last_extruder = m_writer.tool()->id();
-                m_layer_slices_offseted.diameter = scale_t(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0.4)) / 2;
+                m_layer_slices_offseted.diameter = scale_i(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0.4)) / 2;
                 ExPolygons slices;
                 ExPolygons slices_offsetted;
                 bool found_our_layer = false;
@@ -10129,13 +10129,13 @@ bool GCodeGenerator::can_cross_perimeter(const Polyline& travel, bool offset)
         //            entry.boundingbox.contains(travel.points[travel.size() / 2]) ||
         //            entry.boundingbox.cross(travel) )
         //            );
-        //        svg.draw((entry.boundingbox.polygon().split_at_first_point()), checked?"green":"orange", scale_t(0.03));
+        //        svg.draw((entry.boundingbox.polygon().split_at_first_point()), checked?"green":"orange", scale_i(0.03));
         //        int diff_count =0;
         //        if(checked)
         //            diff_count = diff_pl(travel, entry.expolygon.contour).size();
-        //        svg.draw(to_polylines(entry.expolygon), diff_count==0?"blue":diff_count==1?"teal":"yellow", scale_t(0.05));
+        //        svg.draw(to_polylines(entry.expolygon), diff_count==0?"blue":diff_count==1?"teal":"yellow", scale_i(0.05));
         //    }
-        //    svg.draw(travel, "red", scale_t(0.05));
+        //    svg.draw(travel, "red", scale_i(0.05));
         //    svg.Close();
         //}
             // test if a expoly contains the entire travel
@@ -10525,8 +10525,8 @@ Point GCodeGenerator::gcode_to_point(const Vec2d &point) const
 {
     Vec2d extruder_offset = m_writer.current_tool_offset(); //EXTRUDER_CONFIG_WITH_DEFAULT(extruder_offset, Vec2d(0, 0)); // FIXME : mill ofsset
     return Point(
-        scale_t(point(0) - m_origin(0) + extruder_offset(0)),
-        scale_t(point(1) - m_origin(1) + extruder_offset(1)));
+        scale_i(point(0) - m_origin(0) + extruder_offset(0)),
+        scale_i(point(1) - m_origin(1) + extruder_offset(1)));
 }
 
 }   // namespace Slic3r

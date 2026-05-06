@@ -39,7 +39,7 @@ coord_t WipeTower2::floatz_tolayer_coord(double z) {
     assert(z < 10000);
     assert(z >= 0);
     // round it via EPSILON/2
-    coord_t coord_z = scale_t(z + EPSILON / 2);
+    coord_t coord_z = scale_i(z + EPSILON / 2);
     // remove epsilon part
     coord_z /= SCALED_EPSILON;
     coord_z *= SCALED_EPSILON;
@@ -57,13 +57,13 @@ void WipeTower2::set_config(const PrintConfig *config,
     m_position = Point::new_scale(m_object_config->wipe_tower_x.value, m_object_config->wipe_tower_y.value);
 }
 
-coord_t WipeTower2::width() const { return m_object_config ? scale_t(m_object_config->wipe_tower_width.value) : 0; }
+coord_t WipeTower2::width() const { return m_object_config ? scale_i(m_object_config->wipe_tower_width.value) : 0; }
 Vec2d WipeTower2::position() const {
     return m_object_config ? Vec2d(m_object_config->wipe_tower_x.value, m_object_config->wipe_tower_y.value) :
                              unscale(m_position);
 }
 coord_t WipeTower2::extra_spacing() const {
-    return m_object_config ? scale_t(m_object_config->wipe_tower_extra_spacing.value) : 0;
+    return m_object_config ? scale_i(m_object_config->wipe_tower_extra_spacing.value) : 0;
 }
 double WipeTower2::rotation_angle() const {
     return m_object_config ? m_object_config->wipe_tower_rotation_angle.value : 0;
@@ -171,9 +171,9 @@ void WipeTower2::init(const Print *print, const SpanOfConstPtrs<PrintObject> &ob
                     init_extruders.insert(extr_id);
                     // compute width
                     const double nozzle_diameter = m_config->nozzle_diameter.get_at(extr_id);
-                    coord_t line_width = scale_t(line_width_config.get_effective_value(nozzle_diameter));
+                    coord_t line_width = scale_i(line_width_config.get_effective_value(nozzle_diameter));
                     if (line_width == 0) {
-                        line_width = scale_t(nozzle_diameter * 1.25);
+                        line_width = scale_i(nozzle_diameter * 1.25);
                     }
 
                     // store min/max width
@@ -471,13 +471,13 @@ ExtrusionEntityCollection WipeTower2::prime(
     if (m_config->priming_position.value == Vec2d(0, 0)) {
         path_around_bed = polygon_bed.split_at_first_point();
     } else if (m_config->priming_position.value.y() == 0 &&
-               scale_t(m_config->priming_position.value.x()) > bb_bed.min.x() &&
-               scale_t(m_config->priming_position.value.x()) < bb_bed.max.x()) {
+               scale_i(m_config->priming_position.value.x()) > bb_bed.min.x() &&
+               scale_i(m_config->priming_position.value.x()) < bb_bed.max.x()) {
         // move in x -> find the nearest y in the polyline
         BoundingBox bb_right = bb_bed;
         BoundingBox bb_left = bb_bed;
-        bb_right.min.x() = scale_t(m_config->priming_position.value.x());
-        bb_left.max.x() = scale_t(m_config->priming_position.value.x());
+        bb_right.min.x() = scale_i(m_config->priming_position.value.x());
+        bb_left.max.x() = scale_i(m_config->priming_position.value.x());
         Polygon result_right = ClipperUtils::clip_clipper_polygon_with_subject_bbox(polygon_bed, bb_right);
         Polygon result_left = ClipperUtils::clip_clipper_polygon_with_subject_bbox(polygon_bed, bb_left);
         distf_t length_right = result_right.length();
@@ -498,13 +498,13 @@ ExtrusionEntityCollection WipeTower2::prime(
             path_around_bed = result_right.split_at_index(idx);
         }
     } else if (m_config->priming_position.value.x() == 0 &&
-               scale_t(m_config->priming_position.value.y()) > bb_bed.min.y() &&
-               scale_t(m_config->priming_position.value.y()) < bb_bed.max.y()) {
+               scale_i(m_config->priming_position.value.y()) > bb_bed.min.y() &&
+               scale_i(m_config->priming_position.value.y()) < bb_bed.max.y()) {
         // move in x -> find the nearest y in the polyline
         BoundingBox bb_top = bb_bed;
         BoundingBox bb_bot = bb_bed;
-        bb_top.min.y() = scale_t(m_config->priming_position.value.y());
-        bb_bot.max.y() = scale_t(m_config->priming_position.value.y());
+        bb_top.min.y() = scale_i(m_config->priming_position.value.y());
+        bb_bot.max.y() = scale_i(m_config->priming_position.value.y());
         Polygon result_top = ClipperUtils::clip_clipper_polygon_with_subject_bbox(polygon_bed, bb_top);
         Polygon result_bot = ClipperUtils::clip_clipper_polygon_with_subject_bbox(polygon_bed, bb_bot);
         distf_t length_top = result_top.length();
@@ -840,7 +840,7 @@ void WipeTowerLayer::init(const std::vector<const Layer *> layers,
 
                 // create
                 for (size_t i = 0; i < loops_num; i++) {
-                    Polygons polys = offset(perimeter, scale_(spacing));
+                    Polygons polys = offset(perimeter, scale_d(spacing));
                     assert(polys.size() == 1);
                     perimeter = polys.front();
                     brim.push_back(perimeter.split_at_first_point());
@@ -941,8 +941,8 @@ ExtrusionEntityCollection WipeTowerLayer::tool_change(const Layer *layer,
             } else {
                 // travel a bit outside so the ooze won't do a mess in our wipetower.
                 double nozzle_diameter_mm = m_config->nozzle_diameter.get_at(old_tool);
-                coord_t brim_width = scale_t(m_object_config->wipe_tower_brim_width.get_effective_value(nozzle_diameter_mm));
-                const Point center_pos(scale_t(-1) - brim_width / 2, compute_y(m_current_y_pos));
+                coord_t brim_width = scale_i(m_object_config->wipe_tower_brim_width.get_effective_value(nozzle_diameter_mm));
+                const Point center_pos(scale_i(-1) - brim_width / 2, compute_y(m_current_y_pos));
                 ExtrusionNop travel = ExtrusionNop();
                 travel.position = center_pos;
                 travel.set_role(ExtrusionRole::Travel);
@@ -1428,7 +1428,7 @@ void WipeTowerLayer::toolchange_Wipe(ExtrusionEntityCollection &collection,
             ExtrusionNop path_move = ExtrusionNop();
             if (m_config->retract_restart_toolchange_on_perimeter.get_at(tool_id)) {
                 assert(total_length(tower_perimeters) > 0);
-                coord_t dist = wipetower_layer_idx * scale_t(5);
+                coord_t dist = wipetower_layer_idx * scale_i(5);
                 dist = dist % coord_t(total_length(tower_perimeters));
                 for (size_t i = 0; i < tower_perimeters.size(); i++) {
                     if (dist >= coord_t(tower_perimeters[i].length())) {
@@ -1646,13 +1646,13 @@ bool WipeTowerLayer::finish_layer(ExtrusionEntityCollection &collection, uint16_
     // bbox.offset(scale_(1.));
     // static int iii=0;
     //::Slic3r::SVG svg(debug_out_path("%d_before_overahngs_%d.svg", extrusion_z, ++iii).c_str(), bbox);
-    ////svg.draw(to_polylines( diff_ex(ExPolygon(wt_contour), wt_used)), "green", scale_t(0.05));
+    ////svg.draw(to_polylines( diff_ex(ExPolygon(wt_contour), wt_used)), "green", scale_i(0.05));
     ////svg.draw(to_polylines(offset_ex(diff_ex(ExPolygon(wt_contour), wt_used), -infill_flow.scaled_spacing() / 3)),
-    ///"teal", scale_t(0.02));
+    ///"teal", scale_i(0.02));
     // svg.draw(( diff_ex(ExPolygon(wt_contour), wt_used)), "green");
     // svg.draw((offset_ex(diff_ex(ExPolygon(wt_contour), wt_used), -infill_flow.scaled_spacing() / 3)), "teal");
-    // svg.draw(to_polylines(wt_contour), "red", scale_t(0.09));
-    // svg.draw(to_polylines(wt_used), "cyan", scale_t(0.07));
+    // svg.draw(to_polylines(wt_contour), "red", scale_i(0.09));
+    // svg.draw(to_polylines(wt_used), "cyan", scale_i(0.07));
     // svg.Close();
     assert(wt_contour.is_counter_clockwise());
     wt_contour.make_counter_clockwise();

@@ -374,14 +374,14 @@ void SVG::export_expolygons(const char *path, const std::vector<std::pair<Slic3r
     // Format in num_columns.
     size_t num_columns = 3;
     // Width of the column.
-    coord_t step_x = scale_(20.);
-    Point legend_size(coord_t(scale_t(1.) + num_columns * step_x), scale_t(0.4 + 1.3 * (num_legend + num_columns - 1) / num_columns));
+    coord_t step_x = scale_i(20.);
+    Point legend_size(coord_t(scale_i(1.) + num_columns * step_x), scale_i(0.4 + 1.3 * (num_legend + num_columns - 1) / num_columns));
 
     BoundingBox bbox = get_extents(expolygons_with_attributes.front().first);
     for (size_t i = 0; i < expolygons_with_attributes.size(); ++ i)
         bbox.merge(get_extents(expolygons_with_attributes[i].first));
     // Legend y.
-    coord_t pos_y  = bbox.max.y() + scale_(1.5);
+    coord_t pos_y  = bbox.max.y() + scale_i(1.5);
     bbox.merge(Point(std::max(bbox.min.x() + legend_size.x(), bbox.max.x()), bbox.max.y() + legend_size.y()));
 
     SVG svg(path, bbox);
@@ -408,7 +408,7 @@ void SVG::export_expolygons(const char *path, const std::vector<std::pair<Slic3r
 
     // Export legend.
     // 1st row
-    coord_t pos_x0 = bbox.min.x() + scale_(1.);
+    coord_t pos_x0 = bbox.min.x() + scale_i(1.);
     coord_t pos_x  = pos_x0;
     size_t  i_legend = 0;
     for (const auto &exp_with_attr : expolygons_with_attributes) {
@@ -416,7 +416,7 @@ void SVG::export_expolygons(const char *path, const std::vector<std::pair<Slic3r
             svg.draw_legend(Point(pos_x, pos_y), exp_with_attr.second.legend.c_str(), exp_with_attr.second.color_fill.c_str());
             if ((++ i_legend) % num_columns == 0) {
                 pos_x  = pos_x0;
-                pos_y += scale_(1.3);
+                pos_y += scale_i(1.3);
             } else {
                 pos_x += step_x;
             }
@@ -428,7 +428,7 @@ void SVG::export_expolygons(const char *path, const std::vector<std::pair<Slic3r
 float SVG::to_svg_coord(float x) throw()
 {
     // return x;
-    return unscale<float>(x) * 10.f;
+    return (float)unscaled(x) * 10.f;
 }
 
 } // namespace Slic3r

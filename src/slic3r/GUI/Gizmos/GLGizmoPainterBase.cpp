@@ -409,18 +409,18 @@ std::vector<std::vector<GLGizmoPainterBase::ProjectedMousePosition>> GLGizmoPain
                 const Vec3d &point  = hit_point.mesh_hit.cast<double>();
                 const double x_cord = plane->first_axis.dot(point - plane->origin);
                 const double y_cord = plane->second_axis.dot(point - plane->origin);
-                polyline.points.emplace_back(scale_(x_cord), scale_(y_cord));
+                polyline.points.emplace_back(scale_i(x_cord), scale_i(y_cord));
             }
 
-            polyline.simplify(scale_(m_cursor_radius) / 10.);
+            polyline.simplify(scale_d(m_cursor_radius) / 10.);
 
             const int                           mesh_idx = hit_points.front().mesh_idx;
             std::vector<ProjectedMousePosition> new_hit_points;
             new_hit_points.reserve(polyline.points.size());
             // Project 2D simplified hit_points beck to 3D.
             for (const Point &point : polyline.points) {
-                const double x_cord        = unscale<double>(point.x());
-                const double y_cord        = unscale<double>(point.y());
+                const double x_cord        = unscaled(point.x());
+                const double y_cord        = unscaled(point.y());
                 const Vec3d  new_hit_point = plane->origin + x_cord * plane->first_axis + y_cord * plane->second_axis;
                 const int    facet_idx     = m_c->raycaster()->raycasters()[mesh_idx]->get_closest_facet(new_hit_point.cast<float>());
                 new_hit_points.push_back({new_hit_point.cast<float>(), mesh_idx, size_t(facet_idx)});

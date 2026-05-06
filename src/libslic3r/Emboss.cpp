@@ -63,7 +63,7 @@ void               visualize_heal(const std::string &svg_filepath, const ExPolyg
 {
     Points      pts = to_points(expolygons);
     BoundingBox bb(pts);
-    // double svg_scale = SHAPE_SCALE / unscale<double>(1.);
+    // double svg_scale = SHAPE_SCALE / unscaled(1.);
     //  bb.scale(svg_scale);
     SVG svg(svg_filepath, bb);
     svg.draw(expolygons);
@@ -1941,7 +1941,7 @@ PolygonPoints Emboss::sample_slice(const TextLine &slice, const BoundingBoxes &b
         int32_t shape_distance = shapes_x_cursor - letter_center.x();
         shapes_x_cursor        = letter_center.x();
         double  distance_mm    = shape_distance * scale;
-        int32_t distance_polygon = static_cast<int32_t>(std::round(scale_(distance_mm)));
+        int32_t distance_polygon = static_cast<int32_t>(std::round(scale_d(distance_mm)));
         if (is_reverse)
             point_in_distance(distance_polygon, cursor, slice.polygon);
         else

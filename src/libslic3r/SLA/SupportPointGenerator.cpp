@@ -400,15 +400,15 @@ void sample_expolygon_boundary(const ExPolygon &   expoly,
                                std::vector<Vec2f> &out,
                                std::mt19937 &      /*rng*/)
 {
-    double  point_stepping_scaled = scale_(1.f) / samples_per_mm;
+    double  point_stepping_scaled = scale_d(1.f) / samples_per_mm;
     for (size_t i_contour = 0; i_contour <= expoly.holes.size(); ++ i_contour) {
         const Polygon &contour = (i_contour == 0) ? expoly.contour :
                                                     expoly.holes[i_contour - 1];
 
         const Points pts = contour.equally_spaced_points(point_stepping_scaled);
         for (size_t i = 0; i < pts.size(); ++ i)
-            out.emplace_back(unscale<float>(pts[i].x()),
-                             unscale<float>(pts[i].y()));
+            out.emplace_back((float)unscaled(pts[i].x()),
+                             (float)unscaled(pts[i].y()));
     }
 }
 

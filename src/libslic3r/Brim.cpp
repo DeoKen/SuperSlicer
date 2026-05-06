@@ -1015,7 +1015,7 @@ Polylines reorder_brim_polyline(Polylines lines, ExtrusionEntityCollection& out,
 void make_brim(const Print& print, const Flow& flow, const PrintObjectPtrs& objects, ExPolygons& unbrimmable, ExtrusionEntityCollection& out) {
     const coord_t scaled_spacing = flow.scaled_spacing();
     const PrintObjectConfig& brim_config = objects.front()->config();
-    coord_t brim_offset = scale_t(brim_config.brim_separation.value);
+    coord_t brim_offset = scale_i(brim_config.brim_separation.value);
     ExPolygons    islands;
     for (PrintObject* object : objects) {
         ExPolygons object_islands;
@@ -1201,7 +1201,7 @@ void make_brim(const Print& print, const Flow& flow, const PrintObjectPtrs& obje
 void make_brim_ears(const Print& print, const Flow& flow, const PrintObjectPtrs& objects, ExPolygons& unbrimmable, ExtrusionEntityCollection& out) {
     const PrintObjectConfig& brim_config = objects.front()->config();
     Points pt_ears;
-    coord_t brim_offset = scale_t(brim_config.brim_separation.value);
+    coord_t brim_offset = scale_i(brim_config.brim_separation.value);
     ExPolygons islands;
     ExPolygons unbrimmable_with_support = unbrimmable;
     for (PrintObject* object : objects) {
@@ -1259,7 +1259,7 @@ void make_brim_ears(const Print& print, const Flow& flow, const PrintObjectPtrs&
             }
         }
         islands.reserve(islands.size() + object_islands.size() * object->instances().size());
-        coord_t ear_detection_length = std::max(scale_t(object->config().brim_ears_detection_length.value), SCALED_EPSILON);
+        coord_t ear_detection_length = std::max(scale_i(object->config().brim_ears_detection_length.value), SCALED_EPSILON);
         // duplicate & translate for each instance
         for (const PrintInstance& copy_pt : object->instances()) {
             for (const ExPolygon& poly : object_islands) {
@@ -1335,7 +1335,7 @@ void make_brim_ears(const Print& print, const Flow& flow, const PrintObjectPtrs&
         loops = union_pt_chained_outside_in(loops);
 
         //create ear pattern
-        coord_t size_ear = (scale_t((brim_config.brim_width.value - brim_config.brim_separation.value)) - flow.scaled_spacing());
+        coord_t size_ear = (scale_i((brim_config.brim_width.value - brim_config.brim_separation.value)) - flow.scaled_spacing());
         Polygon point_round;
         for (size_t i = 0; i < POLY_SIDES; i++) {
             double angle = (2.0 * PI * i) / POLY_SIDES;
@@ -1370,7 +1370,7 @@ void make_brim_ears(const Print& print, const Flow& flow, const PrintObjectPtrs&
     } else /* brim_config.brim_ears_pattern.value == InfillPattern::ipRectilinear */ {
 
         //create ear pattern
-        coord_t size_ear = (scale_t((brim_config.brim_width.value - brim_config.brim_separation.value)) - flow.scaled_spacing());
+        coord_t size_ear = (scale_i((brim_config.brim_width.value - brim_config.brim_separation.value)) - flow.scaled_spacing());
         Polygon point_round;
         for (size_t i = 0; i < POLY_SIDES; i++) {
             double angle = (2.0 * PI * i) / POLY_SIDES;
@@ -1451,7 +1451,7 @@ void make_brim_interior(const Print& print, const Flow& flow, const PrintObjectP
     // Brim is only printed on first layer and uses perimeter extruder.
 
     const PrintObjectConfig& brim_config = objects.front()->config();
-    coord_t brim_offset = scale_t(brim_config.brim_separation.value);
+    coord_t brim_offset = scale_i(brim_config.brim_separation.value);
     ExPolygons    islands;
     coordf_t spacing;
     for (PrintObject* object : objects) {

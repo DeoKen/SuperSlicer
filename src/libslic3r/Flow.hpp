@@ -72,14 +72,14 @@ public:
     // Non bridging flow: Maximum width of an extrusion with semicircles at the ends.
     // Bridging flow: Bridge thread diameter.
     float   width()           const { return m_width; }
-    coord_t scaled_width()    const { return scale_t(m_width); }
+    coord_t scaled_width()    const { return scale_i(m_width); }
     // Non bridging flow: Layer height.
     // Bridging flow: Bridge thread diameter = layer height.
     float   height()          const { return m_height; }
     coord_t scaled_height()   const;
     // Spacing between the extrusion centerlines.
     float   spacing()         const;// { return m_spacing; } use the compute, as I can't be 100% sure yet that this cachced value is good.
-    coord_t scaled_spacing()  const { return scale_t(spacing()); }
+    coord_t scaled_spacing()  const { return scale_i(spacing()); }
     float   spacing_ratio()   const { return m_spacing_ratio; }
     // Nozzle diameter. 
     float   nozzle_diameter() const { return m_nozzle_diameter; }
@@ -93,7 +93,7 @@ public:
     }
     // is it still needed?
     float spacing(const Flow& other) const;
-    coord_t scaled_spacing(const Flow& other) const { return scale_t(this->spacing(other)); }
+    coord_t scaled_spacing(const Flow& other) const { return scale_i(this->spacing(other)); }
 
     // Elephant foot compensation spacing to be used to detect narrow parts, where the elephant foot compensation cannot be applied.
     // To be used on frExternalPerimeter only.

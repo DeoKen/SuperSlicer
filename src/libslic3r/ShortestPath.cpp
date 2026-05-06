@@ -1297,11 +1297,11 @@ static inline void improve_ordering_by_segment_flipping(Polylines &polylines, bo
 		for (size_t i = 1; i < polylines.size(); ++ i)
 			printf("Connecting %d with %d: Current length %lf flip(%d, %d), left flipped: %lf, right flipped: %lf, both flipped: %lf, \n",
 				int(i - 1), int(i),
-				unscale<double>(connections[i - 1].norm(polylines, connections)),
+				unscaled(connections[i - 1].norm(polylines, connections)),
 				int(connections[i - 1].flipped), int(connections[i].flipped),
-				unscale<double>(connections[i - 1].norm(polylines, connections, true, false)),
-				unscale<double>(connections[i - 1].norm(polylines, connections, false, true)),
-				unscale<double>(connections[i - 1].norm(polylines, connections, true, true)));
+				unscaled(connections[i - 1].norm(polylines, connections, true, false)),
+				unscaled(connections[i - 1].norm(polylines, connections, false, true)),
+				unscaled(connections[i - 1].norm(polylines, connections, true, true)));
 #endif
 	};
 	print_statistics();

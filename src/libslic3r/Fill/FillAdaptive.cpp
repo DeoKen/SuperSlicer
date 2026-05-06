@@ -808,9 +808,9 @@ static Polylines connect_lines_using_hooks(Polylines &&lines, const ExPolygon &b
     size_t  poly_idx = 0;
 
     // 19% overlap, slightly lower than the allowed overlap in Fill::connect_infill()
-    const float scaled_offset           = float(scale_(spacing) * 0.81);
+    const float scaled_offset           = float(scale_d(spacing) * 0.81);
     // 25% overlap
-    const float scaled_trim_distance    = float(scale_(spacing) * 0.5 * 0.75);
+    const float scaled_trim_distance    = float(scale_d(spacing) * 0.5 * 0.75);
 
     // Keeping the vector of closest points outside the loop, so the vector does not need to be reallocated.
     std::vector<std::pair<rtree_segment_t, size_t>> closest;
@@ -1413,7 +1413,7 @@ void Filler::_fill_surface_single(
     if (params.connection == InfillConnection::icNotConnected || all_polylines_with_hooks.size() <= 1)
         append(polylines_out, chain_polylines(std::move(all_polylines_with_hooks)));
     else
-        connect_infill(std::move(all_polylines_with_hooks), expolygon, polylines_out, scale_t(this->get_spacing()), params);
+        connect_infill(std::move(all_polylines_with_hooks), expolygon, polylines_out, scale_i(this->get_spacing()), params);
 
 #ifdef ADAPTIVE_CUBIC_INFILL_DEBUG_OUTPUT
     {

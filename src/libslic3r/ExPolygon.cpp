@@ -289,13 +289,13 @@ ExPolygon::simplify_p(coord_t tolerance) const
             oldp.scale(1000,1000);
             polygon.scale(1000,1000);
             svg.draw(oldp, "grey");
-            svg.draw(oldp.split_at_first_point(), "orange", scale_t(0.05));
+            svg.draw(oldp.split_at_first_point(), "orange", scale_i(0.05));
             svg.draw(polygon, "black");
-            svg.draw(polygon.split_at_first_point(), "red", scale_t(0.04));
+            svg.draw(polygon.split_at_first_point(), "red", scale_i(0.04));
             Polygons polys = union_(Polygons{oldp});
-            svg.draw(to_polylines(polys), "cyan", scale_t(0.032));
+            svg.draw(to_polylines(polys), "cyan", scale_i(0.032));
             polys = union_(Polygons{polygon});
-            svg.draw(to_polylines(polys), "blue", scale_t(0.025));
+            svg.draw(to_polylines(polys), "blue", scale_i(0.025));
             svg.Close();
             assert(false);
         }

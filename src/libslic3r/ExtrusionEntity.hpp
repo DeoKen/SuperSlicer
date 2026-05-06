@@ -620,7 +620,7 @@ public:
     ArcPolyline as_polyline() const override { return this->polyline; }
     void          collect_polylines(ArcPolylines &dst) const override { if (! this->polyline.empty()) dst.emplace_back(this->polyline); }
     void          collect_points(Points &dst) const override { append(dst, this->polyline.to_polyline().points); }
-    double      total_volume() const override { return m_attributes.mm3_per_mm * unscale<double>(length()); }
+    double      total_volume() const override { return m_attributes.mm3_per_mm * unscaled(length()); }
     using ExtrusionEntity::visit;
     virtual void visit(ExtrusionVisitor &visitor) override { visitor.use(*this); };
     virtual void visit(ExtrusionVisitorConst &visitor) const override { visitor.use(*this); };

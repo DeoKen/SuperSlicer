@@ -56,7 +56,7 @@ void LayerSliceIsland::fill_regions(Layer &layer) {
 bool LayerSliceIsland::is_expolygons_from_region(const ExPolygon &expolygon) const {
     assert(!expolygon.contour.empty());
     BoundingBox bb_bigger = m_bbox;
-    bb_bigger.offset(scale_t(0.2));
+    bb_bigger.offset(scale_i(0.2));
 
     //quick check
     if (!bb_bigger.contains(expolygon.contour.points.front())) {
@@ -193,7 +193,7 @@ coord_t Layer::scale_to_layer_coord(double z) {
     assert(z < 10000);
     assert(z >= 0);
     // round it via EPSILON/2
-    coord_t coord_z = scale_t(z + EPSILON/2);
+    coord_t coord_z = scale_i(z + EPSILON/2);
     // remove epsilon part
     coord_z /= SCALED_EPSILON;
     coord_z *= SCALED_EPSILON;
@@ -272,7 +272,7 @@ void Layer::make_slices()
             slices = union_safety_offset_ex(slices_exp);
         }
         for (ExPolygon &poly : slices) for(auto &hole :poly.holes) assert(hole.is_clockwise());
-        ensure_valid(slices, std::max(scale_t(this->object()->print()->config().resolution), SCALED_EPSILON));
+        ensure_valid(slices, std::max(scale_i(this->object()->print()->config().resolution), SCALED_EPSILON));
         for (ExPolygon &poly : slices) poly.assert_valid();
         // lslices are sorted by topological order from outside to inside from the clipper union used above
 #ifdef _DEBUG

@@ -248,7 +248,7 @@ inline OutputIterator douglas_peucker_int(InputIterator begin, InputIterator end
             // Two points input.
             *out ++ = std::move(*next);
         } else {
-            const lengthsqr_t tolerance_sq = std::max(lengthsqr_t(1), Slic3r::coord_int_sqr(tolerance));
+            const lengthsqr_t tolerance_sq = std::max(lengthsqr_t(1), coord_int_sqr(tolerance));
             const double tolerance_sq_d = std::max(128*128., sqr(double(tolerance)));
             InputIterator anchor  = begin;
             InputIterator floater = std::prev(end);
@@ -423,7 +423,7 @@ public:
     }
     void scale(double factor);
     void scale(double factor_x, double factor_y);
-    void translate(double x, double y) { this->translate(Point(coord_t(x), coord_t(y))); }
+    void translate(coordf_t x, coordf_t y) { this->translate(Point(coord_t(x), coord_t(y))); }
     void translate(const Vector &vector);
     void rotate(double angle) { this->rotate(cos(angle), sin(angle)); }
     void rotate(double cos_angle, double sin_angle);

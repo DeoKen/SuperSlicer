@@ -46,7 +46,7 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
         const double dist_limit                = 10.0 * path.width();
         {
             Vec2d middle       = 0.5 * (curr.position + next.position);
-            auto  line_indices = prev_layer_curled_lines.all_lines_in_radius(Point::new_scale(middle), scale_(dist_limit));
+            auto  line_indices = prev_layer_curled_lines.all_lines_in_radius(Point::new_scale(middle), scale_i(dist_limit));
             if (!line_indices.empty()) {
                 double len = (next.position - curr.position).norm();
                 // For long lines, there is a problem with the additional slowdown. If by accident, there is small curled line near the middle

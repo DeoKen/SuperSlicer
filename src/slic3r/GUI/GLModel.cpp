@@ -620,8 +620,8 @@ void GLModel::init_from(const Polygon& polygon, float z)
     for (size_t i = 0; i < segments_count; ++i) {
         const Point& p0 = polygon.points[i];
         const Point& p1 = (i == segments_count - 1) ? polygon.points.front() : polygon.points[i + 1];
-        data.add_vertex(Vec3f(unscale<float>(p0.x()), unscale<float>(p0.y()), z));
-        data.add_vertex(Vec3f(unscale<float>(p1.x()), unscale<float>(p1.y()), z));
+        data.add_vertex(Vec3f((float)unscaled(p0.x()), (float)unscaled(p0.y()), z));
+        data.add_vertex(Vec3f((float)unscaled(p1.x()), (float)unscaled(p1.y()), z));
         vertices_counter += 2;
         data.add_line(vertices_counter - 2, vertices_counter - 1);
     }
@@ -662,8 +662,8 @@ void GLModel::init_from(const Polygons& polygons, float z)
         for (size_t i = 0; i < poly.points.size(); ++i) {
             const Point& p0 = poly.points[i];
             const Point& p1 = (i == poly.points.size() - 1) ? poly.points.front() : poly.points[i + 1];
-            data.add_vertex(Vec3f(unscale<float>(p0.x()), unscale<float>(p0.y()), z));
-            data.add_vertex(Vec3f(unscale<float>(p1.x()), unscale<float>(p1.y()), z));
+            data.add_vertex(Vec3f((float)unscaled(p0.x()), (float)unscaled(p0.y()), z));
+            data.add_vertex(Vec3f((float)unscaled(p1.x()), (float)unscaled(p1.y()), z));
             vertices_counter += 2;
             data.add_line(vertices_counter - 2, vertices_counter - 1);
         }

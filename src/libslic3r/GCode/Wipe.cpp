@@ -421,9 +421,9 @@ std::string Wipe::wipe(GCodeGenerator &gcodegen, bool toolchange)
                             // no
                             break;
                         }
-                        coord_t offset = scale_t(nozzle_diameter * 1.5);
+                        coord_t offset = scale_i(nozzle_diameter * 1.5);
                         ExPolygons offseted_boundary = offset_ex(boundary, -offset);
-                        ensure_valid(offseted_boundary, std::max(SCALED_EPSILON, scale_t(nozzle_diameter) / 10));
+                        ensure_valid(offseted_boundary, std::max(SCALED_EPSILON, scale_i(nozzle_diameter) / 10));
                         if (offseted_boundary.size() > 1) {
                             for (auto &expoly : offseted_boundary) {
                                 if (expoly.contains(start)) {
@@ -436,9 +436,9 @@ std::string Wipe::wipe(GCodeGenerator &gcodegen, bool toolchange)
                         }
                         // try again with lower offset, if it's worth
                         if (my_boundary.empty()) {
-                            offset = scale_t(nozzle_diameter * 0.7);
+                            offset = scale_i(nozzle_diameter * 0.7);
                             offseted_boundary = offset_ex(boundary, -offset);
-                            ensure_valid(offseted_boundary, std::max(SCALED_EPSILON, scale_t(nozzle_diameter) / 10));
+                            ensure_valid(offseted_boundary, std::max(SCALED_EPSILON, scale_i(nozzle_diameter) / 10));
                             if (offseted_boundary.size() > 1) {
                                 for (auto &expoly : offseted_boundary) {
                                     if (expoly.contains(start)) {

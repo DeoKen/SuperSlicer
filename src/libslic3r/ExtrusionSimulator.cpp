@@ -975,9 +975,9 @@ void ExtrusionSimulator::extrude_to_accumulator(const ExtrusionPath &path, const
 	polyline.reserve(path.polyline.size());
 	float scalex  = float(viewport.size().x()) / float(bbox.size().x());
 	float scaley  = float(viewport.size().y()) / float(bbox.size().y());
-	float w = scale_(path.width()) * scalex;
+	float w = (float)scale_d(path.width()) * scalex;
 	//float h = scale_(path.height) * scalex;
-	w = scale_(path.mm3_per_mm() / path.height()) * scalex;
+	w = (float)scale_d(path.mm3_per_mm() / path.height()) * scalex;
 	// printf("scalex: %f, scaley: %f\n", scalex, scaley);
 	// printf("bbox: %d,%d %d,%d\n", bbox.min.x(), bbox.min.y, bbox.max.x(), bbox.max.y);
 	//for (Points::const_iterator it = path.polyline.get_points().begin(); it != path.polyline.get_points().end(); ++ it) {

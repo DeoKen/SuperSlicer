@@ -1551,8 +1551,8 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
             ExPolygons infill_areas;
             ExPolygon wt_contour(poly);
             Polygon wt_rectangle(Points{Point::new_scale(wt_box.ld), Point::new_scale(wt_box.rd), Point::new_scale(wt_box.ru), Point::new_scale(wt_box.lu)});
-            wt_rectangle = offset(wt_rectangle, scale_(-spacing/2.)).front();
-            wt_contour = offset_ex(wt_contour, scale_(-spacing/2.)).front();
+            wt_rectangle = offset(wt_rectangle, scale_d(-spacing/2.)).front();
+            wt_contour = offset_ex(wt_contour, scale_d(-spacing/2.)).front();
             infill_areas = diff_ex(wt_contour, wt_rectangle);
             if (infill_areas.size() == 2) {
                 ExPolygon& bottom_expoly = infill_areas.front().contour.points.front().y() < infill_areas.back().contour.points.front().y() ? infill_areas[0] : infill_areas[1];
@@ -1651,7 +1651,7 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
 
         box.expand(brim_flow.spacing()- brim_flow.width()); // ensure that the brim is attached to the wipe tower
         for (size_t i = 0; i < loops_num; ++i) {
-            poly = offset(poly, scale_(spacing)).front();
+            poly = offset(poly, scale_d(spacing)).front();
             int cp = poly.closest_point_index(Point::new_scale(writer.x(), writer.y()));
             writer.travel(unscale(poly.points[cp]).cast<float>());
             for (int i=cp+1; true; ++i ) {

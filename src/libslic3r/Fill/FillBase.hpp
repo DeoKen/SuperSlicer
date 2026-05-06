@@ -74,7 +74,7 @@ struct FillParams
     float       anchor_length_max   { 1000.f };
 
     // internal resolution.
-    coord_t    fill_resolution          { scale_t(0.0125) };
+    coord_t    fill_resolution          { scale_i(0.0125) };
 
     // Don't adjust spacing to fill the space evenly.
     bool        dont_adjust { true };

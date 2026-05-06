@@ -12780,8 +12780,8 @@ static Points to_points(const std::vector<Vec2d> &dpts)
 {
     Points pts; pts.reserve(dpts.size());
     for (auto &v : dpts)
-        pts.emplace_back( coord_t(scale_(v.x())), coord_t(scale_(v.y())) );
-    return pts;    
+        pts.emplace_back( scale_i(v.x()), scale_i(v.y()) );
+    return pts;
 }
 
 Points get_bed_shape(const DynamicPrintConfig &config)

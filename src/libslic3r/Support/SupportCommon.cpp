@@ -55,7 +55,7 @@ void remove_bridges_from_contacts(
     // compute the area of bridging perimeters
     ExPolygons bridges;
     {
-        coordf_t nozzle_diameter = scale_t(print_config.nozzle_diameter.get_at(layerm.region().config().perimeter_extruder-1));
+        coordf_t nozzle_diameter = scale_i(print_config.nozzle_diameter.get_at(layerm.region().config().perimeter_extruder-1));
         // Surface supporting this layer, expanded by 0.5 * nozzle_diameter, as we consider this kind of overhang to be sufficiently supported.
         Polygons lower_grown_slices = expand(lower_layer.lslices(),
             //FIXME to mimic the decision in the perimeter generator, we should use half the external perimeter width.
@@ -133,7 +133,7 @@ void remove_bridges_from_contacts(
     //FIXME add supports at regular intervals to support long bridges!
     bridges = diff_ex(bridges,
             // Offset unsupported edges into polygons.
-            offset(layerm.unsupported_bridge_edges(), scale_(SUPPORT_MATERIAL_MARGIN), SUPPORT_SURFACES_OFFSET_PARAMETERS));
+            offset(layerm.unsupported_bridge_edges(), scale_d(SUPPORT_MATERIAL_MARGIN), SUPPORT_SURFACES_OFFSET_PARAMETERS));
     // Remove bridged areas from the supported areas.
     contact_polygons = diff_ex(contact_polygons, bridges, ApplySafetyOffset::Yes);
 
@@ -393,13 +393,13 @@ SupportGeneratorLayersPtr generate_raft_base(
                 polygons_append(brim, offset(ex, brim_separation));
             else {
                 if (brim_outer)
-                    polygons_append(brim, offset(ex.contour, brim_separation, ClipperLib::jtRound, float(scale_(0.1))));
+                    polygons_append(brim, offset(ex.contour, brim_separation, ClipperLib::jtRound, float(scale_d(0.1))));
                 else
                     brim.emplace_back(ex.contour);
                 if (brim_inner) {
                     Polygons holes = ex.holes;
                     polygons_reverse(holes);
-                    holes = shrink(holes, brim_separation, ClipperLib::jtRound, float(scale_(0.1)));
+                    holes = shrink(holes, brim_separation, ClipperLib::jtRound, float(scale_d(0.1)));
                     polygons_reverse(holes);
                     polygons_append(brim, std::move(holes));
                 } else
@@ -411,8 +411,8 @@ SupportGeneratorLayersPtr generate_raft_base(
     assert_valid(brim);
 
     // How much to inflate the support columns to be stable. This also applies to the 1st layer, if no raft layers are to be printed.
-    const float inflate_factor_fine      = float(scale_((slicing_params.raft_layers() > 1) ? 0.5 : EPSILON));
-    const float inflate_factor_1st_layer = std::max(0.f, float(scale_(object.config().raft_first_layer_expansion)) - inflate_factor_fine);
+    const float inflate_factor_fine      = float(scale_d((slicing_params.raft_layers() > 1) ? 0.5 : EPSILON));
+    const float inflate_factor_1st_layer = std::max(0.f, float(scale_d(object.config().raft_first_layer_expansion)) - inflate_factor_fine);
     SupportGeneratorLayer       *contacts         = top_contacts         .empty() ? nullptr : top_contacts         .front();
     SupportGeneratorLayer       *interfaces       = interface_layers     .empty() ? nullptr : interface_layers     .front();
     SupportGeneratorLayer       *base_interfaces  = base_interface_layers.empty() ? nullptr : base_interface_layers.front();
@@ -1182,7 +1182,7 @@ void LoopInterfaceProcessor::generate(SupportGeneratorLayerExtruded &top_contact
             map_split_points[it->first_point()] = -1;
             loop_lines.push_back(it->split_at_first_point());
         }
-        loop_lines = intersection_pl(loop_lines, expand(overhang_polygons, scale_(SUPPORT_MATERIAL_MARGIN)));
+        loop_lines = intersection_pl(loop_lines, expand(overhang_polygons, scale_d(SUPPORT_MATERIAL_MARGIN)));
         // Because a closed loop has been split to a line, loop_lines may contain continuous segments split to 2 pieces.
         // Try to connect them.
         for (int i_line = 0; i_line < int(loop_lines.size()); ++ i_line) {
@@ -1711,7 +1711,7 @@ void generate_support_toolpaths(
     LoopInterfaceProcessor loop_interface_processor(1.5 * support_params.support_material_interface_flow.scaled_width());
     loop_interface_processor.n_contact_loops = config.support_material_interface_contact_loops ? 1 : 0;
 
-    BoundingBox bbox_object(Point(-scale_(1.), -scale_(1.0)), Point(scale_(1.), scale_(1.)));
+    BoundingBox bbox_object(Point(-scale_i(1.), -scale_i(1.0)), Point(scale_i(1.), scale_i(1.)));
 
 //    const coordf_t link_max_length_factor = 3.;
     const coordf_t link_max_length_factor = 0.;
@@ -1774,7 +1774,7 @@ void generate_support_toolpaths(
                 if (! to_infill_polygons.empty()) {
                     Fill *filler = support_params.with_sheath ? filler_support_with_sheath.get() : filler_support.get();
                     filler->angle = support_params.raft_angle_base;
-                    filler->link_max_length = scale_t(support_params.raft_flow.spacing() * link_max_length_factor /
+                    filler->link_max_length = scale_i(support_params.raft_flow.spacing() * link_max_length_factor /
                                                       support_params.support_density);
                     fill_expolygons_generate_paths(
                         // Destination
@@ -1820,7 +1820,7 @@ void generate_support_toolpaths(
                 density       = float(support_params.raft_interface_density);
             } else
                 continue;
-            filler->link_max_length = scale_t(spacing * link_max_length_factor / density);
+            filler->link_max_length = scale_i(spacing * link_max_length_factor / density);
             //fill_expolygons_with_sheath_generate_paths( //TODO 2.7 test if the pattern contains the sheath
             ExtrusionEntityCollection &support_storage =
                     (support_layer_id < slicing_params.base_raft_layers) ? raft_cache[&support_layer].first :
@@ -2156,7 +2156,7 @@ void generate_support_toolpaths(
                             filler_spacing = interface_as_base ? support_params.support_material_flow.spacing() :
                                                                  support_params.support_material_interface_flow.spacing();
                         }
-                        filler->link_max_length = scale_t(filler_spacing * link_max_length_factor / supp_density);
+                        filler->link_max_length = scale_i(filler_spacing * link_max_length_factor / supp_density);
                     }
                 
                     //filler->angle = interface_as_base ?
@@ -2203,7 +2203,7 @@ void generate_support_toolpaths(
                 Flow interface_flow     = support_params.support_material_flow.with_height(float(base_interface_layer.layer->unscaled_height()));
                 filler->angle           = suppport_angle + interface_angle_delta;
                 filler_spacing  = support_params.support_material_interface_flow.spacing();
-                filler->link_max_length = scale_t(filler->get_spacing() * link_max_length_factor / support_params.interface_density);
+                filler->link_max_length = scale_i(filler->get_spacing() * link_max_length_factor / support_params.interface_density);
                 fill_expolygons_generate_paths(
                     // Destination
                     base_interface_layer.extrusions.set_entities(), 
@@ -2231,19 +2231,19 @@ void generate_support_toolpaths(
                     filler                  = filler_first_layer.get();
                     filler->angle           = Geometry::deg2rad(float(config.support_material_angle.value + 90.));
                     density                 = float(config.raft_first_layer_density.get_effective_value(1.f));
-                    filler->link_max_length = scale_t(filler_spacing * link_max_length_factor / density);
+                    filler->link_max_length = scale_i(filler_spacing * link_max_length_factor / density);
                     flow = support_params.first_layer_flow;
                     // use the proper spacing for first layer as we don't need to align
                     // its pattern to the other layers
                     //FIXME When paralellizing, each thread shall have its own copy of the fillers.
                     filler_spacing          = flow.spacing();
-                    filler->link_max_length = scale_t(filler_spacing * link_max_length_factor / density);
+                    filler->link_max_length = scale_i(filler_spacing * link_max_length_factor / density);
                 } else if (config.support_material_style.value == SupportMaterialStyle::smsOrganic) {
                     tree_supports_generate_paths(base_layer.extrusions, base_layer.polygons_to_extrude(), flow, support_params);
                     done = true;
                 } else {
                     filler->angle           = suppport_angle;
-                    filler->link_max_length = scale_t(filler_spacing * link_max_length_factor / support_params.support_density);
+                    filler->link_max_length = scale_i(filler_spacing * link_max_length_factor / support_params.support_density);
                 }
                 if (! done) {
                     ExPolygons base_expolys = closing_ex(base_layer.polygons_to_extrude(), float(SCALED_EPSILON),

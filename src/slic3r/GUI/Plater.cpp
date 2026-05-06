@@ -3167,7 +3167,7 @@ std::vector<size_t> Plater::priv::load_model_objects(const ModelObjectPtrs& mode
 
 #ifdef AUTOPLACEMENT_ON_LOAD
     // FIXME distance should be a config value /////////////////////////////////
-    coord_t min_obj_distance = scale_t(6);
+    coord_t min_obj_distance = scale_i(6);
     const auto *bed_shape_opt = config->opt<ConfigOptionPoints>("bed_shape");
     assert(bed_shape_opt);
     auto& bedpoints = bed_shape_opt->get_values();

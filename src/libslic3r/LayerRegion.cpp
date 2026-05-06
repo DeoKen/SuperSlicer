@@ -131,7 +131,7 @@ ExPolygons LayerRegion::_compute_fill_expolygons() const {
 // Fill in layerm->m_fill_surfaces by trimming the layerm->slices by layerm->fill_expolygons.
 void LayerRegion::slices_to_fill_surfaces_clipped(coord_t opening_offset)
 {
-    const coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_t(this->layer()->object()->print()->config().resolution.value));
+    const coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_i(this->layer()->object()->print()->config().resolution.value));
     // Collect polygons per surface type.
     std::map<SurfaceType, ExPolygons> polygons_by_surface;
     for (const Surface &surface : this->slices().surfaces) {
@@ -143,7 +143,7 @@ void LayerRegion::slices_to_fill_surfaces_clipped(coord_t opening_offset)
         if (!expoly.empty()) {
             for (ExPolygon &expoly_to_test : ensure_valid(intersection_ex(expoly, fill_expolygons()))) {
                 ExPolygons expolys_to_test = expoly_to_test.simplify(
-                    std::max(SCALED_EPSILON, scale_t(this->layer()->object()->print()->config().resolution.value)));
+                    std::max(SCALED_EPSILON, scale_i(this->layer()->object()->print()->config().resolution.value)));
                 if (!opening_ex(expolys_to_test, opening_offset).empty()) {
                     this->m_fill_surfaces.append({expoly_to_test}, srf_type);
                 }
@@ -438,7 +438,7 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
                     area += expoly.area();
                 }
                 // assert(area < SCALED_EPSILON * SCALED_EPSILON /** 100*/);
-                assert(area < scale_t(1) * scale_t(1));
+                assert(area < scale_i(1) * scale_i(1));
             }
         }
     }
@@ -468,13 +468,13 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
     const bool has_infill = this->region().config().fill_density.value > 0.;
     //if no infill, reduce the margin for everything to only the perimeter
     if (!has_infill) {
-        coord_t margin = scale_t(this->region().config().external_infill_margin.get_effective_value(unscaled(shell_width)));
-        coord_t margin_bridged = scale_t(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
+        coord_t margin = scale_i(this->region().config().external_infill_margin.get_effective_value(unscaled(shell_width)));
+        coord_t margin_bridged = scale_i(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
         expansion_solid = std::min(margin, shell_width);
         expansion_bottom_bridge = std::min(margin_bridged, shell_width);
     } else {
-        expansion_solid = scale_t(this->region().config().external_infill_margin.get_effective_value(unscaled(shell_width)));
-        expansion_bottom_bridge = scale_t(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
+        expansion_solid = scale_i(this->region().config().external_infill_margin.get_effective_value(unscaled(shell_width)));
+        expansion_bottom_bridge = scale_i(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
     }
     if (expansion_min <= 0) {
         expansion_min = SCALED_EPSILON;
@@ -497,7 +497,7 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
         //std::min(this->flow(frPerimeter).scaled_width() / 4, expansion_min);
     // Radius (with added epsilon) to absorb empty regions emering from regularization of ensuring, viz  const float narrow_ensure_vertical_wall_thickness_region_radius = 0.5f * 0.65f * min_perimeter_infill_spacing;
     const coordf_t closing_radius = 0.55f * 0.65f * 1.05f * this->flow(frSolidInfill).scaled_spacing();
-    const coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_t(this->layer()->object()->print()->config().resolution.value));
+    const coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_i(this->layer()->object()->print()->config().resolution.value));
 
     // Expand the top / bottom / bridge surfaces into the shell thickness solid infills.
     coord_t     layer_solid_thickness  = 0;
@@ -614,7 +614,7 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
                     area += expoly.area();
                 }
                 // assert(area < SCALED_EPSILON * SCALED_EPSILON /** 100*/);
-                assert(area < scale_t(1) * scale_t(1));
+                assert(area < scale_i(1) * scale_i(1));
             }
         }
     }
@@ -677,7 +677,7 @@ size_t get_island_idx(const Polygon &contour,
     }
     if (candidates.size() < 0) {
         //failed because of some margins, try with shrunk polygon
-        const Polygons contours_shrunk = offset(contour, -scale_t(0.05));
+        const Polygons contours_shrunk = offset(contour, -scale_i(0.05));
         if (!contours_shrunk.empty()) {
             const Polygon &contour_shrunk = contours_shrunk.front();
             for (size_t idx = 0; idx < bboxes.size(); ++idx) {
@@ -709,8 +709,8 @@ void LayerRegion::process_external_surfaces_old(const Layer *lower_layer, const 
     }
     const Surfaces &surfaces = this->m_fill_surfaces.surfaces;
     const bool has_infill = this->region().config().fill_density.value > 0.;
-    coord_t margin = scale_t(this->region().config().external_infill_margin.get_effective_value(unscaled(max_margin)));
-    coord_t margin_bridged = scale_t(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
+    coord_t margin = scale_i(this->region().config().external_infill_margin.get_effective_value(unscaled(max_margin)));
+    coord_t margin_bridged = scale_i(this->region().config().bridged_infill_margin.get_effective_value(this->flow(frExternalPerimeter).width()));
     //if no infill, reduce the margin for everything to only the perimeter
     if (!has_infill) {
         margin = std::min(margin, max_margin);
@@ -1034,7 +1034,7 @@ void LayerRegion::process_external_surfaces_old(const Layer *lower_layer, const 
                         initial,
                         lower_layer->lslices(),
                         this->bridging_flow(frInfill).scaled_spacing(),
-                        scale_t(this->layer()->object()->print()->config().bridge_precision.get_effective_value(this->bridging_flow(frInfill).spacing())),
+                        scale_i(this->layer()->object()->print()->config().bridge_precision.get_effective_value(this->bridging_flow(frInfill).spacing())),
                         this->layer()->id()
                     );
                     #ifdef SLIC3R_DEBUG
@@ -1064,7 +1064,7 @@ void LayerRegion::process_external_surfaces_old(const Layer *lower_layer, const 
     }
 
     Surfaces new_surfaces;
-    const coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_t(this->layer()->object()->print()->config().resolution.value));
+    const coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_i(this->layer()->object()->print()->config().resolution.value));
     {
         // Intersect the grown surfaces with the actual fill boundaries.
         ExPolygons bottom_expolygons = to_expolygons(bottom);
@@ -1138,7 +1138,7 @@ void LayerRegion::prepare_fill_surfaces()
         the only meaningful information returned by psPerimeters. */
     
     bool spiral_vase = this->layer()->object()->print()->config().spiral_vase;
-    coordf_t scaled_resolution = std::max(SCALED_EPSILON, scale_t(this->layer()->object()->print()->config().resolution.value));
+    coordf_t scaled_resolution = std::max(SCALED_EPSILON, scale_i(this->layer()->object()->print()->config().resolution.value));
 
     // if no solid layers are requested, turn top/bottom surfaces to internal
     // For Lightning infill, infill_only_where_needed is ignored because both
@@ -1165,7 +1165,7 @@ void LayerRegion::prepare_fill_surfaces()
     if (!spiral_vase && this->region().config().fill_density.value > 0) {
         // apply solid_infill_below_area
         // scaling an area requires two calls!
-        double min_area = scale_(scale_(this->region().config().solid_infill_below_area.value));
+        double min_area = scale_d(scale_d(this->region().config().solid_infill_below_area.value));
         for (Surface &surface : m_fill_surfaces)
             if (surface.has_fill_sparse() && surface.has_pos_internal() && surface.area() <= min_area)
                 surface.surface_type = stPosInternal | stDensSolid;
@@ -1234,7 +1234,7 @@ void LayerRegion::trim_surfaces(const Polygons &trimming_polygons)
         surface.expolygon.assert_valid();
     }
 #endif /* NDEBUG */
-    coordf_t scaled_resolution = std::max(SCALED_EPSILON, scale_t(this->layer()->object()->print()->config().resolution.value));
+    coordf_t scaled_resolution = std::max(SCALED_EPSILON, scale_i(this->layer()->object()->print()->config().resolution.value));
     this->m_slices.set(ensure_valid(intersection_ex(this->slices().surfaces, trimming_polygons)/*, scaled_resolution*/), stPosInternal | stDensSparse);
     for(auto &srf : this->m_slices) srf.expolygon.assert_valid();
 }
@@ -1268,7 +1268,7 @@ void LayerRegion::export_region_slices_to_svg(const char *path) const
     for (const Surface &surface : this->slices())
         svg.draw(surface.expolygon, surface_type_to_color_name(surface.surface_type, 0.9f), transparency);
     for (const Surface &surface : this->fill_surfaces())
-        svg.draw(to_polylines(surface.expolygon), surface_type_to_color_name(surface.surface_type), scale_t(0.1));
+        svg.draw(to_polylines(surface.expolygon), surface_type_to_color_name(surface.surface_type), scale_i(0.1));
     export_surface_type_legend_to_svg(svg, legend_pos);
     svg.Close();
 }
@@ -1294,7 +1294,7 @@ void LayerRegion::export_region_fill_surfaces_to_svg(const char *path) const
     const float transparency = 0.5f;
     for (const Surface &surface : this->fill_surfaces()) {
         svg.draw(surface.expolygon, surface_type_to_color_name(surface.surface_type), transparency);
-        svg.draw_outline(surface.expolygon, "black", "blue", scale_(0.05)); 
+        svg.draw_outline(surface.expolygon, "black", "blue", scale_d(0.05)); 
     }
     export_surface_type_legend_to_svg(svg, legend_pos);
     svg.Close();

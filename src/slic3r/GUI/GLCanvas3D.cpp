@@ -5003,8 +5003,8 @@ void GLCanvas3D::update_sequential_clearance(bool force_contours_generation)
         m_sequential_print_clearance.m_evaluating = false;
         m_sequential_print_clearance.m_hulls_2d_cache.clear();
         const double clearance_dist = min_object_distance(&fff_print()->default_region_config(), 0);
-        const float shrink_factor = static_cast<float>(scale_(0.5 * clearance_dist - EPSILON));
-        const double mitter_limit = scale_(0.1);
+        const coordf_t shrink_factor = scale_d(0.5 * clearance_dist - EPSILON);
+        const coordf_t mitter_limit = scale_d(0.1);
         m_sequential_print_clearance.m_hulls_2d_cache.reserve(m_model->objects.size());
         for (size_t i = 0; i < m_model->objects.size(); ++i) {
             ModelObject* model_object = m_model->objects[i];
@@ -5025,7 +5025,7 @@ void GLCanvas3D::update_sequential_clearance(bool force_contours_generation)
 
             new_hull_2d.reserve(hull_2d.points.size());
             for (const Point& p : hull_2d.points) {
-                new_hull_2d.emplace_back(Vec3d(unscale<double>(p.x()), unscale<double>(p.y()), 0.0));
+                new_hull_2d.emplace_back(Vec3d(unscaled(p.x()), unscaled(p.y()), 0.0));
             }
         }
 
@@ -7207,7 +7207,7 @@ void GLCanvas3D::_render_sla_slices()
             for (const SLAPrintObject::Instance& inst : obj->instances()) {
                 const Camera& camera = wxGetApp().plater()->get_camera();
                 Transform3d view_model_matrix = camera.get_view_matrix() *
-                    Geometry::translation_transform({ unscale<double>(inst.shift.x()), unscale<double>(inst.shift.y()), 0.0 }) *
+                    Geometry::translation_transform({ unscaled(inst.shift.x()), unscaled(inst.shift.y()), 0.0 }) *
                     Geometry::rotation_transform(inst.rotation * Vec3d::UnitZ());
                 if (obj->is_left_handed())
                     view_model_matrix = view_model_matrix * Geometry::scale_transform({ -1.0f, 1.0f, 1.0f });

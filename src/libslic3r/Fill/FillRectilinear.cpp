@@ -1860,12 +1860,12 @@ public:
                 int i_right = vline_from.intersections[i_from].right_horizontal();
                 if (i_right == i_to && vline_from.intersections[i_from].next_on_contour_quality == SegmentIntersection::LinkQuality::Valid) {
                     // Measure length along the contour.
-                    path.length = unscale<float>(measure_perimeter_horizontal_segment_length(m_poly_with_offset, m_segs, region_from.right.vline, i_from, i_to));
+                    path.length = (float)unscaled(measure_perimeter_horizontal_segment_length(m_poly_with_offset, m_segs, region_from.right.vline, i_from, i_to));
                 }
             }
             if (path.length == -1.) {
                 // Just apply the Eucledian distance of the end points.
-                path.length = unscale<float>(Vec2f(vline_to.pos - vline_from.pos, vline_to.intersections[i_to].pos() - vline_from.intersections[i_from].pos()).norm());
+                path.length = (float)unscaled(Vec2f(vline_to.pos - vline_from.pos, vline_to.intersections[i_to].pos() - vline_from.intersections[i_from].pos()).norm());
             }
             path.visibility = 1.f / (path.length + float(EPSILON));
         }
@@ -2263,7 +2263,7 @@ static float montonous_region_path_length(const MonotonicRegion& region, bool di
         ++i_vline;
     }
 
-    return unscale<float>(total_length);
+    return (float)unscaled(total_length);
 }
 
 static void connect_monotonic_regions(std::vector<MonotonicRegion> &regions, const ExPolygonWithOffset &poly_with_offset, std::vector<SegmentedIntersectionLine> &segs)
@@ -2950,10 +2950,10 @@ bool FillRectilinear::fill_surface_by_lines(const Surface *surface, const FillPa
     ExPolygonWithOffset poly_with_offset(
         surface->expolygon, 
         - rotate_vector.first, 
-        (scale_t(0 /*this->overlap*/ - /*(0.5 - INFILL_OVERLAP_OVER_SPACING)*/ 0.05 * this->get_spacing())), // outer offset, have to be > to the inner one (less negative)
+        (scale_i(0 /*this->overlap*/ - /*(0.5 - INFILL_OVERLAP_OVER_SPACING)*/ 0.05 * this->get_spacing())), // outer offset, have to be > to the inner one (less negative)
         // inner offset (don't put 0.5, as it will cut full-filled area when it's exactly at the right place)
         // Note: this will put the fill 2% too far into the perimeter.
-        (scale_t(0 /*this->overlap*/ - 0.48f * this->get_spacing())));
+        (scale_i(0 /*this->overlap*/ - 0.48f * this->get_spacing())));
     if (poly_with_offset.n_contours_inner == 0) {
         // Not a single infill line fits.
         //Prusa: maybe one shall trigger the gap fill here?
@@ -2966,13 +2966,13 @@ bool FillRectilinear::fill_surface_by_lines(const Surface *surface, const FillPa
     // define flow spacing according to requested density
     if ((params.full_infill() && !params.dont_adjust) || line_spacing == 0 ) {
         //it's == this->_adjust_solid_spacing(bounding_box.size()(0), line_spacing) because of the init_spacing
-        line_spacing = scale_(this->get_spacing());
+        line_spacing = scale_i(this->get_spacing());
     } else if (!params.full_infill()) {
         // extend bounding box so that our pattern will be aligned with other layers
         // Transform the reference point to the rotated coordinate system.
         Point refpt = rotate_vector.second.rotated(- rotate_vector.first);
         // align_to_grid will not work correctly with positive pattern_shift.
-        coord_t pattern_shift_scaled = scale_t(pattern_shift) % line_spacing;
+        coord_t pattern_shift_scaled = scale_i(pattern_shift) % line_spacing;
         refpt.x() -= (pattern_shift_scaled >= 0) ? pattern_shift_scaled : (line_spacing + pattern_shift_scaled);
         bounding_box.merge(align_to_grid(
             bounding_box.min, 
@@ -3163,13 +3163,13 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
     params.density /= float(sweep_params.size());
     assert(params.density > 0.0001f && params.density <= 1.f);
 
-    ExPolygonWithOffset poly_with_offset_base(surface->expolygon, 0, scale_t(this->overlap - 0.5 * this->get_spacing()));
+    ExPolygonWithOffset poly_with_offset_base(surface->expolygon, 0, scale_i(this->overlap - 0.5 * this->get_spacing()));
     if (poly_with_offset_base.n_contours == 0)
         // Not a single infill line fits.
         return true;
 
     Polylines fill_lines;
-    coord_t line_width = scale_t(this->get_spacing());
+    coord_t line_width = scale_i(this->get_spacing());
     coord_t line_spacing = _line_spacing_for_density(params);
     std::pair<float, Point> rotate_vector = this->_infill_direction(surface);
     for (const SweepParams& sweep : sweep_params) {
@@ -3181,7 +3181,7 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
             angle, 
             line_width + coord_t(SCALED_EPSILON), 
             line_spacing, 
-            scale_t(sweep.pattern_shift), 
+            scale_i(sweep.pattern_shift), 
             fill_lines,
             params);
     }
@@ -3194,7 +3194,7 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
             fill_lines = chain_polylines(std::move(fill_lines));
         append(polylines_out, std::move(fill_lines));
     } else
-        connect_infill(std::move(fill_lines), surface->expolygon, poly_with_offset_base.polygons_outer, polylines_out, scale_t(this->get_spacing()), params);
+        connect_infill(std::move(fill_lines), surface->expolygon, poly_with_offset_base.polygons_outer, polylines_out, scale_i(this->get_spacing()), params);
 
     ensure_valid(polylines_out, params.fill_resolution);
     assert_valid(polylines_out);
@@ -3281,7 +3281,7 @@ Polylines FillSupportBase::fill_surface(const Surface *surface, const FillParams
 
     Polylines polylines_out;
     std::pair<float, Point> rotate_vector = this->_infill_direction(surface);
-    ExPolygonWithOffset poly_with_offset(surface->expolygon, - rotate_vector.first, scale_t(this->overlap - 0.5 * this->get_spacing()));
+    ExPolygonWithOffset poly_with_offset(surface->expolygon, - rotate_vector.first, scale_i(this->overlap - 0.5 * this->get_spacing()));
     if (poly_with_offset.n_contours > 0) {
         Polylines fill_lines;
         coord_t line_spacing = _line_spacing_for_density(params);
@@ -3328,8 +3328,8 @@ coord_t FillScatteredRectilinear::_line_spacing_for_density(const FillParams& pa
      * later to achieve the target density
      */
     if(params.max_sparse_infill_spacing > 0)
-        return scale_t(params.max_sparse_infill_spacing);
-    return scale_t(this->get_spacing());
+        return scale_i(params.max_sparse_infill_spacing);
+    return scale_i(this->get_spacing());
 }
 
 Polylines FillScatteredRectilinear::fill_surface(const Surface *surface, const FillParams &params) const
@@ -3369,7 +3369,7 @@ std::vector<SegmentedIntersectionLine> FillScatteredRectilinear::_vert_lines_for
 
 void
 FillRectilinearSawtooth::fill_surface_extrusion(const Surface *surface, const FillParams &params, ExtrusionEntitiesPtr &out) const {
-    const coord_t scaled_nozzle_diam = scale_(params.flow.nozzle_diameter());
+    const coord_t scaled_nozzle_diam = scale_i(params.flow.nozzle_diameter());
     const coord_t clearance = scaled_nozzle_diam * 2.5;
     const coord_t tooth_spacing_min = scaled_nozzle_diam;
     const coord_t tooth_spacing_max = scaled_nozzle_diam * 3;

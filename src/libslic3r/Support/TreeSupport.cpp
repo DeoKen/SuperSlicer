@@ -265,9 +265,9 @@ ExPolygons to_expolys(Polygons polys) {
                         external_perimeter_width += layerm->flow(frExternalPerimeter).scaled_width();
                     }
                     external_perimeter_width /= lower_layer.region_count();
-                    lower_layer_offset = scale_t(0.5 * external_perimeter_width);
+                    lower_layer_offset = scale_i(0.5 * external_perimeter_width);
                 } else {
-                    lower_layer_offset = scale_t(lower_layer.unscaled_height() / tan_threshold);
+                    lower_layer_offset = scale_i(lower_layer.unscaled_height() / tan_threshold);
                 }
                 overhangs = lower_layer_offset == 0 ?
                     diff_ex(current_layer.lslices(), lower_layer.lslices()) :
@@ -284,12 +284,12 @@ ExPolygons to_expolys(Polygons polys) {
                         append(block, union_ex(blockers_custom_facets[layer_id]));
                     SVG::export_expolygons(debug_out_path("%d-overhangs_areas.svg", layer_id),
                                            {
-                                               {current_layer.lslices(), {"gray", scale_t(0.015)}},
-                                               {(overhangs), {"yellow", scale_t(0.011)}},
-                                               {(block), {"red", scale_t(0.009)}},
-                                               {diff_ex(overhangs, block), {"blue", scale_t(0.006)}},
+                                               {current_layer.lslices(), {"gray", scale_i(0.015)}},
+                                               {(overhangs), {"yellow", scale_i(0.011)}},
+                                               {(block), {"red", scale_i(0.009)}},
+                                               {diff_ex(overhangs, block), {"blue", scale_i(0.006)}},
                                                {diff_ex(overhangs, block, ApplySafetyOffset::Yes),
-                                                {"purple", scale_t(0.003)}},
+                                                {"purple", scale_i(0.003)}},
                                            });
                 }
 #endif // TREESUPPORT_DEBUG_SVG
@@ -315,8 +315,8 @@ ExPolygons to_expolys(Polygons polys) {
             if (!overhangs.empty()) {
                 SVG::export_expolygons(debug_out_path("%d-overhangs_without_bridges_areas.svg", layer_id),
                                        {
-                                           {current_layer.lslices(), {"gray", scale_t(0.05)}},
-                                           {union_ex(overhangs), {"yellow", scale_t(0.045)}},
+                                           {current_layer.lslices(), {"gray", scale_i(0.05)}},
+                                           {union_ex(overhangs), {"yellow", scale_i(0.045)}},
                                        });
             }
 #endif // TREESUPPORT_DEBUG_SVG
@@ -363,10 +363,10 @@ ExPolygons to_expolys(Polygons polys) {
                     SVG::export_expolygons(
                         debug_out_path("%d-forced-overhangs.svg", current_layer.id()),
                         {
-                            {current_layer.lslices(), {"gray", scale_t(0.05)}},
-                            {(overhangs), {"yellow", scale_t(0.045)}},
-                            {(enforced_overhangs), {"blue", scale_t(0.035)}},
-                            {(overhangs.empty() ? std::move(enforced_overhangs) : union_ex(overhangs, enforced_overhangs)), {"green", scale_t(0.025)}},
+                            {current_layer.lslices(), {"gray", scale_i(0.05)}},
+                            {(overhangs), {"yellow", scale_i(0.045)}},
+                            {(enforced_overhangs), {"blue", scale_i(0.035)}},
+                            {(overhangs.empty() ? std::move(enforced_overhangs) : union_ex(overhangs, enforced_overhangs)), {"green", scale_i(0.025)}},
                         }
                     );
 #endif // TREESUPPORT_DEBUG_SVG
@@ -379,8 +379,8 @@ ExPolygons to_expolys(Polygons polys) {
             if (!overhangs.empty()) {
                 SVG::export_expolygons(debug_out_path("%d-overhangs_register.svg", layer_id),
                                        {
-                                           {current_layer.lslices(), {"gray", scale_t(0.05)}},
-                                           {(overhangs), /*ExPolygonAttributes*/ {"red", scale_t(0.045)}},
+                                           {current_layer.lslices(), {"gray", scale_i(0.05)}},
+                                           {(overhangs), /*ExPolygonAttributes*/ {"red", scale_i(0.045)}},
                                        });
             }
 #endif // TREESUPPORT_DEBUG_SVG
@@ -422,8 +422,8 @@ ExPolygons to_expolys(Polygons polys) {
         SVG::export_expolygons(
             debug_out_path("%d-overhangs_areas_final.svg", lidx),
             {
-                {slice, {"gray", scale_t(0.05)}},
-                {(overhang), /*ExPolygonAttributes*/{"red", scale_t(0.045)}},
+                {slice, {"gray", scale_i(0.05)}},
+                {(overhang), /*ExPolygonAttributes*/{"red", scale_i(0.045)}},
             }
         );
     }
@@ -1136,7 +1136,7 @@ void finalize_raft_contact(
             // If any tips at first_tree_layer now are completely inside the expanded raft layer, remove them as well before they are propagated to the ground.
             Polygons &raft_polygons = top_contacts[raft_contact_layer_idx]->polygons;
             EdgeGrid::Grid grid(get_extents(raft_polygons).inflated(SCALED_EPSILON));
-            grid.create(raft_polygons, Polylines{}, coord_t(scale_(10.)));
+            grid.create(raft_polygons, Polylines{}, scale_i(10.));
             SupportElements &first_layer_move_bounds = move_bounds[first_tree_layer];
             double threshold = scaled<double>(print_object.config().raft_expansion.value) * 2.;
             first_layer_move_bounds.erase(std::remove_if(first_layer_move_bounds.begin(), first_layer_move_bounds.end(),
@@ -1356,7 +1356,7 @@ static void generate_initial_areas(
     // As a circle is round this length is identical for every axis as long as the 90 degrees angle between both remains.
     const coord_t circle_length_to_half_linewidth_change = config.min_radius < config.support_line_width ? 
         config.min_radius / 2 : 
-        scale_(sqrt(sqr(unscale<double>(config.min_radius)) - sqr(unscale<double>(config.min_radius - config.support_line_width / 2))));
+        scale_i(sqrt(sqr(unscaled(config.min_radius)) - sqr(unscaled(config.min_radius - config.support_line_width / 2))));
     // Extra support offset to compensate for larger tip radiis. Also outset a bit more when z overwrites xy, because supporting something with a part of a support line is better than not supporting it at all.
     //FIXME Vojtech: This is not sufficient for support enforcers to work.
     //FIXME There is no account for the support overhang angle.

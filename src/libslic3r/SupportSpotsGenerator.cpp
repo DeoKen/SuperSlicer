@@ -360,11 +360,11 @@ std::vector<ExtrusionLine> check_extrusion_entity_stability(const ExtrusionEntit
     assert(!entity->is_collection());
     if (entity->role().is_bridge() && !entity->role().is_perimeter()) {
         // pure bridges are handled separately, beacuse we need to align the forward and backward direction support points
-        if (entity->length() < scale_(params.min_distance_to_allow_local_supports)) {
+        if (entity->length() < scale_d(params.min_distance_to_allow_local_supports)) {
             return {};
         }
         const float                                    flow_width = get_flow_width(layer_regions, entity->role());
-        const Polyline entity_points = entity->as_polyline().to_polyline(scale_t(flow_width*4));
+        const Polyline entity_points = entity->as_polyline().to_polyline(scale_i(flow_width*4));
         std::vector<ExtrusionProcessor::ExtendedPoint> annotated_points =
             ExtrusionProcessor::estimate_points_properties<true, true, true, true>(entity_points.points, prev_layer_boundary,
                                                                                    flow_width, params.bridge_distance);
@@ -413,13 +413,13 @@ std::vector<ExtrusionLine> check_extrusion_entity_stability(const ExtrusionEntit
         return lines_out;
 
     } else { // single extrusion path, with possible varying parameters
-        if (entity->length() < scale_(params.min_distance_to_allow_local_supports)) {
+        if (entity->length() < scale_d(params.min_distance_to_allow_local_supports)) {
             return {};
         }
 
         const float flow_width = get_flow_width(layer_regions, entity->role());
         // Compute only unsigned distance - prev_layer_lines can contain unconnected paths, thus the sign of the distance is unreliable
-        const Polyline entity_points = entity->as_polyline().to_polyline(scale_t(flow_width*4));
+        const Polyline entity_points = entity->as_polyline().to_polyline(scale_i(flow_width*4));
         std::vector<ExtrusionProcessor::ExtendedPoint> annotated_points =
             ExtrusionProcessor::estimate_points_properties<true, true, false, false>(entity_points.points, prev_layer_lines,
                                                                                      flow_width, params.bridge_distance);
@@ -828,7 +828,7 @@ Polygons get_brim(const Layer* layer, const size_t slice_idx, const float brim_w
         Polygon brim_hole = slice_polygon.contour;
         brim_hole.reverse();
         // For very small polygons, the expand may result in empty vector, even thought the input is correct.
-        Polygons c = expand(slice_polygon.contour, scale_t(brim_width_outer));
+        Polygons c = expand(slice_polygon.contour, scale_i(brim_width_outer));
         if (!c.empty()) {
             brim.push_back(ExPolygon{c.front(), brim_hole});
         }
@@ -837,7 +837,7 @@ Polygons get_brim(const Layer* layer, const size_t slice_idx, const float brim_w
         Polygons brim_contours = slice_polygon.holes;
         polygons_reverse(brim_contours);
         for (const Polygon &brim_contour : brim_contours) {
-            Polygons brim_holes = shrink({brim_contour}, scale_t(brim_width_inner));
+            Polygons brim_holes = shrink({brim_contour}, scale_i(brim_width_inner));
             polygons_reverse(brim_holes);
             ExPolygon inner_brim{brim_contour};
             inner_brim.holes = brim_holes;
@@ -1336,7 +1336,7 @@ void estimate_supports_malformations(SupportLayerPtrs &layers, float flow_width,
         }
         for (const ExtrusionEntity *extrusion : coll) {
             for (ArcPolyline &arcpolyline : extrusion->as_polylines()) {
-                Polyline pl = arcpolyline.to_polyline(scale_t(flow_width * 4));
+                Polyline pl = arcpolyline.to_polyline(scale_i(flow_width * 4));
                 Polygon pol(pl.points);
                 pol.make_counter_clockwise();
 

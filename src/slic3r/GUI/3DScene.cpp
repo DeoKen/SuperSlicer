@@ -128,7 +128,7 @@ void GLVolume::SinkingContours::update()
     const Polygons polygons = union_(slice_mesh(mesh.its, 0.0f, slicing_params));
     if (polygons.empty()) return;
 
-    for (const ExPolygon& expoly : diff_ex(expand(polygons, float(scale_(HalfWidth))), shrink(polygons, float(scale_(HalfWidth))))) {
+    for (const ExPolygon& expoly : diff_ex(expand(polygons, float(scale_d(HalfWidth))), shrink(polygons, float(scale_d(HalfWidth))))) {
         const std::vector<Vec3d> triangulation = triangulate_expolygon_3d(expoly);
         init_data.reserve_vertices(init_data.vertices_count() + triangulation.size());
         init_data.reserve_indices(init_data.indices_count() + triangulation.size());
@@ -1045,7 +1045,7 @@ static void thick_lines_to_geometry(
         const bool is_closing = closed && is_last;
 
         const Vec2d v = unscale(line.vector()).normalized();
-        const double len = unscale<double>(line.length());
+        const double len = unscaled(line.length());
 
         const Vec2d a = unscale(line.a);
         const Vec2d b = unscale(line.b);
@@ -1274,7 +1274,7 @@ static void thick_lines_to_geometry(
         const double width = widths[i];
 
         const Vec3d unit_v = unscale(line.vector()).normalized();
-        const double len = unscale<double>(line.length());
+        const double len = unscaled(line.length());
 
         Vec3d n_top = Vec3d::Zero();
         Vec3d n_right = Vec3d::Zero();
