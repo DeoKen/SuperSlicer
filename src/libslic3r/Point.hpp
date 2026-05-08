@@ -128,8 +128,8 @@ inline distsqrf_t squared_norm(const Vec2crd &vec) {
 inline lengthsqr_t squared_int_norm(const Vec2crd &vec) {
     // note: minimum can be 2 if both x and y are negative (negative shifting to 0 still produce 1 as -1 is full of 1).
     // as we're computing the norm, we can use abs 
-    lengthsqr_t x = std::abs(vec.x()) >> SQUARE_BIT_REDUCTION;
-    lengthsqr_t y = std::abs(vec.y()) >> SQUARE_BIT_REDUCTION;
+    lengthsqr_t x = std::abs(vec.x()) >> SLIC3R_SQUARE_BIT_REDUCTION;
+    lengthsqr_t y = std::abs(vec.y()) >> SLIC3R_SQUARE_BIT_REDUCTION;
     // x2 = x*x don't overflow
     assert(x < std::numeric_limits<uint32_t>::max());
     // y2 = y*y don't overflow
@@ -145,7 +145,7 @@ inline double dot_double(Vec2crd v1, Vec2crd v2) {
     return double(v1.x()) * double(v2.x()) + double(v1.y()) * double(v2.y());
 }
 inline int64_t dot_int(Vec2crd v1, Vec2crd v2) {
-    return (v1.x() >> SQUARE_BIT_REDUCTION) * (v2.x() >> SQUARE_BIT_REDUCTION) + (v1.y() >> SQUARE_BIT_REDUCTION) * (v2.y() >> SQUARE_BIT_REDUCTION);
+    return (v1.x() >> SLIC3R_SQUARE_BIT_REDUCTION) * (v2.x() >> SLIC3R_SQUARE_BIT_REDUCTION) + (v1.y() >> SLIC3R_SQUARE_BIT_REDUCTION) * (v2.y() >> SLIC3R_SQUARE_BIT_REDUCTION);
 }
 
 

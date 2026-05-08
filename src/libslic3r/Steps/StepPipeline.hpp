@@ -1,0 +1,49 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
+#pragma once
+
+#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
+
+namespace Slic3r {
+
+class Orchestrator;
+class Print;
+class PrintObject;
+
+namespace Steps {
+
+// Central entry point for the step-based slicing pipeline.
+//
+// Orchestrator owns plugin registration and host callbacks; StepPipeline owns
+// the ordered execution of slicing steps. Keeping the ordering here avoids
+// growing Orchestrator with step-specific code.
+class StepPipeline
+{
+public:
+    static void run(Orchestrator &orchestrator, Print &print);
+
+#ifdef _DEBUG
+    // Run the native/original process and the step/plugin process on two cloned
+    // Print trees, comparing them after each migrated step group. This method is
+    // for migration tests and intentionally does not mutate the input print.
+    static void debug_run(Orchestrator &orchestrator, const Print &source, slicing_step_t until);
+
+private:
+    // These native split points intentionally access PrintObject internals.
+    // PrintObject/Layer grant friendship to StepPipeline, but not to anonymous
+    // namespace helper functions, so keep them as real class members.
+    static void run_native_layer_height_generation(Print &print);
+    static void run_native_slicing(Print &print);
+    static void run_native_post_slicing(Print &print);
+    static void run_native_layer_height_generation_object(PrintObject &object);
+    static void run_native_slicing_object(PrintObject &object);
+    static void run_native_post_slicing_object(PrintObject &object);
+#endif
+};
+
+} // namespace Steps
+} // namespace Slic3r
+

@@ -97,7 +97,7 @@ t_config_option_keys config_diffs(
     const DynamicPrintConfig &current_config,
     const DynamicPrintConfig &new_full_config)
 {
-    const std::vector<std::string> &extruder_retract_keys = print_config_def.extruder_retract_keys();
+    const std::vector<std::string> &extruder_retract_keys = PrintConfigDef::instance().extruder_retract_keys();
     const std::string               filament_prefix       = "filament_";
     t_config_option_keys            print_diff;
     for (const t_config_option_key &opt_key : current_config.keys()) {
@@ -1266,7 +1266,7 @@ void convert_config(boost::filesystem::path &path_in, boost::filesystem::path &p
     ifs.close();
     c.close();
     
-    //write ini
+    // write ini
     c.open(path_out.string(), std::ios::out | std::ios::trunc);
     // copy header
     c << "# " << Slic3r::header_slic3r_generated() << std::endl;

@@ -35,6 +35,9 @@
 #if ENABLE_GL_CORE_PROFILE
 #include <boost/algorithm/string/split.hpp>
 #endif // ENABLE_GL_CORE_PROFILE
+#include "libslic3r/Api/host/Orchestrator.hpp"
+#include "libslic3r/Plugins/Polyholes.hpp"
+#include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/GCode/PostProcessor.hpp"
@@ -112,7 +115,7 @@ int CLI::run(int argc, char **argv)
 
     m_extra_config.apply(m_config, true);
     m_extra_config.normalize_fdm();
-    
+
     PrinterTechnology printer_technology = get_printer_technology(m_config);
 
     bool							start_gui			= m_actions.empty() &&
@@ -531,6 +534,9 @@ int CLI::run(int argc, char **argv)
             return 1;
         }
     }
+
+    slic3r_api::PolyholesPlugin::register_polyholes_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
+    slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
 
     // All transforms have been dealt with. Now ensure that the objects are on bed.
     // (Unless the user said otherwise.)

@@ -1,0 +1,44 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
+#ifndef slic3r_Plugin_hpp_
+#define slic3r_Plugin_hpp_
+
+#include "libslic3r/Api/plugin/c/slic3r_plugin.h"
+#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
+
+#include <string>
+#include <vector>
+
+
+namespace Slic3r {
+
+class Plugin
+{
+protected:
+    plugin_instance m_c_api;
+    std::string m_id;
+    slicing_step_t m_step;
+    std::vector<std::string> m_dependencies;
+    int m_priority;
+
+public:
+    Plugin(plugin_instance c_api);
+
+    const std::string& get_id() const noexcept { return m_id; }
+    slicing_step_t get_step() const noexcept { return m_step; }
+    const std::vector<std::string>& get_dependencies() const noexcept { return m_dependencies; }
+    int get_priority() const noexcept { return m_priority; }
+    void setup(const plugin_run_context &context, uint32_t run_count) const { m_c_api.vt->setup(m_c_api.ctx, &context, run_count); }
+    void setup_run(const plugin_run_context &context) const { m_c_api.vt->setup_run(m_c_api.ctx, &context); }
+    void run(const plugin_run_context &context) const { m_c_api.vt->run(m_c_api.ctx, &context); }
+
+};
+
+} // namespace Slic3r
+
+
+
+#endif // slic3r_plugin_hpp_

@@ -518,11 +518,15 @@ bool has_duplicate_points(const ExPolygons &expolys)
 #else
     // Detect duplicates by inserting into an ankerl::unordered_dense hash set, which is is around 1/4 faster than qsort.
     struct PointHash {
+        using is_avalanching = void;
         uint64_t operator()(const Point &p) const noexcept
         {
-#ifdef COORD_64B
-            return ankerl::unordered_dense::detail::wyhash::hash(p.x()) 
-                + ankerl::unordered_dense::detail::wyhash::hash(p.y());
+#if COORD_64B
+        uint64_t data[2] = {
+            static_cast<uint64_t>(p.x()),
+            static_cast<uint64_t>(p.y())
+        };
+        return ankerl::unordered_dense::detail::wyhash::hash(data, sizeof(data));
 #else
             uint64_t h;
             static_assert(sizeof(h) == sizeof(p));

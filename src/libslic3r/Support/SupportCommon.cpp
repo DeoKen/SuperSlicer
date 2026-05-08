@@ -22,6 +22,9 @@
 #include "SupportLayer.hpp"
 #include "SupportParameters.hpp"
 
+#include "Api/internal/LayerRegionAccess.hpp"
+#include "Api/internal/LayerAccess.hpp"
+
 // #define SLIC3R_DEBUG
 
 // Make assert active if SLIC3R_DEBUG
@@ -1856,16 +1859,18 @@ void generate_support_toolpaths(
         for (size_t support_layer_id = range.begin(); support_layer_id < range.end(); ++support_layer_id) {
             SupportLayer &support_layer = *support_layers[support_layer_id];
             if (!raft_bb.empty()) {
-                support_layer.set_islands(ExPolygons{ExPolygon(raft_bb.polygon())});
+                //support_layer.set_islands(ExPolygons{ExPolygon(raft_bb.polygon())});
+                ApiInternal::LayerAccess::set_islands(support_layer, ExPolygons{ExPolygon(raft_bb.polygon())});
                 // add regions
                 // note: region slice is on the object, not the support, so we only get the first region, wich should
                 // be the default one.
                 // for (const std::reference_wrapper<const PrintRegion> &pregion : object.all_regions()) {
                 //    support_layer.add_region(&pregion.get());
                 //}
-                support_layer.add_region(&object.printing_region(0));
+                ApiInternal::LayerAccess::add_region(support_layer, object.printing_region(0));
                 BoundingBox bb_region = raft_bb;
-                support_layer.get_region(0)->set_raw_slices(ExPolygons{ExPolygon(bb_region.polygon())});
+                //support_layer.get_region(0)->set_raw_slices(ExPolygons{ExPolygon(bb_region.polygon())});
+                ApiInternal::LayerRegionAccess::slices_mutable(*support_layer.get_region(0)) = ExPolygons{ExPolygon(bb_region.polygon())};
                 // construct island region
                 support_layer.add_regions_to_islands();
                 for (const LayerSliceIslandPtr &island : support_layer.islands()) {
@@ -2312,11 +2317,13 @@ void generate_support_toolpaths(
                 BoundingBox bb_region = raft_bb;
                 bb_region.merge(get_extents(islands_expolys));
                 assert(!bb_region.empty());
-                support_layer.set_islands(std::move(islands_expolys));
+                //support_layer.set_islands(std::move(islands_expolys));
+                ApiInternal::LayerAccess::set_islands(support_layer, std::move(islands_expolys));
                 // add regions
                 // note: region slice is on the object, not the support, so we only get the first region, wich should be the default one.
-                support_layer.add_region(&object.printing_region(0));
-                support_layer.get_region(0)->set_raw_slices(ExPolygons{ExPolygon(bb_region.polygon())});
+                ApiInternal::LayerAccess::add_region(support_layer, object.printing_region(0));
+                //support_layer.get_region(0)->set_raw_slices(ExPolygons{ExPolygon(bb_region.polygon())});
+                ApiInternal::LayerRegionAccess::slices_mutable(*support_layer.get_region(0)) = ExPolygons{ExPolygon(bb_region.polygon())};
                 // construct island region
                 support_layer.add_regions_to_islands();
                 for (const LayerSliceIslandPtr &island : support_layer.islands()) {

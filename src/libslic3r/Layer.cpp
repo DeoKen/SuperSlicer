@@ -10,6 +10,9 @@
 ///|/ SuperSlicer, PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Layer.hpp"
+#include "Api/internal/LayerAccess.hpp"
+#include "Api/internal/LayerIslandAccess.hpp"
+#include "Api/internal/LayerRegionAccess.hpp"
 #include "ClipperZUtils.hpp"
 #include "ClipperUtils.hpp"
 #include "Milling/MillingPostProcess.hpp"
@@ -27,6 +30,105 @@
 #include <boost/log/trivial.hpp>
 
 namespace Slic3r {
+
+ExPolygons &ApiInternal::LayerAccess::slices_mutable(Layer &layer)
+{
+    return layer.m_lslices;
+}
+
+void ApiInternal::LayerAccess::set_islands(Layer &layer, ExPolygons &&new_islands)
+{
+    assert(!layer.m_islands_locked);
+    layer.m_lslices = std::move(new_islands);
+    layer.m_islands.clear();
+    for (size_t i = 0; i < layer.m_lslices.size(); ++i) {
+        layer.m_islands.emplace_back(new LayerSliceIsland(layer.m_lslices[i]));
+    }
+    assert(layer.lslices().size() == layer.m_islands.size());
+}
+void ApiInternal::LayerAccess::recompute_slices_from_islands(Layer &layer)
+{
+    assert(!layer.m_islands_locked);
+    layer.m_lslices.clear();
+    for (LayerSliceIslandPtr &island : layer.m_islands) {
+        layer.m_lslices.push_back(island->get_slice());
+    }
+    assert(layer.lslices().size() == layer.m_islands.size());
+}
+
+void ApiInternal::LayerAccess::init_regions_from_object(Layer &layer)
+{
+    const PrintObject *object = layer.object();
+    assert(object != nullptr);
+
+    layer.m_regions.clear();
+    layer.m_regions.reserve(object->shared_regions()->all_regions.size());
+    for (const std::unique_ptr<PrintRegion> &pr : object->shared_regions()->all_regions)
+        layer.m_regions.emplace_back(new LayerRegion(&layer, pr.get()));
+}
+
+void ApiInternal::LayerAccess::add_region(Layer &layer, const PrintRegion &region)
+{
+    layer.m_regions.emplace_back(new LayerRegion(&layer, &region));
+}
+
+// was Layer::make_slices()
+void ApiInternal::LayerAccess::recompute_slices_from_layer_regions(Layer &layer) {
+    ExPolygons slices;
+    if (layer.m_regions.size() == 1) {
+        // If there is a single region, the layer islands are exactly the raw
+        // slices owned by that region. SurfaceCollections may be empty at this
+        // point for plugin-driven slicing steps.
+        slices = layer.m_regions.front()->get_raw_slices();
+    } else {
+        ExPolygons slices_exp;
+        for (LayerRegion *layerm : layer.m_regions) {
+            for (const ExPolygon &expolygon : layerm->get_raw_slices())
+                expolygon.assert_valid();
+            append(slices_exp, layerm->get_raw_slices());
+        }
+        slices = union_safety_offset_ex(slices_exp);
+    }
+    for (ExPolygon &poly : slices)
+        for (auto &hole : poly.holes)
+            assert(hole.is_clockwise());
+    ensure_valid(slices, std::max(scale_i(layer.object()->print()->config().resolution), SCALED_EPSILON));
+    for (ExPolygon &poly : slices)
+        poly.assert_valid();
+    // lslices are sorted by topological order from outside to inside from the clipper union used above
+#ifdef _DEBUG
+    if (slices.size() > 1) {
+        std::vector<BoundingBox> bboxes;
+        bboxes.emplace_back(slices[0].contour.points);
+        for (size_t check_idx = 1; check_idx < slices.size(); ++check_idx) {
+            assert(bboxes.size() == check_idx);
+            bboxes.emplace_back(slices[check_idx].contour.points);
+            for (size_t bigger_idx = 0; bigger_idx < check_idx; ++bigger_idx) {
+                // higher idx can be inside holes, but not the opposite!
+                if (bboxes[check_idx].contains(bboxes[bigger_idx])) {
+                    assert(!slices[check_idx].contour.contains(slices[bigger_idx].contour.first_point()));
+                }
+            }
+        }
+    }
+#endif
+    ApiInternal::LayerAccess::set_islands(layer, std::move(slices));
+}
+
+ExPolygon &ApiInternal::LayerIslandAccess::slice_mutable(LayerSliceIsland &island)
+{
+    return island.m_slice;
+}
+
+SurfaceCollection &ApiInternal::LayerRegionAccess::surfaces_mutable(LayerRegion &layer_region)
+{
+    return layer_region.m_slices;
+}
+
+ExPolygons &ApiInternal::LayerRegionAccess::slices_mutable(LayerRegion &layer_region)
+{
+    return layer_region.m_raw_slices;
+}
 
 LayerSliceIsland::LayerSliceIsland(const ExPolygon &slice) {
     m_slice = slice;
@@ -200,16 +302,6 @@ coord_t Layer::scale_to_layer_coord(double z) {
     return coord_z;
 }
 
-void Layer::set_islands(ExPolygons &&new_islands) {
-    assert(!this->m_islands_locked);
-    m_lslices = std::move(new_islands);
-    m_islands.clear();
-    for (size_t i = 0; i < m_lslices.size(); ++i) {
-        m_islands.emplace_back(new LayerSliceIsland(m_lslices[i]));
-    }
-    assert(this->lslices().size() == this->m_islands.size());
-}
-
 void Layer::add_regions_to_islands() {
     assert(!this->m_islands_locked);
     //  note: regions taht don't intersect with this layer are kept (even if empty) to keep region-index ordering.
@@ -237,13 +329,6 @@ bool Layer::empty() const
             // Non empty layer.
             return false;
     return true;
-}
-
-LayerRegion* Layer::add_region(const PrintRegion *print_region)
-{
-    LayerRegion* lr = new LayerRegion(this, print_region);
-    m_regions.emplace_back(lr);
-    return lr;
 }
 
 bool Layer::has_extrusions() const {
@@ -291,7 +376,7 @@ void Layer::make_slices()
             }
         }
 #endif
-        this->set_islands(std::move(slices));
+        ApiInternal::LayerAccess::set_islands(*this, std::move(slices));
     }
 
     //this->lslice_indices_sorted_by_print_order = chain_expolygons(this->lslices());

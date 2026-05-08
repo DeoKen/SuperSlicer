@@ -43,6 +43,7 @@
 #include "Support/SupportMaterial.hpp"
 #include "SupportSpotsGenerator.hpp"
 #include "TriangleSelectorWrapper.hpp"
+#include "Api/internal/PrintObjectAccess.hpp"
 #include "format.hpp"
 #include "libslic3r.h"
 
@@ -108,6 +109,17 @@ using namespace std::literals;
     #include "SVG.hpp"
 
 namespace Slic3r {
+
+void ApiInternal::PrintObjectAccess::set_layer_profile(PrintObject &object, std::vector<coord_t> &&layer_profile)
+{
+    object.m_layer_profile = std::move(layer_profile);
+}
+
+void ApiInternal::PrintObjectAccess::replace_layers_by_moving_contents(PrintObject &object, LayerPtrs &&new_layers)
+{
+    object.clear_layers();
+    object.m_layers = std::move(new_layers);
+}
 
 // Constructor is called from the main thread, therefore all Model / ModelObject / ModelIntance data are valid.
 PrintObject::PrintObject(Print* print, ModelObject* model_object, const Transform3d& trafo, PrintInstances&& instances) :

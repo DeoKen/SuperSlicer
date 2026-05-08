@@ -60,20 +60,7 @@ int MultiPoint::find_point(const Point &point) const
 
 int MultiPoint::find_point(const Point &point, coordf_t scaled_epsilon) const
 {
-    if (scaled_epsilon == 0)
-        return this->find_point(point);
-
-    coordf_t dist2_min = std::numeric_limits<coordf_t>::max();
-    coordf_t eps2      = scaled_epsilon * scaled_epsilon;
-    int      idx_min   = -1;
-    for (const Point &pt : this->points) {
-        coordf_t d2 = pt.distance_to_square(point); //(pt - point).cast<coordf_t>().squaredNorm();
-        if (d2 < dist2_min) {
-            idx_min = int(&pt - &this->points.front());
-            dist2_min = d2;
-        }
-    }
-    return dist2_min < eps2 ? idx_min : -1;
+    return multipoint_find_point_index(this->points.data(), this->points.size(), point, scaled_epsilon);
 }
 
 BoundingBox MultiPoint::bounding_box() const
@@ -106,6 +93,21 @@ bool MultiPoint::remove_duplicate_points()
         return true;
     }
     return false;
+}
+
+bool MultiPoint::intersection(const Line &line, Point *intersection) const
+{
+    return multipoint_intersection(this->points.data(), this->points.size(), line.a, line.b, intersection, is_loop());
+}
+
+bool MultiPoint::first_intersection(const Line& line, Point* intersection) const
+{
+    return multipoint_first_intersection(this->points.data(), this->points.size(), line.a, line.b, intersection, is_loop());
+}
+
+bool MultiPoint::intersections(const Line &line, Points *intersections) const
+{
+    return multipoint_intersections(this->points.data(), this->points.size(), line.a, line.b, intersections, is_loop());
 }
 
 // Projection of a point onto the polygon.
@@ -273,8 +275,8 @@ Points MultiPoint::visivalingam(const Points &pts, const double tolerance)
 inline lengthsqr_t dist_squared(const Point &p1, const Point &p2) {
     // note: minimum can be 2 if both x and y are negative (negative shifting to 0 still produce 1 as -1 is full of 1).
     // as we're computing the norm, we can use abs 
-    lengthsqr_t x = std::abs(p1.x() - p2.x()) >> SQUARE_BIT_REDUCTION;
-    lengthsqr_t y = std::abs(p1.y() - p2.y()) >> SQUARE_BIT_REDUCTION;
+    lengthsqr_t x = coord_int_sqr(p1.x() - p2.x());
+    lengthsqr_t y = coord_int_sqr(p1.y() - p2.y());
     // x2 = x*x don't overflow
     assert(x < std::numeric_limits<uint32_t>::max());
     // y2 = y*y don't overflow
@@ -306,7 +308,7 @@ inline lengthsqr_t compute_deviation_for_simplify_quick(const Point &a, const Po
 
 void simplify_quick(Polyline &polyline, const coord_t tolerance) {
     Points &pts = polyline.points;
-    const lengthsqr_t tolerance_sq = Slic3r::coord_int_sqr(tolerance);
+    const lengthsqr_t tolerance_sq = coord_int_sqr(tolerance);
 
     if (pts.size() > 3)
         return;
@@ -543,6 +545,16 @@ std::string MultiPoint::to_debug_string()
 void MultiPoint::assert_valid() const {}
 #endif
 
+void MultiPoint::densify(distf_t min_length) {
+    distsqrf_t min_sqr_dist = min_length * min_length;
+    for (size_t i=1; i < points.size(); ++i) {
+        if (points[i-1].distance_to_square(points[i]) > min_sqr_dist) {
+            points.emplace(points.begin() + i, (points[i].x() + points[i-1].x()) / 2,
+                         (points[i].y() + points[i-1].y()) / 2);
+        }
+    }
+}
+
 void MultiPoint3::translate(double x, double y)
 {
     for (Vec3crd &p : points) {
@@ -617,6 +629,147 @@ BoundingBox get_extents_rotated(const Points &points, double angle)
 BoundingBox get_extents_rotated(const MultiPoint &mp, double angle)
 {
     return get_extents_rotated(mp.points, angle);
+}
+
+// C-compatible version of MultiPoint method, to mutualize the code
+
+bool multipoint_is_valid(const Point *array, const size_t array_size) { return array_size > 1; }
+
+bool multipoint_intersection(const Point *array, const size_t array_size, Point line_a, Point line_b, Point *out_intersection, bool is_polygon) {
+    if (array_size < 2)
+        return false;
+    for (size_t i = 1; i < array_size; ++ i)
+        if (Line(array[i - 1], array[i]).intersection(Line(line_a, line_b), out_intersection))
+            return true;
+    // note: we are here aware of Polygon idiom. it's bad but it's hard to keep it separate without code duplication.
+    // as if I override this function, it's almost the same
+    if (is_polygon && array[0] != array[array_size - 1] &&
+        Line(array[array_size - 1], array[0]).intersection(Line(line_a, line_b), out_intersection))
+        return true;
+    return false;
+}
+
+bool multipoint_first_intersection(
+    const Point *array, const size_t array_size, Point line_a, Point line_b, Point *out_intersection, bool is_polygon) {
+    if (array_size < 2)
+        return false;
+
+    bool found = false;
+    double dmin = 0.;
+    Line l(array[array_size - 1], array[0]);
+    size_t istart = 0;
+    // if not polygon,
+    if (!is_polygon || l.a == l.b) {
+        istart = 1;
+        l.a = l.b;
+    }
+    for (size_t i = istart; i < array_size; ++i) {
+        l.b = array[i];
+        Point ip;
+        if (l.intersection(Line(line_a, line_b), &ip)) {
+            if (!found) {
+                found = true;
+                dmin = (line_a - ip).cast<double>().squaredNorm();
+                *out_intersection = ip;
+            } else {
+                double d = (line_a - ip).cast<double>().squaredNorm();
+                if (d < dmin) {
+                    dmin = d;
+                    *out_intersection = ip;
+                }
+            }
+        }
+        l.a = l.b;
+    }
+    return found;
+}
+
+bool multipoint_intersections(
+    const Point *array, const size_t array_size, Point line_a, Point line_b, Points *out_points_intersection, bool is_polygon) {
+    if (array_size < 2)
+        return false;
+
+    size_t intersections_size = out_points_intersection->size();
+    Line l(array[array_size - 1], array[0]);
+    size_t istart = 0;
+    // if not polygon,
+    if (!is_polygon || l.a == l.b) {
+        istart = 1;
+        l.a = l.b;
+    }
+    for (size_t i = istart; i < array_size; ++i) {
+        l.b = array[i];
+        Point intersection;
+        if (l.intersection(Line(line_a, line_b), &intersection)) {
+            if (intersection == l.b || intersection == l.a) {
+                // if on a corner, only keep one intersection
+                if (std::find(out_points_intersection->begin(), out_points_intersection->end(), intersection) == out_points_intersection->end()) {
+                    out_points_intersection->emplace_back(std::move(intersection));
+                }
+            } else {
+                out_points_intersection->emplace_back(std::move(intersection));
+            }
+        }
+        l.a = l.b;
+    }
+    return out_points_intersection->size() > intersections_size;
+}
+
+BoundingBox multipoint_bounding_box(const Point *array, const size_t array_size) {
+    BoundingBox out;
+    if (array_size == 0) {
+        out.defined = false;
+    } else {
+        out.min = array[0];
+        out.max = out.min;
+        for (size_t i = 1; i < array_size; ++i) {
+            out.min = out.min.cwiseMin(array[i]);
+            out.max = out.max.cwiseMax(array[i]);
+        }
+        out.defined = out.min.x() < out.max.x() && out.min.y() < out.max.y();
+    }
+    return out;
+}
+
+int multipoint_find_point_index(const Point *array, const size_t array_size, Point point_search, coordf_t max_distance) {
+    if (max_distance <= 0) {
+        for (size_t i = 0; i < array_size; ++i) {
+            const Point &pt = array[i];
+            if (pt == point_search) {
+                return int(i);
+            }
+        }
+        return -1; // not found
+    }
+
+    coordf_t dist2_min = std::numeric_limits<coordf_t>::max();
+    coordf_t eps2      = max_distance * max_distance;
+    int      idx_min   = -1;
+    for (size_t i = 0; i < array_size; ++i) {
+        const Point &pt = array[i];
+        coordf_t d2 = pt.distance_to_square(point_search); //(pt - point).cast<coordf_t>().squaredNorm();
+        if (d2 < dist2_min) {
+            idx_min = int(&pt - &array[0]);
+            dist2_min = d2;
+        }
+    }
+    return dist2_min < eps2 ? idx_min : -1;
+}
+
+int multipoint_closest_point_index(const Point *array, const size_t array_size, Point point_search) {
+    int idx = -1;
+    if (array_size > 0) {
+        idx = 0;
+        double dist_min = (point_search - array[0]).cast<double>().norm();
+        for (int i = 1; i < int(array_size); ++i) {
+            double d = (array[i] - point_search).cast<double>().norm();
+            if (d < dist_min) {
+                dist_min = d;
+                idx = i;
+            }
+        }
+    }
+    return idx;
 }
 
 }

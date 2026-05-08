@@ -952,7 +952,7 @@ bool is_defined_input_value(wxWindow* win, const ConfigOptionType& type)
 }
 
 void TextCtrl::BUILD() {
-    auto size = wxSize((this->m_opt.type == ConfigOptionType::coPercent ? def_width_thinner() : def_width())*m_em_unit, wxDefaultCoord);
+    auto size = wxSize((this->m_opt.type == coPercent ? def_width_thinner() : def_width())*m_em_unit, wxDefaultCoord);
     if (m_opt.height >= 0) size.SetHeight(m_opt.height*m_em_unit);
     if (m_opt.width >= 0) size.SetWidth(m_opt.width*m_em_unit);
 

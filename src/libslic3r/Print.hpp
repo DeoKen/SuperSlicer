@@ -25,6 +25,7 @@
 #include "Fill/FillLightning.hpp"
 #include "PrintBase.hpp"
 
+#include "Api/internal/PrintObjectAccess.hpp"
 #include "BoundingBox.hpp"
 #include "ExtrusionEntityCollection.hpp"
 #include "Flow.hpp"
@@ -38,6 +39,7 @@
 #include "GCode/WipeTower2.hpp"
 #include "GCode/ThumbnailData.hpp"
 #include "MultiMaterialSegmentation.hpp"
+#include "Steps/StepPipeline.hpp"
 
 #include "libslic3r.h"
 
@@ -378,6 +380,7 @@ public:
     // Initialize the layer_height_profile from the model_object's layer_height_profile, from model_object's layer height table, or from slicing parameters.
     // Returns true, if the layer_height_profile was changed.
     static bool     update_layer_height_profile(const ModelObject &model_object, const SlicingParameters &slicing_parameters, std::vector<coordf_t> &layer_height_profile);
+    const std::vector<coord_t>& layer_profile() const { return m_layer_profile; }
 
     // Collect the slicing parameters, to be used by variable layer thickness algorithm,
     // by the interactive layer height editor and by the printing process itself.
@@ -422,6 +425,8 @@ protected:
     // to be called from Print only.
     friend class Print;
     friend class PrintBaseWithState<PrintStep, psCount>;
+    friend class Steps::StepPipeline;
+    friend struct ApiInternal::PrintObjectAccess;
 
 	PrintObject(Print* print, ModelObject* model_object, const Transform3d& trafo, PrintInstances&& instances);
     ~PrintObject() override {
@@ -519,6 +524,10 @@ private:
     std::pair<FillAdaptive::OctreePtr, FillAdaptive::OctreePtr> m_adaptive_fill_octrees;
     // filled by prepare_lightning_infill_data() (in bridge_over_infill() in prepare_infill()) and used in infill()
     FillLightning::GeneratorPtr m_lightning_generator;
+
+    // Result of LayerHeightGeneration. It stores pairs of layer z / layer height, so its size is 2 * layer_count.
+    std::vector<coord_t> m_layer_profile;
+
 };
 
 

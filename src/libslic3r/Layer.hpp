@@ -18,13 +18,19 @@
 #include "Flow.hpp"
 #include "SurfaceCollection.hpp"
 #include "ExtrusionEntityCollection.hpp"
+#include "Steps/StepPipeline.hpp"
 
 #include <boost/container/small_vector.hpp>
+#include <unordered_map>
 
 namespace Slic3r {
 
 class ExPolygon;
 using ExPolygons = std::vector<ExPolygon>;
+namespace ApiInternal { struct LayerAccess; }
+namespace ApiInternal { struct LayerIslandAccess; }
+namespace ApiInternal { struct LayerRegionAccess; }
+
 class Layer;
 using LayerPtrs = std::vector<Layer*>;
 class LayerSliceIsland;
@@ -43,8 +49,25 @@ namespace FillLightning {
     class Generator;
 };
 
-class LayerRegion
+class ExtraDataTag
 {
+protected:
+    std::unordered_map<std::string, double> m_tags;
+
+public:
+    double get_tag(const std::string &tag) const {
+        auto it = m_tags.find(tag);
+        if (it == m_tags.end())
+            return 0.0;
+        return it->second;
+    }
+    void set_tag(const std::string &tag, double value) { m_tags[tag] = value; }
+};
+
+class LayerRegion : public ExtraDataTag
+{
+    friend struct ApiInternal::LayerAccess;
+
 public:
     [[nodiscard]] Layer*                            layer()         { return m_layer; }
     [[nodiscard]] const Layer*                      layer() const   { return m_layer; }
@@ -106,12 +129,11 @@ public:
     void    export_region_fill_surfaces_to_svg_debug(const char *name) const;
 
     const ExPolygons &get_raw_slices() const { return m_raw_slices; }
-    const ExPolygons &get_raw_bounding_box() const { return m_raw_slices; }
-    void set_raw_slices(ExPolygons&& raw_slices) { m_raw_slices = std::move(raw_slices); }
 
 protected:
     friend class Layer;
     friend class PrintObject;
+    friend struct ApiInternal::LayerRegionAccess;
 
     LayerRegion(Layer *layer, const PrintRegion *region) : m_layer(layer), m_region(region) {}
     ~LayerRegion() = default;
@@ -167,7 +189,7 @@ private:
 // each LayerIsland containing a set of perimeter extrusions extruded with one particular PrintRegionConfig parameters
 // and one or multiple 
 // kind of similar as old's LayerIsland
-class LayerRegionIsland
+class LayerRegionIsland : public ExtraDataTag
 {
 private:
     friend class Layer;
@@ -180,8 +202,6 @@ private:
     // my regions
     LayerRegionSetConstPtrs m_regions;
 public:
-    // if true, then can be used by any extruder for wiping.
-    bool can_be_used_to_wipe = false;
 
     //LayerRegionIsland(const LayerRegionSetConstPtrs &regions) : m_regions(regions) {}
     LayerRegionIsland(const LayerRegionSetConstPtrs &regions, uint16_t extruder_id) : m_regions(regions), m_extruder_id(extruder_id) {}
@@ -223,7 +243,7 @@ public:
 using LayerRegionIslandPtr = std::unique_ptr<LayerRegionIsland>;
 
 // kind of similar as old's LayerSlice
-class LayerSliceIsland
+class LayerSliceIsland : public ExtraDataTag
 {
 public:
     // only filled when Layer's LayerSliceIsland are locked.
@@ -239,6 +259,8 @@ public:
     const ExPolygons &get_perimeter_slices() { return m_perimeter_slices; }
 
 protected:
+    friend struct ApiInternal::LayerIslandAccess;
+
     ExPolygon m_slice;
     BoundingBox m_bbox;
     // only regions that are relevant for this island
@@ -261,7 +283,6 @@ public:
     LayerSliceIsland(const ExPolygon &slice);
     void fill_regions(Layer& layer);
 
-    ExPolygon &get_mutable_slice() { return m_slice; }
     const ExPolygon &get_slice() const { return m_slice; }
     const BoundingBox &get_bounding_box() const { return m_bbox; }
     const LayerRegionSetConstPtrs &regions() const { return m_regions; }
@@ -303,7 +324,7 @@ using LayerSliceIslandPtr = std::unique_ptr<LayerSliceIsland>;
 //    std::vector<LayerIsland>;
 //#endif // NDEBUG
 
-class Layer 
+class Layer : public ExtraDataTag
 {
     coord_t             m_height;        // layer height
     coord_t             m_print_z;       // Z used for printing
@@ -348,7 +369,6 @@ public:
     // shortcut to get slices stored in islands
     const ExPolygons &      lslices() const { return m_lslices; }
 
-    void set_islands(ExPolygons && new_islands);
     const std::vector<LayerSliceIslandPtr> &islands() const { return m_islands; }
     LayerSliceIsland& get_mutable_island(size_t idx) { return *m_islands[idx]; }
     // to be called after LayerRegion's m_slices are created (but still not separated)
@@ -358,11 +378,9 @@ public:
     size_t                  region_count() const { return m_regions.size(); }
     const LayerRegion*      get_region(size_t idx) const { return m_regions[idx]; }
     LayerRegion*            get_region(size_t idx) { return m_regions[idx]; }
-    LayerRegion*            add_region(const PrintRegion *print_region);
     const LayerRegionPtrs&  regions() const { return m_regions; }
     // Test whether whether there are any slices assigned to this layer.
-    bool                    empty() const;    
-    void                    make_slices();
+    bool                    empty() const;
     // After creating the slices on all layers, chain the islands overlapping in Z.
     static void             build_up_down_graph(Layer &below, Layer &above);
     // erase LayerRegion's 'slices' surfaces and recreate one from raw
@@ -410,8 +428,10 @@ public:
 
 protected:
     friend class PrintObject;
+    friend class Steps::StepPipeline;
     friend std::vector<Layer*> new_layers(PrintObject*, const std::vector<coordf_t>&);
     friend std::string fix_slicing_errors(LayerPtrs&, const std::function<void()>&);
+    friend struct ApiInternal::LayerAccess;
 
     Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok) :
         upper_layer(nullptr), lower_layer(nullptr), 
@@ -425,7 +445,8 @@ protected:
     virtual ~Layer();
     // Clear fill extrusions, remove them from layer islands.
     void clear_fills();
-
+    //Deprecated, for  legacy slicing in printobject
+    void make_slices();
 private:
     // Sequential index of layer, 0-based, offsetted by number of raft layers.
     size_t              m_id;

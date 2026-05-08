@@ -105,7 +105,8 @@ public:
     // reduce the length of this polyline at dist. return the rest after the distance.
     Polyline split_at(distf_t dist);
     bool is_straight() const;
-    bool is_closed() const { return this->points.front() == this->points.back(); }
+    bool is_closed() const { return this->points.size() > 2 && this->points.front() == this->points.back(); }
+    bool is_polyline() const override { return true; }; // reflection
 
     using iterator = Points::iterator;
     using const_iterator = Points::const_iterator;

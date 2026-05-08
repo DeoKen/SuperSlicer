@@ -401,10 +401,19 @@ inline Points douglas_peucker(const Points &src, const coord_t tolerance)
     return out;
 }
 
+/* c-compatible version of Multipoin method, to mutualize the code*/
+bool multipoint_is_valid(const Point *array, const size_t array_size);
+bool multipoint_intersection(const Point *array, const size_t array_size, Point line_a, Point line_b, Point *out_intersection, bool is_polygon);
+bool multipoint_first_intersection(const Point *array, const size_t array_size, Point line_a, Point line_b, Point *out_intersection, bool is_polygon);
+bool multipoint_intersections(const Point *array, const size_t array_size, Point line_a, Point line_b, Points *out_intersections, bool is_polygon);
+BoundingBox multipoint_bounding_box(const Point *array, const size_t array_size);
+int multipoint_find_point_index(const Point *array, const size_t array_size, Point point_search, coordf_t max_distance);
+int multipoint_closest_point_index(const Point *array, const size_t array_size, Point point_search);
+
 class MultiPoint
 {
 public:
-    // TODO: makes that private?
+    // TODO: makes that private
     Points points;
 
     MultiPoint() = default;
@@ -421,6 +430,83 @@ public:
         points = std::move(other.points);
         return *this;
     }
+
+    // -- vector wrapper functions --
+    using container_type          = Points;
+    using value_type              = container_type::value_type;
+    using size_type               = container_type::size_type;
+    using difference_type         = container_type::difference_type;
+    using reference               = container_type::reference;
+    using const_reference         = container_type::const_reference;
+    using pointer                 = container_type::pointer;
+    using const_pointer           = container_type::const_pointer;
+    using iterator                = container_type::iterator;
+    using const_iterator          = container_type::const_iterator;
+    using reverse_iterator        = container_type::reverse_iterator;
+    using const_reverse_iterator = container_type::const_reverse_iterator;
+    [[nodiscard]] bool empty() const noexcept { return points.empty(); }
+    [[nodiscard]] size_type size() const noexcept { return points.size(); }
+    [[nodiscard]] size_type max_size() const noexcept { return points.max_size(); }
+    virtual void clear() noexcept { points.clear(); }
+    reference operator[](size_type pos) noexcept { return points[pos]; }
+    const_reference operator[](size_type pos) const noexcept { return points[pos]; }
+    reference at(size_type pos) { return points.at(pos); }
+    const_reference at(size_type pos) const { return points.at(pos); }
+    reference front() noexcept { return points.front(); }
+    const_reference front() const noexcept { return points.front(); }
+    reference back() noexcept { return points.back(); }
+    const_reference back() const noexcept { return points.back(); }
+    pointer data() noexcept { return points.data(); }
+    const_pointer data() const noexcept { return points.data(); }
+    iterator begin() noexcept { return points.begin(); }
+    const_iterator begin() const noexcept { return points.begin(); }
+    const_iterator cbegin() const noexcept { return points.cbegin(); }
+    iterator end() noexcept { return points.end(); }
+    const_iterator end() const noexcept { return points.end(); }
+    const_iterator cend() const noexcept { return points.cend(); }
+    reverse_iterator rbegin() noexcept { return points.rbegin(); }
+    const_reverse_iterator rbegin() const noexcept { return points.rbegin(); }
+    const_reverse_iterator crbegin() const noexcept { return points.crbegin(); }
+    reverse_iterator rend() noexcept { return points.rend(); }
+    const_reverse_iterator rend() const noexcept { return points.rend(); }
+    const_reverse_iterator crend() const noexcept { return points.crend(); }
+    void push_back(const value_type &value) { points.push_back(value); }
+    void push_back(value_type &&value) { points.push_back(std::move(value)); }
+    template<class... Args> reference emplace_back(Args &&...args) {
+        return points.emplace_back(std::forward<Args>(args)...);
+    }
+    void pop_back() { points.pop_back(); }
+    iterator insert(const_iterator pos, const value_type &value) { return points.insert(pos, value); }
+    iterator insert(const_iterator pos, value_type &&value) { return points.insert(pos, std::move(value)); }
+    iterator insert(const_iterator pos, size_type count, const value_type &value) {
+        return points.insert(pos, count, value);
+    }
+    template<class InputIt> iterator insert(const_iterator pos, InputIt first, InputIt last) {
+        return points.insert(pos, first, last);
+    }
+    iterator insert(const_iterator pos, std::initializer_list<value_type> ilist) {
+        return points.insert(pos, ilist);
+    }
+    iterator erase(const_iterator pos) { return points.erase(pos); }
+    iterator erase(const_iterator first, const_iterator last) { return points.erase(first, last); }
+    void resize(size_type count) { points.resize(count); }
+    void resize(size_type count, const value_type &value) { points.resize(count, value); }
+    void reserve(size_type new_cap) { points.reserve(new_cap); }
+    [[nodiscard]] size_type capacity() const noexcept { return points.capacity(); }
+    void shrink_to_fit() { points.shrink_to_fit(); }
+    void swap(MultiPoint &other) noexcept { points.swap(other.points); }
+    [[nodiscard]] const container_type &underlying_container() const noexcept { return points; }
+    [[nodiscard]] container_type &underlying_container() noexcept { return points; }
+    friend bool operator==(const MultiPoint &lhs, const MultiPoint &rhs) { return lhs.points == rhs.points; }
+    // -- end for vector wrapper functions --
+
+    // shortcut for front(), but with more useful name
+    const Point &first_point() const { return this->points.front(); }
+    virtual bool is_loop() const { return size() <= 1 || front() == back(); }
+    virtual bool is_polygon() const { return false; }; // reflection
+    virtual bool is_polyline() const { return false; }; // reflection
+    bool is_valid() const { return multipoint_is_valid(this->points.data(), this->points.size()); }
+
     void scale(double factor);
     void scale(double factor_x, double factor_y);
     void translate(coordf_t x, coordf_t y) { this->translate(Point(coord_t(x), coord_t(y))); }
@@ -429,14 +515,7 @@ public:
     void rotate(double cos_angle, double sin_angle);
     void rotate(double angle, const Point &center);
     virtual void reverse() { std::reverse(this->points.begin(), this->points.end()); }
-
-    const Point &front() const { return this->points.front(); }
-    const Point &back() const { return this->points.back(); }
-    const Point &first_point() const { return this->front(); }
-    virtual bool is_loop() const { return size() <= 1 || front() == back(); }
-    size_t size() const { return points.size(); }
-    bool empty() const { return points.empty(); }
-    bool is_valid() const { return this->points.size() >= 2; }
+    virtual void densify(distf_t min_length);
 
     // Return index of a polygon point exactly equal to point.
     // Return -1 if no such point exists.
@@ -445,19 +524,7 @@ public:
     // Return -1 if no such point exists.
     int find_point(const Point &point, const coordf_t scaled_epsilon) const;
     int closest_point_index(const Point &point) const {
-        int idx = -1;
-        if (!this->points.empty()) {
-            idx = 0;
-            double dist_min = (point - this->points.front()).cast<double>().norm();
-            for (int i = 1; i < int(this->points.size()); ++i) {
-                double d = (this->points[i] - point).cast<double>().norm();
-                if (d < dist_min) {
-                    dist_min = d;
-                    idx = i;
-                }
-            }
-        }
-        return idx;
+        return multipoint_closest_point_index(this->points.data(), this->points.size(), point);
     }
     const Point *closest_point(const Point &point) const {
         return this->points.empty() ? nullptr : &this->points[this->closest_point_index(point)];
@@ -472,7 +539,11 @@ public:
         assert(it_end <= points.end());
         points.resize(std::distance(points.begin(), it_end));
     }
-    virtual void clear() { this->points.clear(); }
+
+    bool intersection(const Line& line, Point* intersection) const;
+    bool first_intersection(const Line& line, Point* intersection) const;
+    bool intersections(const Line &line, Points *intersections) const;
+
     void append(const Point &point) { this->points.push_back(point); }
     void append(const Points &src) { this->append(src.begin(), src.end()); }
     void append(const Points::const_iterator &begin, const Points::const_iterator &end) {
@@ -496,18 +567,6 @@ public:
     // Projection of a point onto the lines defined by the points.
     virtual std::pair<Point, size_t> point_projection(const Point &point) const;
 
-    inline auto begin() { return points.begin(); }
-    inline auto begin() const { return points.begin(); }
-    inline auto end() { return points.end(); }
-    inline auto end() const { return points.end(); }
-    inline auto cbegin() const { return points.begin(); }
-    inline auto cend() const { return points.end(); }
-    inline auto rbegin() { return points.rbegin(); }
-    inline auto rbegin() const { return points.rbegin(); }
-    inline auto rend() { return points.rend(); }
-    inline auto rend() const { return points.rend(); }
-    inline auto crbegin() const { return points.crbegin(); }
-    inline auto crend() const { return points.crend(); }
 
 #ifdef _DEBUGINFO
     virtual void assert_valid() const;

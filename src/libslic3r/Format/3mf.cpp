@@ -3511,7 +3511,7 @@ namespace Slic3r {
                                     log << "Keys in config:";
                                     for(const std::string &k : config.keys()) log << " " << k;
                                     log << "\n";
-                                    if (option != nullptr && option->type() == ConfigOptionType::coEnum) {
+                                    if (option != nullptr && option->type() == coEnum) {
                                         log << "enum : " << option->get_int();
                                         log << "\n";
                                         const ConfigOptionDef* def = nullptr;
@@ -3526,7 +3526,7 @@ namespace Slic3r {
                                             }
                                         }
                                     }
-                                    if (option != nullptr && option->type() == ConfigOptionType::coInt) {
+                                    if (option != nullptr && option->type() == coInt) {
                                         log << "int : " << option->get_int();
                                         log << "\n";
                                     }
@@ -3765,7 +3765,7 @@ namespace Slic3r {
                             log << "Keys in obj:";
                             for(const std::string &k : obj->config.keys()) log << " " << k;
                             log << "\n";
-                            if (option != nullptr && option->type() == ConfigOptionType::coEnum) {
+                            if (option != nullptr && option->type() == coEnum) {
                                 try{
                                     log << "raw_int_value : " << option->get_int() << "\n";
                                 } catch (std::exception ex) {}
@@ -3783,7 +3783,7 @@ namespace Slic3r {
                                     }
                                 }
                             }
-                            if (option != nullptr && option->type() == ConfigOptionType::coInt) {
+                            if (option != nullptr && option->type() == coInt) {
                                 log << "int : " << option->get_int();
                                 log << "\n";
                             }
@@ -3932,7 +3932,7 @@ namespace Slic3r {
                                     for (const std::string &k : volume->config.keys())
                                         log << " " << k;
                                     log << "\n";
-                                    if (option != nullptr && option->type() == ConfigOptionType::coEnum) {
+                                    if (option != nullptr && option->type() == coEnum) {
                                         try {
                                             log << "raw_int_value : " << option->get_int() << "\n";
                                         } catch (std::exception ex) {}
@@ -3951,7 +3951,7 @@ namespace Slic3r {
                                             }
                                         }
                                     }
-                                    if (option != nullptr && option->type() == ConfigOptionType::coInt) {
+                                    if (option != nullptr && option->type() == coInt) {
                                         log << "int : " << option->get_int();
                                         log << "\n";
                                     }

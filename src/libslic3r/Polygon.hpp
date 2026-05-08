@@ -64,8 +64,8 @@ public:
         pgn.points.reserve(points.size());
         for (const Vec2d &pt : points)
             pgn.points.emplace_back(Point::new_scale(pt(0), pt(1)));
-		return pgn;
-	}
+        return pgn;
+    }
     Polygon& operator=(const Polygon &other) { points = other.points; return *this; }
     Polygon& operator=(Polygon &&other) { points = std::move(other.points); return *this; }
 
@@ -75,7 +75,8 @@ public:
     // last point == first point for polygons
     //please don't use that, prefer 'is_loop', front() and back().
     const Point& last_point() const { return this->points.front(); }
-    virtual bool is_loop() const { return true; }
+    bool is_loop() const override { return true; }
+    bool is_polygon() const override { return true; }; // reflection
 
     distf_t length() const;
     Lines lines() const;
@@ -104,12 +105,9 @@ public:
     // Works on CCW polygons only, CW contour will be reoriented to CCW by Clipper's simplify_polygons()!
     Polygons simplify(distf_t tolerance) const;
     void densify(float min_length, std::vector<float>* lengths = nullptr);
+    void densify(distf_t min_length) override;
     void triangulate_convex(Polygons* polygons) const;
     Point centroid() const;
-
-    bool intersection(const Line& line, Point* intersection) const;
-    bool first_intersection(const Line& line, Point* intersection) const;
-    bool intersections(const Line &line, Points *intersections) const;
 
     // Considering CCW orientation of this polygon
     // (it means that a ccw (contour) is mostly convex, while a cw (hole) is mostly concave),

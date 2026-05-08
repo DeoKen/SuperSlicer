@@ -178,72 +178,6 @@ Point Polygon::centroid() const
     return Point(Vec2d(c / (3. * area_sum)));
 }
 
-bool Polygon::intersection(const Line &line, Point *intersection) const
-{
-    if (this->points.size() < 2)
-        return false;
-    if (Line(this->points.front(), this->points.back()).intersection(line, intersection))
-        return true;
-    for (size_t i = 1; i < this->points.size(); ++ i)
-        if (Line(this->points[i - 1], this->points[i]).intersection(line, intersection))
-            return true;
-    return false;
-}
-
-bool Polygon::first_intersection(const Line& line, Point* intersection) const
-{
-    if (this->points.size() < 2)
-        return false;
-
-    bool   found = false;
-    double dmin  = 0.;
-    Line l(this->points.back(), this->points.front());
-    for (size_t i = 0; i < this->points.size(); ++ i) {
-        l.b = this->points[i];
-        Point ip;
-        if (l.intersection(line, &ip)) {
-            if (! found) {
-                found = true;
-                dmin = (line.a - ip).cast<double>().squaredNorm();
-                *intersection = ip;
-            } else {
-                double d = (line.a - ip).cast<double>().squaredNorm();
-                if (d < dmin) {
-                    dmin = d;
-                    *intersection = ip;
-                }
-            }
-        }
-        l.a = l.b;
-    }
-    return found;
-}
-
-bool Polygon::intersections(const Line &line, Points *intersections) const
-{
-    if (this->points.size() < 2)
-        return false;
-
-    size_t intersections_size = intersections->size();
-    Line l(this->points.back(), this->points.front());
-    for (size_t i = 0; i < this->points.size(); ++ i) {
-        l.b = this->points[i];
-        Point intersection;
-        if (l.intersection(line, &intersection)) {
-            if (intersection == l.b || intersection == l.a) {
-                // if on a corner, only keep one intersection
-                if (std::find(intersections->begin(), intersections->end(), intersection) == intersections->end()) {
-                    intersections->emplace_back(std::move(intersection));
-                }
-            } else {
-                intersections->emplace_back(std::move(intersection));
-            }
-        }
-        l.a = l.b;
-    }
-    return intersections->size() > intersections_size;
-}
-
 // Filter points from poly to the output with the help of FilterFn.
 // filter function receives two vectors:
 // v1: this_point - previous_point
@@ -460,6 +394,14 @@ void Polygon::densify(float min_length, std::vector<float>* lengths_ptr)
     assert(points.size() == lengths.size() - 1);
 }
 
+void Polygon::densify(distf_t min_length) {
+    distsqrf_t min_sqr_dist = min_length * min_length;
+    while (points.back().distance_to_square(points.front()) > min_sqr_dist) {
+        points.emplace_back((points.front().x() + points.back().x()) / 2, (points.front().y() + points.back().y()) / 2);
+    }
+    MultiPoint::densify(min_length);
+}
+
 size_t Polygon::remove_collinear(coord_t max_offset){
     size_t nb_del = 0;
     if (points.size() < 3) return 0;
@@ -614,10 +556,14 @@ bool has_duplicate_points(const Polygons &polys)
 #else
     // Detect duplicates by inserting into an ankerl::unordered_dense hash set, which is is around 1/4 faster than qsort.
     struct PointHash {
+        using is_avalanching = void;
         uint64_t operator()(const Point &p) const noexcept {
-#ifdef COORD_64B
-            return ankerl::unordered_dense::detail::wyhash::hash(p.x()) 
-                + ankerl::unordered_dense::detail::wyhash::hash(p.y());
+#if COORD_64B
+        uint64_t data[2] = {
+            static_cast<uint64_t>(p.x()),
+            static_cast<uint64_t>(p.y())
+        };
+        return ankerl::unordered_dense::detail::wyhash::hash(data, sizeof(data));
 #else
             uint64_t h;
             static_assert(sizeof(h) == sizeof(p));

@@ -18,6 +18,9 @@
 
 #include <oneapi/tbb/parallel_for.h>
 
+#include "Api/internal/LayerAccess.hpp"
+#include "Api/internal/LayerIslandAccess.hpp"
+#include "Api/internal/LayerRegionAccess.hpp"
 
 namespace Slic3r {
 
@@ -1077,7 +1080,8 @@ void PrintObject::_max_overhang_threshold() {
                 for (size_t surf_idx = 0; surf_idx < my_surfaces.size(); surf_idx++) {
                     expolys_final.push_back(my_surfaces[surf_idx].expolygon);
                 }
-                my_layer->m_regions[region_idx]->set_raw_slices(std::move(expolys_final));
+                //my_layer->m_regions[region_idx]->set_raw_slices(std::move(expolys_final));
+                ApiInternal::LayerRegionAccess::slices_mutable(*my_layer->m_regions[region_idx]) = std::move(expolys_final);
                 for(auto &srf : my_surfaces) srf.expolygon.assert_valid();
             } else {
                 Surfaces &my_surfaces = lregion->m_slices.surfaces;
@@ -1110,7 +1114,7 @@ void PrintObject::_max_overhang_threshold() {
             }
         }
 #endif
-        my_layer->set_islands(std::move(new_lslices));
+        ApiInternal::LayerAccess::set_islands(*my_layer, std::move(new_lslices));
         // now done after slicing, just before gcode 
     }
 }
@@ -1173,8 +1177,9 @@ void PrintObject::_transform_hole_to_polyholes()
             Layer* layer = m_layers[layer_idx];
             for (size_t region_idx = 0; region_idx < layer->m_regions.size(); ++region_idx)
             {
-                if (layer->m_regions[region_idx]->region().config().hole_to_polyhole) {
-                    for (ExPolygon& surf_expoly : layer->m_regions[region_idx]->m_raw_slices) {
+                LayerRegion *layer_region = layer->get_region(region_idx);
+                if (layer_region->region().config().hole_to_polyhole) {
+                    for (ExPolygon& surf_expoly : ApiInternal::LayerRegionAccess::slices_mutable(*layer_region)) {
                         for (Polygon& hole : surf_expoly.holes) {
                             //test if convex (as it's clockwise bc it's a hole, we have to do the opposite)
                             if (hole.convex_points(0, PI).empty() && hole.points.size() > 8) {
@@ -1265,7 +1270,8 @@ void PrintObject::_transform_hole_to_polyholes()
             // 1. modify the islands
             for (size_t island_idx = 0; island_idx < m_layers[poly_to_replace.second]->islands().size();
                  ++island_idx) {
-                ExPolygon& explo_slice = m_layers[poly_to_replace.second]->get_mutable_island(island_idx).get_mutable_slice();
+                ExPolygon& explo_slice = ApiInternal::LayerIslandAccess::slice_mutable(
+                    this->m_layers[poly_to_replace.second]->get_mutable_island(island_idx));
                 for (Polygon& poly_slice : explo_slice.holes) {
                     if (poly_slice.points == poly_to_replace.first->points) {
                         poly_slice.points = polyhole.points;
@@ -1277,8 +1283,8 @@ void PrintObject::_transform_hole_to_polyholes()
             assert(modified == 1);
 
             // 2. modify the layer m_lslices (cache of islands)
-            assert(!m_layers[poly_to_replace.second]->lslices().empty());
-            for (ExPolygon &explo_slice : m_layers[poly_to_replace.second]->m_lslices) {
+            assert(!this->m_layers[poly_to_replace.second]->lslices().empty());
+            for (ExPolygon &explo_slice : ApiInternal::LayerAccess::slices_mutable(*this->m_layers[poly_to_replace.second])) {
                 for (Polygon &poly_slice : explo_slice.holes) {
                     if (poly_slice.points == poly_to_replace.first->points) {
                         poly_slice.points = polyhole.points;
@@ -1422,7 +1428,8 @@ void apply_mm_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_can
                         // Multiple regions were merged into one.
                         src.expolygons = closing_ex(src.expolygons, float(scale_d(10 * EPSILON)));
                     ensure_valid(src.expolygons);
-                    layer->get_region(region_id)->set_raw_slices(std::move(src.expolygons));
+                    //layer->get_region(region_id)->set_raw_slices(std::move(src.expolygons));
+                    ApiInternal::LayerRegionAccess::slices_mutable(*layer->get_region(region_id)) = std::move(src.expolygons);
                     for(auto &expolygon : layer->get_region(region_id)->get_raw_slices()) expolygon.assert_valid();
                 }
             }
@@ -1686,7 +1693,8 @@ void PrintObject::slice_volumes()
         for (size_t layer_id = 0; layer_id < by_layer.size(); ++ layer_id) {
             ensure_valid(by_layer[layer_id]);
             LayerRegion &lregion = *m_layers[layer_id]->regions()[region_id];
-            lregion.set_raw_slices(std::move(by_layer[layer_id]));
+            //lregion.set_raw_slices(std::move(by_layer[layer_id]));
+            ApiInternal::LayerRegionAccess::slices_mutable(lregion) = std::move(by_layer[layer_id]);
             lregion.m_slices.append(lregion.get_raw_slices(), stPosInternal | stDensSparse);
             //for(auto &srf : m_layers[layer_id]->regions()[region_id]->m_slices) srf.expolygon.assert_valid();
         }
@@ -1806,7 +1814,8 @@ void PrintObject::slice_volumes()
                             expolygons = _smooth_curves(expolygons, layer->regions().front()->region().config());
                         }
                         ensure_valid(expolygons);
-                        layerm->set_raw_slices(std::move(expolygons));
+                        //layerm->set_raw_slices(std::move(expolygons));
+                        ApiInternal::LayerRegionAccess::slices_mutable(*layerm) = std::move(expolygons);
                     } else {
                         bool same_curve_smoothing = true;
                         for (size_t region_id = 1; same_curve_smoothing && region_id < layer->regions().size(); ++region_id) {
@@ -1848,7 +1857,8 @@ void PrintObject::slice_volumes()
                                 slices = diff_ex(slices, other_base_slices);
                                 //store
                                 ensure_valid(slices);
-                                layerm->set_raw_slices(std::move(slices));
+                                //layerm->set_raw_slices(std::move(slices));
+                                ApiInternal::LayerRegionAccess::slices_mutable(*layerm) = std::move(slices);
                             }
                         }
                         //shrink
@@ -1901,7 +1911,8 @@ void PrintObject::slice_volumes()
                                 slices = diff_ex(slices, other_base_slices);
                                 //store
                                 ensure_valid(slices);
-                                layerm->set_raw_slices(std::move(slices));
+                                //layerm->set_raw_slices(std::move(slices));
+                                ApiInternal::LayerRegionAccess::slices_mutable(*layerm) = std::move(slices);
                             }
                         }
                     }

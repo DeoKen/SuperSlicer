@@ -43,53 +43,7 @@
 
 #include "Technologies.hpp"
 #include "Semver.hpp"
-
-// unscaled coordinates (in milimiters) are stored in a double
-// scaled coordinates are stored in coord_t for interger and coordf_t (double) when it's needed to have a floating point
-// scaled distance is stored in distf_t (same type as coordf_t, but it's not exactly the same use)
-
-#define COORD_64B 1
-#ifndef COORD_64B
-    // Saves around 32% RAM after slicing step, 6.7% after G-code export (tested on PrusaSlicer 2.2.0 final).
-using coord_t = int32_t;
-//using coor2 = int64_t;
-using coordf_t = double;
-using distf_t = double;
-using distsqrf_t = double;
-// to optimise computation by staying in int
-using lengthsqr_t = int64_t;
-#else
-    //FIXME At least FillRectilinear2 and std::boost Voronoi require coord_t to be 32bit.
-using coord_t = int64_t;
-//using Coord2 = double;
-using coordf_t = double;
-using distf_t = double;
-using distsqrf_t = double;
-using lengthsqr_t = uint64_t;
-#endif
-
-#ifdef __cplusplus
-#define CONSTEXPR_INLINE constexpr inline
-#define CONSTEXPR_STATIC constexpr static
-#else
-#define CONSTEXPR_INLINE static inline
-#define CONSTEXPR_STATIC static const
-#endif
-
-// Scaling factor for a conversion from coord_t to coordf_t: 10e-6
-// This scaling generates a following fixed point representation with for a 32bit integer:
-// 0..4294mm with 1nm resolution
-// int32_t fits an interval of (-2147.48mm, +2147.48mm)
-// with int64_t we don't have to worry anymore about the size of the int.
-CONSTEXPR_STATIC double SCALING_FACTOR   = 0.000001;
-CONSTEXPR_STATIC double UNSCALING_FACTOR = 1000000; // 1 / SCALING_FACTOR; <- linux has some problem compiling this constexpr
-
-//FIXME This epsilon value is used for many non-related purposes:
-// For a threshold of a squared Euclidean distance,
-// for a trheshold in a difference of radians,
-// for a threshold of a cross product of two non-normalized vectors etc.
-CONSTEXPR_STATIC double EPSILON = 1e-4;
-CONSTEXPR_STATIC coord_t SCALED_EPSILON = 100; // coord_t(EPSILON/ SCALING_FACTOR); <- linux has some problem compiling this constexpr
+#include "Api/plugin/c/slic3r_def.h"
 
 //for creating circles (for brim_ear)
 #define POLY_SIDES 24
@@ -98,7 +52,8 @@ CONSTEXPR_STATIC coord_t SCALED_EPSILON = 100; // coord_t(EPSILON/ SCALING_FACTO
 //static constexpr double LOOP_CLIPPING_LENGTH_OVER_NOZZLE_DIAMETER = 0.15; now seam_gap
 // Maximum perimeter length for the loop to apply the small perimeter speed. 
 //#define                 SMALL_PERIMETER_LENGTH  ((6.5 / SCALING_FACTOR) * 2 * PI)
-CONSTEXPR_STATIC double INSET_OVERLAP_TOLERANCE = 0.4;
+static constexpr double INSET_OVERLAP_TOLERANCE = 0.4;
+
 inline uint16_t operator "" _u(unsigned long long value)
 {
     return static_cast<uint16_t>(value);
@@ -124,31 +79,6 @@ using deque =
 #else // _WIN32
     std::deque<T, Allocator>;
 #endif // _WIN32
-
-CONSTEXPR_INLINE double   unscaled(coord_t v) { return double(v) * SCALING_FACTOR; }
-CONSTEXPR_INLINE double   unscaled(coordf_t v) { return v * SCALING_FACTOR; }
-
-CONSTEXPR_INLINE distsqrf_t coord_sqr(coord_t length) { return distf_t(length) * distf_t(length); }
-
-// lossy square (works only for 2^38 length), by dividing by 128 to remove epsilon (and a bit more)
-#ifndef COORD_64B
-CONSTEXPR_INLINE lengthsqr_t coord_int_sqr(coord_t length) { 
-    return lengthsqr_t(length) * lengthsqr_t(length);
-}
-CONSTEXPR_INLINE coord_t  scale_i(double v) { return coord_t(v * UNSCALING_FACTOR + 0.5); }
-CONSTEXPR_INLINE coordf_t scale_d(double v) { return coordf_t(v * UNSCALING_FACTOR); }
-#else   
-CONSTEXPR_STATIC uint8_t SQUARE_BIT_REDUCTION  = 7;
-CONSTEXPR_INLINE lengthsqr_t coord_int_sqr(coord_t length) { 
-    assert(length < std::pow(2,38));
-    // remove epsilon (/128)
-    // as we're computing the norm, we can use abs 
-    lengthsqr_t temp = (length < 0 ? -length : length) >> SQUARE_BIT_REDUCTION;
-    return temp * temp;
-}
-CONSTEXPR_INLINE coord_t  scale_i(double v) { return coord_t(v * UNSCALING_FACTOR + 0.5); }
-CONSTEXPR_INLINE coordf_t scale_d(double v) { return coordf_t(v * UNSCALING_FACTOR); }
-#endif
 
 enum Axis { 
 	X=0,

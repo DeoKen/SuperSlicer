@@ -3,6 +3,18 @@
 These header files contains the object to extends to create a new plugin.
 currently work_in_progress
 
+## directory layout
+
+`Api/plugin/c` contains the C ABI that plugins may include directly.
+`Api/plugin/cpp` contains C++ helper views and base classes built on top of
+the C ABI. `Api/plugin/python` is reserved for future Python bindings.
+
+`Api/host` contains host-side implementation details compiled into the main
+program. `Api/internal` contains lower-level accessors to native slic3r data
+structures. Plugins should not depend on either directory. The `Plugins`
+directory contains official plugin implementations that consume the public
+plugin API.
+
 note: items with tag Planned are currently ideas that are not implemented and so may not work and may need extensive modifications.
 Other items are already implemented, but may need some modifications in the future to fit into the framework
 
@@ -142,7 +154,7 @@ max overhangs
 curve smoothing
 
 ### surface creation
-
+Unique
 create surfaces from Islands 
 
 ### Perimeter Generator pre-process

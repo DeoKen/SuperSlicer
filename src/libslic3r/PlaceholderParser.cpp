@@ -1460,14 +1460,14 @@ namespace client
                     ctx->throw_exception("Referencing a vector variable when scalar is expected", opt.it_range);
                 if (opt.opt->size() == 0)
                     ctx->throw_exception("Indexing an empty vector variable", opt.it_range);
-                if (opt.opt->type() != ConfigOptionType::coGraphs)
+                if (opt.opt->type() != coGraphs)
                     ctx->throw_exception("Interpolate on a variable that isn't a graph", opt.it_range);
                 expr::throw_if_not_numeric(valeur);
                 double val_x = valeur.type() == expr::Type::TYPE_DOUBLE ? (valeur.as_d()) : (valeur.as_i() * 1.);
                 output.set_d(((ConfigOptionGraphs*)opt.opt)->get_at(opt.index).interpolate(val_x));
             } else {
                 assert(opt.opt->is_scalar());
-                if (opt.opt->type() != ConfigOptionType::coGraph)
+                if (opt.opt->type() != coGraph)
                     ctx->throw_exception("Interpolate on a variable that isn't a graph", opt.it_range);
                 expr::throw_if_not_numeric(valeur);
                 double val_x = valeur.type() == expr::Type::TYPE_DOUBLE ? (valeur.as_d()) : (valeur.as_i() * 1.);

@@ -37,6 +37,7 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
+#include "libslic3r/Api/plugin/c/slic3r_config_option_type.h"
 #include "libslic3r.h"
 #include "clonable_ptr.hpp"
 #include "Exception.hpp"
@@ -395,47 +396,31 @@ public:
     BadOptionValueException(const char* message) : ConfigurationError(message) {}
 };
 
-// Type of a configuration value.
-enum ConfigOptionType : uint16_t{
-    coVectorType    = 0x4000, // 16384
-    coNone          = 0,
-    // single float
-    coFloat         = 1,
-    // vector of floats
-    coFloats        = coFloat + coVectorType,
-    // single int
-    coInt           = 2,
-    // vector of ints
-    coInts          = coInt + coVectorType,
-    // single string
-    coString        = 3,
-    // vector of strings
-    coStrings       = coString + coVectorType,
-    // percent value. Currently only used for infill & flow ratio.
-    coPercent       = 4,
-    // percents value. Currently used for retract before wipe only.
-    coPercents      = coPercent + coVectorType,
-    // a fraction or an absolute value
-    coFloatOrPercent = 5,
-    // vector of the above
-    coFloatsOrPercents = coFloatOrPercent + coVectorType,
-    // single 2d point (Point2f). Currently not used.
-    coPoint         = 6,
-    // vector of 2d points (Point2f). Currently used for the definition of the print bed and for the extruder offsets.
-    coPoints        = coPoint + coVectorType,
-    coPoint3        = 7,
-//    coPoint3s       = coPoint3 + coVectorType,
-    // single boolean value
-    coBool          = 8,
-    // vector of boolean values
-    coBools         = coBool + coVectorType,
-    // a generic enum
-    coEnum          = 9,
-    // a graph of double->double
-    coGraph         = 10,
-    // a vector of graph of double->double
-    coGraphs        = coGraph + coVectorType,
-};
+// Type of a configuration value. The numeric values are defined once in the
+// small C ABI header and reused here to keep host and plugin code in lockstep.
+using ConfigOptionType = config_option_type;
+
+static constexpr ConfigOptionType coVectorType = SLIC3R_CONFIG_OPTION_VECTOR_TYPE; // 16384
+static constexpr ConfigOptionType coNone = SLIC3R_CONFIG_OPTION_NONE;
+static constexpr ConfigOptionType coFloat = SLIC3R_CONFIG_OPTION_FLOAT;
+static constexpr ConfigOptionType coFloats = SLIC3R_CONFIG_OPTION_FLOATS;
+static constexpr ConfigOptionType coInt = SLIC3R_CONFIG_OPTION_INT;
+static constexpr ConfigOptionType coInts = SLIC3R_CONFIG_OPTION_INTS;
+static constexpr ConfigOptionType coString = SLIC3R_CONFIG_OPTION_STRING;
+static constexpr ConfigOptionType coStrings = SLIC3R_CONFIG_OPTION_STRINGS;
+static constexpr ConfigOptionType coPercent = SLIC3R_CONFIG_OPTION_PERCENT;
+static constexpr ConfigOptionType coPercents = SLIC3R_CONFIG_OPTION_PERCENTS;
+static constexpr ConfigOptionType coFloatOrPercent = SLIC3R_CONFIG_OPTION_FLOAT_OR_PERCENT;
+static constexpr ConfigOptionType coFloatsOrPercents = SLIC3R_CONFIG_OPTION_FLOATS_OR_PERCENTS;
+static constexpr ConfigOptionType coPoint = SLIC3R_CONFIG_OPTION_POINT;
+static constexpr ConfigOptionType coPoints = SLIC3R_CONFIG_OPTION_POINTS;
+static constexpr ConfigOptionType coPoint3 = SLIC3R_CONFIG_OPTION_POINT3;
+//    coPoint3s = coPoint3 + coVectorType;
+static constexpr ConfigOptionType coBool = SLIC3R_CONFIG_OPTION_BOOL;
+static constexpr ConfigOptionType coBools = SLIC3R_CONFIG_OPTION_BOOLS;
+static constexpr ConfigOptionType coEnum = SLIC3R_CONFIG_OPTION_ENUM;
+static constexpr ConfigOptionType coGraph = SLIC3R_CONFIG_OPTION_GRAPH;
+static constexpr ConfigOptionType coGraphs = SLIC3R_CONFIG_OPTION_GRAPHS;
 
 enum ConfigOptionMode : uint64_t {
     comNone = 0,
