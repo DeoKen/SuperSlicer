@@ -24,3 +24,5 @@ deps/build-linux/*
 CMakeUserPresets.json
 **/bad_*
 releases/
+.tgitconfig
+AGENT*.md
