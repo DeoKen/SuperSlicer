@@ -268,7 +268,7 @@ void Cut::post_process(ModelObject* object, ModelObjectPtrs& cut_object_ptrs, bo
         cut_object_ptrs.push_back(object);
     }
     else
-        m_model.objects.push_back(object); // will be deleted in m_model.clear_objects();
+        m_model.add_object(ModelObjectUPtr(object)); // will be deleted in m_model.clear_objects();
 }
 
 void Cut::post_process(ModelObject* upper, ModelObject* lower, ModelObjectPtrs& cut_object_ptrs)
@@ -289,9 +289,13 @@ void Cut::finalize(const ModelObjectPtrs& objects)
 {
     //clear model from temporarry objects
     m_model.clear_objects();
+    m_result_objects.clear();
 
     // add to model result objects
-    m_model.objects = objects;
+    for (ModelObject *object : objects) {
+        m_result_objects.push_back(object);
+        m_model.add_object(ModelObjectUPtr(object));
+    }
 }
 
 
@@ -299,10 +303,11 @@ const ModelObjectPtrs& Cut::perform_with_plane()
 {
     if (!m_attributes.has(ModelObjectCutAttribute::KeepUpper) && !m_attributes.has(ModelObjectCutAttribute::KeepLower)) {
         m_model.clear_objects();
-        return m_model.objects;
+        m_result_objects.clear();
+        return m_result_objects;
     }
 
-    ModelObject* mo = m_model.objects.front();
+    ModelObject* mo = &m_model.objects().front();
 
     BOOST_LOG_TRIVIAL(trace) << "ModelObject::cut - start";
 
@@ -343,8 +348,10 @@ const ModelObjectPtrs& Cut::perform_with_plane()
 
     if (m_attributes.has(ModelObjectCutAttribute::KeepAsParts) && upper->volumes.empty()) {
         m_model = Model();
-        m_model.objects.push_back(upper);
-        return m_model.objects;
+        m_result_objects.clear();
+        m_result_objects.push_back(upper);
+        m_model.add_object(ModelObjectUPtr(upper));
+        return m_result_objects;
     }
 
     ModelObjectPtrs cut_object_ptrs;
@@ -386,7 +393,7 @@ const ModelObjectPtrs& Cut::perform_with_plane()
 
     finalize(cut_object_ptrs);
 
-    return m_model.objects;
+    return m_result_objects;
 }
 
 static void distribute_modifiers_from_object(ModelObject* from_obj, const int instance_idx, ModelObject* to_obj1, ModelObject* to_obj2)
@@ -439,7 +446,7 @@ static void merge_solid_parts_inside_object(ModelObjectPtrs& objects)
 
 const ModelObjectPtrs& Cut::perform_by_contour(std::vector<Part> parts, int dowels_count)
 {
-    ModelObject* cut_mo = m_model.objects.front();
+    ModelObject* cut_mo = &m_model.objects().front();
 
     // Clone the object to duplicate instances, materials etc.
     ModelObject* upper{ nullptr };
@@ -515,13 +522,13 @@ const ModelObjectPtrs& Cut::perform_by_contour(std::vector<Part> parts, int dowe
                 m_model.add_object(*cut_connectors_obj[id]);
     }
 
-    return m_model.objects;
+    return m_result_objects;
 }
 
 
 const ModelObjectPtrs& Cut::perform_with_groove(const Groove& groove, const Transform3d& rotation_m, bool keep_as_parts/* = false*/)
 {
-    ModelObject* cut_mo = m_model.objects.front();
+    ModelObject* cut_mo = &m_model.objects().front();
 
     // Clone the object to duplicate instances, materials etc.
     ModelObject* upper{ nullptr };
@@ -535,10 +542,10 @@ const ModelObjectPtrs& Cut::perform_with_groove(const Groove& groove, const Tran
 
     Model tmp_model = Model();
     tmp_model.add_object(*cut_mo);
-    ModelObject* tmp_object = tmp_model.objects.front();
+    ModelObject* tmp_object = &tmp_model.objects().front();
 
     auto add_volumes_from_cut = [](ModelObject* object, const ModelObjectCutAttribute attribute, const Model& tmp_model_for_cut) {
-        const auto& volumes = tmp_model_for_cut.objects.front()->volumes;
+        const auto& volumes = tmp_model_for_cut.objects().front().volumes;
         for (const ModelVolume* volume : volumes)
             if (volume->is_model_part()) {
                 if ((attribute == ModelObjectCutAttribute::KeepUpper && volume->is_from_upper()) ||
@@ -555,7 +562,7 @@ const ModelObjectPtrs& Cut::perform_with_groove(const Groove& groove, const Tran
 
         tmp_model_for_cut = Model();
         tmp_model_for_cut.add_object(*cut.perform_with_plane().front());
-        assert(!tmp_model_for_cut.objects.empty());
+        assert(!tmp_model_for_cut.objects().empty());
 
         object->clear_volumes();
         add_volumes_from_cut(object, add_volumes_attribute, tmp_model_for_cut);
@@ -657,7 +664,7 @@ const ModelObjectPtrs& Cut::perform_with_groove(const Groove& groove, const Tran
 
     finalize(cut_object_ptrs);
 
-    return m_model.objects;
+    return m_result_objects;
 }
 
 } // namespace Slic3r

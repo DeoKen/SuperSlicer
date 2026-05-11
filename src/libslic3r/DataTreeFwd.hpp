@@ -54,6 +54,9 @@ using LayerSliceIslandUPtr = std::unique_ptr<LayerSliceIsland>;
 using LayerSliceIslandUPtrs = std::vector<LayerSliceIslandUPtr>;
 using ModelInstancePtrs = std::vector<ModelInstance*>;
 using ModelObjectPtrs = std::vector<ModelObject*>;
+using ConstModelObjectPtrs = std::vector<const ModelObject*>;
+using ModelObjectUPtr = std::unique_ptr<ModelObject>;
+using ModelObjectUPtrs = std::vector<ModelObjectUPtr>;
 using ModelVolumePtrs = std::vector<ModelVolume*>;
 using PrintObjectUPtr = std::unique_ptr<PrintObject>;
 using PrintObjectUPtrs = std::vector<PrintObjectUPtr>;
@@ -165,6 +168,8 @@ RefView<T, const PtrContainer> make_ref_view(const PtrContainer &items)
 
 using LayerRefs = RefView<Layer, LayerUPtrs>;
 using LayerCRefs = RefView<Layer, const LayerUPtrs>;
+using ModelObjectRefs = RefView<ModelObject, ModelObjectUPtrs>;
+using ModelObjectCRefs = RefView<ModelObject, const ModelObjectUPtrs>;
 using SupportLayerRefs = RefView<SupportLayer, SupportLayerUPtrs>;
 using SupportLayerCRefs = RefView<SupportLayer, const SupportLayerUPtrs>;
 using LayerRegionRefs = RefView<LayerRegion, LayerRegionUPtrs>;

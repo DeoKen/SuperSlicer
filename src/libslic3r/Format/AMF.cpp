@@ -312,7 +312,7 @@ void AMFParserContext::startElement(const char *name, const char **atts)
 				assert(m_object_vertices.empty());
                 m_object = m_model.add_object();
                 m_object->name = std::string(object_id);
-                m_object_instances_map[object_id].idx = int(m_model.objects.size())-1;
+                m_object_instances_map[object_id].idx = int(m_model.objects().size()) - 1;
                 node_type_new = NODE_TYPE_OBJECT;
             }
         }
@@ -678,8 +678,8 @@ void AMFParserContext::endElement(const char * /* name */)
             m_volume->source.transform = Slic3r::Geometry::Transformation(m_volume_transform);
 
         if (m_volume->source.input_file.empty()) {
-            m_volume->source.object_idx = (int)m_model.objects.size() - 1;
-            m_volume->source.volume_idx = (int)m_model.objects.back()->volumes.size() - 1;
+            m_volume->source.object_idx = (int)m_model.objects().size() - 1;
+            m_volume->source.volume_idx = (int)m_model.objects().back().volumes.size() - 1;
             m_volume->center_geometry_after_creation();
         }
         else
@@ -896,7 +896,7 @@ void AMFParserContext::endDocument()
         }
         for (const Instance &instance : object.second.instances)
             if (instance.anything_set()) {
-                ModelInstance *mi = m_model.objects[object.second.idx]->add_instance();
+                ModelInstance *mi = m_model.objects()[object.second.idx].add_instance();
                 mi->set_offset(Vec3d(instance.deltax_set ? (double)instance.deltax : 0.0, instance.deltay_set ? (double)instance.deltay : 0.0, instance.deltaz_set ? (double)instance.deltaz : 0.0));
                 mi->set_rotation(Vec3d(instance.rx_set ? (double)instance.rx : 0.0, instance.ry_set ? (double)instance.ry : 0.0, instance.rz_set ? (double)instance.rz : 0.0));
                 mi->set_scaling_factor(Vec3d(instance.scalex_set ? (double)instance.scalex : 1.0, instance.scaley_set ? (double)instance.scaley : 1.0, instance.scalez_set ? (double)instance.scalez : 1.0));
@@ -954,7 +954,8 @@ bool load_amf_file(const char *path, DynamicPrintConfig *config, ConfigSubstitut
     if (result)
         ctx.endDocument();
 
-    for (ModelObject* o : model->objects) {
+    for (ModelObject &object : model->objects()) {
+        ModelObject *o = &object;
         unsigned int counter = 0;
         for (ModelVolume* v : o->volumes) {
             ++counter;
@@ -1106,10 +1107,12 @@ bool load_amf_archive(const char* path, DynamicPrintConfig* config, ConfigSubsti
 
     close_zip_reader(&archive);
 
-    for (ModelObject *o : model->objects)
+    for (ModelObject &object : model->objects()) {
+        ModelObject *o = &object;
         for (ModelVolume *v : o->volumes)
             if (v->source.input_file.empty())
                 v->source.input_file = path;
+    }
 
     return true;
 }
@@ -1185,8 +1188,8 @@ bool store_amf(std::string &path, Model *model, const DynamicPrintConfig *config
         stream << "  </material>\n";
     }
     std::string instances;
-    for (size_t object_id = 0; object_id < model->objects.size(); ++ object_id) {
-        ModelObject *object = model->objects[object_id];
+    for (size_t object_id = 0; object_id < model->objects().size(); ++ object_id) {
+        ModelObject *object = &model->objects()[object_id];
         stream << "  <object id=\"" << object_id << "\">\n";
         if (options.export_modifiers)
             for (const std::string &key : object->config.keys())

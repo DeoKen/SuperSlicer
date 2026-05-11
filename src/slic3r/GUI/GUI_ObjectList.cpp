@@ -426,7 +426,7 @@ void ObjectList::get_selection_indexes(std::vector<int>& obj_idxs, std::vector<i
 
 int ObjectList::get_repaired_errors_count(const int obj_idx, const int vol_idx /*= -1*/) const
 {
-    return obj_idx >= 0 ? (*m_objects)[obj_idx]->get_repaired_errors_count(vol_idx) : 0;
+    return obj_idx >= 0 ? m_model->objects()[obj_idx].get_repaired_errors_count(vol_idx) : 0;
 }
 
 static std::string get_warning_icon_name(const TriangleMeshStats& stats)
@@ -439,7 +439,7 @@ MeshErrorsInfo ObjectList::get_mesh_errors_info(const int obj_idx, const int vol
     if (obj_idx < 0)
         return { {}, {} }; // hide tooltip
 
-    const ModelObject* object = (*m_objects)[obj_idx];
+    const ModelObject* object = &m_model->objects()[obj_idx];
     if (vol_idx != -1 && vol_idx >= int(object->volumes.size())) {
         if (sidebar_info)
             *sidebar_info = _L("Invalid object part index") + " ";
@@ -447,8 +447,8 @@ MeshErrorsInfo ObjectList::get_mesh_errors_info(const int obj_idx, const int vol
     }
 
     const TriangleMeshStats& stats = vol_idx == -1 ?
-        (*m_objects)[obj_idx]->get_object_stl_stats() :
-        (*m_objects)[obj_idx]->volumes[vol_idx]->mesh().stats();
+        m_model->objects()[obj_idx].get_object_stl_stats() :
+        m_model->objects()[obj_idx].volumes[vol_idx]->mesh().stats();
 
     if (!stats.repaired() && stats.manifold()) {
         if (sidebar_info)
@@ -574,19 +574,19 @@ ModelConfig& ObjectList::get_item_config(const wxDataViewItem& item) const
     const int vol_idx = type & itVolume ? m_objects_model->GetVolumeIdByItem(item) : -1;
 
     assert(obj_idx >= 0 || ((type & itVolume) && vol_idx >=0));
-    return type & itVolume ?(*m_objects)[obj_idx]->volumes[vol_idx]->config :
-           type & itLayer  ?(*m_objects)[obj_idx]->layer_config_ranges[m_objects_model->GetLayerRangeByItem(item)] :
-                            (*m_objects)[obj_idx]->config;
+    return type & itVolume ?m_model->objects()[obj_idx].volumes[vol_idx]->config :
+           type & itLayer  ?m_model->objects()[obj_idx].layer_config_ranges[m_objects_model->GetLayerRangeByItem(item)] :
+                            m_model->objects()[obj_idx].config;
 }
 
 void ObjectList::update_extruder_values_for_items(const size_t max_extruder)
 {
-    for (size_t i = 0; i < m_objects->size(); ++i)
+    for (size_t i = 0; i < m_model->objects().size(); ++i)
     {
         wxDataViewItem item = m_objects_model->GetItemById(i);
         if (!item) continue;
             
-        auto object = (*m_objects)[i];
+        auto object = &m_model->objects()[i];
         wxString extruder;
         if (!object->config.has("extruder") ||
             size_t(object->config.extruder()) > max_extruder)
@@ -619,7 +619,7 @@ void ObjectList::update_objects_list_extruder_column(size_t extruders_count)
 
     m_prevent_update_extruder_in_config = true;
 
-    if (m_objects && extruders_count > 1)
+    if (m_model != nullptr && extruders_count > 1)
         update_extruder_values_for_items(extruders_count);
 
     update_extruder_colors();
@@ -650,7 +650,7 @@ void ObjectList::update_extruder_in_config(const wxDataViewItem& item)
     const ItemType item_type = m_objects_model->GetItemType(item);
     if (item_type & itObject) {
         const int obj_idx = m_objects_model->GetIdByItem(item);
-        m_config = &(*m_objects)[obj_idx]->config;
+        m_config = &m_model->objects()[obj_idx].config;
     }
     else {
         const int obj_idx = m_objects_model->GetIdByItem(m_objects_model->GetTopParent(item));
@@ -659,7 +659,7 @@ void ObjectList::update_extruder_in_config(const wxDataViewItem& item)
         const int volume_id = m_objects_model->GetVolumeIdByItem(item);
         if (obj_idx < 0 || volume_id < 0)
             return;
-        m_config = &(*m_objects)[obj_idx]->volumes[volume_id]->config;
+        m_config = &m_model->objects()[obj_idx].volumes[volume_id]->config;
         }
         else if (item_type & itLayer)
             m_config = &get_item_config(item);
@@ -786,7 +786,7 @@ void ObjectList::copy_layers_to_clipboard()
     GetSelections(sel_layers);
 
     const int obj_idx = m_objects_model->GetObjectIdByItem(sel_layers.front());
-    if (obj_idx < 0 || (int)m_objects->size() <= obj_idx)
+    if (obj_idx < 0 || (int)m_model->objects().size() <= obj_idx)
         return;
 
     const t_layer_config_ranges& ranges = object(obj_idx)->layer_config_ranges;
@@ -813,7 +813,7 @@ void ObjectList::paste_layers_into_list()
     const int obj_idx = m_objects_model->GetObjectIdByItem(GetSelection());
     t_layer_config_ranges& cache_ranges = m_clipboard.get_ranges_cache();
 
-    if (obj_idx < 0 || (int)m_objects->size() <= obj_idx || 
+    if (obj_idx < 0 || (int)m_model->objects().size() <= obj_idx || 
         cache_ranges.empty() || printer_technology() == ptSLA)
         return;
 
@@ -886,7 +886,7 @@ void ObjectList::paste_settings_into_list()
 
 void ObjectList::paste_volumes_into_list(int obj_idx, const ModelVolumePtrs& volumes)
 {
-    if ((obj_idx < 0) || ((int)m_objects->size() <= obj_idx))
+    if ((obj_idx < 0) || ((int)m_model->objects().size() <= obj_idx))
         return;
 
     if (volumes.empty())
@@ -1298,7 +1298,7 @@ bool ObjectList::can_drop(const wxDataViewItem& item) const
             return false; 
 
         bool only_one_solid_part = true;
-        auto& volumes = (*m_objects)[m_dragged_data.obj_idx()]->volumes;
+        auto& volumes = m_model->objects()[m_dragged_data.obj_idx()].volumes;
         for (size_t cnt, id = cnt = 0; id < volumes.size() && cnt < 2; id ++)
             if (volumes[id]->type() == ModelVolumeType::MODEL_PART) {
                 if (++cnt > 1)
@@ -1366,7 +1366,7 @@ void ObjectList::OnDrop(wxDataViewEvent &event)
         int to_volume_id   = m_objects_model->GetVolumeIdByItem(item);
         int delta = to_volume_id < from_volume_id ? -1 : 1;
 
-        auto& volumes = (*m_objects)[m_dragged_data.obj_idx()]->volumes;
+        auto& volumes = m_model->objects()[m_dragged_data.obj_idx()].volumes;
 
         int cnt = 0;
         for (int id = from_volume_id; cnt < abs(from_volume_id - to_volume_id); id += delta, cnt++)
@@ -1378,12 +1378,12 @@ void ObjectList::OnDrop(wxDataViewEvent &event)
     else if (m_dragged_data.type() & itObject)
     {
         int from_obj_id = m_dragged_data.obj_idx();
-        int to_obj_id   = item.IsOk() ? m_objects_model->GetIdByItem(item) : ((int)m_objects->size()-1);
+        int to_obj_id   = item.IsOk() ? m_objects_model->GetIdByItem(item) : ((int)m_model->objects().size()-1);
         int delta = to_obj_id < from_obj_id ? -1 : 1;
 
         int cnt = 0;
         for (int id = from_obj_id; cnt < abs(from_obj_id - to_obj_id); id += delta, cnt++)
-            std::swap((*m_objects)[id], (*m_objects)[id + delta]);
+            m_model->swap_objects(id, id + delta);
 
         select_item(m_objects_model->ReorganizeObjects(from_obj_id, to_obj_id));
     }
@@ -1536,7 +1536,7 @@ void ObjectList::load_subobject(ModelVolumeType type, bool from_galery/* = false
     take_snapshot((type == ModelVolumeType::MODEL_PART) ? _L("Load Part") : _L("Load Modifier"));
 
     std::vector<ModelVolume*> volumes;
-    load_from_files(input_files, *(*m_objects)[obj_idx], volumes, type, from_galery);
+    load_from_files(input_files, m_model->objects()[obj_idx], volumes, type, from_galery);
 
     if (volumes.empty())
         return;
@@ -1608,11 +1608,11 @@ void ObjectList::load_from_files(const wxArrayString& input_files, ModelObject& 
         if (from_galery)
             model.center_instances_around_point(Vec2d::Zero());
         else {
-            for (auto object : model.objects) {
+            for (ModelObject &object : model.objects()) {
                 if (model_object.origin_translation != Vec3d::Zero()) {
-                    object->center_around_origin();
-                    const Vec3d delta = model_object.origin_translation - object->origin_translation;
-                    for (auto volume : object->volumes) {
+                    object.center_around_origin();
+                    const Vec3d delta = model_object.origin_translation - object.origin_translation;
+                    for (ModelVolume *volume : object.volumes) {
                         volume->translate(delta);
                     }
                 }
@@ -1629,8 +1629,8 @@ void ObjectList::load_from_files(const wxArrayString& input_files, ModelObject& 
         new_volume->source.input_file = input_file;
         new_volume->source.object_idx = obj_idx;
         new_volume->source.volume_idx = int(model_object.volumes.size()) - 1;
-        if (model.objects.size() == 1 && model.objects.front()->volumes.size() == 1)
-            new_volume->source.mesh_offset = model.objects.front()->volumes.front()->source.mesh_offset;
+        if (model.objects().size() == 1 && model.objects().front().volumes.size() == 1)
+            new_volume->source.mesh_offset = model.objects().front().volumes.front()->source.mesh_offset;
 
         if (from_galery) {
             // Transform the new modifier to be aligned with the print bed.
@@ -1713,7 +1713,7 @@ void ObjectList::load_generic_subobject(const std::string& type_name, const Mode
     take_snapshot(_L("Add Generic Subobject"));
 
     // Selected object
-    ModelObject  &model_object = *(*m_objects)[obj_idx];
+    ModelObject  &model_object = m_model->objects()[obj_idx];
     // Bounding box of the selected instance in world coordinate system including the translation, without modifiers.
     BoundingBoxf3 instance_bb = model_object.instance_bounding_box(instance_idx);
 
@@ -1800,8 +1800,8 @@ void ObjectList::load_shape_object(const std::string& type_name)
     BoundingBoxf3 bb;
     TriangleMesh mesh = create_mesh(type_name, bb);
     load_mesh_object(mesh, _u8L("Shape") + "-" + into_u8(_(type_name)));
-    if (!m_objects->empty())
-        m_objects->back()->volumes.front()->source.is_from_builtin_objects = true;
+    if (!m_model->objects().empty())
+        m_model->objects().back().volumes.front()->source.is_from_builtin_objects = true;
     wxGetApp().mainframe->update_title();
 }
 
@@ -1871,7 +1871,7 @@ void ObjectList::load_mesh_object(const TriangleMesh &mesh, const std::string &n
     check_model_ids_validity(model);
 #endif /* _DEBUG */
 
-    paste_objects_into_list({model.objects.size() - 1});
+    paste_objects_into_list({model.objects().size() - 1});
 
 #ifdef _DEBUG
     check_model_ids_validity(model);
@@ -1935,14 +1935,14 @@ void ObjectList::del_info_item(const int obj_idx, InfoItemType type)
     case InfoItemType::CustomSupports:
         cnv->get_gizmos_manager().reset_all_states();
         Plater::TakeSnapshot(plater, _L("Remove paint-on supports"));
-        for (ModelVolume* mv : (*m_objects)[obj_idx]->volumes)
+        for (ModelVolume* mv : m_model->objects()[obj_idx].volumes)
             mv->supported_facets.reset();
         break;
 
     case InfoItemType::CustomSeam:
         cnv->get_gizmos_manager().reset_all_states();
         Plater::TakeSnapshot(plater, _L("Remove paint-on seam"));
-        for (ModelVolume* mv : (*m_objects)[obj_idx]->volumes)
+        for (ModelVolume* mv : m_model->objects()[obj_idx].volumes)
             mv->seam_facets.reset();
         break;
 
@@ -1956,19 +1956,19 @@ void ObjectList::del_info_item(const int obj_idx, InfoItemType type)
     case InfoItemType::MmuSegmentation:
         cnv->get_gizmos_manager().reset_all_states();
         Plater::TakeSnapshot(plater, _L("Remove Multi Material painting"));
-        for (ModelVolume* mv : (*m_objects)[obj_idx]->volumes)
+        for (ModelVolume* mv : m_model->objects()[obj_idx].volumes)
             mv->mm_segmentation_facets.reset();
         break;
 
     case InfoItemType::Sinking:
         Plater::TakeSnapshot(plater, _L("Shift objects to bed"));
-        (*m_objects)[obj_idx]->ensure_on_bed();
+        m_model->objects()[obj_idx].ensure_on_bed();
         cnv->reload_scene(true, true);
         break;
 
     case InfoItemType::VariableLayerHeight:
         Plater::TakeSnapshot(plater, _L("Remove variable layer height"));
-        (*m_objects)[obj_idx]->layer_height_profile.clear();
+        m_model->objects()[obj_idx].layer_height_profile.clear();
         if (cnv->is_layers_editing_enabled())
             //cnv->post_event(SimpleEvent(EVT_GLTOOLBAR_LAYERSEDITING));
             cnv->force_main_toolbar_left_action(cnv->get_main_toolbar_item_id("layersediting"));
@@ -2008,7 +2008,7 @@ void ObjectList::del_settings_from_config(const wxDataViewItem& parent_item)
 
 void ObjectList::del_instances_from_object(const int obj_idx)
 {
-    auto& instances = (*m_objects)[obj_idx]->instances;
+    auto& instances = m_model->objects()[obj_idx].instances;
     if (instances.size() <= 1)
         return;
 
@@ -2017,7 +2017,7 @@ void ObjectList::del_instances_from_object(const int obj_idx)
     while ( instances.size()> 1)
         instances.pop_back();
 
-    (*m_objects)[obj_idx]->invalidate_bounding_box(); // ? #ys_FIXME
+    m_model->objects()[obj_idx].invalidate_bounding_box(); // ? #ys_FIXME
 
     changed_object(obj_idx);
 }
@@ -2076,11 +2076,11 @@ bool ObjectList::del_from_cut_object(bool is_cut_connector, bool is_model_part/*
 bool ObjectList::del_subobject_from_object(const int obj_idx, const int idx, const int type)
 {
     assert(idx >= 0);
-    if (m_objects->empty() || int(m_objects->size()) <= obj_idx)
+    if (m_model->objects().empty() || int(m_model->objects().size()) <= obj_idx)
         // Cannot delete a wipe tower
         return false;
 
-    ModelObject* object = (*m_objects)[obj_idx];
+    ModelObject* object = &m_model->objects()[obj_idx];
 
     if (type == itVolume) {
         const auto volume = object->volumes[idx];
@@ -2170,7 +2170,7 @@ void ObjectList::split()
 
     volume->split(nozzle_dmrs_cnt);
 
-    (*m_objects)[obj_idx]->input_file.clear();
+    m_model->objects()[obj_idx].input_file.clear();
 
     wxBusyCursor wait;
 
@@ -2213,7 +2213,7 @@ void ObjectList::merge(bool to_multipart_object)
             for (wxDataViewItem item : sels) {
                 if (m_objects_model->GetItemType(item) & itObject) {
                     int obj_idx = m_objects_model->GetIdByItem(item);
-                    int inst_cnt = (*m_objects)[obj_idx]->instances.size();
+                    int inst_cnt = m_model->objects()[obj_idx].instances.size();
                     if (inst_cnt == 1)
                         sel_map.emplace(obj_idx, empty_set);
                     else
@@ -2237,7 +2237,7 @@ void ObjectList::merge(bool to_multipart_object)
                 }
 
                 // object with selected all instances
-                if ((*m_objects)[map_item.first]->instances.size() == map_item.second.size()) {
+                if (m_model->objects()[map_item.first].instances.size() == map_item.second.size()) {
                     instances_to_separated_objects(obj_idx);
                     // first instance stay on its own place and another all add to the end of list :
                     obj_idxs.emplace_back(obj_idx);
@@ -2251,7 +2251,7 @@ void ObjectList::merge(bool to_multipart_object)
                 if (map_item.second.size() == 1)
                     new_objects_cnt += 1;
                 else {// we should split to separate instances last object
-                    instances_to_separated_objects(m_objects->size() - 1);
+                    instances_to_separated_objects(m_model->objects().size() - 1);
                     // all instances will stay at the end of list :
                     new_objects_cnt += map_item.second.size();
                 }
@@ -2262,7 +2262,7 @@ void ObjectList::merge(bool to_multipart_object)
             sels.Clear();
             for (int obj_idx : obj_idxs)
                 sels.Add(m_objects_model->GetItemById(obj_idx));
-            int obj_cnt = m_objects->size();
+            int obj_cnt = m_model->objects().size();
             for (int obj_idx = obj_cnt - new_objects_cnt; obj_idx < obj_cnt; obj_idx++) {
                 sels.Add(m_objects_model->GetItemById(obj_idx));
                 obj_idxs.emplace_back(obj_idx);
@@ -2283,15 +2283,15 @@ void ObjectList::merge(bool to_multipart_object)
         get_object_idxs(obj_idxs, sels);
 
         // resulted objects merge to the one
-        Model* model = (*m_objects)[0]->get_model();
+        Model* model = m_model->objects()[0].get_model();
         ModelObject* new_object = model->add_object();
         new_object->name = _u8L("Merged");
         ModelConfig &config = new_object->config;
 
         for (int obj_idx : obj_idxs) {
-            ModelObject* object = (*m_objects)[obj_idx];
+            ModelObject* object = &m_model->objects()[obj_idx];
 
-            if (object->id() == (*m_objects)[obj_idxs.front()]->id()) {
+            if (object->id() == m_model->objects()[obj_idxs.front()].id()) {
                 new_object->add_instance();
                 new_object->instances[0]->printable = false;
             }
@@ -2343,12 +2343,12 @@ void ObjectList::merge(bool to_multipart_object)
         remove();
 
         // Add new object(merged) to the object_list
-        add_object_to_list(m_objects->size() - 1);
-        select_item(m_objects_model->GetItemById(m_objects->size() - 1));
+        add_object_to_list(m_model->objects().size() - 1);
+        select_item(m_objects_model->GetItemById(m_model->objects().size() - 1));
         update_selections_on_canvas();
 
         // update printable state for new volumes on canvas3D
-        wxGetApp().plater()->canvas3D()->update_instance_printable_state_for_object(int(model->objects.size()) - 1);
+        wxGetApp().plater()->canvas3D()->update_instance_printable_state_for_object(int(model->objects().size()) - 1);
     }
     // merge all parts to the one single object
     // all part's settings will be lost
@@ -2362,7 +2362,7 @@ void ObjectList::merge(bool to_multipart_object)
 
         Plater::TakeSnapshot snapshot(wxGetApp().plater(), _L("Merge all parts to the one single object"));
 
-        ModelObject* model_object = (*m_objects)[obj_idx];
+        ModelObject* model_object = &m_model->objects()[obj_idx];
         model_object->merge();
 
         m_objects_model->DeleteVolumeChildren(item);
@@ -2484,13 +2484,13 @@ bool ObjectList::get_volume_by_item(const wxDataViewItem& item, ModelVolume*& vo
 
     // object is selected
     if (volume_id < 0) {
-        if ( split_part || (*m_objects)[obj_idx]->volumes.size() > 1 ) 
+        if ( split_part || m_model->objects()[obj_idx].volumes.size() > 1 ) 
             return false;
-        volume = (*m_objects)[obj_idx]->volumes[0];
+        volume = m_model->objects()[obj_idx].volumes[0];
     }
     // volume is selected
     else
-        volume = (*m_objects)[obj_idx]->volumes[volume_id];
+        volume = m_model->objects()[obj_idx].volumes[volume_id];
     
     return true;
 }
@@ -2509,7 +2509,7 @@ bool ObjectList::is_splittable(bool to_objects)
             auto obj_idx = get_selected_obj_idx();
             if (obj_idx < 0)
                 return false;
-            const ModelObject* object = (*m_objects)[obj_idx];
+            const ModelObject* object = &m_model->objects()[obj_idx];
             if (object->is_cut())
                 return false;
             if (object->volumes.size() > 1)
@@ -2561,7 +2561,7 @@ bool ObjectList::has_selected_cut_object() const
         const int obj_idx = m_objects_model->GetObjectIdByItem(item);
         // ys_FIXME: The obj_idx<size condition is a workaround for https://github.com/prusa3d/PrusaSlicer/issues/11186,
         // but not the correct fix. The deleted item probably should not be in sels in the first place.
-        if (obj_idx >= 0 && obj_idx < int(m_objects->size()) && object(obj_idx)->is_cut())
+        if (obj_idx >= 0 && obj_idx < int(m_model->objects().size()) && object(obj_idx)->is_cut())
             return true;
     }
 
@@ -2588,7 +2588,7 @@ void ObjectList::invalidate_cut_info_for_object(int obj_idx)
 
     const CutObjectBase cut_id = init_obj->cut_id;
     // invalidate cut for related objects (which have the same cut_id)
-    for (size_t idx = 0; idx < m_objects->size(); idx++)
+    for (size_t idx = 0; idx < m_model->objects().size(); idx++)
         if (ModelObject* obj = object(int(idx)); obj->cut_id.is_equal(cut_id)) {
             obj->invalidate_cut();
             update_info_items(idx);
@@ -2619,7 +2619,7 @@ void ObjectList::delete_all_connectors_for_object(int obj_idx)
     const CutObjectBase cut_id = init_obj->cut_id;
     // Delete all connectors for related objects (which have the same cut_id)
     Model& model = wxGetApp().plater()->model();
-    for (int idx = int(m_objects->size())-1; idx >= 0; idx--)
+    for (int idx = int(m_model->objects().size())-1; idx >= 0; idx--)
         if (ModelObject* obj = object(idx); obj->cut_id.is_equal(cut_id)) {
             obj->delete_connectors();
 
@@ -2662,7 +2662,7 @@ bool ObjectList::can_merge_to_single_object() const
         return false;
 
     // selected object should be multipart
-    return (*m_objects)[obj_idx]->volumes.size() > 1;
+    return m_model->objects()[obj_idx].volumes.size() > 1;
 }
 
 wxPoint ObjectList::get_mouse_position_in_control() const
@@ -2714,7 +2714,7 @@ void ObjectList::part_selection_changed()
             update_and_show_manipulations = true;
 
             obj_idx             = selection.get_object_idx();
-            ModelObject* object = (*m_objects)[obj_idx];
+            ModelObject* object = &m_model->objects()[obj_idx];
             m_config                = &object->config;
             disable_ss_manipulation = object->is_cut();
         }
@@ -2727,16 +2727,16 @@ void ObjectList::part_selection_changed()
 
             if (int obj_idx = selection.get_object_idx(); obj_idx >= 0) {
                 if (selection.is_any_volume() || selection.is_any_modifier())
-                    enable_manipulation = !(*m_objects)[obj_idx]->is_cut();
+                    enable_manipulation = !m_model->objects()[obj_idx].is_cut();
                 else// if (item && m_objects_model->GetItemType(item) == itInstanceRoot)
-                    disable_ss_manipulation = (*m_objects)[obj_idx]->is_cut();
+                    disable_ss_manipulation = m_model->objects()[obj_idx].is_cut();
             }
             else {
                 wxDataViewItemArray sels;
                 GetSelections(sels);
                 if (selection.is_single_full_object() || selection.is_multiple_full_instance() ) {
                     int obj_idx = m_objects_model->GetObjectIdByItem(sels.front());
-                    disable_ss_manipulation = (*m_objects)[obj_idx]->is_cut();
+                    disable_ss_manipulation = m_model->objects()[obj_idx].is_cut();
                 }
                 else if (selection.is_mixed() || selection.is_multiple_full_object()) {
                     std::map<CutObjectBase, std::set<int>> cut_objects;
@@ -2770,7 +2770,7 @@ void ObjectList::part_selection_changed()
             const wxDataViewItem parent = m_objects_model->GetParent(item);
             const ItemType parent_type = m_objects_model->GetItemType(parent);
             obj_idx = m_objects_model->GetObjectIdByItem(item);
-            ModelObject* object = (*m_objects)[obj_idx];
+            ModelObject* object = &m_model->objects()[obj_idx];
 
             if (parent == wxDataViewItem(nullptr)
              || type == itInfo) {
@@ -2945,7 +2945,7 @@ wxDataViewItem ObjectList::add_settings_item(wxDataViewItem parent_item, const D
 
 void ObjectList::update_info_items(size_t obj_idx, wxDataViewItemArray* selections/* = nullptr*/, bool added_object/* = false*/)
 {
-    if (obj_idx >= m_objects->size())
+    if (obj_idx >= m_model->objects().size())
         return;
 
     wxDataViewItemArray sels;
@@ -2958,7 +2958,7 @@ void ObjectList::update_info_items(size_t obj_idx, wxDataViewItemArray* selectio
             }
     }
 
-    const ModelObject* model_object = (*m_objects)[obj_idx];
+    const ModelObject* model_object = &m_model->objects()[obj_idx];
     wxDataViewItem item_obj = m_objects_model->GetItemById(obj_idx);
     assert(item_obj.IsOk());
 
@@ -3058,7 +3058,7 @@ wxDataViewItemArray ObjectList::add_volumes_to_object_in_list(size_t obj_idx, st
 
     wxDataViewItemArray items;
 
-    const ModelObject* object = (*m_objects)[obj_idx];
+    const ModelObject* object = &m_model->objects()[obj_idx];
     // add volumes to the object
     if (can_add_volumes_to_object(object)) {
         if (object->volumes.size() > 1) {
@@ -3095,7 +3095,7 @@ wxDataViewItemArray ObjectList::add_volumes_to_object_in_list(size_t obj_idx, st
 
 void ObjectList::add_object_to_list(size_t obj_idx, bool call_selection_changed)
 {
-    auto model_object = (*m_objects)[obj_idx];
+    auto model_object = &m_model->objects()[obj_idx];
     const wxString& item_name = get_item_name(model_object->name, model_object->is_text());
     const auto item = m_objects_model->AddObject(item_name,
                       extruder2str(model_object->config.has("extruder") ? model_object->config.extruder() : 0),
@@ -3160,8 +3160,8 @@ void ObjectList::delete_instance_from_list(const size_t obj_idx, const size_t in
 
 void ObjectList::update_lock_icons_for_model()
 {
-    for (size_t obj_idx = 0; obj_idx < (*m_objects).size(); ++obj_idx)
-        if (!(*m_objects)[obj_idx]->is_cut())
+    for (size_t obj_idx = 0; obj_idx < m_model->objects().size(); ++obj_idx)
+        if (!m_model->objects()[obj_idx].is_cut())
             m_objects_model->UpdateLockIcon(m_objects_model->GetItemById(int(obj_idx)), false);
 }
 
@@ -3664,7 +3664,13 @@ bool ObjectList::edit_layer_range(const t_layer_height_range& range, const t_lay
 
 void ObjectList::init_objects()
 {
-    m_objects = &wxGetApp().model().objects;
+    m_model = &wxGetApp().model();
+}
+
+std::vector<ModelObject*>* ObjectList::objects() const
+{
+    m_objects_cache = m_model != nullptr ? m_model->object_ptrs() : std::vector<ModelObject*>();
+    return &m_objects_cache;
 }
 
 bool ObjectList::multiple_selection() const 
@@ -3858,7 +3864,7 @@ void ObjectList::update_selections()
                     if (obj_ins.second.find(glv_ins_idx) != obj_ins.second.end() &&
                         !selection.is_from_single_instance() ) // a case when volumes of different types are selected
                     {
-                        if (glv_ins_idx == 0 && (*m_objects)[glv_obj_idx]->instances.size() == 1)
+                        if (glv_ins_idx == 0 && m_model->objects()[glv_obj_idx].instances.size() == 1)
                             sels.Add(m_objects_model->GetItemById(glv_obj_idx));
                         else
                             sels.Add(m_objects_model->GetItemByInstanceId(glv_obj_idx, glv_ins_idx));
@@ -3873,7 +3879,7 @@ void ObjectList::update_selections()
                 continue;
 
             const auto& glv_vol_idx = gl_vol->volume_idx();
-            if (glv_vol_idx == 0 && (*m_objects)[glv_obj_idx]->volumes.size() == 1)
+            if (glv_vol_idx == 0 && m_model->objects()[glv_obj_idx].volumes.size() == 1)
                 sels.Add(m_objects_model->GetItemById(glv_obj_idx));
             else
                 sels.Add(m_objects_model->GetItemByVolumeId(glv_obj_idx, glv_vol_idx));
@@ -4085,7 +4091,7 @@ void ObjectList::select_item_all_children()
 
     // There is no selection before OR some object is selected   =>  select all objects
     if (!GetSelection() || m_objects_model->GetItemType(GetSelection()) == itObject) {
-        for (size_t i = 0; i < m_objects->size(); i++)
+        for (size_t i = 0; i < m_model->objects().size(); i++)
             sels.Add(m_objects_model->GetItemById(i));
         m_selection_mode = smInstance;
     }
@@ -4273,9 +4279,9 @@ bool ObjectList::fix_cut_selection(wxDataViewItemArray& sels)
 
                     auto cut_id = obj->cut_id;
 
-                    int objects_cnt = int((*m_objects).size());
+                    int objects_cnt = int(m_model->objects().size());
                     for (int obj_idx = 0; obj_idx < objects_cnt; ++obj_idx) {
-                        auto object = (*m_objects)[obj_idx];
+                        auto object = &m_model->objects()[obj_idx];
                         if (object->is_cut() && object->cut_id.has_same_id(cut_id))
                             sels.Add(is_instance_selection ? m_objects_model->GetItemByInstanceId(obj_idx, inst_idx) : m_objects_model->GetItemById(obj_idx));
                     }
@@ -4319,7 +4325,7 @@ ModelVolume* ObjectList::get_selected_model_volume()
     if (vol_idx < 0 || obj_idx < 0)
         return nullptr;
 
-    return (*m_objects)[obj_idx]->volumes[vol_idx];
+    return m_model->objects()[obj_idx].volumes[vol_idx];
 }
 
 void ObjectList::change_part_type()
@@ -4406,10 +4412,10 @@ void ObjectList::change_part_type()
 void ObjectList::last_volume_is_deleted(const int obj_idx)
 {
 
-    if (obj_idx < 0 || size_t(obj_idx) >= m_objects->size() || (*m_objects)[obj_idx]->volumes.size() != 1)
+    if (obj_idx < 0 || size_t(obj_idx) >= m_model->objects().size() || m_model->objects()[obj_idx].volumes.size() != 1)
         return;
 
-    auto volume = (*m_objects)[obj_idx]->volumes.front();
+    auto volume = m_model->objects()[obj_idx].volumes.front();
 
     // clear volume's config values
     volume->config.reset();
@@ -4554,14 +4560,14 @@ void ObjectList::update_object_list_by_printer_technology()
 
 void ObjectList::instances_to_separated_object(const int obj_idx, const std::set<int>& inst_idxs)
 {
-    if ((*m_objects)[obj_idx]->instances.size() == inst_idxs.size())
+    if (m_model->objects()[obj_idx].instances.size() == inst_idxs.size())
     {
         instances_to_separated_objects(obj_idx);
         return;
     }
 
     // create new object from selected instance  
-    ModelObject* model_object = (*m_objects)[obj_idx]->get_model()->add_object(*(*m_objects)[obj_idx]);
+    ModelObject* model_object = m_model->objects()[obj_idx].get_model()->add_object(m_model->objects()[obj_idx]);
     for (int inst_idx = int(model_object->instances.size()) - 1; inst_idx >= 0; inst_idx--)
     {
         if (find(inst_idxs.begin(), inst_idxs.end(), inst_idx) != inst_idxs.end())
@@ -4570,7 +4576,7 @@ void ObjectList::instances_to_separated_object(const int obj_idx, const std::set
     }
 
     // Add new object to the object_list
-    const size_t new_obj_indx = static_cast<size_t>(m_objects->size() - 1);
+    const size_t new_obj_indx = static_cast<size_t>(m_model->objects().size() - 1);
     add_object_to_list(new_obj_indx);
 
     for (std::set<int>::const_reverse_iterator it = inst_idxs.rbegin(); it != inst_idxs.rend(); ++it)
@@ -4587,14 +4593,14 @@ void ObjectList::instances_to_separated_object(const int obj_idx, const std::set
 
 void ObjectList::instances_to_separated_objects(const int obj_idx)
 {
-    const int inst_cnt = (*m_objects)[obj_idx]->instances.size();
+    const int inst_cnt = m_model->objects()[obj_idx].instances.size();
 
     std::vector<size_t> object_idxs;
 
     for (int i = inst_cnt-1; i > 0 ; i--)
     {
         // create new object from initial
-        ModelObject* object = (*m_objects)[obj_idx]->get_model()->add_object(*(*m_objects)[obj_idx]);
+        ModelObject* object = m_model->objects()[obj_idx].get_model()->add_object(m_model->objects()[obj_idx]);
         for (int inst_idx = object->instances.size() - 1; inst_idx >= 0; inst_idx--)
         {
             if (inst_idx == i)
@@ -4604,7 +4610,7 @@ void ObjectList::instances_to_separated_objects(const int obj_idx)
         }
 
         // Add new object to the object_list
-        const size_t new_obj_indx = static_cast<size_t>(m_objects->size() - 1);
+        const size_t new_obj_indx = static_cast<size_t>(m_model->objects().size() - 1);
         add_object_to_list(new_obj_indx);
         object_idxs.push_back(new_obj_indx);
 
@@ -4932,7 +4938,7 @@ void ObjectList::set_extruder_for_selected_items(const int extruder) const
 
 wxDataViewItemArray ObjectList::reorder_volumes_and_get_selection(size_t obj_idx, std::function<bool(const ModelVolume*)> add_to_selection/* = nullptr*/)
 {
-    (*m_objects)[obj_idx]->sort_volumes(wxGetApp().app_config->get_bool("order_volumes"));
+    m_model->objects()[obj_idx].sort_volumes(wxGetApp().app_config->get_bool("order_volumes"));
 
     wxDataViewItemArray items = add_volumes_to_object_in_list(obj_idx, std::move(add_to_selection));
 
@@ -4943,10 +4949,10 @@ wxDataViewItemArray ObjectList::reorder_volumes_and_get_selection(size_t obj_idx
 
 void ObjectList::apply_volumes_order()
 {
-    if (!wxGetApp().app_config->get_bool("order_volumes") || !m_objects)
+    if (!wxGetApp().app_config->get_bool("order_volumes") || m_model == nullptr)
         return;
 
-    for (size_t obj_idx = 0; obj_idx < m_objects->size(); obj_idx++)
+    for (size_t obj_idx = 0; obj_idx < m_model->objects().size(); obj_idx++)
         reorder_volumes_and_get_selection(obj_idx);
 }
 
@@ -4969,8 +4975,8 @@ void ObjectList::update_after_undo_redo()
 
     size_t obj_idx = 0;
     std::vector<size_t> obj_idxs;
-    obj_idxs.reserve(m_objects->size());
-    while (obj_idx < m_objects->size()) {
+    obj_idxs.reserve(m_model->objects().size());
+    while (obj_idx < m_model->objects().size()) {
         add_object_to_list(obj_idx, false);
         obj_idxs.push_back(obj_idx);
         ++obj_idx;
@@ -4988,7 +4994,7 @@ void ObjectList::update_after_undo_redo()
 
 void ObjectList::update_printable_state(int obj_idx, int instance_idx)
 {
-    ModelObject* object = (*m_objects)[obj_idx];
+    ModelObject* object = &m_model->objects()[obj_idx];
 
     const PrintIndicator printable = object->instances[instance_idx]->printable ? piPrintable : piUnprintable;
     if (object->instances.size() == 1)
@@ -5067,7 +5073,7 @@ ModelObject* ObjectList::object(const int obj_idx) const
     if (obj_idx < 0)
         return nullptr;
 
-    return (*m_objects)[obj_idx];
+    return &m_model->objects()[obj_idx];
 }
 
 bool ObjectList::has_paint_on_segmentation()

@@ -1381,7 +1381,7 @@ void Sidebar::update_objects_list_extruder_column(size_t extruders_count)
 void Sidebar::show_info_sizer()
 {
     Selection& selection = wxGetApp().plater()->canvas3D()->get_selection();
-    ModelObjectPtrs objects = p->plater->model().objects;
+    ModelObjectPtrs objects = p->plater->model().object_ptrs();
     const int obj_idx = selection.get_object_idx();
     const int inst_idx = selection.get_instance_idx();
 
@@ -1457,7 +1457,7 @@ void Sidebar::update_sliced_info_sizer()
             wxString new_label = _L("Used Material (ml)") + ":";
             const bool is_supports = ps.support_used_material > 0.0;
             if (is_supports)
-                new_label += format_wxstr("\n    - %s\n    - %s", _L_PLURAL("object", "objects", p->plater->model().objects.size()), _L("supports and pad"));
+                new_label += format_wxstr("\n    - %s\n    - %s", _L_PLURAL("object", "objects", p->plater->model().objects().size()), _L("supports and pad"));
 
             wxString info_text = is_supports ?
                 wxString::Format("%.2f \n%.2f \n%.2f", (ps.objects_used_material + ps.support_used_material) / 1000,
@@ -1946,7 +1946,7 @@ struct Plater::priv
     ~priv();
 
     bool is_project_dirty() const {
-        bool no_project = m_project_filename.empty() && model.objects.empty(); 
+        bool no_project = m_project_filename.empty() && model.objects().empty(); 
         return !no_project && dirty_state.is_dirty();
     }
     bool is_presets_dirty() const { return dirty_state.is_presets_dirty(); }
@@ -2830,7 +2830,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
 
                         // We can't to load SLA project if there is at least one multi-part object on the bed
                         if (loaded_printer_technology == ptSLA) {
-                            const ModelObjectPtrs& objects = q->model().objects;
+                            const ModelObjectPtrs& objects = q->model().object_ptrs();
                             for (auto object : objects)
                                 if (object->volumes.size() > 1) {
                                     Slic3r::GUI::show_info(nullptr,
@@ -2920,11 +2920,11 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                                                                       Model::LoadAttribute::UnbakeTransformation));
                     }
                 }
-                for (auto obj : loaded_model.objects) {
-                    if (obj->name.empty()) {
-                        obj->name = fs::path(obj->input_file).filename().string();
+                for (ModelObject &obj : loaded_model.objects()) {
+                    if (obj.name.empty()) {
+                        obj.name = fs::path(obj.input_file).filename().string();
                     }
-                    obj->rotate(Geometry::deg2rad(config->opt_float("init_z_rotate")), Axis::Z);
+                    obj.rotate(Geometry::deg2rad(config->opt_float("init_z_rotate")), Axis::Z);
                 }
             }
         } catch (const ConfigurationError &e) {
@@ -2971,7 +2971,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             "The dimensions of the object from file %1% seem to be defined in meters.\n"
                             "The internal unit of %2% is a millimeter. Do you want to recalculate the dimensions of the object?",
                             "The dimensions of some objects from file %1% seem to be defined in meters.\n"
-                            "The internal unit of %2% is a millimeter. Do you want to recalculate the dimensions of these objects?", loaded_model.objects.size()), from_path(filename), SLIC3R_APP_NAME) + "\n",
+                            "The internal unit of %2% is a millimeter. Do you want to recalculate the dimensions of these objects?", loaded_model.objects().size()), from_path(filename), SLIC3R_APP_NAME) + "\n",
                             _L("The object is too small"), wxICON_QUESTION | wxYES_NO);
                         dlg.ShowCheckBox(_L("Apply to all the remaining small objects being loaded."));
                         int answer = dlg.ShowModal();
@@ -2993,7 +2993,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             "The dimensions of the object from file %1% seem to be defined in inches.\n"
                             "The internal unit of %2% is a millimeter. Do you want to recalculate the dimensions of the object?",
                             "The dimensions of some objects from file %1% seem to be defined in inches.\n"
-                            "The internal unit of %2% is a millimeter. Do you want to recalculate the dimensions of these objects?", loaded_model.objects.size()), from_path(filename), SLIC3R_APP_NAME) + "\n",
+                            "The internal unit of %2% is a millimeter. Do you want to recalculate the dimensions of these objects?", loaded_model.objects().size()), from_path(filename), SLIC3R_APP_NAME) + "\n",
                             _L("The object is too small"), wxICON_QUESTION | wxYES_NO);
                         dlg.ShowCheckBox(_L("Apply to all the remaining small objects being loaded."));
                         int answer = dlg.ShowModal();
@@ -3035,7 +3035,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                     return obj_idxs;
             }
 
-            for (ModelObject* model_object : loaded_model.objects) {
+            for (ModelObject* model_object : loaded_model.object_ptrs()) {
                 if (!type_3mf && !type_zip_amf) {
                     model_object->center_around_origin(false);
                     if (type_any_amf && model_object->instances.empty()) {
@@ -3051,13 +3051,14 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                 if ((type_3mf && !is_project_file) || (type_any_amf && !type_zip_amf)) {
                   loaded_model.center_instances_around_point(this->bed.build_volume().bed_center());
                 }
-                auto loaded_idxs = load_model_objects(loaded_model.objects, is_project_file);
+                ModelObjectPtrs loaded_model_objects = loaded_model.object_ptrs();
+                auto loaded_idxs = load_model_objects(loaded_model_objects, is_project_file);
                 obj_idxs.insert(obj_idxs.end(), loaded_idxs.begin(), loaded_idxs.end());
             } else {
                 assert(new_model);
                 if (new_model) {
                     // This must be an .stl or .obj file, which may contain a maximum of one volume.
-                    for (const ModelObject *model_object : loaded_model.objects) {
+                    for (const ModelObject *model_object : loaded_model.object_ptrs()) {
                         new_model->add_object(*model_object);
                     }
                 }
@@ -3069,7 +3070,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
         }
     }
 
-    if (new_model && new_model->objects.size() > 1) {
+    if (new_model && new_model->objects().size() > 1) {
         //wxMessageDialog msg_dlg(q, _L(
         MessageDialog msg_dlg(q, nozzle_dmrs->size() > 1 ? _L(
                 "Multiple objects were loaded for a multi-material printer.\n"
@@ -3081,7 +3082,8 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
             new_model->convert_multipart_object(nozzle_dmrs->size());
         }
 
-        auto loaded_idxs = load_model_objects(new_model->objects);
+        ModelObjectPtrs new_model_objects = new_model->object_ptrs();
+        auto loaded_idxs = load_model_objects(new_model_objects);
         obj_idxs.insert(obj_idxs.end(), loaded_idxs.begin(), loaded_idxs.end());
     }
 
@@ -3108,7 +3110,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
     }
         
     GLGizmoSimplify::add_simplify_suggestion_notification(
-        obj_idxs, model.objects, *notification_manager);
+        obj_idxs, model.object_ptrs(), *notification_manager);
 
     return obj_idxs;
 }
@@ -3124,7 +3126,7 @@ std::vector<size_t> Plater::priv::load_model_objects(const ModelObjectPtrs& mode
 #endif /* AUTOPLACEMENT_ON_LOAD */
     bool scaled_down = false;
     std::vector<size_t> obj_idxs;
-    unsigned int obj_count = model.objects.size();
+    unsigned int obj_count = model.objects().size();
 
 #ifdef AUTOPLACEMENT_ON_LOAD
     ModelInstancePtrs new_instances;
@@ -3233,16 +3235,16 @@ fs::path Plater::priv::get_export_file_path(GUI::FileType file_type)
     if (output_file.empty())
     {
         // first try to get the file name from the current selection
-        if ((0 <= obj_idx) && (obj_idx < (int)this->model.objects.size()))
-            output_file = this->model.objects[obj_idx]->get_export_filename();
+        if ((0 <= obj_idx) && (obj_idx < (int)this->model.objects().size()))
+            output_file = this->model.objects()[obj_idx].get_export_filename();
 
         if (output_file.empty())
             // Find the file name of the first printable object.
             output_file = this->model.propose_export_file_name_and_path();
 
-        if (output_file.empty() && !model.objects.empty())
+        if (output_file.empty() && !model.objects().empty())
             // Find the file name of the first object.
-            output_file = this->model.objects[0]->get_export_filename();
+            output_file = this->model.objects()[0].get_export_filename();
 
         if (output_file.empty())
             // Use _L("Untitled") name
@@ -3351,7 +3353,7 @@ Selection& Plater::priv::get_selection()
 int Plater::priv::get_selected_object_idx() const
 {
     const int idx = get_selection().get_object_idx();
-    return (0 <= idx && idx < int(model.objects.size())) ? idx : -1;
+    return (0 <= idx && idx < int(model.objects().size())) ? idx : -1;
 }
 
 int Plater::priv::get_selected_instance_idx() const
@@ -3359,7 +3361,7 @@ int Plater::priv::get_selected_instance_idx() const
     const int obj_idx = get_selected_object_idx();
     if (obj_idx >= 0) {
         const int inst_idx = get_selection().get_instance_idx();
-        return (0 <= inst_idx && inst_idx < int(model.objects[obj_idx]->instances.size())) ? inst_idx : -1;
+        return (0 <= inst_idx && inst_idx < int(model.objects()[obj_idx].instances.size())) ? inst_idx : -1;
     }
     else
         return -1;
@@ -3369,10 +3371,10 @@ int Plater::priv::get_selected_volume_idx() const
 {
     auto& selection = get_selection();
     const int idx = selection.get_object_idx();
-    if (idx < 0 || int(model.objects.size()) <= idx)
+    if (idx < 0 || int(model.objects().size()) <= idx)
         return-1;
     const GLVolume* v = selection.get_first_volume();
-    if (model.objects[idx]->volumes.size() > 1)
+    if (model.objects()[idx].volumes.size() > 1)
         return v->volume_idx();
     return -1;
 }
@@ -3395,7 +3397,7 @@ void Plater::priv::object_list_changed()
     // XXX: is this right?
     const bool model_fits = view3D->get_canvas3d()->check_volumes_outside_state() == ModelInstancePVS_Inside;
 
-    sidebar->enable_buttons(!model.objects.empty() && !export_in_progress && model_fits);
+    sidebar->enable_buttons(!model.objects().empty() && !export_in_progress && model_fits);
 }
 
 void Plater::priv::select_all()
@@ -3439,7 +3441,7 @@ bool Plater::priv::delete_object_from_model(size_t obj_idx)
 {
     // check if object isn't cut
     // show warning message that "cut consistancy" will not be supported any more
-    ModelObject* obj = model.objects[obj_idx];
+    ModelObject *obj = &model.objects()[obj_idx];
     if (obj->is_cut()) {
         InfoDialog dialog(q, _L("Delete object which is a part of cut object"), 
                              _L("You try to delete an object which is a part of a cut object.") + "\n" + 
@@ -3543,7 +3545,7 @@ void Plater::priv::split_object()
     // we clone model object because split_object() adds the split volumes
     // into the same model object, thus causing duplicates when we call load_model_objects()
     Model new_model = model;
-    ModelObject* current_model_object = new_model.objects[obj_idx];
+    ModelObject *current_model_object = &new_model.objects()[obj_idx];
 
     // Before splitting object we have to remove all custom supports, seams, and multimaterial painting.
     wxGetApp().plater()->clear_before_change_mesh(obj_idx, _u8L("Custom supports, seams and multimaterial painting were "
@@ -3862,7 +3864,7 @@ void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_remova
 {
     wxCHECK_RET(!(output_path.empty() && upload_job.empty()), "export_gcode: output_path and upload_job empty");
     
-    if (model.objects.empty())
+    if (model.objects().empty())
         return;
 
     if (background_process.is_export_scheduled()) {
@@ -3957,7 +3959,7 @@ bool Plater::priv::replace_volume_with_stl(int object_idx, int volume_idx, const
     Model new_model;
     try {
         new_model = Model::read_from_file(path, nullptr, nullptr, Model::LoadAttribute::AddDefaultInstances);
-        for (ModelObject* model_object : new_model.objects) {
+        for (ModelObject* model_object : new_model.object_ptrs()) {
             model_object->center_around_origin();
             model_object->ensure_on_bed();
         }
@@ -3969,7 +3971,7 @@ bool Plater::priv::replace_volume_with_stl(int object_idx, int volume_idx, const
         return false;
     }
 
-    if (new_model.objects.size() > 1 || new_model.objects.front()->volumes.size() > 1) {
+    if (new_model.objects().size() > 1 || new_model.objects().front().volumes.size() > 1) {
         MessageDialog dlg(q, _L("Unable to replace with more than one volume"), _L("Error during replace"), wxOK | wxOK_DEFAULT | wxICON_WARNING);
         dlg.ShowModal();
         return false;
@@ -3978,12 +3980,12 @@ bool Plater::priv::replace_volume_with_stl(int object_idx, int volume_idx, const
     if (!snapshot.empty())
         q->take_snapshot(snapshot);
 
-    ModelObject* old_model_object = model.objects[object_idx];
+    ModelObject *old_model_object = &model.objects()[object_idx];
     ModelVolume* old_volume = old_model_object->volumes[volume_idx];
 
     bool sinking = old_model_object->min_z() < SINKING_Z_THRESHOLD;
 
-    ModelObject* new_model_object = new_model.objects.front();
+    ModelObject* new_model_object = &new_model.objects().front();
     old_model_object->add_volume(*new_model_object->volumes.front());
     ModelVolume* new_volume = old_model_object->volumes.back();
     new_volume->set_new_unique_id();
@@ -4039,7 +4041,7 @@ void Plater::priv::replace_with_stl()
 
     // collects paths of files to load
 
-    const ModelObject* object = model.objects[object_idx];
+    const ModelObject *object = &model.objects()[object_idx];
     const ModelVolume* volume = object->volumes[volume_idx];
 
     fs::path input_path;
@@ -4066,7 +4068,7 @@ void Plater::priv::replace_with_stl()
     update();
 
     // new GLVolumes have been created at this point, so update their printable state
-    for (size_t i = 0; i < model.objects.size(); ++i) {
+    for (size_t i = 0; i < model.objects().size(); ++i) {
         view3D->get_canvas3d()->update_instance_printable_state_for_object(i);
     }
 }
@@ -4078,8 +4080,8 @@ static std::vector<std::pair<int, int>> reloadable_volumes(const Model& model, c
     for (unsigned int idx : selected_volumes_idxs) {
         const GLVolume& v = *selection.get_volume(idx);
         const int o_idx = v.object_idx();
-        if (0 <= o_idx && o_idx < int(model.objects.size())) {
-            const ModelObject* obj = model.objects[o_idx];
+        if (0 <= o_idx && o_idx < int(model.objects().size())) {
+            const ModelObject *obj = &model.objects()[o_idx];
             const int v_idx = v.volume_idx();
             if (0 <= v_idx && v_idx < int(obj->volumes.size())) {
                 const ModelVolume* vol = obj->volumes[v_idx];
@@ -4113,7 +4115,7 @@ void Plater::priv::reload_from_disk()
     std::vector<fs::path> missing_input_paths;
     std::vector<std::pair<fs::path, fs::path>> replace_paths;
     for (auto [obj_idx, vol_idx] : selected_volumes) {
-        const ModelObject* object = model.objects[obj_idx];
+        const ModelObject *object = &model.objects()[obj_idx];
         const ModelVolume* volume = object->volumes[vol_idx];
         if (fs::exists(volume->source.input_file))
             input_paths.push_back(volume->source.input_file);
@@ -4205,7 +4207,7 @@ void Plater::priv::reload_from_disk()
         try
         {
             new_model = Model::read_from_file(path, nullptr, nullptr, Model::LoadAttribute::AddDefaultInstances);
-            for (ModelObject* model_object : new_model.objects) {
+            for (ModelObject* model_object : new_model.object_ptrs()) {
                 model_object->center_around_origin();
                 model_object->ensure_on_bed();
             }
@@ -4220,7 +4222,7 @@ void Plater::priv::reload_from_disk()
 
         // update the selected volumes whose source is the current file
         for (auto [obj_idx, vol_idx] : selected_volumes) {
-            ModelObject* old_model_object = model.objects[obj_idx];
+            ModelObject *old_model_object = &model.objects()[obj_idx];
             ModelVolume* old_volume = old_model_object->volumes[vol_idx];
 
             bool sinking = old_model_object->min_z() < SINKING_Z_THRESHOLD;
@@ -4232,8 +4234,8 @@ void Plater::priv::reload_from_disk()
                 int new_object_idx = -1;
                 bool match_found = false;
                 // take idxs from the matching volume
-                if (has_source && old_volume->source.object_idx < int(new_model.objects.size())) {
-                    const ModelObject* obj = new_model.objects[old_volume->source.object_idx];
+                if (has_source && old_volume->source.object_idx < int(new_model.objects().size())) {
+                    const ModelObject *obj = &new_model.objects()[old_volume->source.object_idx];
                     if (old_volume->source.volume_idx < int(obj->volumes.size())) {
                         if (obj->volumes[old_volume->source.volume_idx]->name == old_volume->name) {
                             new_volume_idx = old_volume->source.volume_idx;
@@ -4245,8 +4247,8 @@ void Plater::priv::reload_from_disk()
 
                 if (!match_found && has_name) {
                     // take idxs from the 1st matching volume
-                    for (size_t o = 0; o < new_model.objects.size(); ++o) {
-                        ModelObject* obj = new_model.objects[o];
+                    for (size_t o = 0; o < new_model.objects().size(); ++o) {
+                        ModelObject *obj = &new_model.objects()[o];
                         bool found = false;
                         for (size_t v = 0; v < obj->volumes.size(); ++v) {
                             if (obj->volumes[v]->name == old_volume->name) {
@@ -4261,11 +4263,11 @@ void Plater::priv::reload_from_disk()
                     }
                 }
 
-                if (new_object_idx < 0 || int(new_model.objects.size()) <= new_object_idx) {
+                if (new_object_idx < 0 || int(new_model.objects().size()) <= new_object_idx) {
                     fail_list.push_back(from_u8(has_source ? old_volume->source.input_file : old_volume->name));
                     continue;
                 }
-                ModelObject* new_model_object = new_model.objects[new_object_idx];
+                ModelObject *new_model_object = &new_model.objects()[new_object_idx];
                 if (new_volume_idx < 0 || int(new_model_object->volumes.size()) <= new_volume_idx) {
                     fail_list.push_back(from_u8(has_source ? old_volume->source.input_file : old_volume->name));
                     continue;
@@ -4308,7 +4310,7 @@ void Plater::priv::reload_from_disk()
 
     for (auto [src, dest] : replace_paths) {
         for (auto [obj_idx, vol_idx] : selected_volumes) {
-            if (boost::algorithm::iequals(model.objects[obj_idx]->volumes[vol_idx]->source.input_file, src.string()))
+            if (boost::algorithm::iequals(model.objects()[obj_idx].volumes[vol_idx]->source.input_file, src.string()))
                 replace_volume_with_stl(obj_idx, vol_idx, dest, "");
         }
     }
@@ -4327,14 +4329,14 @@ void Plater::priv::reload_from_disk()
     update();
 
     // new GLVolumes have been created at this point, so update their printable state
-    for (size_t i = 0; i < model.objects.size(); ++i) {
+    for (size_t i = 0; i < model.objects().size(); ++i) {
         view3D->get_canvas3d()->update_instance_printable_state_for_object(i);
     }
 }
 
 void Plater::priv::reload_all_from_disk()
 {
-    if (model.objects.empty())
+    if (model.objects().empty())
         return;
 
     Plater::TakeSnapshot snapshot(q, _L("Reload all from disk"));
@@ -4411,7 +4413,7 @@ void Plater::priv::set_current_panel(wxTitledPanel* panel)
             // FIXME: it may be better to have a single function making this check and let it be called wherever needed
             bool export_in_progress = this->background_process.is_export_scheduled();
             bool model_fits = view3D->get_canvas3d()->check_volumes_outside_state() != ModelInstancePVS_Partly_Outside;
-            if (!model.objects.empty() && !export_in_progress && model_fits) {
+            if (!model.objects().empty() && !export_in_progress && model_fits) {
                 //check if already slicing
                 bool already_running = this->background_process.state() == BackgroundSlicingProcess::State::STATE_RUNNING
                     || this->background_process.state() == BackgroundSlicingProcess::State::STATE_STARTED;
@@ -4677,9 +4679,9 @@ void Plater::priv::actualize_slicing_warnings(const PrintBase &print)
 void Plater::priv::actualize_object_warnings(const PrintBase& print)
 {
     std::vector<ObjectID> ids;
-    for (const ModelObject* object : print.model().objects )
+    for (const ModelObject &object : print.model().objects())
     {
-        ids.push_back(object->id());
+        ids.push_back(object.id());
     }
     std::sort(ids.begin(), ids.end());
     notification_manager->remove_simplify_suggestion_of_released_objects(ids);
@@ -4887,7 +4889,7 @@ void Plater::priv::on_right_click(RBtnEvent& evt)
                 menu = printer_technology == ptSLA ? menus.sla_object_menu() : menus.object_menu();
             else if (is_part) {
                 const GLVolume* gl_volume = selection.get_first_volume();
-                const ModelVolume *model_volume = get_model_volume(*gl_volume, selection.get_model()->objects);
+                const ModelVolume *model_volume = get_model_volume(*gl_volume, selection.get_model()->object_ptrs());
                 menu = (model_volume != nullptr && model_volume->is_text()) ? menus.text_part_menu() :
                        (model_volume != nullptr && model_volume->is_svg()) ? menus.svg_part_menu() : 
                     menus.part_menu();
@@ -5170,7 +5172,7 @@ void Plater::priv::reset_gcode_toolpaths()
 bool Plater::priv::can_set_instance_to_object() const
 {
     const int obj_idx = get_selected_object_idx();
-    return 0 <= obj_idx && obj_idx < (int)model.objects.size() && model.objects[obj_idx]->instances.size() > 1;
+    return 0 <= obj_idx && obj_idx < (int)model.objects().size() && model.objects()[obj_idx].instances.size() > 1;
 }
 
 bool Plater::priv::can_split(bool to_objects) const
@@ -5191,7 +5193,7 @@ bool Plater::priv::layers_height_allowed() const
         return false;
 
     int obj_idx = get_selected_object_idx();
-    return 0 <= obj_idx && obj_idx < (int)model.objects.size() && model.objects[obj_idx]->max_z() > SINKING_Z_THRESHOLD &&
+    return 0 <= obj_idx && obj_idx < (int)model.objects().size() && model.objects()[obj_idx].max_z() > SINKING_Z_THRESHOLD &&
         config->opt_bool("variable_layer_height") && view3D->is_layers_editing_allowed();
 }
 
@@ -5226,7 +5228,7 @@ bool Plater::priv::can_reload_from_disk() const
     // collects paths of files to load
     std::vector<fs::path> paths;
     for (auto [obj_idx, vol_idx] : selected_volumes) {
-        paths.push_back(model.objects[obj_idx]->volumes[vol_idx]->source.input_file);
+        paths.push_back(model.objects()[obj_idx].volumes[vol_idx]->source.input_file);
     }
 
     std::sort(paths.begin(), paths.end());
@@ -5251,7 +5253,7 @@ bool Plater::priv::can_delete() const
 
 bool Plater::priv::can_delete_all() const
 {
-    return !model.objects.empty() && !sidebar->obj_list()->is_editing();
+    return !model.objects().empty() && !sidebar->obj_list()->is_editing();
 }
 
 bool Plater::priv::can_fix_through_winsdk() const
@@ -5266,14 +5268,14 @@ bool Plater::priv::can_fix_through_winsdk() const
     // Fixing only if the model is not manifold.
     if (vol_idxs.empty()) {
         for (auto obj_idx : obj_idxs)
-            if (model.objects[obj_idx]->get_repaired_errors_count() > 0)
+            if (model.objects()[obj_idx].get_repaired_errors_count() > 0)
                 return true;
         return false;
     }
 
     int obj_idx = obj_idxs.front();
     for (auto vol_idx : vol_idxs)
-        if (model.objects[obj_idx]->get_repaired_errors_count(vol_idx) > 0)
+        if (model.objects()[obj_idx].get_repaired_errors_count(vol_idx) > 0)
             return true;
     return false;
 #endif // FIX_THROUGH_WINSDK_ALWAYS
@@ -5284,7 +5286,7 @@ bool Plater::priv::can_simplify() const
     const int obj_idx = get_selected_object_idx();
     // is object for simplification selected
     // cut object can't be simplify
-    if (obj_idx < 0 || model.objects[obj_idx]->is_cut()) 
+    if (obj_idx < 0 || model.objects()[obj_idx].is_cut()) 
         return false;
 
     // is already opened?
@@ -5325,8 +5327,8 @@ bool Plater::priv::can_decrease_instances(int obj_idx /*= -1*/) const
         return false;
     }
 
-    return  obj_idx < (int)model.objects.size() && 
-            (model.objects[obj_idx]->instances.size() > 1) &&
+    return  obj_idx < (int)model.objects().size() && 
+            (model.objects()[obj_idx].instances.size() > 1) &&
             !sidebar->obj_list()->has_selected_cut_object();
 }
 
@@ -5342,13 +5344,13 @@ bool Plater::priv::can_split_to_volumes() const
 
 bool Plater::priv::can_arrange() const
 {
-    if (model.objects.empty() || !m_worker.is_idle()) return false;
+    if (model.objects().empty() || !m_worker.is_idle()) return false;
     return q->canvas3D()->get_gizmos_manager().get_current_type() == GLGizmosManager::Undefined;
 }
 
 bool Plater::priv::can_orient() const
 {
-    if (model.objects.empty() || !m_worker.is_idle() || get_selection().is_empty() || get_selection().is_wipe_tower()) return false;
+    if (model.objects().empty() || !m_worker.is_idle() || get_selection().is_empty() || get_selection().is_wipe_tower()) return false;
     return q->canvas3D()->get_gizmos_manager().get_current_type() == GLGizmosManager::Undefined;
 }
 
@@ -5844,8 +5846,8 @@ void Plater::load_model_hueforge(const std::string &path) {
             bool model_found = false;
             std::vector<size_t> objs_idx;
             boost::filesystem::path stl_path(hueforge.get_stl_path());
-            for (size_t object_idx = 0; !model_found && object_idx < this->model().objects.size(); object_idx++) {
-                if (this->model().objects[object_idx]->name == stl_path.filename()) {
+            for (size_t object_idx = 0; !model_found && object_idx < this->model().objects().size(); object_idx++) {
+                if (this->model().objects()[object_idx].name == stl_path.filename()) {
                     objs_idx = {object_idx};
                     model_found = true;
                 }
@@ -6874,7 +6876,7 @@ void Plater::reset() { p->reset(); }
 void Plater::reset_with_confirm()
 {
     if (get_app_config()->get_bool("default_action_delete_all")) {
-        if (!p->model.objects.empty()) {
+        if (!p->model.objects().empty()) {
             MessageDialog /*wxMessageDialog*/ dialog(static_cast<wxWindow*>(this), _L("All objects will be removed, continue?"), wxString(SLIC3R_APP_NAME) + " - " + _L("Delete all"), wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxCENTRE);
             dialog.SetButtonLabel(wxID_NO, _L("Erase all objects"));
             dialog.SetButtonLabel(wxID_YES, _L("New Project"), true);
@@ -6927,7 +6929,7 @@ void Plater::increase_instances(size_t num, int obj_idx, int inst_idx)
     }
     assert(obj_idx >= 0);
 
-    ModelObject* model_object = p->model.objects[obj_idx];
+    ModelObject *model_object = &p->model.objects()[obj_idx];
 
     if (inst_idx < 0 && get_selected_object_idx() >= 0) {
         inst_idx = get_selection().get_instance_idx();
@@ -6976,7 +6978,7 @@ void Plater::decrease_instances(size_t num, int obj_idx/* = -1*/)
         return;
     }
 
-    ModelObject* model_object = p->model.objects[obj_idx];
+    ModelObject *model_object = &p->model.objects()[obj_idx];
     if (model_object->instances.size() > num) {
         for (size_t i = 0; i < num; ++ i)
             model_object->delete_last_instance();
@@ -7021,7 +7023,7 @@ void Plater::set_number_of_copies()
     if (obj_idxs.empty())
         return;
 
-    const size_t init_cnt = obj_idxs.size() == 1 ? p->model.objects[*obj_idxs.begin()]->instances.size() : 1;
+    const size_t init_cnt = obj_idxs.size() == 1 ? p->model.objects()[*obj_idxs.begin()].instances.size() : 1;
     const int num = GetNumberFromUser( " ", _L("Enter the number of copies:"),
                                     _L("Copies of the selected object"), init_cnt, 0, 1000, this );
     if (num < 0)
@@ -7032,7 +7034,7 @@ void Plater::set_number_of_copies()
     Selection::ObjectIdxsToInstanceIdxsMap content = p->get_selection().get_content();
 
     for (const auto& obj_idx : obj_idxs) {
-        ModelObject* model_object = p->model.objects[obj_idx];
+        ModelObject *model_object = &p->model.objects()[obj_idx];
         const int diff = num - (int)model_object->instances.size();
         if (diff > 0) {
             if (auto obj_it = content.find(int(obj_idx)); obj_it != content.end())
@@ -7073,7 +7075,7 @@ void Plater::fill_bed_with_instances()
 
             int object_idx = pos.obj_idx;
 
-            if (object_idx < 0 || object_idx >= int(model().objects.size()))
+            if (object_idx < 0 || object_idx >= int(model().objects().size()))
                 return;
 
             update(static_cast<unsigned int>(UpdateParams::FORCE_FULL_SCREEN_REFRESH));
@@ -7122,14 +7124,14 @@ void Plater::convert_unit(ConversionType conv_type)
 
     ModelObjectPtrs objects;
     for (int obj_idx : obj_idxs) {
-        ModelObject *object = p->model.objects[obj_idx];
+        ModelObject *object = &p->model.objects()[obj_idx];
         object->convert_units(objects, conv_type, volume_idxs);
         remove(obj_idx);
     }
     p->load_model_objects(objects);
     
     Selection& selection = p->view3D->get_canvas3d()->get_selection();
-    size_t last_obj_idx = p->model.objects.size() - 1;
+    size_t last_obj_idx = p->model.objects().size() - 1;
 
     if (volume_idxs.empty()) {
         for (size_t i = 0; i < objects.size(); ++i)
@@ -7159,11 +7161,11 @@ void Plater::apply_cut_object_to_model(size_t obj_idx, const ModelObjectPtrs& ne
     update();
     // Update InfoItems in ObjectList after update() to use of a correct value of the GLCanvas3D::is_sinking(),
     // which is updated after a view3D->reload_scene(false, flags & (unsigned int)UpdateParams::FORCE_FULL_SCREEN_REFRESH) call
-    for (size_t idx = 0; idx < p->model.objects.size(); idx++)
+    for (size_t idx = 0; idx < p->model.objects().size(); idx++)
         wxGetApp().obj_list()->update_info_items(idx);
 
     Selection& selection = p->get_selection();
-    size_t last_id = p->model.objects.size() - 1;
+    size_t last_id = p->model.objects().size() - 1;
     for (size_t i = 0; i < new_objects.size(); ++i)
         selection.add_object((unsigned int)(last_id - i), i == 0);
 
@@ -7234,7 +7236,7 @@ static void alert_when_exporting_binary_gcode(bool binary_output, const std::str
 
 void Plater::export_gcode(bool prefer_removable)
 {
-    if (p->model.objects.empty())
+    if (p->model.objects().empty())
         return;
 
     if (canvas3D()->get_gizmos_manager().is_in_editing_mode(true))
@@ -7449,7 +7451,7 @@ OptionForExportPlatter::OptionForExportPlatter(wxWindow* parent)
 
 std::string Plater::get_export_path()
 {
-    if (p->model.objects.empty()) { return ""; }
+    if (p->model.objects().empty()) { return ""; }
     wxString path = p->get_export_file(FT_OBJECT).first; // FT_OBJECT = FT_STL & FT_OBJ
     if (path.empty()) { return ""; }
     return into_u8(path);
@@ -7458,7 +7460,7 @@ std::string Plater::get_export_path()
 //TOOO: use the updated omre powerful get_export_file
 void Plater::export_platter()
 {
-    if (p->model.objects.empty()) { return; }
+    if (p->model.objects().empty()) { return; }
 
     wxString wildcard = file_wildcards(FT_STL) + "|" + file_wildcards(FT_OBJ) + "|" + file_wildcards(FT_3MF) + "|" + file_wildcards(FT_AMF);
 
@@ -7506,7 +7508,7 @@ void Plater::export_platter()
             for (unsigned int vol_idx : selection.get_volume_idxs()) {
                 objects_idxes.insert(selection.get_volume(vol_idx)->object_idx());
             }
-            for (size_t idx = model_to_save.objects.size() - 1; idx < model_to_save.objects.size(); idx--) {
+            for (size_t idx = model_to_save.objects().size() - 1; idx < model_to_save.objects().size(); idx--) {
                 if (objects_idxes.find(idx) == objects_idxes.end()) {
                     model_to_save.delete_object(idx);
                 }
@@ -7583,7 +7585,7 @@ void Plater::export_platter()
 
 void Plater::export_stl_obj(std::string path_u8, bool extended, bool selection_only)
 {
-    if (p->model.objects.empty()) { return; }
+    if (p->model.objects().empty()) { return; }
 
     wxBusyCursor wait;
 
@@ -7718,7 +7720,7 @@ void Plater::export_stl_obj(std::string path_u8, bool extended, bool selection_o
 
     TriangleMesh mesh;
     if (selection_only) {
-        const ModelObject* model_object = p->model.objects[obj_idx];
+        const ModelObject *model_object = &p->model.objects()[obj_idx];
         if (selection.get_mode() == Selection::Instance)
             mesh = mesh_to_export(*model_object, (selection.is_single_full_object() && model_object->instances.size() > 1) ? -1 : selection.get_instance_idx());
         else {
@@ -7731,7 +7733,7 @@ void Plater::export_stl_obj(std::string path_u8, bool extended, bool selection_o
             mesh.translate(-model_object->origin_translation.cast<float>());
     }
     else {
-        for (const ModelObject* o : p->model.objects) {
+        for (const ModelObject* o : p->model.object_ptrs()) {
             mesh.merge(mesh_to_export(*o, -1));
         }
     }
@@ -7745,7 +7747,7 @@ void Plater::export_stl_obj(std::string path_u8, bool extended, bool selection_o
 
 void Plater::export_amf()
 {
-    if (p->model.objects.empty()) { return; }
+    if (p->model.objects().empty()) { return; }
 
     wxString path = p->get_export_file(FT_AMF).first;
     if (path.empty()) { return; }
@@ -7819,7 +7821,7 @@ void publish(Model &model) {
     // SVG file publishing
     bool exist_new = false;
     SvgFiles svgfiles;
-    for (ModelObject *object: model.objects){
+    for (ModelObject *object: model.object_ptrs()){
         for (ModelVolume *volume : object->volumes) {
             if (!volume->emboss_shape.has_value())
                 continue;
@@ -7843,7 +7845,7 @@ void publish(Model &model) {
                                 "If you hit 'NO', all SVGs in the project will not be editable any more."),
                              _L("Private protection"), wxYES_NO | wxICON_QUESTION);
         if (dialog.ShowModal() == wxID_NO){
-            for (ModelObject *object : model.objects) 
+            for (ModelObject *object : model.object_ptrs()) 
                 for (ModelVolume *volume : object->volumes)
                     if (volume->emboss_shape.has_value())
                         volume->emboss_shape.reset();
@@ -7870,7 +7872,7 @@ void publish(Model &model) {
 
 bool Plater::export_3mf(const boost::filesystem::path& output_path)
 {
-    if (p->model.objects.empty()) {
+    if (p->model.objects().empty()) {
         MessageDialog dialog(nullptr, _L("The platter is empty.\nDo you want to save the project?"), _L("Save project"), wxYES_NO);
         if (dialog.ShowModal() != wxID_YES)
             return false;
@@ -8001,9 +8003,9 @@ void Plater::reslice()
     }
 
     if (printer_technology() == ptSLA) {
-        for (auto& object : model().objects)
-            if (object->sla_points_status == sla::PointsStatus::NoPoints)
-                object->sla_points_status = sla::PointsStatus::Generating;
+        for (ModelObject &object : model().objects())
+            if (object.sla_points_status == sla::PointsStatus::NoPoints)
+                object.sla_points_status = sla::PointsStatus::Generating;
     }
 
     //FIXME Don't reslice if export of G-code or sending to OctoPrint is running.
@@ -8081,7 +8083,7 @@ void Plater::send_gcode()
 {
     // if physical_printer is selected, send gcode for this printer
     DynamicPrintConfig* physical_printer_config = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
-    if (! physical_printer_config || p->model.objects.empty())
+    if (! physical_printer_config || p->model.objects().empty())
         return;
 
     PrintHostJob upload_job(physical_printer_config);
@@ -8638,7 +8640,7 @@ bool Plater::set_printer_technology(PrinterTechnology printer_technology)
     //p->background_process.apply(Model)!
 
     if (printer_technology == ptSLA) {
-        for (ModelObject* model_object : p->model.objects) {
+        for (ModelObject* model_object : p->model.object_ptrs()) {
             model_object->ensure_on_bed();
         }
     }
@@ -8659,7 +8661,7 @@ bool Plater::set_printer_technology(PrinterTechnology printer_technology)
 
 void Plater::clear_before_change_mesh(int obj_idx, const std::string &notification_msg)
 {
-    ModelObject* mo = model().objects[obj_idx];
+    ModelObject *mo = &model().objects()[obj_idx];
 
     // If there are custom supports/seams/mmu segmentation, remove them. Fixed mesh
     // may be different and they would make no sense.
@@ -8695,7 +8697,7 @@ void Plater::clear_before_change_mesh(int obj_idx, const std::string &notificati
 
 void Plater::changed_mesh(int obj_idx)
 {
-    ModelObject* mo = model().objects[obj_idx];
+    ModelObject *mo = &model().objects()[obj_idx];
     if (p->printer_technology == ptSLA)
         sla::reproject_points_and_holes(mo);
     update();
@@ -8728,14 +8730,14 @@ void Plater::changed_object(int obj_idx)
 {
     if (obj_idx < 0)
         return;
-    ModelObject *object = p->model.objects[obj_idx];
+    ModelObject *object = &p->model.objects()[obj_idx];
     if (object == nullptr)
         return;
     changed_object(*object);
 }
 
 void Plater::changed_all_objects() {
-    for (ModelObject *object : p->model.objects) {
+    for (ModelObject *object : p->model.object_ptrs()) {
         if (object->min_z() >= SINKING_Z_THRESHOLD) {
             // re - align to Z = 0
             object->ensure_on_bed();
@@ -8748,7 +8750,7 @@ void Plater::changed_all_objects() {
     }
     else {
         p->view3D->reload_scene(false);
-        for (size_t obj_idx = 0; obj_idx < p->model.objects.size(); obj_idx++) {
+        for (size_t obj_idx = 0; obj_idx < p->model.objects().size(); obj_idx++) {
             p->view3D->get_canvas3d()->update_instance_printable_state_for_object(obj_idx);
         }
     }
@@ -8763,10 +8765,10 @@ void Plater::changed_objects(const std::vector<size_t>& object_idxs)
         return;
 
     for (size_t obj_idx : object_idxs) {
-        if (obj_idx < p->model.objects.size()) {
-            if (p->model.objects[obj_idx]->min_z() >= SINKING_Z_THRESHOLD)
+        if (obj_idx < p->model.objects().size()) {
+            if (p->model.objects()[obj_idx].min_z() >= SINKING_Z_THRESHOLD)
                 // re - align to Z = 0
-                p->model.objects[obj_idx]->ensure_on_bed();
+                p->model.objects()[obj_idx].ensure_on_bed();
         }
     }
     if (this->p->printer_technology == ptSLA) {
@@ -9120,7 +9122,7 @@ SuppressBackgroundProcessingUpdate::~SuppressBackgroundProcessingUpdate()
 PlaterAfterLoadAutoArrange::PlaterAfterLoadAutoArrange()
 {
     Plater* plater = wxGetApp().plater();
-    m_enabled = plater->model().objects.empty() &&
+    m_enabled = plater->model().objects().empty() &&
                 plater->printer_technology() == ptFFF &&
                 is_XL_printer(plater->fff_print().config());
 }

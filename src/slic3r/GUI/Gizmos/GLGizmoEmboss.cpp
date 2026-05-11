@@ -581,7 +581,7 @@ void GLGizmoEmboss::on_mouse_change_selection(const wxMouseEvent &mouse_event)
         if (gl_volume == nullptr)
             return close();
 
-        const ModelVolume *volume = get_model_volume(*gl_volume, m_parent.get_model()->objects);
+        const ModelVolume *volume = get_model_volume(*gl_volume, m_parent.get_model()->object_ptrs());
         if (volume == nullptr || !volume->text_configuration.has_value())
             // select volume without text configuration
             return close();
@@ -605,7 +605,7 @@ void GLGizmoEmboss::on_mouse_change_selection(const wxMouseEvent &mouse_event)
         const GLVolume *gl_volume = gl_volumes[hovered_idx_].get();
         if (gl_volume == nullptr)
             return;
-        const ModelVolume *volume = get_model_volume(*gl_volume, m_parent.get_model()->objects);
+        const ModelVolume *volume = get_model_volume(*gl_volume, m_parent.get_model()->object_ptrs());
         if (volume == nullptr)
             return;
 
@@ -632,7 +632,7 @@ void GLGizmoEmboss::on_mouse_change_selection(const wxMouseEvent &mouse_event)
         const GLVolume *gl_volume = gl_volumes[hovered_idx_].get();
         if (gl_volume == nullptr)
             return;
-        const ModelVolume *volume = get_model_volume(*gl_volume, m_parent.get_model()->objects);
+        const ModelVolume *volume = get_model_volume(*gl_volume, m_parent.get_model()->object_ptrs());
         if (volume == nullptr)
             return;
 
@@ -649,7 +649,7 @@ bool GLGizmoEmboss::on_mouse(const wxMouseEvent &mouse_event)
 {
     // not selected volume
     if (m_volume == nullptr ||
-        get_model_volume(m_volume_id, m_parent.get_selection().get_model()->objects) == nullptr ||
+        get_model_volume(m_volume_id, m_parent.get_selection().get_model()->object_ptrs()) == nullptr ||
         !m_volume->text_configuration.has_value()) return false;
 
     if (on_mouse_for_rotation(mouse_event)) return true;
@@ -738,7 +738,7 @@ void GLGizmoEmboss::on_render() {
     // no volume selected
     const Selection &selection = m_parent.get_selection();
     if (m_volume == nullptr ||
-        get_model_volume(m_volume_id, selection.get_model()->objects) == nullptr)
+        get_model_volume(m_volume_id, selection.get_model()->object_ptrs()) == nullptr)
         return;
     if (selection.is_empty()) return;
 
@@ -836,7 +836,7 @@ void GLGizmoEmboss::on_render_input_window(float x, float y, float bottom_limit)
     assert(m_volume != nullptr);
     // Do not render window for not selected text volume
     if (m_volume == nullptr ||
-        get_model_volume(m_volume_id, m_parent.get_selection().get_model()->objects) == nullptr ||
+        get_model_volume(m_volume_id, m_parent.get_selection().get_model()->object_ptrs()) == nullptr ||
         !m_volume->text_configuration.has_value()) {
         // This closing could lead to bad behavior of undo/redo stack when unselection create snapshot before close
         close();
@@ -1114,7 +1114,7 @@ void init_text_lines(TextLinesModel &text_lines, const Selection& selection, /* 
     if (gl_volume_ptr == nullptr)
         return;
     const GLVolume        &gl_volume = *gl_volume_ptr;
-    const ModelObjectPtrs &objects   = selection.get_model()->objects;
+    const ModelObjectPtrs &objects   = selection.get_model()->object_ptrs();
     const ModelVolume *mv_ptr = get_model_volume(gl_volume, objects);
     if (mv_ptr == nullptr)
         return;
@@ -1168,7 +1168,7 @@ bool GLGizmoEmboss::on_is_actionable() const {
     const Selection& selection = m_parent.get_selection();
     const GLVolume  *gl_volume = get_selected_gl_volume(selection);
     if (gl_volume == nullptr) return true;
-    const ModelObjectPtrs &objects = m_parent.get_model()->objects;
+    const ModelObjectPtrs &objects = m_parent.get_model()->object_ptrs();
     ModelVolume *volume = get_model_volume(*gl_volume, objects);
     return (volume == nullptr || selection.is_single_full_instance()) && !selection.is_single_text();
 }
@@ -1177,7 +1177,7 @@ void GLGizmoEmboss::trigger_action() {
     const Selection& selection = m_parent.get_selection();
     const GLVolume  *gl_volume = get_selected_gl_volume(selection);
     if (gl_volume) {
-        const ModelObjectPtrs &objects = m_parent.get_model()->objects;
+        const ModelObjectPtrs &objects = m_parent.get_model()->object_ptrs();
         ModelVolume *volume = get_model_volume(*gl_volume, objects);
         assert((volume == nullptr || selection.is_single_full_instance()) && !selection.is_single_text());
     }
@@ -1191,7 +1191,7 @@ void GLGizmoEmboss::set_volume_by_selection()
     if (gl_volume == nullptr)
         return reset_volume();
 
-    const ModelObjectPtrs &objects = m_parent.get_model()->objects;
+    const ModelObjectPtrs &objects = m_parent.get_model()->object_ptrs();
     ModelVolume *volume = get_model_volume(*gl_volume, objects);
     if (volume == nullptr)
         return reset_volume();
@@ -1983,7 +1983,7 @@ void GLGizmoEmboss::draw_style_rename_popup() {
 
     if (store) {
         // rename style in all objects and volumes
-        for (const ModelObject *mo :wxGetApp().plater()->model().objects) {
+        for (const ModelObject *mo :wxGetApp().plater()->model().object_ptrs()) {
             for (ModelVolume *mv : mo->volumes) { 
                 if (!mv->text_configuration.has_value()) continue;
                 std::string& name = mv->text_configuration->style.name;

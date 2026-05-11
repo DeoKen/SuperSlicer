@@ -292,20 +292,20 @@ static void generate_thumbnail_from_model(const std::string& filename)
         return;
     }
 
-    assert(model.objects.size() == 1);
-    assert(model.objects[0]->volumes.size() == 1);
-    assert(model.objects[0]->instances.size() == 1);
+    assert(model.objects().size() == 1);
+    assert(model.objects()[0].volumes.size() == 1);
+    assert(model.objects()[0].instances.size() == 1);
 
-    model.objects[0]->center_around_origin(false);
-    model.objects[0]->ensure_on_bed(false);
+    model.objects()[0].center_around_origin(false);
+    model.objects()[0].ensure_on_bed(false);
 
     model.center_instances_around_point(to_2d(wxGetApp().plater()->build_volume().bounding_volume().center()));
 
     GLVolumeCollection volumes;
     GLVolume* volume = volumes.volumes.emplace_back(new GLVolume()).get();
     volume->model.init_from(model.mesh());
-    volume->set_instance_transformation(model.objects[0]->instances[0]->get_transformation());
-    volume->set_volume_transformation(model.objects[0]->volumes[0]->get_transformation());
+    volume->set_instance_transformation(model.objects()[0].instances[0]->get_transformation());
+    volume->set_volume_transformation(model.objects()[0].volumes[0]->get_transformation());
 
     ThumbnailData thumbnail_data;
     const ThumbnailsParams thumbnail_params = { {}, false, false, false, true };

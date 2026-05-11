@@ -1096,8 +1096,8 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         m_objects.clear();
         print_regions_reshuffled = true;
         m_model.assign_copy(model);
-		for (const ModelObject *model_object : m_model.objects)
-			model_object_status_db.add(*model_object, ModelObjectStatus::New);
+		for (const ModelObject &model_object : m_model.objects())
+			model_object_status_db.add(model_object, ModelObjectStatus::New);
     } else {
         if (m_model.custom_gcode_per_print_z != model.custom_gcode_per_print_z) {
             const CustomGCode::Mode current_mode = m_model.custom_gcode_per_print_z.mode;
@@ -1122,17 +1122,17 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         }
         if (model_object_list_equal(m_model, model)) {
             // The object list did not change.
-			for (const ModelObject *model_object : m_model.objects)
-				model_object_status_db.add(*model_object, ModelObjectStatus::Old);
+			for (const ModelObject &model_object : m_model.objects())
+				model_object_status_db.add(model_object, ModelObjectStatus::Old);
         } else if (model_object_list_extended(m_model, model)) {
             // Add new objects. Their volumes and configs will be synchronized later.
             update_apply_status(this->invalidate_step(psGCodeExport));
-            for (const ModelObject *model_object : m_model.objects)
-                model_object_status_db.add(*model_object, ModelObjectStatus::Old);
-            for (size_t i = m_model.objects.size(); i < model.objects.size(); ++ i) {
-                model_object_status_db.add(*model.objects[i], ModelObjectStatus::New);
-                m_model.objects.emplace_back(ModelObject::new_copy(*model.objects[i]));
-				m_model.objects.back()->set_model(&m_model);
+            for (const ModelObject &model_object : m_model.objects())
+                model_object_status_db.add(model_object, ModelObjectStatus::Old);
+            for (size_t i = m_model.m_objects.size(); i < model.objects().size(); ++ i) {
+                model_object_status_db.add(model.objects()[i], ModelObjectStatus::New);
+                m_model.m_objects.emplace_back(ModelObjectUPtr(ModelObject::new_copy(model.objects()[i])));
+				m_model.m_objects.back()->set_model(&m_model);
             }
         } else {
             // Reorder the objects, add new objects.
@@ -1140,31 +1140,39 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             this->call_cancel_callback();
             update_apply_status(this->invalidate_step(psGCodeExport));
             // Second create a new list of objects.
-            std::vector<ModelObject*> model_objects_old(std::move(m_model.objects));
-            m_model.objects.clear();
-            m_model.objects.reserve(model.objects.size());
+            ModelObjectUPtrs model_objects_old(std::move(m_model.m_objects));
+            ModelObjectPtrs model_objects_old_sorted;
+            model_objects_old_sorted.reserve(model_objects_old.size());
+            for (ModelObjectUPtr &model_object : model_objects_old)
+                model_objects_old_sorted.emplace_back(model_object.get());
+            m_model.m_objects.clear();
+            m_model.m_objects.reserve(model.objects().size());
             auto by_id_lower = [](const ModelObject *lhs, const ModelObject *rhs){ return lhs->id() < rhs->id(); };
-            std::sort(model_objects_old.begin(), model_objects_old.end(), by_id_lower);
-            for (const ModelObject *mobj : model.objects) {
-                auto it = std::lower_bound(model_objects_old.begin(), model_objects_old.end(), mobj, by_id_lower);
-                if (it == model_objects_old.end() || (*it)->id() != mobj->id()) {
+            std::sort(model_objects_old_sorted.begin(), model_objects_old_sorted.end(), by_id_lower);
+            for (const ModelObject &mobj : model.objects()) {
+                auto it = std::lower_bound(model_objects_old_sorted.begin(), model_objects_old_sorted.end(), &mobj, by_id_lower);
+                if (it == model_objects_old_sorted.end() || (*it)->id() != mobj.id()) {
                     // New ModelObject added.
-					m_model.objects.emplace_back(ModelObject::new_copy(*mobj));
-					m_model.objects.back()->set_model(&m_model);
-                    model_object_status_db.add(*mobj, ModelObjectStatus::New);
+					m_model.m_objects.emplace_back(ModelObjectUPtr(ModelObject::new_copy(mobj)));
+					m_model.m_objects.back()->set_model(&m_model);
+                    model_object_status_db.add(mobj, ModelObjectStatus::New);
                 } else {
                     // Existing ModelObject re-added (possibly moved in the list).
-                    m_model.objects.emplace_back(*it);
-                    model_object_status_db.add(*mobj, ModelObjectStatus::Moved);
+                    ModelObject *old_model_object = *it;
+                    ModelObjectUPtrs::iterator old_it = std::find_if(model_objects_old.begin(), model_objects_old.end(),
+                        [old_model_object](const ModelObjectUPtr &model_object) { return model_object.get() == old_model_object; });
+                    assert(old_it != model_objects_old.end());
+                    m_model.m_objects.emplace_back(std::move(*old_it));
+                    model_object_status_db.add(mobj, ModelObjectStatus::Moved);
                 }
             }
             bool deleted_any = false;
-			for (ModelObject *&model_object : model_objects_old)
-                if (model_object_status_db.add_if_new(*model_object, ModelObjectStatus::Deleted))
+			for (ModelObjectUPtr &model_object : model_objects_old)
+                if (model_object != nullptr && model_object_status_db.add_if_new(*model_object, ModelObjectStatus::Deleted))
                     deleted_any = true;
                 else
                     // Do not delete this ModelObject instance.
-                    model_object = nullptr;
+                    model_object.reset();
             if (deleted_any) {
                 // Delete PrintObjects of the deleted ModelObjects.
                 PrintObjectUPtrs print_objects_old = std::move(m_objects);
@@ -1177,8 +1185,6 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                     } else
                         m_objects.emplace_back(std::move(print_object));
                 }
-                for (ModelObject *model_object : model_objects_old)
-                    delete model_object;
                 print_regions_reshuffled = true;
             }
         }
@@ -1189,10 +1195,10 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 
     // 3) Synchronize ModelObjects & PrintObjects.
     const std::initializer_list<ModelVolumeType> solid_or_modifier_types { ModelVolumeType::MODEL_PART, ModelVolumeType::NEGATIVE_VOLUME, ModelVolumeType::PARAMETER_MODIFIER };
-    for (size_t idx_model_object = 0; idx_model_object < model.objects.size(); ++ idx_model_object) {
-        ModelObject       &model_object        = *m_model.objects[idx_model_object];
+    for (size_t idx_model_object = 0; idx_model_object < model.objects().size(); ++ idx_model_object) {
+        ModelObject       &model_object        = *m_model.m_objects[idx_model_object];
         ModelObjectStatus &model_object_status = const_cast<ModelObjectStatus&>(model_object_status_db.reuse(model_object));
-		const ModelObject &model_object_new    = *model.objects[idx_model_object];
+		const ModelObject &model_object_new    = model.objects()[idx_model_object];
         if (model_object_status.status == ModelObjectStatus::New)
             // PrintObject instances will be added in the next loop.
             continue;
@@ -1333,10 +1339,11 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     // 4) Generate PrintObjects from ModelObjects and their instances.
     {
         PrintObjectUPtrs print_objects_new;
-        print_objects_new.reserve(std::max(m_objects.size(), m_model.objects.size()));
+        print_objects_new.reserve(std::max(m_objects.size(), m_model.m_objects.size()));
         bool new_objects = false;
         // Walk over all new model objects and check, whether there are matching PrintObjects.
-        for (ModelObject *model_object : m_model.objects) {
+        for (ModelObjectUPtr &model_object_ptr : m_model.m_objects) {
+            ModelObject *model_object = model_object_ptr.get();
             ModelObjectStatus &model_object_status = const_cast<ModelObjectStatus&>(model_object_status_db.reuse(*model_object));
             model_object_status.print_instances    = print_objects_from_model_object(*model_object);
             std::vector<const PrintObjectStatus*> old;

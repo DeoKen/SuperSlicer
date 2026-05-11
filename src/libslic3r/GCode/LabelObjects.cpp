@@ -76,7 +76,7 @@ void LabelObjects::init(const Print& print)
     for (size_t object_id = 0; object_id < model_object_to_print_instances.size(); object_id++) {
         const ModelObject *model_object = model_object_to_print_instances[object_id].first;
         const auto &print_instances = model_object_to_print_instances[object_id].second;
-        const ModelObjectPtrs &model_objects = model_object->get_model()->objects;
+        const ModelObjectPtrs &model_objects = model_object->get_model()->object_ptrs();
         bool object_has_more_instances = print_instances.size() > 1u;
         for (const PrintInstance *const pi : print_instances) {
             int instance_id = int(

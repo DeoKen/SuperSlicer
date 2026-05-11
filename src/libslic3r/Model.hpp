@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "CustomGCode.hpp"
+#include "DataTreeFwd.hpp"
 #include "EmbossShape.hpp"
 #include "enum_bitmask.hpp"
 #include "Geometry.hpp"
@@ -478,7 +479,7 @@ public:
     /// It operates on the total size by duplicating the object according to all the instances.
     /// \param size Sizef3 the size vector
     void scale_to_fit(const Vec3d &size);
-    /// Rotate the model along its internal position (does not take its position into account)
+    /// Rotate the model along its internal position (does not take it&s position into account)
     void rotate(double angle, Axis axis);
     void rotate(double angle, const Vec3d& axis);
     void mirror(Axis axis);
@@ -525,6 +526,7 @@ public:
     bool has_sla_drain_holes() const { return !sla_drain_holes.empty(); }
     bool is_cut() const { return cut_id.id().valid(); }
     bool has_connectors() const;
+    ~ModelObject();
 
 private:
     friend class Model;
@@ -541,7 +543,6 @@ private:
         assert(this->config.id().invalid());
         assert(this->layer_height_profile.id().invalid());
     }
-	~ModelObject();
 	void assign_new_unique_ids_recursive() override;
 
     // To be able to return an object from own copy / clone methods. Hopefully the compiler will do the "Copy elision"
@@ -1283,8 +1284,6 @@ public:
     // Materials are owned by a model and referenced by objects through t_model_material_id.
     // Single material may be shared by multiple models.
     ModelMaterialMap    materials;
-    // Objects are owned by a model. Each model may have multiple instances, each instance having its own transformation (shift, scale, rotation).
-    ModelObjectPtrs     objects;
     // Wipe tower object.
     ModelWipeTower	    wipe_tower;
 
@@ -1306,6 +1305,13 @@ public:
     Model& operator=(Model &&rhs) { this->assign_copy(std::move(rhs)); assert(this->id().valid()); assert(this->id() == rhs.id()); return *this; }
 
     OBJECTBASE_DERIVED_COPY_MOVE_CLONE(Model)
+
+    ModelObjectRefs       objects() { return make_ref_view<ModelObject>(m_objects); }
+    ModelObjectCRefs      objects() const { return make_ref_view<ModelObject>(m_objects); }
+    ModelObject&          get_object(size_t idx) { return *m_objects[idx]; }
+    const ModelObject&    get_object(size_t idx) const { return *m_objects[idx]; }
+    ModelObjectPtrs       object_ptrs();
+    ModelObjectPtrs       object_ptrs() const;
 
     enum class LoadAttribute : int {
         AddDefaultInstances,
@@ -1331,10 +1337,12 @@ public:
     ModelObject* add_object(const char *name, const char *path, const TriangleMesh &mesh);
     ModelObject* add_object(const char *name, const char *path, TriangleMesh &&mesh);
     ModelObject* add_object(const ModelObject &other);
+    ModelObject* add_object(ModelObjectUPtr object);
     void         delete_object(size_t idx);
     bool         delete_object(ObjectID id);
     bool         delete_object(ModelObject* object);
     void         clear_objects();
+    void         swap_objects(size_t idx1, size_t idx2);
 
     ModelMaterial* add_material(t_model_material_id material_id);
     ModelMaterial* add_material(t_model_material_id material_id, const ModelMaterial &other);
@@ -1357,7 +1365,7 @@ public:
     unsigned int  update_print_volume_state(const BuildVolume &build_volume);
     // Returns true if any ModelObject was modified.
     bool 		  center_instances_around_point(const Vec2d &point);
-    void 		  translate(coordf_t x, coordf_t y, coordf_t z) { for (ModelObject *o : this->objects) o->translate(x, y, z); }
+    void 		  translate(coordf_t x, coordf_t y, coordf_t z) { for (ModelObjectUPtr &o : this->m_objects) o->translate(x, y, z); }
     TriangleMesh  mesh() const;
     
     // Croaks if the duplicated objects do not fit the print bed.
@@ -1374,7 +1382,7 @@ public:
     // Ensures that the min z of the model is not negative
     void 		  adjust_min_z();
 
-    void 		  print_info() const { for (const ModelObject *o : this->objects) o->print_info(); }
+    void 		  print_info() const { for (const ModelObjectUPtr &o : this->m_objects) o->print_info(); }
 
     // Propose an output file name & path based on the first printable object's name and source input file's path.
     std::string   propose_export_file_name_and_path() const;
@@ -1389,6 +1397,9 @@ public:
     bool          is_mm_painted() const;
 
 private:
+    friend class Print;
+    friend class SLAPrint;
+
     explicit Model(int) : ObjectBase(-1) { assert(this->id().invalid()); }
 	void assign_new_unique_ids_recursive();
 	void update_links_bottom_up_recursive();
@@ -1397,8 +1408,12 @@ private:
 	friend class UndoRedo::StackImpl;
 	template<class Archive> void serialize(Archive &ar) {
 		Internal::StaticSerializationWrapper<ModelWipeTower> wipe_tower_wrapper(wipe_tower);
-		ar(materials, objects, wipe_tower_wrapper);
+		ar(materials, m_objects, wipe_tower_wrapper);
     }
+
+    // Objects are owned by a model. Stored as unique_ptr to make ownership explicit;
+    // callers should use objects()/get_object() and consume ModelObject references.
+    ModelObjectUPtrs    m_objects;
 };
 
 ENABLE_ENUM_BITMASK_OPERATORS(Model::LoadAttribute)

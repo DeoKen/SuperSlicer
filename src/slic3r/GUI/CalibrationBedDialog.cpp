@@ -77,22 +77,22 @@ void CalibrationBedDialog::create_geometry(wxCommandEvent& event_args) {
     //do scaling
     if (xyScale < 0.9 || 1.2 < xyScale) {
         for (size_t i = 0; i < 5; i++)
-            model.objects[objs_idx[i]]->scale(xyScale, xyScale, zscale);
+            model.objects()[objs_idx[i]].scale(xyScale, xyScale, zscale);
     } else {
         for (size_t i = 0; i < 5; i++)
-            model.objects[objs_idx[i]]->scale(1, 1, zscale);
+            model.objects()[objs_idx[i]].scale(1, 1, zscale);
     }
 
     /// --- rotate ---
     const ConfigOptionPoints* bed_shape = printerConfig->option<ConfigOptionPoints>("bed_shape");
     if (bed_shape->size() == 4) {
-        model.objects[objs_idx[0]]->rotate(PI / 4, { 0,0,1 });
-        model.objects[objs_idx[1]]->rotate(5 * PI / 4, { 0,0,1 });
-        model.objects[objs_idx[3]]->rotate(3 * PI / 4, { 0,0,1 });
-        model.objects[objs_idx[4]]->rotate(7 * PI / 4, { 0,0,1 });
+        model.objects()[objs_idx[0]].rotate(PI / 4, { 0,0,1 });
+        model.objects()[objs_idx[1]].rotate(5 * PI / 4, { 0,0,1 });
+        model.objects()[objs_idx[3]].rotate(3 * PI / 4, { 0,0,1 });
+        model.objects()[objs_idx[4]].rotate(7 * PI / 4, { 0,0,1 });
     } else {
-        model.objects[objs_idx[3]]->rotate(PI / 2, { 0,0,1 });
-        model.objects[objs_idx[4]]->rotate(PI / 2, { 0,0,1 });
+        model.objects()[objs_idx[3]].rotate(PI / 2, { 0,0,1 });
+        model.objects()[objs_idx[4]].rotate(PI / 2, { 0,0,1 });
     }
 
     /// --- translate ---
@@ -112,15 +112,15 @@ void CalibrationBedDialog::create_geometry(wxCommandEvent& event_args) {
         (bed_size.x() > offsetx * 2 + 10 * xyScale && bed_size.y() > offsety * 2 + 10 * xyScale);
     // note: objects are loaded around bed_size center (because of load_model bool : center_instances_around_point(this->bed.build_volume().bed_center());)
     if (large_enough) {
-        ModelInstance *instance = model.objects[objs_idx[0]]->instances.front();
+        ModelInstance *instance = model.objects()[objs_idx[0]].instances.front();
         instance->set_offset({ bed_min.x() + offsetx,               bed_min.y() + bed_size.y() - offsety, instance->get_offset().z() + 1 * zscale });
-        instance = model.objects[objs_idx[1]]->instances.front();
+        instance = model.objects()[objs_idx[1]].instances.front();
         instance->set_offset({ bed_min.x() + bed_size.x() - offsetx,bed_min.y() + offsety ,               instance->get_offset().z() + 1 * zscale });
-        instance = model.objects[objs_idx[2]]->instances.front();
+        instance = model.objects()[objs_idx[2]].instances.front();
         instance->set_offset({ bed_min.x() + bed_size.x()/2,       bed_min.y() + bed_size.y() / 2,        instance->get_offset().z() + 1 * zscale });
-        instance = model.objects[objs_idx[3]]->instances.front();
+        instance = model.objects()[objs_idx[3]].instances.front();
         instance->set_offset({ bed_min.x() + offsetx,               bed_min.y() + offsety,                instance->get_offset().z() + 1 * zscale });
-        instance = model.objects[objs_idx[4]]->instances.front();
+        instance = model.objects()[objs_idx[4]].instances.front();
         instance->set_offset({ bed_min.x() + bed_size.x() - offsetx,bed_min.y() + bed_size.y() - offsety, instance->get_offset().z() + 1 * zscale });
     }
 
@@ -130,26 +130,26 @@ void CalibrationBedDialog::create_geometry(wxCommandEvent& event_args) {
 
     /// --- custom config ---
     for (size_t i = 0; i < 5; i++) {
-        model.objects[objs_idx[i]]->config.set_key_value("perimeters", new ConfigOptionInt(2));
-        model.objects[objs_idx[i]]->config.set_key_value("bottom_solid_layers", new ConfigOptionInt(2));
-        model.objects[objs_idx[i]]->config.set_key_value("gap_fill_enabled", new ConfigOptionBool(false));
-        model.objects[objs_idx[i]]->config.set_key_value("first_layer_extrusion_width", new ConfigOptionFloatOrPercent(140, true));
-        model.objects[objs_idx[i]]->config.set_key_value("first_layer_infill_extrusion_width", (new ConfigOptionFloatOrPercent(140, true))->set_can_be_disabled(true));
-        model.objects[objs_idx[i]]->config.set_key_value("bottom_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
-        model.objects[objs_idx[i]]->config.set_key_value("infill_filled_bottom", new ConfigOptionBool(true));
+        model.objects()[objs_idx[i]].config.set_key_value("perimeters", new ConfigOptionInt(2));
+        model.objects()[objs_idx[i]].config.set_key_value("bottom_solid_layers", new ConfigOptionInt(2));
+        model.objects()[objs_idx[i]].config.set_key_value("gap_fill_enabled", new ConfigOptionBool(false));
+        model.objects()[objs_idx[i]].config.set_key_value("first_layer_extrusion_width", new ConfigOptionFloatOrPercent(140, true));
+        model.objects()[objs_idx[i]].config.set_key_value("first_layer_infill_extrusion_width", (new ConfigOptionFloatOrPercent(140, true))->set_can_be_disabled(true));
+        model.objects()[objs_idx[i]].config.set_key_value("bottom_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
+        model.objects()[objs_idx[i]].config.set_key_value("infill_filled_bottom", new ConfigOptionBool(true));
         //disable ironing post-process
-        model.objects[objs_idx[i]]->config.set_key_value("ironing", new ConfigOptionBool(false));
+        model.objects()[objs_idx[i]].config.set_key_value("ironing", new ConfigOptionBool(false));
     }
     if (bed_shape->size() == 4) {
-        model.objects[objs_idx[0]]->config.set_key_value("fill_angle", new ConfigOptionFloat(90));
-        model.objects[objs_idx[1]]->config.set_key_value("fill_angle", new ConfigOptionFloat(90));
-        model.objects[objs_idx[2]]->config.set_key_value("fill_angle", new ConfigOptionFloat(45));
-        model.objects[objs_idx[3]]->config.set_key_value("fill_angle", new ConfigOptionFloat(0));
-        model.objects[objs_idx[4]]->config.set_key_value("fill_angle", new ConfigOptionFloat(0));
+        model.objects()[objs_idx[0]].config.set_key_value("fill_angle", new ConfigOptionFloat(90));
+        model.objects()[objs_idx[1]].config.set_key_value("fill_angle", new ConfigOptionFloat(90));
+        model.objects()[objs_idx[2]].config.set_key_value("fill_angle", new ConfigOptionFloat(45));
+        model.objects()[objs_idx[3]].config.set_key_value("fill_angle", new ConfigOptionFloat(0));
+        model.objects()[objs_idx[4]].config.set_key_value("fill_angle", new ConfigOptionFloat(0));
     } else {
         for (size_t i = 0; i < 3; i++)
         for (size_t i = 3; i < 5; i++)
-            model.objects[objs_idx[i]]->config.set_key_value("fill_angle", new ConfigOptionFloat(135));
+            model.objects()[objs_idx[i]].config.set_key_value("fill_angle", new ConfigOptionFloat(135));
     }
 
     //update plater

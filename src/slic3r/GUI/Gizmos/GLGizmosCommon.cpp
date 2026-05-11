@@ -121,7 +121,7 @@ void SelectionInfo::on_update()
     m_print_object = nullptr;
 
     if (selection.is_single_full_instance()) {
-        m_model_object = selection.get_model()->objects[selection.get_object_idx()];
+        m_model_object = &selection.get_model()->objects()[selection.get_object_idx()];
         if (m_model_object)
             m_print_object = get_pool()->get_canvas()->sla_print()->get_print_object_by_model_object_id(m_model_object->id());
 

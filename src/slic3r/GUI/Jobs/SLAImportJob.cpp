@@ -145,7 +145,7 @@ void SLAImportJob::finalize(bool canceled, std::exception_ptr &eptr)
         if (p->profile.empty())
             p->profile = p->plater->sla_print().full_print_config();
 
-        const ModelObjectPtrs& objects = p->plater->model().objects;
+        const ModelObjectPtrs& objects = p->plater->model().object_ptrs();
         for (auto object : objects)
             if (object->volumes.size() > 1)
             {

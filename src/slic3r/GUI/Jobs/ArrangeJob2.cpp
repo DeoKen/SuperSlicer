@@ -38,7 +38,7 @@ public:
     {
         auto selmap = m_sel->get_object_idxs();
 
-        std::vector<bool> ret(m_sel->get_model()->objects.size(), false);
+        std::vector<bool> ret(m_sel->get_model()->objects().size(), false);
 
         for (auto sel : selmap) {
             ret[sel] = true;
@@ -49,9 +49,9 @@ public:
 
     std::vector<bool> selected_instances(int obj_id) const override
     {
-        auto objcnt = static_cast<int>(m_sel->get_model()->objects.size());
+        auto objcnt = static_cast<int>(m_sel->get_model()->objects().size());
         auto icnt   = obj_id < objcnt ?
-                          m_sel->get_model()->objects[obj_id]->instances.size() :
+                          m_sel->get_model()->objects()[obj_id].instances.size() :
                           0;
 
         std::vector<bool> ret(icnt, false);

@@ -146,7 +146,7 @@ void CalibrationAbstractDialog::add_part(ModelObject* model_object, std::string 
         exit(1);
     }
 
-    for (ModelObject* object : model.objects) {
+    for (ModelObject* object : model.object_ptrs()) {
         Vec3d delta = Vec3d::Zero();
         if (model_object->origin_translation != Vec3d::Zero())
         {
@@ -180,7 +180,7 @@ void CalibrationAbstractDialog::add_part(ModelObject* model_object, std::string 
             volume->translate(Vec3d(0,0,-min_z));*/
         }
     }
-    assert(model.objects.size() == 1);
+    assert(model.objects().size() == 1);
 }
 
 void CalibrationAbstractDialog::on_dpi_changed(const wxRect& suggested_rect)

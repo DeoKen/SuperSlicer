@@ -132,7 +132,7 @@ std::optional<Vec3d> calc_surface_offset(const Selection &selection, RaycastMana
         return {};
     const GLVolume& gl_volume = *gl_volume_ptr;
 
-    const ModelObjectPtrs &objects = selection.get_model()->objects;
+    const ModelObjectPtrs &objects = selection.get_model()->object_ptrs();
     const ModelVolume* volume = get_model_volume(gl_volume, objects);
     if (volume == nullptr)
         return {};
@@ -186,7 +186,7 @@ std::optional<Vec3d> calc_surface_offset(const Selection &selection, RaycastMana
 
 std::optional<float> calc_distance(const GLVolume &gl_volume, RaycastManager &raycaster, GLCanvas3D &canvas)
 {
-    const ModelObject *object = get_model_object(gl_volume, canvas.get_model()->objects);
+    const ModelObject *object = get_model_object(gl_volume, canvas.get_model()->object_ptrs());
     assert(object != nullptr);
     if (object == nullptr)
         return {};
@@ -253,7 +253,7 @@ std::optional<float> calc_angle(const Selection &selection)
         return {};
 
     Transform3d to_world = gl_volume->world_matrix();
-    const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->objects);
+    const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->object_ptrs());
     assert(volume != nullptr);
     assert(volume->emboss_shape.has_value());
     if (volume == nullptr || !volume->emboss_shape.has_value() || !volume->emboss_shape->fix_3mf_tr)
@@ -290,7 +290,7 @@ Transform3d world_matrix_fixed(const Selection &selection)
     if (gl_volume == nullptr)
         return Transform3d::Identity();
 
-    return world_matrix_fixed(*gl_volume, selection.get_model()->objects);
+    return world_matrix_fixed(*gl_volume, selection.get_model()->object_ptrs());
 }
 
 void selection_transform(Selection &selection, const std::function<void()> &selection_transformation_fnc)
@@ -322,7 +322,7 @@ bool face_selected_volume_to_camera(const Camera &camera, GLCanvas3D &canvas, co
         return false;
     GLVolume &gl_volume = *gl_volume_ptr;
 
-    const ModelObjectPtrs &objects = canvas.get_model()->objects;
+    const ModelObjectPtrs &objects = canvas.get_model()->object_ptrs();
     ModelObject *object_ptr = get_model_object(gl_volume, objects);
     assert(object_ptr != nullptr);
     if (object_ptr == nullptr)
@@ -404,12 +404,12 @@ void do_local_z_rotate(Selection &selection, double relative_angle) {
     bool is_mirrored = false;
     const GLVolume* gl_volume = selection.get_first_volume();
     if (gl_volume != nullptr) {
-        const ModelInstance *instance = get_model_instance(*gl_volume, selection.get_model()->objects);
+        const ModelInstance *instance = get_model_instance(*gl_volume, selection.get_model()->object_ptrs());
         bool is_instance_mirrored = (instance != nullptr)? has_reflection(instance->get_matrix()) : false;
         if (is_embossed_object(selection)) {
                 is_mirrored = is_instance_mirrored;
         } else {
-            const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->objects);
+            const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->object_ptrs());
             if (volume != nullptr)
                 is_mirrored = is_instance_mirrored != has_reflection(volume->get_matrix());
         }
@@ -515,7 +515,7 @@ bool start_dragging(const Vec2d                &mouse_pos,
              hovered_idx_ >= gl_volumes.size() || gl_volumes[hovered_idx_].get() != gl_volume_ptr)
         return false;
 
-    const ModelObjectPtrs &objects = canvas.get_model()->objects;
+    const ModelObjectPtrs &objects = canvas.get_model()->object_ptrs();
     const ModelObject     *object  = get_model_object(gl_volume, objects);
     assert(object != nullptr);
     if (object == nullptr)
@@ -671,7 +671,7 @@ bool dragging(const Vec2d                 &mouse_pos,
         return true;
     }
 
-    const ModelVolume *volume = get_model_volume(*surface_drag.gl_volume, canvas.get_model()->objects);
+    const ModelVolume *volume = get_model_volume(*surface_drag.gl_volume, canvas.get_model()->object_ptrs());
     std::optional<Transform3d> fix;
     if (volume !=nullptr && 
         volume->emboss_shape.has_value() && 
@@ -706,7 +706,7 @@ const Transform3d *get_fix_transformation(const Selection &selection) {
     if (gl_volume == nullptr)
         return nullptr;
 
-    const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->objects);
+    const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->object_ptrs());
     assert(volume != nullptr);
     if (volume == nullptr)
         return nullptr;

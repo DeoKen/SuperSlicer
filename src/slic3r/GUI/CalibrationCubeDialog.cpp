@@ -98,7 +98,7 @@ void CalibrationCubeDialog::create_geometry(std::string calibration_path) {
     }
     xyzScale = xyzScale / cube_size;
     //do scaling
-    model.objects[objs_idx[0]]->scale(xyzScale, xyzScale, xyzScale);
+    model.objects()[objs_idx[0]].scale(xyzScale, xyzScale, xyzScale);
 
 
     /// --- translate ---
@@ -106,10 +106,10 @@ void CalibrationCubeDialog::create_geometry(std::string calibration_path) {
     /// --- custom config ---
     int idx_goal = calibrate->GetSelection();
     if (idx_goal == 1) {
-        model.objects[objs_idx[0]]->config.set_key_value("perimeters", new ConfigOptionInt(1));
-        model.objects[objs_idx[0]]->config.set_key_value("fill_pattern", new ConfigOptionEnum<InfillPattern>(ipCubic));
+        model.objects()[objs_idx[0]].config.set_key_value("perimeters", new ConfigOptionInt(1));
+        model.objects()[objs_idx[0]].config.set_key_value("fill_pattern", new ConfigOptionEnum<InfillPattern>(ipCubic));
     } else if (idx_goal == 2) {
-        model.objects[objs_idx[0]]->config.set_key_value("perimeters", new ConfigOptionInt(3));
+        model.objects()[objs_idx[0]].config.set_key_value("perimeters", new ConfigOptionInt(3));
         //add full solid layers
     }
 

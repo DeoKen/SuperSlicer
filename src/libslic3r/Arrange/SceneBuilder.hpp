@@ -10,6 +10,7 @@
 #include "Core/ArrangeItemTraits.hpp"
 
 #include <functional>
+#include <type_traits>
 #include <vector>
 
 namespace Slic3r {
@@ -529,13 +530,13 @@ public:
 template<class Mdl>
 auto find_instance_by_id(Mdl &&model, const ObjectID &id)
 {
-    std::remove_reference_t<
-        decltype(std::declval<Mdl>().objects[0]->instances[0])>
+    std::remove_const_t<std::remove_reference_t<
+        decltype(std::declval<Mdl>().objects()[0].instances[0])>>
         ret = nullptr;
 
     InstPos pos;
 
-    for (auto * obj : model.objects) {
+    for (auto * obj : model.object_ptrs()) {
         for (auto *inst : obj->instances) {
             if (inst->id() == id) {
                 ret = inst;

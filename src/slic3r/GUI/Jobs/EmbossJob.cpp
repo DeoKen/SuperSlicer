@@ -379,7 +379,7 @@ void CreateObjectJob::finalize(bool canceled, std::exception_ptr &eptr)
         new_object->ensure_on_bed();
 
         // Actualize right panel and set inside of selection
-        app.obj_list()->paste_objects_into_list({model.objects.size() - 1});
+        app.obj_list()->paste_objects_into_list({model.objects().size() - 1});
     }
 #ifdef _DEBUG
     check_model_ids_validity(model);
@@ -600,7 +600,7 @@ bool start_create_volume_without_position(CreateVolumeParams &input, DataBasePtr
 
     Size s = input.canvas.get_canvas_size();
     Vec2d screen_center(s.get_width() / 2., s.get_height() / 2.);
-    const ModelObjectPtrs &objects = selection.get_model()->objects;
+    const ModelObjectPtrs &objects = selection.get_model()->object_ptrs();
 
     // No selected object so create new object
     if (selection.is_empty() || object_idx < 0 || 
@@ -761,8 +761,10 @@ bool check(const DataUpdate &input, bool is_main_thread, bool use_surface)
     assert(input.base != nullptr);
     bool res = input.base != nullptr;
     res &= check(*input.base, check_fontfile, use_surface);
-    if (is_main_thread)
-        assert(get_model_volume(input.volume_id, wxGetApp().model().objects) != nullptr);
+    if (is_main_thread) {
+        ModelObjectPtrs objects = wxGetApp().model().object_ptrs();
+        assert(get_model_volume(input.volume_id, objects) != nullptr);
+    }
     assert(input.base->cancel != nullptr);
     res &= input.base->cancel != nullptr;
     if (is_main_thread)
@@ -1039,7 +1041,8 @@ void update_volume(TriangleMesh &&mesh, const DataUpdate &data, const Transform3
         Plater::TakeSnapshot snapshot(plater, snap_name, UndoRedo::SnapshotType::GizmoAction);
     }
 
-    ModelVolume *volume = get_model_volume(data.volume_id, plater->model().objects);   
+    ModelObjectPtrs model_objects = plater->model().object_ptrs();
+    ModelVolume *volume = get_model_volume(data.volume_id, model_objects);
 
     // could appear when user delete edited volume
     if (volume == nullptr)
@@ -1069,7 +1072,7 @@ void create_volume(TriangleMesh                    &&mesh,
     Plater          *plater   = app.plater();
     ObjectList      *obj_list = app.obj_list();
     GLCanvas3D      *canvas   = plater->canvas3D();
-    ModelObjectPtrs &objects  = plater->model().objects;
+    ModelObjectPtrs objects  = plater->model().object_ptrs();
 
     ModelObject *obj        = nullptr;
     size_t       object_idx = 0;
@@ -1541,7 +1544,7 @@ bool start_create_volume_on_surface_job(CreateVolumeParams &input, DataBasePtr d
     if (model == nullptr)
         return on_bad_state(std::move(data));
 
-    const ModelObjectPtrs &objects = model->objects;
+    const ModelObjectPtrs &objects = model->object_ptrs();
     const ModelVolume     *volume  = get_model_volume(*input.gl_volume, objects);
     assert(volume != nullptr);
     if (volume == nullptr)

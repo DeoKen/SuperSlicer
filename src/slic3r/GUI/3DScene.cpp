@@ -102,7 +102,7 @@ void GLVolume::SinkingContours::update()
     const Model& model = GUI::wxGetApp().plater()->model();
 
     if (object_idx < 0 ||
-        object_idx >= int(model.objects.size()) ||
+        object_idx >= int(model.objects().size()) ||
         !m_parent.is_sinking() ||
         m_parent.is_below_printbed()){
         m_model.reset();
@@ -120,7 +120,7 @@ void GLVolume::SinkingContours::update()
     m_old_box = box;
     m_shift = Vec3d::Zero();
 
-    const TriangleMesh& mesh = model.objects[object_idx]->volumes[m_parent.volume_idx()]->mesh();
+    const TriangleMesh& mesh = model.objects()[object_idx].volumes[m_parent.volume_idx()]->mesh();
 
     m_model.reset();
     GUI::GLModel::Geometry init_data;
@@ -181,8 +181,8 @@ void GLVolume::NonManifoldEdges::update()
     m_model.reset();
     const int object_idx = m_parent.object_idx();
     const Model& model = GUI::wxGetApp().plater()->model();
-    if (0 <= object_idx && object_idx < int(model.objects.size())) {
-        const ModelObject* model_object = model.objects[object_idx];
+    if (0 <= object_idx && object_idx < int(model.objects().size())) {
+        const ModelObject *model_object = &model.objects()[object_idx];
         const int volume_idx = m_parent.volume_idx();
         if (0 <= volume_idx && volume_idx < int(model_object->volumes.size())) {
             const ModelVolume* model_volume = model_object->volumes[volume_idx];
@@ -365,7 +365,7 @@ BoundingBoxf3 GLVolume::transformed_convex_hull_bounding_box(const Transform3d &
 
 BoundingBoxf3 GLVolume::transformed_non_sinking_bounding_box(const Transform3d& trafo) const
 {
-    return GUI::wxGetApp().plater()->model().objects[object_idx()]->volumes[volume_idx()]->mesh().transformed_bounding_box(trafo, 0.0);
+    return GUI::wxGetApp().plater()->model().objects()[object_idx()].volumes[volume_idx()]->mesh().transformed_bounding_box(trafo, 0.0);
 }
 
 const BoundingBoxf3& GLVolume::transformed_non_sinking_bounding_box() const

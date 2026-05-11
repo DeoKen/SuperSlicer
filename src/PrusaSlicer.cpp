@@ -296,7 +296,7 @@ int CLI::run(int argc, char **argv)
                 boost::nowide::cerr << file << ": " << e.what() << std::endl;
                 return 1;
             }
-            if (model.objects.empty()) {
+            if (model.objects().empty()) {
                 boost::nowide::cerr << "Error: file is empty: " << file << std::endl;
                 continue;
             }
@@ -368,8 +368,8 @@ int CLI::run(int argc, char **argv)
         if (opt_key == "merge") {
             Model m;
             for (auto &model : m_models)
-                for (ModelObject *o : model.objects)
-                    m.add_object(*o);
+                for (ModelObject &o : model.objects())
+                    m.add_object(o);
             // Rearrange instances unless --dont-arrange is supplied
             //should be done later
             //if (! m_config.opt_bool("dont_arrange")) {
@@ -384,8 +384,8 @@ int CLI::run(int argc, char **argv)
         } else if (opt_key == "duplicate") {
             for (auto &model : m_models) {
                 const bool all_objects_have_instances = std::none_of(
-                    model.objects.begin(), model.objects.end(),
-                    [](ModelObject* o){ return o->instances.empty(); }
+                    model.objects().begin(), model.objects().end(),
+                    [](const ModelObject &o){ return o.instances.empty(); }
                 );
                 
                 dups = m_config.opt_int("duplicate");
@@ -409,11 +409,11 @@ int CLI::run(int argc, char **argv)
                 //FIXME Vojtech: Who knows why the complete model should be aligned with Z as a single rigid body?
                 //model.align_to_ground();
                 BoundingBoxf3 bbox;
-                for (ModelObject *model_object : model.objects)
+                for (ModelObject &model_object : model.objects())
                     // We are interested into the Z span only, therefore it is sufficient to measure the bounding box of the 1st instance only.
-                    bbox.merge(model_object->instance_bounding_box(0, false));
-                for (ModelObject *model_object : model.objects)
-                    for (ModelInstance *model_instance : model_object->instances)
+                    bbox.merge(model_object.instance_bounding_box(0, false));
+                for (ModelObject &model_object : model.objects())
+                    for (ModelInstance *model_instance : model_object.instances)
                         model_instance->set_offset(Z, model_instance->get_offset(Z) - bbox.min.z());
             }
         } else if (opt_key == "align_xy") {
@@ -429,24 +429,24 @@ int CLI::run(int argc, char **argv)
             // do nothing, the value is used later
         } else if (opt_key == "rotate") {
             for (auto &model : m_models)
-                for (auto &o : model.objects)
+                for (auto &o : model.objects())
                     // this affects volumes:
-                    o->rotate(Geometry::deg2rad(m_config.opt_float(opt_key)), Z);
+                    o.rotate(Geometry::deg2rad(m_config.opt_float(opt_key)), Z);
         } else if (opt_key == "rotate_x") {
             for (auto &model : m_models)
-                for (auto &o : model.objects)
+                for (auto &o : model.objects())
                     // this affects volumes:
-                    o->rotate(Geometry::deg2rad(m_config.opt_float(opt_key)), X);
+                    o.rotate(Geometry::deg2rad(m_config.opt_float(opt_key)), X);
         } else if (opt_key == "rotate_y") {
             for (auto &model : m_models)
-                for (auto &o : model.objects)
+                for (auto &o : model.objects())
                     // this affects volumes:
-                    o->rotate(Geometry::deg2rad(m_config.opt_float(opt_key)), Y);
+                    o.rotate(Geometry::deg2rad(m_config.opt_float(opt_key)), Y);
         } else if (opt_key == "scale") {
             for (auto &model : m_models)
-                for (auto &o : model.objects)
+                for (auto &o : model.objects())
                     // this affects volumes:
-                    o->scale(m_config.option(opt_key)->get_effective_value(1.));
+                    o.scale(m_config.option(opt_key)->get_effective_value(1.));
         } else if (opt_key == "scale_to_fit") {
             const Vec3d &opt = m_config.opt<ConfigOptionPoint3>(opt_key)->value;
             if (opt.x() <= 0 || opt.y() <= 0 || opt.z() <= 0) {
@@ -454,14 +454,14 @@ int CLI::run(int argc, char **argv)
                 return 1;
             }
             for (auto &model : m_models)
-                for (auto &o : model.objects)
+                for (auto &o : model.objects())
                     // this affects volumes:
-                    o->scale_to_fit(opt);
+                    o.scale_to_fit(opt);
         } else if (opt_key == "cut" || opt_key == "cut_x" || opt_key == "cut_y") {
             std::vector<Model> new_models;
             for (auto &model : m_models) {
                 model.translate(0, 0, -model.bounding_box_exact().min.z());  // align to z = 0
-                size_t num_objects = model.objects.size();
+                size_t num_objects = model.objects().size();
                 for (size_t i = 0; i < num_objects; ++ i) {
 
 #if 0
@@ -474,7 +474,7 @@ int CLI::run(int argc, char **argv)
                     }
 #else
 //                    model.objects.front()->cut(0, m_config.opt_float("cut"), ModelObjectCutAttribute::KeepLower | ModelObjectCutAttribute::KeepUpper | ModelObjectCutAttribute::FlipLower);
-                    Cut cut(model.objects.front(), 0, Geometry::translation_transform(m_config.opt_float("cut") * Vec3d::UnitZ()),
+                    Cut cut(&model.objects().front(), 0, Geometry::translation_transform(m_config.opt_float("cut") * Vec3d::UnitZ()),
                                                ModelObjectCutAttribute::KeepLower | ModelObjectCutAttribute::KeepUpper | ModelObjectCutAttribute::PlaceOnCutUpper);
                     auto cut_objects = cut.perform_with_plane();
                     for (ModelObject* obj : cut_objects)
@@ -517,10 +517,10 @@ int CLI::run(int argc, char **argv)
 #endif
         else if (opt_key == "split") {
             for (Model &model : m_models) {
-                size_t num_objects = model.objects.size();
+                size_t num_objects = model.objects().size();
                 for (size_t i = 0; i < num_objects; ++ i) {
                     ModelObjectPtrs new_objects;
-                    model.objects.front()->split(&new_objects);
+                    model.objects().front().split(&new_objects);
                     model.delete_object(size_t(0));
                 }
             }
@@ -541,8 +541,8 @@ int CLI::run(int argc, char **argv)
     // (Unless the user said otherwise.)
     if (m_config.opt_bool("ensure_on_bed"))
         for (auto &model : m_models)
-            for (auto &o : model.objects)
-                o->ensure_on_bed();
+            for (auto &o : model.objects())
+                o.ensure_on_bed();
 
     // loop through action options
     for (auto const &opt_key : m_actions) {
@@ -633,8 +633,8 @@ int CLI::run(int argc, char **argv)
                         arrange_objects(model, bed, arrange_cfg);
                 }
                 if (printer_technology == ptFFF) {
-                    for (auto* mo : model.objects)
-                        fff_print.auto_assign_extruders(mo);
+                    for (auto &mo : model.objects())
+                        fff_print.auto_assign_extruders(&mo);
                 }
                 print->apply(model, m_print_config);
                 std::pair<PrintBase::PrintValidationError, std::string> err = print->validate();

@@ -29,6 +29,7 @@ class MenuWithSeparators;
 namespace Slic3r {
 class ConfigOptionsGroup;
 class DynamicPrintConfig;
+class Model;
 class ModelConfig;
 class ModelObject;
 class ModelVolume;
@@ -158,7 +159,8 @@ private:
 
     ObjectDataViewModel         *m_objects_model{ nullptr };
     ModelConfig                 *m_config {nullptr};
-    std::vector<ModelObject*>   *m_objects{ nullptr };
+    Model                       *m_model { nullptr };
+    mutable std::vector<ModelObject*> m_objects_cache;
 
     BitmapComboBox              *m_extruder_editor { nullptr };
 
@@ -205,7 +207,7 @@ public:
 
     ObjectDataViewModel*        GetModel() const    { return m_objects_model; }
     ModelConfig*                config() const      { return m_config; }
-    std::vector<ModelObject*>*  objects() const     { return m_objects; }
+    std::vector<ModelObject*>*  objects() const;
 
     ModelObject*                object(const int obj_idx) const ;
 

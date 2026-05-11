@@ -3227,7 +3227,7 @@ bool GUI_App::save_mode(const ConfigOptionMode mode)
 {
 
     auto can_switch_to_simple = [](Model& model) {
-        for (const ModelObject* model_object : model.objects)
+        for (const ModelObject* model_object : model.object_ptrs())
             if (model_object->volumes.size() > 1) {
                 for (size_t i = 1; i < model_object->volumes.size(); ++i)
                     if (!model_object->volumes[i]->is_support_modifier())

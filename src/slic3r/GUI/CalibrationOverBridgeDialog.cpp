@@ -95,13 +95,13 @@ void CalibrationOverBridgeDialog::create_geometry(bool over_bridge) {
         xyz_scale = 1;
     }
     for (size_t i = 0; i < 6; i++)
-        model.objects[objs_idx[i]]->scale(xyz_scale * 1.5f, xyz_scale * 1.5f, xyz_scale);
+        model.objects()[objs_idx[i]].scale(xyz_scale * 1.5f, xyz_scale * 1.5f, xyz_scale);
 
     // it's rotated but not around the good origin: correct that
     double init_z_rotate_angle = Geometry::deg2rad(plat->config()->opt_float("init_z_rotate"));
     Matrix3d rot_matrix = Eigen::Quaterniond(Eigen::AngleAxisd(init_z_rotate_angle, Vec3d{0,0,1})).toRotationMatrix();
     auto     translate_from_rotation = [&rot_matrix, &model, &objs_idx](int idx, Vec3d &&translation) {
-            ModelVolume *vol = model.objects[objs_idx[idx]]->volumes[model.objects[objs_idx[idx]]->volumes.size()-1];
+            ModelVolume *vol = model.objects()[objs_idx[idx]].volumes[model.objects()[objs_idx[idx]].volumes.size()-1];
             Geometry::Transformation trsf = vol->get_transformation();
             trsf.set_offset(rot_matrix * translation - translation + trsf.get_offset());
             vol->set_transformation(trsf);
@@ -112,8 +112,8 @@ void CalibrationOverBridgeDialog::create_geometry(bool over_bridge) {
     float patch_zscale = (first_layer_height->get_effective_value(nozzle_diameter) + nozzle_diameter / 2) / 0.4;
     float zshift =  0.8 * (1 - xyz_scale);
     for (size_t i = 0; i < 6; i++) {
-        model.objects[objs_idx[i]]->rotate(PI / 2, { 0,0,1 });
-        add_part(model.objects[objs_idx[i]], (boost::filesystem::path(Slic3r::resources_dir()) /"calibration" / "bridge_flow" / ("f"+std::to_string(100 + i * 5)+".amf")).string(), Vec3d{ 0, 10 * xyz_scale ,zshift }, Vec3d{ 1, 1, patch_zscale });
+        model.objects()[objs_idx[i]].rotate(PI / 2, { 0,0,1 });
+        add_part(&model.objects()[objs_idx[i]], (boost::filesystem::path(Slic3r::resources_dir()) /"calibration" / "bridge_flow" / ("f"+std::to_string(100 + i * 5)+".amf")).string(), Vec3d{ 0, 10 * xyz_scale ,zshift }, Vec3d{ 1, 1, patch_zscale });
             translate_from_rotation(i, Vec3d{ 0, 10 * xyz_scale ,zshift });
     }
 
@@ -132,23 +132,23 @@ void CalibrationOverBridgeDialog::create_geometry(bool over_bridge) {
 
     /// --- custom config ---
     for (size_t i = 0; i < 6; i++) {
-        model.objects[objs_idx[i]]->config.set_key_value("perimeters", new ConfigOptionInt(2));
-        model.objects[objs_idx[i]]->config.set_key_value("bottom_solid_layers", new ConfigOptionInt(1)); // at least the first, to prevent adhesion issues.
-        model.objects[objs_idx[i]]->config.set_key_value("top_solid_layers", new ConfigOptionInt(3));
-        model.objects[objs_idx[i]]->config.set_key_value("fill_density", new ConfigOptionPercent(5.5));
-        model.objects[objs_idx[i]]->config.set_key_value("fill_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
-        model.objects[objs_idx[i]]->config.set_key_value("infill_dense", new ConfigOptionBool(false));
-        model.objects[objs_idx[i]]->config.set_key_value("ironing", new ConfigOptionBool(false));
+        model.objects()[objs_idx[i]].config.set_key_value("perimeters", new ConfigOptionInt(2));
+        model.objects()[objs_idx[i]].config.set_key_value("bottom_solid_layers", new ConfigOptionInt(1)); // at least the first, to prevent adhesion issues.
+        model.objects()[objs_idx[i]].config.set_key_value("top_solid_layers", new ConfigOptionInt(3));
+        model.objects()[objs_idx[i]].config.set_key_value("fill_density", new ConfigOptionPercent(5.5));
+        model.objects()[objs_idx[i]].config.set_key_value("fill_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
+        model.objects()[objs_idx[i]].config.set_key_value("infill_dense", new ConfigOptionBool(false));
+        model.objects()[objs_idx[i]].config.set_key_value("ironing", new ConfigOptionBool(false));
         //calibration setting. Use 100 & 5 step as it's the numbers printed on the samples
         if (over_bridge) {
-            model.objects[objs_idx[i]]->config.set_key_value("over_bridge_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("over_bridge_flow_ratio")->get_effective_value(100)*/100 + i * 5));
+            model.objects()[objs_idx[i]].config.set_key_value("over_bridge_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("over_bridge_flow_ratio")->get_effective_value(100)*/100 + i * 5));
         } else {
-            model.objects[objs_idx[i]]->config.set_key_value("fill_top_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("fill_top_flow_ratio")->get_effective_value(100)*/100 + i * 5));
+            model.objects()[objs_idx[i]].config.set_key_value("fill_top_flow_ratio", new ConfigOptionPercent(/*print_config->option<ConfigOptionPercent>("fill_top_flow_ratio")->get_effective_value(100)*/100 + i * 5));
         }
-        model.objects[objs_idx[i]]->config.set_key_value("layer_height", new ConfigOptionFloat(nozzle_diameter / 2));
-        model.objects[objs_idx[i]]->config.set_key_value("external_infill_margin", new ConfigOptionFloatOrPercent(400,true));
-        model.objects[objs_idx[i]]->config.set_key_value("top_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipSmooth));
-        model.objects[objs_idx[i]]->config.set_key_value("fill_angle", new ConfigOptionFloat(45));
+        model.objects()[objs_idx[i]].config.set_key_value("layer_height", new ConfigOptionFloat(nozzle_diameter / 2));
+        model.objects()[objs_idx[i]].config.set_key_value("external_infill_margin", new ConfigOptionFloatOrPercent(400,true));
+        model.objects()[objs_idx[i]].config.set_key_value("top_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipSmooth));
+        model.objects()[objs_idx[i]].config.set_key_value("fill_angle", new ConfigOptionFloat(45));
     }
 
     //update plater

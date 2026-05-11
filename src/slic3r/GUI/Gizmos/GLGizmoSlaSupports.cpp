@@ -128,7 +128,7 @@ void GLGizmoSlaSupports::on_render()
 
     // If current m_c->m_model_object does not match selection, ask GLCanvas3D to turn us off
     if (m_state == On
-     && (mo != selection.get_model()->objects[selection.get_object_idx()]
+     && (mo != &selection.get_model()->objects()[selection.get_object_idx()]
       || m_c->selection_info()->get_active_instance() != selection.get_instance_idx())) {
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_RESETGIZMOS));
         return;

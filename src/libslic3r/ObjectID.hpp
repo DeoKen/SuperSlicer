@@ -178,8 +178,8 @@ public:
     }
 
     void init()                                 { this->set_new_unique_id(); }
-    bool has_same_id(const CutObjectBase& rhs)  { return this->id() == rhs.id(); }
-    bool is_equal(const CutObjectBase& rhs)     { return this->id()             == rhs.id() && 
+    bool has_same_id(const CutObjectBase& rhs) const { return this->id() == rhs.id(); }
+    bool is_equal(const CutObjectBase& rhs) const    { return this->id()             == rhs.id() && 
                                                          this->check_sum()      == rhs.check_sum() && 
                                                          this->connectors_cnt() == rhs.connectors_cnt() ; }
 

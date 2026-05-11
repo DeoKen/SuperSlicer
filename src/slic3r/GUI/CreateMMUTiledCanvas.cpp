@@ -1642,31 +1642,31 @@ void CreateMMUTiledCanvas::create_geometry(wxCommandEvent& event_args) {
 
         new_object->ensure_on_bed();
 
-        objs_idx.push_back(model.objects.size() - 1);
+        objs_idx.push_back(model.objects().size() - 1);
     }
     objs_idx.push_back(0);
 
     if (border > 0) {
         TriangleMesh mesh_N(its_make_cube(total_size.x() + border + 2 * separation, border, height));
-        ModelVolume* vol_N = model.objects[0]->add_volume(std::move(mesh_N), ModelVolumeType::MODEL_PART, false);
+        ModelVolume *vol_N = model.objects()[0].add_volume(std::move(mesh_N), ModelVolumeType::MODEL_PART, false);
         vol_N->name = "border_N";
         vol_N->set_offset(Vec3d{ -(border + separation) , -(border + separation) , 0 });
         vol_N->config.set_key_value("extruder", new ConfigOptionInt(idx_extruder_base));
 
         TriangleMesh mesh_E(its_make_cube(border, total_size.x() + border + 2 * separation, height));
-        ModelVolume* vol_E = model.objects[0]->add_volume(std::move(mesh_E), ModelVolumeType::MODEL_PART, false);
+        ModelVolume *vol_E = model.objects()[0].add_volume(std::move(mesh_E), ModelVolumeType::MODEL_PART, false);
         vol_E->name = "border_E";
         vol_E->set_offset(Vec3d{ total_size.x() + (separation) , -(border + separation) , 0 });
         vol_E->config.set_key_value("extruder", new ConfigOptionInt(idx_extruder_base));
 
         TriangleMesh mesh_S(its_make_cube(total_size.x() + border + 2*separation, border, height));
-        ModelVolume* vol_S = model.objects[0]->add_volume(std::move(mesh_S), ModelVolumeType::MODEL_PART, false);
+        ModelVolume *vol_S = model.objects()[0].add_volume(std::move(mesh_S), ModelVolumeType::MODEL_PART, false);
         vol_S->name = "border_S";
         vol_S->set_offset(Vec3d{ -(separation) , total_size.y() + (separation) , 0});
         vol_S->config.set_key_value("extruder", new ConfigOptionInt(idx_extruder_base));
 
         TriangleMesh mesh_W(its_make_cube(border, total_size.x() + border + 2 * separation, height));
-        ModelVolume* vol_W = model.objects[0]->add_volume(std::move(mesh_W), ModelVolumeType::MODEL_PART, false);
+        ModelVolume *vol_W = model.objects()[0].add_volume(std::move(mesh_W), ModelVolumeType::MODEL_PART, false);
         vol_W->name = "border_W";
         vol_W->set_offset(Vec3d{ -(border + separation) , -(separation) , 0 });
         vol_W->config.set_key_value("extruder", new ConfigOptionInt(idx_extruder_base));
@@ -1703,7 +1703,7 @@ void CreateMMUTiledCanvas::create_geometry(wxCommandEvent& event_args) {
             //uncolored
             if (separation_z > 0) {
                 TriangleMesh mesh(its_make_pyramid_inverted(pixel_size.x(), pixel_size.y(), separation_z - layer_height, bezel));
-                ModelVolume* vol = model.objects[0]->add_volume(std::move(mesh), ModelVolumeType::MODEL_PART, false);
+                ModelVolume *vol = model.objects()[0].add_volume(std::move(mesh), ModelVolumeType::MODEL_PART, false);
                 vol->name = "base_" + std::to_string(offset.x + x) + "_" + std::to_string(offset.y + y);
                 vol->set_offset(Vec3d{ x * (pixel_size.x() + separation), total_size.y() - y * (pixel_size.y() + separation) - pixel_size.y(), height - separation_z });
                 vol->config.set_key_value("extruder", new ConfigOptionInt(idx_extruder_base));
@@ -1711,7 +1711,7 @@ void CreateMMUTiledCanvas::create_geometry(wxCommandEvent& event_args) {
             //colored
             {
                 TriangleMesh mesh(its_make_cube(pixel_size.x(), pixel_size.y(), layer_height));
-                ModelVolume* vol = model.objects[0]->add_volume(std::move(mesh), ModelVolumeType::MODEL_PART, false);
+                ModelVolume *vol = model.objects()[0].add_volume(std::move(mesh), ModelVolumeType::MODEL_PART, false);
                 vol->name = "tile_" + std::to_string(offset.x + x) + "_" + std::to_string(offset.y + y);
                 vol->set_offset(Vec3d{ x * (pixel_size.x() + separation), total_size.y() - y * (pixel_size.y() + separation) - pixel_size.y(), height - layer_height });
                 vol->config.set_key_value("extruder", new ConfigOptionInt(idx_extruder));
@@ -1721,7 +1721,7 @@ void CreateMMUTiledCanvas::create_geometry(wxCommandEvent& event_args) {
         p.OffsetY(data, 1);
     }
 
-    //for (ModelObject* mo : model.objects) {
+    //for (ModelObject* mo : model.object_ptrs()) {
     //    objs_idx.push_back(i++);
     //}
 
@@ -1736,13 +1736,13 @@ void CreateMMUTiledCanvas::create_geometry(wxCommandEvent& event_args) {
     //if (objs_idx.empty()) return;
     ////don't save in the temp directory: erase the link to it
     //for (int idx : objs_idx)
-    //    model.objects[idx]->input_file = "";
+    //    model.objects()[idx].input_file = "";
     ///// --- translate ---
     //const DynamicPrintConfig* printerConfig = this->m_gui_app->get_tab(Preset::TYPE_PRINTER)->get_config();
     //const ConfigOptionPoints* bed_shape = printerConfig->option<ConfigOptionPoints>("bed_shape");
     //Vec2d bed_size = BoundingBoxf(bed_shape->get_values()).size();
     //Vec2d bed_min = BoundingBoxf(bed_shape->get_values()).min;
-    //model.objects[objs_idx[0]]->translate({ bed_min.x() + bed_size.x() / 2, bed_min.y() + bed_size.y() / 2, 0 });
+    //model.objects()[objs_idx[0]].translate({ bed_min.x() + bed_size.x() / 2, bed_min.y() + bed_size.y() / 2, 0 });
 
     //update colors
     {

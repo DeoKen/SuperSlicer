@@ -341,7 +341,7 @@ bool GLGizmoSVG::on_mouse(const wxMouseEvent &mouse_event)
 {
     // not selected volume
     if (m_volume == nullptr ||
-        get_model_volume(m_volume_id, m_parent.get_selection().get_model()->objects) == nullptr ||
+        get_model_volume(m_volume_id, m_parent.get_selection().get_model()->object_ptrs()) == nullptr ||
         !m_volume->emboss_shape.has_value()) return false;
 
     if (on_mouse_for_rotation(mouse_event)) return true;
@@ -371,7 +371,7 @@ void GLGizmoSVG::on_render() {
     if (const Selection &selection = m_parent.get_selection(); 
         selection.volumes_count() != 1 || // only one selected volume
         m_volume == nullptr || // already selected volume in gizmo
-        get_model_volume(m_volume_id, selection.get_model()->objects) == nullptr) // still exist model
+        get_model_volume(m_volume_id, selection.get_model()->object_ptrs()) == nullptr) // still exist model
         return;
 
     bool is_surface_dragging = m_surface_drag.has_value();
@@ -1161,7 +1161,7 @@ void GLGizmoSVG::set_volume_by_selection()
     if (gl_volume == nullptr)
         return reset_volume();
 
-    const ModelObjectPtrs &objects = selection.get_model()->objects;
+    const ModelObjectPtrs &objects = selection.get_model()->object_ptrs();
     ModelVolume *volume =get_model_volume(*gl_volume, objects);
     if (volume == nullptr)
         return reset_volume();
@@ -1248,7 +1248,7 @@ void GLGizmoSVG::calculate_scale() {
 
     Transform3d to_world = gl_volume->world_matrix();
 
-    const ModelVolume *volume_ptr = get_model_volume(*gl_volume, selection.get_model()->objects);
+    const ModelVolume *volume_ptr = get_model_volume(*gl_volume, selection.get_model()->object_ptrs());
     assert(volume_ptr != nullptr);
     assert(volume_ptr->emboss_shape.has_value());
     // Fix for volume loaded from 3mf

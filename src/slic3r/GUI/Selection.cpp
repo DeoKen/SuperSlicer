@@ -51,7 +51,7 @@ bool Selection::Clipboard::is_sla_compliant() const
 //    if (m_mode == Selection::Volume)
 //        return false;
 
-//    for (const ModelObject* o : m_model->objects) {
+//    for (const ModelObject* o : m_model->object_ptrs()) {
 //        if (o->is_multiparts())
 //            return false;
 
@@ -76,7 +76,7 @@ void Selection::Clipboard::reset()
 
 bool Selection::Clipboard::is_empty() const
 {
-    return m_model->objects.empty();
+    return m_model->objects().empty();
 }
 
 ModelObject* Selection::Clipboard::add_object()
@@ -86,12 +86,13 @@ ModelObject* Selection::Clipboard::add_object()
 
 ModelObject* Selection::Clipboard::get_object(unsigned int id)
 {
-    return (id < (unsigned int)m_model->objects.size()) ? m_model->objects[id] : nullptr;
+    return (id < (unsigned int)m_model->objects().size()) ? &m_model->objects()[id] : nullptr;
 }
 
 const ModelObjectPtrs& Selection::Clipboard::get_objects() const
 {
-    return m_model->objects;
+    m_objects_cache = m_model->object_ptrs();
+    return m_objects_cache;
 }
 
 Selection::Selection()
@@ -143,7 +144,7 @@ void Selection::add(unsigned int volume_idx, bool as_single_selection, bool chec
     const GLVolume* volume = (m_volumes->volumes)[volume_idx].get();
 
     if (wxGetApp().plater()->printer_technology() == ptSLA && volume->is_modifier &&
-        m_model->objects[volume->object_idx()]->volumes[volume->volume_idx()]->is_modifier())
+        m_model->objects()[volume->object_idx()].volumes[volume->volume_idx()]->is_modifier())
         return;
 
     // wipe tower is already selected
@@ -477,7 +478,7 @@ void Selection::instances_changed(const std::vector<size_t> &instance_ids_select
     for (unsigned int volume_idx = 0; volume_idx < (unsigned int)m_volumes->volumes.size(); ++ volume_idx) {
         const GLVolume *volume = (m_volumes->volumes)[volume_idx].get();
         if (pt == ptSLA && volume->is_modifier &&
-            m_model->objects[volume->object_idx()]->volumes[volume->volume_idx()]->is_modifier())
+            m_model->objects()[volume->object_idx()].volumes[volume->volume_idx()]->is_modifier())
             continue;
         auto it = std::lower_bound(instance_ids_selected.begin(), instance_ids_selected.end(), volume->geometry_id.second);
 		if (it != instance_ids_selected.end() && *it == volume->geometry_id.second)
@@ -510,8 +511,8 @@ bool Selection::is_any_connector() const
     const int obj_idx = get_object_idx();
 
     if ((is_any_volume() || is_any_modifier() || is_mixed()) && // some solid_part AND/OR modifier is selected 
-        obj_idx >= 0 && m_model->objects[obj_idx]->is_cut()) {
-        const ModelVolumePtrs& obj_volumes = m_model->objects[obj_idx]->volumes;
+        obj_idx >= 0 && m_model->objects()[obj_idx].is_cut()) {
+        const ModelVolumePtrs& obj_volumes = m_model->objects()[obj_idx].volumes;
         for (size_t vol_idx = 0; vol_idx < obj_volumes.size(); vol_idx++)
             if (obj_volumes[vol_idx]->is_cut_connector())
                 for (const std::unique_ptr<GLVolume> &v  : m_volumes->volumes)
@@ -524,7 +525,7 @@ bool Selection::is_any_connector() const
 bool Selection::is_any_cut_volume() const
 {
     const int obj_idx = get_object_idx();
-    return is_any_volume() && obj_idx >= 0 && m_model->objects[obj_idx]->is_cut();
+    return is_any_volume() && obj_idx >= 0 && m_model->objects()[obj_idx].is_cut();
 }
 
 bool Selection::is_single_full_instance() const
@@ -539,7 +540,7 @@ bool Selection::is_single_full_instance() const
         return false;
 
     int object_idx = m_valid ? get_object_idx() : -1;
-    if (object_idx < 0 || (int)m_model->objects.size() <= object_idx)
+    if (object_idx < 0 || (int)m_model->objects().size() <= object_idx)
         return false;
 
     int instance_idx = (m_volumes->volumes)[*m_list.begin()].get()->instance_idx();
@@ -555,13 +556,13 @@ bool Selection::is_single_full_instance() const
             volumes_idxs.insert(volume_idx);
     }
 
-    return m_model->objects[object_idx]->volumes.size() == volumes_idxs.size();
+    return m_model->objects()[object_idx].volumes.size() == volumes_idxs.size();
 }
 
 bool Selection::is_from_single_object() const
 {
     const int idx = get_object_idx();
-    return 0 <= idx && idx < int(m_model->objects.size());
+    return 0 <= idx && idx < int(m_model->objects().size());
 }
 
 bool Selection::is_sla_compliant() const
@@ -584,12 +585,12 @@ bool Selection::is_single_text() const
 
 
     const GLVolume* gl_volume = this->get_first_volume();
-    if (gl_volume == nullptr || m_model->objects.size() <= gl_volume->object_idx() ||
-        m_model->objects[gl_volume->object_idx()]->volumes.size() <= gl_volume->volume_idx()) {
+    if (gl_volume == nullptr || m_model->objects().size() <= gl_volume->object_idx() ||
+        m_model->objects()[gl_volume->object_idx()].volumes.size() <= gl_volume->volume_idx()) {
         // assert(false); // shouldn't happen // can happen on the wipetower
         return false;
     }
-    const ModelVolume* model_volume = m_model->objects[gl_volume->object_idx()]->volumes[gl_volume->volume_idx()];
+    const ModelVolume *model_volume = m_model->objects()[gl_volume->object_idx()].volumes[gl_volume->volume_idx()];
     
     return model_volume && model_volume->text_configuration.has_value();
 }
@@ -839,7 +840,7 @@ std::pair<BoundingBoxf3, Transform3d> Selection::get_bounding_box_in_reference_s
         const Transform3d vol_world_rafo = vol.world_matrix();
         const TriangleMesh* mesh = vol.convex_hull();
         if (mesh == nullptr)
-            mesh = &m_model->objects[vol.object_idx()]->volumes[vol.volume_idx()]->mesh();
+            mesh = &m_model->objects()[vol.object_idx()].volumes[vol.volume_idx()]->mesh();
         assert(mesh != nullptr);
         for (const stl_vertex& v : mesh->its.vertices) {
             const Vec3d world_v = vol_world_rafo * v.cast<double>();
@@ -933,7 +934,7 @@ const std::pair<Vec3d, double> Selection::get_bounding_sphere() const
                 const GLVolume& volume = *(m_volumes->volumes)[i].get();
                 const TriangleMesh* hull = volume.convex_hull();
                 const indexed_triangle_set& its = (hull != nullptr) ?
-                    hull->its : m_model->objects[volume.object_idx()]->volumes[volume.volume_idx()]->mesh().its;
+                    hull->its : m_model->objects()[volume.object_idx()].volumes[volume.volume_idx()]->mesh().its;
                 const Transform3f matrix = volume.world_matrix().cast<float>();
                 for (const Vec3f& v : its.vertices) {
                     const Vec3f vv = matrix * v;
@@ -1502,7 +1503,7 @@ int Selection::bake_transform_if_needed() const
             wxGetApp().plater()->take_snapshot(_("Bake transform"));
 
             // Bake the rotation into the meshes of the object.
-            wxGetApp().model().objects[volume.composite_id.object_id]->bake_xy_rotation_into_meshes(volume.composite_id.instance_id);
+            wxGetApp().model().objects()[volume.composite_id.object_id].bake_xy_rotation_into_meshes(volume.composite_id.instance_id);
             // Update the 3D scene, selections etc.
             wxGetApp().plater()->update();
             return 0;
@@ -1551,7 +1552,7 @@ void Selection::erase()
         for (auto i : m_list) {
             const auto gl_vol = (m_volumes->volumes)[i].get();
             const auto glv_obj_idx = gl_vol->object_idx();
-            const auto model_object = m_model->objects[glv_obj_idx];
+            const ModelObject *model_object = &m_model->objects()[glv_obj_idx];
 
             if (model_object->instances.size() == 1) {
                 if (model_object->volumes.size() == 1)
@@ -1585,7 +1586,7 @@ void Selection::erase()
         for (const ItemForDelete& i : items_set) {
             if (i.type == ItemType::itVolume) {
                 const int vol_in_obj_cnt = volumes_in_obj.find(i.obj_idx) == volumes_in_obj.end() ? 0 : volumes_in_obj.at(i.obj_idx);
-                if (vol_in_obj_cnt == (int)m_model->objects[i.obj_idx]->volumes.size()) {
+                if (vol_in_obj_cnt == (int)m_model->objects()[i.obj_idx].volumes.size()) {
                     if (i.sub_obj_idx == vol_in_obj_cnt - 1)
                         items.emplace_back(ItemType::itObject, i.obj_idx, 0);
                     continue;
@@ -1741,7 +1742,7 @@ void Selection::copy_to_clipboard()
     m_clipboard.reset();
 
     for (const ObjectIdxsToInstanceIdxsMap::value_type& object : m_cache.content) {
-        ModelObject* src_object = m_model->objects[object.first];
+        ModelObject *src_object = &m_model->objects()[object.first];
         ModelObject* dst_object = m_clipboard.add_object();
         dst_object->name                 = src_object->name;
         dst_object->input_file           = src_object->input_file;
@@ -1810,7 +1811,7 @@ std::vector<unsigned int> Selection::get_volume_idxs_from_object(unsigned int ob
         const GLVolume* v = (m_volumes->volumes)[i].get();
         if (v->object_idx() == (int)object_idx) {
             if (pt == ptSLA && v->is_modifier &&
-                m_model->objects[object_idx]->volumes[v->volume_idx()]->is_modifier())
+                m_model->objects()[object_idx].volumes[v->volume_idx()]->is_modifier())
                 continue;
             idxs.push_back(i);
         }
@@ -1917,7 +1918,7 @@ void Selection::update_type()
                 requires_disable = true;
             }
             else {
-                const ModelObject* model_object = m_model->objects[first->object_idx()];
+                const ModelObject *model_object = &m_model->objects()[first->object_idx()];
                 unsigned int volumes_count = (unsigned int)model_object->volumes.size();
                 unsigned int instances_count = (unsigned int)model_object->instances.size();
                 if (volumes_count * instances_count == 1) {
@@ -1946,7 +1947,7 @@ void Selection::update_type()
 
             if (m_cache.content.size() == 1) // single object
             {
-                const ModelObject* model_object = m_model->objects[m_cache.content.begin()->first];
+                const ModelObject *model_object = &m_model->objects()[m_cache.content.begin()->first];
                 unsigned int model_volumes_count = (unsigned int)model_object->volumes.size();
 
                 unsigned int instances_count = (unsigned int)model_object->instances.size();
@@ -1986,7 +1987,7 @@ void Selection::update_type()
             else {
                 unsigned int sels_cntr = 0;
                 for (ObjectIdxsToInstanceIdxsMap::iterator it = m_cache.content.begin(); it != m_cache.content.end(); ++it) {
-                    const ModelObject* model_object = m_model->objects[it->first];
+                    const ModelObject *model_object = &m_model->objects()[it->first];
                     unsigned int volumes_count = (unsigned int)model_object->volumes.size();
                     unsigned int instances_count = (unsigned int)model_object->instances.size();
                     sels_cntr += volumes_count * instances_count;
@@ -2516,7 +2517,7 @@ void Selection::render_debug_window() const
 
     auto volume_name = [this](size_t id) {
         const GLVolume& v = *(m_volumes->volumes)[id].get();
-        return m_model->objects[v.object_idx()]->volumes[v.volume_idx()]->name;
+        return m_model->objects()[v.object_idx()].volumes[v.volume_idx()]->name;
     };
 
     static size_t current_cmb_idx = 0;
@@ -2650,7 +2651,7 @@ static bool is_rotation_xy_synchronized(const Vec3d &rot_xyz_from, const Vec3d &
 #if 0
 static void verify_instances_rotation_synchronized(const Model &model, const GLVolumePtrs &volumes)
 {
-    for (int idx_object = 0; idx_object < int(model.objects.size()); ++idx_object) {
+    for (int idx_object = 0; idx_object < int(model.objects().size()); ++idx_object) {
         int idx_volume_first = -1;
         for (int i = 0; i < (int)volumes.size(); ++i) {
             if (volumes[i]->object_idx() == idx_object) {
@@ -2698,7 +2699,7 @@ static bool is_rotation_xy_synchronized(const Transform3d& trafo_from, const Tra
 
 static void verify_instances_rotation_synchronized(const Model &model, const GLVolumePtrs &volumes)
 {
-    for (int idx_object = 0; idx_object < int(model.objects.size()); ++idx_object) {
+    for (int idx_object = 0; idx_object < int(model.objects().size()); ++idx_object) {
         int idx_volume_first = -1;
         for (int i = 0; i < (int)volumes.size(); ++i) {
             if (volumes[i]->object_idx() == idx_object) {
@@ -2876,13 +2877,13 @@ bool Selection::is_from_fully_selected_instance(unsigned int volume_idx) const
 
     GLVolume* volume = (m_volumes->volumes)[volume_idx].get();
     int object_idx = volume->object_idx();
-    if ((int)m_model->objects.size() <= object_idx)
+    if ((int)m_model->objects().size() <= object_idx)
         return false;
 
     unsigned int count = (unsigned int)std::count_if(m_list.begin(), m_list.end(), SameInstance(object_idx, volume->instance_idx(), *m_volumes));
 
     PrinterTechnology pt = wxGetApp().plater()->printer_technology();
-    const ModelVolumePtrs& volumes = m_model->objects[object_idx]->volumes;
+    const ModelVolumePtrs& volumes = m_model->objects()[object_idx].volumes;
     const unsigned int vol_cnt = (unsigned int)std::count_if(volumes.begin(), volumes.end(), [pt](const ModelVolume* volume) { return pt == ptFFF || !volume->is_modifier(); });
 
     return count == vol_cnt;
@@ -2895,10 +2896,10 @@ void Selection::paste_volumes_from_clipboard()
 #endif /* _DEBUG */
 
     int dst_obj_idx = get_object_idx();
-    if ((dst_obj_idx < 0) || ((int)m_model->objects.size() <= dst_obj_idx))
+    if ((dst_obj_idx < 0) || ((int)m_model->objects().size() <= dst_obj_idx))
         return;
 
-    ModelObject* dst_object = m_model->objects[dst_obj_idx];
+    ModelObject *dst_object = &m_model->objects()[dst_obj_idx];
 
     int dst_inst_idx = get_instance_idx();
     if ((dst_inst_idx < 0) || ((int)dst_object->instances.size() <= dst_inst_idx))
@@ -2975,7 +2976,7 @@ void Selection::paste_objects_from_clipboard()
             inst->set_offset(inst->get_offset() + displacement);
         }
 
-        object_idxs.push_back(m_model->objects.size() - 1);
+        object_idxs.push_back(m_model->objects().size() - 1);
 #ifdef _DEBUG
 	    check_model_ids_validity(*m_model);
 #endif /* _DEBUG */
@@ -3035,7 +3036,7 @@ ModelVolume *get_selected_volume(const Selection &selection)
     const GLVolume *gl_volume = get_selected_gl_volume(selection);
     if (gl_volume == nullptr)
         return nullptr;
-    const ModelObjectPtrs &objects = selection.get_model()->objects;
+    const ModelObjectPtrs &objects = selection.get_model()->object_ptrs();
     return get_model_volume(*gl_volume, objects);
 }
 
@@ -3057,7 +3058,7 @@ const GLVolume *get_selected_gl_volume(const Selection &selection)
 
 ModelVolume *get_selected_volume(const ObjectID &volume_id, const Selection &selection) {
     const Selection::IndicesList &volume_ids = selection.get_volume_idxs();
-    const ModelObjectPtrs &model_objects     = selection.get_model()->objects;
+    const ModelObjectPtrs &model_objects     = selection.get_model()->object_ptrs();
     for (auto id : volume_ids) {
         const GLVolume *selected_volume = selection.get_volume(id);
         const GLVolume::CompositeID &cid = selected_volume->composite_id;
@@ -3070,7 +3071,7 @@ ModelVolume *get_selected_volume(const ObjectID &volume_id, const Selection &sel
 }
 
 ModelVolume *get_volume(const ObjectID &volume_id, const Selection &selection) {
-    const ModelObjectPtrs &objects = selection.get_model()->objects;
+    const ModelObjectPtrs &objects = selection.get_model()->object_ptrs();
     for (const ModelObject *object : objects) {
         for (ModelVolume *volume : object->volumes) {
             if (volume->id() == volume_id)

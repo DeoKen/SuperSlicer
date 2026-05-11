@@ -35,7 +35,7 @@ void GLGizmoSlaBase::reslice_until_step(SLAPrintObjectStep step, bool postpone_e
             const Selection& selection = m_parent.get_selection();
             const int object_idx = selection.get_object_idx();
             if (object_idx >= 0 && !selection.is_wipe_tower())
-                wxGetApp().plater()->reslice_SLA_until_step(step, *wxGetApp().plater()->model().objects[object_idx], postpone_error_messages);
+                wxGetApp().plater()->reslice_SLA_until_step(step, wxGetApp().plater()->model().objects()[object_idx], postpone_error_messages);
         }
     });
 }

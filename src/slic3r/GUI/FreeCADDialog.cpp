@@ -940,17 +940,17 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
     text_out.append(text_std.begin() + last_pos, text_std.end());
     //export stls
     for (size_t idx_plater_obj : object_used) {
-        if (idx_plater_obj <= this->main_frame->plater()->model().objects.size()) {
+        if (idx_plater_obj <= this->main_frame->plater()->model().objects().size()) {
             std::stringstream ss; ss << "plater_" << idx_plater_obj << ".stl";
             boost::filesystem::path temp_stl(Slic3r::data_dir());
             temp_stl = temp_stl / "temp" / ss.str();
-            TriangleMesh mesh = (idx_plater_obj == 0) ? this->main_frame->plater()->model().mesh() : this->main_frame->plater()->model().objects[idx_plater_obj - 1]->mesh();
+            TriangleMesh mesh = (idx_plater_obj == 0) ? this->main_frame->plater()->model().mesh() : this->main_frame->plater()->model().objects()[idx_plater_obj - 1].mesh();
             Slic3r::store_stl(temp_stl.generic_string().c_str(), 
                 &mesh,
                 true);
         } else {
             m_errors->AppendText("Error, cannot find object " + std::to_string(idx_plater_obj) 
-                + ", there is only "+ std::to_string(this->main_frame->plater()->model().objects.size()) +" objects!");
+                + ", there is only "+ std::to_string(this->main_frame->plater()->model().objects().size()) +" objects!");
             return;
         }
     }
@@ -996,13 +996,13 @@ void FreeCADDialog::create_geometry(wxCommandEvent& event_args) {
     if (objs_idx.empty()) return;
     //don't save in the temp directory: erase the link to it
     for (int idx : objs_idx)
-        model.objects[idx]->input_file = "";
+        model.objects()[idx].input_file = "";
     /// --- translate ---
     const DynamicPrintConfig* printerConfig = this->gui_app->get_tab(Preset::TYPE_PRINTER)->get_config();
     const ConfigOptionPoints* bed_shape = printerConfig->option<ConfigOptionPoints>("bed_shape");
     Vec2d bed_size = BoundingBoxf(bed_shape->get_values()).size();
     Vec2d bed_min = BoundingBoxf(bed_shape->get_values()).min;
-    model.objects[objs_idx[0]]->translate({ bed_min.x() + bed_size.x() / 2, bed_min.y() + bed_size.y() / 2, 0 });
+    model.objects()[objs_idx[0]].translate({ bed_min.x() + bed_size.x() / 2, bed_min.y() + bed_size.y() / 2, 0 });
 
     //update plater
     plat->changed_objects(objs_idx);

@@ -269,7 +269,7 @@ void ObjectSettings::update_config_values(ModelConfig* config)
         const int obj_idx = objects_model->GetObjectIdByItem(item);
         assert(obj_idx >= 0);
         // for object's part first of all update konfiguration from object 
-        main_config.apply(wxGetApp().model().objects[obj_idx]->config.get(), true);
+        main_config.apply(wxGetApp().model().objects()[obj_idx].config.get(), true);
         // and then from its own config
     }
 

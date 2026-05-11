@@ -310,7 +310,7 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
         const ConfigOptionPoints* bed_shape = printer_config->option<ConfigOptionPoints>("bed_shape");
         Vec2d bed_size = BoundingBoxf(bed_shape->values).size();
         Vec2d bed_min = BoundingBoxf(bed_shape->values).min;
-        model.objects[objs_idx[0]]->translate({ bed_min.x() + bed_size.x() / 2, bed_min.y() + bed_size.y() / 2, 5 * xyzScale - 5 });
+        model.objects()[objs_idx[0]].translate({ bed_min.x() + bed_size.x() / 2, bed_min.y() + bed_size.y() / 2, 5 * xyzScale - 5 });
     }*/
     
 
@@ -652,12 +652,12 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
             }
 
 
-            add_part(model.objects[objs_idx[id_item]], 
+            add_part(&model.objects()[objs_idx[id_item]], 
                 (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "scaled_with_nozzle_size" / bend_90_nozzle_size_3mf).string(),
                     Vec3d{ x_offset_90_bend, bend_90_y_pos , z_90_bend_pos }, 
                     /*scale*/Vec3d{ er_width_to_scale, er_width_to_scale, z_scale_90_bend }, false);
 
-            pressure_tower.back().push_back(model.objects[objs_idx[id_item]]);
+            pressure_tower.back().push_back(&model.objects()[objs_idx[id_item]]);
             Eigen::Vector3d modelPosition( x_offset_90_bend, bend_90_y_pos + y_offset , z_90_bend_pos );
 
             // thickness offset that moves each '90_bend' model in Y
@@ -729,27 +729,27 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                 double tb_border_x_pos = center;
 
 
-                add_part(model.objects[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),
+                add_part(&model.objects()[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),
                         Vec3d{ left_border_x_pos , bend_pos_mid.y(), z_others_pos },
                         /*scale*/Vec3d{ scaled_l_border_x_percentage, scaled_lr_border_y_percentage, z_scale_others }, false);count_borders++;         //Left border
                 
-                add_part(model.objects[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),
+                add_part(&model.objects()[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),
                     Vec3d{ right_border_x_pos , bend_pos_mid.y(), z_others_pos },
                         /*scale*/Vec3d{ scaled_r_border_x_percentage , scaled_lr_border_y_percentage , z_scale_others}, false);count_borders++;        //right border
                 
 
-                add_part(model.objects[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),//on odd number of count_increments the bottom border is not joined to the side borders. fixing this bug will require
+                add_part(&model.objects()[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),//on odd number of count_increments the bottom border is not joined to the side borders. fixing this bug will require
                     Vec3d{ tb_border_x_pos , bend_pos_first.y() - (xy_scaled_90_bend_y / 2) - (xy_scaled_border_y / 2) - nozzle_diameter, z_others_pos },                      // adding more if/else statements to add the extra offset and apply this to all other calculations for the border scale and position.
                         /*scale*/Vec3d{ scaled_tb_border_x_percentage , scaled_tb_border_y_percentage, z_scale_others }, false);count_borders++;       //bottom border
                 //----------
-                add_part(model.objects[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),
+                add_part(&model.objects()[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "pa_border.3mf").string(),
                     Vec3d{ tb_border_x_pos , bend_pos_last.y() + (xy_scaled_90_bend_y / 2) + (xy_scaled_border_y / 2) + nozzle_diameter, z_others_pos },
                         /*scale*/Vec3d{ scaled_tb_border_x_percentage, scaled_tb_border_y_percentage, z_scale_others}, false);count_borders++;         //top border
                 //  scale model in percentage from original models xy values!
 
 
                 if (id_item < 10){ //will break if max test count goes higher. ie currentTestCount
-                    add_part(model.objects[objs_idx[id_item]],(boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / (std::to_string(id_item) + std::string(".3mf"))).string(),
+                    add_part(&model.objects()[objs_idx[id_item]],(boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / (std::to_string(id_item) + std::string(".3mf"))).string(),
                         Vec3d{ number_pos_mid.x(), bend_pos_first.y() - (xy_scaled_90_bend_y / 2) + (xy_scaled_number_y / 2), z_scaled_model_height },
                             /*scale*/Vec3d{ xyzScale * er_width_to_scale, xyzScale * er_width_to_scale, z_scale_others * 2 }, false);count_borders++;      // currentTestCount identifer
                 }
@@ -788,14 +788,14 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                         double left_edge_of_right_number = xpos + (xy_scaled_number_x / 2) + (nozzle_diameter * 2) + (xy_scaled_number_x / 2) - space_numbers_distance_x;
                         double point_xpos = (right_edge_of_left_number + left_edge_of_right_number) / 2;
 
-                        add_part(model.objects[objs_idx[id_item]],(boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "point.3mf").string(),
+                        add_part(&model.objects()[objs_idx[id_item]],(boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / "point.3mf").string(),
                             Vec3d{ point_xpos, ypos - (xy_scaled_number_y / 2) + (xy_scaled_point_y / 2), z_scaled_model_height },//FIXED: // point gets moved to wrong position on all nozzle_sizes, guessing it's exported offset position doesn't get scaled with the model.
                                 /*scale*/Vec3d{ xyzScale * er_width_to_scale, (xyzScale + (xyzScale / 2)) * er_width_to_scale, z_scale_others * 2 }, false);
                         number_positions.push_back(Eigen::Vector3d(point_xpos, ypos - (xy_scaled_number_y / 2) + (xy_scaled_point_y / 2), z_scaled_model_height));
                         xpos -= (xy_scaled_number_x / 2);
 
                     } else if (std::isdigit(pa_values_string[j])) {
-                        add_part(model.objects[objs_idx[id_item]],(boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / (pa_values_string[j] + std::string(".3mf"))).string(),
+                        add_part(&model.objects()[objs_idx[id_item]],(boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_pressure" / (pa_values_string[j] + std::string(".3mf"))).string(),
                             Vec3d{ xpos, ypos, z_scaled_model_height },
                                 /*scale*/Vec3d{ xyzScale * er_width_to_scale, xyzScale * er_width_to_scale, z_scale_others * 2 }, false);//TOCHECK: if any numbers get gapfill
                         number_positions.push_back(Eigen::Vector3d(xpos, ypos, z_scaled_model_height));
@@ -824,7 +824,7 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
 
 
     //assert(filament_temp_item_name.size() == nb_runs);
-    //assert(model.objects.size() == nb_runs);
+    //assert(model.objects().size() == nb_runs);
     assert(objs_idx.size() == currentTestCount);
     for (int id_item = 0; id_item < currentTestCount; id_item++) {
 
@@ -854,8 +854,8 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
             combined_layer_height = first_layer_height;
         }
 
-        auto last_90_bend_scale = model.objects[objs_idx[id_item]]->volumes[count_increments]->get_scaling_factor();
-        Eigen::Vector3d bend_90_mesh = model.objects[objs_idx[id_item]]->volumes[count_increments]->mesh().size();
+        auto last_90_bend_scale = model.objects()[objs_idx[id_item]].volumes[count_increments]->get_scaling_factor();
+        Eigen::Vector3d bend_90_mesh = model.objects()[objs_idx[id_item]].volumes[count_increments]->mesh().size();
         double model_height = bend_90_mesh.z() * last_90_bend_scale.z();
 
         std::string set_first_layer_prefix = (gcfKlipper == flavor) ? "SET_PRESSURE_ADVANCE ADVANCE=" :
@@ -880,21 +880,21 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
         gcfNoExtrusion*/
 
         // config modifers for the base model
-        model.objects[objs_idx[id_item]]->config.set_key_value("bottom_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipMonotonic));// ipConcentric or ipConcentricGapFill ?
-        model.objects[objs_idx[id_item]]->config.set_key_value("infill_filled_bottom", new ConfigOptionBool(true));
-        model.objects[objs_idx[id_item]]->config.set_key_value("thin_walls", new ConfigOptionBool(true));
-        model.objects[objs_idx[id_item]]->config.set_key_value("bottom_solid_layers", new ConfigOptionInt(1));
-        model.objects[objs_idx[id_item]]->config.set_key_value("brim_width", new ConfigOptionFloat(0));
-        //model.objects[objs_idx[id_item]]->config.set_key_value("external_perimeter_overlap", new ConfigOptionPercent(100));//
-        model.objects[objs_idx[id_item]]->config.set_key_value("fill_density", new ConfigOptionPercent(0));
-        model.objects[objs_idx[id_item]]->config.set_key_value("gap_fill_enabled", new ConfigOptionBool(true)); //should be false?, enabled for testing
-        model.objects[objs_idx[id_item]]->config.set_key_value("min_width_top_surface", new ConfigOptionFloatOrPercent(0.0,false));
-        model.objects[objs_idx[id_item]]->config.set_key_value("only_one_perimeter_top", new ConfigOptionBool(false));
-        model.objects[objs_idx[id_item]]->config.set_key_value("only_one_perimeter_first_layer", new ConfigOptionBool(false));//, if borderers - right are scaled correctly there shouldn't be any gap fill in them. it would be nice to keep the *4 extrusion lines for the borders only.
-        //model.objects[objs_idx[id_item]]->config.set_key_value("perimeter_overlap", new ConfigOptionPercent(100));//
-        model.objects[objs_idx[id_item]]->config.set_key_value("seam_position", new ConfigOptionEnum<SeamPosition>(spRear)); //spRear or spCost //BUG: should be fixed in 2.7 merge/SS 2.5.59.7, when this is changed the "perimeters & shell" doesn't turn red indicating a change.
-        model.objects[objs_idx[id_item]]->config.set_key_value("top_solid_layers", new ConfigOptionInt(0));
-        model.objects[objs_idx[id_item]]->config.set_key_value("region_gcode", new ConfigOptionString(region_prefix + " \n" ));
+        model.objects()[objs_idx[id_item]].config.set_key_value("bottom_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipMonotonic));// ipConcentric or ipConcentricGapFill ?
+        model.objects()[objs_idx[id_item]].config.set_key_value("infill_filled_bottom", new ConfigOptionBool(true));
+        model.objects()[objs_idx[id_item]].config.set_key_value("thin_walls", new ConfigOptionBool(true));
+        model.objects()[objs_idx[id_item]].config.set_key_value("bottom_solid_layers", new ConfigOptionInt(1));
+        model.objects()[objs_idx[id_item]].config.set_key_value("brim_width", new ConfigOptionFloat(0));
+        //model.objects()[objs_idx[id_item]].config.set_key_value("external_perimeter_overlap", new ConfigOptionPercent(100));//
+        model.objects()[objs_idx[id_item]].config.set_key_value("fill_density", new ConfigOptionPercent(0));
+        model.objects()[objs_idx[id_item]].config.set_key_value("gap_fill_enabled", new ConfigOptionBool(true)); //should be false?, enabled for testing
+        model.objects()[objs_idx[id_item]].config.set_key_value("min_width_top_surface", new ConfigOptionFloatOrPercent(0.0,false));
+        model.objects()[objs_idx[id_item]].config.set_key_value("only_one_perimeter_top", new ConfigOptionBool(false));
+        model.objects()[objs_idx[id_item]].config.set_key_value("only_one_perimeter_first_layer", new ConfigOptionBool(false));//, if borderers - right are scaled correctly there shouldn't be any gap fill in them. it would be nice to keep the *4 extrusion lines for the borders only.
+        //model.objects()[objs_idx[id_item]].config.set_key_value("perimeter_overlap", new ConfigOptionPercent(100));//
+        model.objects()[objs_idx[id_item]].config.set_key_value("seam_position", new ConfigOptionEnum<SeamPosition>(spRear)); //spRear or spCost //BUG: should be fixed in 2.7 merge/SS 2.5.59.7, when this is changed the "perimeters & shell" doesn't turn red indicating a change.
+        model.objects()[objs_idx[id_item]].config.set_key_value("top_solid_layers", new ConfigOptionInt(0));
+        model.objects()[objs_idx[id_item]].config.set_key_value("region_gcode", new ConfigOptionString(region_prefix + " \n" ));
 
         int style = 2;
         if (selected_extrusion_role != "CheckAll") {//don't apply layer ranges to the main object for CheckAll mode(option isn't supported.and it needs to be!!)
@@ -904,7 +904,7 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                     ModelConfig range_conf;
 
                     range_conf.set_key_value("layer_height", new ConfigOptionFloatOrPercent(combined_layer_height, false));
-                    model.objects[objs_idx[id_item]]->layer_config_ranges[std::pair<double,double>(first_layer_height, 8)] = range_conf;
+                    model.objects()[objs_idx[id_item]].layer_config_ranges[std::pair<double,double>(first_layer_height, 8)] = range_conf;
 
                     wxGetApp().obj_list()->layers_editing();
                 }
@@ -913,40 +913,40 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                 if (infill_every_layers > 1 && selected_extrusion_role == "InternalInfill" && infill_dense == false) {
 
                     wxGetApp().obj_list()->layers_editing(id_item);//could prob use this same thing for the unsupported roles since they need a different layer_height/width
-                    auto existing_range = model.objects[objs_idx[id_item]]->layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
+                    auto existing_range = model.objects()[objs_idx[id_item]].layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
 
-                    if (existing_range != model.objects[objs_idx[id_item]]->layer_config_ranges.end()) {
+                    if (existing_range != model.objects()[objs_idx[id_item]].layer_config_ranges.end()) {
                         ModelConfig new_range_conf = existing_range->second;
 
                         new_range_conf.set_key_value("layer_height", new ConfigOptionFloatOrPercent(combined_layer_height, false));
-                        model.objects[objs_idx[id_item]]->layer_config_ranges.erase(existing_range);
-                        model.objects[objs_idx[id_item]]->layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
+                        model.objects()[objs_idx[id_item]].layer_config_ranges.erase(existing_range);
+                        model.objects()[objs_idx[id_item]].layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
                     }
                 }
                 if ((selected_extrusion_role == "SupportMaterial" && support_material_layer_height != 0) || (selected_extrusion_role == "SupportMaterialInterface" && support_material_interface_layer_height != 0)) {
 
                     wxGetApp().obj_list()->layers_editing(id_item);//could prob use this same thing for the unsupported roles since they need a different layer_height/width
-                    auto existing_range = model.objects[objs_idx[id_item]]->layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
+                    auto existing_range = model.objects()[objs_idx[id_item]].layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
 
-                    if (existing_range != model.objects[objs_idx[id_item]]->layer_config_ranges.end()) {
+                    if (existing_range != model.objects()[objs_idx[id_item]].layer_config_ranges.end()) {
                         ModelConfig new_range_conf = existing_range->second;
 
                         new_range_conf.set_key_value("layer_height", new ConfigOptionFloatOrPercent(combined_layer_height, false));
-                        model.objects[objs_idx[id_item]]->layer_config_ranges.erase(existing_range);
-                        model.objects[objs_idx[id_item]]->layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
+                        model.objects()[objs_idx[id_item]].layer_config_ranges.erase(existing_range);
+                        model.objects()[objs_idx[id_item]].layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
                     }
                 }
                 if (selected_extrusion_role == "FirstLayer" ) {
 
                     wxGetApp().obj_list()->layers_editing(id_item);//could prob use this same thing for the unsupported roles since they need a different layer_height/width
-                    auto existing_range = model.objects[objs_idx[id_item]]->layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
+                    auto existing_range = model.objects()[objs_idx[id_item]].layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
 
-                    if (existing_range != model.objects[objs_idx[id_item]]->layer_config_ranges.end()) {
+                    if (existing_range != model.objects()[objs_idx[id_item]].layer_config_ranges.end()) {
                         ModelConfig new_range_conf = existing_range->second;
 
                         new_range_conf.set_key_value("layer_height", new ConfigOptionFloatOrPercent(combined_layer_height, false));
-                        model.objects[objs_idx[id_item]]->layer_config_ranges.erase(existing_range);
-                        model.objects[objs_idx[id_item]]->layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
+                        model.objects()[objs_idx[id_item]].layer_config_ranges.erase(existing_range);
+                        model.objects()[objs_idx[id_item]].layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
                     }
                 }
             }
@@ -1051,26 +1051,26 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
             /// --- custom config ---
             // config for the 90_bend model
             //TOFIX : if first_layer_speed is  100% that means the first layer has no modifer for the speed and will use the standard peri/ ext peri speeds.
-            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("first_layer_extrusion_width", new ConfigOptionFloatOrPercent(adjusted_first_average, true));//TODO: move this to base modifer and revert commit a5c160d
-            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("perimeter_extrusion_width", new ConfigOptionFloatOrPercent(er_width, true));
-            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("external_perimeter_extrusion_width", new ConfigOptionFloatOrPercent(er_width, true));//TODO: check widths and ect breaks if any values are in mm/percentage
-            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("perimeter_speed", new ConfigOptionFloatOrPercent(er_speed, false));
-            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("external_perimeter_speed", new ConfigOptionFloatOrPercent(er_speed, false));
-            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("gap_fill_speed", new ConfigOptionFloatOrPercent(er_speed, false));
+            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("first_layer_extrusion_width", new ConfigOptionFloatOrPercent(adjusted_first_average, true));//TODO: move this to base modifer and revert commit a5c160d
+            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("perimeter_extrusion_width", new ConfigOptionFloatOrPercent(er_width, true));
+            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("external_perimeter_extrusion_width", new ConfigOptionFloatOrPercent(er_width, true));//TODO: check widths and ect breaks if any values are in mm/percentage
+            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("perimeter_speed", new ConfigOptionFloatOrPercent(er_speed, false));
+            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("external_perimeter_speed", new ConfigOptionFloatOrPercent(er_speed, false));
+            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("gap_fill_speed", new ConfigOptionFloatOrPercent(er_speed, false));
             if(er_accel > 0){
-                model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("perimeter_acceleration", new ConfigOptionFloatOrPercent(er_accel, false));
-                model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("external_perimeter_acceleration", new ConfigOptionFloatOrPercent(er_accel, false));
-                model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("gap_fill_acceleration", new ConfigOptionFloatOrPercent(er_accel, false));
+                model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("perimeter_acceleration", new ConfigOptionFloatOrPercent(er_accel, false));
+                model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("external_perimeter_acceleration", new ConfigOptionFloatOrPercent(er_accel, false));
+                model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("gap_fill_acceleration", new ConfigOptionFloatOrPercent(er_accel, false));
             }
-            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("layer_height", new ConfigOptionFloat(0.3));
+            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("layer_height", new ConfigOptionFloat(0.3));
 
             if (selected_extrusion_role == "CheckAll") {
-                model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("region_gcode", new ConfigOptionString(";" + set_advance_prefix + " ; " + er_role ));//user manual type in values commented out to stop errors
+                model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("region_gcode", new ConfigOptionString(";" + set_advance_prefix + " ; " + er_role ));//user manual type in values commented out to stop errors
                 //will need to adjust layerheight for infill,support, other er roles that needs a different layerheight for CheckAll mode.
 
                 /*ModelConfig range_conf;
                 range_conf.set_key_value("layer_height", new ConfigOptionFloatOrPercent(combined_layer_height, false));
-                model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->layer_config_ranges[std::pair<double,double>(first_layer_height, 8)] = range_conf;
+                model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->layer_config_ranges[std::pair<double,double>(first_layer_height, 8)] = range_conf;
 
                 wxGetApp().obj_list()->layers_editing();
                 auto list = wxGetApp().obj_list();*/
@@ -1078,25 +1078,25 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
                     /*if (infill_every_layers > 1 && selected_extrusion_role == "InternalInfill" && infill_dense == false) {
 
                         wxGetApp().obj_list()->layers_editing(id_item);//could prob use this same thing for the unsupported roles since they need a different layer_height
-                        auto existing_range = model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
+                        auto existing_range = model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->layer_config_ranges.find(std::pair<double, double>(0.0f, 2.0f));// Find the default existing range {0.0f, 2.0f}
 
-                        if (existing_range != model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->layer_config_ranges.end()) {
+                        if (existing_range != model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->layer_config_ranges.end()) {
                             ModelConfig new_range_conf = existing_range->second;
 
                             new_range_conf.set_key_value("layer_height", new ConfigOptionFloatOrPercent(combined_layer_height, false));
-                            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->layer_config_ranges.erase(existing_range);
-                            model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
+                            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->layer_config_ranges.erase(existing_range);
+                            model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->layer_config_ranges[std::pair<double, double>(first_layer_height, model_height + first_layer_height)] = new_range_conf;
                         }
                     }
                     else if (selected_extrusion_role == supports /ect){
                     }*/
             }
             else{
-                model.objects[objs_idx[id_item]]->volumes[num_part + extra_vol]->config.set_key_value("region_gcode", new ConfigOptionString(set_advance_prefix + std::to_string(pa_values[num_part]) + " ; " + er_role + "\n"));
+                model.objects()[objs_idx[id_item]].volumes[num_part + extra_vol]->config.set_key_value("region_gcode", new ConfigOptionString(set_advance_prefix + std::to_string(pa_values[num_part]) + " ; " + er_role + "\n"));
             }
             num_part++;
-            //model.objects[objs_idx[id_item]]->ensure_on_bed(); // put at the correct z (kind of arrange-z)) shouldn't be needed though.
-            //model.objects[objs_idx[id_item]]->center_around_origin();
+            //model.objects()[objs_idx[id_item]].ensure_on_bed(); // put at the correct z (kind of arrange-z)) shouldn't be needed though.
+            //model.objects()[objs_idx[id_item]].center_around_origin();
         }
 
 
@@ -1114,7 +1114,7 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
 
                 // Skip borders or out-of-bounds or odd pa_index
                 if ((nb_number >= count_numbers && nb_number < count_numbers + count_borders) ||
-                    num_part >= model.objects[objs_idx[id_item]]->volumes.size() || 
+                    num_part >= model.objects()[objs_idx[id_item]].volumes.size() || 
                     pa_index % 2 == 1) {
                     if (pa_index % 2 == 1) pa_index++; // increment pa_index to match how numbers are loaded
                     else {
@@ -1126,7 +1126,7 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
 
                 // Apply the PA value to the number set stays inline with 90_bend models
                 for (int number_set = 0; number_set < count_numbers; number_set++){
-                    model.objects[objs_idx[id_item]]->volumes[number_set + num_part + extra_vol]->config.set_key_value(
+                    model.objects()[objs_idx[id_item]].volumes[number_set + num_part + extra_vol]->config.set_key_value(
                         "region_gcode",
                         new ConfigOptionString(set_advance_prefix + std::to_string(pa_values[pa_index]) + " ; "));
                     
@@ -1146,8 +1146,8 @@ void CalibrationPressureAdvDialog::create_geometry(wxCommandEvent& event_args) {
     this->gui_app->get_tab(Preset::TYPE_FFF_FILAMENT)->load_config(new_filament_config);
     plat->on_config_change(new_filament_config);
     //enable it later as a safeguard?, shouldn't be needed though.
-    //for (size_t obj_idx : objs_idx) { model.objects[obj_idx]->ensure_on_bed(); } // put at the correct z (kind of arrange-z))
-    //for (size_t obj_idx : objs_idx) { model.objects[obj_idx]->center_around_origin();}
+    //for (size_t obj_idx : objs_idx) { model.objects()[obj_idx].ensure_on_bed(); } // put at the correct z (kind of arrange-z))
+    //for (size_t obj_idx : objs_idx) { model.objects()[obj_idx].center_around_origin();}
     plat->changed_objects(objs_idx);
     this->gui_app->get_tab(Preset::TYPE_FFF_PRINT)->update_dirty();
     this->gui_app->get_tab(Preset::TYPE_PRINTER)->update_dirty();

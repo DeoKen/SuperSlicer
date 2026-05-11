@@ -50,7 +50,7 @@ static void call_after_if_active(std::function<void()> fn, GUI_App* app = &wxGet
 static std::set<ObjectID> get_selected_volume_ids(const Selection &selection)
 {
     const Selection::IndicesList &volume_ids = selection.get_volume_idxs();
-    const ModelObjectPtrs &model_objects     = selection.get_model()->objects;
+    const ModelObjectPtrs &model_objects     = selection.get_model()->object_ptrs();
     std::set<ObjectID> result;
     for (auto volume_id : volume_ids) {
         const GLVolume *selected_volume = selection.get_volume(volume_id);
@@ -148,7 +148,7 @@ void GLGizmoSimplify::add_simplify_suggestion_notification(
         std::function<bool(wxEvtHandler *)> open_simplify =
             [object_id](wxEvtHandler *) {
                 auto plater = wxGetApp().plater();
-                if (object_id >= plater->model().objects.size()) return true;
+                if (object_id >= plater->model().objects().size()) return true;
 
                 Selection &selection = plater->canvas3D()->get_selection();
                 selection.clear();
@@ -628,7 +628,7 @@ void GLGizmoSimplify::init_model()
     const Selection &selection = m_parent.get_selection();
     Model &          model     = *selection.get_model();
     const Selection::IndicesList &volume_ids = selection.get_volume_idxs();
-    const ModelObjectPtrs &model_objects = model.objects;
+    const ModelObjectPtrs model_objects = model.object_ptrs();
 
     m_glmodels.clear();
     //m_glmodels.reserve(volume_ids.size());
@@ -722,7 +722,7 @@ void GLGizmoSimplify::on_render()
     // Check that the GLVolume still belongs to the ModelObject we work on.
     if (m_volume_ids != get_selected_volume_ids(selection)) return;
 
-    const ModelObjectPtrs &model_objects = selection.get_model()->objects;
+    const ModelObjectPtrs &model_objects = selection.get_model()->object_ptrs();
     const Selection::IndicesList &volume_idxs = selection.get_volume_idxs();
 
     // no need to render nothing

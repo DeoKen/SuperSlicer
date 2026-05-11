@@ -62,12 +62,12 @@ Model& Model::assign_copy(const Model &rhs)
     }
     // copy objects
     this->clear_objects();
-    this->objects.reserve(rhs.objects.size());
-	for (const ModelObject *model_object : rhs.objects) {
+    this->m_objects.reserve(rhs.m_objects.size());
+	for (const ModelObjectUPtr &model_object : rhs.m_objects) {
         // Copy including the ID, leave ID set to invalid (zero).
         auto mo = ModelObject::new_copy(*model_object);
         mo->set_model(this);
-		this->objects.emplace_back(mo);
+		this->m_objects.emplace_back(ModelObjectUPtr(mo));
     }
 
     // copy custom code per height
@@ -90,10 +90,10 @@ Model& Model::assign_copy(Model &&rhs)
     rhs.materials.clear();
     // Move objects, adjust the parent pointer.
     this->clear_objects();
-	this->objects = std::move(rhs.objects);
-    for (ModelObject *model_object : this->objects)
+	this->m_objects = std::move(rhs.m_objects);
+    for (ModelObjectUPtr &model_object : this->m_objects)
         model_object->set_model(this);
-    rhs.objects.clear();
+    rhs.m_objects.clear();
 
     // copy custom code per height
     this->custom_gcode_per_print_z = std::move(rhs.custom_gcode_per_print_z);
@@ -109,7 +109,7 @@ void Model::assign_new_unique_ids_recursive()
     this->set_new_unique_id();
     for (std::pair<const t_model_material_id, ModelMaterial*> &m : this->materials)
         m.second->assign_new_unique_ids_recursive();
-    for (ModelObject *model_object : this->objects)
+    for (ModelObjectUPtr &model_object : this->m_objects)
         model_object->assign_new_unique_ids_recursive();
 }
 
@@ -117,12 +117,12 @@ void Model::update_links_bottom_up_recursive()
 {
 	for (std::pair<const t_model_material_id, ModelMaterial*> &kvp : this->materials)
 		kvp.second->set_model(this);
-	for (ModelObject *model_object : this->objects) {
+	for (ModelObjectUPtr &model_object : this->m_objects) {
 		model_object->set_model(this);
 		for (ModelInstance *model_instance : model_object->instances)
-			model_instance->set_model_object(model_object);
+			model_instance->set_model_object(model_object.get());
 		for (ModelVolume *model_volume : model_object->volumes)
-			model_volume->set_model_object(model_object);
+			model_volume->set_model_object(model_object.get());
 	}
 }
 
@@ -136,11 +136,11 @@ bool Model::equals(const Model& rhs) const {
             return false;
     }
     // check objects
-    if (this->objects.size() != rhs.objects.size())
+    if (this->m_objects.size() != rhs.m_objects.size())
         return false;
-    for (int i = 0; i < rhs.objects.size(); i++) {
+    for (int i = 0; i < rhs.m_objects.size(); i++) {
         // Copy including the ID, leave ID set to invalid (zero).
-        if (rhs.objects[i]->equals(*objects[i]))
+        if (rhs.m_objects[i]->equals(*m_objects[i]))
             return false;
     }
 
@@ -153,6 +153,24 @@ bool Model::equals(const Model& rhs) const {
         return false;
 
     return true;
+}
+
+ModelObjectPtrs Model::object_ptrs()
+{
+    ModelObjectPtrs out;
+    out.reserve(m_objects.size());
+    for (ModelObjectUPtr &object : m_objects)
+        out.emplace_back(object.get());
+    return out;
+}
+
+ModelObjectPtrs Model::object_ptrs() const
+{
+    ModelObjectPtrs out;
+    out.reserve(m_objects.size());
+    for (const ModelObjectUPtr &object : m_objects)
+        out.emplace_back(const_cast<ModelObject*>(object.get()));
+    return out;
 }
 
 // Loading model from a file, it may be a simple geometry file as STL or OBJ, however it may be a project file as well.
@@ -190,10 +208,10 @@ Model Model::read_from_file(const std::string& input_file,
     if (! result)
         throw Slic3r::RuntimeError("Loading of a model file failed.");
 
-    if (model.objects.empty())
+    if (model.m_objects.empty())
         throw Slic3r::RuntimeError("The supplied file couldn't be read because it's empty");
     
-    for (ModelObject *o : model.objects)
+    for (ModelObjectUPtr &o : model.m_objects)
         o->input_file = input_file;
     
     if (options & LoadAttribute::AddDefaultInstances)
@@ -230,10 +248,10 @@ Model Model::read_from_archive(const std::string& input_file,
         throw Slic3r::RuntimeError("Loading of a model file failed.");
 
     //it can read the config only
-    //if (model.objects.empty())
+    //if (model.m_objects.empty())
         //throw Slic3r::RuntimeError("The supplied file couldn't be read because it's empty");
 
-    for (ModelObject *o : model.objects) {
+    for (ModelObjectUPtr &o : model.m_objects) {
 //        if (boost::algorithm::iends_with(input_file, ".zip.amf"))
 //        {
 //            // we remove the .zip part of the extension to avoid it be added to filenames when exporting
@@ -256,20 +274,20 @@ Model Model::read_from_archive(const std::string& input_file,
 
 ModelObject* Model::add_object()
 {
-    this->objects.emplace_back(new ModelObject(this));
-    return this->objects.back();
+    this->m_objects.emplace_back(ModelObjectUPtr(new ModelObject(this)));
+    return this->m_objects.back().get();
 }
 
 ModelObject* Model::add_object(const char *name, const char *path, const TriangleMesh &mesh)
 {
     ModelObject* new_object = new ModelObject(this);
-    this->objects.push_back(new_object);
+    this->m_objects.emplace_back(ModelObjectUPtr(new_object));
     new_object->name = name;
     new_object->input_file = path;
     ModelVolume *new_volume = new_object->add_volume(mesh);
     new_volume->name = name;
     new_volume->source.input_file = path;
-    new_volume->source.object_idx = (int)this->objects.size() - 1;
+    new_volume->source.object_idx = (int)this->m_objects.size() - 1;
     new_volume->source.volume_idx = (int)new_object->volumes.size() - 1;
     new_object->invalidate_bounding_box();
     return new_object;
@@ -278,13 +296,13 @@ ModelObject* Model::add_object(const char *name, const char *path, const Triangl
 ModelObject* Model::add_object(const char *name, const char *path, TriangleMesh &&mesh)
 {
     ModelObject* new_object = new ModelObject(this);
-    this->objects.push_back(new_object);
+    this->m_objects.emplace_back(ModelObjectUPtr(new_object));
     new_object->name = name;
     new_object->input_file = path;
     ModelVolume *new_volume = new_object->add_volume(std::move(mesh));
     new_volume->name = name;
     new_volume->source.input_file = path;
-    new_volume->source.object_idx = (int)this->objects.size() - 1;
+    new_volume->source.object_idx = (int)this->m_objects.size() - 1;
     new_volume->source.volume_idx = (int)new_object->volumes.size() - 1;
     new_object->invalidate_bounding_box();
     return new_object;
@@ -294,25 +312,32 @@ ModelObject* Model::add_object(const ModelObject &other)
 {
 	ModelObject* new_object = ModelObject::new_clone(other);
     new_object->set_model(this);
-    this->objects.push_back(new_object);
+    this->m_objects.emplace_back(ModelObjectUPtr(new_object));
     return new_object;
+}
+
+ModelObject* Model::add_object(ModelObjectUPtr object)
+{
+    assert(object != nullptr);
+    object->set_model(this);
+    ModelObject *out = object.get();
+    this->m_objects.emplace_back(std::move(object));
+    return out;
 }
 
 void Model::delete_object(size_t idx)
 {
-    ModelObjectPtrs::iterator i = this->objects.begin() + idx;
-    delete *i;
-    this->objects.erase(i);
+    ModelObjectUPtrs::iterator i = this->m_objects.begin() + idx;
+    this->m_objects.erase(i);
 }
 
 bool Model::delete_object(ModelObject* object)
 {
     if (object != nullptr) {
         size_t idx = 0;
-        for (ModelObject *model_object : objects) {
-            if (model_object == object) {
-                delete model_object;
-                objects.erase(objects.begin() + idx);
+        for (const ModelObjectUPtr &model_object : m_objects) {
+            if (model_object.get() == object) {
+                m_objects.erase(m_objects.begin() + idx);
                 return true;
             }
             ++ idx;
@@ -325,10 +350,9 @@ bool Model::delete_object(ObjectID id)
 {
     if (id.id != 0) {
         size_t idx = 0;
-        for (ModelObject *model_object : objects) {
+        for (const ModelObjectUPtr &model_object : m_objects) {
             if (model_object->id() == id) {
-                delete model_object;
-                objects.erase(objects.begin() + idx);
+                m_objects.erase(m_objects.begin() + idx);
                 return true;
             }
             ++ idx;
@@ -339,9 +363,12 @@ bool Model::delete_object(ObjectID id)
 
 void Model::clear_objects()
 {
-    for (ModelObject *o : this->objects)
-        delete o;
-    this->objects.clear();
+    this->m_objects.clear();
+}
+
+void Model::swap_objects(size_t idx1, size_t idx2)
+{
+    std::swap(this->m_objects[idx1], this->m_objects[idx2]);
 }
 
 void Model::delete_material(t_model_material_id material_id)
@@ -386,9 +413,9 @@ ModelMaterial* Model::add_material(t_model_material_id material_id, const ModelM
 bool Model::add_default_instances()
 {
     // apply a default position to all objects not having one
-    for (ModelObject *o : this->objects)
-        if (o->instances.empty())
-            o->add_instance();
+    for (ModelObject &o : this->objects())
+        if (o.instances.empty())
+            o.add_instance();
     return true;
 }
 
@@ -396,43 +423,43 @@ bool Model::add_default_instances()
 BoundingBoxf3 Model::bounding_box_approx() const
 {
     BoundingBoxf3 bb;
-    for (ModelObject *o : this->objects)
-        bb.merge(o->bounding_box_approx());
+    for (const ModelObject &o : this->objects())
+        bb.merge(o.bounding_box_approx());
     return bb;
 }
 
 BoundingBoxf3 Model::bounding_box_exact() const
 {
     BoundingBoxf3 bb;
-    for (ModelObject *o : this->objects)
-        bb.merge(o->bounding_box_exact());
+    for (const ModelObject &o : this->objects())
+        bb.merge(o.bounding_box_exact());
     return bb;
 }
 
 double Model::max_z() const
 {
     double z = 0;
-    for (ModelObject *o : this->objects)
-        z = std::max(z, o->max_z());
+    for (const ModelObject &o : this->objects())
+        z = std::max(z, o.max_z());
     return z;
 }
 
 unsigned int Model::update_print_volume_state(const BuildVolume &build_volume)
 {
     unsigned int num_printable = 0;
-    for (ModelObject* model_object : this->objects)
-        num_printable += model_object->update_instances_print_volume_state(build_volume);
+    for (ModelObject &model_object : this->objects())
+        num_printable += model_object.update_instances_print_volume_state(build_volume);
     return num_printable;
 }
 
 bool Model::center_instances_around_point(const Vec2d &point)
 {
     BoundingBoxf3 bb;
-    for (ModelObject *o : this->objects)
-        if (o->printable) // only center around printable objects (note: seems always true right now)
-            for (size_t i = 0; i < o->instances.size(); ++ i)
-                if (o->instances[i]->printable) // only center around printable instances
-                    bb.merge(o->instance_bounding_box(i, false));
+    for (ModelObject &o : this->objects())
+        if (o.printable) // only center around printable objects (note: seems always true right now)
+            for (size_t i = 0; i < o.instances.size(); ++ i)
+                if (o.instances[i]->printable) // only center around printable instances
+                    bb.merge(o.instance_bounding_box(i, false));
 
     Vec2d shift2 = point - to_2d(bb.center());
 	if (std::abs(shift2(0)) < EPSILON && std::abs(shift2(1)) < EPSILON)
@@ -440,10 +467,10 @@ bool Model::center_instances_around_point(const Vec2d &point)
 		return false;
 
 	Vec3d shift3 = Vec3d(shift2(0), shift2(1), 0.0);
-	for (ModelObject *o : this->objects) {
-		for (ModelInstance *i : o->instances)
+	for (ModelObject &o : this->objects()) {
+		for (ModelInstance *i : o.instances)
 			i->set_offset(i->get_offset() + shift3);
-		o->invalidate_bounding_box();
+		o.invalidate_bounding_box();
 	}
 	return true;
 }
@@ -452,17 +479,17 @@ bool Model::center_instances_around_point(const Vec2d &point)
 TriangleMesh Model::mesh() const
 {
     TriangleMesh mesh;
-    for (const ModelObject *o : this->objects)
-        mesh.merge(o->mesh());
+    for (const ModelObject &o : this->objects())
+        mesh.merge(o.mesh());
     return mesh;
 }
 
 void Model::duplicate_objects_grid(size_t x, size_t y, coordf_t dist)
 {
-    if (this->objects.size() > 1) throw "Grid duplication is not supported with multiple objects";
-    if (this->objects.empty()) throw "No objects!";
+    if (this->m_objects.size() > 1) throw "Grid duplication is not supported with multiple objects";
+    if (this->m_objects.empty()) throw "No objects!";
 
-    ModelObject* object = this->objects.front();
+    ModelObject* object = this->m_objects.front().get();
     object->clear_instances();
 
     Vec3d ext_size = object->bounding_box_exact().size() + dist * Vec3d::Ones();
@@ -477,21 +504,21 @@ void Model::duplicate_objects_grid(size_t x, size_t y, coordf_t dist)
 
 bool Model::looks_like_multipart_object() const
 {
-    if (this->objects.size() <= 1)
+    if (this->m_objects.size() <= 1)
         return false;
 
     BoundingBoxf3 tbb;
 
-    for (const ModelObject *obj : this->objects) {
-        if (obj->volumes.size() > 1 || obj->config.keys().size() > 1)
+    for (const ModelObject &obj : this->objects()) {
+        if (obj.volumes.size() > 1 || obj.config.keys().size() > 1)
             return false;
 
-        BoundingBoxf3 bb_this = obj->volumes[0]->mesh().bounding_box();
+        BoundingBoxf3 bb_this = obj.volumes[0]->mesh().bounding_box();
 
         // FIXME: There is sadly the case when instances are empty (AMF files). The normalization of instances in that
         // case is performed only after this function is called. For now (shortly before the 2.7.2 release), let's
         // just do this non-invasive check. Reordering all the functions could break it much more.
-        BoundingBoxf3 tbb_this = (! obj->instances.empty() ? obj->instances[0]->transform_bounding_box(bb_this) : bb_this);
+        BoundingBoxf3 tbb_this = (! obj.instances.empty() ? obj.instances[0]->transform_bounding_box(bb_this) : bb_this);
 
         if (!tbb.defined)
             tbb = tbb_this;
@@ -513,35 +540,35 @@ static inline int auto_extruder_id(unsigned int max_extruders, unsigned int &cnt
 
 void Model::convert_multipart_object(unsigned int max_extruders)
 {
-	assert(this->objects.size() >= 2);
-    if (this->objects.size() < 2)
+	assert(this->m_objects.size() >= 2);
+    if (this->m_objects.size() < 2)
         return;
     
     ModelObject* object = new ModelObject(this);
-    object->input_file = this->objects.front()->input_file;
-    object->name = boost::filesystem::path(this->objects.front()->input_file).stem().string();
+    object->input_file = this->m_objects.front()->input_file;
+    object->name = boost::filesystem::path(this->m_objects.front()->input_file).stem().string();
     //FIXME copy the config etc?
 
     unsigned int extruder_counter = 0;
-    for (const ModelObject* o : this->objects)
-    	for (const ModelVolume* v : o->volumes) {
+    for (const ModelObject &o : this->objects())
+    	for (const ModelVolume* v : o.volumes) {
             // If there are more than one object, put all volumes together 
             // Each object may contain any number of volumes and instances
             // The volumes transformations are relative to the object containing them...
             Geometry::Transformation trafo_volume = v->get_transformation();
             // Revert the centering operation.
-            trafo_volume.set_offset(trafo_volume.get_offset() - o->origin_translation);
+            trafo_volume.set_offset(trafo_volume.get_offset() - o.origin_translation);
             int counter = 1;
-            auto copy_volume = [o, max_extruders, &counter, &extruder_counter](ModelVolume *new_v) {
+            auto copy_volume = [&o, max_extruders, &counter, &extruder_counter](ModelVolume *new_v) {
                 assert(new_v != nullptr);
-                new_v->name = (counter > 1) ? o->name + "_" + std::to_string(counter++) : o->name;
+                new_v->name = (counter > 1) ? o.name + "_" + std::to_string(counter++) : o.name;
                 new_v->config.set("extruder", auto_extruder_id(max_extruders, extruder_counter));
                 return new_v;
             };
-            if (o->instances.empty()) {
+            if (o.instances.empty()) {
             	copy_volume(object->add_volume(*v))->set_transformation(trafo_volume);
             } else {
-                for (const ModelInstance* i : o->instances)
+                for (const ModelInstance* i : o.instances)
                         // ...so, transform everything to a common reference system (world)
                     copy_volume(object->add_volume(*v))->set_transformation(i->get_transformation() * trafo_volume);                    
             }
@@ -552,25 +579,25 @@ void Model::convert_multipart_object(unsigned int max_extruders)
 //    object->instances[0]->set_offset(object->raw_mesh_bounding_box().center());
 
     this->clear_objects();
-    this->objects.push_back(object);
+    this->m_objects.emplace_back(ModelObjectUPtr(object));
 }
 
 static constexpr const double volume_threshold_inches = 9.0; // 9 = 3*3*3;
 
 bool Model::looks_like_imperial_units() const
 {
-    if (this->objects.empty())
+    if (this->m_objects.empty())
         return false;
 
-    for (ModelObject* obj : this->objects)
-        if (obj->get_object_stl_stats().volume < volume_threshold_inches) {
-            if (!obj->is_cut())
+    for (const ModelObject &obj : this->objects())
+        if (obj.get_object_stl_stats().volume < volume_threshold_inches) {
+            if (!obj.is_cut())
                 return true;
             bool all_cut_parts_look_like_imperial_units = true;
-            for (ModelObject* obj_other : this->objects) {
-                if (obj_other == obj)
+            for (const ModelObject &obj_other : this->objects()) {
+                if (&obj_other == &obj)
                     continue;
-                if (obj_other->cut_id.is_equal(obj->cut_id) && obj_other->get_object_stl_stats().volume >= volume_threshold_inches) {
+                if (obj_other.cut_id.is_equal(obj.cut_id) && obj_other.get_object_stl_stats().volume >= volume_threshold_inches) {
                     all_cut_parts_look_like_imperial_units = false;
                     break;
                 }
@@ -585,10 +612,10 @@ bool Model::looks_like_imperial_units() const
 void Model::convert_from_imperial_units(bool only_small_volumes)
 {
     static constexpr const float in_to_mm = 25.4f;
-    for (ModelObject* obj : this->objects)
-        if (! only_small_volumes || obj->get_object_stl_stats().volume < volume_threshold_inches) {
-            obj->scale_mesh_after_creation(in_to_mm);
-            for (ModelVolume* v : obj->volumes) {
+    for (ModelObject &obj : this->objects())
+        if (! only_small_volumes || obj.get_object_stl_stats().volume < volume_threshold_inches) {
+            obj.scale_mesh_after_creation(in_to_mm);
+            for (ModelVolume* v : obj.volumes) {
                 assert(! v->source.is_converted_from_meters);
                 v->source.is_converted_from_inches = true;
             }
@@ -599,11 +626,11 @@ static constexpr const double volume_threshold_meters = 0.001; // 0.001 = 0.1*0.
 
 bool Model::looks_like_saved_in_meters() const
 {
-    if (this->objects.size() == 0)
+    if (this->m_objects.size() == 0)
         return false;
 
-    for (ModelObject* obj : this->objects)
-        if (obj->get_object_stl_stats().volume < volume_threshold_meters)
+    for (const ModelObject &obj : this->objects())
+        if (obj.get_object_stl_stats().volume < volume_threshold_meters)
             return true;
 
     return false;
@@ -612,10 +639,10 @@ bool Model::looks_like_saved_in_meters() const
 void Model::convert_from_meters(bool only_small_volumes)
 {
     static constexpr const double m_to_mm = 1000;
-    for (ModelObject* obj : this->objects)
-        if (! only_small_volumes || obj->get_object_stl_stats().volume < volume_threshold_meters) {
-            obj->scale_mesh_after_creation(m_to_mm);
-            for (ModelVolume* v : obj->volumes) {
+    for (ModelObject &obj : this->objects())
+        if (! only_small_volumes || obj.get_object_stl_stats().volume < volume_threshold_meters) {
+            obj.scale_mesh_after_creation(m_to_mm);
+            for (ModelVolume* v : obj.volumes) {
                 assert(! v->source.is_converted_from_inches);
                 v->source.is_converted_from_meters = true;
             }
@@ -626,12 +653,12 @@ static constexpr const double zero_volume = 0.0000000001;
 
 int Model::removed_objects_with_zero_volume()
 {
-    if (objects.size() == 0)
+    if (m_objects.size() == 0)
         return 0;
 
     int removed = 0;
-    for (int i = int(objects.size()) - 1; i >= 0; i--)
-        if (objects[i]->get_object_stl_stats().volume < zero_volume) {
+    for (int i = int(m_objects.size()) - 1; i >= 0; i--)
+        if (m_objects[i]->get_object_stl_stats().volume < zero_volume) {
             delete_object(size_t(i));
             removed++;
         }
@@ -640,19 +667,16 @@ int Model::removed_objects_with_zero_volume()
 
 void Model::adjust_min_z()
 {
-    if (objects.empty())
+    if (m_objects.empty())
         return;
 
     if (this->bounding_box_exact().min.z() < 0.0)
     {
-        for (ModelObject* obj : objects)
+        for (ModelObject &obj : this->objects())
         {
-            if (obj != nullptr)
-            {
-                coordf_t obj_min_z = obj->min_z();
+                coordf_t obj_min_z = obj.min_z();
                 if (obj_min_z < 0.0)
-                    obj->translate_instances(Vec3d(0.0, 0.0, -obj_min_z));
-            }
+                    obj.translate_instances(Vec3d(0.0, 0.0, -obj_min_z));
         }
     }
 }
@@ -662,10 +686,10 @@ void Model::adjust_min_z()
 std::string Model::propose_export_file_name_and_path() const
 {
     std::string input_file;
-    for (const ModelObject *model_object : this->objects)
-        for (ModelInstance *model_instance : model_object->instances)
+    for (const ModelObject &model_object : this->objects())
+        for (ModelInstance *model_instance : model_object.instances)
             if (model_instance->is_printable()) {
-                input_file = model_object->get_export_filename();
+                input_file = model_object.get_export_filename();
 
                 if (!input_file.empty())
                     goto end;
@@ -683,17 +707,17 @@ std::string Model::propose_export_file_name_and_path(const std::string &new_exte
 
 bool Model::is_fdm_support_painted() const
 {
-    return std::any_of(this->objects.cbegin(), this->objects.cend(), [](const ModelObject *mo) { return mo->is_fdm_support_painted(); });
+    return std::any_of(this->objects().begin(), this->objects().end(), [](const ModelObject &mo) { return mo.is_fdm_support_painted(); });
 }
 
 bool Model::is_seam_painted() const
 {
-    return std::any_of(this->objects.cbegin(), this->objects.cend(), [](const ModelObject *mo) { return mo->is_seam_painted(); });
+    return std::any_of(this->objects().begin(), this->objects().end(), [](const ModelObject &mo) { return mo.is_seam_painted(); });
 }
 
 bool Model::is_mm_painted() const
 {
-    return std::any_of(this->objects.cbegin(), this->objects.cend(), [](const ModelObject *mo) { return mo->is_mm_painted(); });
+    return std::any_of(this->objects().begin(), this->objects().end(), [](const ModelObject &mo) { return mo.is_mm_painted(); });
 }
 
 ModelObject::~ModelObject()
@@ -2245,10 +2269,10 @@ void FacetsAnnotation::set_triangle_from_string(int triangle_id, const std::stri
 // ordered in the same order. In that case it is not necessary to kill the background processing.
 bool model_object_list_equal(const Model &model_old, const Model &model_new)
 {
-    if (model_old.objects.size() != model_new.objects.size())
+    if (model_old.objects().size() != model_new.objects().size())
         return false;
-    for (size_t i = 0; i < model_old.objects.size(); ++ i)
-        if (model_old.objects[i]->id() != model_new.objects[i]->id())
+    for (size_t i = 0; i < model_old.objects().size(); ++ i)
+        if (model_old.objects()[i].id() != model_new.objects()[i].id())
             return false;
     return true;
 }
@@ -2257,10 +2281,10 @@ bool model_object_list_equal(const Model &model_old, const Model &model_new)
 // to the end of the original list. In that case it is not necessary to kill the background processing.
 bool model_object_list_extended(const Model &model_old, const Model &model_new)
 {
-    if (model_old.objects.size() >= model_new.objects.size())
+    if (model_old.objects().size() >= model_new.objects().size())
         return false;
-    for (size_t i = 0; i < model_old.objects.size(); ++ i)
-        if (model_old.objects[i]->id() != model_new.objects[i]->id())
+    for (size_t i = 0; i < model_old.objects().size(); ++ i)
+        if (model_old.objects()[i].id() != model_new.objects()[i].id())
             return false;
     return true;
 }
@@ -2363,8 +2387,8 @@ bool model_mmu_segmentation_data_changed(const ModelObject& mo, const ModelObjec
 
 bool model_has_parameter_modifiers_in_objects(const Model &model)
 {
-    for (const auto& model_object : model.objects)
-        for (const auto& volume : model_object->volumes)
+    for (const ModelObject &model_object : model.objects())
+        for (const auto& volume : model_object.volumes)
             if (volume->is_modifier())
                 return true;
     return false;
@@ -2372,8 +2396,8 @@ bool model_has_parameter_modifiers_in_objects(const Model &model)
 
 bool model_has_multi_part_objects(const Model &model)
 {
-    for (const ModelObject *model_object : model.objects)
-    	if (model_object->volumes.size() != 1 || ! model_object->volumes.front()->is_model_part())
+    for (const ModelObject &model_object : model.objects())
+    	if (model_object.volumes.size() != 1 || ! model_object.volumes.front()->is_model_part())
     		return true;
     return false;
 }
@@ -2383,12 +2407,12 @@ bool model_has_advanced_features(const Model &model)
 	auto config_is_advanced = [](const ModelConfig &config) {
         return ! (config.empty() || (config.size() == 1 && config.cbegin()->first == "extruder"));
 	};
-    for (const ModelObject *model_object : model.objects) {
+    for (const ModelObject &model_object : model.objects()) {
         // Is there more than one instance or advanced config data?
-        if (model_object->instances.size() > 1 || config_is_advanced(model_object->config))
+        if (model_object.instances.size() > 1 || config_is_advanced(model_object.config))
         	return true;
         // Is there any modifier or advanced config data?
-        for (const ModelVolume* model_volume : model_object->volumes)
+        for (const ModelVolume* model_volume : model_object.volumes)
             if (! model_volume->is_model_part() || config_is_advanced(model_volume->config))
             	return true;
     }
@@ -2405,14 +2429,14 @@ void check_model_ids_validity(const Model &model)
         assert(ids.find(id) == ids.end());
         ids.insert(id);
     };
-    for (const ModelObject *model_object : model.objects) {
-        check(model_object->id());
-        check(model_object->config.id());
-        for (const ModelVolume *model_volume : model_object->volumes) {
+    for (const ModelObject &model_object : model.objects()) {
+        check(model_object.id());
+        check(model_object.config.id());
+        for (const ModelVolume *model_volume : model_object.volumes) {
             check(model_volume->id());
 	        check(model_volume->config.id());
         }
-        for (const ModelInstance *model_instance : model_object->instances)
+        for (const ModelInstance *model_instance : model_object.instances)
             check(model_instance->id());
     }
     for (const auto &mm : model.materials) {
@@ -2424,10 +2448,10 @@ void check_model_ids_validity(const Model &model)
 void check_model_ids_equal(const Model &model1, const Model &model2)
 {
     // Verify whether the IDs of model1 and model match.
-    assert(model1.objects.size() == model2.objects.size());
-    for (size_t idx_model = 0; idx_model < model2.objects.size(); ++ idx_model) {
-        const ModelObject &model_object1 = *model1.objects[idx_model];
-        const ModelObject &model_object2 = *  model2.objects[idx_model];
+    assert(model1.objects().size() == model2.objects().size());
+    for (size_t idx_model = 0; idx_model < model2.objects().size(); ++ idx_model) {
+        const ModelObject &model_object1 = model1.objects()[idx_model];
+        const ModelObject &model_object2 = model2.objects()[idx_model];
         assert(model_object1.id() == model_object2.id());
         assert(model_object1.config.id() == model_object2.config.id());
         assert(model_object1.volumes.size() == model_object2.volumes.size());

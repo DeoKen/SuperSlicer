@@ -88,7 +88,7 @@ void GLGizmoHollow::on_render()
 
     // If current m_c->m_model_object does not match selection, ask GLCanvas3D to turn us off
     if (m_state == On
-     && (sel_info->model_object() != selection.get_model()->objects[selection.get_object_idx()]
+     && (sel_info->model_object() != &selection.get_model()->objects()[selection.get_object_idx()]
       || sel_info->get_active_instance() != selection.get_instance_idx())) {
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_RESETGIZMOS));
         return;

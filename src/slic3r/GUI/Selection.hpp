@@ -88,6 +88,7 @@ public:
         // Model is stored through a pointer to avoid including heavy Model.hpp.
         // It is created in constructor.
         std::unique_ptr<Model> m_model;
+        mutable ModelObjectPtrs m_objects_cache;
 
         Selection::EMode m_mode;
 

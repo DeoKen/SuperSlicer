@@ -56,11 +56,11 @@ coord_t brim_offset(const PrintObject &po)
 
 size_t model_instance_count (const Model &m)
 {
-    return std::accumulate(m.objects.begin(),
-                           m.objects.end(),
+    return std::accumulate(m.objects().begin(),
+                           m.objects().end(),
                            size_t(0),
-                           [](size_t s, const Slic3r::ModelObject *mo) {
-                               return s + mo->instances.size();
+                           [](size_t s, const Slic3r::ModelObject &mo) {
+                               return s + mo.instances.size();
                            });
 }
 
@@ -385,9 +385,9 @@ Transform3d GridStriderVBedHandler::get_physical_bed_trafo(int bed_idx) const
 
 FixedSelection::FixedSelection(const Model &m) : m_wp{true}
 {
-    m_seldata.resize(m.objects.size());
-    for (size_t i = 0; i < m.objects.size(); ++i) {
-        m_seldata[i].resize(m.objects[i]->instances.size(), true);
+    m_seldata.resize(m.objects().size());
+    for (size_t i = 0; i < m.objects().size(); ++i) {
+        m_seldata[i].resize(m.objects()[i].instances.size(), true);
     }
 }
 
@@ -554,7 +554,7 @@ template<class Self, class Fn>
 void ArrangeableSlicerModel::for_each_arrangeable_(Self &&self, Fn &&fn)
 {
     InstPos pos;
-    for (auto *obj : self.m_model->objects) {
+    for (auto *obj : self.m_model->object_ptrs()) {
         for (auto *inst : obj->instances) {
             ArrangeableModelInstance ainst{inst, self.m_vbed_handler.get(), self.m_selmask.get(), pos};
             fn(ainst);
@@ -598,7 +598,7 @@ template<class Self, class Fn>
 void ArrangeableSLAPrint::for_each_arrangeable_(Self &&self, Fn &&fn)
 {
     InstPos pos;
-    for (auto *obj : self.m_model->objects) {
+    for (auto *obj : self.m_model->object_ptrs()) {
         for (auto *inst : obj->instances) {
             ArrangeableModelInstance ainst{inst, self.m_vbed_handler.get(),
                                            self.m_selmask.get(), pos};
@@ -857,7 +857,7 @@ ObjectID DuplicableModel::add_arrangeable(const ObjectID &prototype_id)
 
 void DuplicableModel::apply_duplicates()
 {
-    for (ModelObject *o : m_model->objects) {
+    for (ModelObject *o : m_model->object_ptrs()) {
         // make a copy of the pointers in order to avoid recursion
         // when appending their copies
         ModelInstancePtrs instances = o->instances;
@@ -889,7 +889,7 @@ ExPolygons ArrangeableFullModel<Mdl, Dup, VBH>::full_outline() const
     transl.translate(to_3d(m_dup->tr, 0.));
     Transform3d trafo = transl* Eigen::AngleAxisd(m_dup->rot, Vec3d::UnitZ());
 
-    for (auto *mo : m_mdl->objects) {
+    for (auto *mo : m_mdl->object_ptrs()) {
         for (auto *mi : mo->instances) {
             auto expolys = arr2::extract_full_outline(*mi, trafo);
             std::move(expolys.begin(), expolys.end(), std::back_inserter(ret));
@@ -908,7 +908,7 @@ Polygon ArrangeableFullModel<Mdl, Dup, VBH>::convex_outline() const
     transl.translate(to_3d(m_dup->tr, 0.));
     Transform3d trafo = transl* Eigen::AngleAxisd(m_dup->rot, Vec3d::UnitZ());
 
-    for (auto *mo : m_mdl->objects) {
+    for (auto *mo : m_mdl->object_ptrs()) {
         for (auto *mi : mo->instances) {
             ret.emplace_back(arr2::extract_convex_outline(*mi, trafo));
         }

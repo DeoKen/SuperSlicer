@@ -524,7 +524,7 @@ void GLGizmoMmuSegmentation::update_model_object() const
     }
 
     if (updated) {
-        const ModelObjectPtrs &mos = wxGetApp().model().objects;
+        const ModelObjectPtrs mos = wxGetApp().model().object_ptrs();
         wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
     }

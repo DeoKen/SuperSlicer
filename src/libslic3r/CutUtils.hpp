@@ -25,6 +25,7 @@ ENABLE_ENUM_BITMASK_OPERATORS(ModelObjectCutAttribute);
 class Cut {
 
     Model                       m_model;
+    ModelObjectPtrs             m_result_objects;
     int                         m_instance;
     const Transform3d           m_cut_matrix;
     ModelObjectCutAttributes    m_attributes;

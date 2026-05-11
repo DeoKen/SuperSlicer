@@ -152,7 +152,7 @@ public:
     struct CompositeID {
         CompositeID(int object_id, int volume_id, int instance_id) : object_id(object_id), volume_id(volume_id), instance_id(instance_id) {}
         CompositeID() : object_id(-1), volume_id(-1), instance_id(-1) {}
-        // Object ID, which is equal to the index of the respective ModelObject in Model.objects array.
+        // Object ID, which is equal to the index of the respective ModelObject in Model.object_ptrs() array.
         int             object_id;
         // Volume ID, which is equal to the index of the respective ModelVolume in ModelObject.volumes array.
         // If negative, it is an index of a geometry produced by the PrintObject for the respective ModelObject,

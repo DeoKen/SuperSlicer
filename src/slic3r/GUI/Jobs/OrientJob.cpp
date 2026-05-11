@@ -20,8 +20,8 @@ void OrientJob::clear_input()
     const Model &model = m_plater->model();
 
     size_t count = 0, cunprint = 0; // To know how much space to reserve
-    for (auto obj : model.objects)
-        for (auto mi : obj->instances)
+    for (const ModelObject &obj : model.objects())
+        for (ModelInstance *mi : obj.instances)
             mi->printable ? count++ : cunprint++;
 
     m_selected.clear();
@@ -40,7 +40,7 @@ void OrientJob::prepare_selection(std::vector<bool> obj_sel, bool only_one_plate
     // Go through the objects and check if inside the selection
     for (size_t oidx = 0; oidx < obj_sel.size(); ++oidx) {
         bool selected = obj_sel[oidx];
-        ModelObject* mo = model.objects[oidx];
+        ModelObject *mo = &model.objects()[oidx];
 
         for (size_t inst_idx = 0; inst_idx < mo->instances.size(); ++inst_idx)
         {
@@ -59,7 +59,7 @@ void OrientJob::prepare_selected() {
 
     Model &model = m_plater->model();
 
-    std::vector<bool> obj_sel(model.objects.size(), false);
+    std::vector<bool> obj_sel(model.objects().size(), false);
 
     for (auto &s : m_plater->get_selection().get_content())
         if (s.first < int(obj_sel.size()))
@@ -75,12 +75,12 @@ void OrientJob::prepare_partplate() {
 
     Model& model = m_plater->model();
 
-    std::vector<bool> obj_sel(model.objects.size(), false);
+    std::vector<bool> obj_sel(model.objects().size(), false);
 
     // Go through the objects and check if inside the selection
-    for (size_t oidx = 0; oidx < model.objects.size(); ++oidx)
+    for (size_t oidx = 0; oidx < model.objects().size(); ++oidx)
     {
-        ModelObject* mo = model.objects[oidx];
+        ModelObject *mo = &model.objects()[oidx];
         for (size_t inst_idx = 0; inst_idx < mo->instances.size(); ++inst_idx)
         {
             //obj_sel[oidx] = plate->contain_instance(oidx, inst_idx);

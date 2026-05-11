@@ -1097,7 +1097,7 @@ void GLGizmoMeasure::update_if_needed()
         if (volume_idx < 0)
             continue;
 
-        const ModelObject* obj = selection.get_model()->objects[v->object_idx()];
+        const ModelObject *obj = &selection.get_model()->objects()[v->object_idx()];
         const ModelInstance* inst = obj->instances[v->instance_idx()];
         const ModelVolume* vol = obj->volumes[volume_idx];
         const VolumeCacheItem item = {

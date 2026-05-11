@@ -1479,7 +1479,7 @@ bool GLGizmoCut3D::on_is_activable() const
     if (object_idx < 0 || selection.is_wipe_tower())
         return false;
 
-    if (const ModelObject* mo = wxGetApp().plater()->model().objects[object_idx];
+    if (const ModelObject *mo = &wxGetApp().plater()->model().objects()[object_idx];
         mo->is_cut() && mo->volumes.size() == 1) {
         const ModelVolume* volume = mo->volumes[0];
         if (volume->is_cut_connector() && volume->cut_info.connector_type == CutConnectorType::Dowel)
@@ -1755,7 +1755,7 @@ void GLGizmoCut3D::update_bb()
 
         // check, if mode is set to Planar, when object has a connectors
         if (const int object_idx = m_parent.get_selection().get_object_idx();
-            object_idx >= 0 && !wxGetApp().plater()->model().objects[object_idx]->cut_connectors.empty())
+            object_idx >= 0 && !wxGetApp().plater()->model().objects()[object_idx].cut_connectors.empty())
             m_mode = size_t(CutMode::cutPlanar);
 
         invalidate_cut_plane();
@@ -2444,7 +2444,7 @@ void GLGizmoCut3D::reset_cut_by_contours()
 void GLGizmoCut3D::process_contours()
 {
     const Selection& selection = m_parent.get_selection();
-    const ModelObjectPtrs& model_objects = selection.get_model()->objects;
+    const ModelObjectPtrs model_objects = selection.get_model()->object_ptrs();
 
     const int instance_idx = selection.get_instance_idx();
     if (instance_idx < 0)
@@ -3060,7 +3060,7 @@ void GLGizmoCut3D::toggle_model_objects_visibility()
         m_parent.toggle_model_objects_visibility(false);
     else if (!m_part_selection.valid() && !has_active_volume) {
         const Selection& selection = m_parent.get_selection();
-        const ModelObjectPtrs& model_objects = selection.get_model()->objects;
+        const ModelObjectPtrs model_objects = selection.get_model()->object_ptrs();
         m_parent.toggle_model_objects_visibility(true, model_objects[selection.get_object_idx()], selection.get_instance_idx());        
     }
 }
@@ -3228,7 +3228,7 @@ Transform3d GLGizmoCut3D::get_cut_matrix(const Selection& selection)
 {
     const int instance_idx = selection.get_instance_idx();
     const int object_idx = selection.get_object_idx();
-    ModelObject* mo = selection.get_model()->objects[object_idx];
+    ModelObject *mo = &selection.get_model()->objects()[object_idx];
     if (!mo)
         return Transform3d::Identity();
 
@@ -3365,7 +3365,7 @@ static void check_objects_after_cut(const ModelObjectPtrs& objects)
 
 void synchronize_model_after_cut(Model& model, const CutObjectBase& cut_id)
 {
-    for (ModelObject* obj : model.objects)
+    for (ModelObject* obj : model.object_ptrs())
         if (obj->is_cut() && obj->cut_id.has_same_id(cut_id) && !obj->cut_id.is_equal(cut_id))
             obj->cut_id.copy(cut_id);
 }
@@ -3380,7 +3380,7 @@ void GLGizmoCut3D::perform_cut(const Selection& selection)
     wxCHECK_RET(instance_idx >= 0 && object_idx >= 0, "GLGizmoCut: Invalid object selection");
 
     Plater* plater = wxGetApp().plater();
-    ModelObject* mo = plater->model().objects[object_idx];
+    ModelObject *mo = &plater->model().objects()[object_idx];
     if (!mo)
         return;
 

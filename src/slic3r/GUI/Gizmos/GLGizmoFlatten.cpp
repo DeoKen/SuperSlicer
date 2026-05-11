@@ -57,7 +57,7 @@ void GLGizmoFlatten::data_changed(bool is_serializing)
     int                instance_id = -1;
     if (selection.is_single_full_instance() ||
         selection.is_from_single_object() ) {        
-        model_object = selection.get_model()->objects[selection.get_object_idx()];
+        model_object = &selection.get_model()->objects()[selection.get_object_idx()];
         instance_id = selection.get_instance_idx();
     }    
     set_flattening_data(model_object, instance_id);

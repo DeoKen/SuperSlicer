@@ -353,22 +353,22 @@ SLAPrint::ApplyStatus SLAPrint::apply(const Model &model, DynamicPrintConfig con
         }
         m_objects.clear();
         m_model.assign_copy(model);
-        for (const ModelObject *model_object : m_model.objects)
-            model_object_status.emplace(model_object->id(), ModelObjectStatus::New);
+        for (const ModelObject &model_object : m_model.objects())
+            model_object_status.emplace(model_object.id(), ModelObjectStatus::New);
     } else {
         if (model_object_list_equal(m_model, model)) {
             // The object list did not change.
-            for (const ModelObject *model_object : m_model.objects)
-                model_object_status.emplace(model_object->id(), ModelObjectStatus::Old);
+            for (const ModelObject &model_object : m_model.objects())
+                model_object_status.emplace(model_object.id(), ModelObjectStatus::Old);
         } else if (model_object_list_extended(m_model, model)) {
             // Add new objects. Their volumes and configs will be synchronized later.
             update_apply_status(this->invalidate_step(slapsMergeSlicesAndEval));
-            for (const ModelObject *model_object : m_model.objects)
-                model_object_status.emplace(model_object->id(), ModelObjectStatus::Old);
-            for (size_t i = m_model.objects.size(); i < model.objects.size(); ++ i) {
-                model_object_status.emplace(model.objects[i]->id(), ModelObjectStatus::New);
-                m_model.objects.emplace_back(ModelObject::new_copy(*model.objects[i]));
-                m_model.objects.back()->set_model(&m_model);
+            for (const ModelObject &model_object : m_model.objects())
+                model_object_status.emplace(model_object.id(), ModelObjectStatus::Old);
+            for (size_t i = m_model.m_objects.size(); i < model.objects().size(); ++ i) {
+                model_object_status.emplace(model.objects()[i].id(), ModelObjectStatus::New);
+                m_model.m_objects.emplace_back(ModelObjectUPtr(ModelObject::new_copy(model.objects()[i])));
+                m_model.m_objects.back()->set_model(&m_model);
             }
         } else {
             // Reorder the objects, add new objects.
@@ -376,32 +376,40 @@ SLAPrint::ApplyStatus SLAPrint::apply(const Model &model, DynamicPrintConfig con
             this->call_cancel_callback();
             update_apply_status(this->invalidate_step(slapsMergeSlicesAndEval));
             // Second create a new list of objects.
-            std::vector<ModelObject*> model_objects_old(std::move(m_model.objects));
-            m_model.objects.clear();
-            m_model.objects.reserve(model.objects.size());
+            ModelObjectUPtrs model_objects_old(std::move(m_model.m_objects));
+            ModelObjectPtrs model_objects_old_sorted;
+            model_objects_old_sorted.reserve(model_objects_old.size());
+            for (ModelObjectUPtr &model_object : model_objects_old)
+                model_objects_old_sorted.emplace_back(model_object.get());
+            m_model.m_objects.clear();
+            m_model.m_objects.reserve(model.objects().size());
             auto by_id_lower = [](const ModelObject *lhs, const ModelObject *rhs){ return lhs->id() < rhs->id(); };
-            std::sort(model_objects_old.begin(), model_objects_old.end(), by_id_lower);
-            for (const ModelObject *mobj : model.objects) {
-                auto it = std::lower_bound(model_objects_old.begin(), model_objects_old.end(), mobj, by_id_lower);
-                if (it == model_objects_old.end() || (*it)->id() != mobj->id()) {
+            std::sort(model_objects_old_sorted.begin(), model_objects_old_sorted.end(), by_id_lower);
+            for (const ModelObject &mobj : model.objects()) {
+                auto it = std::lower_bound(model_objects_old_sorted.begin(), model_objects_old_sorted.end(), &mobj, by_id_lower);
+                if (it == model_objects_old_sorted.end() || (*it)->id() != mobj.id()) {
                     // New ModelObject added.
-                    m_model.objects.emplace_back(ModelObject::new_copy(*mobj));
-                    m_model.objects.back()->set_model(&m_model);
-                    model_object_status.emplace(mobj->id(), ModelObjectStatus::New);
+                    m_model.m_objects.emplace_back(ModelObjectUPtr(ModelObject::new_copy(mobj)));
+                    m_model.m_objects.back()->set_model(&m_model);
+                    model_object_status.emplace(mobj.id(), ModelObjectStatus::New);
                 } else {
                     // Existing ModelObject re-added (possibly moved in the list).
-                    m_model.objects.emplace_back(*it);
-                    model_object_status.emplace(mobj->id(), ModelObjectStatus::Moved);
+                    ModelObject *old_model_object = *it;
+                    ModelObjectUPtrs::iterator old_it = std::find_if(model_objects_old.begin(), model_objects_old.end(),
+                        [old_model_object](const ModelObjectUPtr &model_object) { return model_object.get() == old_model_object; });
+                    assert(old_it != model_objects_old.end());
+                    m_model.m_objects.emplace_back(std::move(*old_it));
+                    model_object_status.emplace(mobj.id(), ModelObjectStatus::Moved);
                 }
             }
             bool deleted_any = false;
-            for (ModelObject *&model_object : model_objects_old) {
-                if (model_object_status.find(ModelObjectStatus(model_object->id())) == model_object_status.end()) {
+            for (ModelObjectUPtr &model_object : model_objects_old) {
+                if (model_object != nullptr && model_object_status.find(ModelObjectStatus(model_object->id())) == model_object_status.end()) {
                     model_object_status.emplace(model_object->id(), ModelObjectStatus::Deleted);
                     deleted_any = true;
                 } else
                     // Do not delete this ModelObject instance.
-                    model_object = nullptr;
+                    model_object.reset();
             }
             if (deleted_any) {
                 // Delete PrintObjects of the deleted ModelObjects.
@@ -417,8 +425,6 @@ SLAPrint::ApplyStatus SLAPrint::apply(const Model &model, DynamicPrintConfig con
                     } else
                         m_objects.emplace_back(print_object);
                 }
-                for (ModelObject *model_object : model_objects_old)
-                    delete model_object;
             }
         }
     }
@@ -453,10 +459,10 @@ SLAPrint::ApplyStatus SLAPrint::apply(const Model &model, DynamicPrintConfig con
 
     // 3) Synchronize ModelObjects & PrintObjects.
     std::vector<SLAPrintObject*> print_objects_new;
-    print_objects_new.reserve(std::max(m_objects.size(), m_model.objects.size()));
+    print_objects_new.reserve(std::max(m_objects.size(), m_model.m_objects.size()));
     bool new_objects = false;
-    for (size_t idx_model_object = 0; idx_model_object < model.objects.size(); ++ idx_model_object) {
-        ModelObject &model_object = *m_model.objects[idx_model_object];
+    for (size_t idx_model_object = 0; idx_model_object < model.objects().size(); ++ idx_model_object) {
+        ModelObject &model_object = *m_model.m_objects[idx_model_object];
         auto it_status = model_object_status.find(ModelObjectStatus(model_object.id()));
         assert(it_status != model_object_status.end());
         assert(it_status->status != ModelObjectStatus::Deleted);
@@ -465,7 +471,7 @@ SLAPrint::ApplyStatus SLAPrint::apply(const Model &model, DynamicPrintConfig con
         if (it_status->status != ModelObjectStatus::New) {
             // Update the ModelObject instance, possibly invalidate the linked PrintObjects.
             assert(it_status->status == ModelObjectStatus::Old || it_status->status == ModelObjectStatus::Moved);
-            const ModelObject &model_object_new       = *model.objects[idx_model_object];
+            const ModelObject &model_object_new       = model.objects()[idx_model_object];
             it_print_object_status = print_object_status.lower_bound(PrintObjectStatus(model_object.id()));
             if (it_print_object_status != print_object_status.end() && it_print_object_status->id != model_object.id())
                 it_print_object_status = print_object_status.end();

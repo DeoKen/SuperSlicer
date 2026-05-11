@@ -955,10 +955,10 @@ namespace Slic3r {
         if (m_version == 0) {
             // if the 3mf was not produced by PrusaSlicer and there is more than one instance,
             // split the object in as many objects as instances
-            size_t curr_models_count = m_model->objects.size();
+            size_t curr_models_count = m_model->objects().size();
             size_t i = 0;
             while (i < curr_models_count) {
-                ModelObject* model_object = m_model->objects[i];
+                ModelObject* model_object = &m_model->objects()[i];
                 if (model_object->instances.size() > 1) {
                     // select the geometry associated with the original model object
                     const Geometry* geometry = nullptr;
@@ -998,11 +998,11 @@ namespace Slic3r {
         }
 
         for (const IdToModelObjectMap::value_type& object : m_objects) {
-            if (object.second >= int(m_model->objects.size())) {
+            if (object.second >= int(m_model->objects().size())) {
                 add_error("Unable to find object");
                 return false;
             }
-            ModelObject* model_object = m_model->objects[object.second];
+            ModelObject* model_object = &m_model->objects()[object.second];
             IdToGeometryMap::const_iterator obj_geometry = m_geometries.find(object.first);
             if (obj_geometry == m_geometries.end()) {
                 add_error("Unable to find object geometry");
@@ -1093,8 +1093,8 @@ namespace Slic3r {
         // If instances contain a single volume, the volume offset should be 0,0,0
         // This equals to say that instance world position and volume world position should match
         // Correct all instances/volumes for which this does not hold
-        for (int obj_id = 0; obj_id < int(model.objects.size()); ++obj_id) {
-            ModelObject* o = model.objects[obj_id];
+        for (int obj_id = 0; obj_id < int(model.objects().size()); ++obj_id) {
+            ModelObject* o = &model.objects()[obj_id];
             if (o->volumes.size() == 1) {
                 ModelVolume* v = o->volumes.front();
                 const Slic3r::Geometry::Transformation& first_inst_trafo = o->instances.front()->get_transformation();
@@ -1113,8 +1113,8 @@ namespace Slic3r {
             }
         }
 
-        for (int obj_id = 0; obj_id < int(model.objects.size()); ++obj_id) {
-            ModelObject* o = model.objects[obj_id];
+        for (int obj_id = 0; obj_id < int(model.objects().size()); ++obj_id) {
+            ModelObject* o = &model.objects()[obj_id];
             for (int vol_id = 0; vol_id < int(o->volumes.size()); ++vol_id) {
                 ModelVolume* v = o->volumes[vol_id];
                 if (v->source.input_file.empty())
@@ -1600,8 +1600,8 @@ namespace Slic3r {
         m_path_to_emboss_shape_files[filename] = std::move(file);
         
         // find embossed volume, for case svg is loaded after volume
-        for (const ModelObject* object : m_model->objects)
-        for (ModelVolume *volume : object->volumes) {
+        for (const ModelObject &object : m_model->objects())
+        for (ModelVolume *volume : object.volumes) {
             std::optional<EmbossShape> &es = volume->emboss_shape;
             if (!es.has_value())
                 continue;
@@ -1853,11 +1853,11 @@ namespace Slic3r {
     {
         // deletes all non-built or non-instanced objects
         for (const IdToModelObjectMap::value_type& object : m_objects) {
-            if (object.second >= int(m_model->objects.size())) {
+            if (object.second >= int(m_model->objects().size())) {
                 add_error("Unable to find object");
                 return false;
             }
-            ModelObject *model_object = m_model->objects[object.second];
+            ModelObject *model_object = &m_model->objects()[object.second];
             if (model_object != nullptr && model_object->instances.size() == 0)
                 m_model->delete_object(model_object);
         }
@@ -1865,8 +1865,8 @@ namespace Slic3r {
         if (m_version == 0) {
             // if the 3mf was not produced by PrusaSlicer and there is only one object,
             // set the object name to match the filename
-            if (m_model->objects.size() == 1)
-                m_model->objects.front()->name = m_name;
+            if (m_model->objects().size() == 1)
+                m_model->objects().front().name = m_name;
         }
 
         // applies instances' matrices
@@ -1898,7 +1898,7 @@ namespace Slic3r {
 
         if (is_valid_object_type(get_attribute_value_string(attributes, num_attributes, TYPE_ATTR))) {
             // create new object (it may be removed later if no instances are generated from it)
-            m_curr_object.model_object_idx = (int)m_model->objects.size();
+            m_curr_object.model_object_idx = (int)m_model->objects().size();
             m_curr_object.object = m_model->add_object();
             if (m_curr_object.object == nullptr) {
                 add_error("Unable to create object");
@@ -1908,7 +1908,7 @@ namespace Slic3r {
             // set object data
             m_curr_object.object->name = get_attribute_value_string(attributes, num_attributes, NAME_ATTR);
             if (m_curr_object.object->name.empty())
-                m_curr_object.object->name = m_name + "_" + std::to_string(m_model->objects.size());
+                m_curr_object.object->name = m_name + "_" + std::to_string(m_model->objects().size());
 
             m_curr_object.id = get_attribute_value_int(attributes, num_attributes, ID_ATTR);
         }
@@ -2287,7 +2287,7 @@ namespace Slic3r {
                 return false;
             }
             else {
-                ModelInstance* instance = m_model->objects[object_item->second]->add_instance();
+                ModelInstance* instance = m_model->objects()[object_item->second].add_instance();
                 if (instance == nullptr) {
                     add_error("Unable to add object instance");
                     return false;
@@ -2798,7 +2798,7 @@ namespace Slic3r {
             return false;
         }
 
-        if (!model.objects.empty() && m_options.thumbnail_data != nullptr && m_options.thumbnail_data->is_valid())
+        if (!model.objects().empty() && m_options.thumbnail_data != nullptr && m_options.thumbnail_data->is_valid())
         {
             // Adds the file Metadata/thumbnail.png.
             if (!_add_thumbnail_file_to_archive(archive, *m_options.thumbnail_data)) {
@@ -3056,9 +3056,8 @@ namespace Slic3r {
         // all the object instances of all ModelObjects are stored and indexed in a 1 based linear fashion.
         // Therefore the list of object_ids here may not be continuous.
         unsigned int object_id = 1;
-        for (ModelObject* obj : model.objects) {
-            if (obj == nullptr)
-                continue;
+        for (ModelObject &model_object : const_cast<Model&>(model).objects()) {
+            ModelObject *obj = &model_object;
 
             // Index of an object in the 3MF file corresponding to the 1st instance of a ModelObject.
             unsigned int curr_id = object_id;
@@ -3369,7 +3368,8 @@ namespace Slic3r {
         pt::ptree tree;
 
         unsigned int object_cnt = 0;
-        for (const ModelObject* object : model.objects) {
+        for (const ModelObject &model_object : model.objects()) {
+            const ModelObject *object = &model_object;
             object_cnt++;
             if (!object->is_cut())
                 continue;
@@ -3432,7 +3432,8 @@ namespace Slic3r {
         std::string out = "";
 
         unsigned int count = 0;
-        for (const ModelObject* object : model.objects) {
+        for (const ModelObject &model_object : model.objects()) {
+            const ModelObject *object = &model_object;
             ++count;
             const std::vector<double>& layer_height_profile = object->layer_height_profile.get();
             if (layer_height_profile.size() >= 4 && layer_height_profile.size() % 2 == 0) {
@@ -3466,7 +3467,8 @@ namespace Slic3r {
         for (std::string* out : { &prusa_out , &default_out }) {
             pt::ptree tree;
             unsigned int object_cnt = 0;
-            for (const ModelObject* object : model.objects) {
+            for (const ModelObject &model_object : model.objects()) {
+                const ModelObject *object = &model_object;
                 object_cnt++;
                 const t_layer_config_ranges& ranges = object->layer_config_ranges;
                 if (!ranges.empty())
@@ -3585,7 +3587,8 @@ namespace Slic3r {
         char buffer[1024];
 
         unsigned int count = 0;
-        for (const ModelObject* object : model.objects) {
+        for (const ModelObject &model_object : model.objects()) {
+            const ModelObject *object = &model_object;
             ++count;
             const std::vector<sla::SupportPoint>& sla_support_points = object->sla_support_points;
             if (!sla_support_points.empty()) {
@@ -3620,7 +3623,8 @@ namespace Slic3r {
         std::string out;
         
         unsigned int count = 0;
-        for (const ModelObject* object : model.objects) {
+        for (const ModelObject &model_object : model.objects()) {
+            const ModelObject *object = &model_object;
             ++count;
             sla::DrainHoles drain_holes = object->sla_drain_holes;
 

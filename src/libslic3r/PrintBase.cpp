@@ -32,9 +32,9 @@ void PrintBase::update_object_placeholders(DynamicConfig &config, const std::str
     std::vector<std::string> v_scale;
     int num_objects = 0;
     int num_instances = 0;
-	for (const ModelObject *model_object : m_model.objects) {
+	for (const ModelObject &model_object : m_model.objects()) {
 		ModelInstance *printable = nullptr;
-		for (ModelInstance *model_instance : model_object->instances)
+		for (ModelInstance *model_instance : model_object.instances)
 			if (model_instance->is_printable()) {
 				printable = model_instance;
 				++ num_instances;
@@ -46,7 +46,7 @@ void PrintBase::update_object_placeholders(DynamicConfig &config, const std::str
 				"% y:" + boost::lexical_cast<std::string>(printable->get_scaling_factor(Y) * 100) +
 				"% z:" + boost::lexical_cast<std::string>(printable->get_scaling_factor(Z) * 100) + "%");
 	        if (input_file.empty())
-	            input_file = model_object->name.empty() ? model_object->input_file : model_object->name;
+	            input_file = model_object.name.empty() ? model_object.input_file : model_object.name;
 	    }
     }
     

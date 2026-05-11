@@ -2986,7 +2986,7 @@ void GCodeViewer::load_shells(const Print& print)
     for (const PrintObject& obj : print.objects()) {
         const ModelObject* model_obj = obj.model_object();
         int object_id = -1;
-        const ModelObjectPtrs model_objects = wxGetApp().plater()->model().objects;
+        const ModelObjectPtrs model_objects = wxGetApp().plater()->model().object_ptrs();
         for (int i = 0; i < static_cast<int>(model_objects.size()); ++i) {
             if (model_obj->id() == model_objects[i]->id()) {
                 object_id = i;
@@ -3044,7 +3044,7 @@ void GCodeViewer::load_shells(const Print& print)
     // search for sinking volumes and replace their mesh with the part of it with positive z
     for (const std::unique_ptr<GLVolume> &v : m_shells.volumes.volumes) {
         if (v->is_sinking()) {
-            TriangleMesh mesh(wxGetApp().plater()->model().objects[v->object_idx()]->volumes[v->volume_idx()]->mesh());
+            TriangleMesh mesh(wxGetApp().plater()->model().objects()[v->object_idx()].volumes[v->volume_idx()]->mesh());
             mesh.transform(v->world_matrix(), true);
             indexed_triangle_set upper_its;
             cut_mesh(mesh.its, 0.0f, &upper_its, nullptr);

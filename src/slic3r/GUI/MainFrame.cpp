@@ -1030,11 +1030,11 @@ void MainFrame::update_title()
         // m_plater->get_project_filename() produces file name including path, but excluding extension.
         // Don't try to remove the extension, it would remove part of the file name after the last dot!
         wxString project = from_path(into_path(m_plater->get_project_filename()).filename());
-//        wxString dirty_marker = (!m_plater->model().objects.empty() && m_plater->is_project_dirty()) ? "*" : "";
+//        wxString dirty_marker = (!m_plater->model().objects().empty() && m_plater->is_project_dirty()) ? "*" : "";
         wxString dirty_marker = m_plater->is_project_dirty() ? "*" : "";
         if (!dirty_marker.empty() || !project.empty()) {
             if (!dirty_marker.empty() && project.empty()) {
-                if (!m_plater->model().objects.empty())
+                if (!m_plater->model().objects().empty())
                     project = m_plater->get_project_filename();
                 if (project.empty())
                     project = _L("Untitled");
@@ -1397,7 +1397,7 @@ bool MainFrame::can_start_new_project() const
     return m_plater && (!m_plater->get_project_filename(".3mf").IsEmpty() || 
                         GetTitle().StartsWith('*')||
                         wxGetApp().has_current_preset_changes() || 
-                        !m_plater->model().objects.empty() );
+                        !m_plater->model().objects().empty() );
 }
 
 bool MainFrame::can_save() const
@@ -1433,7 +1433,7 @@ bool MainFrame::save_project_as(const wxString& filename)
 
 bool MainFrame::can_export_model() const
 {
-    return (m_plater != nullptr) && !m_plater->model().objects.empty();
+    return (m_plater != nullptr) && !m_plater->model().objects().empty();
 }
 
 bool MainFrame::can_export_toolpaths() const
@@ -1443,7 +1443,7 @@ bool MainFrame::can_export_toolpaths() const
 
 bool MainFrame::can_export_supports() const
 {
-    if ((m_plater == nullptr) || (m_plater->printer_technology() != ptSLA) || m_plater->model().objects.empty())
+    if ((m_plater == nullptr) || (m_plater->printer_technology() != ptSLA) || m_plater->model().objects().empty())
         return false;
 
     bool can_export = false;
@@ -1464,7 +1464,7 @@ bool MainFrame::can_export_gcode() const
     if (m_plater == nullptr)
         return false;
 
-    if (m_plater->model().objects.empty())
+    if (m_plater->model().objects().empty())
         return false;
 
     if (m_plater->is_export_gcode_scheduled())
@@ -1477,7 +1477,7 @@ bool MainFrame::can_export_gcode() const
 
 bool MainFrame::can_send_gcode() const
 {
-    if (m_plater && ! m_plater->model().objects.empty())
+    if (m_plater && ! m_plater->model().objects().empty())
         if (const DynamicPrintConfig *cfg = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config(); cfg)
             if (const auto *print_host_opt = cfg->option<ConfigOptionString>("print_host"); print_host_opt)
                 return ! print_host_opt->value.empty();
@@ -1489,7 +1489,7 @@ bool MainFrame::can_export_gcode_sd() const
 	if (m_plater == nullptr)
 		return false;
 
-	if (m_plater->model().objects.empty())
+	if (m_plater->model().objects().empty())
 		return false;
 
 	if (m_plater->is_export_gcode_scheduled())
@@ -1508,7 +1508,7 @@ bool MainFrame::can_eject() const
 bool MainFrame::can_slice() const
 {
     bool bg_proc = wxGetApp().app_config->get_bool("background_processing");
-    return (m_plater != nullptr) ? !m_plater->model().objects.empty() && !bg_proc : false;
+    return (m_plater != nullptr) ? !m_plater->model().objects().empty() && !bg_proc : false;
 }
 
 bool MainFrame::can_change_view() const
@@ -1529,7 +1529,7 @@ bool MainFrame::can_change_view() const
 
 bool MainFrame::can_select() const
 {
-    return (m_plater != nullptr) && !m_plater->model().objects.empty();
+    return (m_plater != nullptr) && !m_plater->model().objects().empty();
 }
 
 bool MainFrame::can_deselect() const
@@ -1544,12 +1544,12 @@ bool MainFrame::can_delete() const
 
 bool MainFrame::can_delete_all() const
 {
-    return (m_plater != nullptr) && !m_plater->model().objects.empty();
+    return (m_plater != nullptr) && !m_plater->model().objects().empty();
 }
 
 bool MainFrame::can_reslice() const
 {
-    return (m_plater != nullptr) && !m_plater->model().objects.empty();
+    return (m_plater != nullptr) && !m_plater->model().objects().empty();
 }
 
 void MainFrame::on_dpi_changed(const wxRect& suggested_rect)
@@ -1976,11 +1976,11 @@ void MainFrame::init_menubar_as_editor()
 #ifdef __APPLE__
         append_menu_item(editMenu, wxID_ANY, _L("Re&load from Disk") + dots + "\tCtrl+Shift+R",
             _L("Reload the platter from disk"), [this](wxCommandEvent&) { m_plater->reload_all_from_disk(); },
-            "", nullptr, [this]() {return !m_plater->model().objects.empty(); }, this);
+            "", nullptr, [this]() {return !m_plater->model().objects().empty(); }, this);
 #else
         append_menu_item(editMenu, wxID_ANY, _L("Re&load from Disk") + "\t" + "F5",
             _L("Reload the plater from disk"), [this](wxCommandEvent&) { m_plater->reload_all_from_disk(); },
-            "", nullptr, [this]() {return !m_plater->model().objects.empty(); }, this);
+            "", nullptr, [this]() {return !m_plater->model().objects().empty(); }, this);
 #endif // __APPLE__
 
         editMenu->AppendSeparator();

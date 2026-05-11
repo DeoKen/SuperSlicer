@@ -73,7 +73,7 @@ void RotoptimizeJob::process(Ctl &ctl)
 
 
     for (ObjRot &objrot : m_selected_object_ids) {
-        ModelObject *o = m_plater->model().objects[size_t(objrot.idx)];
+        ModelObject *o = &m_plater->model().objects()[size_t(objrot.idx)];
         if (!o) continue;
 
         if (Methods[m_method_id].findfn)
@@ -97,7 +97,7 @@ void RotoptimizeJob::finalize(bool canceled, std::exception_ptr &eptr)
         return;
 
     for (const ObjRot &objrot : m_selected_object_ids) {
-        ModelObject *o = m_plater->model().objects[size_t(objrot.idx)];
+        ModelObject *o = &m_plater->model().objects()[size_t(objrot.idx)];
         if (!o) continue;
 
         for(ModelInstance * oi : o->instances) {

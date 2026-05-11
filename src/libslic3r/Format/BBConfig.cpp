@@ -1140,8 +1140,8 @@ std_path get_temp_file(Model &model)
     std_path temp_path  = std::filesystem::temp_directory_path();
 #endif
     std::string           model_name = "";
-    for (const ModelObject *model_object : model.objects) {
-        model_name = model_object->get_export_filename();
+    for (const ModelObject &model_object : model.objects()) {
+        model_name = model_object.get_export_filename();
         if (!model_name.empty()) {
             break;
         }

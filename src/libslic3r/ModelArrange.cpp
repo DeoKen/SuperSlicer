@@ -16,7 +16,7 @@ namespace Slic3r {
 
 void duplicate_objects(Model &model, size_t copies_num)
 {
-    for (ModelObject *o : model.objects) {
+    for (ModelObject *o : model.object_ptrs()) {
         // make a copy of the pointers in order to avoid recursion when appending their copies
         ModelInstancePtrs instances = o->instances;
         for (const ModelInstance *i : instances)

@@ -155,7 +155,7 @@ void GLCanvas3D::LayersEditing::set_config(const DynamicPrintConfig* config)
 
 void GLCanvas3D::LayersEditing::select_object(const Model &model, int object_id)
 {
-    const ModelObject *model_object_new = (object_id >= 0) ? model.objects[object_id] : nullptr;
+    const ModelObject *model_object_new = (object_id >= 0) ? &model.objects()[object_id] : nullptr;
     // Maximum height of an object changes when the object gets rotated or scaled.
     // Changing maximum height of an object will invalidate the layer heigth editing profile.
     // m_model_object->bounding_box() is cached, therefore it is cheap even if this method is called frequently.
@@ -878,7 +878,7 @@ void GLCanvas3D::Labels::render(const std::vector<const ModelInstance*>& sorted_
     const GLVolumeCollection& volumes = m_canvas.get_volumes();
     for (const std::unique_ptr<GLVolume> &volume : volumes.volumes) {
         int obj_idx = volume->object_idx();
-        if (0 <= obj_idx && obj_idx < (int)model->objects.size()) {
+        if (0 <= obj_idx && obj_idx < (int)model->objects().size()) {
             int inst_idx = volume->instance_idx();
             std::vector<Owner>::iterator it = std::find_if(owners.begin(), owners.end(), [obj_idx, inst_idx](const Owner& owner) {
                 return (owner.obj_idx == obj_idx) && (owner.inst_idx == inst_idx);
@@ -887,7 +887,7 @@ void GLCanvas3D::Labels::render(const std::vector<const ModelInstance*>& sorted_
                 it->world_box.merge(volume->transformed_bounding_box());
                 it->selected &= volume->selected;
             } else {
-                const ModelObject* model_object = model->objects[obj_idx];
+                const ModelObject *model_object = &model->objects()[obj_idx];
                 Owner owner;
                 owner.obj_idx = obj_idx;
                 owner.inst_idx = inst_idx;
@@ -1234,7 +1234,7 @@ static std::vector<int> processed_objects_idxs(const Model& model, const SLAPrin
     }
     for (const GLVolume* v : matching_volumes) {
         const int mo_idx = v->object_idx();
-        const ModelObject* model_object = (mo_idx < (int)model.objects.size()) ? model.objects[mo_idx] : nullptr;
+        const ModelObject *model_object = (mo_idx < (int)model.objects().size()) ? &model.objects()[mo_idx] : nullptr;
         if (model_object != nullptr && model_object->instances[v->instance_idx()]->is_printable()) {
             const SLAPrintObject* print_object = sla_print.get_print_object_by_model_object_id(model_object->id());
             if (print_object != nullptr && print_object->get_parts_to_slice().size() > 1)
@@ -1252,11 +1252,11 @@ static bool composite_id_match(const GLVolume::CompositeID& id1, const GLVolume:
 }
 
 static bool object_contains_negative_volumes(const Model& model, int obj_id) {
-    return (0 <= obj_id && obj_id < (int)model.objects.size()) ? model.objects[obj_id]->has_negative_volume_mesh() : false;
+    return (0 <= obj_id && obj_id < (int)model.objects().size()) ? model.objects()[obj_id].has_negative_volume_mesh() : false;
 }
 
 static bool object_has_sla_drain_holes(const Model& model, int obj_id) {
-    return (0 <= obj_id && obj_id < (int)model.objects.size()) ? model.objects[obj_id]->has_sla_drain_holes() : false;
+    return (0 <= obj_id && obj_id < (int)model.objects().size()) ? model.objects()[obj_id].has_sla_drain_holes() : false;
 }
 
 void GLCanvas3D::SLAView::detect_type_from_volumes(const GLVolumeUPtrs& volumes)
@@ -1651,7 +1651,7 @@ bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelI
     { return volume_sinking(volume) ? volume.transformed_non_sinking_bounding_box() : volume.transformed_convex_hull_bounding_box(); };
     // Cached 3D convex hull of a volume above the print bed.
     auto                volume_convex_mesh = [this, volume_sinking](GLVolume& volume) -> const TriangleMesh&
-    { return volume_sinking(volume) ? m_model->objects[volume.object_idx()]->volumes[volume.volume_idx()]->mesh() : *volume.convex_hull(); };
+    { return volume_sinking(volume) ? m_model->objects()[volume.object_idx()].volumes[volume.volume_idx()]->mesh() : *volume.convex_hull(); };
 
     auto volumes_to_process_idxs = [this, &volumes, selection_only]() {
       std::vector<unsigned int> ret;
@@ -1735,7 +1735,7 @@ void GLCanvas3D::toggle_sla_auxiliaries_visibility(bool visible, const ModelObje
     std::vector<std::shared_ptr<SceneRaycasterItem>>* raycasters = get_raycasters_for_picking(SceneRaycaster::EType::Volume);
 
     for (const std::unique_ptr<GLVolume> &vol : m_volumes.volumes) {
-      if ((mo == nullptr || m_model->objects[vol->composite_id.object_id] == mo)
+      if ((mo == nullptr || &m_model->objects()[vol->composite_id.object_id] == mo)
             && (instance_idx == -1 || vol->composite_id.instance_id == instance_idx)
             && vol->composite_id.volume_id < 0) {
             vol->is_active = visible;
@@ -1753,9 +1753,9 @@ void GLCanvas3D::toggle_model_objects_visibility(bool visible, const ModelObject
         if (vol->is_wipe_tower)
             vol->is_active = (visible && mo == nullptr);
         else {
-            if ((mo == nullptr || m_model->objects[vol->composite_id.object_id] == mo)
+            if ((mo == nullptr || &m_model->objects()[vol->composite_id.object_id] == mo)
             && (instance_idx == -1 || vol->composite_id.instance_id == instance_idx)
-            && (mv == nullptr || m_model->objects[vol->composite_id.object_id]->volumes[vol->composite_id.volume_id] == mv)) {
+            && (mv == nullptr || m_model->objects()[vol->composite_id.object_id].volumes[vol->composite_id.volume_id] == mv)) {
                 vol->is_active = visible;
                 if (!vol->is_modifier)
                     vol->color.a(1.f);
@@ -1788,7 +1788,7 @@ void GLCanvas3D::toggle_model_objects_visibility(bool visible, const ModelObject
     if (visible && !mo)
         toggle_sla_auxiliaries_visibility(true, mo, instance_idx);
 
-    if (!mo && !visible && !m_model->objects.empty() && (m_model->objects.size() > 1 || m_model->objects.front()->instances.size() > 1))
+    if (!mo && !visible && !m_model->objects().empty() && (m_model->objects().size() > 1 || m_model->objects().front().instances.size() > 1))
         _set_warning_notification(EWarning::SomethingNotShown, true);
 
     if (!mo && visible)
@@ -1797,7 +1797,7 @@ void GLCanvas3D::toggle_model_objects_visibility(bool visible, const ModelObject
 
 void GLCanvas3D::update_instance_printable_state_for_object(const size_t obj_idx)
 {
-    ModelObject* model_object = m_model->objects[obj_idx];
+    ModelObject *model_object = &m_model->objects()[obj_idx];
     for (int inst_idx = 0; inst_idx < (int)model_object->instances.size(); ++inst_idx) {
         ModelInstance* instance = model_object->instances[inst_idx];
 
@@ -2376,8 +2376,8 @@ std::vector<int> GLCanvas3D::load_object(const ModelObject& model_object, int ob
 
 std::vector<int> GLCanvas3D::load_object(const Model& model, int obj_idx)
 {
-    if (0 <= obj_idx && obj_idx < (int)model.objects.size()) {
-        const ModelObject* model_object = model.objects[obj_idx];
+    if (0 <= obj_idx && obj_idx < (int)model.objects().size()) {
+        const ModelObject *model_object = &model.objects()[obj_idx];
         if (model_object != nullptr)
             return load_object(*model_object, obj_idx, std::vector<int>());
     }
@@ -2477,8 +2477,8 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
     // Release invalidated volumes to conserve GPU memory in case of delayed refresh (see m_reload_delayed).
     // First initialize model_volumes_new_sorted & model_instances_new_sorted.
-    for (int object_idx = 0; object_idx < (int)m_model->objects.size(); ++object_idx) {
-        const ModelObject* model_object = m_model->objects[object_idx];
+    for (int object_idx = 0; object_idx < (int)m_model->objects().size(); ++object_idx) {
+        const ModelObject *model_object = &m_model->objects()[object_idx];
         for (int instance_idx = 0; instance_idx < (int)model_object->instances.size(); ++instance_idx) {
             const ModelInstance* model_instance = model_object->instances[instance_idx];
             for (int volume_idx = 0; volume_idx < (int)model_object->volumes.size(); ++volume_idx) {
@@ -2531,7 +2531,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
             if (it != aux_volume_state.end() && it->geometry_id == key.geometry_id)
                 // This can be an SLA support structure that should not be rendered (in case someone used undo
                 // to revert to before it was generated). We only reuse the volume if that's not the case.
-                if (m_model->objects[volume->composite_id.object_id]->sla_points_status != sla::PointsStatus::NoPoints)
+                if (m_model->objects()[volume->composite_id.object_id].sla_points_status != sla::PointsStatus::NoPoints)
                     mvs = &(*it);
         }
         else {
@@ -2629,8 +2629,8 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
         }
         m_volumes.volumes = std::move(new_list);
     }
-    for (unsigned int obj_idx = 0; obj_idx < (unsigned int)m_model->objects.size(); ++ obj_idx) {
-        const ModelObject &model_object = *m_model->objects[obj_idx];
+    for (unsigned int obj_idx = 0; obj_idx < (unsigned int)m_model->objects().size(); ++ obj_idx) {
+        const ModelObject &model_object = m_model->objects()[obj_idx];
         for (int volume_idx = 0; volume_idx < (int)model_object.volumes.size(); ++ volume_idx) {
             const ModelVolume &model_volume = *model_object.volumes[volume_idx];
             for (int instance_idx = 0; instance_idx < (int)model_object.instances.size(); ++ instance_idx) {
@@ -2669,7 +2669,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
     if (printer_technology == ptSLA) {
         size_t idx = 0;
         const SLAPrint *sla_print = this->sla_print();
-        std::vector<double> shift_zs(m_model->objects.size(), 0);
+        std::vector<double> shift_zs(m_model->objects().size(), 0);
         double relative_correction_z = sla_print->relative_correction().z();
         if (relative_correction_z <= EPSILON)
             relative_correction_z = 1.;
@@ -2680,9 +2680,10 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
             int object_idx;
             // There may be new SLA volumes added to the scene for this print_object.
             // Find the object index of this print_object in the Model::objects list.
-            auto it = std::find(sla_print->model().objects.begin(), sla_print->model().objects.end(), model_object);
-            assert(it != sla_print->model().objects.end());
-            object_idx = it - sla_print->model().objects.begin();
+            ModelObjectPtrs model_objects = sla_print->model().object_ptrs();
+            ModelObjectPtrs::const_iterator it = std::find(model_objects.begin(), model_objects.end(), model_object);
+            assert(it != model_objects.end());
+            object_idx = int(it - model_objects.begin());
             // Cache the Z offset to be applied to all volumes with this object_idx.
             shift_zs[object_idx] = print_object->get_current_elevation() / relative_correction_z;
             // Collect indices of this print_object's instances, for which the SLA support meshes are to be added to the scene.
@@ -2728,7 +2729,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
         // Shift-up all volumes of the object so that it has the right elevation with respect to the print bed
         for (const std::unique_ptr<GLVolume> &volume : m_volumes.volumes) {
-            const ModelObject* model_object = (volume->object_idx() < (int)m_model->objects.size()) ? m_model->objects[volume->object_idx()] : nullptr;
+            const ModelObject *model_object = (volume->object_idx() < (int)m_model->objects().size()) ? &m_model->objects()[volume->object_idx()] : nullptr;
             if (model_object != nullptr && model_object->instances[volume->instance_idx()]->is_printable()) {
                 const SLAPrintObject* po = sla_print->get_print_object_by_model_object_id(model_object->id());
                 if (po != nullptr)
@@ -2846,7 +2847,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
         }
 
         post_event(Event<bool>(EVT_GLCANVAS_ENABLE_ACTION_BUTTONS, 
-                               contained_min_one && !m_model->objects.empty() && !partlyOut));
+                               contained_min_one && !m_model->objects().empty() && !partlyOut));
     }
     else {
         _set_warning_notification(EWarning::ObjectOutside, false);
@@ -2879,8 +2880,8 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
     // check activity/visibility of the modifiers in SLA mode
     for (const std::unique_ptr<GLVolume> &volume : m_volumes.volumes)
-        if (volume->object_idx() < (int)m_model->objects.size() && m_model->objects[volume->object_idx()]->instances[volume->instance_idx()]->is_printable()) {
-            if (volume->is_active && volume->is_modifier && m_model->objects[volume->object_idx()]->volumes[volume->volume_idx()]->is_modifier())
+        if (volume->object_idx() < (int)m_model->objects().size() && m_model->objects()[volume->object_idx()].instances[volume->instance_idx()]->is_printable()) {
+            if (volume->is_active && volume->is_modifier && m_model->objects()[volume->object_idx()].volumes[volume->volume_idx()]->is_modifier())
                 volume->is_active = printer_technology != ptSLA;
         }
 
@@ -3209,7 +3210,7 @@ void GLCanvas3D::on_char(wxKeyEvent& evt)
         case WXK_DELETE: { post_event(SimpleEvent(EVT_GLTOOLBAR_DELETE)); break; }
         case WXK_ESCAPE: { deselect_all(); break; }
         case WXK_F5: {
-            if ((wxGetApp().is_editor() && !wxGetApp().plater()->model().objects.empty()) ||
+            if ((wxGetApp().is_editor() && !wxGetApp().plater()->model().objects().empty()) ||
                 (wxGetApp().is_gcode_viewer() && !wxGetApp().plater()->get_last_loaded_gcode().empty()))
                 post_event(SimpleEvent(EVT_GLCANVAS_RELOAD_FROM_DISK));
             break;
@@ -4338,8 +4339,8 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
         for (int hover_volume_id : m_hover_volume_idxs) { 
             const GLVolume &hover_gl_volume = *m_volumes.volumes[hover_volume_id];
             int object_idx = hover_gl_volume.object_idx();
-            if (object_idx < 0 || static_cast<size_t>(object_idx) >= m_model->objects.size()) continue;
-            const ModelObject* hover_object = m_model->objects[object_idx];
+            if (object_idx < 0 || static_cast<size_t>(object_idx) >= m_model->objects().size()) continue;
+            const ModelObject *hover_object = &m_model->objects()[object_idx];
             int hover_volume_idx = hover_gl_volume.volume_idx();
             if (hover_volume_idx < 0 || static_cast<size_t>(hover_volume_idx) >= hover_object->volumes.size()) continue;
             const ModelVolume* hover_volume = hover_object->volumes[hover_volume_idx];
@@ -4449,11 +4450,11 @@ void GLCanvas3D::do_move(const std::string& snapshot_type)
 
         std::pair<int, int> done_id(object_idx, instance_idx);
 
-        if (0 <= object_idx && object_idx < (int)m_model->objects.size()) {
+        if (0 <= object_idx && object_idx < (int)m_model->objects().size()) {
             done.insert(done_id);
 
             // Move instances/volumes
-            ModelObject* model_object = m_model->objects[object_idx];
+            ModelObject *model_object = &m_model->objects()[object_idx];
             if (model_object != nullptr) {
                 if (selection_mode == Selection::Instance)
                     model_object->instances[instance_idx]->set_transformation(v->get_instance_transformation());
@@ -4472,7 +4473,7 @@ void GLCanvas3D::do_move(const std::string& snapshot_type)
     // Fixes flying instances
     std::set<int> obj_idx_for_update_info_items;
     for (const std::pair<int, int>& i : done) {
-        ModelObject* m = m_model->objects[i.first];
+        ModelObject *m = &m_model->objects()[i.first];
         const double shift_z = m->get_instance_min_z(i.second);
         if (current_printer_technology() == ptSLA || shift_z > SINKING_Z_THRESHOLD) {
             const Vec3d shift(0.0, 0.0, -shift_z);
@@ -4514,8 +4515,8 @@ void GLCanvas3D::do_rotate(const std::string& snapshot_type)
 
     // stores current min_z of instances
     std::map<std::pair<int, int>, double> min_zs;
-    for (int i = 0; i < static_cast<int>(m_model->objects.size()); ++i) {
-        const ModelObject* obj = m_model->objects[i];
+    for (int i = 0; i < static_cast<int>(m_model->objects().size()); ++i) {
+        const ModelObject *obj = &m_model->objects()[i];
         for (int j = 0; j < static_cast<int>(obj->instances.size()); ++j) {
             if (snapshot_type == L("Gizmo-Place on Face") && m_selection.get_object_idx() == i) {
                 // This means we are flattening this object. In that case pretend
@@ -4541,7 +4542,7 @@ void GLCanvas3D::do_rotate(const std::string& snapshot_type)
             post_event(Vec3dEvent(EVT_GLCANVAS_WIPETOWER_ROTATED, Vec3d(offset.x(), offset.y(), z_rot)));
         }
         const int object_idx = v->object_idx();
-        if (object_idx < 0 || (int)m_model->objects.size() <= object_idx)
+        if (object_idx < 0 || (int)m_model->objects().size() <= object_idx)
             continue;
 
         const int instance_idx = v->instance_idx();
@@ -4553,7 +4554,7 @@ void GLCanvas3D::do_rotate(const std::string& snapshot_type)
         done.insert(std::pair<int, int>(object_idx, instance_idx));
 
         // Rotate instances/volumes.
-        ModelObject* model_object = m_model->objects[object_idx];
+        ModelObject *model_object = &m_model->objects()[object_idx];
         if (model_object != nullptr) {
             if (selection_mode == Selection::Instance)
                 model_object->instances[instance_idx]->set_transformation(v->get_instance_transformation());
@@ -4566,7 +4567,7 @@ void GLCanvas3D::do_rotate(const std::string& snapshot_type)
     // Fixes sinking/flying instances
     std::set<int> obj_idx_for_update_info_items;
     for (const std::pair<int, int>& i : done) {
-        ModelObject* m = m_model->objects[i.first];
+        ModelObject *m = &m_model->objects()[i.first];
         const double shift_z = m->get_instance_min_z(i.second);
         // leave sinking instances as sinking
         if (min_zs.find({ i.first, i.second })->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD) {
@@ -4603,8 +4604,8 @@ void GLCanvas3D::do_scale(const std::string& snapshot_type)
     // stores current min_z of instances
     std::map<std::pair<int, int>, double> min_zs;
     if (!snapshot_type.empty()) {
-        for (int i = 0; i < static_cast<int>(m_model->objects.size()); ++i) {
-            const ModelObject* obj = m_model->objects[i];
+        for (int i = 0; i < static_cast<int>(m_model->objects().size()); ++i) {
+            const ModelObject *obj = &m_model->objects()[i];
             for (int j = 0; j < static_cast<int>(obj->instances.size()); ++j) {
                 min_zs[{ i, j }] = obj->instance_bounding_box(j).min.z();
             }
@@ -4617,7 +4618,7 @@ void GLCanvas3D::do_scale(const std::string& snapshot_type)
 
     for (const std::unique_ptr<GLVolume> &v : m_volumes.volumes) {
         const int object_idx = v->object_idx();
-        if (object_idx < 0 || (int)m_model->objects.size() <= object_idx)
+        if (object_idx < 0 || (int)m_model->objects().size() <= object_idx)
             continue;
 
         const int instance_idx = v->instance_idx();
@@ -4629,7 +4630,7 @@ void GLCanvas3D::do_scale(const std::string& snapshot_type)
         done.insert(std::pair<int, int>(object_idx, instance_idx));
 
         // Rotate instances/volumes
-        ModelObject* model_object = m_model->objects[object_idx];
+        ModelObject *model_object = &m_model->objects()[object_idx];
         if (model_object != nullptr) {
             if (selection_mode == Selection::Instance)
                 model_object->instances[instance_idx]->set_transformation(v->get_instance_transformation());
@@ -4644,7 +4645,7 @@ void GLCanvas3D::do_scale(const std::string& snapshot_type)
     // Fixes sinking/flying instances
     std::set<int> obj_idx_for_update_info_items;
     for (const std::pair<int, int>& i : done) {
-        ModelObject* m = m_model->objects[i.first];
+        ModelObject *m = &m_model->objects()[i.first];
         const double shift_z = m->get_instance_min_z(i.second);
         // leave sinking instances as sinking
         if (min_zs.empty() || min_zs.find({ i.first, i.second })->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD) {
@@ -4680,8 +4681,8 @@ void GLCanvas3D::do_mirror(const std::string& snapshot_type)
     // stores current min_z of instances
     std::map<std::pair<int, int>, double> min_zs;
     if (!snapshot_type.empty()) {
-        for (int i = 0; i < static_cast<int>(m_model->objects.size()); ++i) {
-            const ModelObject* obj = m_model->objects[i];
+        for (int i = 0; i < static_cast<int>(m_model->objects().size()); ++i) {
+            const ModelObject *obj = &m_model->objects()[i];
             for (int j = 0; j < static_cast<int>(obj->instances.size()); ++j) {
                 min_zs[{ i, j }] = obj->instance_bounding_box(j).min.z();
             }
@@ -4694,7 +4695,7 @@ void GLCanvas3D::do_mirror(const std::string& snapshot_type)
 
     for (const std::unique_ptr<GLVolume> &v : m_volumes.volumes) {
         int object_idx = v->object_idx();
-        if (object_idx < 0 || (int)m_model->objects.size() <= object_idx)
+        if (object_idx < 0 || (int)m_model->objects().size() <= object_idx)
             continue;
 
         int instance_idx = v->instance_idx();
@@ -4703,7 +4704,7 @@ void GLCanvas3D::do_mirror(const std::string& snapshot_type)
         done.insert(std::pair<int, int>(object_idx, instance_idx));
 
         // Mirror instances/volumes
-        ModelObject* model_object = m_model->objects[object_idx];
+        ModelObject *model_object = &m_model->objects()[object_idx];
         if (model_object != nullptr) {
             if (selection_mode == Selection::Instance)
                 model_object->instances[instance_idx]->set_transformation(v->get_instance_transformation());
@@ -4716,7 +4717,7 @@ void GLCanvas3D::do_mirror(const std::string& snapshot_type)
     // Fixes sinking/flying instances
     std::set<int> obj_idx_for_update_info_items;
     for (const std::pair<int, int>& i : done) {
-        ModelObject* m = m_model->objects[i.first];
+        ModelObject *m = &m_model->objects()[i.first];
         double shift_z = m->get_instance_min_z(i.second);
         // leave sinking instances as sinking
         if (min_zs.empty() || min_zs.find({ i.first, i.second })->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD) {
@@ -4746,8 +4747,8 @@ void GLCanvas3D::do_reset_skew(const std::string& snapshot_type)
     // stores current min_z of instances
     std::map<std::pair<int, int>, double> min_zs;
     if (!snapshot_type.empty()) {
-        for (int i = 0; i < static_cast<int>(m_model->objects.size()); ++i) {
-            const ModelObject* obj = m_model->objects[i];
+        for (int i = 0; i < static_cast<int>(m_model->objects().size()); ++i) {
+            const ModelObject *obj = &m_model->objects()[i];
             for (int j = 0; j < static_cast<int>(obj->instances.size()); ++j) {
                 min_zs[{ i, j }] = obj->instance_bounding_box(j).min.z();
             }
@@ -4760,7 +4761,7 @@ void GLCanvas3D::do_reset_skew(const std::string& snapshot_type)
 
     for (const std::unique_ptr<GLVolume> &v : m_volumes.volumes) {
         int object_idx = v->object_idx();
-        if (object_idx < 0 || (int)m_model->objects.size() <= object_idx)
+        if (object_idx < 0 || (int)m_model->objects().size() <= object_idx)
             continue;
 
         int instance_idx = v->instance_idx();
@@ -4769,7 +4770,7 @@ void GLCanvas3D::do_reset_skew(const std::string& snapshot_type)
         done.insert(std::pair<int, int>(object_idx, instance_idx));
 
         // Mirror instances/volumes
-        ModelObject* model_object = m_model->objects[object_idx];
+        ModelObject *model_object = &m_model->objects()[object_idx];
         if (model_object != nullptr) {
             if (selection_mode == Selection::Instance)
                 model_object->instances[instance_idx]->set_transformation(v->get_instance_transformation());
@@ -4782,7 +4783,7 @@ void GLCanvas3D::do_reset_skew(const std::string& snapshot_type)
     // Fixes sinking/flying instances
     std::set<int> obj_idx_for_update_info_items;
     for (const std::pair<int, int>& i : done) {
-        ModelObject* m = m_model->objects[i.first];
+        ModelObject *m = &m_model->objects()[i.first];
         double shift_z = m->get_instance_min_z(i.second);
         // leave sinking instances as sinking
         if (min_zs.empty() || min_zs.find({ i.first, i.second })->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD) {
@@ -4968,9 +4969,9 @@ void GLCanvas3D::update_sequential_clearance(bool force_contours_generation)
     // first: define temporary cache
     unsigned int instances_count = 0;
     std::vector<std::vector<std::optional<Geometry::Transformation>>> instance_transforms;
-    for (size_t obj = 0; obj < m_model->objects.size(); ++obj) {
+    for (size_t obj = 0; obj < m_model->objects().size(); ++obj) {
         instance_transforms.emplace_back(std::vector<std::optional<Geometry::Transformation>>());
-        const ModelObject* model_object = m_model->objects[obj];
+        const ModelObject *model_object = &m_model->objects()[obj];
         for (size_t i = 0; i < model_object->instances.size(); ++i) {
             instance_transforms[obj].emplace_back(std::optional<Geometry::Transformation>());
             ++instances_count;
@@ -5009,9 +5010,9 @@ void GLCanvas3D::update_sequential_clearance(bool force_contours_generation)
         const double clearance_dist = min_object_distance(&fff_print()->default_region_config(), 0);
         const coordf_t shrink_factor = scale_d(0.5 * clearance_dist - EPSILON);
         const coordf_t mitter_limit = scale_d(0.1);
-        m_sequential_print_clearance.m_hulls_2d_cache.reserve(m_model->objects.size());
-        for (size_t i = 0; i < m_model->objects.size(); ++i) {
-            ModelObject* model_object = m_model->objects[i];
+        m_sequential_print_clearance.m_hulls_2d_cache.reserve(m_model->objects().size());
+        for (size_t i = 0; i < m_model->objects().size(); ++i) {
+            ModelObject *model_object = &m_model->objects()[i];
             Geometry::Transformation trafo = instance_transform_from_volumes((int)i, 0);
             trafo.set_offset({ 0.0, 0.0, trafo.get_offset().z() });
             Pointf3s& new_hull_2d = m_sequential_print_clearance.m_hulls_2d_cache.emplace_back(std::make_pair(Pointf3s(), trafo.get_matrix())).first;
@@ -5390,7 +5391,7 @@ void GLCanvas3D::_render_thumbnail_internal(ThumbnailData& thumbnail_data, const
 
     camera.apply_projection(volumes_box, near_z, far_z);
 
-    const ModelObjectPtrs &model_objects                = GUI::wxGetApp().model().objects;
+    const ModelObjectPtrs model_objects                 = GUI::wxGetApp().model().object_ptrs();
     std::vector<ColorRGBA> extruders_colors             = get_extruders_colors();
     const bool             is_enabled_painted_thumbnail = !model_objects.empty() && !extruders_colors.empty();
 
@@ -6895,8 +6896,8 @@ void GLCanvas3D::_render_overlays()
     bool sequential_print = opt != nullptr && opt->value;
     std::vector<const ModelInstance*> sorted_instances;
     if (sequential_print) {
-        for (ModelObject* model_object : m_model->objects)
-            for (ModelInstance* model_instance : model_object->instances) {
+        for (ModelObject &model_object : m_model->objects())
+            for (ModelInstance* model_instance : model_object.instances) {
                 sorted_instances.push_back(model_instance);
             }
     }
@@ -8241,8 +8242,8 @@ void GLCanvas3D::_set_warning_notification(EWarning warning, bool state)
             ObjectID id = mo->id();
             int layer_id = conflict_result->layer;
             auto     action_fn = [id, layer_id](wxEvtHandler*) {
-                auto& objects = wxGetApp().model().objects;
-                auto  iter = id.id ? std::find_if(objects.begin(), objects.end(), [id](auto o) { return o->id() == id; }) : objects.end();
+                ModelObjectRefs objects = wxGetApp().model().objects();
+                ModelObjectRefs::iterator iter = id.id ? std::find_if(objects.begin(), objects.end(), [id](const ModelObject &o) { return o.id() == id; }) : objects.end();
                 if (iter != objects.end()) {
                     const unsigned int obj_idx = std::distance(objects.begin(), iter);
                     wxGetApp().CallAfter([obj_idx, layer_id]() {
@@ -8699,8 +8700,8 @@ const ModelVolume *get_model_volume(const GLVolume &v, const Model &model)
 {
     const ModelVolume * ret = nullptr;
 
-    if (v.object_idx() < (int)model.objects.size()) {
-        const ModelObject *obj = model.objects[v.object_idx()];
+    if (v.object_idx() < (int)model.objects().size()) {
+        const ModelObject *obj = &model.objects()[v.object_idx()];
         if (v.volume_idx() < (int)obj->volumes.size())
             ret = obj->volumes[v.volume_idx()];
     }
@@ -8766,7 +8767,8 @@ GLVolume *get_selected_gl_volume(const GLCanvas3D &canvas) {
 }
 
 ModelObject *get_model_object(const GLVolume &gl_volume, const Model &model) {
-    return get_model_object(gl_volume, model.objects);
+    ModelObjectPtrs objects = model.object_ptrs();
+    return get_model_object(gl_volume, objects);
 }
 
 ModelObject *get_model_object(const GLVolume &gl_volume, const ModelObjectPtrs &objects) {
@@ -8779,7 +8781,8 @@ ModelObject *get_model_object(const GLVolume &gl_volume, const ModelObjectPtrs &
 }
 
 ModelInstance *get_model_instance(const GLVolume &gl_volume, const Model& model) {
-    return get_model_instance(gl_volume, model.objects);
+    ModelObjectPtrs objects = model.object_ptrs();
+    return get_model_instance(gl_volume, objects);
 }
 
 ModelInstance *get_model_instance(const GLVolume &gl_volume, const ModelObjectPtrs &objects) {

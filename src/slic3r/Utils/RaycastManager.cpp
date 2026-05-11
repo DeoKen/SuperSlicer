@@ -333,7 +333,7 @@ RaycastManager::Meshes create_meshes(GLCanvas3D &canvas, const RaycastManager::A
     const std::vector<std::shared_ptr<SceneRaycasterItem>> &casters = *scene_casters;
 
     const GLVolumeUPtrs    &gl_volumes = canvas.get_volumes().volumes;
-    const ModelObjectPtrs &objects    = canvas.get_model()->objects;
+    const ModelObjectPtrs objects     = canvas.get_model()->object_ptrs();
 
     RaycastManager::Meshes meshes;
     for (const std::shared_ptr<SceneRaycasterItem> &caster : casters) {

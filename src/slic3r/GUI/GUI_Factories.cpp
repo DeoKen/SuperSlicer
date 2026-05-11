@@ -1218,7 +1218,7 @@ void MenuFactory::append_menu_item_edit_text(wxMenu *menu)
         const GLVolume* gl_volume = selection.get_first_volume();
         if (gl_volume == nullptr)
             return false;
-        const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->objects);
+        const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->object_ptrs());
         if (volume == nullptr)
             return false;
         return volume->is_text();        
@@ -1255,7 +1255,7 @@ void MenuFactory::append_menu_item_edit_svg(wxMenu *menu)
         const GLVolume* gl_volume = selection.get_first_volume();
         if (gl_volume == nullptr)
             return false;
-        const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->objects);
+        const ModelVolume *volume = get_model_volume(*gl_volume, selection.get_model()->object_ptrs());
         if (volume == nullptr)
             return false;
         return volume->is_svg();        

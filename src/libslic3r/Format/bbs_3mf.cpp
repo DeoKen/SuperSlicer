@@ -1982,11 +1982,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             // split the object in as many objects as instances
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ":" << __LINE__ << boost::format(", found 3mf from other vendor, split as instance");
             for (const IdToModelObjectMap::value_type& object : m_objects) {
-                if (object.second >= int(m_model->objects.size())) {
+                if (object.second >= int(m_model->objects().size())) {
                     add_error("3rd 3mf, invalid object, id: "+std::to_string(object.first.second));
                     return false;
                 }
-                ModelObject* model_object = m_model->objects[object.second];
+                ModelObject* model_object = &m_model->objects()[object.second];
                 if (model_object->instances.size() > 1) {
                     IdToCurrentObjectMap::const_iterator current_object = m_current_objects.find(object.first);
                     if (current_object == m_current_objects.end()) {
@@ -2047,7 +2047,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             }
         }
         for (const IdToModelObjectMap::value_type& object : m_objects) {
-            if (object.second >= int(m_model->objects.size())) {
+            if (object.second >= int(m_model->objects().size())) {
                 add_error("invalid object, id: "+std::to_string(object.first.second));
                 return false;
             }
@@ -2059,7 +2059,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     continue;
                 }
             }
-            ModelObject* model_object = m_model->objects[object.second];
+            ModelObject* model_object = &m_model->objects()[object.second];
             /*IdToGeometryMap::const_iterator obj_geometry = m_geometries.find(object.first);
             if (obj_geometry == m_geometries.end()) {
                 add_error("Unable to find object geometry");
@@ -2168,8 +2168,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         // If instances contain a single volume, the volume offset should be 0,0,0
         // This equals to say that instance world position and volume world position should match
         // Correct all instances/volumes for which this does not hold
-        for (int obj_id = 0; obj_id < int(model.objects.size()); ++obj_id) {
-            ModelObject *o = model.objects[obj_id];
+        for (int obj_id = 0; obj_id < int(model.objects().size()); ++obj_id) {
+            ModelObject *o = &model.objects()[obj_id];
             if (o->volumes.size() == 1) {
                 ModelVolume *                           v                 = o->volumes.front();
                 const Slic3r::Geometry::Transformation &first_inst_trafo  = o->instances.front()->get_transformation();
@@ -2189,7 +2189,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         }
 
         int object_idx = 0;
-        for (ModelObject* o : model.objects) {
+        for (ModelObject &object : model.objects()) {
+            ModelObject* o = &object;
             int volume_idx = 0;
             for (ModelVolume* v : o->volumes) {
                 if (v->source.input_file.empty() && v->type() == ModelVolumeType::MODEL_PART) {
@@ -2206,7 +2207,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
         const ConfigOptionStrings* filament_ids_opt = config.option<ConfigOptionStrings>("filament_settings_id");
         int max_filament_id = filament_ids_opt ? filament_ids_opt->size() : std::numeric_limits<int>::max();
-        for (ModelObject* mo : m_model->objects) {
+        for (ModelObject &object : m_model->objects()) {
+            ModelObject* mo = &object;
             const ConfigOptionInt* extruder_opt = dynamic_cast<const ConfigOptionInt*>(mo->config.option("extruder"));
             int extruder_id = 0;
             if (extruder_opt != nullptr)
@@ -2305,12 +2307,12 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 }
                 obj_index = object_item->second;
 
-                if (obj_index >= m_model->objects.size()) {
+                if (obj_index >= m_model->objects().size()) {
                     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ":" << __LINE__ << boost::format("invalid object id %1%\n")%obj_index;
                     map_it++;
                     continue;
                 }
-                ModelObject* obj =  m_model->objects[obj_index];
+                ModelObject* obj = &m_model->objects()[obj_index];
                 if (inst_index >= obj->instances.size()) {
                     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ":" << __LINE__ << boost::format("invalid instance id %1%\n")%inst_index;
                     map_it++;
@@ -2325,8 +2327,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         if ((plate_id > 0) && (plate_id <= m_plater_data.size())) {
             //remove the no need objects
             std::vector<size_t> delete_ids;
-            for (int index = 0; index < m_model->objects.size(); index++) {
-                ModelObject* obj =  m_model->objects[index];
+            for (int index = 0; index < m_model->objects().size(); index++) {
+                ModelObject* obj = &m_model->objects()[index];
                 if (obj->volumes.size() == 0) {
                     //remove this model objects
                     delete_ids.push_back(index);
@@ -3376,11 +3378,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
         // deletes all non-built or non-instanced objects
         for (const IdToModelObjectMap::value_type& object : m_objects) {
-            if (object.second >= int(m_model->objects.size())) {
+            if (object.second >= int(m_model->objects().size())) {
                 add_error("Unable to find object");
                 return false;
             }
-            ModelObject *model_object = m_model->objects[object.second];
+            ModelObject *model_object = &m_model->objects()[object.second];
             if (model_object != nullptr && model_object->instances.size() == 0)
                 m_model->delete_object(model_object);
         }
@@ -3393,8 +3395,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         if (!m_is_bbl_3mf) {
             // if the 3mf was not produced by OrcaSlicer and there is only one object,
             // set the object name to match the filename
-            if (m_model->objects.size() == 1)
-                m_model->objects.front()->name = m_name;
+            if (m_model->objects().size() == 1)
+                m_model->objects().front().name = m_name;
         }
 
         // applies instances' matrices
@@ -3993,7 +3995,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         if (object_item == m_objects.end()) {
             //add object
             CurrentObject& current_object = it->second;
-            int object_index =  (int)m_model->objects.size();
+            int object_index = (int)m_model->objects().size();
             ModelObject* model_object = m_model->add_object();
             if (model_object == nullptr) {
                 add_error("Unable to create object for builditem, id " + std::to_string(object_id));
@@ -4003,7 +4005,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             current_object.model_object_idx = object_index;
             current_object.object = model_object;
 
-            ModelInstance* instance = m_model->objects[object_index]->add_instance();
+            ModelInstance* instance = m_model->objects()[object_index].add_instance();
             if (instance == nullptr) {
                 add_error("error when add object instance for id " + std::to_string(object_id));
                 return false;
@@ -4035,7 +4037,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         }
         else {
             //add instance
-            ModelInstance* instance = m_model->objects[object_item->second]->add_instance();
+            ModelInstance* instance = m_model->objects()[object_item->second].add_instance();
             if (instance == nullptr) {
                 add_error("error when add object instance for id " + std::to_string(object_id));
                 return false;
@@ -4054,7 +4056,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 return false;
             }
             else {
-                ModelInstance* instance = m_model->objects[object_item->second]->add_instance();
+                ModelInstance* instance = m_model->objects()[object_item->second].add_instance();
                 if (instance == nullptr) {
                     add_error("Unable to add object instance");
                     return false;
@@ -4497,8 +4499,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
         Transform3d transform = bbs_get_transform_from_3mf_specs_string(bbs_get_attribute_value_string(attributes, num_attributes, TRANSFORM_ATTR));
         Vec3d ofs2ass = bbs_get_offset_from_3mf_specs_string(bbs_get_attribute_value_string(attributes, num_attributes, OFFSET_ATTR));
-        if (object_id < m_model->objects.size()) {
-            if (instance_id < m_model->objects[object_id]->instances.size()) {
+        if (object_id < m_model->objects().size()) {
+            if (instance_id < m_model->objects()[object_id].instances.size()) {
                 //m_model->objects[object_id]->instances[instance_id]->set_assemble_from_transform(transform); //Susi_not_impl
                 //m_model->objects[object_id]->instances[instance_id]->set_offset_to_assembly(ofs2ass); //Susi_not_impl
             }

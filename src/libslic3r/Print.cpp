@@ -2908,8 +2908,8 @@ std::vector<const PrintInstance*> Print::sort_object_instances_by_model_order() 
 
     std::vector<const PrintInstance*> instances;
     instances.reserve(model_instance_to_print_instance.size());
-    for (const ModelObject *model_object : this->model().objects)
-        for (const ModelInstance *model_instance : model_object->instances) {
+    for (const ModelObject &model_object : this->model().objects())
+        for (const ModelInstance *model_instance : model_object.instances) {
             auto it = std::lower_bound(model_instance_to_print_instance.begin(), model_instance_to_print_instance.end(), std::make_pair(model_instance, nullptr), [](auto &l, auto &r) { return l.first < r.first; });
             if (it != model_instance_to_print_instance.end() && it->first == model_instance)
                 instances.emplace_back(it->second);

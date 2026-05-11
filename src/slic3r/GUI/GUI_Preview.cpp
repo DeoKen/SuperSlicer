@@ -730,7 +730,7 @@ void Preview::update_layers_slider_mode()
 
     if (wxGetApp().extruders_edited_cnt() > 1)
     {
-        const ModelObjectPtrs& objects = wxGetApp().plater()->model().objects;
+        const ModelObjectPtrs& objects = wxGetApp().plater()->model().object_ptrs();
 
         // check if whole model uses just only one extruder
         if (!objects.empty())

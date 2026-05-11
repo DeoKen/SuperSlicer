@@ -29,7 +29,7 @@ void FillBedJob::prepare()
     if (m_object_idx == -1)
         return;
 
-    ModelObject *model_object = m_plater->model().objects[m_object_idx];
+    ModelObject *model_object = &m_plater->model().objects()[m_object_idx];
     if (model_object->instances.empty())
         return;
 
@@ -48,7 +48,7 @@ void FillBedJob::prepare()
 
     Points bedpts = get_bed_shape(*m_plater->config());
 
-    auto &objects = m_plater->model().objects;
+    ModelObjectPtrs objects = m_plater->model().object_ptrs();
     BoundingBox bedbb = get_extents(bedpts);
 
     for (size_t idx = 0; idx < objects.size(); ++idx)
@@ -93,7 +93,7 @@ void FillBedJob::prepare()
         ap.bed_idx = arrangement::UNARRANGED;
         auto m = mi->get_transformation();
         ap.setter = [this, m](const ArrangePolygon &p) {
-            ModelObject *mo = m_plater->model().objects[m_object_idx];
+            ModelObject *mo = &m_plater->model().objects()[m_object_idx];
             ModelInstance *inst = mo->add_instance(m);
             inst->apply_arrange_result(p.translation.cast<double>(), p.rotation);
         };
@@ -176,7 +176,7 @@ void FillBedJob::finalize(bool canceled, std::exception_ptr &eptr)
     if (m_object_idx == -1)
         return;
 
-    ModelObject *model_object = m_plater->model().objects[m_object_idx];
+    ModelObject *model_object = &m_plater->model().objects()[m_object_idx];
     if (model_object->instances.empty())
         return;
 

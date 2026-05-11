@@ -121,7 +121,7 @@ bool load_step(const char *path, Model *model /*BBS:, ImportStepProgressFn proFn
                        ? std::string("Part") + std::to_string(i + 1)
                        : occt_object.volumes[i].volume_name;
         new_volume->source.input_file = path;
-        new_volume->source.object_idx = (int)model->objects.size() - 1;
+        new_volume->source.object_idx = (int)model->objects().size() - 1;
         new_volume->source.volume_idx = (int)new_object->volumes.size() - 1;
     }
 

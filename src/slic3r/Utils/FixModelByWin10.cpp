@@ -400,15 +400,15 @@ bool fix_model_by_win10_sdk_gui(ModelObject &model_object, int volume_idx, wxPro
 			    boost::filesystem::remove(path_dst);
 				if (! loaded)
 	 				throw Slic3r::RuntimeError("Import of the repaired 3mf file failed");
-	 			if (model.objects.size() == 0)
+	 			if (model.objects().size() == 0)
 	 				throw Slic3r::RuntimeError("Repaired 3MF file does not contain any object");
-	 			if (model.objects.size() > 1)
+	 			if (model.objects().size() > 1)
 	 				throw Slic3r::RuntimeError("Repaired 3MF file contains more than one object");
-	 			if (model.objects.front()->volumes.size() == 0)
+	 			if (model.objects().front().volumes.size() == 0)
 	 				throw Slic3r::RuntimeError("Repaired 3MF file does not contain any volume");
-				if (model.objects.front()->volumes.size() > 1)
+				if (model.objects().front().volumes.size() > 1)
 	 				throw Slic3r::RuntimeError("Repaired 3MF file contains more than one volume");
-	 			meshes_repaired.emplace_back(std::move(model.objects.front()->volumes.front()->mesh()));
+	 			meshes_repaired.emplace_back(std::move(model.objects().front().volumes.front()->mesh()));
 			}
 			for (size_t i = 0; i < volumes.size(); ++ i) {
 				volumes[i]->set_mesh(std::move(meshes_repaired[i]));

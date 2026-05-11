@@ -73,8 +73,8 @@ void ArrangeJob::clear_input()
     const Model &model = m_plater->model();
     
     size_t count = 0, cunprint = 0; // To know how much space to reserve
-    for (auto obj : model.objects)
-        for (auto mi : obj->instances)
+    for (const ModelObject &obj : model.objects())
+        for (ModelInstance *mi : obj.instances)
             mi->printable ? count++ : cunprint++;
     
     m_selected.clear();
@@ -105,7 +105,7 @@ void add_brim(arrangement::ArrangePolygon &ap, const ModelConfigObject &config, 
 void ArrangeJob::prepare_all() {
     clear_input();
     
-    for (ModelObject *obj: m_plater->model().objects)
+    for (ModelObject *obj: m_plater->model().object_ptrs())
         for (ModelInstance *mi : obj->instances) {
             ArrangePolygons & cont = mi->printable ? m_selected : m_unprintable;
             arrangement::ArrangePolygon &&ap = get_arrange_poly_(mi);
@@ -124,16 +124,16 @@ void ArrangeJob::prepare_selected() {
     Model &model = m_plater->model();
 
     std::vector<const Selection::InstanceIdxsList *>
-            obj_sel(model.objects.size(), nullptr);
+            obj_sel(model.objects().size(), nullptr);
     
     for (auto &s : m_plater->get_selection().get_content())
         if (s.first < int(obj_sel.size()))
             obj_sel[size_t(s.first)] = &s.second;
 
     // Go through the objects and check if inside the selection
-    for (size_t oidx = 0; oidx < model.objects.size(); ++oidx) {
+    for (size_t oidx = 0; oidx < model.objects().size(); ++oidx) {
         const Selection::InstanceIdxsList * instlist = obj_sel[oidx];
-        ModelObject *mo = model.objects[oidx];
+        ModelObject *mo = &model.objects()[oidx];
 
         std::vector<bool> inst_sel(mo->instances.size(), false);
 
@@ -150,7 +150,7 @@ void ArrangeJob::prepare_selected() {
                                        m_unselected) :
                         m_unprintable;
 
-            add_brim(ap, model.objects[oidx]->config, m_plater);
+            add_brim(ap, model.objects()[oidx].config, m_plater);
             cont.emplace_back(std::move(ap));
         }
     }

@@ -195,7 +195,7 @@ void CalibrationRetractionDialog::create_geometry(wxCommandEvent& event_args) {
     //do scaling
     if (scale < 0.9 || 1.2 < scale) {
         for (size_t i = 0; i < nb_items; i++)
-            model.objects[objs_idx[i]]->scale(scale, scale, scale);
+            model.objects()[objs_idx[i]].scale(scale, scale, scale);
     }
 
     //add sub-part after scale
@@ -205,18 +205,18 @@ void CalibrationRetractionDialog::create_geometry(wxCommandEvent& event_args) {
         int mytemp = temp - temp_decr * id_item;
         if (mytemp <= 285 && mytemp >= 180 && mytemp % 5 == 0) {
             filament_temp_item_name.push_back("t" + std::to_string(mytemp) + ".amf");
-            assert(model.objects[objs_idx[id_item]]->volumes.size() == 1);
-            add_part(model.objects[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / filament_temp_item_name.back()).string(),
+            assert(model.objects()[objs_idx[id_item]].volumes.size() == 1);
+            add_part(&model.objects()[objs_idx[id_item]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_temp" / filament_temp_item_name.back()).string(),
                 Vec3d{ 0,0, scale * 0.0 - 4.8 }, Vec3d{ scale,scale,scale });
-            assert(model.objects[objs_idx[id_item]]->volumes.size() == 2);
-            model.objects[objs_idx[id_item]]->volumes[1]->rotate(PI / 2, Vec3d(0, 0, 1));
-            model.objects[objs_idx[id_item]]->volumes[1]->rotate(-PI / 2, Vec3d(1, 0, 0));
-            //model.objects[objs_idx[id_item]]->volumes[1]->rotate(Geometry::deg2rad(plat->config()->opt_float("init_z_rotate")), Axis::Z);
+            assert(model.objects()[objs_idx[id_item]].volumes.size() == 2);
+            model.objects()[objs_idx[id_item]].volumes[1]->rotate(PI / 2, Vec3d(0, 0, 1));
+            model.objects()[objs_idx[id_item]].volumes[1]->rotate(-PI / 2, Vec3d(1, 0, 0));
+            //model.objects()[objs_idx[id_item]].volumes[1]->rotate(Geometry::deg2rad(plat->config()->opt_float("init_z_rotate")), Axis::Z);
         } else {
             filament_temp_item_name.push_back("");
         }
         for (int num_retract = 0; num_retract < nb_retract; num_retract++) {
-            add_part(model.objects[objs_idx[id_item]], 
+            add_part(&model.objects()[objs_idx[id_item]], 
                 (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "retraction" / "retraction_calibration_pillar.amf").string(),
                 Vec3d{ 0,0,scale * 0.7 - 0.3 + scale * num_retract }, Vec3d{ scale,scale,scale });
         }
@@ -228,9 +228,9 @@ void CalibrationRetractionDialog::create_geometry(wxCommandEvent& event_args) {
 
     /// --- custom config ---
     assert(filament_temp_item_name.size() == nb_items);
-    assert(model.objects.size() == nb_items);
+    assert(model.objects().size() == nb_items);
     for (size_t i = 0; i < nb_items; i++) {
-        ModelObject *current_obj = model.objects[objs_idx[i]];
+        ModelObject *current_obj = &model.objects()[objs_idx[i]];
         //speed
         double perimeter_speed = full_print_config.get_computed_value("perimeter_speed");
         double external_perimeter_speed = full_print_config.get_computed_value("external_perimeter_speed");

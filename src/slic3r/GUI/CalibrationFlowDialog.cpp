@@ -106,14 +106,14 @@ void CalibrationFlowDialog::create_geometry(float start, float delta) {
     //do scaling
     if (xyScale < 0.9 || 1.2 < xyScale) {
         for (size_t i = 0; i < 5; i++)
-            model.objects[objs_idx[i]]->scale(xyScale, xyScale, zscale); // base: 10 10 1
+            model.objects()[objs_idx[i]].scale(xyScale, xyScale, zscale); // base: 10 10 1
     } else {
         for (size_t i = 0; i < 5; i++)
-            model.objects[objs_idx[i]]->scale(1, 1, zscale);
+            model.objects()[objs_idx[i]].scale(1, 1, zscale);
     }
     //// move to bed
     //for (size_t i = 0; i < 5; i++)
-    //    model.objects[objs_idx[i]]->translate(0, 0, ); // base: 10 10 1
+    //    model.objects()[objs_idx[i]].translate(0, 0, ); // base: 10 10 1
 
 
     //add sub-part after scale
@@ -129,28 +129,28 @@ void CalibrationFlowDialog::create_geometry(float start, float delta) {
     double init_z_rotate_angle = Geometry::deg2rad(plat->config()->opt_float("init_z_rotate"));
     Matrix3d rot_matrix = Eigen::Quaterniond(Eigen::AngleAxisd(init_z_rotate_angle, Vec3d{0,0,1})).toRotationMatrix();
     auto     translate_from_rotation = [&rot_matrix, &model, &objs_idx](int idx, Vec3d &&translation) {
-            ModelVolume *vol = model.objects[objs_idx[idx]]->volumes[model.objects[objs_idx[idx]]->volumes.size()-1];
+            ModelVolume *vol = model.objects()[objs_idx[idx]].volumes[model.objects()[objs_idx[idx]].volumes.size()-1];
             Geometry::Transformation trsf = vol->get_transformation();
             trsf.set_offset(rot_matrix * translation - translation + trsf.get_offset());
             vol->set_transformation(trsf);
         };
     
     if (delta == 10.f && start == 80.f) {
-        add_part(model.objects[objs_idx[0]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m20.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
-        add_part(model.objects[objs_idx[1]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m10.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
-        add_part(model.objects[objs_idx[2]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "_0.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
-        add_part(model.objects[objs_idx[3]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "p10.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
-        add_part(model.objects[objs_idx[4]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "p20.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
+        add_part(&model.objects()[objs_idx[0]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m20.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
+        add_part(&model.objects()[objs_idx[1]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m10.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
+        add_part(&model.objects()[objs_idx[2]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "_0.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
+        add_part(&model.objects()[objs_idx[3]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "p10.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
+        add_part(&model.objects()[objs_idx[4]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "p20.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number });
     } else if (delta == 2.f && start == 92.f) {
-        add_part(model.objects[objs_idx[0]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m8.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
-        add_part(model.objects[objs_idx[1]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m6.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
-        add_part(model.objects[objs_idx[2]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m4.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
-        add_part(model.objects[objs_idx[3]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m2.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
-        add_part(model.objects[objs_idx[4]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "_0.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
+        add_part(&model.objects()[objs_idx[0]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m8.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
+        add_part(&model.objects()[objs_idx[1]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m6.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
+        add_part(&model.objects()[objs_idx[2]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m4.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
+        add_part(&model.objects()[objs_idx[3]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "m2.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
+        add_part(&model.objects()[objs_idx[4]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "_0.amf").string(), Vec3d{ 10 * xyScale,0,zshift_number }, Vec3d{ xyScale , xyScale, zscale_number});
     }
     for (size_t i = 0; i < 5; i++) {
         translate_from_rotation(i, Vec3d{ 10 * xyScale, 0, zscale/2 - z_origin });
-        add_part(model.objects[objs_idx[i]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "O.amf").string(), Vec3d{ 0,0, zscale }, Vec3d{xyScale , xyScale, layer_height / 0.2}); // base: 0.2mm height
+        add_part(&model.objects()[objs_idx[i]], (boost::filesystem::path(Slic3r::resources_dir()) / "calibration" / "filament_flow" / "O.amf").string(), Vec3d{ 0,0, zscale }, Vec3d{xyScale , xyScale, layer_height / 0.2}); // base: 0.2mm height
     }
 
     
@@ -169,28 +169,28 @@ void CalibrationFlowDialog::create_geometry(float start, float delta) {
     /// --- custom config ---
     for (size_t i = 0; i < 5; i++) {
         //brim to have some time to build up pressure in the nozzle
-        model.objects[objs_idx[i]]->config.set_key_value("brim_width", new ConfigOptionFloat(brim_width));
-        model.objects[objs_idx[i]]->config.set_key_value("thin_perimeters", new ConfigOptionPercent(0));
-        model.objects[objs_idx[i]]->config.set_key_value("external_perimeter_overlap", new ConfigOptionPercent(80));
-        model.objects[objs_idx[i]]->config.set_key_value("perimeter_overlap", new ConfigOptionPercent(80));
-        model.objects[objs_idx[i]]->config.set_key_value("brim_ears", new ConfigOptionBool(false));
-        model.objects[objs_idx[i]]->config.set_key_value("perimeters", new ConfigOptionInt(3));
-        model.objects[objs_idx[i]]->config.set_key_value("only_one_perimeter_top", new ConfigOptionBool(true));
-        model.objects[objs_idx[i]]->config.set_key_value("enforce_full_fill_volume", new ConfigOptionBool(true));
-        model.objects[objs_idx[i]]->config.set_key_value("solid_infill_every_layers", new ConfigOptionInt(1));
-        model.objects[objs_idx[i]]->config.set_key_value("thin_walls", new ConfigOptionBool(true));
-        model.objects[objs_idx[i]]->config.set_key_value("thin_walls_min_width", new ConfigOptionFloatOrPercent(50,true));
-        model.objects[objs_idx[i]]->config.set_key_value("gap_fill_enabled", new ConfigOptionBool(true)); 
-        model.objects[objs_idx[i]]->config.set_key_value("layer_height", new ConfigOptionFloat(layer_height));
-        model.objects[objs_idx[i]]->config.set_key_value("first_layer_height", new ConfigOptionFloatOrPercent(first_layer_height, false));
-        model.objects[objs_idx[i]]->config.set_key_value("external_infill_margin", new ConfigOptionFloatOrPercent(100, true));
-        model.objects[objs_idx[i]]->config.set_key_value("solid_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
-        model.objects[objs_idx[0]]->config.set_key_value("infill_filled_solid", new ConfigOptionBool(true));
-        model.objects[objs_idx[i]]->config.set_key_value("top_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipSmooth));
+        model.objects()[objs_idx[i]].config.set_key_value("brim_width", new ConfigOptionFloat(brim_width));
+        model.objects()[objs_idx[i]].config.set_key_value("thin_perimeters", new ConfigOptionPercent(0));
+        model.objects()[objs_idx[i]].config.set_key_value("external_perimeter_overlap", new ConfigOptionPercent(80));
+        model.objects()[objs_idx[i]].config.set_key_value("perimeter_overlap", new ConfigOptionPercent(80));
+        model.objects()[objs_idx[i]].config.set_key_value("brim_ears", new ConfigOptionBool(false));
+        model.objects()[objs_idx[i]].config.set_key_value("perimeters", new ConfigOptionInt(3));
+        model.objects()[objs_idx[i]].config.set_key_value("only_one_perimeter_top", new ConfigOptionBool(true));
+        model.objects()[objs_idx[i]].config.set_key_value("enforce_full_fill_volume", new ConfigOptionBool(true));
+        model.objects()[objs_idx[i]].config.set_key_value("solid_infill_every_layers", new ConfigOptionInt(1));
+        model.objects()[objs_idx[i]].config.set_key_value("thin_walls", new ConfigOptionBool(true));
+        model.objects()[objs_idx[i]].config.set_key_value("thin_walls_min_width", new ConfigOptionFloatOrPercent(50,true));
+        model.objects()[objs_idx[i]].config.set_key_value("gap_fill_enabled", new ConfigOptionBool(true)); 
+        model.objects()[objs_idx[i]].config.set_key_value("layer_height", new ConfigOptionFloat(layer_height));
+        model.objects()[objs_idx[i]].config.set_key_value("first_layer_height", new ConfigOptionFloatOrPercent(first_layer_height, false));
+        model.objects()[objs_idx[i]].config.set_key_value("external_infill_margin", new ConfigOptionFloatOrPercent(100, true));
+        model.objects()[objs_idx[i]].config.set_key_value("solid_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipRectilinear));
+        model.objects()[objs_idx[0]].config.set_key_value("infill_filled_solid", new ConfigOptionBool(true));
+        model.objects()[objs_idx[i]].config.set_key_value("top_fill_pattern", new ConfigOptionEnum<InfillPattern>(ipSmooth));
         //disable ironing post-process
-        model.objects[objs_idx[i]]->config.set_key_value("ironing", new ConfigOptionBool(false));
+        model.objects()[objs_idx[i]].config.set_key_value("ironing", new ConfigOptionBool(false));
         //set extrusion mult: 80 90 100 110 120
-        model.objects[objs_idx[i]]->config.set_key_value("print_extrusion_multiplier", new ConfigOptionPercent(start + (float)i * delta));
+        model.objects()[objs_idx[i]].config.set_key_value("print_extrusion_multiplier", new ConfigOptionPercent(start + (float)i * delta));
     }
 
     //update plater
