@@ -781,6 +781,44 @@ ArcPolyline::ArcPolyline(const Geometry::ArcWelder::Path &other) : m_path(other)
     m_only_strait = not_arc(*this);
 }
 
+ArcPolyline::ArcPolyline(const ArcPolyline &other)
+    : m_path(other.m_path)
+    , m_z_offset(other.m_z_offset ? std::make_unique<std::vector<coord_t>>(*other.m_z_offset) : nullptr)
+    , m_only_strait(other.m_only_strait)
+{
+#ifdef _DEBUG
+    is_3D = other.is_3D;
+#endif
+}
+
+ArcPolyline &ArcPolyline::operator=(const ArcPolyline &other)
+{
+    if (this != &other) {
+        m_path = other.m_path;
+        m_z_offset = other.m_z_offset ? std::make_unique<std::vector<coord_t>>(*other.m_z_offset) : nullptr;
+        m_only_strait = other.m_only_strait;
+#ifdef _DEBUG
+        is_3D = other.is_3D;
+#endif
+    }
+    return *this;
+}
+
+std::vector<coord_t>& ArcPolyline::z_offsets_raw_mutable()
+{
+    if (!m_z_offset)
+        m_z_offset = std::make_unique<std::vector<coord_t>>();
+    return *m_z_offset;
+}
+
+std::vector<coord_t>& ArcPolyline::z_offsets_mutable()
+{
+    std::vector<coord_t> &z_offsets = this->z_offsets_raw_mutable();
+    if (z_offsets.empty())
+        z_offsets.resize(m_path.size(), coord_t(0));
+    return z_offsets;
+}
+
 bool ArcPolyline::has_arc() const {
     assert(not_arc(*this) == m_only_strait);
     return !m_only_strait;
@@ -788,7 +826,33 @@ bool ArcPolyline::has_arc() const {
 
 void ArcPolyline::clear() {
     m_path.clear();
+    m_z_offset.reset();
     m_only_strait = true;
+}
+
+void ArcPolyline::swap(ArcPolyline &other) {
+    m_path.swap(other.m_path);
+    m_z_offset.swap(other.m_z_offset);
+    std::swap(this->m_only_strait, other.m_only_strait);
+    assert(is_valid());
+}
+
+void ArcPolyline::reverse() {
+    Geometry::ArcWelder::reverse(m_path);
+    if (m_z_offset)
+        std::reverse(m_z_offset->begin(), m_z_offset->end());
+}
+
+void ArcPolyline::append(const Point &point) {
+    m_path.emplace_back(/*Geometry::ArcWelder::Segment{*/ point, 0.f, Geometry::ArcWelder::Orientation::Unknown /*}*/);
+    if (m_z_offset)
+        m_z_offset->push_back(0);
+}
+
+void ArcPolyline::append_before(const Point &point) {
+    m_path.insert(m_path.begin(), Geometry::ArcWelder::Segment{point, 0.f, Geometry::ArcWelder::Orientation::Unknown});
+    if (m_z_offset)
+        m_z_offset->insert(m_z_offset->begin(), 0);
 }
 
 void ArcPolyline::append(const Points &src)
@@ -797,6 +861,8 @@ void ArcPolyline::append(const Points &src)
     if (!m_path.empty() && !src.empty() && m_path.back().point.coincides_with_epsilon(src.front())) {
         i++;
     }
+    if (m_z_offset)
+        m_z_offset->insert(m_z_offset->end(), src.size() - i, 0);
     for (; i < src.size(); ++i) {
         const Point &point = src[i];
         m_path.emplace_back(point, 0.f, Geometry::ArcWelder::Orientation::Unknown);
@@ -810,6 +876,8 @@ void ArcPolyline::append(Points &&src)
     if (!m_path.empty() && !src.empty() && m_path.back().point.coincides_with_epsilon(src.front())) {
         i++;
     }
+    if (m_z_offset)
+        m_z_offset->insert(m_z_offset->end(), src.size() - i, 0);
     for (; i < src.size(); ++i) {
         const Point &point = src[i];
         m_path.emplace_back(std::move(point), 0, Geometry::ArcWelder::Orientation::Unknown);
@@ -820,6 +888,11 @@ void ArcPolyline::append(Points &&src)
 void ArcPolyline::append(const Points::const_iterator &begin, const Points::const_iterator &end)
 {
     Points::const_iterator it = begin;
+    if (!m_path.empty() && begin != end && m_path.back().point.coincides_with_epsilon(*begin)) {
+        ++it;
+    }
+    if (m_z_offset)
+        m_z_offset->insert(m_z_offset->end(), end - it, 0);
     while (it != end) {
         m_path.emplace_back(*it, 0, Geometry::ArcWelder::Orientation::Unknown);
         ++it;
@@ -832,7 +905,7 @@ void ArcPolyline::append(const ArcPolyline &src)
     assert(this->empty() || this->is_valid());
     this->m_only_strait &= src.m_only_strait;
     if (m_path.empty()) {
-        m_path = std::move(src.m_path);
+        *this = src;
     } else if (src.m_path.front().point == this->m_path.back().point) {
         if (src.size() > 1) {
             bool epsilon_merge = false;
@@ -847,6 +920,17 @@ void ArcPolyline::append(const ArcPolyline &src)
                 m_path.back().point = src.get_point(1);
                 if (src.size() > 2) {
                     const size_t next_size = this->size() + src.size() - 2;
+                    if (this->m_z_offset || src.m_z_offset) {
+                        coord_t joint_z = this->m_z_offset ? this->m_z_offset->back() : src.m_z_offset->front();
+                        assert(!this->m_z_offset || !src.m_z_offset || this->m_z_offset->back() == src.m_z_offset->front());
+                        std::vector<coord_t> &z_offsets = this->z_offsets_mutable();
+                        z_offsets.resize(next_size, coord_t(0));
+                        if (src.m_z_offset && src.m_z_offset->size() > 2) {
+                            std::copy(src.m_z_offset->begin() + 2, src.m_z_offset->end(),
+                                      z_offsets.begin() + m_path.size());
+                        }
+                        z_offsets[m_path.size() - 1] = joint_z;
+                    }
                     m_path.reserve(next_size);
                     this->m_path.insert(this->m_path.end(), src.m_path.begin() + 2, src.m_path.end());
                     assert(next_size == m_path.size());
@@ -854,6 +938,15 @@ void ArcPolyline::append(const ArcPolyline &src)
             } else {
                 assert(src.is_valid());
                 const size_t next_size = m_path.size() + src.m_path.size() - 1;
+                if (this->m_z_offset || src.m_z_offset) {
+                    assert(!this->m_z_offset || !src.m_z_offset || this->m_z_offset->back() == src.m_z_offset->front());
+                    std::vector<coord_t> &z_offsets = this->z_offsets_mutable();
+                    z_offsets.resize(next_size, coord_t(0));
+                    if (src.m_z_offset && src.m_z_offset->size() > 1) {
+                        std::copy(src.m_z_offset->begin(), src.m_z_offset->end(),
+                                  z_offsets.begin() + m_path.size() - 1);
+                    }
+                }
                 m_path.reserve(next_size);
                 // std::move(src.m_path.begin() + 1, src.m_path.end(), std::back_inserter(m_path));
                 this->m_path.insert(this->m_path.end(), src.m_path.begin() + 1, src.m_path.end());
@@ -864,6 +957,14 @@ void ArcPolyline::append(const ArcPolyline &src)
         // weird, are you sure you want to append it?
         assert(false);
         const size_t next_size = m_path.size() + src.m_path.size();
+        if (this->m_z_offset || src.m_z_offset) {
+            std::vector<coord_t> &z_offsets = this->z_offsets_mutable();
+            z_offsets.resize(next_size, coord_t(0));
+            if (src.m_z_offset) {
+                std::copy(src.m_z_offset->begin(), src.m_z_offset->end(),
+                          z_offsets.begin() + m_path.size());
+            }
+        }
         m_path.reserve(next_size);
         //std::move(src.m_path.begin(), src.m_path.end(), std::back_inserter(m_path));
         this->m_path.insert(this->m_path.end(), src.m_path.begin(), src.m_path.end());
@@ -881,10 +982,19 @@ void ArcPolyline::append(ArcPolyline &&src) {
     assert(empty() || is_valid());
     this->m_only_strait &= src.m_only_strait;
     if (m_path.empty()) {
-        m_path = std::move(src.m_path);
+        *this = std::move(src);
     } else if (src.m_path.front().point == this->m_path.back().point) {
         if (src.size() > 1) {
             const size_t next_size = m_path.size() + src.m_path.size() - 1;
+            if (this->m_z_offset || src.m_z_offset) {
+                assert(!this->m_z_offset || !src.m_z_offset || this->m_z_offset->back() == src.m_z_offset->front());
+                std::vector<coord_t> &z_offsets = this->z_offsets_mutable();
+                z_offsets.resize(next_size, coord_t(0));
+                if (src.m_z_offset && src.m_z_offset->size() > 1) {
+                    std::copy(src.m_z_offset->begin(), src.m_z_offset->end(),
+                              z_offsets.begin() + m_path.size() - 1);
+                }
+            }
             m_path.reserve(next_size);
             m_path.insert(m_path.end(), std::make_move_iterator(src.m_path.begin() + 1), std::make_move_iterator(src.m_path.end()));
             assert(is_valid());
@@ -894,6 +1004,14 @@ void ArcPolyline::append(ArcPolyline &&src) {
         // weird, are you sure you want to append it?
         assert(false);
         const size_t next_size = m_path.size() + src.m_path.size();
+        if (this->m_z_offset || src.m_z_offset) {
+            std::vector<coord_t> &z_offsets = this->z_offsets_mutable();
+            z_offsets.resize(next_size, coord_t(0));
+            if (src.m_z_offset) {
+                std::copy(src.m_z_offset->begin(), src.m_z_offset->end(),
+                          z_offsets.begin() + m_path.size());
+            }
+        }
         m_path.reserve(next_size);
         m_path.insert(m_path.end(), std::make_move_iterator(src.m_path.begin()), std::make_move_iterator(src.m_path.end()));
         assert(next_size == m_path.size());
@@ -910,6 +1028,8 @@ void ArcPolyline::append(const Geometry::ArcWelder::Segment &arc)
     if (!arc.linear()) {
         this->m_only_strait = false;
     }
+    if (m_z_offset)
+        m_z_offset->push_back(0);
 #ifdef _DEBUG
     if (this->m_path.size() > 1) {
         this->m_path.back().length = Geometry::ArcWelder::segment_length<coordf_t>(this->m_path[this->m_path.size() - 2], this->m_path.back());
@@ -985,6 +1105,22 @@ int ArcPolyline::find_point(const Point &point, coordf_t epsilon) const
     }
 }
 
+coord_t ArcPolyline::z_offset(size_t idx) const {
+    if (m_z_offset && idx < m_z_offset->size())
+        return (*m_z_offset)[idx];
+    return INVALID_COORD;
+}
+
+
+void ArcPolyline::set_z_offset(size_t idx, coord_t z_offset) {
+    std::vector<coord_t> &z_offsets = this->z_offsets_mutable();
+    assert(idx < z_offsets.size());
+    z_offsets[idx] = z_offset;
+#ifdef _DEBUG
+    is_3D = true;
+#endif
+}
+
 bool ArcPolyline::at_least_length(distf_t length) const
 {
     for (size_t i = 1; length > 0 && i < m_path.size(); ++ i)
@@ -1052,6 +1188,8 @@ void ArcPolyline::pop_front()
     }
     if (!m_only_strait)
         m_only_strait = not_arc(*this);
+    if (m_z_offset)
+        m_z_offset->erase(m_z_offset->begin());
     assert(is_valid());
 }
 
@@ -1062,22 +1200,36 @@ void ArcPolyline::pop_back()
     m_path.pop_back();
     if (!m_only_strait)
         m_only_strait = not_arc(*this);
+    if (m_z_offset)
+        m_z_offset->pop_back();
     assert(is_valid());
 }
 
 void ArcPolyline::clip_start(distf_t dist)
 {
-    Geometry::ArcWelder::clip_start(m_path, dist);
-    if (!m_only_strait)
-        m_only_strait = not_arc(*this);
-    assert(is_valid());
+    // Geometry::ArcWelder::clip_start is doing reverse +clip_end anyway.
+    reverse();
+    clip_end(dist);
+    reverse();
+}
+
+coord_t interpolate(coord_t z1, coord_t z2, double ratio) {
+    return coord_t(std::llround(double(z1) + double(z2 - z1) * ratio));
 }
 
 void ArcPolyline::clip_end(distf_t dist)
 {
-    Geometry::ArcWelder::clip_end(m_path, dist);
+    distf_t old_last_dist = Geometry::ArcWelder::clip_end_old_size(m_path, dist);
     if (!m_only_strait)
         m_only_strait = not_arc(*this);
+    if (m_z_offset) {
+        m_z_offset->resize(m_path.size());
+        if (m_z_offset->size() > 1 && old_last_dist > EPSILON) {
+            distf_t new_dist = Geometry::ArcWelder::segment_length<distf_t>(m_path[m_path.size() - 2], m_path.back());
+            m_z_offset->back() = interpolate((*m_z_offset)[m_z_offset->size() - 2], m_z_offset->back(),
+                                             new_dist / old_last_dist);
+        }
+    }
     assert(is_valid());
 }
 
@@ -1090,6 +1242,8 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
     if (distance < SCALED_EPSILON) return;
     assert(this->is_valid());
     p1.m_path.push_back(m_path.front());
+    if (m_z_offset)
+        p1.z_offsets_raw_mutable().push_back(m_z_offset->front());
 #ifdef _DEBUG
     coordf_t length_tot_split = 0;
 #endif
@@ -1108,13 +1262,24 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
                 p1.m_path.push_back({split_point, 0, Geometry::ArcWelder::Orientation::Unknown});
                 p2.m_path.push_back({split_point, 0, Geometry::ArcWelder::Orientation::Unknown});
                 p2.m_path.push_back(current);
+                if (m_z_offset) {
+                    std::vector<coord_t> &p1_z_offsets = p1.z_offsets_raw_mutable();
+                    std::vector<coord_t> &p2_z_offsets = p2.z_offsets_raw_mutable();
+                    p1_z_offsets.push_back(interpolate(p1_z_offsets.back(), (*m_z_offset)[idx], distance / sqrt(lsqr)));
+                    p2_z_offsets.push_back(p1_z_offsets.back());
+                    p2_z_offsets.push_back((*m_z_offset)[idx]);
+                }
                 // Length to go is zero.
                 distance = 0;
             } else {
                 p1.m_path.push_back(current);
+                if (m_z_offset)
+                    p1.z_offsets_raw_mutable().push_back((*m_z_offset)[idx]);
                 distance -= sqrt(lsqr);
                 if (distance < SCALED_EPSILON) {
                     p2.m_path.push_back(current);
+                    if (m_z_offset)
+                        p2.z_offsets_raw_mutable().push_back((*m_z_offset)[idx]);
                     distance = 0;
                 }
             }
@@ -1156,6 +1321,13 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
                     }
                     assert(nb_reverse > 0);
                 }
+                if (m_z_offset) {
+                    std::vector<coord_t> &p1_z_offsets = p1.z_offsets_raw_mutable();
+                    std::vector<coord_t> &p2_z_offsets = p2.z_offsets_raw_mutable();
+                    p1_z_offsets.push_back(interpolate(p1_z_offsets.back(), (*m_z_offset)[idx], distance / len));
+                    p2_z_offsets.push_back(p1_z_offsets.back());
+                    p2_z_offsets.push_back((*m_z_offset)[idx]);
+                }
 #ifdef _DEBUG
                 Point almost_current = startp.rotated(angle, Point::round(center));
                 Point almost_current2 = startp.rotated(angle, current.center);
@@ -1172,9 +1344,18 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
                 distance = 0;
             } else {
                 p1.m_path.push_back(current);
+                if (m_z_offset)
+                    p1.z_offsets_raw_mutable().push_back((*m_z_offset)[idx]);
                 distance -= len;
                 if (distance < SCALED_EPSILON) {
-                    p2.m_path.push_back(current);
+                    if (p2.m_path.empty()) {
+                        // if first point to add, it's a strating point, not an arc.
+                        p2.m_path.push_back(current.point);
+                    } else {
+                        p2.m_path.push_back(current);
+                    }
+                    if (m_z_offset)
+                        p2.z_offsets_raw_mutable().push_back((*m_z_offset)[idx]);
                     distance = 0;
                 }
             }
@@ -1188,6 +1369,8 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
     while (idx < m_path.size()) {
         assert(!p2.m_path.back().point.coincides_with_epsilon(m_path[idx].point));
         p2.m_path.push_back(m_path[idx]);
+        if (m_z_offset)
+            p2.z_offsets_raw_mutable().push_back((*m_z_offset)[idx]);
         // increment
         ++idx;
     }
@@ -1195,9 +1378,13 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
     if (p2.back() != back()) {
         if (p2.size() == 1 || !p2.back().coincides_with_epsilon(back())) {
             p2.m_path.push_back(back());
+            if (m_z_offset)
+                p2.z_offsets_raw_mutable().push_back(m_z_offset->back());
         } else {
             // even with arc, the difference is not measurable (less than epsilon)
             p2.set_back(back());
+            if (m_z_offset)
+                p2.z_offsets_raw_mutable().back() = m_z_offset->back();
         }
     }
     //check if the last p1 segment is long enough
@@ -1205,6 +1392,10 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
         //to short of a segment, move the previous point (even if arc, should be short enough of a move)
         p1.m_path[p1.size()-2].point = p1.back();
         p1.m_path.pop_back();
+        if (p1.m_z_offset) {
+            (*p1.m_z_offset)[p1.size()-2] = p1.m_z_offset->back();
+            p1.m_z_offset->pop_back();
+        }
     }
     if (has_arc()) {
         p1.m_only_strait = not_arc(p1);
@@ -1235,6 +1426,7 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
     assert(p1.is_valid());
     assert(p2.is_valid());
     assert(is_approx(this->length(), p1.length() + p2.length(), coordf_t(SCALED_EPSILON)));
+    assert(!m_z_offset || p1.m_z_offset->back() == p2.m_z_offset->front());
 }
 
 void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
@@ -1252,6 +1444,8 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
     if (this->m_path.front().point.coincides_with_epsilon(point)) {
         p1.clear();
         p1.append(point);
+        if (m_z_offset)
+            p1.z_offsets_raw_mutable().push_back(m_z_offset->front());
         p2 = *this;
         return;
     }
@@ -1299,6 +1493,19 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
     p1.m_path.back().length = Geometry::ArcWelder::segment_length<coordf_t>(p1.m_path[p1.m_path.size()-2], p1.m_path.back());
 #endif
     p1.m_only_strait       = not_arc(p1);
+    coord_t split_z = INVALID_COORD;
+    if (m_z_offset) {
+        assert(p1.m_path.size() > 1);
+        std::vector<coord_t> &p1_z_offsets = p1.z_offsets_raw_mutable();
+        p1_z_offsets.reserve(result.segment_id + 2);
+        p1_z_offsets.insert(p1_z_offsets.end(), m_z_offset->begin(), m_z_offset->begin() + result.segment_id + 2);
+        distf_t old_dist = Geometry::ArcWelder::segment_length<distf_t>(this->m_path[result.segment_id], this->m_path[result.segment_id + 1]);
+        distf_t new_dist = Geometry::ArcWelder::segment_length<distf_t>(this->m_path[result.segment_id], p1.m_path.back());
+        split_z = interpolate((*m_z_offset)[result.segment_id], (*m_z_offset)[result.segment_id + 1],
+                                new_dist / old_dist);
+        p1_z_offsets.back() = split_z;
+    }
+
     p2.clear();
     p2.m_path.reserve(this->size() - result.segment_id);
     p2.m_path.insert(p2.m_path.begin(), this->m_path.begin() + result.segment_id, this->m_path.end());
@@ -1327,6 +1534,16 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
     p2.m_path[1].length = Geometry::ArcWelder::segment_length<coordf_t>(p2.m_path[0], p2.m_path[1]);
 #endif
     p2.m_only_strait         = not_arc(p2);
+    if (m_z_offset) {
+        assert(p2.m_path.size() > 1);
+        std::vector<coord_t> &p2_z_offsets = p2.z_offsets_raw_mutable();
+        p2_z_offsets.reserve(this->size() - result.segment_id);
+        p2_z_offsets.insert(p2_z_offsets.end(), m_z_offset->begin() + result.segment_id, m_z_offset->end());
+        distf_t old_dist = Geometry::ArcWelder::segment_length<distf_t>(m_path[result.segment_id], m_path[result.segment_id + 1]);
+        distf_t new_dist = Geometry::ArcWelder::segment_length<distf_t>(p2.m_path.front(), m_path[result.segment_id + 1]);
+        assert(split_z != INVALID_COORD);
+        p2_z_offsets.front() = split_z;
+    }
 
     point = result.point;
 
@@ -1339,6 +1556,8 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
                 if (!p2.empty()) {
                     // clear first polyline
                     p2.set_front(p1.front());
+                    if (m_z_offset)
+                        p2.m_z_offset->front() = p1.m_z_offset->front();
                     p1.clear();
                 } else {
                     assert(false);
@@ -1347,6 +1566,10 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
                 // remove last segment, keep last point
                 p1.m_path[p1.size() - 2].point = p1.m_path.back().point;
                 p1.m_path.pop_back();
+                if (m_z_offset) {
+                    (*p1.m_z_offset)[p1.m_z_offset->size() - 2] = p1.m_z_offset->back();
+                    p1.m_z_offset->pop_back();
+                }
             }
         }
     }
@@ -1359,6 +1582,8 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
                 if (!p2.empty()) {
                     // clear first polyline
                     p1.set_back(p2.back());
+                    if (m_z_offset)
+                        p1.m_z_offset->back() = p2.m_z_offset->back();
                     p2.clear();
                 } else {
                     assert(false);
@@ -1366,6 +1591,8 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
             } else {
                 // remove first segment, keep first point
                 p2.m_path.erase(p2.m_path.begin() + 1);
+                if (m_z_offset)
+                    p2.m_z_offset->erase(p2.m_z_offset->begin() + 1);
             }
         }
     }
@@ -1374,6 +1601,7 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
     assert(p2.is_valid());
     assert(p1.front() == this->front());
     assert(p2.back() == this->back());
+    assert(!m_z_offset || p1.m_z_offset->back() == p2.m_z_offset->front());
 }
 
 bool ArcPolyline::split_at_index(const size_t index, ArcPolyline &p1, ArcPolyline &p2) const
@@ -1382,22 +1610,44 @@ bool ArcPolyline::split_at_index(const size_t index, ArcPolyline &p1, ArcPolylin
         return false;
 
     if (index == 0) {
+        p1.clear();
         p1.append(this->front());
+        if (m_z_offset)
+            p1.z_offsets_raw_mutable().push_back(m_z_offset->front());
         p2 = *this;
     } else if (index == this->size() - 1) {
-        p2.m_path.insert(p2.m_path.begin(), Geometry::ArcWelder::Segment{this->back(), 0.f, Geometry::ArcWelder::Orientation::Unknown});
         p1 = *this;
+        p2.clear();
+        p2.m_path.insert(p2.m_path.begin(), Geometry::ArcWelder::Segment{this->back(), 0.f, Geometry::ArcWelder::Orientation::Unknown});
+        if (m_z_offset)
+            p2.z_offsets_raw_mutable().push_back(m_z_offset->back());
     } else {
+        p1.clear();
         p1.m_path.reserve(p1.m_path.size() + index + 1);
         p1.m_path.insert(p1.m_path.end(), this->m_path.begin(), this->m_path.begin() + index + 1);
         p1.m_only_strait = not_arc(p1);
 
+        p2.clear();
         p2.m_path.reserve(p2.m_path.size() + this->size() - index);
         p2.m_path.insert(p2.m_path.begin(), this->m_path.begin() + index, this->m_path.end());
         p2.m_path.front().radius = 0; // first point can't be an arc
         p2.m_path.front().orientation = Geometry::ArcWelder::Orientation::Unknown;
         p2.m_only_strait         = not_arc(p2);
+
+        if (m_z_offset) {
+            std::vector<coord_t> &p1_z_offsets = p1.z_offsets_raw_mutable();
+            std::vector<coord_t> &p2_z_offsets = p2.z_offsets_raw_mutable();
+            p1_z_offsets.reserve(index + 1);
+            p1_z_offsets.insert(p1_z_offsets.end(), m_z_offset->begin(), m_z_offset->begin() + index + 1);
+            p2_z_offsets.reserve(this->size() - index);
+            p2_z_offsets.insert(p2_z_offsets.begin(), m_z_offset->begin() + index, m_z_offset->end());
+        }
     }
+    assert(p1.is_valid());
+    assert(p2.is_valid());
+    assert(p1.front() == this->front());
+    assert(p2.back() == this->back());
+    assert(!m_z_offset || p1.m_z_offset->back() == p2.m_z_offset->front());
     return true;
 }
 
@@ -1592,10 +1842,12 @@ int ArcPolyline::simplify_straits(coordf_t min_tolerance,
                                    coordf_t fl_min_point_distance,
                                    coordf_t mean_dist_per_line,
                                    const int buffer_size,
-                                   const int buffer_init)
+    const int buffer_init)
 {
     assert(is_valid());
+    assert(!m_z_offset);
     return 0;
+    m_z_offset.reset();
     // incentive to remove odds points
     float squew[] = { 1, 0.94f, 0.98f, 0.96f, 0.99f, 0.93f, 0.97f, 0.95f};
 
@@ -1838,6 +2090,8 @@ void ArcPolyline::simplify_straits(const coordf_t min_tolerance,
                                   const coordf_t min_point_distance)
 {
     assert(is_valid());
+    assert(!m_z_offset);
+    m_z_offset.reset();
 
     //use a window of buffer size.
     const coord_t min_point_distance_sqr = min_point_distance * min_point_distance;
@@ -1866,6 +2120,8 @@ void ArcPolyline::simplify_straits(const coordf_t min_tolerance,
 // douglas_peuker and create arc if with_fitting_arc
 void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, double fit_percent_tolerance)
 {
+    assert(!m_z_offset);
+    m_z_offset.reset();
     if (with_fitting_arc != ArcFittingType::Disabled && m_path.size() > 2) {
         // BBS: do arc fit first, then use DP simplify to handle the straight part to reduce point.
         Points pts;
@@ -2033,6 +2289,7 @@ bool ArcPolyline::is_valid() const {
     for (size_t i = 1; i < m_path.size(); ++i) {
         assert(!m_path[i].linear() || m_path[i].orientation == Geometry::ArcWelder::Orientation::Unknown);
     }
+    assert(!m_z_offset || m_z_offset->size() == m_path.size());
 #ifdef _DEBUG
     assert(m_path.empty() || m_path.front().linear());
     double min_radius = 0;
@@ -2076,6 +2333,8 @@ bool ArcPolyline::is_valid() const {
 // return false if the length of this path is (now) too short. 
 bool ArcPolyline::normalize() {
     assert(!has_arc() ); // TODO: with arc, if needed.
+    assert(!m_z_offset);
+    m_z_offset.reset();
     // remove points that are too near each other (if possible)
     if (size() > 2) {
         Point prev = get_point(size() - 2);
@@ -2132,5 +2391,7 @@ Polylines to_polylines(const ArcPolylines &arcpolys, coord_t deviation /*= 0*/)
     }
     return polys;
 }
+
+
 
 }

@@ -13,6 +13,7 @@
 #ifndef slic3r_Polyline_hpp_
 #define slic3r_Polyline_hpp_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,7 @@
 #include "libslic3r.h"
 #include "Line.hpp"
 #include "MultiPoint.hpp"
+#include "Point.hpp"
 
 namespace Slic3r {
 
@@ -236,6 +238,9 @@ protected:
     // the sign of the radius and the orientation are two different way to get the same information. They MUST be in synch.
     // note: first Segment in Path is always "strait", as it's the starting point of the following segment. 
     Geometry::ArcWelder::Path m_path;
+    //std::vector<Point> m_points;
+    std::unique_ptr<std::vector<coord_t>> m_z_offset;
+    //NOTe: maybe later, the vector of thign can be extended by many point-property, not only z & Segment.
     //bool cache_valid = true; // cache
     bool m_only_strait = true; // cache
     //note: i don't keep the polyline, as it's easy to reconstruct from arc (to_polyline).
@@ -244,20 +249,22 @@ protected:
     static Geometry::ArcWelder::Path _from_polyline(const Points &poly);
     static Geometry::ArcWelder::Path _from_polyline(std::initializer_list<Point> poly);
 public:
+    static constexpr coord_t INVALID_COORD = std::numeric_limits<coord_t>::max();
+
 #ifdef _DEBUG
     bool is_3D = false; // to deactivate assert about epsilon dist
 #endif
     ArcPolyline(){};
-    ArcPolyline(const ArcPolyline &) = default;
+    ArcPolyline(const ArcPolyline &other);
     ArcPolyline(ArcPolyline &&)      = default;
     ArcPolyline(const Polyline &other) : m_path(_from_polyline(other.points)) {}
     ArcPolyline(const Points &other) : m_path(_from_polyline(other)) {}
     ArcPolyline(const Geometry::ArcWelder::Path &other);
-    ArcPolyline &operator=(const ArcPolyline &) = default;
+    ArcPolyline &operator=(const ArcPolyline &other);
     ArcPolyline &operator=(ArcPolyline &&) = default;
 
-    void append(const Point &point) { m_path.emplace_back(/*Geometry::ArcWelder::Segment{*/point, 0.f, Geometry::ArcWelder::Orientation::Unknown/*}*/); }
-    void append_before(const Point &point) { m_path.insert(m_path.begin(), Geometry::ArcWelder::Segment{point, 0.f, Geometry::ArcWelder::Orientation::Unknown}); }
+    void append(const Point &point);
+    void append_before(const Point &point);
     // Only use this append if and only if you're sure that the previous point is the same as one from another good ArcPolyline. First point need to be added via append(Point).
     void append(const Geometry::ArcWelder::Segment &to_copy_arc);
     void append(const Points &src);
@@ -266,9 +273,9 @@ public:
     void append(const ArcPolyline &src);
     void append(ArcPolyline &&src);
     void clear();
-    void swap(ArcPolyline &other) { m_path.swap(other.m_path); this->m_only_strait = other.m_only_strait; assert(is_valid()); }
-    void reverse() { Geometry::ArcWelder::reverse(m_path); }
-    
+    void swap(ArcPolyline &other);
+    void reverse();
+
     // multipoint methods
     const Point &front() const { return m_path.front().point; }
     const Point &middle() const { return m_path[m_path.size() / 2].point; }
@@ -277,7 +284,7 @@ public:
     bool         is_valid() const;
     bool         is_closed() const { return this->m_path.front().point == this->m_path.back().point; }
 
-    bool                                has_arc() const;
+    bool         has_arc() const;
     // point count in the path
     size_t                              size() const { return m_path.size(); }
     const Geometry::ArcWelder::Path &   get_arc() const { return m_path; }
@@ -286,15 +293,19 @@ public:
     const Geometry::ArcWelder::Segment &get_arc(size_t i) const { return m_path[i]; }
 
     //works on points only (be careful)
-    bool split_at_index(const size_t index, ArcPolyline &p1, ArcPolyline &p2) const;
-    void pop_front();
-    void pop_back();
+    bool                  split_at_index(const size_t index, ArcPolyline &p1, ArcPolyline &p2) const;
+    void                  pop_front();
+    void                  pop_back();
     // need some work to work better on arc
     void                  set_front(const Point &p);
     void                  set_back(const Point &p);
     // this one give you the index of the nearest point, or -1 if none is at epsilon.
     // if on an arc, you may want to call foot_pt to have the projection
     int                   find_point(const Point &point, coordf_t epsilon) const;
+    bool                  has_z_offset() const { return m_z_offset != nullptr; }
+    coord_t               z_offset(size_t idx) const;
+    // set z_offset. !has_z_offset, then the array is created with 0 for all point beforehand.
+    void                  set_z_offset(size_t idx, coord_t z_offset);
 
     // Works on points & arc
     distf_t               length() const;
@@ -310,6 +321,12 @@ public:
     Point                 get_point_from_begin(distf_t distance) const;
     Point                 get_point_from_end(distf_t distance) const;
 
+    // !!!!!!!!!!!
+    // == following public methods will delete z_offset, do not use them if you have it and want to keep it ===
+    // !!!!!!!!!!!
+
+    // TODO == > remove from here, use them as algorithm that creates a new ArcPolygon.
+
     // douglas_peuker and create arc if with_fitting_arc (don't touch the current arcs, only try in-between)
     void make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, double fit_percent_tolerance);
     // remove strait segemnts that are too near each other, and will overlaod the firmware. Return the buffer lines it still uses a t the end.
@@ -321,7 +338,9 @@ public:
 
 protected:
     // works on points only
-     int          find_point(const Point &point) const;
+    int          find_point(const Point &point) const;
+    std::vector<coord_t>& z_offsets_raw_mutable();
+    std::vector<coord_t>& z_offsets_mutable();
 };
 
 Polylines to_polylines(const ArcPolylines &polys_or_arcs, coord_t deviation = 0);

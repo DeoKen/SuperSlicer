@@ -63,31 +63,10 @@ public:
             }
         }
     }
-    void use(const ExtrusionPath3D &path3D) override {
-        if (path3D.role().is_external_perimeter()) {
-            for (const Line &line : to_lines(path3D.as_polyline().to_polyline())) {
-                lines.emplace_back(unscale_p(Point{line.a + instance->shift}), unscale_p(Point{line.b + instance->shift}),
-                                   object_layer_idx, instance_idx, root_extrusion ? root_extrusion : &path3D);
-#ifdef _DEBUG
-                ExtrudedExtrusionEntity eee = {int(object_layer_idx), int(instance_idx), root_extrusion ? root_extrusion->get_id() : path3D.get_id()};
-                this->registered_extrusion->insert(eee);
-                all_ee_id_per_instance[instance_idx].insert(root_extrusion ? root_extrusion->get_id() :
-                                                                             path3D.get_id());
-#endif
-            }
-        }
-    }
     void use(const ExtrusionMultiPath &multipath) override {
         root_extrusion = &multipath;
         for (const ExtrusionPath &path : multipath.paths) {
             path.visit(*this);
-        }
-        root_extrusion = nullptr;
-    }
-    void use(const ExtrusionMultiPath3D &multipath3D) override {
-        root_extrusion = &multipath3D;
-        for (const ExtrusionPath3D &path3D : multipath3D.paths) {
-            path3D.visit(*this);
         }
         root_extrusion = nullptr;
     }
@@ -193,14 +172,6 @@ public:
             this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), path.get_id()});
         }
     }
-    void use(const ExtrusionPath3D &path3D) override {
-        if (path3D.role().is_external_perimeter()){
-#ifdef _DEBUG
-            assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), path3D.get_id()}) != registered_extrusion->end());
-#endif
-            this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), path3D.get_id()});
-        }
-    }
     void use(const ExtrusionMultiPath &multipath) override {
         bool has_external_peri = false;
         for (const ExtrusionPath &path : multipath.paths) {
@@ -212,19 +183,6 @@ public:
             assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), multipath.get_id()}) != registered_extrusion->end());
 #endif
             this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), multipath.get_id()});
-        }
-    }
-    void use(const ExtrusionMultiPath3D &multipath3D) override {
-        bool has_external_peri = false;
-        for (const ExtrusionPath3D &path3D : multipath3D.paths) {
-            has_external_peri = path3D.role().is_external_perimeter();
-            if(has_external_peri) break;
-        }
-        if (has_external_peri) {
-#ifdef _DEBUG
-            assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), multipath3D.get_id()}) != registered_extrusion->end());
-#endif
-            this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), multipath3D.get_id()});
         }
     }
     void use(const ExtrusionLoop &loop) override {

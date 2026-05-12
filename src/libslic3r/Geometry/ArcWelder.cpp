@@ -1039,6 +1039,71 @@ double clip_end(Path &path, coordf_t distance)
     return distance;
 }
 
+
+double clip_end_old_size(Path &path, coordf_t distance)
+{
+#ifdef _DEBUG
+    for (size_t i = 1; i < path.size(); i++) {
+        if (path[i].radius) {
+            coordf_t new_length = segment_length<coordf_t>(path[i - 1], path[i]);
+            assert(is_approx(new_length, path[i].length, EPSILON));
+        }
+    }
+#endif
+    while (distance > 0) {
+        const Segment last = path.back();
+        path.pop_back();
+        if (path.empty())
+            break;
+        if (last.linear()) {
+            // Linear segment
+            Vec2d  v    = (path.back().point - last.point).cast<coordf_t>();
+            double lsqr = v.squaredNorm();
+            if (lsqr > sqr(distance + SCALED_EPSILON)) {
+                path.push_back({ last.point + Point::round(v * (distance / sqrt(lsqr))) });
+                // Length to go is zero.
+                return sqrt(lsqr);
+            }
+            distance -= sqrt(lsqr);
+            // check if not the same point as the one we just deleted.
+            if (distance < 0) {
+                assert(distance > -SCALED_EPSILON);
+                path.push_back(last);
+            }
+        } else {
+            // Circular segment
+            double angle = arc_angle(path.back().point.cast<double>(), last.point.cast<double>(), last.radius);
+            double len   = std::abs(last.radius) * angle;
+            if (len > distance + SCALED_EPSILON) {
+                // Rotate the segment end point in reverse towards the start point.
+                if (last.ccw())
+                    angle *= -1.;
+                path.push_back({
+                    last.point.rotated(angle * (distance / len), Point::round(
+                        arc_center(path.back().point.cast<double>(), last.point.cast<double>(), double(last.radius), last.ccw()))),
+                    last.radius, last.orientation });
+#ifdef _DEBUG
+                path.back().length = segment_length<coordf_t>(path[path.size()-2], path.back());
+                path.back().center = arc_center_scalar(path[path.size()-2].point, path.back().point, path.back().radius, path.back().ccw());
+                for (size_t i = 1; i < path.size(); i++) {
+                    if(path[i].radius)
+                        assert(is_approx(segment_length<coordf_t>(path[i-1], path[i]), path[i].length, EPSILON));
+                }
+#endif
+                // Length to go is zero.
+                return len;
+            }
+            distance -= len;
+        }
+    }
+    assert(path.size() > 1);
+    assert(path[path.size() - 2].point.distance_to(path.back().point) > SCALED_EPSILON);
+
+    // Return remaining distance to go.
+    assert(distance >= -SCALED_EPSILON);
+    return 0;
+}
+
 PathSegmentProjection point_to_path_projection(const Path &path, const Point &point, double search_radius2)
 {
     assert(path.size() != 1);

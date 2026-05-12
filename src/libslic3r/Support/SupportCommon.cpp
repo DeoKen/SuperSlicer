@@ -1281,13 +1281,7 @@ class GetFirstPath : public ExtrusionVisitorConst
 public:
     const ExtrusionPath *extrusion_path_template = nullptr;
     virtual void         use(const ExtrusionPath &path) override { extrusion_path_template = &path; }
-    virtual void         use(const ExtrusionPath3D &path3D) override { extrusion_path_template = &path3D; }
     virtual void         use(const ExtrusionMultiPath &multipath) override
-    {
-        if (!multipath.paths.empty())
-            extrusion_path_template = &multipath.paths.front();
-    }
-    virtual void use(const ExtrusionMultiPath3D &multipath) override
     {
         if (!multipath.paths.empty())
             extrusion_path_template = &multipath.paths.front();
@@ -1667,13 +1661,7 @@ class verify_nonempty : public ExtrusionVisitorRecursiveConst
 {
 public:
     virtual void use(const ExtrusionPath &path) override { assert(!path.empty()); }
-    virtual void use(const ExtrusionPath3D &path3D) override { assert(!path3D.empty()); }
     virtual void use(const ExtrusionMultiPath &truc) override
-    {
-        ExtrusionVisitorRecursiveConst::use(truc);
-        assert(!truc.empty());
-    }
-    virtual void use(const ExtrusionMultiPath3D &truc) override
     {
         ExtrusionVisitorRecursiveConst::use(truc);
         assert(!truc.empty());

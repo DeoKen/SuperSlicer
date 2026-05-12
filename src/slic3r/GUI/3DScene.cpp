@@ -1532,23 +1532,6 @@ void _3DScene::extrusionentity_to_verts(const ExtrusionMultiPath& extrusion_mult
     thick_lines_to_verts(lines, widths, heights, false, print_z, geometry);
 }
 
-// Fill in the qverts and tverts with quads and triangles for the extrusion_multi_path.
-void _3DScene::extrusionentity_to_verts(const ExtrusionMultiPath3D &extrusion_multi_path, float print_z, const Point &copy, GUI::GLModel::Geometry& geometry) {
-    Lines               lines;
-    std::vector<double> widths;
-    std::vector<double> heights;
-    for (const ExtrusionPath3D &extrusion_path : extrusion_multi_path.paths) {
-        Polyline            polyline = extrusion_path.polyline.to_polyline();
-        polyline.remove_duplicate_points();
-        polyline.translate(copy);
-        const Lines lines_this = polyline.lines();
-        append(lines, lines_this);
-        widths.insert(widths.end(), lines_this.size(), extrusion_path.width());
-        heights.insert(heights.end(), lines_this.size(), extrusion_path.height());
-    }
-    thick_lines_to_verts(lines, widths, heights, false, print_z, geometry);
-}
-
 void _3DScene::extrusionentity_to_verts(const ExtrusionEntity &extrusion_entity, float print_z, const Point& copy, GUI::GLModel::Geometry& geometry,
     std::optional<std::map<GCodeExtrusionRole, GUI::GLModel::Geometry*>> gl_map)
 {
@@ -1562,9 +1545,7 @@ void _3DScene::extrusionentity_to_verts(const ExtrusionEntity &extrusion_entity,
 }
 
 void ExtrusionToVert::use(const ExtrusionPath &path) { _3DScene::extrusionentity_to_verts(path, print_z, copy, geometry); }
-void ExtrusionToVert::use(const ExtrusionPath3D &path3D) { _3DScene::extrusionentity_to_verts(path3D, print_z, copy, geometry); }
 void ExtrusionToVert::use(const ExtrusionMultiPath &multipath) { _3DScene::extrusionentity_to_verts(multipath, print_z, copy, geometry); }
-void ExtrusionToVert::use(const ExtrusionMultiPath3D &multipath3D) { _3DScene::extrusionentity_to_verts(multipath3D, print_z, copy, geometry); }
 void ExtrusionToVert::use(const ExtrusionLoop &loop) { _3DScene::extrusionentity_to_verts(loop, print_z, copy, geometry); }
 void ExtrusionToVert::use(const ExtrusionEntityCollection &collection) {
     for (const ExtrusionEntity *extrusion_entity : collection.entities())
@@ -1572,13 +1553,9 @@ void ExtrusionToVert::use(const ExtrusionEntityCollection &collection) {
 }
 
 void ExtrusionToVertMap::use(const ExtrusionPath& path) { _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path)); }
-void ExtrusionToVertMap::use(const ExtrusionPath3D& path3D) { _3DScene::extrusionentity_to_verts(path3D, print_z, copy, get_geometry(path3D)); }
 void ExtrusionToVertMap::use(const ExtrusionMultiPath& multipath) {
     for (const ExtrusionPath &path : multipath.paths) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path));
     /*_3DScene::extrusionentity_to_verts(multipath, print_z, copy, get_geometry(multipath)); */}
-void ExtrusionToVertMap::use(const ExtrusionMultiPath3D& multipath3D) {
-    for (const ExtrusionPath3D &path3D : multipath3D.paths) _3DScene::extrusionentity_to_verts(path3D, print_z, copy, get_geometry(path3D));
-    /*_3DScene::extrusionentity_to_verts(multipath3D, print_z, copy, get_geometry(multipath3D)); */}
 void ExtrusionToVertMap::use(const ExtrusionLoop& loop) { for (const ExtrusionPath &path : loop.paths) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path)); }//_3DScene::extrusionentity_to_verts(loop, print_z, copy, get_geometry(loop)); }
 void ExtrusionToVertMap::use(const ExtrusionEntityCollection& collection) { for (const ExtrusionEntity* extrusion_entity : collection.entities()) extrusion_entity->visit(*this); }
 GUI::GLModel::Geometry& ExtrusionToVertMap::get_geometry(const ExtrusionEntity& e) {

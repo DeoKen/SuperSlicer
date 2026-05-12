@@ -4468,7 +4468,6 @@ void PerimeterGenerator::process(// Input:
             }
             void use(ExtrusionLoop &loop) override {}
             void use(ExtrusionMultiPath &loop) override {}
-            void use(ExtrusionPath3D &path3D) override { assert(false); /* not used by arachne */ }
             void use(ExtrusionEntityCollection &coll) override {
                 for (auto it = coll.set_entities().begin(); it != coll.set_entities().end(); ++it) {
                     current_entity.push_back(*it);
@@ -6452,9 +6451,7 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
             path.attributes_mutable().no_seam = no_seam;
             paths.push_back(path);
         }
-        virtual void use(ExtrusionPath3D &path3D) override { assert(false); /*shouldn't happen*/ }
         virtual void use(ExtrusionMultiPath &multipath) override { assert(false); /*shouldn't happen*/ }
-        virtual void use(ExtrusionMultiPath3D &multipath) { assert(false); /*shouldn't happen*/ }
         virtual void use(ExtrusionLoop &loop) override {
             for (ExtrusionPath &path : loop.paths)
                 this->use(path);
@@ -6515,9 +6512,7 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
                 }
             }
         }
-        virtual void use(ExtrusionPath3D &path3D) override { /*shouldn't happen*/ }
         virtual void use(ExtrusionMultiPath &multipath) override { /*shouldn't happen*/ }
-        virtual void use(ExtrusionMultiPath3D &multipath) { /*shouldn't happen*/ }
         virtual void use(ExtrusionLoop &loop) override {
             ExtrusionLoop * last_loop = current_loop;
             current_loop = &loop;

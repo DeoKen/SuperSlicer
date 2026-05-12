@@ -332,9 +332,7 @@ private:
     std::string_view visitor_comment;
     double           visitor_speed;
     virtual void use(const ExtrusionPath &path) override;
-    virtual void use(const ExtrusionPath3D &path3D) override;
     virtual void use(const ExtrusionMultiPath &multipath) override;
-    virtual void use(const ExtrusionMultiPath3D &multipath) override;
     virtual void use(const ExtrusionLoop &loop) override;
     virtual void use(const ExtrusionEntityCollection &collection) override;
     virtual void use(const ExtrusionNop &command) override;
@@ -352,9 +350,8 @@ private:
     std::string     extrude_loop(const ExtrusionLoop &loop, const std::string_view description, double speed = -1.);
     std::string     extrude_loop_vase(const ExtrusionPaths& normal_loop_paths, const ExtrusionLoop &original_loop, const std::string_view description, double speed = -1.);
     std::string     extrude_multi_path(const ExtrusionMultiPath &multipath, const std::string_view description, double speed = -1.);
-    std::string     extrude_multi_path3D(const ExtrusionMultiPath3D &multipath, const std::string_view description, double speed = -1.);
     std::string     extrude_path(const ExtrusionPath &path, const std::string_view description, double speed = -1.);
-    std::string     extrude_path_3D(const ExtrusionPath3D &path, const std::string_view description, double speed = -1.);
+    std::string     extrude_path_3D(const ExtrusionPath &path, const std::string_view description, double speed = -1.);
 
     void            split_at_seam_pos(ExtrusionLoop &loop, bool was_clockwise);
     template <typename THING = ExtrusionEntity> // can be templated safely because private

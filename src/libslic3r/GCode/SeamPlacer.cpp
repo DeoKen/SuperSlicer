@@ -492,9 +492,6 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                 //}
             }
         }
-        virtual void use(const ExtrusionPath3D &path3D) override {
-            this->use(*static_cast<const ExtrusionPath*>(&path3D));
-        }
         virtual void use(const ExtrusionLoop& loop) override {
             bool is_ccw = loop.polygon().is_counter_clockwise();
             if ((configured_seam_preference == spAllRandom && !loop.paths.empty() && loop.paths.front().role().is_perimeter())
@@ -559,22 +556,6 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
             if (perimeter_type == PerimeterGeneratorType::Arachne) {
                 for (size_t idx = 0; idx < collection.size(); idx++) {
                     const ExtrusionPath &path = collection.paths[idx];
-                    assert(m_corresponding_regions_out.size() == polylines->size());
-                    polylines->emplace_back(path.polyline.to_polyline().points,
-                                            idx == 0 ? true : false,
-                                            idx + 1 < collection.size() ? false : true,
-                                            PolylineWithEnd::PolyDir::BOTH); // TODO: more points for arcs
-                    assert(path.polyline.front() != path.polyline.back());
-                    assert(path.polyline.size() > 1);
-                    m_corresponding_regions_out.push_back(current_layer_region);
-                }
-            }
-        }
-        virtual void use(const ExtrusionMultiPath3D& collection) override {
-            
-            if (perimeter_type == PerimeterGeneratorType::Arachne) {
-                for (size_t idx = 0; idx < collection.size(); idx++) {
-                    const ExtrusionPath3D &path = collection.paths[idx];
                     assert(m_corresponding_regions_out.size() == polylines->size());
                     polylines->emplace_back(path.polyline.to_polyline().points,
                                             idx == 0 ? true : false,

@@ -535,6 +535,8 @@ void reverse(Path &path);
 // If path is shorter than len, remaining path length to trim will be returned.
 double clip_start(Path &path, const coordf_t len);
 double clip_end(Path &path, const coordf_t len);
+// retunr the old distance (before the clip) bewteen the size-1 point (after the clip) and the one after (before the clip then)
+double clip_end_old_size(Path &path, const coordf_t len);
 
 struct PathSegmentProjection
 {

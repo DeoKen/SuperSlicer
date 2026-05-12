@@ -51,7 +51,6 @@ class BuildVolume;
 class DynamicPrintConfig;
 class ExtrusionPath;
 class ExtrusionMultiPath;
-class ExtrusionMultiPath3D;
 class ExtrusionLoop;
 class ExtrusionEntity;
 class ExtrusionEntityCollection;
@@ -503,7 +502,6 @@ struct _3DScene
     static void extrusionentity_to_verts(const ExtrusionPath& extrusion_path, float print_z, const Point& copy, GUI::GLModel::Geometry& geometry);
     static void extrusionentity_to_verts(const ExtrusionLoop& extrusion_loop, float print_z, const Point& copy, GUI::GLModel::Geometry& geometry);
     static void extrusionentity_to_verts(const ExtrusionMultiPath& extrusion_multi_path, float print_z, const Point& copy, GUI::GLModel::Geometry& geometry);
-    static void extrusionentity_to_verts(const ExtrusionMultiPath3D &extrusion_multi_path, float print_z, const Point& copy, GUI::GLModel::Geometry& geometry);
     static void extrusionentity_to_verts(const ExtrusionEntity &extrusion_entity, float print_z, const Point& copy, GUI::GLModel::Geometry& geometry, std::optional<std::map<GCodeExtrusionRole, GUI::GLModel::Geometry*>> gl_map = std::nullopt);
 };
 
@@ -514,9 +512,7 @@ class ExtrusionToVert : public ExtrusionVisitorConst {
 public:
     ExtrusionToVert(float print_z, const Point& copy, GUI::GLModel::Geometry& geometry) : print_z(print_z), copy(copy), geometry(geometry) {}
     virtual void use(const ExtrusionPath &path) override;
-    virtual void use(const ExtrusionPath3D &path3D) override;
     virtual void use(const ExtrusionMultiPath &multipath) override;
-    virtual void use(const ExtrusionMultiPath3D &multipath) override;
     virtual void use(const ExtrusionLoop &loop) override;
     virtual void use(const ExtrusionEntityCollection &collection) override;
 };
@@ -532,9 +528,7 @@ public:
         assert(!geometries.empty());
     }
     virtual void            use(const ExtrusionPath &path) override;
-    virtual void            use(const ExtrusionPath3D &path3D) override;
     virtual void            use(const ExtrusionMultiPath &multipath) override;
-    virtual void            use(const ExtrusionMultiPath3D &multipath) override;
     virtual void            use(const ExtrusionLoop &loop) override;
     virtual void            use(const ExtrusionEntityCollection &collection) override;
     GUI::GLModel::Geometry &get_geometry(const ExtrusionEntity &e);

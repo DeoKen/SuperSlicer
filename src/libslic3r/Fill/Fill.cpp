@@ -1286,9 +1286,6 @@ Polylines Layer::_generate_sparse_infill_polylines_for_anchoring(const LayerSlic
                     for (ExtrusionPath *path : visitor.paths) {
                         polylines.push_back(path->as_polyline().to_polyline());
                     }
-                    for (ExtrusionPath3D *path : visitor.paths3D) {
-                        polylines.push_back(path->as_polyline().to_polyline());
-                    }
                 }
                 sparse_infill_polylines.insert(sparse_infill_polylines.end(), polylines.begin(), polylines.end());
             } catch (InfillFailedException &) {}

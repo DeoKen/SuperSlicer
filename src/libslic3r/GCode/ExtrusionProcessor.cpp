@@ -238,13 +238,13 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
             }
             result.append(std::move(new_mp));
         } else if (auto *p = dynamic_cast<const ExtrusionPath *>(e)) {
-            result.append(calculate_and_split_overhanging_extrusions(*p, unscaled_prev_layer, prev_layer_curled_lines, nozzle_diameter));
-        } else if (auto *mp = dynamic_cast<const ExtrusionMultiPath3D *>(e)) {
-            ExtrusionMultiPath3D new_mp = *mp;
-            result.append(std::move(new_mp)); //TODO split
-        } else if (auto *mp = dynamic_cast<const ExtrusionPath3D *>(e)) {
-            ExtrusionPath3D new_mp = *mp;
-            result.append(std::move(new_mp)); //TODO split
+            // bypass splitting if the extrusion is in 3D 
+            if (!p->polyline.has_z_offset()) {
+                    result.append(calculate_and_split_overhanging_extrusions(*p, unscaled_prev_layer, prev_layer_curled_lines, nozzle_diameter));
+            } else {
+                ExtrusionPath new_p = *p;
+                result.append(std::move(new_p)); //TODO split
+            }
         } else {
             throw Slic3r::InvalidArgument("Unknown extrusion entity type");
         }

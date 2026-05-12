@@ -24,17 +24,13 @@ namespace Slic3r {
 
 //// extrusion entity visitor
 void ExtrusionVisitor::use(ExtrusionPath &path) { default_use(path); };
-void ExtrusionVisitor::use(ExtrusionPath3D &path3D) { default_use(path3D); }
 void ExtrusionVisitor::use(ExtrusionMultiPath &multipath) { default_use(multipath); }
-void ExtrusionVisitor::use(ExtrusionMultiPath3D &multipath3D) { default_use(multipath3D); }
 void ExtrusionVisitor::use(ExtrusionLoop &loop) { default_use(loop); }
 void ExtrusionVisitor::use(ExtrusionEntityCollection &collection) { default_use(collection); }
 void ExtrusionVisitor::use(ExtrusionNop &nop) { default_use(nop); }
 
 void ExtrusionVisitorConst::use(const ExtrusionPath &path) { default_use(path); }
-void ExtrusionVisitorConst::use(const ExtrusionPath3D &path3D) { default_use(path3D); }
 void ExtrusionVisitorConst::use(const ExtrusionMultiPath &multipath) { default_use(multipath); }
-void ExtrusionVisitorConst::use(const ExtrusionMultiPath3D &multipath3D) { default_use(multipath3D); }
 void ExtrusionVisitorConst::use(const ExtrusionLoop &loop) { default_use(loop); }
 void ExtrusionVisitorConst::use(const ExtrusionEntityCollection &collection) { default_use(collection); }
 void ExtrusionVisitorConst::use(const ExtrusionNop &nop) { default_use(nop); }
@@ -65,6 +61,14 @@ void ExtrusionPath::clip_end(coordf_t distance) { this->polyline.clip_end(distan
 
 void ExtrusionPath::simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance)
 {
+    if (this->polyline.has_z_offset()){
+        this->polyline.make_arc(ArcFittingType::Disabled, tolerance, fitting_arc_tolerance);
+        // TODO: simplify but only for sub-path with same zheight.
+        // if (with_fitting_arc) {
+        //    this->polyline.simplify(tolerance, with_fitting_arc, fitting_arc_tolerance);
+        //}
+        return;
+    }
     if (with_fitting_arc != ArcFittingType::Disabled) {
         if (role().is_sparse_infill())
             // Use 3x lower resolution than the object fine detail for sparse infill.
@@ -78,15 +82,6 @@ void ExtrusionPath::simplify(coordf_t tolerance, ArcFittingType with_fitting_arc
             tolerance *= 4.;
     }
     this->polyline.make_arc(with_fitting_arc, tolerance, fitting_arc_tolerance);
-}
-
-void ExtrusionPath3D::simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance)
-{
-    this->polyline.make_arc(ArcFittingType::Disabled, tolerance, fitting_arc_tolerance);
-    // TODO: simplify but only for sub-path with same zheight.
-    // if (with_fitting_arc) {
-    //    this->polyline.simplify(tolerance, with_fitting_arc, fitting_arc_tolerance);
-    //}
 }
 
 coordf_t ExtrusionPath::length() const { return this->polyline.length(); }
@@ -448,27 +443,19 @@ void ExtrusionLoop::polygons_covered_by_spacing(Polygons &out, const float spaci
 
 void ExtrusionPrinter::use(const ExtrusionPath &path)
 {
-
-    ss << (json?"\"":"") << "ExtrusionPath" << (path.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(path.role()) << (json?"\":":"") << "[";
+    const bool has_z_profile = path.polyline.has_z_offset();
+    ss << (json?"\"":"") << "ExtrusionPath" << (has_z_profile ? "3D" : "") << (path.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(path.role()) << (json?"\":":"") << "[";
     for (int i = 0; i < path.polyline.size(); i++) {
         if (i != 0)
             ss << ",";
         double x = (mult * (path.polyline.get_point(i).x()));
         double y = (mult * (path.polyline.get_point(i).y()));
-        ss << std::fixed << "["<<(trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) <<"]";
-    }
-    ss << "]";
-}
-void ExtrusionPrinter::use(const ExtrusionPath3D &path3D)
-{
-    ss << (json?"\"":"") << "ExtrusionPath3D" << (path3D.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(path3D.role()) << (json?"\":":"") << "[";
-    for (int i = 0; i < path3D.polyline.size(); i++) {
-        if (i != 0)
-            ss << ",";
-        double x = (mult * (path3D.polyline.get_point(i).x()));
-        double y = (mult * (path3D.polyline.get_point(i).y()));
-        double z = (path3D.z_offsets.size() > i ? mult * (path3D.z_offsets[i]) : -1);
-        ss << std::fixed << "[" << (trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) << "," << (trunc>0?(int(z*trunc))/double(trunc):z) << "]";
+        if (has_z_profile) {
+            double z = mult * path.polyline.z_offset(size_t(i));
+            ss << std::fixed << "[" << (trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) << "," << (trunc>0?(int(z*trunc))/double(trunc):z) << "]";
+        } else {
+            ss << std::fixed << "["<<(trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) <<"]";
+        }
     }
     ss << "]";
 }
@@ -479,16 +466,6 @@ void ExtrusionPrinter::use(const ExtrusionMultiPath &multipath)
         if (i != 0)
             ss << ",";
         multipath.paths[i].visit(*this);
-    }
-    ss << "}";
-}
-void ExtrusionPrinter::use(const ExtrusionMultiPath3D &multipath3D)
-{
-    ss << (json?"\"":"") << "multipath3D" << (multipath3D.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(multipath3D.role()) << (json?"\":":"") << "{";
-    for (int i = 0; i < multipath3D.paths.size(); i++) {
-        if (i != 0)
-            ss << ",";
-        multipath3D.paths[i].visit(*this);
     }
     ss << "}";
 }
@@ -538,12 +515,6 @@ void ExtrusionVisitorRecursiveConst::use(const ExtrusionMultiPath& multipath) {
         path.visit(*this);
     }
 }
-void ExtrusionVisitorRecursiveConst::use(const ExtrusionMultiPath3D &multipath3D)
-{
-    for (const ExtrusionPath3D &path3D : multipath3D.paths) {
-        path3D.visit(*this);
-    }
-}
 void ExtrusionVisitorRecursiveConst::use(const ExtrusionLoop &loop)
 {
     for (const ExtrusionPath &path : loop.paths) {
@@ -562,12 +533,6 @@ void ExtrusionVisitorRecursive::use(ExtrusionMultiPath &multipath)
         path.visit(*this);
     }
 }
-void ExtrusionVisitorRecursive::use(ExtrusionMultiPath3D &multipath3D)
-{
-    for (ExtrusionPath3D &path3D : multipath3D.paths) {
-        path3D.visit(*this);
-    }
-}
 void ExtrusionVisitorRecursive::use(ExtrusionLoop &loop)
 {
     for (ExtrusionPath &path : loop.paths) {
@@ -584,12 +549,6 @@ void ExtrusionVisitorRecursive::use(ExtrusionEntityCollection &collection)
 void HasRoleVisitor::use(const ExtrusionMultiPath& multipath) {
     for (const ExtrusionPath& path : multipath.paths) {
         path.visit(*this);
-        if(found) return;
-    }
-}
-void HasRoleVisitor::use(const ExtrusionMultiPath3D& multipath3D) {
-    for (const ExtrusionPath3D& path3D : multipath3D.paths) {
-        path3D.visit(*this);
         if(found) return;
     }
 }
@@ -624,19 +583,19 @@ void SimplifyVisitor::use(ExtrusionPath& path) {
     }
     assert(m_scaled_resolution >= SCALED_EPSILON);
     path.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_effective_value(path.width())));
-    for (int i = 1; i < path.polyline.size(); ++i)
-        if (path.polyline.get_point(i - 1).coincides_with_epsilon(path.polyline.get_point(i))) {
-            path.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_effective_value(path.width())));
+    // extra simplify if points are too close (unless z-profile, as they can have same position but different z)
+    if (!path.polyline.has_z_offset()) {
+        for (int i = 1; i < path.polyline.size(); ++i) {
+            if (path.polyline.get_point(i - 1).coincides_with_epsilon(path.polyline.get_point(i))) {
+                path.simplify(m_scaled_resolution, m_use_arc_fitting,
+                              scale_d(m_arc_fitting_tolearance->get_effective_value(path.width())));
+                break;
+            }
         }
-    for (int i = 1; i < path.polyline.size(); ++i)
-        assert(!path.polyline.get_point(i - 1).coincides_with_epsilon(path.polyline.get_point(i)));
-}
-void SimplifyVisitor::use(ExtrusionPath3D& path3D) {
-    if (m_min_path_size > 0 && path3D.length() < m_min_path_size) {
-        m_last_deleted = true;
-        return;
+        for (int i = 1; i < path.polyline.size(); ++i) {
+            assert(!path.polyline.get_point(i - 1).coincides_with_epsilon(path.polyline.get_point(i)));
+        }
     }
-    path3D.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_effective_value(path3D.width())));
 }
 void SimplifyVisitor::use(ExtrusionMultiPath &multipath)
 {
@@ -665,37 +624,6 @@ void SimplifyVisitor::use(ExtrusionMultiPath &multipath)
             m_last_deleted = false;
             // refresh pointer, as multipath.paths was modified 
             path = &multipath.paths[i];
-            //visit again to remove small segments
-            path->visit(*this);
-        }
-    }
-}
-void SimplifyVisitor::use(ExtrusionMultiPath3D &multipath3D)
-{
-    for (size_t i = 0;i<multipath3D.paths.size() ;++i) {
-        ExtrusionPath3D *path = &multipath3D.paths[i];
-        //if (min_path_size > 0 && path.length() < min_path_size) {
-        path->visit(*this);
-        while (m_last_deleted) {
-            ExtrusionPath *path_merged = nullptr;
-            if (i > 0) {
-                ExtrusionPath &path_previous = multipath3D.paths[i - 1];
-                path_previous.polyline.append(path->polyline);
-                // erase us, move to previous
-                multipath3D.paths.erase(multipath3D.paths.begin() + i);
-                --i;
-            } else if (i + 1 < multipath3D.size()) {
-                ExtrusionPath &path_next = multipath3D.paths[i + 1];
-                path->polyline.append(path_next.polyline);
-                // erase next
-                multipath3D.paths.erase(multipath3D.paths.begin() + i + 1);
-            } else {
-                //return, the caller need to delete me.
-                return;
-            }
-            m_last_deleted = false;
-            // refresh pointer, as multipath.paths was modified 
-            path = &multipath3D.paths[i];
             //visit again to remove small segments
             path->visit(*this);
         }
