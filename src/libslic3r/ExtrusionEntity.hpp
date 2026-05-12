@@ -16,7 +16,7 @@
 #include <string_view>
 
 #include "ExtrusionRole.hpp"
-#include "Flow.hpp"
+#include "ExtrusionProperty.hpp"
 #include "libslic3r.h"
 #include "Polygon.hpp"
 #include "Polyline.hpp"
@@ -61,300 +61,34 @@ public:
     virtual void use(const ExtrusionNop &nop);
 };
 
-class ExtrusionProperty;
-class ExtrusionPropertyNone;
-class ExtrusionMultiProperties;
-class ExtrusionPropertySpeed;
-class ExtrusionPropertyModifier;
-class ExtrusionPropertyCustomGcode;
-class ExtrusionPropertySpecialCommand;
-class ExtrusionPropertyOverhang;
-class ExtrusionPropertyZOffset;
-class ExtrusionPropertyVisitor {
-public:
-    virtual void default_use(ExtrusionProperty&);
-    virtual void use(ExtrusionMultiProperties&);
-    virtual void use(ExtrusionPropertySpeed&);
-    virtual void use(ExtrusionPropertyModifier&);
-    virtual void use(ExtrusionPropertyCustomGcode&);
-    virtual void use(ExtrusionPropertySpecialCommand&);
-    virtual void use(ExtrusionPropertyOverhang&);
-    virtual void use(ExtrusionPropertyZOffset&);
-};
-class ExtrusionPropertyVisitorConst {
-public:
-    virtual void default_use(const ExtrusionProperty&);
-    virtual void use(const ExtrusionMultiProperties&);
-    virtual void use(const ExtrusionPropertySpeed&);
-    virtual void use(const ExtrusionPropertyModifier&);
-    virtual void use(const ExtrusionPropertyCustomGcode&);
-    virtual void use(const ExtrusionPropertySpecialCommand&);
-    virtual void use(const ExtrusionPropertyOverhang&);
-    virtual void use(const ExtrusionPropertyZOffset&);
-};
-
-// std::variant or class heirachy?
-// std::visit/switch(on index()) vs custom visitor
-// => only use variant if you need a visitor with classes that don't inherit same ancestor.
-class ExtrusionProperty
-{
-public:
-    virtual std::unique_ptr<ExtrusionProperty> clone() const = 0;
-    virtual void visit(ExtrusionPropertyVisitor &visitor) = 0;
-    virtual void visit(ExtrusionPropertyVisitorConst &visitor) const = 0;
-};
-//using ExtrusionPropertiesPtr = std::vector<ExtrusionProperty*>;
-class ExtrusionPropertyNone : public ExtrusionProperty
-{
-public:
-    bool operator==(ExtrusionPropertyNone const& rhs) const { return true; }
-    std::unique_ptr<ExtrusionProperty> clone() const override { assert(false); return std::make_unique<ExtrusionPropertyNone>(); }
-    void visit(ExtrusionPropertyVisitor &visitor) override {}
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override {}
-    static ExtrusionPropertyNone& instance();
-};
-class ExtrusionMultiProperties : public ExtrusionProperty
-{
-public:
-    std::vector<std::unique_ptr<ExtrusionProperty>> properties;
-    ExtrusionMultiProperties() {}
-    ExtrusionMultiProperties(const ExtrusionMultiProperties& rhs){
-        for (const std::unique_ptr<ExtrusionProperty> &prop : rhs.properties) {
-            this->properties.push_back(prop->clone());
-        }
-    }
-    ExtrusionProperty& push_back(const ExtrusionProperty &attr) {
-        properties.push_back(attr.clone());
-        return *properties.back();
-    }
-    void push_back(std::unique_ptr<ExtrusionProperty> &&attr) {
-        properties.push_back(std::move(attr));
-    }
-    std::unique_ptr<ExtrusionProperty> clone() const override { return std::make_unique<ExtrusionMultiProperties>(*this); }
-    void visit(ExtrusionPropertyVisitor &visitor) override { visitor.use(*this); }
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override { visitor.use(*this);}
-};
-
-// These are a state. They are used for all children if it's not overriden.
-// After the end of this entity, it'sreverted to previous state.
-class ExtrusionPropertySpeed : public ExtrusionProperty
-{
-public:
-    float speed_mm_per_s = -1.f;
-    float accel_mm_per_s2 = -1.f;
-    float pressure_adv = -1.f;
-    float fan_speed_percent = -1.f; // between 0 and 100
-    float temperature_C = -1.f;
-    // ROLE_OVERRIDE?
-
-    ExtrusionPropertySpeed(float speed = -1, float accel = -1, float pa = -1, float fan = -1, float temp = -1)
-        : speed_mm_per_s(speed)
-        , accel_mm_per_s2(accel)
-        , pressure_adv(pa)
-        , fan_speed_percent(fan)
-        , temperature_C(temp) {}
-
-    ExtrusionPropertySpeed &speed(float speed) {
-        speed_mm_per_s = (speed);
-        return *this;
-    }
-    ExtrusionPropertySpeed &acceleration(float accel) {
-        accel_mm_per_s2 = (accel);
-        return *this;
-    }
-    ExtrusionPropertySpeed &presure_advance(float pa) {
-        pressure_adv = (pa);
-        return *this;
-    }
-    ExtrusionPropertySpeed &fan_speed(float fspeed) {
-        assert(fspeed >= -1 && fspeed <= 100);
-        fan_speed_percent = (fspeed);
-        return *this;
-    }
-    ExtrusionPropertySpeed &temperature(float temp) {
-        temperature_C = (temp);
-        return *this;
-    }
-
-    std::unique_ptr<ExtrusionProperty> clone() const override {
-        return std::make_unique<ExtrusionPropertySpeed>(*this);
-    }
-    void visit(ExtrusionPropertyVisitor &visitor) override { visitor.use(*this); }
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override { visitor.use(*this); }
-};
-// this store switch to activate/deactivate/enforce certain gcode feature like retract, lift, etc.
-class ExtrusionPropertyModifier : public ExtrusionProperty
-{
-public:
-    // enforce a blind travel to the first point of the extrusion, even if the processor think it don't move
-    bool enforce_travel = false;
-    bool enforce_retraction = false;
-    bool enforce_unlift = false;
-    bool disable_retraction = false;
-    bool disable_lift = false;
-    bool toolchange_retraction = false;
-
-    ExtrusionPropertyModifier() {}
-
-    ExtrusionPropertyModifier &set_enforce_travel(bool enforce = true) {
-        enforce_travel = enforce;
-        return *this;
-    }
-    ExtrusionPropertyModifier &set_enforce_retraction(bool enforce = true) {
-        enforce_retraction = enforce;
-        return *this;
-    }
-    ExtrusionPropertyModifier &set_enforce_unlift(bool enforce = true) {
-        enforce_unlift = enforce;
-        return *this;
-    }
-    ExtrusionPropertyModifier &set_disable_retraction(bool disable = true) {
-        disable_retraction = disable;
-        return *this;
-    }
-    ExtrusionPropertyModifier &set_disable_lift(bool disable = true) {
-        disable_lift = disable;
-        return *this;
-    }
-    ExtrusionPropertyModifier &set_toolchange_retraction(bool is = true) {
-        toolchange_retraction = is;
-        return *this;
-    }
-
-    std::unique_ptr<ExtrusionProperty> clone() const override {
-        return std::make_unique<ExtrusionPropertyModifier>(*this);
-    }
-    void visit(ExtrusionPropertyVisitor &visitor) override { visitor.use(*this); }
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override { visitor.use(*this); }
-};
-class ExtrusionPropertyCustomGcode : public ExtrusionProperty
-{
-public:
-    enum class Code {
-        GCODE,
-        COMMENT, // the string is a comment to put at the end of the lines. only if verbose.
-    };
-    Code code;
-    std::string gcode;
-    ExtrusionPropertyCustomGcode(const std::string &str) : gcode(str), code(Code::GCODE) {
-        if (!str.empty() && str[0] == ';') {
-            code = Code::COMMENT;
-            if (str.size() > 1 && str[1] == ' ') {
-                gcode = gcode.substr(2);
-            } else {
-                gcode = gcode.substr(1);
-            }
-        }
-    }
-    ExtrusionPropertyCustomGcode(Code c, const std::string &str) : gcode(str), code(c) {}
-    std::unique_ptr<ExtrusionProperty> clone() const override { return std::make_unique<ExtrusionPropertyCustomGcode>(*this); }
-    void visit(ExtrusionPropertyVisitor &visitor) override { visitor.use(*this); }
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override { visitor.use(*this);}
-};
-
-// these are one-shot. They are not a state
-class ExtrusionPropertySpecialCommand : public ExtrusionProperty
-{
-public:
-    enum class Code {
-        TOOLCHANGE, // to tool 'extra_data' (uint16_t)
-        SAVE_AND_RESET_SPEED_RATIO, // also set new speed ratio to extra_data (1 = 100%)
-        RESTORE_SPEED_RATIO,
-        FLUSH_PLANNER_QUEUE,
-        EXTRUSION, // only e move, by extra_data mm
-        RETRACT, // only e move, by extra_data mm, but taggued retract/unretract
-        //WIPE_RETRACT_LIFT, //trigger auto-wipe, retract & lift, like before a travel
-        PAUSE, // pause (G4) for extra_data miliseconds (int)
-        //SET_TEMP, // for extra_data °C should be done via ExtrusionPropertySpeed.temperature
-        WAIT_FOR_TEMP, // wait for current temperature, given by ExtrusionPropertySpeed
-        DISABLE_PREVIEW,
-        ENABLE_PREVIEW,
-        EXTRUDER_CURRENT, // set extruder trimpot to extra_data
-    };
-    Code code;
-    double extra_data; // idx of new tool, set speed ratio, etc.
-    ExtrusionPropertySpecialCommand(Code c) : code(c), extra_data(0) {}
-    ExtrusionPropertySpecialCommand(Code c, double data) : code(c), extra_data(data) {}
-    std::unique_ptr<ExtrusionProperty> clone() const override { return std::make_unique<ExtrusionPropertySpecialCommand>(*this); }
-    void visit(ExtrusionPropertyVisitor &visitor) override { visitor.use(*this); }
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override { visitor.use(*this);}
-};
-
-// Old ExtruionPath::ExtrusionAttributes::OverhangAttributes is now an ExtrusionProperty
-class ExtrusionPropertyOverhang : public ExtrusionProperty
-{
-public:
-    float start_distance_from_prev_layer = -1; // mm
-    float end_distance_from_prev_layer = -1; // mm
-    float proximity_to_curled_lines = 0; // value between 0 and 1
-    bool has_full_overhangs_flow = false;
-    bool has_full_overhangs_speed = false;
-    bool has_dynamic_overhangs_flow = false;
-    bool has_dynamic_overhangs_speed = false;
-    ExtrusionPropertyOverhang() {}
-    ExtrusionPropertyOverhang(float start_dist, float end_dist)
-        : start_distance_from_prev_layer(start_dist), end_distance_from_prev_layer(end_dist) {}
-    ExtrusionPropertyOverhang(float start_dist, float end_dist, float curled_ratio)
-        : start_distance_from_prev_layer(start_dist)
-        , end_distance_from_prev_layer(end_dist)
-        , proximity_to_curled_lines(curled_ratio) {}
-    ExtrusionPropertyOverhang(float start_dist, float end_dist, float curled_ratio, bool full_flow, bool full_speed, bool dynamic_flow, bool dynamic_speed)
-        : start_distance_from_prev_layer(start_dist)
-        , end_distance_from_prev_layer(end_dist)
-        , proximity_to_curled_lines(curled_ratio)
-        , has_full_overhangs_flow(full_flow)
-        , has_full_overhangs_speed(full_speed)
-        , has_dynamic_overhangs_flow(dynamic_flow)
-        , has_dynamic_overhangs_speed(dynamic_speed) {}
-    std::unique_ptr<ExtrusionProperty> clone() const override { return std::make_unique<ExtrusionPropertyOverhang>(*this); }
-    void visit(ExtrusionPropertyVisitor &visitor) override { visitor.use(*this); }
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override { visitor.use(*this);}
-};
-
-// Old ExtruionPath3D offset are now blended in the ExtrusionPath (the ArcPolyline has the offsets
-// this property is to change the plane of an ee.
-class ExtrusionPropertyZOffset : public ExtrusionProperty
-{
-public:
-    coord_t z_offset; // 1 offset for evrything or an offset for each point
-    ExtrusionPropertyZOffset() {}
-    // one z for the whole entity
-    ExtrusionPropertyZOffset(coord_t offset) : z_offset(offset) {}
-    std::unique_ptr<ExtrusionProperty> clone() const override { return std::make_unique<ExtrusionPropertyZOffset>(*this); }
-    void visit(ExtrusionPropertyVisitor &visitor) override { visitor.use(*this); }
-    void visit(ExtrusionPropertyVisitorConst &visitor) const override { visitor.use(*this);}
-};
-
-class ExtrusionEntity
+class ExtrusionEntity : public ExtrusionPropertyContainer
 {
 protected:
     static inline std::atomic_int32_t id_generator;
     uint32_t m_id; // for travel map
     // even if no_sort, allow to reverse() us (and our entities if they allow it, but they should) 
     bool m_can_reverse; //TODO: use (int64_t) m_id sign to embed this property, currently not an issue as 32+8 <= 64
-    // unique_ptr to avoid creating one empty one, most of the time there is nothing and it's lighter that way.
-    std::unique_ptr<ExtrusionProperty> m_property = nullptr;
 
     ExtrusionEntity(bool can_reverse) : m_can_reverse(can_reverse) , m_id(++id_generator) {}
-    ExtrusionEntity(std::unique_ptr<ExtrusionProperty> &&eprop, bool can_reverse)
-        : m_property(std::move(eprop)), m_can_reverse(can_reverse), m_id(++id_generator) {}
+    ExtrusionEntity(ExtrusionPropertyUPtr &&eprop, bool can_reverse)
+        : ExtrusionPropertyContainer(std::move(eprop)), m_can_reverse(can_reverse), m_id(++id_generator) {}
+    ExtrusionEntity(ExtrusionPropertyUPtrs &&eprops, bool can_reverse)
+        : ExtrusionPropertyContainer(std::move(eprops)), m_can_reverse(can_reverse), m_id(++id_generator) {}
     ExtrusionEntity(const ExtrusionEntity &rhs)
-        : m_can_reverse(rhs.m_can_reverse)
-        , m_id(rhs.m_id)
-        , m_property(rhs.m_property ? rhs.m_property->clone() : nullptr) {}
+        : ExtrusionPropertyContainer(rhs), m_can_reverse(rhs.m_can_reverse), m_id(rhs.m_id) {}
     ExtrusionEntity(ExtrusionEntity &&rhs)
-        : m_can_reverse(rhs.m_can_reverse), m_id(rhs.m_id), m_property(std::move(rhs.m_property)) {}
+        : ExtrusionPropertyContainer(std::move(rhs)), m_can_reverse(rhs.m_can_reverse), m_id(rhs.m_id) {}
     
     ExtrusionEntity &operator=(const ExtrusionEntity &rhs) {
         this->m_id = rhs.m_id;
         this->m_can_reverse = rhs.m_can_reverse;
-        this->m_property = rhs.m_property ? rhs.m_property->clone() : nullptr;
+        ExtrusionPropertyContainer::operator=(rhs);
         return *this;
     }
     ExtrusionEntity &operator=(ExtrusionEntity &&rhs) {
         this->m_id = rhs.m_id;
         this->m_can_reverse = rhs.m_can_reverse;
-        this->m_property = std::move(rhs.m_property);
+        ExtrusionPropertyContainer::operator=(std::move(rhs));
         return *this;
     }
 public:
@@ -397,14 +131,6 @@ public:
     void visit(ExtrusionVisitor &&visitor); // note: need 'using ExtrusionEntity::visit;' to be called from children classes
     void visit(ExtrusionVisitorConst &&visitor) const;
 
-    bool               has_properties() const { return m_property.operator bool(); }
-    std::unique_ptr<ExtrusionProperty> clone_properties() const;
-    ExtrusionProperty *get_root_property();
-    const ExtrusionProperty *get_root_property() const;
-    // take ownership
-    ExtrusionProperty &add_property(const ExtrusionProperty &attr);
-    void               add_property(std::unique_ptr<ExtrusionProperty> &&attr);
-    void               clear_properties() { m_property.reset(); }
 };
 
 // only cary an ExtrusionProperty
@@ -431,7 +157,6 @@ public:
         this->position = rhs.position;
         return *this;
     }
-    //ExtrusionNop(std::unique_ptr<ExtrusionProperty> sptr_attr) : ExtrusionEntity(true) { this->add_property(std::move(sptr_attr)); }
     ExtrusionRole role() const override { return m_role; }
     void set_role(ExtrusionRole new_role) { m_role = new_role; }
     bool has_role(ExtrusionRole test_role) const override { return (m_role & test_role) == test_role; }
@@ -483,52 +208,6 @@ private:
 //FIXME: this is still unsafe. it's a collection of unsafe container.
 using ExtrusionEntityReferences = std::vector<ExtrusionEntityReference>;
 
-//TODO: convert ExtrusionFlow to ExtrusionProperty
-struct ExtrusionFlow
-{
-    ExtrusionFlow() = default;
-    ExtrusionFlow(double mm3_per_mm, float width, float height) : 
-        mm3_per_mm{ mm3_per_mm }, width{ width }, height{ height } {}
-    ExtrusionFlow(const Flow &flow) :
-        mm3_per_mm(flow.mm3_per_mm()), width(flow.width()), height(flow.height()) {}
-
-    void set_force_e_per_mm() { this->height = -2; }
-    bool force_e_per_mm() const { return this->height == -2; }
-
-    // Volumetric velocity. mm^3 of plastic per mm of linear head motion. Used by the G-code generator.
-    // !!! if height == -2, then mm3_per_mm is changed into e_per_mm (used for exact unretraction) !!! (very unsafe, don't use it for normal extrusions)
-    double          mm3_per_mm{ -1. };
-    // Width of the extrusion, used for visualization purposes & for seam notch %. Unscaled
-    float           width{ -1.f };
-    // Height of the extrusion, used for visualization purposes. Unscaled
-    float           height{ -1.f };
-};
-
-inline bool operator==(const ExtrusionFlow &lhs, const ExtrusionFlow &rhs)
-{
-    return lhs.mm3_per_mm == rhs.mm3_per_mm && lhs.width == rhs.width && lhs.height == rhs.height;
-}
-
-// move it into extrusion path, it's only used by it?
-struct ExtrusionAttributes : ExtrusionFlow
-{
-    ExtrusionAttributes() = default;
-    ExtrusionAttributes(ExtrusionRole role) : role{ role } {}
-    ExtrusionAttributes(ExtrusionRole role, const Flow &flow) : role{ role }, ExtrusionFlow{ flow } {}
-    ExtrusionAttributes(ExtrusionRole role, const ExtrusionFlow &flow) : role{ role }, ExtrusionFlow{ flow } {}
-
-    // What is the role / purpose of this extrusion?
-    ExtrusionRole   role{ ExtrusionRole::None };
-    // set to true to prevent seam on this path.
-    bool no_seam = false;
-};
-
-inline bool operator==(const ExtrusionAttributes &lhs, const ExtrusionAttributes &rhs)
-{
-    return static_cast<const ExtrusionFlow&>(lhs) == static_cast<const ExtrusionFlow&>(rhs) &&
-           lhs.role == rhs.role;
-}
-
 class ExtrusionPath : public ExtrusionEntity
 {
 public:
@@ -537,38 +216,53 @@ public:
     //ExtrusionPath(ExtrusionRole role) : ExtrusionEntity(true), m_attributes{role} {}
     //ExtrusionPath(const ExtrusionAttributes &attributes, bool can_reverse = true) : ExtrusionEntity(can_reverse), m_attributes(attributes) {}
     ExtrusionPath(const ExtrusionAttributes &attributes,
-                  std::unique_ptr<ExtrusionProperty> &&eprop,
+                  ExtrusionPropertyUPtr &&eprop,
                   bool can_reverse = true)
-        : ExtrusionEntity(std::move(eprop), can_reverse), m_attributes(attributes) {}
-    ExtrusionPath(const ExtrusionPath &rhs) : ExtrusionEntity(rhs), polyline(rhs.polyline), m_attributes(rhs.m_attributes) {}
-    ExtrusionPath(ExtrusionPath &&rhs) : ExtrusionEntity(rhs), polyline(std::move(rhs.polyline)), m_attributes(rhs.m_attributes) {}
+        : ExtrusionEntity(can_reverse) { this->set_attributes(attributes); if (eprop) this->add_property(std::move(eprop)); }
+    ExtrusionPath(const ExtrusionAttributes &attributes,
+                  ExtrusionPropertyUPtrs &&eprops,
+                  bool can_reverse = true)
+        : ExtrusionEntity(can_reverse) { this->set_attributes(attributes); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
+    ExtrusionPath(const ExtrusionAttributes &attributes,
+                  bool can_reverse = true)
+        : ExtrusionEntity(can_reverse) { this->set_attributes(attributes); }
+    ExtrusionPath(const ExtrusionPath &rhs) : ExtrusionEntity(rhs), polyline(rhs.polyline) {}
+    ExtrusionPath(ExtrusionPath &&rhs) : ExtrusionEntity(rhs), polyline(std::move(rhs.polyline)) {}
     //ExtrusionPath(const ArcPolyline &polyline, const ExtrusionAttributes &attribs, bool can_reverse = true)
         //: ExtrusionEntity(can_reverse), polyline(polyline), m_attributes(attribs) {}
     //ExtrusionPath(ArcPolyline &&polyline, const ExtrusionAttributes &attribs, bool can_reverse = true)
         //: ExtrusionEntity(can_reverse), polyline(std::move(polyline)), m_attributes(attribs) {}
     ExtrusionPath(const ArcPolyline &polyline,
                   const ExtrusionAttributes &attribs,
-                  std::unique_ptr<ExtrusionProperty> &&eprop,
+                  ExtrusionPropertyUPtr &&eprop,
                   bool can_reverse = true)
-        : ExtrusionEntity(std::move(eprop), can_reverse), polyline(polyline), m_attributes(attribs) {}
+        : ExtrusionEntity(can_reverse), polyline(polyline) { this->set_attributes(attribs); if (eprop) this->add_property(std::move(eprop)); }
+    ExtrusionPath(const ArcPolyline &polyline,
+                  const ExtrusionAttributes &attribs,
+                  ExtrusionPropertyUPtrs &&eprops,
+                  bool can_reverse = true)
+        : ExtrusionEntity(can_reverse), polyline(polyline) { this->set_attributes(attribs); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
     ExtrusionPath(ArcPolyline &&polyline,
                   const ExtrusionAttributes &attribs,
-                  std::unique_ptr<ExtrusionProperty> &&eprop,
+                  ExtrusionPropertyUPtr &&eprop,
                   bool can_reverse = true)
-        : ExtrusionEntity(std::move(eprop),can_reverse)
-        , polyline(std::move(polyline))
-        , m_attributes(attribs) {}
+        : ExtrusionEntity(can_reverse)
+        , polyline(std::move(polyline)) { this->set_attributes(attribs); if (eprop) this->add_property(std::move(eprop)); }
+    ExtrusionPath(ArcPolyline &&polyline,
+                  const ExtrusionAttributes &attribs,
+                  ExtrusionPropertyUPtrs &&eprops,
+                  bool can_reverse = true)
+        : ExtrusionEntity(can_reverse)
+        , polyline(std::move(polyline)) { this->set_attributes(attribs); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
 
     ExtrusionPath &operator=(const ExtrusionPath &rhs) {
         ExtrusionEntity::operator=(rhs);
         this->polyline = rhs.polyline;
-        m_attributes = rhs.m_attributes;
         return *this;
     }
     ExtrusionPath &operator=(ExtrusionPath &&rhs) {
         ExtrusionEntity::operator=(rhs);
         this->polyline = std::move(rhs.polyline);
-        m_attributes = rhs.m_attributes;
         return *this;
     }
 
@@ -593,20 +287,20 @@ public:
     void clip_end(coordf_t distance);
     virtual void simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance);
     coordf_t length() const override;
-   
-    const ExtrusionAttributes&  attributes() const { return m_attributes; }
-    ExtrusionRole               role() const override { return m_attributes.role; }
-    bool has_role(ExtrusionRole test_role) const override { return (m_attributes.role & test_role) == test_role; }
-    float                       width() const { return m_attributes.width; }
-    float                       height() const { return m_attributes.height; }
-    double                      mm3_per_mm() const { return m_attributes.mm3_per_mm; }
+
+    const ExtrusionAttributes&  attributes() const { const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>(); assert(attributes != nullptr); return *attributes; }
+    ExtrusionRole               role() const override { return attributes().role; }
+    bool has_role(ExtrusionRole test_role) const override { return (attributes().role & test_role) == test_role; }
+    float                       width() const { return attributes().width; }
+    float                       height() const { return attributes().height; }
+    double                      mm3_per_mm() const { return attributes().mm3_per_mm; }
     // Minimum volumetric velocity of this extrusion entity. Used by the constant nozzle pressure algorithm.
-    double                      min_mm3_per_mm() const { return m_attributes.mm3_per_mm; }
+    double                      min_mm3_per_mm() const { return attributes().mm3_per_mm; }
     ExtrusionPropertyOverhang &overhang_attributes_mutable();
     const ExtrusionPropertyOverhang *overhang_attributes() const; // can be null if not present
-    ExtrusionAttributes& attributes_mutable() { return m_attributes; }
+    ExtrusionAttributes& attributes_mutable() { return this->get_or_add_property<ExtrusionAttributes>(); }
 
-    void set_role(ExtrusionRole new_role) { m_attributes.role = new_role; }
+    void set_role(ExtrusionRole new_role) { attributes_mutable().role = new_role; }
     // Produce a list of 2D polygons covered by the extruded paths, offsetted by the extrusion width.
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
     void polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const override;
@@ -621,7 +315,7 @@ public:
     ArcPolyline as_polyline() const override { return this->polyline; }
     void          collect_polylines(ArcPolylines &dst) const override { if (! this->polyline.empty()) dst.emplace_back(this->polyline); }
     void          collect_points(Points &dst) const override { append(dst, this->polyline.to_polyline().points); }
-    double      total_volume() const override { return m_attributes.mm3_per_mm * unscaled(length()); }
+    double      total_volume() const override { return attributes().mm3_per_mm * unscaled(length()); }
     using ExtrusionEntity::visit;
     virtual void visit(ExtrusionVisitor &visitor) override { visitor.use(*this); };
     virtual void visit(ExtrusionVisitorConst &visitor) const override { visitor.use(*this); };
@@ -629,7 +323,7 @@ public:
 protected:
     void _inflate_collection(const Polylines &polylines, ExtrusionEntityCollection* collection) const;
 
-    ExtrusionAttributes     m_attributes;
+    void set_attributes(const ExtrusionAttributes &attributes) { this->add_property(attributes); }
 };
 /* just set the path to can_reverse = false
 class ExtrusionPathOriented : public ExtrusionPath
@@ -662,9 +356,15 @@ public:
 
     //ExtrusionPath3D(ExtrusionRole role) : ExtrusionPath(role) { /*std::cout << "new path3D\n"; */};
     ExtrusionPath3D(const ExtrusionAttributes &attributes,
-                    std::unique_ptr<ExtrusionProperty> &&eprop,
+                    ExtrusionPropertyUPtr &&eprop,
                     bool can_reverse)
         : ExtrusionPath(attributes, std::move(eprop), can_reverse) {
+        init();
+    };
+    ExtrusionPath3D(const ExtrusionAttributes &attributes,
+                    ExtrusionPropertyUPtrs &&eprops,
+                    bool can_reverse)
+        : ExtrusionPath(attributes, std::move(eprops), can_reverse) {
         init();
     };
     ExtrusionPath3D(const ExtrusionPath &rhs) : ExtrusionPath(rhs) { init();  }
@@ -887,21 +587,25 @@ public:
     ExtrusionPaths paths;
     
     //ExtrusionLoop(const ExtrusionLoop& rhs) : ExtrusionEntity(rhs), paths(rhs.paths), m_loop_role(rhs.m_loop_role) {}
-    ExtrusionLoop(ExtrusionLoopRole role = elrDefault) : m_loop_role(role) , ExtrusionEntity(false) {}
-    ExtrusionLoop(const ExtrusionPaths &paths, ExtrusionLoopRole role = elrDefault) : paths(paths), m_loop_role(role), ExtrusionEntity(false) { 
+    ExtrusionLoop(ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) { this->set_loop_role(role); }
+    ExtrusionLoop(const ExtrusionPaths &paths, ExtrusionLoopRole role = elrDefault) : paths(paths), ExtrusionEntity(false) {
+        this->set_loop_role(role);
         assert(!this->paths.empty());
         assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline.back()));
     }
-    ExtrusionLoop(ExtrusionPaths &&paths, ExtrusionLoopRole role = elrDefault) : paths(std::move(paths)), m_loop_role(role), ExtrusionEntity(false) {
+    ExtrusionLoop(ExtrusionPaths &&paths, ExtrusionLoopRole role = elrDefault) : paths(std::move(paths)), ExtrusionEntity(false) {
+        this->set_loop_role(role);
         assert(!this->paths.empty());
         assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline.back()));
     }
-    ExtrusionLoop(const ExtrusionPath &path, ExtrusionLoopRole role = elrDefault) : m_loop_role(role), ExtrusionEntity(false) {
+    ExtrusionLoop(const ExtrusionPath &path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) {
+        this->set_loop_role(role);
         this->paths.push_back(path);
         assert(!this->paths.empty());
         assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline.back()));
     }
-    ExtrusionLoop(ExtrusionPath &&path, ExtrusionLoopRole role = elrDefault) : m_loop_role(role), ExtrusionEntity(false) {
+    ExtrusionLoop(ExtrusionPath &&path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) {
+        this->set_loop_role(role);
         this->paths.emplace_back(std::move(path));
         assert(!this->paths.empty());
         assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline.back()));
@@ -940,7 +644,11 @@ public:
     //bool has_overhang_point(const Point &point) const;
     ExtrusionRole role() const override;
     bool has_role(ExtrusionRole test_role) const override;
-    ExtrusionLoopRole loop_role() const { return m_loop_role; }
+    ExtrusionLoopRole loop_role() const
+    {
+        const ExtrusionPropertyLoopRole *property = this->get_property<ExtrusionPropertyLoopRole>();
+        return property == nullptr ? elrDefault : property->loop_role;
+    }
     // Produce a list of 2D polygons covered by the extruded paths, offsetted by the extrusion width.
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
     void polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const override;
@@ -976,7 +684,13 @@ public:
 #endif /* NDEBUG */
 
 private:
-    ExtrusionLoopRole m_loop_role{ elrDefault };
+    void set_loop_role(ExtrusionLoopRole role)
+    {
+        if (role == elrDefault)
+            this->remove_property<ExtrusionPropertyLoopRole>();
+        else
+            this->get_or_add_property<ExtrusionPropertyLoopRole>().loop_role = role;
+    }
 };
 
 inline void extrusion_paths_append(ExtrusionPaths &dst, Polylines &polylines, const ExtrusionAttributes &attributes, bool can_reverse = true)
@@ -1216,47 +930,6 @@ struct LoopAssertVisitor : public ExtrusionVisitorRecursiveConst {
 #else
 #define DEBUG_VISIT(ENTITY,VISITOR)
 #endif
-
-
-template<typename AttributeType>
-class AddGetEEAttribute : public ExtrusionPropertyVisitor
-{
-    static_assert(std::is_base_of<ExtrusionProperty, AttributeType>::value, "AttributeType must inherit ExtrusionProperty");
-public:
-    using ExtrusionPropertyVisitor::use;
-    AttributeType *found = nullptr;
-    void default_use(ExtrusionProperty &thing) override {};
-    void use(AttributeType &prop) override { found = &prop;}
-    AttributeType &add_or_get(ExtrusionEntity &entity) {
-        if (entity.get_root_property()) {
-            entity.get_root_property()->visit(*this);
-        }
-        if (found) {
-            return *found;
-        } else {
-            AttributeType *new_speed = new AttributeType();
-            entity.add_property(std::unique_ptr<ExtrusionProperty>(new_speed));
-            return *new_speed;
-        }
-    }
-};
-
-template<typename AttributeType>
-class GetEEAttribute : public ExtrusionPropertyVisitorConst
-{
-    static_assert(std::is_base_of<ExtrusionProperty, AttributeType>::value, "AttributeType must inherit ExtrusionProperty");
-public:
-    using ExtrusionPropertyVisitorConst::use;
-    const AttributeType *found = nullptr;
-    void default_use(const ExtrusionProperty &thing) override {};
-    void use(const AttributeType &prop) override { found = &prop;}
-    const AttributeType *get(const ExtrusionEntity &entity) {
-        if (entity.get_root_property()) {
-            entity.get_root_property()->visit(*this);
-        }
-        return found;
-    }
-};
 
 }
 

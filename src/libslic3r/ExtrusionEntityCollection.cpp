@@ -37,10 +37,8 @@ ExtrusionEntityCollection::ExtrusionEntityCollection(const ExtrusionPaths &paths
 
 ExtrusionEntityCollection& ExtrusionEntityCollection::operator= (const ExtrusionEntityCollection &other)
 {
-    this->m_property = other.m_property ? other.m_property->clone() : nullptr;
+    ExtrusionEntity::operator=(other);
     this->m_no_sort = other.m_no_sort;
-    this->m_can_reverse = other.m_can_reverse;
-    this->m_id = other.m_id;
     clear();
     this->append(other.m_entities);
     return *this;

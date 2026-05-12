@@ -198,6 +198,8 @@ set(SLIC3R_SOURCES
     ExtrusionEntity.hpp
     ExtrusionEntityCollection.cpp
     ExtrusionEntityCollection.hpp
+    ExtrusionProperty.cpp
+    ExtrusionProperty.hpp
     ExtrusionRole.cpp
     ExtrusionRole.hpp
     ExtrusionSimulator.cpp

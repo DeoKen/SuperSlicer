@@ -308,10 +308,13 @@ public:
 
 // Special flags describing loop
 enum ExtrusionLoopRole : uint16_t {
-    // useless
+    // if there is no tag, then it's not a loop
+    elrNotALoop = 0, // 1
+    // It means this is a loop
     elrDefault = 1 << 0, // 1
     // doesn't contains more contour: it's the most internal one
     elrInternal = 1 << 1, // 2
+    // skirt/brim loop
     elrSkirt    = 1 << 2, // 4
     // it's a modifier that indicate that the loop is around a hole, not around the infill
     elrHole = 1 << 3, // 8

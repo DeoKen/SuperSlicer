@@ -7200,50 +7200,38 @@ std::string GCodeGenerator::extrude_entity(const ExtrusionEntityReference &entit
 }
 void GCodeGenerator::use(const ExtrusionPath &path) {
     start_using_extrusion(path);
-    if (path.has_properties()) {
-        path.get_root_property()->visit(*this);
-    }
+    apply_properties(path);
     visitor_gcode += extrude_path(path, visitor_comment, visitor_speed);
     end_using_extrusion(path);
 };
 void GCodeGenerator::use(const ExtrusionPath3D &path3D) {
     start_using_extrusion(path3D);
-    if (path3D.has_properties()) {
-        path3D.get_root_property()->visit(*this);
-    }
+    apply_properties(path3D);
     visitor_gcode += extrude_path_3D(path3D, visitor_comment, visitor_speed);
     end_using_extrusion(path3D);
 };
 void GCodeGenerator::use(const ExtrusionMultiPath &multipath) {
     start_using_extrusion(multipath);
-    if (multipath.has_properties()) {
-        multipath.get_root_property()->visit(*this);
-    }
+    apply_properties(multipath);
     visitor_gcode += extrude_multi_path(multipath, visitor_comment, visitor_speed);
     end_using_extrusion(multipath);
 };
 void GCodeGenerator::use(const ExtrusionMultiPath3D &multipath) {
     start_using_extrusion(multipath);
-    if (multipath.has_properties()) {
-        multipath.get_root_property()->visit(*this);
-    }
+    apply_properties(multipath);
     visitor_gcode += extrude_multi_path3D(multipath, visitor_comment, visitor_speed);
     end_using_extrusion(multipath);
 };
 void GCodeGenerator::use(const ExtrusionLoop &loop) {
     start_using_extrusion(loop);
-    if (loop.has_properties()) {
-        loop.get_root_property()->visit(*this);
-    }
+    apply_properties(loop);
     visitor_gcode += extrude_loop(loop, visitor_comment, visitor_speed);
     end_using_extrusion(loop);
 };
 
 void GCodeGenerator::use(const ExtrusionEntityCollection &collection) {
     start_using_extrusion(collection);
-    if (collection.has_properties()) {
-        collection.get_root_property()->visit(*this);
-    }
+    apply_properties(collection);
     if (!visitor_comment.empty() && m_config.gcode_comments) {
         // use the comment
         visitor_gcode += "; ";
@@ -7285,9 +7273,7 @@ void GCodeGenerator::use(const ExtrusionNop &command) {
     std::string save_gcode = std::move(visitor_gcode);
     visitor_gcode.clear();
     //create gcode from the command properties
-    if (command.has_properties()) {
-        command.get_root_property()->visit(*this);
-    }
+    apply_properties(command);
     // need travel?
     if (command.position != ExtrusionNop::NOT_A_POINT) {
         // prepend retraction on the current extruder
@@ -7375,14 +7361,24 @@ void GCodeGenerator::end_using_extrusion(const ExtrusionEntity &entity) {
     visitor_comment = ""sv;
 }
 
-void GCodeGenerator::default_use(const ExtrusionProperty &ep) { assert(dynamic_cast<const ExtrusionPropertyOverhang*>(&ep)); }
+void GCodeGenerator::apply_properties(const ExtrusionEntity &entity)
+{
+    if (!entity.has_properties())
+        return;
 
-void GCodeGenerator::use(const ExtrusionMultiProperties & thing) {
-    for (const std::unique_ptr<ExtrusionProperty> &prop : thing.properties)
-        prop->visit(*this);
+    if (const ExtrusionPropertySpeed *speed_override = entity.get_property<ExtrusionPropertySpeed>())
+        apply_property(*speed_override);
+    if (const ExtrusionPropertyModifier *modifier_override = entity.get_property<ExtrusionPropertyModifier>())
+        apply_property(*modifier_override);
+    if (const ExtrusionPropertyZOffset *zmove = entity.get_property<ExtrusionPropertyZOffset>())
+        apply_property(*zmove);
+    if (const ExtrusionPropertyCustomGcode *custom_gcode = entity.get_property<ExtrusionPropertyCustomGcode>())
+        apply_property(*custom_gcode);
+    if (const ExtrusionPropertySpecialCommand *command = entity.get_property<ExtrusionPropertySpecialCommand>())
+        apply_property(*command);
 }
 
-void GCodeGenerator::use(const ExtrusionPropertySpeed& speed_override) {
+void GCodeGenerator::apply_property(const ExtrusionPropertySpeed& speed_override) {
     assert(visitor_in_use);
     assert(!m_current_entity.empty() && (m_speed_override.empty() || m_speed_override.back().first != m_current_entity.back()));
     m_speed_override.push_back(std::pair<const ExtrusionEntity*, const ExtrusionPropertySpeed*>(m_current_entity.back(), &speed_override));
@@ -7392,13 +7388,13 @@ void GCodeGenerator::use(const ExtrusionPropertySpeed& speed_override) {
     }
 }
 
-void GCodeGenerator::use(const ExtrusionPropertyModifier& modifier_override) {
+void GCodeGenerator::apply_property(const ExtrusionPropertyModifier& modifier_override) {
     assert(visitor_in_use);
     assert(!m_current_entity.empty() && (m_modifier_override.empty() || m_modifier_override.back().first != m_current_entity.back()));
     m_modifier_override.push_back(std::pair<const ExtrusionEntity*, const ExtrusionPropertyModifier*>(m_current_entity.back(), &modifier_override));
 }
 
-void GCodeGenerator::use(const ExtrusionPropertyCustomGcode& custom_gcode) {
+void GCodeGenerator::apply_property(const ExtrusionPropertyCustomGcode& custom_gcode) {
     if (custom_gcode.gcode.empty()) {
         return;
     }
@@ -7421,7 +7417,7 @@ void GCodeGenerator::use(const ExtrusionPropertyCustomGcode& custom_gcode) {
     }
 }
 
-void GCodeGenerator::use(const ExtrusionPropertySpecialCommand& command) {
+void GCodeGenerator::apply_property(const ExtrusionPropertySpecialCommand& command) {
     //TODO move into new firware-specific gcode writer
     assert(visitor_in_use);
     switch (command.code) {
@@ -7510,7 +7506,7 @@ void GCodeGenerator::use(const ExtrusionPropertySpecialCommand& command) {
     }
 }
 
-void GCodeGenerator::use(const ExtrusionPropertyZOffset& zmove) {
+void GCodeGenerator::apply_property(const ExtrusionPropertyZOffset& zmove) {
     assert(visitor_in_use);
     if (!m_layer) {
         assert(false);

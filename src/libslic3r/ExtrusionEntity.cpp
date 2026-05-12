@@ -42,101 +42,13 @@ void ExtrusionVisitorConst::use(const ExtrusionNop &nop) { default_use(nop); }
 void ExtrusionEntity::visit(ExtrusionVisitor &&visitor) { this->visit(visitor); }
 void ExtrusionEntity::visit(ExtrusionVisitorConst &&visitor) const { this->visit(visitor); }
 
-ExtrusionPropertyNone &ExtrusionPropertyNone::instance() {
-    static ExtrusionPropertyNone instance;
-    return instance;
-}
-void ExtrusionPropertyVisitor::default_use(ExtrusionProperty &thing) {
-    assert(dynamic_cast<ExtrusionPropertyNone *>(&thing) != nullptr);
-};
-void ExtrusionPropertyVisitor::use(ExtrusionMultiProperties &thing) {
-    for (std::unique_ptr<ExtrusionProperty> &prop : thing.properties)
-        prop->visit(*this);
-};
-void ExtrusionPropertyVisitor::use(ExtrusionPropertySpeed &thing) { default_use(thing); };
-void ExtrusionPropertyVisitor::use(ExtrusionPropertyModifier &thing) { default_use(thing); };
-void ExtrusionPropertyVisitor::use(ExtrusionPropertyCustomGcode &thing) { default_use(thing); };
-void ExtrusionPropertyVisitor::use(ExtrusionPropertySpecialCommand &thing) { default_use(thing); };
-void ExtrusionPropertyVisitor::use(ExtrusionPropertyOverhang &thing) { default_use(thing); };
-void ExtrusionPropertyVisitor::use(ExtrusionPropertyZOffset &thing) { default_use(thing); };
-
-void ExtrusionPropertyVisitorConst::default_use(const ExtrusionProperty &thing) {
-    assert(dynamic_cast<const ExtrusionPropertyNone *>(&thing) != nullptr);
-};
-void ExtrusionPropertyVisitorConst::use(const ExtrusionMultiProperties &thing) {
-    for (const std::unique_ptr<ExtrusionProperty> &prop : thing.properties)
-        prop->visit(*this);
-};
-void ExtrusionPropertyVisitorConst::use(const ExtrusionPropertySpeed &thing) { default_use(thing); };
-void ExtrusionPropertyVisitorConst::use(const ExtrusionPropertyModifier &thing) { default_use(thing); };
-void ExtrusionPropertyVisitorConst::use(const ExtrusionPropertyCustomGcode &thing) { default_use(thing); };
-void ExtrusionPropertyVisitorConst::use(const ExtrusionPropertySpecialCommand &thing) { default_use(thing); };
-void ExtrusionPropertyVisitorConst::use(const ExtrusionPropertyOverhang &thing) { default_use(thing); };
-void ExtrusionPropertyVisitorConst::use(const ExtrusionPropertyZOffset &thing) { default_use(thing); };
-
-std::unique_ptr<ExtrusionProperty> ExtrusionEntity::clone_properties() const {
-    return m_property ? m_property->clone() : nullptr;
-}
-
-ExtrusionProperty *ExtrusionEntity::get_root_property() {
-    return m_property.get();
-}
-
-const ExtrusionProperty *ExtrusionEntity::get_root_property() const {
-    return m_property.get();
-}
-
-ExtrusionProperty& ExtrusionEntity::add_property(const ExtrusionProperty &attr) {
-    if (!m_property) {
-        m_property = attr.clone();
-        return *m_property;
-    } else {
-        ExtrusionMultiProperties* vec = dynamic_cast<ExtrusionMultiProperties*>(m_property.get());
-        if (vec == nullptr) {
-            vec = new ExtrusionMultiProperties();
-            vec->properties.push_back(std::move(m_property));
-            m_property = std::unique_ptr<ExtrusionProperty>(vec);
-        }
-        return vec->push_back(attr);
-    }
-}
-
-void ExtrusionEntity::add_property(std::unique_ptr<ExtrusionProperty> &&attr) {
-    if (!m_property) {
-        m_property = std::move(attr);
-    } else {
-        ExtrusionMultiProperties* vec = dynamic_cast<ExtrusionMultiProperties*>(m_property.get());
-        if (vec == nullptr) {
-            vec = new ExtrusionMultiProperties();
-            vec->properties.push_back(std::move(m_property));
-            m_property = std::unique_ptr<ExtrusionProperty>(vec);
-        }
-        vec->push_back(std::move(attr));
-    }
-}
-
 Point ExtrusionNop::NOT_A_POINT = Point((std::numeric_limits<coord_t>::max)(), (std::numeric_limits<coord_t>::max)());
 ExtrusionPropertyOverhang &ExtrusionPath::overhang_attributes_mutable() {
-    if (!m_property) {
-        m_property = std::make_unique<ExtrusionPropertyOverhang>();
-        return *static_cast<ExtrusionPropertyOverhang*>(m_property.get());
-    } else if (auto ptr = dynamic_cast<ExtrusionPropertyOverhang*>(m_property.get()); ptr) {
-        // quick test, instead of going trough the visitor, as this should be the case for most of overhangs.
-        return *ptr;
-    } else {
-        return AddGetEEAttribute<ExtrusionPropertyOverhang>().add_or_get(*this);
-    }
+    return this->get_or_add_property<ExtrusionPropertyOverhang>();
 }
 
 const ExtrusionPropertyOverhang *ExtrusionPath::overhang_attributes() const {
-    if (!m_property) {
-        return nullptr;
-    } else if (auto ptr = dynamic_cast<const ExtrusionPropertyOverhang*>(m_property.get()); ptr) {
-        // quick test, instead of going trough the visitor, as this should be the case for most of overhangs.
-        return ptr;
-    } else {
-        return GetEEAttribute<ExtrusionPropertyOverhang>().get(*this);
-    }
+    return this->get_property<ExtrusionPropertyOverhang>();
 }
 
 void ExtrusionPath::intersect_expolygons(const ExPolygons &collection, ExtrusionEntityCollection *retval) const
@@ -189,8 +101,8 @@ void ExtrusionPath::_inflate_collection(const Polylines &polylines, ExtrusionEnt
 
 void ExtrusionPath::polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const
 {
-    //polygons_append(out, offset(this->polyline.to_polyline(), double(scale_(m_attributes.width / 2)) + scaled_epsilon));
-    out = union_(out, offset(this->polyline.to_polyline(), scale_d(m_attributes.width / 2) + scaled_epsilon));
+    //polygons_append(out, offset(this->polyline.to_polyline(), double(scale_(attributes().width / 2)) + scaled_epsilon));
+    out = union_(out, offset(this->polyline.to_polyline(), scale_d(attributes().width / 2) + scaled_epsilon));
 }
 
 void ExtrusionPath::polygons_covered_by_spacing(Polygons &out, const float spacing_ratio, const float scaled_epsilon) const
@@ -198,10 +110,10 @@ void ExtrusionPath::polygons_covered_by_spacing(Polygons &out, const float spaci
     // Instantiating the Flow class to get the line spacing.
     // Don't know the nozzle diameter, setting to zero. It shall not matter it shall be optimized out by the compiler.
     bool bridge = this->role().is_bridge() || (this->width() * 4 < this->height());
-    assert(!bridge || m_attributes.width == m_attributes.height);
+    assert(!bridge || attributes().width == attributes().height);
     // TODO: check BRIDGE_FLOW here
-    auto flow = bridge ? Flow::bridging_flow(m_attributes.width, 0.f) :
-                         Flow::new_from_width(m_attributes.width, 0.f, m_attributes.height, spacing_ratio);
+    Flow flow = bridge ? Flow::bridging_flow(attributes().width, 0.f) :
+                         Flow::new_from_width(attributes().width, 0.f, attributes().height, spacing_ratio);
     if (out.empty()) {
         out = offset(this->polyline.to_polyline(), 0.5f * float(flow.scaled_spacing()) + scaled_epsilon,
                      Slic3r::ClipperLib::jtMiter, 10);

@@ -47,6 +47,11 @@ namespace Slic3r {
 // Forward declarations.
 class AvoidCrossingPerimeters;
 class CoolingBuffer;
+class ExtrusionPropertyCustomGcode;
+class ExtrusionPropertyModifier;
+class ExtrusionPropertySpecialCommand;
+class ExtrusionPropertySpeed;
+class ExtrusionPropertyZOffset;
 class FanMover;
 class GCodeFindReplace;
 class GCodeGenerator;
@@ -142,7 +147,7 @@ struct PrintObjectInstance
 
 } // namespace GCode
 
-class GCodeGenerator : ExtrusionVisitorConst, ExtrusionPropertyVisitorConst {
+class GCodeGenerator : ExtrusionVisitorConst {
 
 public:
     GCodeGenerator();
@@ -336,14 +341,12 @@ private:
     void start_using_extrusion(const ExtrusionEntity &entity);
     void end_using_extrusion(const ExtrusionEntity &entity);
 
-    virtual void default_use(const ExtrusionProperty&) override;
-    virtual void use(const ExtrusionMultiProperties&) override;
-    virtual void use(const ExtrusionPropertySpeed&) override;
-    virtual void use(const ExtrusionPropertyCustomGcode&) override;
-    virtual void use(const ExtrusionPropertyModifier&) override;
-    virtual void use(const ExtrusionPropertySpecialCommand&) override;
-    //virtual void use(const ExtrusionPropertyOverhang&) override; // no need for this one
-    virtual void use(const ExtrusionPropertyZOffset&) override;
+    void apply_properties(const ExtrusionEntity &entity);
+    void apply_property(const ExtrusionPropertySpeed &speed_override);
+    void apply_property(const ExtrusionPropertyCustomGcode &custom_gcode);
+    void apply_property(const ExtrusionPropertyModifier &modifier_override);
+    void apply_property(const ExtrusionPropertySpecialCommand &command);
+    void apply_property(const ExtrusionPropertyZOffset &zmove);
 
     std::string     extrude_entity(const ExtrusionEntityReference &entity, const std::string_view description, double speed = -1.);
     std::string     extrude_loop(const ExtrusionLoop &loop, const std::string_view description, double speed = -1.);
