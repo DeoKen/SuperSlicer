@@ -592,95 +592,6 @@ static std::vector<std::vector<ExPolygons>> slices_to_regions(
     return slices_by_region;
 }
 
-// Layer::slicing_errors is no more set since 1.41.1 or possibly earlier, thus this code
-// was not really functional for a long day and nobody missed it.
-// Could we reuse this fixing code one day?
-/*
-std::string fix_slicing_errors(LayerPtrs &layers, const std::function<void()> &throw_if_canceled)
-{
-    // Collect layers with slicing errors.
-    // These layers will be fixed in parallel.
-    std::vector<size_t> buggy_layers;
-    buggy_layers.reserve(layers.size());
-    for (size_t idx_layer = 0; idx_layer < layers.size(); ++ idx_layer)
-        if (layers[idx_layer]->slicing_errors)
-            buggy_layers.push_back(idx_layer);
-
-    BOOST_LOG_TRIVIAL(debug) << "Slicing objects - fixing slicing errors in parallel - begin";
-    tbb::parallel_for(
-        tbb::blocked_range<size_t>(0, buggy_layers.size()),
-        [&layers, &throw_if_canceled, &buggy_layers](const tbb::blocked_range<size_t>& range) {
-            for (size_t buggy_layer_idx = range.begin(); buggy_layer_idx < range.end(); ++ buggy_layer_idx) {
-                throw_if_canceled();
-                size_t idx_layer = buggy_layers[buggy_layer_idx];
-                Layer *layer     = layers[idx_layer];
-                assert(layer->slicing_errors);
-                // Try to repair the layer surfaces by merging all contours and all holes from neighbor layers.
-                // BOOST_LOG_TRIVIAL(trace) << "Attempting to repair layer" << idx_layer;
-                for (size_t region_id = 0; region_id < layer->region_count(); ++ region_id) {
-                    LayerRegion *layerm = layer->get_region(region_id);
-                    // Find the first valid layer below / above the current layer.
-                    const Surfaces *upper_surfaces = nullptr;
-                    const Surfaces *lower_surfaces = nullptr;
-                    for (size_t j = idx_layer + 1; j < layers.size(); ++ j)
-                        if (! layers[j]->slicing_errors) {
-                            upper_surfaces = &layers[j]->regions()[region_id]->slices().surfaces;
-                            break;
-                        }
-                    for (int j = int(idx_layer) - 1; j >= 0; -- j)
-                        if (! layers[j]->slicing_errors) {
-                            lower_surfaces = &layers[j]->regions()[region_id]->slices().surfaces;
-                            break;
-                        }
-                    // Collect outer contours and holes from the valid layers above & below.
-                    Polygons outer;
-                    outer.reserve(
-                        ((upper_surfaces == nullptr) ? 0 : upper_surfaces->size()) + 
-                        ((lower_surfaces == nullptr) ? 0 : lower_surfaces->size()));
-                    size_t num_holes = 0;
-                    if (upper_surfaces)
-                        for (const auto &surface : *upper_surfaces) {
-                            outer.push_back(surface.expolygon.contour);
-                            num_holes += surface.expolygon.holes.size();
-                        }
-                    if (lower_surfaces)
-                        for (const auto &surface : *lower_surfaces) {
-                            outer.push_back(surface.expolygon.contour);
-                            num_holes += surface.expolygon.holes.size();
-                        }
-                    Polygons holes;
-                    holes.reserve(num_holes);
-                    if (upper_surfaces)
-                        for (const auto &surface : *upper_surfaces)
-                            polygons_append(holes, surface.expolygon.holes);
-                    if (lower_surfaces)
-                        for (const auto &surface : *lower_surfaces)
-                            polygons_append(holes, surface.expolygon.holes);
-                    layerm->m_slices.set(diff_ex(union_(outer), holes), stPosInternal | stDensSparse);
-                }
-                // Update layer slices after repairing the single regions.
-                layer->make_slices();
-            }
-        });
-    throw_if_canceled();
-    BOOST_LOG_TRIVIAL(debug) << "Slicing objects - fixing slicing errors in parallel - end";
-
-    // remove empty layers from bottom
-    while (! layers.empty() && (layers.front()->lslices().empty() || layers.front()->empty())) {
-        delete layers.front();
-        layers.erase(layers.begin());
-        if(!layers.empty())
-            layers.front()->lower_layer = nullptr;
-        for (size_t i = 0; i < layers.size(); ++ i)
-            layers[i]->set_id(layers[i]->id() - 1);
-    }
-
-    return buggy_layers.empty() ? "" :
-        "The model has overlapping or self-intersecting facets. I tried to repair it, "
-        "however you might want to check the results or repair the input file and retry.\n";
-}
-*/
-
 // Called by make_perimeters()
 // 1) Decides Z positions of the layers,
 // 2) Initializes layers and their regions
@@ -701,18 +612,6 @@ void PrintObject::slice()
     m_layers = new_layers(this, generate_object_layers(*m_slicing_params, layer_height_profile));
     this->slice_volumes();
     m_print->throw_if_canceled();
-#if 0
-    // Layer::slicing_errors is no more set since 1.41.1 or possibly earlier, thus this code
-    // was not really functional for a long day and nobody missed it.
-    // Could we reuse this fixing code one day?
-
-    // Fix the model.
-    //FIXME is this the right place to do? It is done repeateadly at the UI and now here at the backend.
-    std::string warning = fix_slicing_errors(m_layers, [this](){ m_print->throw_if_canceled(); });
-    m_print->throw_if_canceled();
-    if (! warning.empty())
-        BOOST_LOG_TRIVIAL(info) << warning;
-#endif
 
     //create polyholes
     this->_transform_hole_to_polyholes();

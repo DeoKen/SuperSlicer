@@ -139,8 +139,6 @@ protected:
     ~LayerRegion() = default;
 
 private:
-    // Modifying m_slices
-    friend std::string fix_slicing_errors(LayerPtrs&, const std::function<void()>&);
     template<typename ThrowOnCancel>
     friend void apply_mm_segmentation(PrintObject& print_object, ThrowOnCancel throw_on_cancel);
 
@@ -430,7 +428,6 @@ protected:
     friend class PrintObject;
     friend class Steps::StepPipeline;
     friend std::vector<Layer*> new_layers(PrintObject*, const std::vector<coordf_t>&);
-    friend std::string fix_slicing_errors(LayerPtrs&, const std::function<void()>&);
     friend struct ApiInternal::LayerAccess;
 
     Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok) :
