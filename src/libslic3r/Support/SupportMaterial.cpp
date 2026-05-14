@@ -774,12 +774,12 @@ public:
             [[fallthrough]];
         case smsSnug:
             // Merge the support polygons by applying morphological closing and inwards smoothing.
-            auto closing_distance   = scaled<float>(m_support_material_closing_radius_mm);
-            auto smoothing_distance = scaled<float>(m_extrusion_width_mm);
+            auto closing_distance   = scale_d(m_support_material_closing_radius_mm);
+            auto smoothing_distance = scale_d(m_extrusion_width_mm);
 #ifdef SLIC3R_DEBUG
             SVG::export_expolygons(debug_out_path("extract_support_from_grid_trimmed-%s-%d-%d-%lf.svg", step_name, iRun, layer_id, print_z_mm),
                 { { { diff_ex(expand(*m_support_polygons, closing_distance), closing(*m_support_polygons, closing_distance, SUPPORT_SURFACES_OFFSET_PARAMETERS)) }, { "closed", "blue",   0.5f } },
-                  { { union_ex(smooth_outward(closing(*m_support_polygons, closing_distance, SUPPORT_SURFACES_OFFSET_PARAMETERS), smoothing_distance)) },           { "regularized", "red", "black", "", scaled<coord_t>(0.1f), 0.5f } },
+                  { { union_ex(smooth_outward(closing(*m_support_polygons, closing_distance, SUPPORT_SURFACES_OFFSET_PARAMETERS), smoothing_distance)) },           { "regularized", "red", "black", "", scale_i(0.1f), 0.5f } },
                   { { union_ex(*m_support_polygons) },                                                                                                              { "src",   "green",  0.5f } },
                 });
 #endif /* SLIC3R_DEBUG */
@@ -1286,7 +1286,7 @@ static inline std::tuple<Polygons, Polygons, Polygons, float> detect_overhangs(
         overhang_polygons = to_polygons(layer.lslices());
 #endif
         // Expand for better stability.
-        contact_polygons = object_config.raft_expansion.value > 0 ? expand(overhang_polygons, scaled<float>(object_config.raft_expansion.value)) : overhang_polygons;
+        contact_polygons = object_config.raft_expansion.value > 0 ? expand(overhang_polygons, scale_d(object_config.raft_expansion.value)) : overhang_polygons;
     }
     else if (! layer.regions().empty())
     {
@@ -1447,7 +1447,7 @@ static inline std::tuple<Polygons, Polygons, Polygons, float> detect_overhangs(
                     diff_polygons = diff(
                         offset(
                             diff_polygons,
-                            scaled<float>(SUPPORT_MATERIAL_MARGIN / NUM_MARGIN_STEPS),
+                            scale_d(SUPPORT_MATERIAL_MARGIN / NUM_MARGIN_STEPS),
                             ClipperLib::jtRound,
                             // round mitter limit
                             scale_(0.05)),
@@ -1476,7 +1476,7 @@ static inline std::tuple<Polygons, Polygons, Polygons, float> detect_overhangs(
                     { { layer.lslices(),                               { "layer.lslices",              "gray",   0.2f } },
                       { { union_ex(lower_layer_polygons) },            { "lower_layer_polygons",       "green",  0.5f } },
                       { enforcers_united,                              { "enforcers",                  "blue",   0.5f } },
-                      { { union_safety_offset_ex(enforcer_polygons) }, { "new_contacts",               "red",    "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                      { { union_safety_offset_ex(enforcer_polygons) }, { "new_contacts",               "red",    "black", "", scale_i(0.1f), 0.5f } } });
     #endif /* SLIC3R_DEBUG */
                 if (! enforcer_polygons.empty()) {
                     ensure_valid(enforcer_polygons, resolution);
@@ -1660,14 +1660,14 @@ static inline void fill_contact_layer(
                     { { union_ex(*new_layer.contact_polygons) },      { "new_layer.contact_polygons", "yellow", 0.5f } },
                     { { union_ex(slices_margin.polygons) },           { "slices_margin_cached",       "blue",   0.5f } },
                     { { union_ex(dense_interface_polygons) },         { "dense_interface_polygons",   "green",  0.5f } },
-                    { { union_safety_offset_ex(new_layer.polygons) }, { "new_layer.polygons",         "red",    "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                    { { union_safety_offset_ex(new_layer.polygons) }, { "new_layer.polygons",         "red",    "black", "", scale_i(0.1f), 0.5f } } });
             //support_grid_pattern.serialize(debug_out_path("support-top-contacts-final-run%d-layer%d-z%f.bin", iRun, layer_id, layer.unscaled_print_z()));
             SVG::export_expolygons(debug_out_path("support-top-contacts-final2-run%d-layer%d-z%f.svg", iRun, layer_id, layer.unscaled_print_z()),
                 { { { union_ex(lower_layer_polygons) },               { "lower_layer_polygons",       "gray",   0.2f } },
                     { { union_ex(*new_layer.contact_polygons) },      { "new_layer.contact_polygons", "yellow", 0.5f } },
                     { { union_ex(contact_polygons) },                 { "contact_polygons",           "blue",   0.5f } },
                     { { union_ex(dense_interface_polygons) },         { "dense_interface_polygons",   "green",  0.5f } },
-                    { { union_safety_offset_ex(new_layer.polygons) }, { "new_layer.polygons",         "red",    "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                    { { union_safety_offset_ex(new_layer.polygons) }, { "new_layer.polygons",         "red",    "black", "", scale_i(0.1f), 0.5f } } });
     #endif /* SLIC3R_DEBUG */
         }
     } else {
@@ -1736,7 +1736,7 @@ static inline void fill_contact_layer(
             { { union_ex(*new_layer.contact_polygons) },      { "new_layer.contact_polygons", "yellow", 0.5f } },
             { { union_ex(contact_polygons) },                 { "contact_polygons",           "blue",   0.5f } },
             { { union_ex(overhang_polygons) },                { "overhang_polygons",          "green",  0.5f } },
-            { { union_safety_offset_ex(new_layer.polygons) }, { "new_layer.polygons",         "red",    "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+            { { union_safety_offset_ex(new_layer.polygons) }, { "new_layer.polygons",         "red",    "black", "", scale_i(0.1f), 0.5f } } });
 #endif /* SLIC3R_DEBUG */
 
     // Even after the contact layer was expanded into a grid, some of the contact islands may be too tiny to be extruded.
@@ -1927,7 +1927,7 @@ static inline SupportGeneratorLayer* detect_bottom_contacts(
         { { { union_ex(top) },                                { "top",            "blue",    0.5f } },
             { { union_safety_offset_ex(supports_projected) }, { "overhangs",      "magenta", 0.5f } },
             { layer.lslices(),                                { "layer.lslices",  "green",   0.5f } },
-            { { union_safety_offset_ex(polygons_new) },       { "polygons_new",   "red", "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+            { { union_safety_offset_ex(polygons_new) },       { "polygons_new",   "red", "black", "", scale_i(0.1f), 0.5f } } });
 #endif /* SLIC3R_DEBUG */
 
     // Now find whether any projection of the contact surfaces above layer.print_z not yet supported by any 
@@ -2028,7 +2028,7 @@ static inline SupportGeneratorLayer* detect_bottom_contacts(
 #ifdef SLIC3R_DEBUG
             SVG::export_expolygons(debug_out_path("support-support-areas-raw-before-trimming-%d-with-%f-%lf.svg", iRun, layer.unscaled_print_z(), layer_above.unscaled_print_z()),
                 { { { union_ex(touching) },              { "touching", "blue", 0.5f } },
-                    { { union_safety_offset_ex(above) }, { "above",    "red", "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                    { { union_safety_offset_ex(above) }, { "above",    "red", "black", "", scale_i(0.1f), 0.5f } } });
 #endif /* SLIC3R_DEBUG */
             above = diff(above, touching);
 #ifdef SLIC3R_DEBUG
@@ -2059,7 +2059,7 @@ static inline std::pair<Polygons, Polygons> project_support_to_grid(const Layer 
 #ifdef SLIC3R_DEBUG
     SVG::export_expolygons(debug_out_path("support-support-areas-%s-raw-%d-%lf.svg", debug_name, iRun, layer.unscaled_print_z()),
         { { { union_ex(trimming) },                           { "trimming",               "blue", 0.5f } },
-          { { union_safety_offset_ex(overhangs_projection) }, { "overhangs_projection",   "red", "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+          { { union_safety_offset_ex(overhangs_projection) }, { "overhangs_projection",   "red", "black", "", scale_i(0.1f), 0.5f } } });
 #endif /* SLIC3R_DEBUG */
 
     remove_sticks(overhangs_projection);
@@ -2068,7 +2068,7 @@ static inline std::pair<Polygons, Polygons> project_support_to_grid(const Layer 
 #ifdef SLIC3R_DEBUG
     SVG::export_expolygons(debug_out_path("support-support-areas-%s-raw-cleaned-%d-%lf.svg", debug_name, iRun, layer.unscaled_print_z()),
         { { { union_ex(trimming) },              { "trimming",             "blue", 0.5f } },
-          { { union_ex(overhangs_projection) },  { "overhangs_projection", "red", "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+          { { union_ex(overhangs_projection) },  { "overhangs_projection", "red", "black", "", scale_i(0.1f), 0.5f } } });
 #endif /* SLIC3R_DEBUG */
 
     SupportGridPattern support_grid_pattern(&overhangs_projection, &trimming, grid_params);
@@ -2115,7 +2115,7 @@ static inline std::pair<Polygons, Polygons> project_support_to_grid(const Layer 
             SVG::export_expolygons(debug_out_path("support-projection_new-gridded-%d-%lf.svg", iRun, layer.unscaled_print_z()),
                 { { { union_ex(trimming) },                             { "trimming",               "gray", 0.5f } },
                     { { union_safety_offset_ex(overhangs_projection) }, { "overhangs_projection",   "blue", 0.5f } },
-                    { { union_safety_offset_ex(out.second) },           { "projection_new", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                    { { union_safety_offset_ex(out.second) },           { "projection_new", "red",  "black", "", scale_i(0.1f), 0.5f } } });
 #endif /* SLIC3R_DEBUG */
         });
 
@@ -2228,7 +2228,7 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::bottom_contact_layers_and_
         Polygons &layer_support_area = layer_support_areas[layer_id];
         Polygons *layer_buildplate_covered = buildplate_covered.empty() ? nullptr : &buildplate_covered[layer_id];
         // Filtering the propagated support columns to two extrusions, overlapping by maximum 20%.
-//        float column_propagation_filtering_radius = scaled<float>(0.8 * 0.5 * (m_support_params.support_material_flow.spacing() + m_support_params.support_material_flow.width()));
+//        float column_propagation_filtering_radius = scale_d(0.8 * 0.5 * (m_support_params.support_material_flow.spacing() + m_support_params.support_material_flow.width()));
         task_group.run([&grid_params, &overhangs_projection, &overhangs_projection_raw, &layer, &layer_support_area, layer_buildplate_covered /* , column_propagation_filtering_radius */
 #ifdef SLIC3R_DEBUG 
             , iRun, layer_id

@@ -878,7 +878,7 @@ template<typename Fnc> TriangleMesh create_mesh_per_glyph(DataBase &input, Fnc w
             Eigen::AngleAxisd rotate(angle + M_PI_2, Vec3d::UnitY());
 
             const PolygonPoint &sample = samples[i];
-            Vec2d offset_vec = unscale(sample.point); // [in mm]
+            Vec2d offset_vec = unscale_p(sample.point); // [in mm]
             Eigen::Translation<double, 3> offset_tr(offset_vec.x(), 0., -offset_vec.y());
             Transform3d tr = offset_tr * rotate * to_zero * scale_tr;
 
@@ -1319,7 +1319,7 @@ TriangleMesh cut_per_glyph_surface(DataBase &input1, const SurfaceVolumeData &in
             auto rotate = Eigen::AngleAxisd(angle + M_PI_2, Vec3d::UnitY());
 
             const PolygonPoint &sample = samples[i];
-            Vec2d offset_vec = unscale(sample.point); // [in mm]
+            Vec2d offset_vec = unscale_p(sample.point); // [in mm]
             auto offset_tr = Eigen::Translation<double, 3>(offset_vec.x(), 0., -offset_vec.y());
 
             ExPolygons glyph_shape = es.shapes_with_ids[s_i_offset + i].expoly;

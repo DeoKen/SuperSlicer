@@ -186,8 +186,8 @@ ExPolygon make_bed_poly(const indexed_triangle_set &its)
 {
     auto bb = bounding_box(its);
 
-    BoundingBox bbcrd{scaled(to_2d(bb.min)), scaled(to_2d(bb.max))};
-    bbcrd.offset(scaled(10.));
+    BoundingBox bbcrd{Point::new_scale(to_2d(bb.min)), Point::new_scale(to_2d(bb.max))};
+    bbcrd.offset(scale_d(10.));
     Point     min = bbcrd.min, max = bbcrd.max;
     ExPolygon ret = {{min.x(), min.y()},
                      {max.x(), min.y()},

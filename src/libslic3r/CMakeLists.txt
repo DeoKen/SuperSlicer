@@ -184,7 +184,6 @@ set(SLIC3R_SOURCES
     enum_bitmask.hpp
     ExPolygon.cpp
     ExPolygon.hpp
-    ExPolygonSerialize.hpp
     ExPolygonsIndex.cpp
     ExPolygonsIndex.hpp
     Extruder.cpp
@@ -449,6 +448,9 @@ set(SLIC3R_SOURCES
     Platform.hpp
     Point.cpp
     Point.hpp
+    PointSerialize.hpp
+    PointUtils.cpp
+    PointUtils.hpp
     Polygon.cpp
     Polygon.hpp
     MutablePolygon.cpp

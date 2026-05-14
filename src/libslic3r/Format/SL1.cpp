@@ -329,8 +329,8 @@ RasterParams get_raster_params(const DynamicPrintConfig &cfg)
                                             sla::RasterBase::roPortrait,
                                         {opt_mirror_x->value, opt_mirror_y->value}};
 
-    rstp.height = scaled(opt_disp_h->value);
-    rstp.width  = scaled(opt_disp_w->value);
+    rstp.height = scale_i(opt_disp_h->value);
+    rstp.width  = scale_i(opt_disp_w->value);
 
     return rstp;
 }
@@ -347,7 +347,7 @@ ExPolygons rings_to_expolygons(const std::vector<marchsq::Ring> &rings,
         pts.reserve(ring.size());
 
         for (const marchsq::Coord &crd : ring)
-            pts.emplace_back(scaled(crd.c * px_w), scaled(crd.r * px_h));
+            pts.emplace_back(scale_i(crd.c * px_w), scale_i(crd.r * px_h));
 
         polys.emplace_back(poly);
     }

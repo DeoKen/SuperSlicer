@@ -60,8 +60,8 @@ template<class Tout = double, class = FloatingOnly<Tout>, int...EigenArgs>
 inline constexpr Eigen::Matrix<Tout, 2, EigenArgs...> unscaled(
     const Slic3r::ClipperLib::IntPoint &v) noexcept
 {
-    return Eigen::Matrix<Tout, 2, EigenArgs...>{unscaled<Tout>(v.x()),
-                                                unscaled<Tout>(v.y())};
+    return Eigen::Matrix<Tout, 2, EigenArgs...>{unscaled(v.x()),
+                                                unscaled(v.y())};
 }
 
 namespace arrangement {
@@ -648,7 +648,7 @@ void arrange(ArrangePolygons &      arrangables,
     for (const ArrangePolygon &fixed: excludes)
         process_arrangeable(fixed, fixeditems);
     
-    for (Item &itm : fixeditems) itm.inflate(scaled(-2. * EPSILON));
+    for (Item &itm : fixeditems) itm.inflate(scale_d(-2. * EPSILON));
     
     auto &cfn = params.stopcondition;
     auto &pri = params.progressind;
@@ -705,15 +705,15 @@ void arrange(ArrangePolygons &items,
             pilebb[itm.bed_idx].merge(get_extents(itm.transformed_poly()));
     }
 
-    auto piecesz = unscaled(bed.bb).size();
+    auto piecesz = unscale_bb(bed.bb).size();
     piecesz.x() /= bed.segments.x();
     piecesz.y() /= bed.segments.y();
 
     for (size_t bedidx = 0; bedidx < beds; ++bedidx) {
         BoundingBox bb;
-        auto pilesz = unscaled(pilebb[bedidx]).size();
-        bb.max.x() = scaled(std::ceil(pilesz.x() / piecesz.x()) * piecesz.x());
-        bb.max.y() = scaled(std::ceil(pilesz.y() / piecesz.y()) * piecesz.y());
+        auto pilesz = unscale_bb(pilebb[bedidx]).size();
+        bb.max.x() = scale_i(std::ceil(pilesz.x() / piecesz.x()) * piecesz.x());
+        bb.max.y() = scale_i(std::ceil(pilesz.y() / piecesz.y()) * piecesz.y());
         switch (params.alignment) {
         case Pivots::BottomLeft:
             bb.translate(bed.bb.min - bb.min);

@@ -47,7 +47,7 @@ RegionExpansionParameters RegionExpansionParameters::build(
     // The expansion should not be too tiny, but also small enough, so the following expansion will
     // compensate for tiny_expansion and bring the wave back to the boundary without producing
     // ugly cusps where it touches the boundary.
-    out.tiny_expansion = std::min(0.25f * full_expansion, scaled<float>(0.05f));
+    out.tiny_expansion = std::min(0.25f * full_expansion, (float)scale_d(0.05f));
     size_t nsteps = size_t(ceil((full_expansion - out.tiny_expansion) / expansion_step));
     if (max_nr_expansion_steps > 0)
         nsteps = std::min(nsteps, max_nr_expansion_steps);
@@ -66,7 +66,7 @@ RegionExpansionParameters RegionExpansionParameters::build(
     out.num_other_steps      = nsteps - 1;
 
     // Accuracy of the offsetter for wave propagation.
-    out.arc_tolerance        = scaled<double>(0.1);
+    out.arc_tolerance        = scale_d(0.1);
     out.shortest_edge_length = out.initial_step * ClipperOffsetShortestEdgeFactor;
 
     // Maximum inflation of seed contours over the boundary. Used to trim boundary to speed up

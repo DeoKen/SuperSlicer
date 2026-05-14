@@ -3,8 +3,9 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PointUtils.hpp"
 
-#include "../GCode.hpp"
+#include "libslic3r/GCode.hpp"
 
 namespace Slic3r::GCode {
     
@@ -40,7 +41,7 @@ public:
     void use(const ExtrusionPath &path) override {
         if (path.role().is_external_perimeter()) {
             for (const Line &line : to_lines(path.as_polyline().to_polyline())) {
-                lines.emplace_back(unscaled(Point{line.a + instance->shift}), unscaled(Point{line.b + instance->shift}),
+                lines.emplace_back(unscale_p(Point{line.a + instance->shift}), unscale_p(Point{line.b + instance->shift}),
                                    object_layer_idx, instance_idx, root_extrusion ? root_extrusion : &path);
 #ifdef _DEBUG
                 if (all_ee_id_per_instance[instance_idx].find(root_extrusion ? root_extrusion->get_id() : path.get_id()) ==
@@ -57,7 +58,7 @@ public:
     void use(const ExtrusionPath3D &path3D) override {
         if (path3D.role().is_external_perimeter()) {
             for (const Line &line : to_lines(path3D.as_polyline().to_polyline())) {
-                lines.emplace_back(unscaled(Point{line.a + instance->shift}), unscaled(Point{line.b + instance->shift}),
+                lines.emplace_back(unscale_p(Point{line.a + instance->shift}), unscale_p(Point{line.b + instance->shift}),
                                    object_layer_idx, instance_idx, root_extrusion ? root_extrusion : &path3D);
 #ifdef _DEBUG
                 ExtrudedExtrusionEntity eee = {int(object_layer_idx), int(instance_idx), root_extrusion ? root_extrusion->get_id() : path3D.get_id()};
@@ -111,7 +112,7 @@ AABBTreeLines::LinesDistancer<ObjectOrExtrusionLinef> get_previous_layer_distanc
                 const size_t instance_idx = &instance - &object->instances().front();
                 for (const ExPolygon &polygon : slices)
                     for (const Line &line : polygon.lines())
-                        lines.emplace_back(unscaled(Point{line.a + instance.shift}), unscaled(Point{line.b + instance.shift}), object_layer_idx, instance_idx);
+                        lines.emplace_back(unscale_p(Point{line.a + instance.shift}), unscale_p(Point{line.b + instance.shift}), object_layer_idx, instance_idx);
             }
         }
     }
@@ -304,7 +305,7 @@ Points3 generate_flat_travel(tcb::span<const Point> xy_path, const float elevati
     Points3 result;
     result.reserve(xy_path.size());
     for (const Point &point : xy_path) {
-        result.emplace_back(point.x(), point.y(), scaled(elevation));
+        result.emplace_back(point.x(), point.y(), scale_i(elevation));
     }
     return result;
 }
@@ -365,7 +366,7 @@ Points3 generate_elevated_travel(
     for (const DistancedPoint &point : extended_xy_path) {
         result.emplace_back(
             point.point.x(), point.point.y(),
-            scaled(initial_elevation + elevation(unscaled(point.dist_from_start)))
+            scale_i(initial_elevation + elevation(unscaled(point.dist_from_start)))
         );
     }
 
@@ -400,7 +401,7 @@ double get_first_crossed_line_distance(
     Intersection first_intersection;
 
     for (const Line &line : xy_path) {
-        const ObjectOrExtrusionLinef                    unscaled_line = {unscaled(line.a), unscaled(line.b)};
+        const ObjectOrExtrusionLinef                    unscaled_line = {unscale_p(line.a), unscale_p(line.b)};
         const std::vector<std::pair<Vec2d, size_t>>     intersections = distancer.intersections_with_line<true>(unscaled_line);
 
         if (intersections.empty())

@@ -30,6 +30,7 @@
 #include "libslic3r/TriangleMeshSlicer.hpp"
 #include "libslic3r/TriangleSetSampling.hpp"
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 //#define DEBUG_FILES
 
@@ -662,7 +663,7 @@ void process_perimeter_polylines(const PolylineWithEnd &orig_polyline, float z_c
 
     std::vector<float> lengths { };
     for (size_t point_idx = 0; point_idx < polyline.size() - 1; ++point_idx) {
-        lengths.push_back((unscale(polyline.points[point_idx]) - unscale(polyline.points[point_idx + 1])).norm());
+        lengths.push_back((unscale_p(polyline.points[point_idx]) - unscale_p(polyline.points[point_idx + 1])).norm());
     }
     std::vector<float> polyline_angles = calculate_polyline_angles_at_vertices(polyline, lengths, angle_arm_len);
 
@@ -671,7 +672,7 @@ void process_perimeter_polylines(const PolylineWithEnd &orig_polyline, float z_c
 
     std::queue<Vec3f> orig_polyline_points { };
     for (size_t index = 0; index < polyline.size(); ++index) {
-        Vec2f unscaled_p = unscale(polyline.points[index]).cast<float>();
+        Vec2f unscaled_p = unscale_p(polyline.points[index]).cast<float>();
         orig_polyline_points.emplace(unscaled_p.x(), unscaled_p.y(), z_coord);
     }
     std::queue<Vec3f> oversampled_points { };
@@ -713,7 +714,7 @@ void process_perimeter_polylines(const PolylineWithEnd &orig_polyline, float z_c
 
         if (orig_point && !orig_polyline_points.empty()) {
             Vec3f pos_of_next = orig_polyline_points.front();
-            Line  line(scaled(Vec2f(position.head<2>())), scaled(Vec2f(pos_of_next.head<2>())));
+            Line  line(scale_p(Vec2f(position.head<2>())), scale_p(Vec2f(pos_of_next.head<2>())));
             float distance_to_next = (position - pos_of_next).norm();
             if (global_model_info.is_enforced( (position + pos_of_next) / 2, distance_to_next / 2)) {
                 Vec3f vec_to_next = (pos_of_next - position).normalized();
@@ -1107,7 +1108,7 @@ void debug_export_points(const std::vector<PrintObjectSeamData::LayerSeams> &lay
             Vec3i32 color = value_to_rgbi(-PI, PI, point.local_ccw_angle);
             std::string fill = "rgb(" + std::to_string(color.x()) + "," + std::to_string(color.y()) + ","
                     + std::to_string(color.z()) + ")";
-            angles_svg.draw(scaled(Vec2f(point.position.head<2>())), fill);
+            angles_svg.draw(scale_p(Vec2f(point.position.head<2>())), fill);
             min_vis = std::min(min_vis, point.visibility);
             max_vis = std::max(max_vis, point.visibility);
 
@@ -1130,21 +1131,21 @@ void debug_export_points(const std::vector<PrintObjectSeamData::LayerSeams> &lay
             Vec3i32 color = value_to_rgbi(min_vis, max_vis, point.visibility);
             std::string visibility_fill = "rgb(" + std::to_string(color.x()) + "," + std::to_string(color.y()) + ","
                     + std::to_string(color.z()) + ")";
-            visibility_svg.draw(scaled(Vec2f(point.position.head<2>())), visibility_fill);
+            visibility_svg.draw(scale_p(Vec2f(point.position.head<2>())), visibility_fill);
 
             Vec3i32 weight_color = value_to_rgbi(min_weight, max_weight,
                     -compute_angle_penalty(point.local_ccw_angle));
             std::string weight_fill = "rgb(" + std::to_string(weight_color.x()) + "," + std::to_string(weight_color.y())
                     + ","
                     + std::to_string(weight_color.z()) + ")";
-            weight_svg.draw(scaled(Vec2f(point.position.head<2>())), weight_fill);
+            weight_svg.draw(scale_p(Vec2f(point.position.head<2>())), weight_fill);
 
             Vec3i32 overhang_color = value_to_rgbi(-0.5, 0.5, std::clamp(point.overhang, -0.5f, 0.5f));
             std::string overhang_fill = "rgb(" + std::to_string(overhang_color.x()) + ","
                     + std::to_string(overhang_color.y())
                     + ","
                     + std::to_string(overhang_color.z()) + ")";
-            overhangs_svg.draw(scaled(Vec2f(point.position.head<2>())), overhang_fill);
+            overhangs_svg.draw(scale_p(Vec2f(point.position.head<2>())), overhang_fill);
         }
     }
 }
@@ -1838,7 +1839,7 @@ void SeamPlacer::init(const Print &print, std::function<void(void)> throw_if_can
     }
 }
 
-static constexpr float MINIMAL_POLYGON_SIDE = scaled<float>(0.2f);
+static constexpr float MINIMAL_POLYGON_SIDE = scale_d(0.2f);
 std::tuple<bool,std::optional<Vec3f>> get_seam_from_modifier(const Layer& layer, const ExtrusionLoop& loop, const uint16_t print_object_instance_idx, const Point& last_po, const PrintObject* po) {
 
     bool has_custom_seam_modifier = false;
@@ -2054,7 +2055,7 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
            return acc + p.polyline.size();
         });
         for (size_t i = 0; i < points_count; ++i) {
-            Vec2f unscaled_p = unscaled<float>(closest_point.foot_pt);
+            Vec2f unscaled_p = unscale_p(closest_point.foot_pt).cast<float>();
             closest_perimeter_point_index = find_closest_point(*layer_perimeters.points_tree.get(),
                     to_3d(unscaled_p, float(unscaled_z)));
             if (closest_perimeter != &layer_perimeters.points[closest_perimeter_point_index].perimeter) {
@@ -2076,7 +2077,7 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
         seam_index =
             // only recompute for spNearest, spCost and spCustom, as these are the only one that uses the current position to compute the seam ( see is_first_better).
                 (po->config().seam_position.value == spNearest || po->config().seam_position.value == spCost || po->config().seam_position.value == spCustom) ?
-                        pick_nearest_seam_point_index(layer_perimeters.points, perimeter.start_index, unscaled<float>(last_pos), *po)
+                        pick_nearest_seam_point_index(layer_perimeters.points, perimeter.start_index, unscale_p(last_pos).cast<float>(), *po)
                         : perimeter.seam_index
             ;
         seam_position = layer_perimeters.points[seam_index].position;
@@ -2093,7 +2094,7 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
             const SeamCandidate &perimeter_point = layer_perimeters.points[seam_index];
             ExtrusionLoop::ClosestPathPoint projected_point = loop.get_closest_path_and_point(seam_point, false);
             // determine depth of the seam point.
-            const float dist = (float) unscale(Point(seam_point - projected_point.foot_pt)).norm();
+            const float dist = (float) unscale_p(Point(seam_point - projected_point.foot_pt)).norm();
             float depth = dist;
             float beta_angle = cos(perimeter_point.local_ccw_angle / 2.0f);
             size_t index_of_prev =
@@ -2140,8 +2141,8 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
 
                 while (depth > 0.0f) {
                     auto next_point = get_next_loop_point(projected_point);
-                    Vec2f a = unscale(projected_point.foot_pt).cast<float>();
-                    Vec2f b = unscale(next_point.foot_pt).cast<float>();
+                    Vec2f a = unscale_p(projected_point.foot_pt).cast<float>();
+                    Vec2f b = unscale_p(next_point.foot_pt).cast<float>();
                     float dist = (a - b).norm();
                     if (dist > depth) {
                         Vec2f final_pos = a + (b - a) * depth / dist;

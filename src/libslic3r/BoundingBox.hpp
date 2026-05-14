@@ -7,12 +7,21 @@
 #ifndef slic3r_BoundingBox_hpp_
 #define slic3r_BoundingBox_hpp_
 
+#include <vector>
+
 #include "libslic3r.h"
-#include "Exception.hpp"
+#include "NumericUtils.hpp"
 #include "Point.hpp"
-#include "Polygon.hpp"
+#include "TypeTraits.hpp"
 
 namespace Slic3r {
+class Polygon;
+class Line;
+class Polyline;
+
+namespace detail {
+[[noreturn]] void throw_empty_bounding_box3base();
+}
 
 template <typename PointType, typename APointsType = std::vector<PointType>>
 class BoundingBoxBase
@@ -110,7 +119,7 @@ public:
     template<class It, class = IteratorOnly<It> > BoundingBox3Base(It from, It to)
     {
         if (from == to)
-            throw Slic3r::InvalidArgument("Empty point set supplied to BoundingBox3Base constructor");
+            detail::throw_empty_bounding_box3base();
 
         auto it = from;
         this->min = it->template cast<typename PointType::Scalar>();
@@ -262,26 +271,6 @@ inline bool empty(const BoundingBox3Base<PointType> &bb)
     return ! bb.defined || bb.min.x() >= bb.max.x() || bb.min.y() >= bb.max.y() || bb.min.z() >= bb.max.z();
 }
 
-inline BoundingBox scaled(const BoundingBoxf &bb) { return {scaled(bb.min), scaled(bb.max)}; }
-
-template<class T = coord_t, class Tin>
-BoundingBoxBase<Vec<2, T>> scaled(const BoundingBoxBase<Vec<2, Tin>> &bb) { return {scaled<T>(bb.min), scaled<T>(bb.max)}; }
-
-template<class T = coord_t>
-BoundingBoxBase<Vec<2, T>> scaled(const BoundingBox &bb) { return {scaled<T>(bb.min), scaled<T>(bb.max)}; }
-
-template<class T = coord_t, class Tin>
-BoundingBox3Base<Vec<3, T>> scaled(const BoundingBox3Base<Vec<3, Tin>> &bb) { return {scaled<T>(bb.min), scaled<T>(bb.max)}; }
-
-template<class T = double, class Tin>
-BoundingBoxBase<Vec<2, T>> unscaled(const BoundingBoxBase<Vec<2, Tin>> &bb) { return {unscaled<T>(bb.min), unscaled<T>(bb.max)}; }
-
-template<class T = double>
-BoundingBoxBase<Vec<2, T>> unscaled(const BoundingBox &bb) { return {unscaled<T>(bb.min), unscaled<T>(bb.max)}; }
-
-template<class T = double, class Tin>
-BoundingBox3Base<Vec<3, T>> unscaled(const BoundingBox3Base<Vec<3, Tin>> &bb) { return {unscaled<T>(bb.min), unscaled<T>(bb.max)}; }
-
 template<class Tout, class Tin>
 auto cast(const BoundingBoxBase<Tin> &b)
 {
@@ -341,15 +330,6 @@ BoundingBoxBase<Vec<2, Tout>> to_2d(const BoundingBox3Base<Vec<3, T>> &bb)
     return {to_2d(bb.min), to_2d(bb.max)};
 }
 
-
 } // namespace Slic3r
-
-// Serialization through the Cereal library
-namespace cereal {
-	template<class Archive> void serialize(Archive& archive, Slic3r::BoundingBox   &bb) { archive(bb.min, bb.max, bb.defined); }
-	template<class Archive> void serialize(Archive& archive, Slic3r::BoundingBox3  &bb) { archive(bb.min, bb.max, bb.defined); }
-	template<class Archive> void serialize(Archive& archive, Slic3r::BoundingBoxf  &bb) { archive(bb.min, bb.max, bb.defined); }
-	template<class Archive> void serialize(Archive& archive, Slic3r::BoundingBoxf3 &bb) { archive(bb.min, bb.max, bb.defined); }
-}
 
 #endif

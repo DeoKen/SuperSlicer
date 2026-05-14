@@ -6,6 +6,7 @@
 #include "../ExPolygon.hpp"
 #include "../ShortestPath.hpp"
 #include "../Surface.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include "FillLine.hpp"
 

@@ -2981,7 +2981,7 @@ ExtrusionPaths sort_extra_perimeters(const ExtrusionPaths& extra_perims, int ind
                     reverse  = true;
                 }
             }
-            if (dist > scaled(5.0)) {
+            if (dist > scale_d(5.0)) {
                 next_idx = null_idx;
             }
         }

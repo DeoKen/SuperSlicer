@@ -13,6 +13,7 @@
 #include "../ExtrusionEntityCollection.hpp"
 #include "../Layer.hpp"
 #include "../Print.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include "PrintExtents.hpp"
 #include "WipeTower.hpp"
@@ -38,8 +39,8 @@ static inline BoundingBoxf extrusionentity_extents(const ExtrusionPath &extrusio
     BoundingBox bbox = extrusion_polyline_extents(extrusion_path.polyline.to_polyline(), scale_i(0.5 * extrusion_path.width()));
     BoundingBoxf bboxf;
     if (! empty(bbox)) {
-        bboxf.min = unscale(bbox.min);
-        bboxf.max = unscale(bbox.max);
+        bboxf.min = unscale_p(bbox.min);
+        bboxf.max = unscale_p(bbox.max);
 		bboxf.defined = true;
     }
     return bboxf;
@@ -52,8 +53,8 @@ static inline BoundingBoxf extrusionentity_extents(const ExtrusionLoop &extrusio
         bbox.merge(extrusion_polyline_extents(extrusion_path.polyline.to_polyline(), scale_i(0.5 * extrusion_path.width())));
     BoundingBoxf bboxf;
     if (! empty(bbox)) {
-        bboxf.min = unscale(bbox.min);
-        bboxf.max = unscale(bbox.max);
+        bboxf.min = unscale_p(bbox.min);
+        bboxf.max = unscale_p(bbox.max);
 		bboxf.defined = true;
 	}
     return bboxf;
@@ -66,8 +67,8 @@ static inline BoundingBoxf extrusionentity_extents(const ExtrusionMultiPath &ext
         bbox.merge(extrusion_polyline_extents(extrusion_path.polyline.to_polyline(), scale_i(0.5 * extrusion_path.width())));
     BoundingBoxf bboxf;
     if (! empty(bbox)) {
-        bboxf.min = unscale(bbox.min);
-        bboxf.max = unscale(bbox.max);
+        bboxf.min = unscale_p(bbox.min);
+        bboxf.max = unscale_p(bbox.max);
 		bboxf.defined = true;
 	}
     return bboxf;
@@ -136,7 +137,7 @@ BoundingBoxf get_print_object_extrusions_extents(const PrintObject &print_object
         }
         for (const PrintInstance &instance : print_object.instances()) {
             BoundingBoxf bbox_translated(bbox_this);
-            bbox_translated.translate(unscale(instance.shift));
+            bbox_translated.translate(unscale_p(instance.shift));
             bbox.merge(bbox_translated);
         }
     }

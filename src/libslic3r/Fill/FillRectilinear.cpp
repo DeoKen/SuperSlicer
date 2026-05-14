@@ -29,6 +29,7 @@
 #include "../ShortestPath.hpp"
 #include "../Surface.hpp"
 #include "../Thread.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include "FillRectilinear.hpp"
 

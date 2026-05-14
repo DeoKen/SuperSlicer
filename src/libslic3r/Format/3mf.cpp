@@ -43,7 +43,7 @@ namespace pt = boost::property_tree;
 
 #include "TextConfiguration.hpp"
 #include "EmbossShape.hpp"
-#include "ExPolygonSerialize.hpp" 
+#include "PointSerialize.hpp"
 
 #include "NSVGUtils.hpp"
 

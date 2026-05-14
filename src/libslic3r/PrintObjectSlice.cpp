@@ -1636,7 +1636,7 @@ void PrintObject::slice_volumes()
     {
         // Compensation value, scaled. Only applying the negative scaling here, as the positive scaling has already been applied during slicing.
         ////const size_t num_extruders = print->config().nozzle_diameter.size();
-        ////const auto   xy_compensation_scaled            = (num_extruders > 1 && this->is_mm_painted()) ? scaled<float>(0.f) : scaled<float>(std::min(m_config.xy_size_compensation.value, 0.));
+        ////const coordf_t xy_compensation_scaled          = (num_extruders > 1 && this->is_mm_painted()) ? scale_d(0.f) : scale_d(std::min(m_config.xy_size_compensation.value, 0.));
         ////const float  elephant_foot_compensation_scaled = (m_config.raft_layers == 0) ?
         ////	// Only enable Elephant foot compensation if printing directly on the print bed.
         ////    float(scale_(m_config.elefant_foot_compensation.value)) :

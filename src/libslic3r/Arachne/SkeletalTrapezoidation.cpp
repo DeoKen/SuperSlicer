@@ -401,7 +401,7 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
     assert([&polys]() -> bool {
         EdgeGrid::Grid grid;
         grid.set_bbox(get_extents(polys));
-        grid.create(polys, scaled<coord_t>(10.));
+        grid.create(polys, scale_i(10.));
         return !grid.has_intersecting_edges();
     }());
 
@@ -418,7 +418,7 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
         static int iRun = 0;
         BoundingBox bbox = get_extents(polys);
         SVG svg(debug_out_path("arachne_voronoi-input-%d.svg", iRun++).c_str(), bbox);
-        svg.draw_outline(polys, "black", scaled<coordf_t>(0.03f));
+        svg.draw_outline(polys, "black", scale_d(0.03f));
     }
 #endif
 
@@ -738,7 +738,7 @@ void SkeletalTrapezoidation::filterNoncentralRegions()
             BOOST_LOG_TRIVIAL(warning) << "Encountered an uninitialized bead at the boundary!";
         }
         assert(edge.to->data.bead_count >= 0 || edge.to->data.distance_to_boundary == 0);
-        constexpr coord_t max_dist = scaled<coord_t>(0.4);
+        constexpr coord_t max_dist = scale_i(0.4);
         filterNoncentralRegions(&edge, edge.to->data.bead_count, 0, max_dist);
     }
 }
@@ -750,7 +750,7 @@ bool SkeletalTrapezoidation::filterNoncentralRegions(edge_t* to_edge, coord_t be
     edge_t* next_edge = to_edge->next;
     for (; next_edge && next_edge != to_edge->twin; next_edge = next_edge->twin->next)
     {
-        if (next_edge->to->data.distance_to_boundary >= r || shorter_then(next_edge->to->p - next_edge->from->p, scaled<coord_t>(0.01)))
+        if (next_edge->to->data.distance_to_boundary >= r || shorter_then(next_edge->to->p - next_edge->from->p, scale_i(0.01)))
         {
             break; // Only walk upward
         }
@@ -1591,7 +1591,7 @@ SkeletalTrapezoidation::edge_t* SkeletalTrapezoidation::getQuadMaxRedgeTo(edge_t
         }
     }
     assert(ret);
-    if (ret && !ret->next && ret->to->data.distance_to_boundary - scaled<coord_t>(0.005) < ret->from->data.distance_to_boundary)
+    if (ret && !ret->next && ret->to->data.distance_to_boundary - scale_i(0.005) < ret->from->data.distance_to_boundary)
     {
         ret = ret->prev;
     }
@@ -1817,8 +1817,8 @@ void SkeletalTrapezoidation::generateJunctions(ptr_vector_t<BeadingPropagation>&
         // Robustness against odd segments which might lie just slightly outside of the range due to rounding errors
         // not sure if this is really needed (TODO)
         if (junction_idx + 1 < num_junctions
-            && beading->toolpath_locations[junction_idx + 1] <= start_R + scaled<coord_t>(0.005)
-            && beading->total_thickness < start_R + scaled<coord_t>(0.005)
+            && beading->toolpath_locations[junction_idx + 1] <= start_R + scale_i(0.005)
+            && beading->total_thickness < start_R + scale_i(0.005)
         )
         {
             junction_idx++;
@@ -1833,7 +1833,7 @@ void SkeletalTrapezoidation::generateJunctions(ptr_vector_t<BeadingPropagation>&
                 break;
             }
             Point junction(a + (ab.cast<int64_t>() * int64_t(bead_R - start_R) / int64_t(end_R - start_R)).cast<coord_t>());
-            if (bead_R > start_R - scaled<coord_t>(0.005))
+            if (bead_R > start_R - scale_i(0.005))
             { // Snap to start node if it is really close, in order to be able to see 3-way intersection later on more robustly
                 junction = a;
             }
@@ -1848,7 +1848,7 @@ std::shared_ptr<SkeletalTrapezoidationJoint::BeadingPropagation> SkeletalTrapezo
     {
         if (node->data.bead_count == -1)
         { // This bug is due to too small central edges
-            constexpr coord_t nearby_dist = scaled<coord_t>(0.1);
+            constexpr coord_t nearby_dist = scale_i(0.1);
             auto nearest_beading = getNearestBeading(node, nearby_dist);
             if (nearest_beading)
             {
@@ -1945,16 +1945,16 @@ void SkeletalTrapezoidation::addToolpathSegment(const ExtrusionJunction& from, c
         force_new_path = true;
     }
     if (!force_new_path
-        && shorter_then(generated_toolpaths[inset_idx].back().junctions.back().p - from.p, scaled<coord_t>(0.010))
-        && std::abs(generated_toolpaths[inset_idx].back().junctions.back().w - from.w) < scaled<coord_t>(0.010)
+        && shorter_then(generated_toolpaths[inset_idx].back().junctions.back().p - from.p, scale_i(0.010))
+        && std::abs(generated_toolpaths[inset_idx].back().junctions.back().w - from.w) < scale_i(0.010)
         && ! from_is_3way // force new path at 3way intersection
     )
     {
         generated_toolpaths[inset_idx].back().junctions.push_back(to);
     }
     else if (!force_new_path
-             && shorter_then(generated_toolpaths[inset_idx].back().junctions.back().p - to.p, scaled<coord_t>(0.010))
-             && std::abs(generated_toolpaths[inset_idx].back().junctions.back().w - to.w) < scaled<coord_t>(0.010)
+             && shorter_then(generated_toolpaths[inset_idx].back().junctions.back().p - to.p, scale_i(0.010))
+             && std::abs(generated_toolpaths[inset_idx].back().junctions.back().w - to.w) < scale_i(0.010)
              && ! to_is_3way // force new path at 3way intersection
     )
     {
@@ -2070,12 +2070,12 @@ void SkeletalTrapezoidation::connectJunctions(ptr_vector_t<LineJunctions>& edge_
                     quad_start->to->data.bead_count > 0 && quad_start->to->data.bead_count % 2 == 1 // quad contains single bead segment
                     && quad_start->to->data.transition_ratio == 0 // We're not in a transition
                     && junction_rev_idx == segment_count - 1 // Is single bead segment
-                    && shorter_then(from.p - quad_start->to->p, scaled<coord_t>(0.005));
+                    && shorter_then(from.p - quad_start->to->p, scale_i(0.005));
                 const bool to_is_odd =
                     quad_end->from->data.bead_count > 0 && quad_end->from->data.bead_count % 2 == 1 // quad contains single bead segment
                     && quad_end->from->data.transition_ratio == 0 // We're not in a transition
                     && junction_rev_idx == segment_count - 1 // Is single bead segment
-                    && shorter_then(to.p - quad_end->from->p, scaled<coord_t>(0.005));
+                    && shorter_then(to.p - quad_end->from->p, scale_i(0.005));
                 const bool is_odd_segment = from_is_odd && to_is_odd;
                 if (is_odd_segment
                     && passed_odd_edges.count(quad_start->next->twin) > 0) // Only generate toolpath for odd segments once

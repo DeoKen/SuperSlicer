@@ -12,6 +12,7 @@
 
 #include <boost/geometry/index/rtree.hpp>
 #include <libslic3r/BoostAdapter.hpp>
+#include <libslic3r/PointUtils.hpp>
 
 namespace Slic3r { namespace arr2 {
 
@@ -113,7 +114,7 @@ public:
 
         switch (compute_case) {
         case WIPE_TOWER: {
-            score = (unscaled(itmcntr) - unscaled(active_sink)).squaredNorm();
+            score = (unscale_p(itmcntr) - unscale_p(active_sink)).squaredNorm();
             break;
         }
         case BIG_ITEM: {
@@ -214,7 +215,7 @@ public:
         if (std::isnan(m_bin_area)) {
             auto sz = bounding_box(bed).size();
 
-            m_bin_area = scaled<double>(unscaled(sz.x()) * unscaled(sz.y()));
+            m_bin_area = scale_d(unscaled(sz.x()) * unscaled(sz.y()));
         }
 
         m_norm = std::sqrt(m_bin_area);

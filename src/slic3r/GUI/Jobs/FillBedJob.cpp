@@ -64,7 +64,7 @@ void FillBedJob::prepare()
     if (auto wt = get_wipe_tower_arrangepoly(*m_plater))
         m_unselected.emplace_back(std::move(*wt));
 
-    double sc = scaled<double>(1.) * scaled(1.);
+    double sc = scale_d(1.) * scale_d(1.);
 
     ExPolygon poly = m_selected.front().poly;
     double poly_area = poly.area() / sc;

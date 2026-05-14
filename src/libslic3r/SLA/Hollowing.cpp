@@ -26,6 +26,7 @@
 
 #include <libslic3r/MTUtils.hpp>
 #include <libslic3r/I18N.hpp>
+#include "libslic3r/PointUtils.hpp"
 
 namespace Slic3r {
 namespace sla {
@@ -599,9 +600,9 @@ struct FaceHash {
     {
         // Scale to integer to avoid floating points
         std::array<Vec<3, int64_t>, 3> pts = {
-            scaled<int64_t>(vertices[face(0)]),
-            scaled<int64_t>(vertices[face(1)]),
-            scaled<int64_t>(vertices[face(2)])
+            scale_p<int64_t>(vertices[face(0)]),
+            scale_p<int64_t>(vertices[face(1)]),
+            scale_p<int64_t>(vertices[face(2)])
         };
 
         // Get the first two sides of the triangle, do a cross product and move

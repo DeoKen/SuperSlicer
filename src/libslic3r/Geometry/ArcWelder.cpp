@@ -319,7 +319,7 @@ static std::optional<Circle> try_create_circle(const Points::const_iterator begi
             Vec2i64 v = last_point - first_point;
             Vec2d   vd = v.cast<double>();
             double  ld = v.squaredNorm();
-            if (ld > sqr(scaled<double>(0.0015))) {
+            if (ld > sqr(scale_d(0.0015))) {
                 Vec2i64 c = (first_point.cast<int64_t>() + last_point.cast<int64_t>()) / 2;
                 Vec2i64 prev_point = first_point;
                 int     prev_side = sign(v.dot(prev_point - c));
@@ -649,7 +649,7 @@ Path fit_path(const Points &src_in, double tolerance, double fit_circle_percent_
     if (tolerance <= 0 || src_in.size() <= 2) {
         // No simplification, just convert.
         std::transform(src_in.begin(), src_in.end(), std::back_inserter(out), [](const Point &p) -> Segment { return { p }; });
-    } else if (double tolerance_fine = std::max(0.03 * tolerance, scaled<double>(0.000060)); 
+    } else if (double tolerance_fine = std::max(0.03 * tolerance, scale_d(0.000060)); 
         fit_circle_percent_tolerance <= 0 || tolerance_fine > 0.5 * tolerance) {
         // Convert and simplify to a polyline.
         std::transform(src_in.begin(), src_in.end(), std::back_inserter(out), [](const Point &p) -> Segment { return { p }; });
@@ -763,7 +763,7 @@ Path fit_path(const Points &src_in, double tolerance, double fit_circle_percent_
             }
 #endif
             if (arc) {
-                // printf("Arc radius: %lf, length: %lf\n", unscaled<double>(arc->radius), arc_length(arc->start_point.cast<double>(), arc->end_point.cast<double>(), arc->radius));
+                // printf("Arc radius: %lf, length: %lf\n", unscaled(arc->radius), arc_length(arc->start_point.cast<double>(), arc->end_point.cast<double>(), arc->radius));
                 // If there is a trailing polyline, decimate it first before saving a new arc.
                 if (out.size() - begin_pl_idx > 2) {
                     // Decimating linear segmens only.
@@ -782,8 +782,8 @@ Path fit_path(const Points &src_in, double tolerance, double fit_circle_percent_
                     }
                     //const Point& p1 = out[begin_pl_idx].point;
                     //const Point& p2 = out.back().point;
-                    //assert(p2.distance_to_square(p1) > sqr(scaled<double>(0.0011)));
-                    assert(length > scaled<double>(0.0011));
+                    //assert(p2.distance_to_square(p1) > sqr(scale_d(0.0011)));
+                    assert(length > scale_d(0.0011));
                 }
 #endif
                 // test for special cases

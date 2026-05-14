@@ -22,6 +22,7 @@
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/PointUtils.hpp"
 #include "libslic3r/LocalesUtils.hpp"
 #include "libslic3r/Technologies.hpp"
 #include "libslic3r/Tesselate.hpp"
@@ -5038,7 +5039,7 @@ void GLCanvas3D::update_sequential_clearance(bool force_contours_generation)
             Points hull_pts;
             hull_pts.reserve(hull.size());
             for (size_t j = 0; j < hull.size(); ++j) {
-                hull_pts.emplace_back(scaled<double>(hull[j].x()), scaled<double>(hull[j].y()));
+                hull_pts.emplace_back(scale_d(hull[j].x()), scale_d(hull[j].y()));
             }
             contours.contours.emplace_back(Geometry::convex_hull(std::move(hull_pts)));
 
@@ -6681,7 +6682,7 @@ void GLCanvas3D::_render_objects(GLVolumeCollection::ERenderType type)
         }
         case BuildVolume::Type::Circle: {
             m_volumes.set_print_volume({ 1, // rectangle
-                { unscaled<float>(build_volume.circle().center.x()), unscaled<float>(build_volume.circle().center.y()), unscaled<float>(build_volume.circle().radius + BuildVolume::SceneEpsilon), 0.0f },
+                { float(unscaled(build_volume.circle().center.x())), float(unscaled(build_volume.circle().center.y())), float(unscaled(build_volume.circle().radius + BuildVolume::SceneEpsilon)), 0.0f },
                 { 0.0f, float(build_volume.max_print_height() + BuildVolume::SceneEpsilon) } });
             break;
         }
@@ -8118,7 +8119,7 @@ void GLCanvas3D::_load_sla_shells()
 #endif // ENABLE_SMOOTH_NORMALS
         v.shader_outside_printer_detection_enabled = outside_printer_detection_enabled;
         v.composite_id.volume_id = volume_id;
-        v.set_instance_offset(unscale(instance.shift.x(), instance.shift.y(), 0.0));
+        v.set_instance_offset(unscale_p(instance.shift.x(), instance.shift.y(), 0.0));
         v.set_instance_rotation({ 0.0, 0.0, (double)instance.rotation });
         v.set_instance_mirror(X, object.is_left_handed() ? -1. : 1.);
         v.set_convex_hull(TriangleMesh{its_convex_hull(mesh)});

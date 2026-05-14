@@ -887,10 +887,10 @@ void its_collect_mesh_projection_points_above(const indexed_triangle_set &its, c
             if ((p1.z() < z && p2.z() > z) || (p2.z() < z && p1.z() > z)) {
                 // Edge crosses the z plane. Calculate intersection point with the plane.
                 float t = (z - p1.z()) / (p2.z() - p1.z());
-                all_pts.emplace_back(scaled<coord_t>(p1.x() + (p2.x() - p1.x()) * t), scaled<coord_t>(p1.y() + (p2.y() - p1.y()) * t));
+                all_pts.emplace_back(scale_i(p1.x() + (p2.x() - p1.x()) * t), scale_i(p1.y() + (p2.y() - p1.y()) * t));
             }
             if (p2.z() >= z)
-                all_pts.emplace_back(scaled<coord_t>(p2.x()), scaled<coord_t>(p2.y()));
+                all_pts.emplace_back(scale_i(p2.x()), scale_i(p2.y()));
             iprev = iedge;
         }
     }
@@ -922,10 +922,10 @@ Polygon its_convex_hull_2d_above(const indexed_triangle_set& its, const Transfor
                 if ((p1.z() < z && p2.z() > z) || (p2.z() < z && p1.z() > z)) {
                     // Edge crosses the z plane. Calculate intersection point with the plane.
                     const float t = (z - p1.z()) / (p2.z() - p1.z());
-                    pts.emplace_back(scaled<coord_t>(p1.x() + (p2.x() - p1.x()) * t), scaled<coord_t>(p1.y() + (p2.y() - p1.y()) * t));
+                    pts.emplace_back(scale_i(p1.x() + (p2.x() - p1.x()) * t), scale_i(p1.y() + (p2.y() - p1.y()) * t));
                 }
                 if (p2.z() >= z)
-                    pts.emplace_back(scaled<coord_t>(p2.x()), scaled<coord_t>(p2.y()));
+                    pts.emplace_back(scale_i(p2.x()), scale_i(p2.y()));
                 iprev = iedge;
             }
         }

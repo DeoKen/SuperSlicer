@@ -26,6 +26,7 @@
 #include "I18N.hpp"
 #include "Semver.hpp"
 #include "Utils.hpp"
+#include "PointUtils.hpp"
 
 #include "SLA/SupportTree.hpp"
 #include "GCode/Thumbnails.hpp"
@@ -12792,7 +12793,7 @@ Points get_bed_shape(const DynamicPrintConfig &config)
         // Here, it is certain that the bed shape is missing, so an infinite one
         // has to be used, but still, the center of bed can be queried
         if (auto center_opt = config.opt<ConfigOptionPoint>("center"))
-            return { scaled(center_opt->value) };
+            return { scale_p(center_opt->value) };
         
         return {};
     }

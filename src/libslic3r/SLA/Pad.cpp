@@ -76,11 +76,11 @@ void breakstick_holes(Points& pts,
     out.reserve(2 * pts.size()); // output polygon points
 
     // stick bottom and right edge dimensions
-    double sbottom = scaled(stick_width);
-    double sright  = scaled(penetration + padding);
+    double sbottom = scale_d(stick_width);
+    double sright  = scale_d(penetration + padding);
 
     // scaled stride distance
-    double sstride = scaled(stride);
+    double sstride = scale_d(stride);
     double t       = 0;
 
     // process pairs of vertices as an edge, start with the last and
@@ -139,7 +139,7 @@ ExPolygons breakstick_holes(const ExPolygons &input, Args...args)
 
 static inline coord_t get_waffle_offset(const PadConfig &c)
 {
-    return scaled(c.brim_size_mm + c.wing_distance());
+    return scale_i(c.brim_size_mm + c.wing_distance());
 }
 
 static inline double get_merge_distance(const PadConfig &c)
@@ -257,7 +257,7 @@ public:
 
         auto model_bp_offs =
             offset_ex(model_blueprint,
-                      scaled<float>(cfg.embed_object.object_gap_mm),
+                      scale_d(cfg.embed_object.object_gap_mm),
                       ClipperLib::jtMiter, 1);
 
         ExPolygons fullcvh =
@@ -364,8 +364,8 @@ bool add_cavity(indexed_triangle_set &pad,
     auto logerr = []{BOOST_LOG_TRIVIAL(error)<<"Could not create pad cavity";};
 
     double    wing_distance = cfg.wing_height / std::tan(cfg.slope);
-    coord_t   delta_inner   = -scaled(cfg.thickness + wing_distance);
-    coord_t   delta_middle  = -scaled(cfg.thickness);
+    coord_t   delta_inner   = -scale_i(cfg.thickness + wing_distance);
+    coord_t   delta_middle  = -scale_i(cfg.thickness);
     ExPolygon inner_base    = offset_contour_only(top_poly, delta_inner);
     ExPolygon middle_base   = offset_contour_only(top_poly, delta_middle);
 
@@ -394,7 +394,7 @@ indexed_triangle_set create_outer_pad_geometry(const ExPolygons & skeleton,
     for (const ExPolygon &pad_part : skeleton) {
         ExPolygon top_poly{pad_part};
         ExPolygon bottom_poly =
-            offset_contour_only(pad_part, -scaled(cfg.bottom_offset()));
+            offset_contour_only(pad_part, -scale_i(cfg.bottom_offset()));
 
         if (bottom_poly.empty()) continue;
         thr();
@@ -490,14 +490,14 @@ void pad_blueprint(const indexed_triangle_set &mesh,
     auto tmp = reserve_vector<ExPolygon>(count);
     for(ExPolygons& o : out)
         for(ExPolygon& e : o) {
-            auto&& exss = e.simplify(scaled<double>(0.1));
+            auto&& exss = e.simplify(scale_d(0.1));
             for(ExPolygon& ep : exss) tmp.emplace_back(std::move(ep));
         }
 
     ExPolygons utmp = union_ex(tmp);
 
     for(auto& o : utmp) {
-        auto&& smp = o.simplify(scaled<double>(0.1));
+        auto&& smp = o.simplify(scale_d(0.1));
         output.insert(output.end(), smp.begin(), smp.end());
     }
 }

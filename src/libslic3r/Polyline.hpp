@@ -11,13 +11,15 @@
 #ifndef slic3r_Polyline_hpp_
 #define slic3r_Polyline_hpp_
 
-#include "libslic3r.h"
-#include "Geometry/ArcFitter.hpp"
-#include "Geometry/ArcWelder.hpp"
-#include "Line.hpp"
-#include "MultiPoint.hpp"
 #include <string>
 #include <vector>
+
+#include "ContainerUtils.hpp"
+#include "Geometry/ArcFitter.hpp"
+#include "Geometry/ArcWelder.hpp"
+#include "libslic3r.h"
+#include "Line.hpp"
+#include "MultiPoint.hpp"
 
 namespace Slic3r {
 
@@ -128,72 +130,14 @@ void ensure_valid(Polylines &polylines, coord_t resolution = SCALED_EPSILON);
 Polylines ensure_valid(Polylines &&polylines, coord_t resolution = SCALED_EPSILON);
 void ensure_valid(Polyline &polyline, coord_t resolution = SCALED_EPSILON);
 
-inline double total_length(const Polylines &polylines) {
-    double total = 0;
-    for (const Polyline &pl : polylines)
-        total += pl.length();
-    return total;
-}
+double total_length(const Polylines &polylines);
 
-inline Lines to_lines(const Polyline &poly) 
-{
-    Lines lines;
-    if (poly.points.size() >= 2) {
-        lines.reserve(poly.points.size() - 1);
-        for (Points::const_iterator it = poly.points.begin(); it != poly.points.end()-1; ++it)
-            lines.push_back(Line(*it, *(it + 1)));
-    }
-    return lines;
-}
-
-inline Lines to_lines(const Polylines &polys) 
-{
-    size_t n_lines = 0;
-    for (size_t i = 0; i < polys.size(); ++ i)
-        if (polys[i].points.size() > 1)
-            n_lines += polys[i].points.size() - 1;
-    Lines lines;
-    lines.reserve(n_lines);
-    for (size_t i = 0; i < polys.size(); ++ i) {
-        const Polyline &poly = polys[i];
-        for (Points::const_iterator it = poly.points.begin(); it != poly.points.end()-1; ++it)
-            lines.push_back(Line(*it, *(it + 1)));
-    }
-    return lines;
-}
-
-inline Polylines to_polylines(const std::vector<Points> &paths)
-{
-    Polylines out;
-    out.reserve(paths.size());
-    for (const Points &path : paths)
-        out.emplace_back(path);
-    return out;
-}
-
-inline Polylines to_polylines(std::vector<Points> &&paths)
-{
-    Polylines out;
-    out.reserve(paths.size());
-    for (Points &path : paths)
-        out.emplace_back(std::move(path));
-    return out;
-}
-
-inline void polylines_append(Polylines &dst, const Polylines &src) 
-{ 
-    dst.insert(dst.end(), src.begin(), src.end());
-}
-
-inline void polylines_append(Polylines &dst, Polylines &&src) 
-{
-    if (dst.empty()) {
-        dst = std::move(src);
-    } else {
-        std::move(std::begin(src), std::end(src), std::back_inserter(dst));
-        src.clear();
-    }
-}
+Lines to_lines(const Polyline &poly);
+Lines to_lines(const Polylines &polys);
+Polylines to_polylines(const std::vector<Points> &paths);
+Polylines to_polylines(std::vector<Points> &&paths);
+void polylines_append(Polylines &dst, const Polylines &src);
+void polylines_append(Polylines &dst, Polylines &&src);
 
 // Merge polylines at their respective end points.
 // dst_first: the merge point is at dst.begin() or dst.end()?
@@ -249,19 +193,13 @@ public:
     const Point& front()        const { assert(points.size() == points_width.size()); return this->points.front(); }
     const Point& back()         const { assert(points.size() == points_width.size()); return this->points.back(); }
     size_t       size()         const { assert(points.size() == points_width.size()); return this->points.size(); }
-    bool         is_valid()     const { assert(points.size() == points_width.size()); return this->points.size() >= 2; }
+    bool         is_valid()     const;
     bool         empty()        const { assert(points.size() == points_width.size()); return this->points.empty(); }
-    double       length()       const { assert(points.size() == points_width.size()); return Slic3r::length(this->points); }
+    double       length()       const;
 
     void         clear() { this->points.clear(); this->points_width.clear(); }
 
-    void reverse() {
-        assert(points.size() == points_width.size()); 
-        std::reverse(this->points.begin(), this->points.end());
-        std::reverse(this->points_width.begin(), this->points_width.end());
-        std::swap(this->endpoints.first, this->endpoints.second);
-        start_at = StartPos(-start_at);
-    }
+    void reverse();
 
     void clip_end(distf_t distance);
     void extend_end(distf_t distance);
@@ -272,20 +210,9 @@ public:
     // On open ThickPolyline make no effect.
     void start_at_index(int index);
 
-
 };
 
-inline ThickPolylines to_thick_polylines(Polylines &&polylines, const coordf_t width)
-{
-    ThickPolylines out;
-    out.reserve(polylines.size());
-    for (Polyline& polyline : polylines) {
-        out.emplace_back();
-        out.back().points_width.assign(polyline.points.size(), width);
-        out.back().points = std::move(polyline.points);
-    }
-    return out;
-}
+ThickPolylines to_thick_polylines(Polylines &&polylines, const coordf_t width);
 
 /// concatenate poylines if possible and refresh the endpoints
 void concatThickPolylines(ThickPolylines& polylines);
@@ -298,7 +225,6 @@ public:
 };
 
 typedef std::vector<Polyline3> Polylines3;
-
 
 class ArcPolyline
 {
@@ -368,9 +294,8 @@ public:
     // if on an arc, you may want to call foot_pt to have the projection
     int                   find_point(const Point &point, coordf_t epsilon) const;
 
-
     // Works on points & arc
-    distf_t               length() const { return Geometry::ArcWelder::path_length<distf_t>(m_path); }
+    distf_t               length() const;
     bool                  at_least_length(distf_t length) const;
     std::pair<int, Point> foot_pt(const Point &pt) const;
     void                  split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const;
@@ -391,7 +316,6 @@ public:
 
     // remove points that are too near each other, and return false if the whole path is too small
     bool normalize();
-
 
 protected:
     // works on points only

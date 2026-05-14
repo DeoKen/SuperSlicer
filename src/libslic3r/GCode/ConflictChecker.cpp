@@ -12,6 +12,8 @@
 #include <functional>
 #include <atomic>
 
+#include "libslic3r/PointUtils.hpp"
+
 namespace Slic3r {
 
 namespace RasterizationImpl {
@@ -404,8 +406,8 @@ ConflictComputeOpt ConflictChecker::line_intersect(const LineWithID &l1, const L
     Point inter;
     bool  intersect = l1._line.intersection(l2._line, &inter);
     if (intersect) {
-        auto dist1 = std::min(unscale(Point(l1._line.a - inter)).norm(), unscale(Point(l1._line.b - inter)).norm());
-        auto dist2 = std::min(unscale(Point(l2._line.a - inter)).norm(), unscale(Point(l2._line.b - inter)).norm());
+        auto dist1 = std::min(unscale_p(Point(l1._line.a - inter)).norm(), unscale_p(Point(l1._line.b - inter)).norm());
+        auto dist2 = std::min(unscale_p(Point(l2._line.a - inter)).norm(), unscale_p(Point(l2._line.b - inter)).norm());
         auto dist  = std::min(dist1, dist2);
         if (dist > 0.01) { return std::make_optional<ConflictComputeResult>(l1._obj_id, l2._obj_id); } // the two lines intersects if dist>0.01mm
     }

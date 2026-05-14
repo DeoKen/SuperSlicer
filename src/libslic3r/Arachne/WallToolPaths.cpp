@@ -35,11 +35,11 @@ WallToolPaths::WallToolPaths(const Polygons& outline, const coord_t bead_spacing
     , wall_0_inset(wall_0_inset)
     , layer_height(layer_height)
     , print_thin_walls(Slic3r::Arachne::fill_outline_gaps)
-    , min_feature_size(scaled<coord_t>(print_region_config.min_feature_size.value))
-    , min_bead_width(scaled<coord_t>(print_region_config.min_bead_width.value))
+    , min_feature_size(scale_i(print_region_config.min_feature_size.value))
+    , min_bead_width(scale_i(print_region_config.min_bead_width.value))
     , small_area_length(static_cast<double>(bead_width_0) / 2.)
-    , wall_transition_filter_deviation(scaled<coord_t>(print_region_config.wall_transition_filter_deviation.value))
-    , wall_transition_length(scaled<coord_t>(print_region_config.wall_transition_length.value))
+    , wall_transition_filter_deviation(scale_i(print_region_config.wall_transition_filter_deviation.value))
+    , wall_transition_length(scale_i(print_region_config.wall_transition_length.value))
     , toolpaths_generated(false)
     , print_region_config(print_region_config)
 {
@@ -47,16 +47,16 @@ WallToolPaths::WallToolPaths(const Polygons& outline, const coord_t bead_spacing
     this->min_nozzle_diameter = float(*std::min_element(print_config.nozzle_diameter.get_values().begin(), print_config.nozzle_diameter.get_values().end()));
 
     if (const auto &min_feature_size_opt = print_region_config.min_feature_size; min_feature_size_opt.percent)
-        this->min_feature_size = scaled<coord_t>(min_feature_size_opt.value * 0.01 * this->min_nozzle_diameter);
+        this->min_feature_size = scale_i(min_feature_size_opt.value * 0.01 * this->min_nozzle_diameter);
 
     if (const auto &min_bead_width_opt = print_region_config.min_bead_width; min_bead_width_opt.percent)
-        this->min_bead_width = scaled<coord_t>(min_bead_width_opt.value * 0.01 * this->min_nozzle_diameter);
+        this->min_bead_width = scale_i(min_bead_width_opt.value * 0.01 * this->min_nozzle_diameter);
 
     if (const auto &wall_transition_filter_deviation_opt = print_region_config.wall_transition_filter_deviation; wall_transition_filter_deviation_opt.percent)
-        this->wall_transition_filter_deviation = scaled<coord_t>(wall_transition_filter_deviation_opt.value * 0.01 * this->min_nozzle_diameter);
+        this->wall_transition_filter_deviation = scale_i(wall_transition_filter_deviation_opt.value * 0.01 * this->min_nozzle_diameter);
 
     if (const auto &wall_transition_length_opt = print_region_config.wall_transition_length; wall_transition_length_opt.percent)
-        this->wall_transition_length = scaled<coord_t>(wall_transition_length_opt.value * 0.01 * this->min_nozzle_diameter);
+        this->wall_transition_length = scale_i(wall_transition_length_opt.value * 0.01 * this->min_nozzle_diameter);
 }
 
 void simplify(Polygon &thiss, const int64_t smallest_line_segment_squared, const int64_t allowed_error_distance_squared)
@@ -107,7 +107,7 @@ void simplify(Polygon &thiss, const int64_t smallest_line_segment_squared, const
         accumulated_area_removed += removed_area_next;
 
         const int64_t length2 = (current - previous).cast<int64_t>().squaredNorm();
-        if (length2 < scaled<int64_t>(25.)) {
+        if (length2 < scale_i(25.)) {
             // We're allowed to always delete segments of less than 5 micron.
             continue;
         }
@@ -126,7 +126,7 @@ void simplify(Polygon &thiss, const int64_t smallest_line_segment_squared, const
         //h^2 = L^2 / b^2     [factor the divisor]
         const int64_t height_2 = double(area_removed_so_far) * double(area_removed_so_far) / double(base_length_2);
         if ((height_2 <= Slic3r::sqr(scale_d(0.005)) //Almost exactly colinear (barring rounding errors).
-             && Line::distance_to_infinite(current, previous, next) <= scaled<double>(0.005))) // make sure that height_2 is not small because of cancellation of positive and negative areas
+             && Line::distance_to_infinite(current, previous, next) <= scale_d(0.005))) // make sure that height_2 is not small because of cancellation of positive and negative areas
             continue;
 
         if (length2 < smallest_line_segment_squared
@@ -203,7 +203,7 @@ void simplify(Polygon &thiss, const int64_t smallest_line_segment_squared, const
      * from the original path that is more than this distance, the vertex may
      * not be removed.
  */
-void simplify(Polygons &thiss, const int64_t smallest_line_segment = scaled<coord_t>(0.01), const int64_t allowed_error_distance = scaled<coord_t>(0.005))
+void simplify(Polygons &thiss, const int64_t smallest_line_segment = scale_i(0.01), const int64_t allowed_error_distance = scale_i(0.005))
 {
     const int64_t allowed_error_distance_squared = int64_t(allowed_error_distance) * int64_t(allowed_error_distance);
     const int64_t smallest_line_segment_squared = int64_t(smallest_line_segment) * int64_t(smallest_line_segment);
@@ -246,7 +246,7 @@ void fixSelfIntersections(const coord_t epsilon, Polygons &thiss)
 
     // Points too close to line segments should be moved a little away from those line segments, but less than epsilon,
     //   so at least half-epsilon distance between points can still be guaranteed.
-    constexpr coord_t grid_size  = scaled<coord_t>(2.);
+    constexpr coord_t grid_size  = scale_i(2.);
     auto              query_grid = createLocToLineGrid(thiss, grid_size);
 
     const auto    move_dist         = std::max<int64_t>(2L, half_epsilon - 2);
@@ -465,7 +465,7 @@ const std::vector<VariableWidthLines> &WallToolPaths::generate()
     const coord_t allowed_distance = Slic3r::Arachne::meshfix_maximum_deviation;
     const coord_t epsilon_offset = (allowed_distance / 2) - 1;
     const double  transitioning_angle = Geometry::deg2rad(this->print_region_config.wall_transition_angle.value);
-    constexpr coord_t discretization_step_size = scaled<coord_t>(0.8);
+    constexpr coord_t discretization_step_size = scale_i(0.8);
 
     // Simplify outline for boost::voronoi consumption. Absolutely no self intersections or near-self intersections allowed:
     // TODO: Open question: Does this indeed fix all (or all-but-one-in-a-million) cases for manifold but otherwise possibly complex polygons?
@@ -510,7 +510,7 @@ const std::vector<VariableWidthLines> &WallToolPaths::generate()
             wall_0_inset,
             wall_distribution_count
         );
-    const coord_t transition_filter_dist   = scaled<coord_t>(100.f);
+    const coord_t transition_filter_dist   = scale_i(100.f);
     const coord_t allowed_filter_deviation = wall_transition_filter_deviation;
     SkeletalTrapezoidation wall_maker
     (

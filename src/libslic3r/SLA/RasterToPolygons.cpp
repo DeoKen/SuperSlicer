@@ -61,14 +61,14 @@ ExPolygons raster_to_polygons(const RasterGrayscaleAA &rst, Vec2i32 windowsize)
         pts.reserve(ring.size());
         
         for (const marchsq::Coord &crd : ring)
-            pts.emplace_back(scaled(crd.c * pxd.w_mm), scaled(crd.r * pxd.h_mm));
+            pts.emplace_back(scale_i(crd.c * pxd.w_mm), scale_i(crd.r * pxd.h_mm));
         
         polys.emplace_back(poly);
     }
     
     // reverse the raster transformations
     ExPolygons unioned = union_ex(polys);
-    coord_t width = scaled(cols * pxd.h_mm), height = scaled(rows * pxd.w_mm);
+    coord_t width = scale_i(cols * pxd.h_mm), height = scale_i(rows * pxd.w_mm);
     
     auto tr = rst.trafo();
     for (ExPolygon &expoly : unioned) {

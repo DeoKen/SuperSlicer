@@ -17,7 +17,7 @@ namespace Slic3r { namespace arr2 {
 
 const Polygons &DecomposedShape::transformed_outline() const
 {
-    constexpr auto sc = scaled<double>(1.) * scaled<double>(1.);
+    constexpr auto sc = scale_d(1.) * scale_d(1.);
 
     if (!m_transformed_outline_valid) {
         m_transformed_outline = contours();
@@ -95,7 +95,7 @@ const Vec2crd &DecomposedShape::min_vertex(size_t idx) const
 
 Vec2crd DecomposedShape::centroid() const
 {
-    constexpr double area_sc = scaled<double>(1.) * scaled(1.);
+    constexpr double area_sc = scale_d(1.) * scale_d(1.);
 
     if (!m_centroid_valid) {
         double total_area = 0.0;
@@ -103,13 +103,13 @@ Vec2crd DecomposedShape::centroid() const
 
         for (const Polygon& poly : transformed_outline()) {
             double parea = poly.area() / area_sc;
-            Vec2d pcntr = unscaled(poly.centroid());
+            Vec2d pcntr = unscale_p(poly.centroid());
             total_area += parea;
             cntr += pcntr * parea;
         }
 
         cntr /= total_area;
-        m_centroid = scaled(cntr);
+        m_centroid = scale_p(cntr);
         m_centroid_valid = true;
     }
 

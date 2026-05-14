@@ -2,6 +2,7 @@
 
 #include "Print.hpp"
 #include "PrintConfig.hpp"
+#include "PointUtils.hpp"
 
 #include <string>
 
@@ -59,10 +60,10 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
                     Vec2d right = Vec2d(-dir.y(), dir.x());
 
                     Polygon box_of_influence = {
-                        scaled(Vec2d(curr.position + right * dist_limit)),
-                        scaled(Vec2d(next.position + right * dist_limit)),
-                        scaled(Vec2d(next.position - right * dist_limit)),
-                        scaled(Vec2d(curr.position - right * dist_limit)),
+                        scale_p(Vec2d(curr.position + right * dist_limit)),
+                        scale_p(Vec2d(next.position + right * dist_limit)),
+                        scale_p(Vec2d(next.position - right * dist_limit)),
+                        scale_p(Vec2d(curr.position - right * dist_limit)),
                     };
 
                     double projected_lengths_sum = 0;
@@ -71,7 +72,7 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
                         Lines             inside = intersection_ln({{line.a, line.b}}, {box_of_influence});
                         if (inside.empty())
                             continue;
-                        double projected_length = abs(dir.dot(unscaled(Vec2d((inside.back().b - inside.back().a).cast<double>()))));
+                        double projected_length = abs(dir.dot(unscale_p(Vec2d((inside.back().b - inside.back().a).cast<double>()))));
                         projected_lengths_sum += projected_length;
                     }
                     if (projected_lengths_sum < 0.4 * len) {

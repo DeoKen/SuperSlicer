@@ -10,6 +10,7 @@
 #include "Core/NFP/NFPArrangeItemTraits.hpp"
 
 #include "libslic3r/MinAreaBoundingBox.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 namespace Slic3r { namespace arr2 {
 
@@ -114,7 +115,7 @@ public:
         const Scene &sc)
     {
         return create(sc.settings().get_geometry_handling(),
-                      scaled(sc.settings().get_distance_from_objects()));
+                      scale_i(sc.settings().get_distance_from_objects()));
     }
 };
 
@@ -225,7 +226,7 @@ bool apply_arrangeitem(const ArrItem &itm, ArrangeableModel &mdl)
     if (auto id = retrieve_id(itm)) {
         mdl.visit_arrangeable(*id, [&itm, &ret](Arrangeable &arrbl) {
             if ((ret = arrbl.assign_bed(get_bed_index(itm))))
-                arrbl.transform(unscaled(get_translation(itm)), get_rotation(itm));
+                arrbl.transform(unscale_p(get_translation(itm)), get_rotation(itm));
         });
     }
 

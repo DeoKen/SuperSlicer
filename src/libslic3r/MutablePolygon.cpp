@@ -297,7 +297,7 @@ static bool clip_narrow_corner(
 // adapted from Cura ConstPolygonRef::smooth_outward() by Tim Kuipers.
 void smooth_outward(MutablePolygon &polygon, coord_t clip_dist_scaled)
 {
-    remove_duplicates(polygon, scaled<double>(0.01));
+    remove_duplicates(polygon, scale_d(0.01));
 
     const distsqrf_t clip_dist_scaled2    = sqr(distf_t(clip_dist_scaled));
     const distsqrf_t clip_dist_scaled2eps = sqr(distf_t(clip_dist_scaled) + distf_t(SCALED_EPSILON));

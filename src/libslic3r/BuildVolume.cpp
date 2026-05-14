@@ -5,6 +5,7 @@
 #include "BuildVolume.hpp"
 #include "ClipperUtils.hpp"
 #include "Geometry/ConvexHull.hpp"
+#include "libslic3r/PointUtils.hpp"
 #include "GCode/GCodeProcessor.hpp"
 #include "Point.hpp"
 
@@ -57,8 +58,8 @@ BuildVolume::BuildVolume(const std::vector<Vec2d> &bed_shape, const double max_p
         }
         if (is_circle) {
             m_type = Type::Circle;
-            m_circle.center = scaled<double>(m_circle.center);
-            m_circle.radius = scaled<double>(m_circle.radius);
+            m_circle.center = scale_p<double>(m_circle.center);
+            m_circle.radius = scale_d(m_circle.radius);
         }
     }
 
@@ -72,7 +73,7 @@ BuildVolume::BuildVolume(const std::vector<Vec2d> &bed_shape, const double max_p
             std::vector<Vec2d> pts;
             pts.reserve(src.size());
             for (const Point &pt : src.points)
-                pts.emplace_back(unscaled<double>(pt.cast<double>().eval()));
+                pts.emplace_back(unscale_p(pt.cast<double>().eval()));
             return Geometry::decompose_convex_polygon_top_bottom(pts);
         };
         m_top_bottom_convex_hull_decomposition_scene = convex_decomposition(m_convex_hull, SceneEpsilon);
@@ -292,7 +293,7 @@ BuildVolume::ObjectState BuildVolume::object_state(const indexed_triangle_set& i
     }
     case Type::Circle:
     {
-        Geometry::Circlef circle { unscaled<float>(m_circle.center), unscaled<float>(m_circle.radius + SceneEpsilon) };
+        Geometry::Circlef circle { unscale_p(m_circle.center).cast<float>(), float(unscaled(m_circle.radius + SceneEpsilon)) };
         return m_max_print_height == 0.0 ? 
             object_state_templ(its, trafo, may_be_below_bed, [circle](const Vec3f &pt) { return circle.contains(to_2d(pt)); }) :
             object_state_templ(its, trafo, may_be_below_bed, [circle, z = m_max_print_height + SceneEpsilon](const Vec3f &pt) { return pt.z() < z && circle.contains(to_2d(pt)); });
@@ -341,8 +342,8 @@ bool BuildVolume::all_paths_inside(const GCodeProcessorResult& paths, const Boun
     }
     case Type::Circle:
     {
-        const Vec2f c = unscaled<float>(m_circle.center);
-        const float r = unscaled<double>(m_circle.radius) + epsilon;
+        const Vec2f c = unscale_p(m_circle.center).cast<float>();
+        const float r = unscaled(m_circle.radius) + epsilon;
         const float r2 = sqr(r);
         return m_max_print_height == 0.0 ? 
             std::all_of(paths.moves.begin(), paths.moves.end(), [move_valid, c, r2](const GCodeProcessorResult::MoveVertex &move)
@@ -391,8 +392,8 @@ bool BuildVolume::all_paths_inside_vertices_and_normals_interleaved(const std::v
     }
     case Type::Circle:
     {
-        const Vec2f c = unscaled<float>(m_circle.center);
-        const float r = unscaled<double>(m_circle.radius) + float(epsilon);
+        const Vec2f c = unscale_p(m_circle.center).cast<float>();
+        const float r = unscaled(m_circle.radius) + float(epsilon);
         const float r2 = sqr(r);
         return m_max_print_height == 0.0 ?
             all_inside_vertices_normals_interleaved(paths, [c, r2](Vec3f p) { return (to_2d(p) - c).squaredNorm() <= r2; }) :

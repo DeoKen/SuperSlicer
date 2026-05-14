@@ -8,6 +8,8 @@
 #include "NFP.hpp"
 #include "CircularEdgeIterator.hpp"
 
+#include "libslic3r/PointUtils.hpp"
+
 #include "NFPConcave_Tesselate.hpp"
 
 #if !defined(_MSC_VER) && defined(__SIZEOF_INT128__) && !defined(__APPLE__)
@@ -164,7 +166,7 @@ ExPolygons ifp_convex(const arr2::CircleBed &bed, const Polygon &convexpoly)
 ExPolygons ifp_convex(const arr2::IrregularBed &bed, const Polygon &convexpoly)
 {
     auto bb = get_extents(bed.poly);
-    bb.offset(scaled(1.));
+    bb.offset(scale_i(1.));
 
     Polygon rect = arr2::to_rectangle(bb);
 

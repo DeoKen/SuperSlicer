@@ -8,6 +8,7 @@
 #include "TriangleMesh.hpp"
 #include "TriangleMeshSlicer.hpp"
 #include "Utils.hpp"
+#include "PointUtils.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -168,7 +169,7 @@ inline Vec3f contour_point_to_v3f(const Point &pt, const T z)
 {
     return to_3d(
         // unscale using doubles for higher accuracy
-        unscaled<double>(pt).
+        unscale_p(pt).
             // then convert to floats
             cast<float>(),
         float(z));
@@ -1819,7 +1820,7 @@ std::vector<Polygons> slice_mesh(
             // It likely is not worthwile to copy the vertices. Apply the transformation in place.
             if (is_identity(params.trafo)) {
                 lines = slice_make_lines(
-                    mesh.vertices, [](const Vec3f &p) { return Vec3f(scaled<float>(p.x()), scaled<float>(p.y()), p.z()); }, 
+                    mesh.vertices, [](const Vec3f &p) { return Vec3f(scale_d(p.x()), scale_d(p.y()), p.z()); }, 
                     mesh.indices, face_edge_ids, zs, throw_on_cancel);
             } else {
                 // Transform the vertices, scale up in XY, not in Z.
@@ -1922,7 +1923,7 @@ Polygons slice_mesh(
         // It likely is not worthwile to copy the vertices. Apply the transformation in place.
         if (trafo_identity) {
             lines.emplace_back(slice_make_lines(
-                mesh.vertices, [](const Vec3f &p) { return Vec3f(scaled<float>(p.x()), scaled<float>(p.y()), p.z()); }, 
+                mesh.vertices, [](const Vec3f &p) { return Vec3f(scale_d(p.x()), scale_d(p.y()), p.z()); }, 
                 mesh.indices, face_edge_ids, plane_z, [&face_mask](int face_idx) { return face_mask[face_idx]; }));
         } else {
             // Transform the vertices, scale up in XY, not in Z.
@@ -2321,8 +2322,8 @@ void cut_mesh(const indexed_triangle_set &mesh, float z, indexed_triangle_set *u
             for (int i = 0; i < 3; ++ i) {
                 const Vec3f &src = vertices[i];
                 Vec3d       &dst = vertices_scaled[i];
-                dst.x() = scaled<double>(src.x());
-                dst.y() = scaled<double>(src.y());
+                dst.x() = scale_d(src.x());
+                dst.y() = scale_d(src.y());
                 dst.z() = src.z();
             }
             slice_type = slice_facet(double(z), vertices_scaled, mesh.indices[facet_idx], facets_edge_ids[facet_idx], idx_vertex_lowest, min_z == max_z, line);

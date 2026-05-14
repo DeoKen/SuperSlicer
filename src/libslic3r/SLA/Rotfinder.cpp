@@ -91,7 +91,7 @@ double get_misalginment_score(const TriangleMesh &mesh, const Transform3f &tr)
                          + std::abs(fc.normal.dot(Vec3f::UnitZ())));
 
         // We should score against the alignment with the reference planes
-        return scaled<int_fast64_t>(score);
+        return scale_d(score);
     };
 
     size_t facecount = mesh.its.indices.size();
@@ -125,7 +125,7 @@ double get_supportedness_score(const TriangleMesh &mesh, const Transform3f &tr)
 
     auto accessfn = [&mesh, &tr](size_t fi) {
         Facestats fc{get_transformed_triangle(mesh, tr, fi)};
-        return scaled<int_fast64_t>(get_supportedness_score(fc));
+        return scale_d(get_supportedness_score(fc));
     };
 
     size_t facecount = mesh.its.indices.size();
@@ -210,7 +210,7 @@ std::vector<XYRotation> get_chull_rotations(const TriangleMesh &mesh, size_t max
 {
     TriangleMesh chull = mesh.convex_hull_3d();
     double chull2d_area = chull.convex_hull().area();
-    double area_threshold = chull2d_area / (scaled<double>(1e3) * scaled(1.));
+    double area_threshold = chull2d_area / (scale_d(1e3) * scale_d(1.));
 
     size_t facecount = chull.its.indices.size();
 

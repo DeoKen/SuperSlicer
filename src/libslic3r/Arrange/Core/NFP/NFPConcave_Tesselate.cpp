@@ -5,6 +5,7 @@
 #include "NFPConcave_Tesselate.hpp"
 
 #include <libslic3r/ClipperUtils.hpp>
+#include <libslic3r/PointUtils.hpp>
 #include <libslic3r/Tesselate.hpp>
 
 #include "NFP.hpp"
@@ -22,8 +23,10 @@ Polygons convex_decomposition_tess(const ExPolygon &expoly)
 
     auto ret = Slic3r::reserve_polygons(tr.size() / 3);
     for (size_t i = 0; i < tr.size(); i += 3) {
-        ret.emplace_back(
-            Polygon{scaled(tr[i]), scaled(tr[i + 1]), scaled(tr[i + 2])});
+        ret.emplace_back(Polygon{
+            Point::new_scale(tr[i]),
+            Point::new_scale(tr[i + 1]),
+            Point::new_scale(tr[i + 2])});
     }
 
     return ret;

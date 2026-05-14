@@ -2140,7 +2140,7 @@ void PrintObject::tag_under_bridge() {
                                             const double offset_expand = layerm->region().config().external_infill_margin.get_effective_value(perimeter_width);
                                             if (dfaEnlarged == algo) {
                                                 //expand the area a bit
-                                                intersect = offset_ex(intersect, scaled(offset_expand));
+                                                intersect = offset_ex(intersect, scale_d(offset_expand));
                                                 intersect = intersection_ex(intersect, sparse_polys);
                                             } else if (dfaDisabled == algo) {
                                                 intersect.clear();
@@ -2174,7 +2174,7 @@ void PrintObject::tag_under_bridge() {
                                                     for (ExPolygon poly_inter : cover_intersect)
                                                         area_dense_covered += poly_inter.area();
                                                     // if enlarge is smaller, use enlarge
-                                                    intersect = offset_ex(intersect, scaled(offset_expand));
+                                                    intersect = offset_ex(intersect, scale_d(offset_expand));
                                                     intersect = intersection_ex(intersect, sparse_polys);
                                                     double area_enlarged_covered = 0;
                                                     for (ExPolygon poly_inter : intersect)
@@ -3236,8 +3236,8 @@ void PrintObject::discover_vertical_shells()
                         regularized_shell.erase(std::remove_if(regularized_shell.begin(), regularized_shell.end(),
                                                                [&internal_volume, &min_perimeter_infill_spacing,
                                                                 &object_volume](const ExPolygon &p) {
-                                                                   return (p.area() < min_perimeter_infill_spacing * scaled(1.5) ||
-                                                                           (p.area() < min_perimeter_infill_spacing * scaled(8.0) &&
+                                                                   return (p.area() < min_perimeter_infill_spacing * scale_d(1.5) ||
+                                                                           (p.area() < min_perimeter_infill_spacing * scale_d(8.0) &&
                                                                             diff(to_polygons(p), object_volume).empty())) &&
                                                                           diff(internal_volume,
                                                                                expand(to_polygons(p), min_perimeter_infill_spacing))
@@ -3601,7 +3601,7 @@ void PrintObject::bridge_over_infill()
                     for (const auto &surface : surfaces_by_layer[lidx]) {
                         if (surface.region != region)
                             continue;
-                        ExPolygons expansion = intersection_ex(sparse_infill, /*expand_ex*/offset_ex(surface.new_polys, scaled<float>(3.0)));
+                        ExPolygons expansion = intersection_ex(sparse_infill, /*expand_ex*/offset_ex(surface.new_polys, scale_d(3.0)));
                         solid_infill.insert(solid_infill.end(), expansion.begin(), expansion.end());
                     }
 
@@ -3774,10 +3774,10 @@ void PrintObject::bridge_over_infill()
                 Vec2d  v            = next - start; // vector from next to current
                 double dist_to_next = v.norm();
                 acc_distance += dist_to_next;
-                if (acc_distance > scaled(2.0)) {
+                if (acc_distance > scale_d(2.0)) {
                     acc_distance = 0.0;
                     v.normalize();
-                    int   lines_count = int(std::ceil(dist_to_next / scaled(2.0)));
+                    int   lines_count = int(std::ceil(dist_to_next / scale_d(2.0)));
                     float step_size   = dist_to_next / lines_count;
                     for (int i = 0; i < lines_count; ++i) {
                         Point a                   = (start + v * (i * step_size)).cast<coord_t>();
@@ -4601,12 +4601,12 @@ bool PrintObject::update_layer_height_profile(const ModelObject& model_object, c
 //         }
 //         // Merge the new overhangs, find new internal infill.
 //         polygons_append(upper_internal, std::move(overhangs));
-//         static constexpr const auto closing_radius = scaled<float>(2.f);
+//         static constexpr const auto closing_radius = scale_d(2.f);
 //         upper_internal = intersection(
 //             // Regularize the overhang regions, so that the infill areas will not become excessively jagged.
 //             smooth_outward(
 //                 closing(upper_internal, closing_radius, ClipperLib::jtSquare, 0.),
-//                 scaled<coord_t>(0.1)), 
+//                 scale_i(0.1)), 
 //             lower_layer_internal_surfaces);
 //         // Apply new internal infill to regions.
 //         for (LayerRegion *layerm : lower_layer->m_regions) {
@@ -5034,15 +5034,15 @@ static void project_triangles_to_slabs(SpanOfConstPtrs<Layer> layers, const inde
         LightPolygon() { pts.reserve(5); }
         LightPolygon(const std::array<Vec2f, 3>& tri) {
             pts.reserve(3);
-            pts.emplace_back(scaled<coord_t>(tri.front()));
-            pts.emplace_back(scaled<coord_t>(tri[1]));
-            pts.emplace_back(scaled<coord_t>(tri.back()));
+            pts.emplace_back(Point::new_scale(tri.front()));
+            pts.emplace_back(Point::new_scale(tri[1]));
+            pts.emplace_back(Point::new_scale(tri.back()));
         }
 
         Points pts;
 
         void add(const Vec2f& pt) {
-            pts.emplace_back(scaled<coord_t>(pt));
+            pts.emplace_back(Point::new_scale(pt));
             assert(pts.size() <= 5);
         }
     };

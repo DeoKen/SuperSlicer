@@ -49,7 +49,7 @@ public:
      * \param snap_distance Points closer than this distance are considered to
      * be the same point.
      */
-    static void stitch(const Paths& lines, Paths& result_lines, Paths& result_polygons, coord_t max_stitch_distance = scaled<coord_t>(0.1), coord_t snap_distance = scaled<coord_t>(0.01))
+    static void stitch(const Paths& lines, Paths& result_lines, Paths& result_polygons, coord_t max_stitch_distance = scale_i(0.1), coord_t snap_distance = scale_i(0.01))
     {
         if (lines.empty())
             return;
@@ -113,13 +113,13 @@ public:
                                                    is_closing_segment = true;
                                                    if (!should_close)
                                                    {
-                                                       dist += scaled<coord_t>(0.01); // prefer continuing polyline over closing a polygon; avoids closed zigzags from being printed separately
+                                                       dist += scale_i(0.01); // prefer continuing polyline over closing a polygon; avoids closed zigzags from being printed separately
                                                        // continue to see if closing segment is also the closest
                                                        // there might be a segment smaller than [max_stitch_distance] which closes the polygon better
                                                    }
                                                    else
                                                    {
-                                                       dist -= scaled<coord_t>(0.01); //Prefer closing the polygon if it's 100% even lines. Used to create closed contours.
+                                                       dist -= scale_i(0.01); //Prefer closing the polygon if it's 100% even lines. Used to create closed contours.
                                                        //Continue to see if closing segment is also the closest.
                                                    }
                                                }
@@ -159,7 +159,7 @@ public:
                     }
 
                     coord_t segment_dist = (make_point(chain.back()).template cast<int64_t>() - closest.p().template cast<int64_t>()).norm();
-                    assert(segment_dist <= max_stitch_distance + scaled<coord_t>(0.01));
+                    assert(segment_dist <= max_stitch_distance + scale_i(0.01));
                     const size_t old_size = chain.size();
                     if (closest.point_idx == 0)
                     {

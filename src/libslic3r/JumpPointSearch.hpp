@@ -24,7 +24,7 @@ class JPSPathFinder
     BoundingBox max_search_box;
     Lines bed_shape;
 
-    const coord_t resolution = scaled(1.5);
+    const coord_t resolution = scale_i(1.5);
     Pixel         pixelize(const Point &p) { return p / resolution; }
     Point         unpixelize(const Pixel &p) { return p * double(resolution); }
 

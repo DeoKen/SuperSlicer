@@ -72,7 +72,7 @@ public:
 static Polygon get_wtpoly(const GLCanvas3D::WipeTowerInfo &wti)
 {
 
-    auto bb = scaled(wti.bounding_box());
+    BoundingBox bb = scale_bb(wti.bounding_box());
     Polygon poly = Polygon({
         {bb.min},
         {bb.max.x(), bb.min.y()},
@@ -81,7 +81,7 @@ static Polygon get_wtpoly(const GLCanvas3D::WipeTowerInfo &wti)
     });
 
     poly.rotate(wti.rotation());
-    poly.translate(scaled(wti.pos()));
+    poly.translate(scale_p(wti.pos()));
 
     return poly;
 }

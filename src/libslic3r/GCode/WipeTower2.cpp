@@ -29,6 +29,7 @@
 #include "libslic3r/Surface.hpp"
 #include "libslic3r/Fill/FillBase.hpp"
 #include "libslic3r/Fill/FillRectilinear.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -60,7 +61,7 @@ void WipeTower2::set_config(const PrintConfig *config,
 coord_t WipeTower2::width() const { return m_object_config ? scale_i(m_object_config->wipe_tower_width.value) : 0; }
 Vec2d WipeTower2::position() const {
     return m_object_config ? Vec2d(m_object_config->wipe_tower_x.value, m_object_config->wipe_tower_y.value) :
-                             unscale(m_position);
+                             unscale_p(m_position);
 }
 coord_t WipeTower2::extra_spacing() const {
     return m_object_config ? scale_i(m_object_config->wipe_tower_extra_spacing.value) : 0;

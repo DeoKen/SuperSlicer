@@ -13,6 +13,7 @@
 #include "KDTreeIndirect.hpp"
 #include "MutablePriorityQueue.hpp"
 #include "Print.hpp"
+#include "PointUtils.hpp"
 
 #include <cmath>
 #include <cassert>

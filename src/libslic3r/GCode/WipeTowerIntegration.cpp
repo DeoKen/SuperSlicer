@@ -365,7 +365,7 @@ std::string WipeTowerIntegration::finalize(GCodeGenerator &gcodegen)
     std::string gcode;
     if (std::abs(gcodegen.writer().get_position().z() - m_final_purge.print_z) > EPSILON)
         gcode += gcodegen.generate_travel_gcode(
-            {{gcodegen.last_pos().x(), gcodegen.last_pos().y(), scaled(m_final_purge.print_z)}},
+            {{gcodegen.last_pos().x(), gcodegen.last_pos().y(), scale_i(m_final_purge.print_z)}},
             "move to safe place for purging"
         );
     gcode += append_tcr(gcodegen, m_final_purge, -1);

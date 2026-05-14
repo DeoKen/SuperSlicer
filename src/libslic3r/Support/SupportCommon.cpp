@@ -12,6 +12,7 @@
 #include "../Geometry.hpp"
 #include "../Point.hpp"
 #include "../Thread.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <cmath>
 #include <boost/container/static_vector.hpp>
@@ -24,6 +25,7 @@
 
 #include "Api/internal/LayerRegionAccess.hpp"
 #include "Api/internal/LayerAccess.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 // #define SLIC3R_DEBUG
 
@@ -104,7 +106,7 @@ void remove_bridges_from_contacts(
         //FIXME one may want to use a maximum of bridging flow width and normal flow width, as the perimeters are calculated using the normal flow
         // and then turned to bridging flow, thus their centerlines are derived from non-bridging flow and expanding them by a bridging flow
         // may not expand them to the edge of their respective islands.
-        const float w = float(0.5 * std::max(perimeter_bridge_flow.scaled_width(), perimeter_bridge_flow.scaled_spacing())) + scaled<float>(0.001);
+        const float w = float(0.5 * std::max(perimeter_bridge_flow.scaled_width(), perimeter_bridge_flow.scaled_spacing())) + scale_d(0.001);
         for (Polyline &polyline : overhang_perimeters)
             if (polyline.is_straight()) {
                 // This is a bridge 
@@ -145,7 +147,7 @@ void remove_bridges_from_contacts(
         SVG::export_expolygons(debug_out_path("support-top-contacts-remove-bridges-run%d.svg", iRun ++),
             { { { union_ex(offset(layerm.unsupported_bridge_edges(), scale_(SUPPORT_MATERIAL_MARGIN), SUPPORT_SURFACES_OFFSET_PARAMETERS)) }, { "unsupported_bridge_edges", "orange", 0.5f } },
               { { union_ex(contact_polygons) },            { "contact_polygons",           "blue",   0.5f } },
-              { { union_ex(bridges) },                     { "bridges",                    "red",    "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+              { { union_ex(bridges) },                     { "bridges",                    "red",    "black", "", scale_i(0.1f), 0.5f } } });
     #endif /* SLIC3R_DEBUG */
 }
 
@@ -176,7 +178,7 @@ std::pair<SupportGeneratorLayersPtr, SupportGeneratorLayersPtr> generate_interfa
             base_interface_layers.assign(intermediate_layers.size(), nullptr);
         const auto smoothing_distance    = support_params.support_material_interface_flow.scaled_spacing() * 1.5;
         const auto minimum_island_radius = support_params.support_material_interface_flow.scaled_spacing() / support_params.interface_density;
-        const auto closing_distance      = smoothing_distance; // scaled<float>(config.support_material_closing_radius.value);
+        const auto closing_distance      = smoothing_distance; // scale_d(config.support_material_closing_radius.value);
         // Insert a new layer into base_interface_layers, if intersection with base exists.
         auto insert_layer = [&layer_storage, smooth_supports, closing_distance, smoothing_distance, minimum_island_radius, &support_params](
                 SupportGeneratorLayer &intermediate_layer, Polygons &bottom, Polygons &&top, SupportGeneratorLayer *top_interface_layer, 
@@ -389,7 +391,7 @@ SupportGeneratorLayersPtr generate_raft_base(
         //const BrimType brim_type       = object.config().brim_type;
         const bool     brim_outer      = object.config().brim_width > 0; // brim_type == btOuterOnly || brim_type == btOuterAndInner;
         const bool     brim_inner      = object.config().brim_width_interior > 0; //brim_type == btInnerOnly || brim_type == btOuterAndInner;
-        const auto     brim_separation = scaled<float>(object.config().brim_separation.value + object.config().brim_width.value);
+        const auto     brim_separation = scale_d(object.config().brim_separation.value + object.config().brim_width.value);
         for (const ExPolygon &ex : object.layers().front()->lslices()) {
             ex.assert_valid();
             if (brim_outer && brim_inner)

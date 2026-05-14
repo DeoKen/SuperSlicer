@@ -50,6 +50,7 @@
 #include "libslic3r.h"
 #include "LocalesUtils.hpp"
 #include "format.hpp"
+#include "PointUtils.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -178,7 +179,7 @@ namespace Slic3r {
         //    /*  We don't call gcodegen.travel_to() because we don't need retraction (it was already
         //        triggered by the caller) nor avoid_crossing_perimeters and also because the coordinates
         //        of the destination point must not be transformed by origin nor current extruder offset.  */
-        //        gcode += gcodegen.writer().travel_to_xy(unscale(standby_point), 0.0, "move to standby position");
+        //        gcode += gcodegen.writer().travel_to_xy(unscale_p(standby_point), 0.0, "move to standby position");
         //}
         unsigned int extruder_id = gcodegen.writer().tool()->id();
         const ConfigOptionInts& filament_idle_temp = gcodegen.config().idle_temperature;
@@ -2244,7 +2245,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
         auto pts = std::make_unique<ConfigOptionPoints>();
         pts->resize(print.first_layer_convex_hull().size());
         for (size_t idx = 0; idx < print.first_layer_convex_hull().points.size(); ++idx)
-            pts->set_at(unscale(print.first_layer_convex_hull().points[idx]), idx);
+            pts->set_at(unscale_p(print.first_layer_convex_hull().points[idx]), idx);
         BoundingBoxf bbox(pts->get_values());
         this->placeholder_parser().set("first_layer_print_convex_hull", pts.release());
         this->placeholder_parser().set("first_layer_print_min",  new ConfigOptionFloats({ bbox.min.x(), bbox.min.y() }));
@@ -2270,7 +2271,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
             }
             BoundingBoxf get_bb() {
                 BoundingBox bbox(hull);
-                return BoundingBoxf(unscaled(bbox.min), unscaled(bbox.max));
+                return BoundingBoxf(unscale_p(bbox.min), unscale_p(bbox.max));
             }
             Polygon get_hull() { return Geometry::convex_hull(hull); }
         } bbvisitor;
@@ -2311,7 +2312,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
         auto pts = std::make_unique<ConfigOptionPoints>();
         pts->resize(first_layer_hull.size());
         for (size_t idx = 0; idx < first_layer_hull.points.size(); ++idx)
-            pts->set_at(unscale(first_layer_hull.points[idx]), idx);
+            pts->set_at(unscale_p(first_layer_hull.points[idx]), idx);
         this->placeholder_parser().set("first_layer_print_convex_hull", pts.release());
         this->placeholder_parser().set("first_layer_print_min", new ConfigOptionFloats({ bbox.min.x(), bbox.min.y() }));
         this->placeholder_parser().set("first_layer_print_max", new ConfigOptionFloats({ bbox.max.x(), bbox.max.y() }));
@@ -2486,7 +2487,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
 
                 m_volumetric_speed_mm3_per_s = DoExport::autospeed_volumetric_limit(print, *it_tool_ordering);
                 this->m_throw_if_canceled();
-                this->set_origin(unscale((*print_object_instance_sequential_active)->shift));
+                this->set_origin(unscale_p((*print_object_instance_sequential_active)->shift));
                 if (finished_objects > 0) {
                     if (!this->config().between_objects_gcode_before_move.value) {
                         _move_to_print_object(preamble_to_put_start_layer, print, finished_objects,
@@ -2715,7 +2716,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
                                     std::cout << ":\n";
                                 }
                                 assert(!layer_group.empty());
-                                this->set_origin(unscale((*it_print_object_instance)->shift));
+                                this->set_origin(unscale_p((*it_print_object_instance)->shift));
 
                                 if (has_wipe_tower && ((previous_wipe_tower_z + height_step_range <
                                         layer_group.back().layer()->scaled_print_z() && end_wipe_tower_z > previous_wipe_tower_z) ||
@@ -4891,7 +4892,7 @@ LayerResult GCodeGenerator::process_layer(
             //object skirt & brim use the object settings.
             m_region = nullptr;
             set_region_for_extrude(print, print_object, nullptr, gcode);
-            this->set_origin(unscale(print_object->instances()[single_object_instance_idx].shift));
+            this->set_origin(unscale_p(print_object->instances()[single_object_instance_idx].shift));
             if (this->m_layer != nullptr && (this->m_layer->id() < m_config.skirt_height || print.has_infinite_skirt() )) {
                 //TODO: check if I don't need to call extrude_skirt to have arcs.
                 if(first_layer && print.skirt_first_layer())
@@ -4911,7 +4912,7 @@ LayerResult GCodeGenerator::process_layer(
             //object skirt & brim use the object settings.
             m_region = nullptr;
             set_region_for_extrude(print, print_object, nullptr, gcode);
-            this->set_origin(unscale(print_object->instances()[single_object_instance_idx].shift));
+            this->set_origin(unscale_p(print_object->instances()[single_object_instance_idx].shift));
             if (this->m_layer != nullptr && this->m_layer->id() == 0) {
                 m_avoid_crossing_perimeters.use_external_mp(true);
                 for (const ExtrusionEntity* ee : print_object->brim().entities())
@@ -5019,7 +5020,7 @@ void GCodeGenerator::process_layer_single_object(
             //if (m_current_instance != next_instance) // commented because now internal will be togthe nearest internal point first.
             //    m_avoid_crossing_perimeters.use_external_mp_once();
             m_current_instance = next_instance;
-            this->set_origin(unscale(offset));
+            this->set_origin(unscale_p(offset));
             assert(m_gcode_label_objects_start.empty());
             m_gcode_label_objects_start = m_label_objects.start_object(instance, GCode::LabelObjects::IncludeName::No);
             m_gcode_label_objects_last_object_id = print_object.id();
@@ -5303,7 +5304,7 @@ void GCodeGenerator::emit_milling_commands(std::string& gcode, const ObjectsLaye
             for (const ObjectLayerToPrint &ltp : layers) {
                 if (ltp.object_layer != nullptr) {
                     for (const PrintInstance &print_instance : ltp.object()->instances()) {
-                        this->set_origin(unscale(print_instance.shift));
+                        this->set_origin(unscale_p(print_instance.shift));
                         for (const LayerSliceIslandPtr &layer_island_ptr : ltp.object_layer->islands()) {
                             for (const LayerRegionIslandPtr &lri : layer_island_ptr->regions_islands()) {
                                 if (lri->has_extrusion(LayerRegionIsland::MILLS)) {
@@ -5914,7 +5915,7 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
             );
         // Because the G-code export has 1um resolution, don't generate segments shorter than "1.5 microns" (depends of gcode_precision_xyz)
         //FIXME use settings
-        if (!loop.split_at_vertex(seam_point, scaled<double>(0.0015))) {
+        if (!loop.split_at_vertex(seam_point, scale_d(0.0015))) {
             
 #if _DEBUG
     for (const ExtrusionPath &path : loop.paths)
@@ -8339,7 +8340,7 @@ std::string GCodeGenerator::_extrude(ExtrusionPath &path, const std::string_view
     //                if (it->radius != 0) {
     //                    // Extrude an arc.
     //                    assert(m_config.arc_fitting == ArcFittingType::ArcWelder);
-    //                    radius = unscaled<double>(it->radius);
+    //                    radius = unscaled(it->radius);
     //                    {
     //                        // Calculate quantized IJ circle center offset.
     //                        ij = m_writer.get_default_gcode_formatter().quantize(
@@ -8894,7 +8895,7 @@ std::string GCodeGenerator::_travel_before_extrude(const ExtrusionPath &path, co
                         0 :
                         (travel_speed - previous_speed);
                     const double seconds_to_go_travel_speed = (extrude2travel_speed_diff / travel_acceleration);
-                    const distf_t dist_to_go_travel_speed = scaled(seconds_to_go_travel_speed *
+                    const distf_t dist_to_go_travel_speed = scale_d(seconds_to_go_travel_speed *
                                                                     (travel_speed - extrude2travel_speed_diff / 2));
                     assert(dist_to_go_travel_speed >= 0);
                     assert(!std::isinf(dist_to_go_travel_speed));
@@ -8903,7 +8904,7 @@ std::string GCodeGenerator::_travel_before_extrude(const ExtrusionPath &path, co
                     const double travel2extrude_speed_diff = speed_mm_s >= travel_speed ? 0 :
                                                                                           (travel_speed - speed_mm_s);
                     const double seconds_to_go_extrude_speed = (travel2extrude_speed_diff / acceleration);
-                    const distf_t dist_to_go_extrude_speed = scaled(seconds_to_go_extrude_speed *
+                    const distf_t dist_to_go_extrude_speed = scale_d(seconds_to_go_extrude_speed *
                                                                      (travel_speed - travel2extrude_speed_diff / 2));
                     assert(dist_to_go_extrude_speed >= 0);
                     assert(!std::isinf(dist_to_go_extrude_speed));
@@ -9770,7 +9771,7 @@ Polyline GCodeGenerator::generate_travel_xy_path(
     bool& could_be_wipe_disabled
 ) {
 
-    const Point scaled_origin{scaled(this->origin())};
+    const Point scaled_origin{scale_p(this->origin())};
     const bool avoid_crossing_perimeters = (
         this->m_config.avoid_crossing_perimeters
         && !this->m_avoid_crossing_perimeters.disabled_once()
@@ -9859,7 +9860,7 @@ std::string GCodeGenerator::travel_to(
             extruder_id,
             initial_elevation,
             m_travel_obstacle_tracker,
-            scaled(m_origin)
+            scale_p(m_origin)
         )
     );
 

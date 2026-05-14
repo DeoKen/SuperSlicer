@@ -130,7 +130,7 @@ static std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> group_me
         const PrintObject       &print_object  = *print.get_object(object_id);
         const PrintObjectConfig &object_config = print_object.config();
         if (object_config.support_material_contact_distance_type.value == zdNone)
-            // || min_feature_size < scaled<coord_t>(0.1) that is the minimum line width
+            // || min_feature_size < scale_i(0.1) that is the minimum line width
             TreeSupportSettings::soluble = true;
     }
 
@@ -226,7 +226,7 @@ ExPolygons to_expolys(Polygons polys) {
     // +1 makes the threshold inclusive
     double                   tan_threshold          = support_threshold_auto ? 0. : tan(M_PI * double(support_threshold + 1) / 180.);
     //FIXME this is a fudge constant!
-    auto                     enforcer_overhang_offset = scaled<double>(config.support_tree_tip_diameter.value);
+    auto                     enforcer_overhang_offset = scale_d(config.support_tree_tip_diameter.value);
     const size_t num_overhang_layers = support_auto ?
         num_object_layers :
         std::min(num_object_layers,
@@ -358,7 +358,7 @@ ExPolygons to_expolys(Polygons polys) {
                         SVG::export_expolygons(debug_out_path("treesupport-self-intersections-%d.svg", ++irun),
                             { { { current_layer.lslices() },      { "current_layer.lslices", "yellow", 0.5f } },
                               { { lower_layer.lslices() },        { "lower_layer.lslices", "gray", 0.5f } },
-                              { { union_ex(enforced_overhangs) }, { "enforced_overhangs", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                              { { union_ex(enforced_overhangs) }, { "enforced_overhangs", "red",  "black", "", scale_i(0.1f), 0.5f } } });
                     }
                     SVG::export_expolygons(
                         debug_out_path("%d-forced-overhangs.svg", current_layer.id()),
@@ -590,7 +590,7 @@ static std::optional<std::pair<Point, size_t>> polyline_sample_next_point_at_dis
 {
     const double                dist2  = sqr(dist);
     const auto                  dist2i = int64_t(dist2);
-    static constexpr const auto eps    = scaled<double>(0.01);
+    static constexpr const auto eps    = scale_d(0.01);
 
     for (size_t i = start_idx + 1; i < polyline.size(); ++ i) {
         const Point p1 = polyline[i];
@@ -649,7 +649,7 @@ static std::optional<std::pair<Point, size_t>> polyline_sample_next_point_at_dis
 
         double len = length(part.points);
         Polyline line;
-        double current_distance = std::max(distance, scaled<double>(0.1));
+        double current_distance = std::max(distance, scale_d(0.1));
         if (len < 2 * distance && min_points <= 1)
         {
             // Insert the opposite point of the first one.
@@ -682,7 +682,7 @@ static std::optional<std::pair<Point, size_t>> polyline_sample_next_point_at_dis
                 optimal_end_index = (part.size() + optimal_end_index - optimal_start_index - 1) % (part.size() - 1);
             }
 
-            while (line.size() < min_points && current_distance >= scaled<double>(0.1))
+            while (line.size() < min_points && current_distance >= scale_d(0.1))
             {
                 line.clear();
                 Point current_point = part[0];
@@ -720,7 +720,7 @@ static std::optional<std::pair<Point, size_t>> polyline_sample_next_point_at_dis
                             continue;
                         }
                         // if the point was too close, the next possible viable point is at least distance-min_distance_to_existing_point away from the one that was just checked.
-                        next_distance = std::max(current_distance - min_distance_to_existing_point, scaled<double>(0.1));
+                        next_distance = std::max(current_distance - min_distance_to_existing_point, scale_d(0.1));
                         current_point = next_point->first;
                         current_index = next_point->second;
                     }
@@ -799,7 +799,7 @@ static std::optional<std::pair<Point, size_t>> polyline_sample_next_point_at_dis
         (support_params.interface_angle + (layer_idx & 1) ? float(- M_PI / 4.) : float(+ M_PI / 4.)) :
         support_params.base_angle;
 
-    fill_params.density     = float(roof ? support_params.interface_density : scaled<float>(flow.spacing()) / (scaled<float>(flow.spacing()) + float(support_infill_distance)));
+    fill_params.density     = float(roof ? support_params.interface_density : scale_d(flow.spacing()) / (scale_d(flow.spacing()) + float(support_infill_distance)));
     fill_params.dont_adjust = true;
     fill_params.config = &support_params.default_region_config;
     
@@ -865,7 +865,7 @@ static std::optional<std::pair<Point, size_t>> polyline_sample_next_point_at_dis
         if (result.empty()) {
             BOOST_LOG_TRIVIAL(debug) << "Caught an area destroying union, enlarging areas a bit.";
             // just take the few lines we have, and offset them a tiny bit. Needs to be offsetPolylines, as offset may aleady have problems with the area.
-            result = union_(offset(to_polylines(first), scaled<float>(0.002), jtMiter, 1.2), offset(to_polylines(second), scaled<float>(0.002), jtMiter, 1.2));
+            result = union_(offset(to_polylines(first), scale_d(0.002), jtMiter, 1.2), offset(to_polylines(second), scale_d(0.002), jtMiter, 1.2));
         }
     }
     
@@ -924,16 +924,16 @@ static std::optional<std::pair<Point, size_t>> polyline_sample_next_point_at_dis
     }
     // offset in steps
     for (int i = 0; i < steps; ++ i) {
-        ret = diff(offset(ret, step_size, ClipperLib::jtRound, scaled<float>(0.01)), collision_trimmed());
+        ret = diff(offset(ret, step_size, ClipperLib::jtRound, scale_d(0.01)), collision_trimmed());
         // ensure that if many offsets are done the performance does not suffer extremely by the new vertices of jtRound.
         if (i % 10 == 7)
-            ret = polygons_simplify(ret, scaled<double>(0.015), polygons_strictly_simple);
+            ret = polygons_simplify(ret, scale_d(0.015), polygons_strictly_simple);
     }
     // offset the remainder
     float last_offset = distance - steps * step_size;
     if (last_offset > SCALED_EPSILON)
-        ret = offset(ret, distance - steps * step_size, ClipperLib::jtRound, scaled<float>(0.01));
-    ret = polygons_simplify(ret, scaled<double>(0.015), polygons_strictly_simple);
+        ret = offset(ret, distance - steps * step_size, ClipperLib::jtRound, scale_d(0.01));
+    ret = polygons_simplify(ret, scale_d(0.015), polygons_strictly_simple);
 
     if (do_final_difference)
         ret = diff(ret, collision_trimmed());
@@ -1113,7 +1113,7 @@ int generate_raft_contact(
         // Create the raft contact layer.
         const ExPolygons &lslices   = print_object.get_layer(0)->lslices();
         double            expansion = print_object.config().raft_expansion.value;
-        interface_placer.add_roof_unguarded(expansion > 0 ? expand(lslices, scaled<float>(expansion)) : to_polygons(lslices), raft_contact_layer_idx, 0);
+        interface_placer.add_roof_unguarded(expansion > 0 ? expand(lslices, scale_d(expansion)) : to_polygons(lslices), raft_contact_layer_idx, 0);
     }
     return raft_contact_layer_idx;
 }
@@ -1138,7 +1138,7 @@ void finalize_raft_contact(
             EdgeGrid::Grid grid(get_extents(raft_polygons).inflated(SCALED_EPSILON));
             grid.create(raft_polygons, Polylines{}, scale_i(10.));
             SupportElements &first_layer_move_bounds = move_bounds[first_tree_layer];
-            double threshold = scaled<double>(print_object.config().raft_expansion.value) * 2.;
+            double threshold = scale_d(print_object.config().raft_expansion.value) * 2.;
             first_layer_move_bounds.erase(std::remove_if(first_layer_move_bounds.begin(), first_layer_move_bounds.end(),
                 [&grid, threshold](const SupportElement &el) {
                     distf_t dist;
@@ -1229,7 +1229,7 @@ void sample_overhang_area(
                     interface_placer.volumes.getAvoidance(interface_placer.config.getRadius(0), layer_idx - (dtt_roof + 1), TreeModelVolumes::AvoidanceType::Fast, false, min_xy_dist);
                 // prevent rounding errors down the line
                 //FIXME maybe use SafetyOffset::Yes at the following diff() instead?
-                forbidden_next = offset(union_ex(forbidden_next_raw), scaled<float>(0.005), jtMiter, 1.2);
+                forbidden_next = offset(union_ex(forbidden_next_raw), scale_d(0.005), jtMiter, 1.2);
             }
             Polygons overhang_area_next = diff(overhang_area, forbidden_next);
             if (area(overhang_area_next) < mesh_group_settings.minimum_roof_area) {
@@ -1289,7 +1289,7 @@ void sample_overhang_area(
             polylines = ensure_maximum_distance_polyline(
                 to_polylines(
                     ! reduced_overhang_area.empty() &&
-                        area(offset(diff_ex(overhang_area, reduced_overhang_area), std::max(interface_placer.config.support_line_width, connect_length), jtMiter, 1.2)) < sqr(scaled<double>(0.001)) ?
+                        area(offset(diff_ex(overhang_area, reduced_overhang_area), std::max(interface_placer.config.support_line_width, connect_length), jtMiter, 1.2)) < sqr(scale_d(0.001)) ?
                     reduced_overhang_area :
                     overhang_area),
                 connect_length, min_support_points);
@@ -1418,7 +1418,7 @@ static void generate_initial_areas(
                     volumes.getCollision(config.getRadius(0), layer_idx, min_xy_dist) :
                     volumes.getAvoidance(config.getRadius(0), layer_idx, AvoidanceType::Fast, false, min_xy_dist);
                 // prevent rounding errors down the line, points placed directly on the line of the forbidden area may not be added otherwise.
-                relevant_forbidden = offset(union_ex(relevant_forbidden_raw), scaled<float>(0.005), jtMiter, 1.2);
+                relevant_forbidden = offset(union_ex(relevant_forbidden_raw), scale_d(0.005), jtMiter, 1.2);
             }
 
             // every overhang has saved if a roof should be generated for it. This can NOT be done in the for loop as an area may NOT have a roof 
@@ -1584,7 +1584,7 @@ static unsigned int move_inside(const Polygons &polygons, Point &from, int dista
                             double lab   = abd.norm();
                             double lp1p2 = p1p2.norm();
                             // inward direction irrespective of sign of [distance]
-                            auto inward_dir = perp(abd * (scaled<double>(10.0) / lab) + p1p2 * (scaled<double>(10.0) / lp1p2));
+                            auto inward_dir = perp(abd * (scale_d(10.0) / lab) + p1p2 * (scale_d(10.0) / lp1p2));
                             // MM2INT(10.0) to retain precision for the eventual normalization
                             ret = x + (inward_dir * (distance / inward_dir.norm())).cast<coord_t>();
                             is_already_on_correct_side_of_boundary = inward_dir.dot((p - x).cast<double>()) * distance >= 0;
@@ -1698,7 +1698,7 @@ static Point move_inside_if_outside(const Polygons &polygons, Point from, int di
         }
         if (settings.no_error && settings.move)
             // as ClipperLib::jtRound has to be used for offsets this simplify is VERY important for performance.
-            polygons_simplify(increased, scaled<float>(0.025), polygons_strictly_simple);
+            polygons_simplify(increased, scale_d(0.025), polygons_strictly_simple);
     } else 
         // if no movement is done the areas keep parent area as no move == offset(0)
         increased = parent.influence_area;
@@ -1882,7 +1882,7 @@ static void increase_areas_one_layer(
 #ifdef TREESUPPORT_DEBUG_SVG
             SVG::export_expolygons(debug_out_path("treesupport-increase_areas_one_layer-%d-%ld.svg", layer_idx, int(merging_area_idx)),
                 { { { union_ex(wall_restriction) },      { "wall_restricrictions", "gray", 0.5f } },
-                  { { union_ex(parent.influence_area) }, { "parent", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                  { { union_ex(parent.influence_area) }, { "parent", "red",  "black", "", scale_i(0.1f), 0.5f } } });
 #endif // TREESUPPORT_DEBUG_SVG
 
             Polygons to_bp_data, to_model_data;
@@ -2017,7 +2017,7 @@ static void increase_areas_one_layer(
 #ifdef TREESUPPORT_DEBUG_SVG
                         SVG::export_expolygons(debug_out_path("treesupport-increase_areas_one_layer-slow-%d-%ld.svg", layer_idx, int(merging_area_idx)),
                             { { { union_ex(wall_restriction) }, { "wall_restricrictions", "gray", 0.5f } },
-                              { { union_ex(offset_slow) },      { "offset_slow", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                              { { union_ex(offset_slow) },      { "offset_slow", "red",  "black", "", scale_i(0.1f), 0.5f } } });
 #endif // TREESUPPORT_DEBUG_SVG
                     }
                     if (offset_fast.empty() && settings.increase_speed != slow_speed) {
@@ -2031,7 +2031,7 @@ static void increase_areas_one_layer(
 #ifdef TREESUPPORT_DEBUG_SVG
                         SVG::export_expolygons(debug_out_path("treesupport-increase_areas_one_layer-fast-%d-%ld.svg", layer_idx, int(merging_area_idx)),
                             { { { union_ex(wall_restriction) }, { "wall_restricrictions", "gray", 0.5f } },
-                              { { union_ex(offset_fast) },      { "offset_fast", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                              { { union_ex(offset_fast) },      { "offset_fast", "red",  "black", "", scale_i(0.1f), 0.5f } } });
 #endif // TREESUPPORT_DEBUG_SVG
                     }
                 }
@@ -2040,7 +2040,7 @@ static void increase_areas_one_layer(
                 if (!settings.no_error) { 
                     // ERROR CASE
                     // if the area becomes for whatever reason something that clipper sees as a line, offset would stop working, so ensure that even if if wrongly would be a line, it still actually has an area that can be increased
-                    Polygons lines_offset = offset(to_polylines(parent.influence_area), scaled<float>(0.005), jtMiter, 1.2);
+                    Polygons lines_offset = offset(to_polylines(parent.influence_area), scale_d(0.005), jtMiter, 1.2);
                     Polygons base_error_area = union_(parent.influence_area, lines_offset);
                     result = increase_single_area(volumes, config, settings, layer_idx, parent, 
                         base_error_area, to_bp_data, to_model_data, inc_wo_collision, (config.maximum_move_distance + extra_speed) * 1.5, mergelayer);
@@ -2271,7 +2271,7 @@ static bool merge_influence_areas_two_elements(
         return false;
 
     // While 0.025 was guessed as enough, i did not have reason to change it.
-    if (area(offset(intersect, scaled<float>(-0.025), jtMiter, 1.2)) <= tiny_area_threshold)
+    if (area(offset(intersect, scale_d(-0.025), jtMiter, 1.2)) <= tiny_area_threshold)
         return false;
 
 #ifdef TREES_MERGE_RATHER_LATER
@@ -2998,7 +2998,7 @@ static void generate_branch_areas(
                                 // try a fuzzy inside as sometimes the point should be on the border, but is not because of rounding errors...
                                 Point pt = draw_area.element->state.result_on_layer;
                                 move_inside(to_polygons(part), pt, 0);
-                                drop = (draw_area.element->state.result_on_layer - pt).cast<double>().norm() >= scaled<double>(0.025);
+                                drop = (draw_area.element->state.result_on_layer - pt).cast<double>().norm() >= scale_d(0.025);
                             }
                             if (! drop)
                                 polygons_with_correct_center.emplace_back(std::move(part));
@@ -3091,7 +3091,7 @@ static void smooth_branch_areas(
                                     static int irun = 0;
                                     SVG::export_expolygons(debug_out_path("treesupport-extrude_areas-smooth-error-%d.svg", irun ++),
                                         { { { union_ex(max_allowed_area) },   { "max_allowed_area", "yellow", 0.5f } },
-                                          { { union_ex(orig) }, { "orig", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                                          { { union_ex(orig) }, { "orig", "red",  "black", "", scale_i(0.1f), 0.5f } } });
                                     ::MessageBoxA(nullptr, "TreeSupport smoothing bug", "Bug detected!", MB_OK | MB_SYSTEMMODAL | MB_SETFOREGROUND | MB_ICONWARNING);
                                 }
 #endif
@@ -3249,7 +3249,7 @@ static void finalize_interface_and_support_areas(
                 base_layer_polygons = smooth_outward(union_(base_layer_polygons), config.support_line_width); //FIXME was .smooth(50);
                 //smooth_outward(closing(std::move(bottom), closing_distance + minimum_island_radius, closing_distance, SUPPORT_SURFACES_OFFSET_PARAMETERS), smoothing_distance) :
                 // simplify a bit, to ensure the output does not contain outrageous amounts of vertices. Should not be necessary, just a precaution.
-                base_layer_polygons = polygons_simplify(base_layer_polygons, std::min(scaled<double>(0.03), double(config.resolution)), polygons_strictly_simple);
+                base_layer_polygons = polygons_simplify(base_layer_polygons, std::min(scale_d(0.03), double(config.resolution)), polygons_strictly_simple);
             }
 
             if (! support_roof_polygons.empty() && ! base_layer_polygons.empty()) {
@@ -3317,7 +3317,7 @@ static void finalize_interface_and_support_areas(
                     if (support_bottom == nullptr)
                         support_bottom = &layer_allocate(layer_storage, SupporLayerType::BottomContact, print_object.slicing_parameters(), config, layer_idx);
                     support_bottom->polygons = union_(floor_layer, support_bottom->polygons);
-                    base_layer_polygons = diff_clipped(base_layer_polygons, offset(support_bottom->polygons, scaled<float>(0.01), jtMiter, 1.2)); // Subtract the support floor from the normal support.
+                    base_layer_polygons = diff_clipped(base_layer_polygons, offset(support_bottom->polygons, scale_d(0.01), jtMiter, 1.2)); // Subtract the support floor from the normal support.
                 }
             }
 
@@ -3445,7 +3445,7 @@ static void draw_areas(
             append(polygons, area.polygons);
         }
         SVG::export_expolygons(debug_out_path("treesupport-extrude_areas-raw-%d.svg", area_layer_idx),
-            { { { union_ex(polygons) }, { "parent", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+            { { { union_ex(polygons) }, { "parent", "red",  "black", "", scale_i(0.1f), 0.5f } } });
     }
 #endif
 
@@ -3463,7 +3463,7 @@ static void draw_areas(
             append(polygons, area.polygons);
         }
         SVG::export_expolygons(debug_out_path("treesupport-extrude_areas-smooth-%d.svg", area_layer_idx),
-            { { { union_ex(polygons) }, { "parent", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+            { { { union_ex(polygons) }, { "parent", "red",  "black", "", scale_i(0.1f), 0.5f } } });
     }
 #endif
 
@@ -3635,7 +3635,7 @@ static void generate_support_areas(Print &print,
                     SVG::export_expolygons(debug_out_path("treesupport-initial_areas-%d.svg", layer_idx),
                         { { { union_ex(volumes.getWallRestriction(support_element_collision_radius(config, begin->state), layer_idx, begin->state.use_min_xy_dist)) },
                             { "wall_restricrictions", "gray", 0.5f } },
-                          { { union_ex(polys) }, { "parent", "red",  "black", "", scaled<coord_t>(0.1f), 0.5f } } });
+                          { { union_ex(polys) }, { "parent", "red",  "black", "", scale_i(0.1f), 0.5f } } });
             }
     #endif // TREESUPPORT_DEBUG_SVG
 

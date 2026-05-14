@@ -19,6 +19,7 @@
 #include "slic3r/Utils/FixModelByWin10.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/TriangleMeshSlicer.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include "imgui/imgui_internal.h"
 #include "slic3r/GUI/MsgDialog.hpp"

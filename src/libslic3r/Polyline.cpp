@@ -10,17 +10,125 @@
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "BoundingBox.hpp"
 #include "Polyline.hpp"
+
+#include <algorithm>
+#include <iostream>
+#include <utility>
+
+#include "BoundingBox.hpp"
 #include "Exception.hpp"
 #include "ExPolygon.hpp"
 #include "Line.hpp"
 #include "Polygon.hpp"
-#include <iostream>
-#include <utility>
-#include <algorithm>
 
 namespace Slic3r {
+
+double total_length(const Polylines &polylines)
+{
+    double total = 0;
+    for (const Polyline &pl : polylines)
+        total += pl.length();
+    return total;
+}
+
+Lines to_lines(const Polyline &poly) 
+{
+    Lines lines;
+    if (poly.points.size() >= 2) {
+        lines.reserve(poly.points.size() - 1);
+        for (Points::const_iterator it = poly.points.begin(); it != poly.points.end()-1; ++it)
+            lines.push_back(Line(*it, *(it + 1)));
+    }
+    return lines;
+}
+
+Lines to_lines(const Polylines &polys) 
+{
+    size_t n_lines = 0;
+    for (size_t i = 0; i < polys.size(); ++ i)
+        if (polys[i].points.size() > 1)
+            n_lines += polys[i].points.size() - 1;
+    Lines lines;
+    lines.reserve(n_lines);
+    for (size_t i = 0; i < polys.size(); ++ i) {
+        const Polyline &poly = polys[i];
+        for (Points::const_iterator it = poly.points.begin(); it != poly.points.end()-1; ++it)
+            lines.push_back(Line(*it, *(it + 1)));
+    }
+    return lines;
+}
+
+Polylines to_polylines(const std::vector<Points> &paths)
+{
+    Polylines out;
+    out.reserve(paths.size());
+    for (const Points &path : paths)
+        out.emplace_back(path);
+    return out;
+}
+
+Polylines to_polylines(std::vector<Points> &&paths)
+{
+    Polylines out;
+    out.reserve(paths.size());
+    for (Points &path : paths)
+        out.emplace_back(std::move(path));
+    return out;
+}
+
+void polylines_append(Polylines &dst, const Polylines &src) 
+{ 
+    dst.insert(dst.end(), src.begin(), src.end());
+}
+
+void polylines_append(Polylines &dst, Polylines &&src) 
+{
+    if (dst.empty()) {
+        dst = std::move(src);
+    } else {
+        std::move(std::begin(src), std::end(src), std::back_inserter(dst));
+        src.clear();
+    }
+}
+
+ThickPolylines to_thick_polylines(Polylines &&polylines, const coordf_t width)
+{
+    ThickPolylines out;
+    out.reserve(polylines.size());
+    for (Polyline& polyline : polylines) {
+        out.emplace_back();
+        out.back().points_width.assign(polyline.points.size(), width);
+        out.back().points = std::move(polyline.points);
+    }
+    return out;
+}
+
+bool ThickPolyline::is_valid() const
+{
+    assert(points.size() == points_width.size());
+    return this->points.size() >= 2;
+}
+
+distf_t ThickPolyline::length() const
+{
+    assert(points.size() == points_width.size());
+    return Slic3r::length(this->points);
+}
+
+void ThickPolyline::reverse()
+{
+    assert(points.size() == points_width.size());
+    std::reverse(this->points.begin(), this->points.end());
+    std::reverse(this->points_width.begin(), this->points_width.end());
+    std::swap(this->endpoints.first, this->endpoints.second);
+    start_at = StartPos(-start_at);
+}
+
+distf_t ArcPolyline::length() const
+{
+    return Geometry::ArcWelder::path_length<distf_t>(m_path);
+}
 
 const Point& Polyline::leftmost_point() const
 {
@@ -930,7 +1038,6 @@ std::pair<int, Point> ArcPolyline::foot_pt(const Point &pt) const
     }
 }
 
-
 void ArcPolyline::pop_front()
 {
     assert(m_only_strait);
@@ -1458,7 +1565,6 @@ Polyline ArcPolyline::to_polyline(coord_t deviation/*=0*/) const {
     return poly_out;
 }
 
-
 Geometry::ArcWelder::Path ArcPolyline::_from_polyline(const Points &poly)
 {
     Geometry::ArcWelder::Path path;
@@ -1725,7 +1831,6 @@ int ArcPolyline::simplify_straits(coordf_t min_tolerance,
     return current_buffer_size;
 }
 
-
 void ArcPolyline::simplify_straits(const coordf_t min_tolerance,
                                   const coordf_t min_point_distance)
 {
@@ -1754,7 +1859,6 @@ void ArcPolyline::simplify_straits(const coordf_t min_tolerance,
     assert(is_valid());
     //at the end, we should have the buffer no more than 1/2 filled.
 }
-
 
 // douglas_peuker and create arc if with_fitting_arc
 void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, double fit_percent_tolerance)

@@ -8,6 +8,7 @@
 #include "SceneBuilder.hpp"
 
 #include "libslic3r/Model.hpp"
+#include "libslic3r/PointUtils.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/SLAPrint.hpp"
 
@@ -34,7 +35,7 @@ coord_t get_skirt_inset(const Print &fffprint)
                       + fffprint.config().skirt_distance.value;
     }
 
-    return scaled(skirt_inset);
+    return scale_i(skirt_inset);
 }
 
 // to compute the max brim, to be sure the brim won't go out of the bed.
@@ -48,7 +49,7 @@ coord_t brim_offset(const PrintObject &po)
                                   && brim_separation < brim_width;
 
     // How wide is the brim? (in scaled units)
-    return has_outer_brim ? scaled(brim_width /*+ brim_separation*/) : 0;
+    return has_outer_brim ? scale_i(brim_width /*+ brim_separation*/) : 0;
 }
 
 size_t model_instance_count (const Model &m)

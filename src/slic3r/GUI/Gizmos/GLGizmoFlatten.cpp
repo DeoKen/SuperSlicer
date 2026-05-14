@@ -11,6 +11,7 @@
 
 #include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <numeric>
 

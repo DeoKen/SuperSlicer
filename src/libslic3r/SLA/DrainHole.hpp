@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "libslic3r/Point.hpp"
+#include "libslic3r/PointSerialize.hpp"
 
 struct indexed_triangle_set;
 

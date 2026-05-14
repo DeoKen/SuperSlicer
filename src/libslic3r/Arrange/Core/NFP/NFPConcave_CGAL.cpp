@@ -12,6 +12,7 @@
 #include <CGAL/Polygon_vertical_decomposition_2.h>
 
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 namespace Slic3r {
 
@@ -73,7 +74,7 @@ Polygons convex_decomposition_cgal(const ExPolygon &expoly)
     for (auto &pwh : out) {
         Polygon poly;
         for (auto &p : pwh)
-            poly.points.emplace_back(scaled(p.x()), scaled(p.y()));
+            poly.points.emplace_back(scale_i(p.x()), scale_i(p.y()));
         ret.emplace_back(std::move(poly));
     }
 
@@ -104,7 +105,7 @@ Polygons convex_decomposition_cgal(const Polygon &poly)
     for (const Polygon_2& poly : outp){
         Polygon r;
         for(Point_2 p : poly.container())
-            r.points.emplace_back(scaled(pts[p].x()), scaled(pts[p].y()));
+            r.points.emplace_back(scale_i(pts[p].x()), scale_i(pts[p].y()));
 
         ret.emplace_back(std::move(r));
     }

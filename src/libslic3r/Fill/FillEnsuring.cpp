@@ -62,7 +62,7 @@ ThickPolylines FillEnsuring::make_fill_polylines(
     Polygons inner_area = stop_vibrations ? intersection(filled_area, opening(filled_area, 2 * scaled_spacing, 3 * scaled_spacing)) :
                                             filled_area;
     
-    inner_area = shrink(inner_area, scaled_spacing * 0.5 - scaled<double>(this->overlap));
+    inner_area = shrink(inner_area, scaled_spacing * 0.5 - scale_d(this->overlap));
     
     AABBTreeLines::LinesDistancer<Line> area_walls{to_lines(inner_area)};
 
@@ -285,7 +285,7 @@ ThickPolylines FillEnsuring::make_fill_polylines(
         reconstructed_area                     = union_safety_offset(reconstructed_area);
         ExPolygons gaps_for_additional_filling = diff_ex(filled_area, reconstructed_area);
         if (this->overlap != 0) {
-            gaps_for_additional_filling = offset_ex(gaps_for_additional_filling, scaled<float>(this->overlap));
+            gaps_for_additional_filling = offset_ex(gaps_for_additional_filling, scale_d(this->overlap));
         }
 
         // BoundingBox bbox = get_extents(filled_area);

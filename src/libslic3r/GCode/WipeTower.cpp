@@ -23,6 +23,7 @@
 #include "Geometry.hpp"
 #include "Surface.hpp"
 #include "Fill/FillRectilinear.hpp"
+#include "PointUtils.hpp"
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -1596,11 +1597,11 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
                 // Extrude the infill.
                 if (! polylines.empty()) {
                     // Extrude the infill and travel back to where we were.
-                    bool mirror = ((pts[i].first.y() - center.y()) * (unscale(polylines.front().points.front()).y() - center.y())) < 0.;
+                    bool mirror = ((pts[i].first.y() - center.y()) * (unscale_p(polylines.front().points.front()).y() - center.y())) < 0.;
                     for (const Polyline& line : polylines) {
-                        writer.travel(center - (mirror ? 1.f : -1.f) * (unscale(line.points.front()).cast<float>() - center));
+                        writer.travel(center - (mirror ? 1.f : -1.f) * (unscale_p(line.points.front()).cast<float>() - center));
                         for (size_t i=0; i<line.points.size(); ++i)
-                            writer.extrude(center - (mirror ? 1.f : -1.f) * (unscale(line.points[i]).cast<float>() - center));
+                            writer.extrude(center - (mirror ? 1.f : -1.f) * (unscale_p(line.points[i]).cast<float>() - center));
                     }
                     writer.travel(pts[i].first);
                 }
@@ -1653,11 +1654,11 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
         for (size_t i = 0; i < loops_num; ++i) {
             poly = offset(poly, scale_d(spacing)).front();
             int cp = poly.closest_point_index(Point::new_scale(writer.x(), writer.y()));
-            writer.travel(unscale(poly.points[cp]).cast<float>());
+            writer.travel(unscale_p(poly.points[cp]).cast<float>());
             for (int i=cp+1; true; ++i ) {
                 if (i==int(poly.points.size()))
                     i = 0;
-                writer.extrude(unscale(poly.points[i]).cast<float>());
+                writer.extrude(unscale_p(poly.points[i]).cast<float>());
                 if (i == cp)
                     break;
             }
@@ -1673,7 +1674,7 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
     // Now prepare future wipe.
     int i = poly.closest_point_index(Point::new_scale(writer.x(), writer.y()));
     writer.add_wipe_point(writer.pos());
-    writer.add_wipe_point(unscale(poly.points[i==0 ? int(poly.points.size())-1 : i-1]).cast<float>());
+    writer.add_wipe_point(unscale_p(poly.points[i==0 ? int(poly.points.size())-1 : i-1]).cast<float>());
 
     // Ask our writer about how much material was consumed.
     // Skip this in case the layer is sparse and config option to not print sparse layers is enabled.

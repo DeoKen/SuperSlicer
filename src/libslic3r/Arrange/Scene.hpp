@@ -308,10 +308,10 @@ void SceneBuilderBase<Subclass>::build_scene(Scene &sc) &&
     if (!m_settings)
         m_settings = std::make_unique<arr2::ArrangeSettings>();
 
-    coord_t inset = std::max(scaled(m_settings->get_distance_from_bed()),
+    coord_t inset = std::max(scale_i(m_settings->get_distance_from_bed()),
                              m_skirt_offs + m_brims_offs);
 
-    coord_t md = scaled(m_settings->get_distance_from_objects());
+    coord_t md = scale_i(m_settings->get_distance_from_objects());
     md = md / 2 - inset;
 
     visit_bed([md](auto &rawbed) { rawbed = offset(rawbed, md); }, m_bed);

@@ -99,10 +99,10 @@ void ConcaveHull::add_connector_rectangles(const Points &centroids,
         r.points.reserve(3);
         r.points.emplace_back(cc);
 
-        Point n(scaled(nx), scaled(ny));
+        Point n(scale_i(nx), scale_i(ny));
         r.points.emplace_back(c + Point(n.y(), -n.x()));
         r.points.emplace_back(c + Point(-n.y(), n.x()));
-        offset(r, scaled<float>(1.));
+        offset(r, scale_d(1.));
 
         m_polys.emplace_back(r);
     }
@@ -119,7 +119,7 @@ ConcaveHull::ConcaveHull(const Polygons &polys, double mergedist, ThrowOnCancel 
 
     Points centroids = calculate_centroids();
 
-    add_connector_rectangles(centroids, scaled(mergedist), thr);
+    add_connector_rectangles(centroids, scale_i(mergedist), thr);
 
     merge_polygons();
 }
@@ -138,7 +138,7 @@ ExPolygons offset_waffle_style_ex(const ConcaveHull &hull, coord_t delta)
 
 Polygons offset_waffle_style(const ConcaveHull &hull, coord_t delta)
 {
-    auto arc_tolerance = scaled<double>(0.01);
+    auto arc_tolerance = scale_d(0.01);
     Polygons res = closing(hull.polygons(), 2 * delta, delta, ClipperLib::jtRound, arc_tolerance);
 
     auto it = std::remove_if(res.begin(), res.end(), [](Polygon &p) { return p.is_clockwise(); });

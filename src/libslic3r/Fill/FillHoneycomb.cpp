@@ -10,6 +10,7 @@
 #include "../ClipperUtils.hpp"
 #include "../ShortestPath.hpp"
 #include "../Surface.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include "FillHoneycomb.hpp"
 

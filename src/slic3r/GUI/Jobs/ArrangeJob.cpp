@@ -40,22 +40,22 @@ public:
 
     void apply_arrange_result(const Vec2d& tr, double rotation)
     {
-        m_pos = unscaled(tr); m_rotation = rotation;
+        m_pos = unscale_p(tr); m_rotation = rotation;
         apply_wipe_tower();
     }
     
     ArrangePolygon get_arrange_polygon() const
     {
         Polygon ap({
-            {scaled(m_bb.min)},
-            {scaled(m_bb.max.x()), scaled(m_bb.min.y())},
-            {scaled(m_bb.max)},
-            {scaled(m_bb.min.x()), scaled(m_bb.max.y())}
+            {scale_p(m_bb.min)},
+            {scale_i(m_bb.max.x()), scale_i(m_bb.min.y())},
+            {scale_p(m_bb.max)},
+            {scale_i(m_bb.min.x()), scale_i(m_bb.max.y())}
             });
         
         ArrangePolygon ret;
         ret.poly.contour = std::move(ap);
-        ret.translation  = scaled(m_pos);
+        ret.translation  = scale_p(m_pos);
         ret.rotation     = m_rotation;
         ++ret.priority;
 
@@ -182,7 +182,7 @@ static void update_arrangepoly_slaprint(arrangement::ArrangePolygon &ret,
                         po.config().pad_around_object.getBool() *
                           po.config().pad_object_gap.getFloat() );
 
-        pad_infl = scaled(1.1 * infl);
+        pad_infl = scale_i(1.1 * infl);
     }
 
     auto laststep = po.last_completed_step();
@@ -219,7 +219,7 @@ static coord_t brim_offset(const PrintObject &po, const ModelInstance &inst)
                                        brim_type == BrimType::btOuterAndInner;
 
     // How wide is the brim? (in scaled units)
-    return  has_outer_brim ? scaled(brim_width + brim_separation) : 0;
+    return  has_outer_brim ? scale_i(brim_width + brim_separation) : 0;
 }
 
 arrangement::ArrangePolygon ArrangeJob::get_arrange_poly_(ModelInstance *mi)
@@ -256,7 +256,7 @@ coord_t get_skirt_offset(const Plater* plater) {
         }
     }
 
-    return scaled(skirt_inset);
+    return scale_i(skirt_inset);
 }
 
 void ArrangeJob::prepare()
@@ -413,7 +413,7 @@ get_wipe_tower_arrangepoly(const Plater &plater)
 
 double bed_stride(const Plater *plater) {
     double bedwidth = plater->build_volume().bounding_volume().size().x();
-    return scaled<double>((1. + LOGICAL_BED_GAP) * bedwidth);
+    return scale_d((1. + LOGICAL_BED_GAP) * bedwidth);
 }
 
 template<>
@@ -450,8 +450,8 @@ arrangement::ArrangeParams get_arrange_params(Plater *p)
 
     arrangement::ArrangeParams params;
     params.allow_rotations = settings->is_rotation_enabled();
-    params.min_obj_distance = scaled(settings->get_distance_from_objects());
-    params.min_bed_distance = scaled(settings->get_distance_from_bed());
+    params.min_obj_distance = scale_i(settings->get_distance_from_objects());
+    params.min_bed_distance = scale_i(settings->get_distance_from_bed());
 
     arrangement::Pivots pivot = arrangement::Pivots::Center;
 

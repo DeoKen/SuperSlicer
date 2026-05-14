@@ -4,6 +4,7 @@
 ///|/
 #include "PrincipalComponents2D.hpp"
 #include "Point.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 namespace Slic3r {
 
@@ -76,10 +77,10 @@ std::tuple<Vec2f, Vec2f> compute_principal_components(const Polygons &polys)
     float area                                         = 0.0f;
 
     for (const Polygon &poly : polys) {
-        Vec2f p0 = unscaled(poly.first_point()).cast<float>();
+        Vec2f p0 = unscale_p(poly.first_point()).cast<float>();
         for (size_t i = 2; i < poly.points.size(); i++) {
-            Vec2f p1 = unscaled(poly.points[i - 1]).cast<float>();
-            Vec2f p2 = unscaled(poly.points[i]).cast<float>();
+            Vec2f p1 = unscale_p(poly.points[i - 1]).cast<float>();
+            Vec2f p2 = unscale_p(poly.points[i]).cast<float>();
 
             float sign = cross2(p1 - p0, p2 - p1) > 0 ? 1.0f : -1.0f;
 

@@ -158,7 +158,7 @@ inline double area(const ArrangeBed &bed)
 
 inline ExPolygons to_expolygons(const InfiniteBed &bed)
 {
-    return {ExPolygon{to_rectangle(RectangleBed{scaled(1000.), scaled(1000.)})}};
+    return {ExPolygon{to_rectangle(RectangleBed{scale_i(1000.), scale_i(1000.)})}};
 }
 
 inline ExPolygons to_expolygons(const RectangleBed &bed)

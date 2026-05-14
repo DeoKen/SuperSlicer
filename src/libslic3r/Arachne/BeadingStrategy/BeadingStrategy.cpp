@@ -31,7 +31,7 @@ BeadingStrategy::BeadingStrategy(const BeadingStrategy &other)
 coord_t BeadingStrategy::getTransitioningLength(coord_t lower_bead_count) const
 {
     if (lower_bead_count == 0)
-        return scaled<coord_t>(0.01);
+        return scale_i(0.01);
     return default_transition_length;
 }
 

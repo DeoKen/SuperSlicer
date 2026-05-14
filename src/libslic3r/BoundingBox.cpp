@@ -9,12 +9,26 @@
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "BoundingBox.hpp"
+
 #include <algorithm>
 #include <cassert>
 
 #include <Eigen/Dense>
 
+#include "Exception.hpp"
+#include "PointUtils.hpp"
+#include "Polygon.hpp"
+
 namespace Slic3r {
+
+namespace detail {
+
+[[noreturn]] void throw_empty_bounding_box3base()
+{
+    throw Slic3r::InvalidArgument("Empty point set supplied to BoundingBox3Base constructor");
+}
+
+} // namespace detail
 
 template BoundingBoxBase<Point, Points>::BoundingBoxBase(const Points &points);
 template BoundingBoxBase<Vec2d>::BoundingBoxBase(const std::vector<Vec2d> &points);

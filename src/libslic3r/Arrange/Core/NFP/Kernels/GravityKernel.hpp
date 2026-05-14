@@ -7,6 +7,7 @@
 
 #include "libslic3r/Arrange/Core/NFP/NFPArrangeItemTraits.hpp"
 #include "libslic3r/Arrange/Core/Beds.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include "KernelUtils.hpp"
 
@@ -18,16 +19,16 @@ struct GravityKernel {
     Vec2d active_sink;
 
     GravityKernel(Vec2crd gravity_center) :
-        sink{gravity_center}, active_sink{unscaled(gravity_center)} {}
+        sink{gravity_center}, active_sink{unscale_p(gravity_center)} {}
 
     GravityKernel() = default;
 
     template<class ArrItem>
     double placement_fitness(const ArrItem &itm, const Vec2crd &transl) const
     {
-        Vec2d center = unscaled(envelope_centroid(itm));
+        Vec2d center = unscale_p(envelope_centroid(itm));
 
-        center += unscaled(transl);
+        center += unscale_p(transl);
 
         return - (center - active_sink).squaredNorm();
     }
@@ -47,11 +48,11 @@ struct GravityKernel {
         }
 
         if (item_sink)
-            active_sink = unscaled(*item_sink);
+            active_sink = unscale_p(*item_sink);
         else
-            active_sink = unscaled(*sink);
+            active_sink = unscale_p(*sink);
 
-        ret = find_initial_position(itm, scaled(active_sink), bed, packing_context);
+        ret = find_initial_position(itm, scale_p(active_sink), bed, packing_context);
 
         return ret;
     }

@@ -11,7 +11,7 @@
 #include <cereal/archives/binary.hpp>
 #include "Point.hpp" // Transform3d
 #include "ExPolygon.hpp"
-#include "ExPolygonSerialize.hpp"
+#include "PointSerialize.hpp"
 #include "nanosvg/nanosvg.h" // NSVGimage
 
 namespace Slic3r {

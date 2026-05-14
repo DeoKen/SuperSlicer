@@ -15,6 +15,7 @@
 #include "Tesselate.hpp"
 #include "MinAreaBoundingBox.hpp"
 #include "libslic3r.h"
+#include "PointUtils.hpp"
 
 #include <iostream>
 #include <random>
@@ -151,7 +152,7 @@ static std::vector<SupportPointGenerator::MyLayer> make_layers(
             if (area >= pixel_area)
                 // FIXME this is not a correct centroid of a polygon with holes.
                 layer.islands.emplace_back(layer, island, get_extents(island.contour),
-                                           unscaled<float>(island.contour.centroid()), area, height);
+                                           unscale_p(island.contour.centroid()).cast<float>(), area, height);
         }
     }, 32 /*gransize*/);
 
@@ -553,7 +554,7 @@ void SupportPointGenerator::uniformly_cover(const ExPolygons& islands, Structure
     if (flags & icfIsNew) {
         auto chull = Geometry::convex_hull(islands);
         auto rotbox = MinAreaBoundigBox{chull, MinAreaBoundigBox::pcConvex};
-        Vec2d bbdim = {unscaled(rotbox.width()), unscaled(rotbox.height())};
+        Vec2d bbdim = {unscaled(coordf_t(rotbox.width())), unscaled(coordf_t(rotbox.height()))};
 
         if (bbdim.x() > bbdim.y()) std::swap(bbdim.x(), bbdim.y());
         double aspectr = bbdim.y() / bbdim.x();

@@ -615,7 +615,7 @@ public:
         return ret;
     }
 
-    BoundingBoxf bounding_box() const override { return unscaled(get_extents(convex_outline())); }
+    BoundingBoxf bounding_box() const override { return unscale_bb(get_extents(convex_outline())); }
     void displace(const Vec2d &transl, double rot) override
     {
         transform(transl, rot);

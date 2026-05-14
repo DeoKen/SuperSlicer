@@ -10,6 +10,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/CSGMesh/SliceCSGMesh.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/Plater.hpp"
@@ -191,8 +192,8 @@ std::vector<Vec3d> MeshClipper::point_per_contour() const
         Vec2d p;
         size_t i = 1;
         while (i < isl.expoly.contour.size()) {
-            const Vec2d& a = unscale(isl.expoly.contour.points[i-1]);
-            const Vec2d& b = unscale(isl.expoly.contour.points[i]);
+            const Vec2d& a = unscale_p(isl.expoly.contour.points[i-1]);
+            const Vec2d& b = unscale_p(isl.expoly.contour.points[i]);
             Vec2d n = (b-a).normalized();
             std::swap(n.x(), n.y());
             n.x() = -1 * n.x();
@@ -211,7 +212,7 @@ std::vector<Vec3d> MeshClipper::point_per_contour() const
         }
         // If the above failed, just return the centroid, regardless of whether
         // it is inside the contour or in a hole (we must return something).
-        Vec2d c = done ? p : unscale(isl.expoly.contour.centroid());
+        Vec2d c = done ? p : unscale_p(isl.expoly.contour.centroid());
         out.emplace_back(m_result->trafo * Vec3d(c.x(), c.y(), 0.));
     }
     return out;
@@ -408,7 +409,7 @@ void MeshClipper::recalculate_triangles()
         isl.expoly_bb = get_extents(isl.expoly);
 
         Point centroid_scaled = isl.expoly.contour.centroid();
-        Vec3d centroid_world = m_result->trafo * Vec3d(unscale(centroid_scaled).x(), unscale(centroid_scaled).y(), 0.);
+        Vec3d centroid_world = m_result->trafo * Vec3d(unscale_p(centroid_scaled).x(), unscale_p(centroid_scaled).y(), 0.);
         isl.hash = isl.expoly.contour.size() + size_t(std::abs(100.*centroid_world.x())) + size_t(std::abs(100.*centroid_world.y())) + size_t(std::abs(100.*centroid_world.z()));
     }
 

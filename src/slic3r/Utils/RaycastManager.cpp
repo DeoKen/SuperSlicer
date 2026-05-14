@@ -5,6 +5,7 @@
 #include "RaycastManager.hpp"
 #include <utility>
 
+#include "libslic3r/PointUtils.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/Camera.hpp"
 #include "slic3r/GUI/CameraUtils.hpp"

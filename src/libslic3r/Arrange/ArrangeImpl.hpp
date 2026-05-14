@@ -24,6 +24,7 @@
 
 #include "libslic3r/Execution/ExecutionTBB.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #ifndef NDEBUG
 #include "Core/NFP/Kernels/SVGDebugOutputKernelWrapper.hpp"
@@ -68,7 +69,7 @@ void arrange(SelectionStrategy &&selstrategy,
     }
 
     auto bedbb = bounding_box(bed);
-    auto piecesz = unscaled(bedbb).size();
+    auto piecesz = unscale_bb(bedbb).size();
     piecesz.x() /= bed.segments_x();
     piecesz.y() /= bed.segments_y();
 
@@ -82,9 +83,9 @@ void arrange(SelectionStrategy &&selstrategy,
             continue;
 
         BoundingBox bb;
-        auto pilesz = unscaled(pilebb[bedidx]).size();
-        bb.max.x() = scaled(std::ceil(pilesz.x() / piecesz.x()) * piecesz.x());
-        bb.max.y() = scaled(std::ceil(pilesz.y() / piecesz.y()) * piecesz.y());
+        auto pilesz = unscale_bb(pilebb[bedidx]).size();
+        bb.max.x() = scale_i(std::ceil(pilesz.x() / piecesz.x()) * piecesz.x());
+        bb.max.y() = scale_i(std::ceil(pilesz.y() / piecesz.y()) * piecesz.y());
 
         switch (pivot) {
         case Pivots::BottomLeft:
@@ -477,7 +478,7 @@ ArrangeableToItemConverter<ArrItem>::create(
 {
     std::unique_ptr<ArrangeableToItemConverter<ArrItem>> ret;
 
-    constexpr coord_t SimplifyTol = scaled(.2);
+    constexpr coord_t SimplifyTol = scale_i(.2);
 
     switch(gh) {
     case arr2::ArrangeSettingsView::ghConvex:

@@ -14,6 +14,7 @@
 
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <GL/glew.h>
 

@@ -164,7 +164,7 @@ public:
         );
 
         if constexpr (Derived::SizeAtCompileTime == 2) {
-            return Vec2d(unscaled<double>(point.x()), unscaled<double>(point.y())) + m_origin
+            return Vec2d(unscaled(point.x()), unscaled(point.y())) + m_origin
                 - m_writer.current_tool_offset();
         } else {
             // assert(false); // called by wipe tower via 'generate_travel_gcode'

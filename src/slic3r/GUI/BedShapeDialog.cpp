@@ -22,6 +22,7 @@
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Polygon.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
@@ -114,7 +115,7 @@ wxString BedShape::get_full_name_with_params()
     wxString out = _L("Shape") + ": " + get_name(this->get_page_type());
     switch (m_build_volume.type()) {
     case BuildVolume::Type::Circle:
-        out += "\n" + _L(get_option_label(Parameter::Diameter)) + ": [" + double_to_string(2. * unscaled<double>(m_build_volume.circle().radius)) + "]";
+        out += "\n" + _L(get_option_label(Parameter::Diameter)) + ": [" + double_to_string(2. * unscaled(m_build_volume.circle().radius)) + "]";
         break;
     default:
         // rectangle, convex, concave...
@@ -128,7 +129,7 @@ wxString BedShape::get_full_name_with_params()
 void BedShape::apply_optgroup_values(ConfigOptionsGroupShp optgroup) {
     switch (m_build_volume.type()) {
     case BuildVolume::Type::Circle:
-        optgroup->set_value(OptionKeyIdx{"diameter", -1}, 2. * unscaled<double>(m_build_volume.circle().radius), true,
+        optgroup->set_value(OptionKeyIdx{"diameter", -1}, 2. * unscaled(m_build_volume.circle().radius), true,
                             false);
         break;
     default:
@@ -585,7 +586,7 @@ void BedShapePanel::load_stl()
 	auto polygon = expolygons[0].contour;
 	std::vector<Vec2d> points;
 	for (auto pt : polygon.points)
-		points.push_back(unscale(pt));
+		points.push_back(unscale_p(pt));
 
     m_loaded_shape = points;
     update_shape();

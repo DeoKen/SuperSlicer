@@ -12,6 +12,7 @@
 #include "GCode/ExtrusionProcessor.hpp"
 #include "Line.hpp"
 #include "Point.hpp"
+#include "PointUtils.hpp"
 #include "Polygon.hpp"
 #include "PrincipalComponents2D.hpp"
 #include "Print.hpp"
@@ -97,8 +98,8 @@ public:
         cell_size = Vec3f(voxel_size, voxel_size, voxel_size);
 
         Vec2crd size_half = po->size().head<2>().cwiseQuotient(Vec2crd(2, 2)) + Vec2crd::Ones();
-        Vec3f   min       = unscale(Vec3crd(-size_half.x(), -size_half.y(), 0)).cast<float>() - cell_size;
-        Vec3f   max       = unscale(Vec3crd(size_half.x(), size_half.y(), po->height())).cast<float>() + cell_size;
+        Vec3f   min       = unscale_p(Vec3crd(-size_half.x(), -size_half.y(), 0)).cast<float>() - cell_size;
+        Vec3f   max       = unscale_p(Vec3crd(size_half.x(), size_half.y(), po->height())).cast<float>() + cell_size;
 
         origin     = min;
         size       = max - min;
@@ -164,10 +165,10 @@ Integrals::Integrals(const Polygon &polygon)
         *this = Integrals{};
         return;
     }
-    Vec2f p0 = unscaled(polygon.first_point()).cast<float>();
+    Vec2f p0 = unscale_p(polygon.first_point()).cast<float>();
     for (size_t i = 2; i < polygon.points.size(); i++) {
-        Vec2f p1 = unscaled(polygon.points[i - 1]).cast<float>();
-        Vec2f p2 = unscaled(polygon.points[i]).cast<float>();
+        Vec2f p1 = unscale_p(polygon.points[i - 1]).cast<float>();
+        Vec2f p2 = unscale_p(polygon.points[i]).cast<float>();
 
         float sign = cross2(p1 - p0, p2 - p1) > 0 ? 1.0f : -1.0f;
 
@@ -194,16 +195,16 @@ Integrals::Integrals(const Polylines& polylines, const std::vector<float>& width
         Lines polyline{polylines[i].lines()};
         float width{widths[i]};
         for (const Line& line : polyline) {
-            Vec2f line_direction = unscaled(line.vector()).cast<float>();
+            Vec2f line_direction = unscale_p(line.vector()).cast<float>();
             Vec2f normal{line_direction.y(), -line_direction.x()};
             normal.normalize();
 
-            Vec2f line_a = unscaled(line.a).cast<float>();
-            Vec2f line_b = unscaled(line.b).cast<float>();
-            Vec2crd a = scaled(Vec2f{line_a + normal * width/2});
-            Vec2crd b = scaled(Vec2f{line_b + normal * width/2});
-            Vec2crd c = scaled(Vec2f{line_b - normal * width/2});
-            Vec2crd d = scaled(Vec2f{line_a - normal * width/2});
+            Vec2f line_a = unscale_p(line.a).cast<float>();
+            Vec2f line_b = unscale_p(line.b).cast<float>();
+            Vec2crd a = scale_p(Vec2f{line_a + normal * width/2});
+            Vec2crd b = scale_p(Vec2f{line_b + normal * width/2});
+            Vec2crd c = scale_p(Vec2f{line_b - normal * width/2});
+            Vec2crd d = scale_p(Vec2f{line_a - normal * width/2});
 
             const Polygon ractangle({a, b, c, d});
             Integrals integrals{ractangle};

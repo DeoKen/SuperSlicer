@@ -11,6 +11,7 @@
 #include "../Polyline.hpp"
 #include "../MutablePolygon.hpp"
 #include "../TriangleMeshSlicer.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <cassert>
 
@@ -132,7 +133,7 @@ using Trees  = std::vector<Tree>;
 Element to_tree_element(const TreeSupportSettings &config, const SlicingParameters &slicing_params, SupportElement &element, bool is_root)
 {
     Element out;
-    out.position        = to_3d(unscaled<float>(element.state.result_on_layer), float(layer_z_mm(slicing_params, config, element.state.layer_idx)));
+    out.position        = to_3d(unscale_p(element.state.result_on_layer).cast<float>(), float(layer_z_mm(slicing_params, config, element.state.layer_idx)));
     out.radius          = support_element_radius(config, element);
     out.layer_idx       = element.state.layer_idx;
     out.influence_area  = std::move(element.influence_area);
@@ -205,7 +206,7 @@ Forest make_forest(const TreeSupportSettings &config, const SlicingParameters &s
                 auto it_up_max_r = std::max_element(parent_branch->up.begin(), parent_branch->up.end(), 
                     [](const Bifurcation &l, const Bifurcation &r){ return l.branch->path[1].radius < r.branch->path[1].radius; });
                 const float r1               = it_up_max_r->branch->path[1].radius;
-                const float radius_increment = unscaled<float>(config.branch_radius_increase_per_layer);
+                const float radius_increment = float(unscaled(config.branch_radius_increase_per_layer));
                 for (auto it = parent_branch->up.begin(); it != parent_branch->up.end(); ++ it)
                     if (it != it_up_max_r) {
                         Element &el  = it->branch->path.front();
@@ -337,7 +338,7 @@ void smooth_trees_inside_influence_areas(Branch &root, bool is_root)
     std::vector<StackElement> stack;
 
     auto adjust_position = [](Element &el, Vec2f new_pos) {
-        Point new_pos_scaled = scaled<coord_t>(new_pos);
+        Point new_pos_scaled = Point::new_scale(new_pos);
         if (! contains(el.influence_area, new_pos_scaled)) {
             int64_t min_dist = std::numeric_limits<int64_t>::max();
             Point   min_proj_scaled;
@@ -348,7 +349,7 @@ void smooth_trees_inside_influence_areas(Branch &root, bool is_root)
                     min_proj_scaled = proj_scaled;
                 }
             }
-            new_pos = unscaled<float>(min_proj_scaled);
+            new_pos = unscale_p(min_proj_scaled).cast<float>();
         }
         el.position.head<2>() = new_pos;
     };
@@ -613,13 +614,13 @@ static std::pair<float, float> extrude_branch(
         const SupportElement &prev    = *path[ipath - 1];
         const SupportElement &current = *path[ipath];
         assert(prev.state.layer_idx + 1 == current.state.layer_idx);
-        p1 = to_3d(unscaled<double>(prev   .state.result_on_layer), layer_z_mm(slicing_params, config, prev   .state.layer_idx));
-        p2 = to_3d(unscaled<double>(current.state.result_on_layer), layer_z_mm(slicing_params, config, current.state.layer_idx));
+        p1 = to_3d(unscale_p(prev   .state.result_on_layer), layer_z_mm(slicing_params, config, prev   .state.layer_idx));
+        p2 = to_3d(unscale_p(current.state.result_on_layer), layer_z_mm(slicing_params, config, current.state.layer_idx));
         v1 = (p2 - p1).normalized();
         if (ipath == 1) {
             nprev = v1;
             // Extrude the bottom half sphere.
-            float radius     = unscaled<float>(support_element_radius(config, prev));
+            float radius     = float(unscaled(support_element_radius(config, prev)));
             float angle_step = 2. * acos(1. - eps / radius);
             auto  nsteps     = int(ceil(M_PI / (2. * angle_step)));
             angle_step       = M_PI / (2. * nsteps);
@@ -643,7 +644,7 @@ static std::pair<float, float> extrude_branch(
             // End of the tube.
             ncurrent = v1;
             // Extrude the top half sphere.
-            float radius = unscaled<float>(support_element_radius(config, current));
+            float radius = float(unscaled(support_element_radius(config, current)));
             float angle_step = 2. * acos(1. - eps / radius);
             auto  nsteps = int(ceil(M_PI / (2. * angle_step)));
             angle_step = M_PI / (2. * nsteps);
@@ -665,10 +666,10 @@ static std::pair<float, float> extrude_branch(
         } else {
             const SupportElement &next = *path[ipath + 1];
             assert(current.state.layer_idx + 1 == next.state.layer_idx);
-            p3 = to_3d(unscaled<double>(next.state.result_on_layer), layer_z_mm(slicing_params, config, next.state.layer_idx));
+            p3 = to_3d(unscale_p(next.state.result_on_layer), layer_z_mm(slicing_params, config, next.state.layer_idx));
             v2 = (p3 - p2).normalized();
             ncurrent = (v1 + v2).normalized();
-            float radius = unscaled<float>(support_element_radius(config, current));
+            float radius = float(unscaled(support_element_radius(config, current)));
             std::pair<int, int> strip = discretize_circle(p2.cast<float>(), ncurrent.cast<float>(), radius, eps, result.vertices);
             triangulate_strip(result, prev_strip.first, prev_strip.second, strip.first, strip.second);
             prev_strip = strip;
@@ -738,7 +739,7 @@ static void organic_smooth_branches_avoid_collisions(
             Lines alines = to_lines(res->second.get());
             l.lines.reserve(alines.size());
             for (const Line &line : alines)
-                l.lines.push_back({ unscaled<double>(line.a), unscaled<double>(line.b) });
+                l.lines.push_back({ unscale_p(line.a), unscale_p(line.b) });
             l.aabbtree_lines = AABBTreeLines::build_aabb_tree_over_indexed_lines(l.lines);
             throw_on_cancel();
         }
@@ -775,9 +776,9 @@ static void organic_smooth_branches_avoid_collisions(
             link_down,
             // locked
             element.parents.empty() || (link_down == -1 && element.state.layer_idx > 0),
-            unscaled<float>(support_element_radius(config, element)),
+            float(unscaled(support_element_radius(config, element))),
             // 3D position
-            to_3d(unscaled<float>(element.state.result_on_layer), float(layer_z_mm(slicing_params, config, element.state.layer_idx)))
+            to_3d(unscale_p(element.state.result_on_layer).cast<float>(), float(layer_z_mm(slicing_params, config, element.state.layer_idx)))
         });
         // Update min_z coordinate to min_z of the tree below.
         CollisionSphere &collision_sphere = collision_spheres.back();
@@ -901,7 +902,7 @@ static void organic_smooth_branches_avoid_collisions(
     }
 
     for (size_t i = 0; i < collision_spheres.size(); ++ i)
-        elements_with_link_down[i].first->state.result_on_layer = scaled<coord_t>(to_2d(collision_spheres[i].position));
+        elements_with_link_down[i].first->state.result_on_layer = Point::new_scale(to_2d(collision_spheres[i].position));
 }
 #else // TREE_SUPPORT_ORGANIC_NUDGE_NEW
 // Old version using OpenVDB, works but it is extremely slow for complex meshes.
@@ -922,7 +923,7 @@ static void organic_smooth_branches_avoid_collisions(
     std::vector<openvdb::Vec3R> pts, prev, projections;
     std::vector<float> distances;
     for (const std::pair<SupportElement*, int>& element : elements_with_link_down) {
-        Vec3d pt = to_3d(unscaled<double>(element.first->state.result_on_layer), layer_z_mm(print_object.slicing_parameters(), config, element.first->state.layer_idx)) * scale;
+        Vec3d pt = to_3d(unscale_p(element.first->state.result_on_layer), layer_z_mm(print_object.slicing_parameters(), config, element.first->state.layer_idx)) * scale;
         pts.push_back({ pt.x(), pt.y(), pt.z() });
     }
 
@@ -946,7 +947,7 @@ static void organic_smooth_branches_avoid_collisions(
                 Vec3d v{ projections[i].x() - pts[i].x(), projections[i].y() - pts[i].y(), projections[i].z() - pts[i].z() };
                 double depth = v.norm();
                 assert(std::abs(distances[i] - depth) < EPSILON);
-                double radius = unscaled<double>(support_element_radius(config, element)) * scale;
+                double radius = unscaled(support_element_radius(config, element)) * scale;
                 if (depth < radius) {
                     // Collision detected to be removed.
                     ++ num_moved;
@@ -1002,8 +1003,8 @@ static void organic_smooth_branches_avoid_collisions(
     }
 
     for (size_t i = 0; i < projections.size(); ++ i) {
-        elements_with_link_down[i].first->state.result_on_layer.x() = scaled<coord_t>(pts[i].x()) / scale;
-        elements_with_link_down[i].first->state.result_on_layer.y() = scaled<coord_t>(pts[i].y()) / scale;
+        elements_with_link_down[i].first->state.result_on_layer.x() = scale_i(pts[i].x()) / scale;
+        elements_with_link_down[i].first->state.result_on_layer.y() = scale_i(pts[i].y()) / scale;
     }
 }
 #endif // TREE_SUPPORT_ORGANIC_NUDGE_NEW
@@ -1393,7 +1394,7 @@ void organic_draw_branches(
                 base_layer_polygons = smooth_outward(union_(base_layer_polygons), config.support_line_width); //FIXME was .smooth(50);
                 //smooth_outward(closing(std::move(bottom), closing_distance + minimum_island_radius, closing_distance, SUPPORT_SURFACES_OFFSET_PARAMETERS), smoothing_distance) :
                 // simplify a bit, to ensure the output does not contain outrageous amounts of vertices. Should not be necessary, just a precaution.
-                base_layer_polygons = polygons_simplify(base_layer_polygons, std::min(scaled<double>(0.03), double(config.resolution)), polygons_strictly_simple);
+                base_layer_polygons = polygons_simplify(base_layer_polygons, std::min(scale_d(0.03), double(config.resolution)), polygons_strictly_simple);
             }
 
             // Subtract top contact layer polygons from support base.

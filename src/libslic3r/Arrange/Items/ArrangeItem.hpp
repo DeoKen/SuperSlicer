@@ -10,6 +10,7 @@
 
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/PointUtils.hpp"
 #include "libslic3r/AnyPtr.hpp"
 
 #include "libslic3r/Arrange/Core/PackingContext.hpp"
@@ -382,14 +383,14 @@ template<> struct NFPArrangeItemTraits_<ArrangeItem> {
 
     static double envelope_area(const ArrangeItem &itm)
     {
-        return itm.envelope().area_unscaled() * scaled<double>(1.) *
-               scaled<double>(1.);
+        return itm.envelope().area_unscaled() * scale_d(1.) *
+               scale_d(1.);
     }
 
     static double fixed_area(const ArrangeItem &itm)
     {
-        return itm.shape().area_unscaled() * scaled<double>(1.) *
-               scaled<double>(1.);
+        return itm.shape().area_unscaled() * scale_d(1.) *
+               scale_d(1.);
     }
 
     static const Polygons & envelope_outline(const ArrangeItem &itm)

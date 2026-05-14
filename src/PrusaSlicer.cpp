@@ -629,7 +629,7 @@ int CLI::run(int argc, char **argv)
                     }
                     if (user_center_specified) {
                         Vec2d c = m_config.option<ConfigOptionPoint>("center")->value;
-                        arrange_objects(model, arr2::InfiniteBed{scaled(c)}, arrange_cfg);
+                        arrange_objects(model, arr2::InfiniteBed{Point::new_scale(c)}, arrange_cfg);
                     } else
                         arrange_objects(model, bed, arrange_cfg);
                 }

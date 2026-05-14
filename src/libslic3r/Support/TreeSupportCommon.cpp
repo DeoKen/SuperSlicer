@@ -52,13 +52,13 @@ TreeSupportMeshGroupSettings::TreeSupportMeshGroupSettings(const PrintObject &pr
             config.support_material_interface_layers.value);
         
     this->support_material_buildplate_only = config.support_material_buildplate_only;
-    this->support_xy_distance       = scaled<coord_t>(config.support_material_xy_spacing.get_effective_value(external_perimeter_width));
+    this->support_xy_distance       = scale_i(config.support_material_xy_spacing.get_effective_value(external_perimeter_width));
     // Separation of interfaces, it is likely smaller than support_xy_distance.
-    this->support_xy_distance_overhang = std::min(this->support_xy_distance, scaled<coord_t>(0.5 * external_perimeter_width));
+    this->support_xy_distance_overhang = std::min(this->support_xy_distance, scale_i(0.5 * external_perimeter_width));
     // compute separate support_material_contact_distance_type. As organic support only support one layer height,
     // it has to be done here, where we have access to the printobject
-    this->support_top_distance      = scaled<coord_t>(slicing_params.gap_support_object);
-    this->support_bottom_distance   = scaled<coord_t>(slicing_params.gap_object_support);
+    this->support_top_distance      = scale_i(slicing_params.gap_support_object);
+    this->support_bottom_distance   = scale_i(slicing_params.gap_object_support);
     if (config.support_material_contact_distance_type.value == zdNone) {
         this->support_top_distance      = 0;
         this->support_bottom_distance   = 0;

@@ -11,13 +11,21 @@
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Point.hpp"
-#include "Line.hpp"
-#include "MultiPoint.hpp"
-#include "Int128.hpp"
-#include "BoundingBox.hpp"
+
 #include <algorithm>
 
+#include "BoundingBox.hpp"
+#include "Int128.hpp"
+#include "Line.hpp"
+#include "LocalesUtils.hpp"
+#include "MultiPoint.hpp"
+
 namespace Slic3r {
+
+std::string to_string(const Vec2crd &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + "]"; }
+std::string to_string(const Vec2d   &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + "]"; }
+std::string to_string(const Vec3crd &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + ", " + float_to_string_decimal_point(pt.z()) + "]"; }
+std::string to_string(const Vec3d   &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + ", " + float_to_string_decimal_point(pt.z()) + "]"; }
 
 std::vector<Vec3f> transform(const std::vector<Vec3f>& points, const Transform3f& t)
 {

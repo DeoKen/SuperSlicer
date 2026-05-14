@@ -12,22 +12,21 @@
 #ifndef slic3r_Point_hpp_
 #define slic3r_Point_hpp_
 
-#include "libslic3r.h"
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <vector>
 #include <cmath>
 #include <string>
-#include <sstream>
 #include <unordered_map>
+#include <vector>
 
+#include <Eigen/Core> 
 #include <oneapi/tbb/scalable_allocator.h>
 
-
-#include <Eigen/Geometry> 
-
-#include "LocalesUtils.hpp"
-#include "TypeTraits.hpp"
+#include "libslic3r.h"
+#include "NumericUtils.hpp"
 
 namespace Slic3r {
 
@@ -96,11 +95,6 @@ using Transform2d    = Eigen::Transform<double, 2, Eigen::Affine, Eigen::DontAli
 using Transform3f    = Eigen::Transform<float,  3, Eigen::Affine, Eigen::DontAlign>;
 using Transform3d    = Eigen::Transform<double, 3, Eigen::Affine, Eigen::DontAlign>;
 
-// I don't know why Eigen::Transform::Identity() return a const object...
-template<int N, class T> Transform<N, T> identity() { return Transform<N, T>::Identity(); }
-inline const auto &identity3f = identity<3, float>;
-inline const auto &identity3d = identity<3, double>;
-
 inline coordf_t dot(const Vec2d &v1, const Vec2d &v2) { return v1.x() * v2.x() + v1.y() * v2.y(); }
 inline coordf_t dot(const Vec2d &v) { return v.x() * v.x() + v.y() * v.y(); }
 
@@ -149,7 +143,6 @@ inline double dot_double(Vec2crd v1, Vec2crd v2) {
 inline int64_t dot_int(Vec2crd v1, Vec2crd v2) {
     return (v1.x() >> SLIC3R_SQUARE_BIT_REDUCTION) * (v2.x() >> SLIC3R_SQUARE_BIT_REDUCTION) + (v1.y() >> SLIC3R_SQUARE_BIT_REDUCTION) * (v2.y() >> SLIC3R_SQUARE_BIT_REDUCTION);
 }
-
 
 // Cross product of two 2D vectors.
 // None of the vectors may be of int32_t type as the result would overflow.
@@ -221,45 +214,10 @@ inline Eigen::Matrix<typename Derived::Scalar, 3, 1, Eigen::DontAlign> to_3d(con
     return { pt.x(), pt.y(), z };
 }
 
-inline Vec2d   unscale(coord_t x, coord_t y) { return Vec2d(unscaled(x), unscaled(y)); }
-inline Vec2d   unscale(const Vec2crd &pt) { return Vec2d(unscaled(pt.x()), unscaled(pt.y())); }
-inline Vec2d   unscale(const Vec2d   &pt) { return Vec2d(unscaled(pt.x()), unscaled(pt.y())); }
-inline Vec3d   unscale(coord_t x, coord_t y, coord_t z) { return Vec3d(unscaled(x), unscaled(y), unscaled(z)); }
-inline Vec3d   unscale(const Vec3crd &pt) { return Vec3d(unscaled(pt.x()), unscaled(pt.y()), unscaled(pt.z())); }
-inline Vec3d   unscale(const Vec3d   &pt) { return Vec3d(unscaled(pt.x()), unscaled(pt.y()), unscaled(pt.z())); }
-
-inline std::string to_string(const Vec2crd &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + "]"; }
-inline std::string to_string(const Vec2d   &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + "]"; }
-inline std::string to_string(const Vec3crd &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + ", " + float_to_string_decimal_point(pt.z()) + "]"; }
-inline std::string to_string(const Vec3d   &pt) { return std::string("[") + float_to_string_decimal_point(pt.x()) + ", " + float_to_string_decimal_point(pt.y()) + ", " + float_to_string_decimal_point(pt.z()) + "]"; }
-
-std::vector<Vec3f> transform(const std::vector<Vec3f>& points, const Transform3f& t);
-Pointf3s transform(const Pointf3s& points, const Transform3d& t);
-
-/// <summary>
-/// Check whether transformation matrix contains odd number of mirroring.
-/// NOTE: In code is sometime function named is_left_handed
-/// </summary>
-/// <param name="transform">Transformation to check</param>
-/// <returns>Is positive determinant</returns>
-inline bool has_reflection(const Transform3d &transform) { return transform.matrix().determinant() < 0; }
-
-/// <summary>
-/// Getter on base of transformation matrix
-/// </summary>
-/// <param name="index">column index</param>
-/// <param name="transform">source transformation</param>
-/// <returns>Base of transformation matrix</returns>
-inline const Vec3d get_base(unsigned index, const Transform3d &transform) { return transform.linear().col(index); }
-inline const Vec3d get_x_base(const Transform3d &transform) { return get_base(0, transform); }
-inline const Vec3d get_y_base(const Transform3d &transform) { return get_base(1, transform); }
-inline const Vec3d get_z_base(const Transform3d &transform) { return get_base(2, transform); }
-inline const Vec3d get_base(unsigned index, const Transform3d::LinearPart &transform) { return transform.col(index); }
-inline const Vec3d get_x_base(const Transform3d::LinearPart &transform) { return get_base(0, transform); }
-inline const Vec3d get_y_base(const Transform3d::LinearPart &transform) { return get_base(1, transform); }
-inline const Vec3d get_z_base(const Transform3d::LinearPart &transform) { return get_base(2, transform); }
-
-template<int N, class T> using Vec = Eigen::Matrix<T,  N, 1, Eigen::DontAlign, N, 1>;
+std::string to_string(const Vec2crd &pt);
+std::string to_string(const Vec2d   &pt);
+std::string to_string(const Vec3crd &pt);
+std::string to_string(const Vec3d   &pt);
 
 class Point : public Vec2crd
 {
@@ -463,302 +421,7 @@ struct PointHash {
     }
 };
 
-// A generic class to search for a closest Point in a given radius.
-// It uses std::unordered_multimap to implement an efficient 2D spatial hashing.
-// The PointAccessor has to return const Point*.
-// If a nullptr is returned, it is ignored by the query.
-template<typename ValueType, typename PointAccessor> class ClosestPointInRadiusLookup
-{
-public:
-    ClosestPointInRadiusLookup(coord_t search_radius, PointAccessor point_accessor = PointAccessor()) : 
-		m_search_radius(search_radius), m_point_accessor(point_accessor), m_grid_log2(0)
-    {
-        // Resolution of a grid, twice the search radius + some epsilon.
-		coord_t gridres = 2 * m_search_radius + 4;
-        m_grid_resolution = gridres;
-        assert(m_grid_resolution > 0);
-        assert(m_grid_resolution < (coord_t(1) << 30));
-		// Compute m_grid_log2 = log2(m_grid_resolution)
-		if (m_grid_resolution > 32767) {
-			m_grid_resolution >>= 16;
-			m_grid_log2 += 16;
-		}
-		if (m_grid_resolution > 127) {
-			m_grid_resolution >>= 8;
-			m_grid_log2 += 8;
-		}
-		if (m_grid_resolution > 7) {
-			m_grid_resolution >>= 4;
-			m_grid_log2 += 4;
-		}
-		if (m_grid_resolution > 1) {
-			m_grid_resolution >>= 2;
-			m_grid_log2 += 2;
-		}
-		if (m_grid_resolution > 0)
-			++ m_grid_log2;
-		m_grid_resolution = ((coord_t)1) << m_grid_log2;
-		assert(m_grid_resolution >= gridres);
-		assert(gridres > m_grid_resolution / 2);
-    }
-
-    void insert(const ValueType &value) {
-        const Vec2crd *pt = m_point_accessor(value);
-        if (pt != nullptr)
-            m_map.emplace(std::make_pair(Vec2crd(pt->x()>>m_grid_log2, pt->y()>>m_grid_log2), value));
-    }
-
-    void insert(ValueType &&value) {
-        const Vec2crd *pt = m_point_accessor(value);
-        if (pt != nullptr)
-            m_map.emplace(std::make_pair(Vec2crd(pt->x()>>m_grid_log2, pt->y()>>m_grid_log2), std::move(value)));
-    }
-
-    // Erase a data point equal to value. (ValueType has to declare the operator==).
-    // Returns true if the data point equal to value was found and removed.
-    bool erase(const ValueType &value) {
-        const Point *pt = m_point_accessor(value);
-        if (pt != nullptr) {
-            // Range of fragment starts around grid_corner, close to pt.
-            auto range = m_map.equal_range(Point((*pt).x()>>m_grid_log2, (*pt).y()>>m_grid_log2));
-            // Remove the first item.
-            for (auto it = range.first; it != range.second; ++ it) {
-                if (it->second == value) {
-                    m_map.erase(it);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // Return a pair of <ValueType*, distance_squared>
-    std::pair<const ValueType*, double> find(const Vec2crd &pt) {
-        // Iterate over 4 closest grid cells around pt,
-        // find the closest start point inside these cells to pt.
-        const ValueType *value_min = nullptr;
-        double           dist_min = std::numeric_limits<double>::max();
-        // Round pt to a closest grid_cell corner.
-        Vec2crd            grid_corner((pt.x()+(m_grid_resolution>>1))>>m_grid_log2, (pt.y()+(m_grid_resolution>>1))>>m_grid_log2);
-        // For four neighbors of grid_corner:
-        for (coord_t neighbor_y = -1; neighbor_y < 1; ++ neighbor_y) {
-            for (coord_t neighbor_x = -1; neighbor_x < 1; ++ neighbor_x) {
-                // Range of fragment starts around grid_corner, close to pt.
-                auto range = m_map.equal_range(Vec2crd(grid_corner.x() + neighbor_x, grid_corner.y() + neighbor_y));
-                // Find the map entry closest to pt.
-                for (auto it = range.first; it != range.second; ++it) {
-                    const ValueType &value = it->second;
-                    const Vec2crd *pt2 = m_point_accessor(value);
-                    if (pt2 != nullptr) {
-                        const double d2 = (pt - *pt2).cast<double>().squaredNorm();
-                        if (d2 < dist_min) {
-                            dist_min = d2;
-                            value_min = &value;
-                        }
-                    }
-                }
-            }
-        }
-        return (value_min != nullptr && dist_min < coordf_t(m_search_radius) * coordf_t(m_search_radius)) ? 
-            std::make_pair(value_min, dist_min) : 
-            std::make_pair(nullptr, std::numeric_limits<double>::max());
-    }
-
-    // Returns all pairs of values and squared distances.
-    std::vector<std::pair<const ValueType*, double>> find_all(const Vec2crd &pt) {
-        // Iterate over 4 closest grid cells around pt,
-        // Round pt to a closest grid_cell corner.
-        Vec2crd      grid_corner((pt.x()+(m_grid_resolution>>1))>>m_grid_log2, (pt.y()+(m_grid_resolution>>1))>>m_grid_log2);
-        // For four neighbors of grid_corner:
-        std::vector<std::pair<const ValueType*, double>> out;
-        const double r2 = double(m_search_radius) * m_search_radius;
-        for (coord_t neighbor_y = -1; neighbor_y < 1; ++ neighbor_y) {
-            for (coord_t neighbor_x = -1; neighbor_x < 1; ++ neighbor_x) {
-                // Range of fragment starts around grid_corner, close to pt.
-                auto range = m_map.equal_range(Vec2crd(grid_corner.x() + neighbor_x, grid_corner.y() + neighbor_y));
-                // Find the map entry closest to pt.
-                for (auto it = range.first; it != range.second; ++it) {
-                    const ValueType &value = it->second;
-                    const Vec2crd *pt2 = m_point_accessor(value);
-                    if (pt2 != nullptr) {
-                        const double d2 = (pt - *pt2).cast<double>().squaredNorm();
-                        if (d2 <= r2)
-                            out.emplace_back(&value, d2);
-                    }
-                }
-            }
-        }
-        return out;
-    }
-
-private:
-    using map_type = typename std::unordered_multimap<Vec2crd, ValueType, PointHash>;
-    PointAccessor m_point_accessor;
-    map_type m_map;
-    coord_t  m_search_radius;
-    coord_t  m_grid_resolution;
-    coord_t  m_grid_log2;
-};
-
-std::ostream& operator<<(std::ostream &stm, const Vec2d &pointf);
-
-
-// /////////////////////////////////////////////////////////////////////////////
-// Type safe conversions to and from scaled and unscaled coordinates
-// /////////////////////////////////////////////////////////////////////////////
-
-// Semantics are the following:
-// Upscaling (scaled()): only from floating point types (or Vec) to either
-//                       floating point or integer 'scaled coord' coordinates.
-// Downscaling (unscaled()): from arithmetic (or Vec) to floating point only
-
-// Conversion definition from unscaled to floating point scaled
-template<class Tout,
-         class Tin,
-         class = FloatingOnly<Tin>>
-inline constexpr FloatingOnly<Tout> scaled(const Tin &v) noexcept
-{
-    return Tout(v / Tin(SCALING_FACTOR));
-}
-
-// Conversion definition from unscaled to integer 'scaled coord'.
-// TODO: is the rounding necessary? Here it is commented  out to show that
-// it can be different for integers but it does not have to be. Using
-// std::round means loosing noexcept and constexpr modifiers
-template<class Tout = coord_t, class Tin, class = FloatingOnly<Tin>>
-inline constexpr ScaledCoordOnly<Tout> scaled(const Tin &v) noexcept
-{
-    //return static_cast<Tout>(std::round(v / SCALING_FACTOR));
-    return Tout(v / Tin(SCALING_FACTOR));
-}
-
-// Conversion for Eigen vectors (N dimensional points)
-template<class Tout = coord_t,
-         class Tin,
-         int N,
-         class = FloatingOnly<Tin>,
-         int...EigenArgs>
-inline Eigen::Matrix<ArithmeticOnly<Tout>, N, EigenArgs...>
-scaled(const Eigen::Matrix<Tin, N, EigenArgs...> &v)
-{
-    return (v / SCALING_FACTOR).template cast<Tout>();
-}
-
-// Conversion from arithmetic scaled type to floating point unscaled
-template<class Tout = double,
-         class Tin,
-         class = ArithmeticOnly<Tin>,
-         class = FloatingOnly<Tout>>
-inline constexpr Tout unscaled(const Tin &v) noexcept
-{
-    return Tout(v) * Tout(SCALING_FACTOR);
-}
-
-// Unscaling for Eigen vectors. Input base type can be arithmetic, output base
-// type can only be floating point.
-template<class Tout = double,
-         class Tin,
-         int N,
-         class = ArithmeticOnly<Tin>,
-         class = FloatingOnly<Tout>,
-         int...EigenArgs>
-inline constexpr Eigen::Matrix<Tout, N, EigenArgs...>
-unscaled(const Eigen::Matrix<Tin, N, EigenArgs...> &v) noexcept
-{
-    return v.template cast<Tout>() * Tout(SCALING_FACTOR);
-}
-
-// Align a coordinate to a grid. The coordinate may be negative,
-// the aligned value will never be bigger than the original one.
-inline coord_t align_to_grid(const coord_t coord, const coord_t spacing) {
-    // Current C++ standard defines the result of integer division to be rounded to zero,
-    // for both positive and negative numbers. Here we want to round down for negative
-    // numbers as well.
-    coord_t aligned = (coord < 0) ?
-            ((coord - spacing + 1) / spacing) * spacing :
-            (coord / spacing) * spacing;
-    assert(aligned <= coord);
-    return aligned;
-}
-inline Point   align_to_grid(Point   coord, Point   spacing) 
-    { return Point(align_to_grid(coord.x(), spacing.x()), align_to_grid(coord.y(), spacing.y())); }
-inline coord_t align_to_grid(coord_t coord, coord_t spacing, coord_t base) 
-    { return base + align_to_grid(coord - base, spacing); }
-inline Point   align_to_grid(Point   coord, Point   spacing, Point   base)
-    { return Point(align_to_grid(coord.x(), spacing.x(), base.x()), align_to_grid(coord.y(), spacing.y(), base.y())); }
-
-// MinMaxLimits
-template<typename T> struct MinMax { T min; T max;};
-template<typename T>
-static bool apply(std::optional<T> &val, const MinMax<T> &limit) {
-    if (!val.has_value()) return false;
-    return apply<T>(*val, limit);
-}
-template<typename T>
-static bool apply(T &val, const MinMax<T> &limit)
-{
-    if (val > limit.max) {
-        val = limit.max;
-        return true;
-    }
-    if (val < limit.min) {
-        val = limit.min;
-        return true;
-    }
-    return false;
-}
-
 } // namespace Slic3r
-
-// start Boost
-#include <boost/version.hpp>
-#include <boost/polygon/polygon.hpp>
-namespace boost { namespace polygon {
-    template <>
-    struct geometry_concept<Slic3r::Point> { using type = point_concept; };
-   
-    template <>
-    struct point_traits<Slic3r::Point> {
-        using coordinate_type = coord_t;
-    
-        static inline coordinate_type get(const Slic3r::Point& point, orientation_2d orient) {
-            return static_cast<coordinate_type>(point((orient == HORIZONTAL) ? 0 : 1));
-        }
-    };
-    
-    template <>
-    struct point_mutable_traits<Slic3r::Point> {
-        using coordinate_type = coord_t;
-        static inline void set(Slic3r::Point& point, orientation_2d orient, coord_t value) {
-            point((orient == HORIZONTAL) ? 0 : 1) = value;
-        }
-        static inline Slic3r::Point construct(coord_t x_value, coord_t y_value) {
-            return Slic3r::Point(x_value, y_value);
-        }
-    };
-} }
-// end Boost
-
-#include <cereal/cereal.hpp>
-// Serialization through the Cereal library
-namespace cereal {
-//    template<class Archive> void serialize(Archive& archive, Slic3r::Vec2crd &v) { archive(v.x(), v.y()); }
-//    template<class Archive> void serialize(Archive& archive, Slic3r::Vec3crd &v) { archive(v.x(), v.y(), v.z()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec2i32 &v) { archive(v.x(), v.y()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec3i32 &v) { archive(v.x(), v.y(), v.z()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec2i64 &v) { archive(v.x(), v.y()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec3i64 &v) { archive(v.x(), v.y(), v.z()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec2f   &v) { archive(v.x(), v.y()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec3f   &v) { archive(v.x(), v.y(), v.z()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec2d   &v) { archive(v.x(), v.y()); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Vec3d   &v) { archive(v.x(), v.y(), v.z()); }
-
-    template<class Archive> void serialize(Archive& archive, Slic3r::Matrix4d &m){ archive(binary_data(m.data(), 4*4*sizeof(double))); }
-    template<class Archive> void serialize(Archive& archive, Slic3r::Matrix2f &m){ archive(binary_data(m.data(), 2*2*sizeof(float))); }
-        
-    // Eigen Transformation serialization
-    template<class Archive, class T, int N> inline void serialize(Archive& archive, Eigen::Transform<T, N, Eigen::Affine, Eigen::DontAlign>& t){ archive(t.matrix()); }
-}
 
 // To be able to use Vec<> and Mat<> in range based for loops:
 namespace Eigen {

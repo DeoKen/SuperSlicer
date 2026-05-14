@@ -69,7 +69,7 @@ SCENARIO("Basics", "[ExPolygon]") {
 #include <sstream>
 #include <cereal/cereal.hpp>
 #include <cereal/archives/binary.hpp>
-#include "libslic3r/ExPolygonSerialize.hpp"
+#include "libslic3r/PointSerialize.hpp"
 TEST_CASE("Serialization of expolygons", "[ExPolygon, Cereal, serialization]")
 {
     ExPolygons expolys{{

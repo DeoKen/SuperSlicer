@@ -2181,7 +2181,7 @@ static std::vector<std::pair<ExPolygon, ExPolygon>> inner_offset(const ExPolygon
     std::vector<std::pair<ExPolygon, ExPolygon>> ex_poly_result;
     for (const ExPolygon &expo : ex_polygons) {
         ex_poly_result.emplace_back(expo, expo);
-        resample_expolygon(ex_poly_result.back().second, offset / 2, scaled<double>(0.5));
+        resample_expolygon(ex_poly_result.back().second, offset / 2, scale_d(0.5));
         ExPolygons ensure_resample_dont_grow = diff_ex(ex_poly_result.back().second, ex_poly_result.back().first);
         if (ensure_resample_dont_grow.size() != 1) {
             // fail, use the unsimplified one.

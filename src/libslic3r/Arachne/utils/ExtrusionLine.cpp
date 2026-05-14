@@ -103,7 +103,7 @@ void ExtrusionLine::simplify(const int64_t smallest_line_segment_squared, const 
         accumulated_area_removed += removed_area_next;
 
         const int64_t length2 = (current - previous).cast<int64_t>().squaredNorm();
-        if (length2 < scaled<coord_t>(0.025))
+        if (length2 < scale_i(0.025))
         {
             // We're allowed to always delete segments of less than 5 micron. The width in this case doesn't matter that much.
             continue;
@@ -125,8 +125,8 @@ void ExtrusionLine::simplify(const int64_t smallest_line_segment_squared, const 
         //h^2 = L^2 / b^2     [factor the divisor]
         const auto    height_2 = int64_t(double(area_removed_so_far) * double(area_removed_so_far) / double(base_length_2));
         const int64_t extrusion_area_error = calculateExtrusionAreaDeviationError(previous, current, next);
-        if ((height_2 <= scaled<coord_t>(0.001) //Almost exactly colinear (barring rounding errors).
-             && Line::distance_to_infinite(current.p, previous.p, next.p) <= scaled<double>(0.001)) // Make sure that height_2 is not small because of cancellation of positive and negative areas
+        if ((height_2 <= scale_i(0.001) //Almost exactly colinear (barring rounding errors).
+             && Line::distance_to_infinite(current.p, previous.p, next.p) <= scale_d(0.001)) // Make sure that height_2 is not small because of cancellation of positive and negative areas
             // We shouldn't remove middle junctions of colinear segments if the area changed for the C-P segment is exceeding the maximum allowed
              && extrusion_area_error <= maximum_extrusion_area_deviation)
         {

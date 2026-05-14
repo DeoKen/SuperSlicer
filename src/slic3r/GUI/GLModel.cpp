@@ -18,6 +18,7 @@
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #if ENABLE_GLMODEL_STATISTICS
 #include <imgui/imgui_internal.h>
@@ -1138,8 +1139,8 @@ bool contains(const BuildVolume& volume, const GLModel& model, bool ignore_botto
     case BuildVolume::Type::Circle:
     {
         const Geometry::Circled& circle = volume.circle();
-        const Vec2f c = unscaled<float>(circle.center);
-        const float r = unscaled<double>(circle.radius) + float(epsilon);
+        const Vec2f c = unscale_p(circle.center).cast<float>();
+        const float r = float(unscaled(circle.radius)) + float(epsilon);
         const float r2 = sqr(r);
         return volume.max_print_height() == 0.0 ?
             all_vertices_inside(model.get_geometry(), [c, r2](const Vec3f& p) { return (to_2d(p) - c).squaredNorm() <= r2; }) :

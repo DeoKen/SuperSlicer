@@ -28,6 +28,7 @@
 #include <libslic3r/QuadricEdgeCollapse.hpp>
 
 #include <libslic3r/ClipperUtils.hpp>
+#include <libslic3r/PointUtils.hpp>
 //#include <libslic3r/ShortEdgeCollapse.hpp>
 
 #include <boost/log/trivial.hpp>
@@ -92,7 +93,7 @@ SLAPrint::Steps::Steps(SLAPrint *print)
     , objcount{m_print->m_objects.size()}
     , ilhd{m_print->m_material_config.initial_layer_height.get_float()}
     , ilh{float(ilhd)}
-    , ilhs{scaled(ilhd)}
+    , ilhs{scale_i(ilhd)}
     , objectstep_scale{(max_objstatus - min_objstatus) / (objcount * 100.0)}
 {}
 
@@ -105,7 +106,7 @@ void SLAPrint::Steps::apply_printer_corrections(SLAPrintObject &po, SliceOrigin 
     double start_efc = m_print->m_printer_config.first_layer_size_compensation.get_float();
 
     double doffs = m_print->m_printer_config.absolute_correction.get_float();
-    coord_t clpr_offs = scaled(doffs);
+    coord_t clpr_offs = scale_i(doffs);
 
     faded_lyrs = std::min(po.m_slice_index.size(), faded_lyrs);
     size_t faded_lyrs_efc = std::max(size_t(1), faded_lyrs - 1);
@@ -461,12 +462,12 @@ void SLAPrint::Steps::slice_model(SLAPrintObject &po)
 
     double  lhd  = m_print->m_objects.front()->m_config.layer_height.get_float();
     float   lh   = float(lhd);
-    coord_t lhs  = scaled(lhd);
+    coord_t lhs  = scale_i(lhd);
     double  minZ = bb3d.min(Z) - po.get_elevation();
     double  maxZ = bb3d.max(Z);
     auto    minZf = float(minZ);
-    coord_t minZs = scaled(minZ);
-    coord_t maxZs = scaled(maxZ);
+    coord_t minZs = scale_i(minZ);
+    coord_t maxZs = scale_i(maxZ);
 
     po.m_slice_index.clear();
 
@@ -476,7 +477,7 @@ void SLAPrint::Steps::slice_model(SLAPrintObject &po)
     po.m_slice_index.emplace_back(minZs + ilhs, minZf + ilh / 2.f, ilh);
 
     for(coord_t h = minZs + ilhs + lhs; h <= maxZs; h += lhs)
-        po.m_slice_index.emplace_back(h, unscaled<float>(h) - lh / 2.f, lh);
+        po.m_slice_index.emplace_back(h, float(unscaled(h)) - lh / 2.f, lh);
 
     // Just get the first record that is from the model:
     auto slindex_it =
@@ -537,7 +538,7 @@ static void filter_support_points_by_modifiers(sla::SupportPoints &pts,
 
     for (size_t i = 0; i < pts.size(); ++i) {
         const sla::SupportPoint &sp = pts[i];
-        Point sp2d = scaled(to_2d(sp.pos));
+        Point sp2d = scale_p(to_2d(sp.pos));
 
         auto it = std::lower_bound(slice_grid.begin(), slice_grid.end(), sp.pos.z());
         if (it != slice_grid.end()) {
@@ -935,8 +936,8 @@ void SLAPrint::Steps::merge_slices_and_eval_stats() {
 
     const int fade_layers_cnt = m_print->m_default_object_config.faded_layers.get_int();// 10 // [3;20]
 
-    const auto width          = scaled<double>(printer_config.display_width.get_float());
-    const auto height         = scaled<double>(printer_config.display_height.get_float());
+    const auto width          = scale_d(printer_config.display_width.get_float());
+    const auto height         = scale_d(printer_config.display_height.get_float());
     const double display_area = width*height;
 
     double supports_volume(0.0);

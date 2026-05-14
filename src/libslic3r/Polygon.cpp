@@ -9,13 +9,16 @@
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "Polygon.hpp"
+
+#include <ankerl/unordered_dense.h>
+
 #include "BoundingBox.hpp"
 #include "ClipperUtils.hpp"
 #include "Exception.hpp"
-#include "Polygon.hpp"
+#include "Line.hpp"
+#include "PointUtils.hpp"
 #include "Polyline.hpp"
-
-#include <ankerl/unordered_dense.h>
 
 namespace Slic3r {
 
@@ -33,6 +36,185 @@ double Polygon::length() const
 Lines Polygon::lines() const
 {
     return to_lines(*this);
+}
+
+bool operator==(const Polygon &lhs, const Polygon &rhs)
+{
+    return lhs.points == rhs.points;
+}
+
+bool operator!=(const Polygon &lhs, const Polygon &rhs)
+{
+    return lhs.points != rhs.points;
+}
+
+bool polygon_is_convex(const Polygon &poly)
+{
+    return polygon_is_convex(poly.points);
+}
+
+bool has_duplicate_points(Polygon &&poly)
+{
+    return has_duplicate_points(std::move(poly.points));
+}
+
+bool has_duplicate_points(const Polygon &poly)
+{
+    return has_duplicate_points(poly.points);
+}
+
+distf_t total_length(const Polygons &polylines)
+{
+    distf_t total = 0;
+    for (Polygons::const_iterator it = polylines.begin(); it != polylines.end(); ++it)
+        total += it->length();
+    return total;
+}
+
+double area(const Polygon &poly)
+{
+    return poly.area();
+}
+
+double area(const Polygons &polys)
+{
+    double s = 0.;
+    for (auto &p : polys) s += p.area();
+
+    return s;
+}
+
+void polygons_rotate(Polygons &polys, double angle)
+{
+    const double cos_angle = cos(angle);
+    const double sin_angle = sin(angle);
+    for (Polygon &p : polys)
+        p.rotate(cos_angle, sin_angle);
+}
+
+void polygons_reverse(Polygons &polys)
+{
+    for (Polygon &p : polys)
+        p.reverse();
+}
+
+Points to_points(const Polygon &poly)
+{
+    return poly.points;
+}
+
+size_t count_points(const Polygons &polys) {
+    size_t n_points = 0;
+    for (const auto &poly: polys) n_points += poly.points.size();
+    return n_points;
+}
+
+Points to_points(const Polygons &polys) 
+{
+    Points points;
+    points.reserve(count_points(polys));
+    for (const Polygon &poly : polys)
+        append(points, poly.points);
+    return points;
+}
+
+Lines to_lines(const Polygon &poly) 
+{
+    Lines lines;
+    lines.reserve(poly.points.size());
+    if (poly.points.size() > 2) {
+        for (Points::const_iterator it = poly.points.begin(); it != poly.points.end()-1; ++it)
+            lines.push_back(Line(*it, *(it + 1)));
+        lines.push_back(Line(poly.points.back(), poly.points.front()));
+    }
+    return lines;
+}
+
+Lines to_lines(const Polygons &polys) 
+{
+    Lines lines;
+    lines.reserve(count_points(polys));
+    for (size_t i = 0; i < polys.size(); ++ i) {
+        const Polygon &poly = polys[i];
+        for (Points::const_iterator it = poly.points.begin(); it != poly.points.end()-1; ++it)
+            lines.push_back(Line(*it, *(it + 1)));
+        lines.push_back(Line(poly.points.back(), poly.points.front()));
+    }
+    return lines;
+}
+
+Polyline to_polyline(const Polygon &polygon)
+{
+    Polyline out;
+    out.points.reserve(polygon.size() + 1);
+    out.points.assign(polygon.points.begin(), polygon.points.end());
+    out.points.push_back(polygon.points.front());
+    return out;
+}
+
+Polylines to_polylines(const Polygon &polygon)
+{
+    Polylines out;
+    assert(!polygon.empty());
+    if (!polygon.empty()) {
+        out.push_back(to_polyline(polygon));
+    }
+    return out;
+}
+
+Polylines to_polylines(const Polygons &polygons)
+{
+    Polylines out;
+    out.reserve(polygons.size());
+    for (const Polygon &polygon : polygons) {
+        assert(!polygon.empty());
+        out.push_back(to_polyline(polygon));
+    }
+    return out;
+}
+
+Polylines to_polylines(Polygons &&polys)
+{
+    Polylines polylines;
+    polylines.assign(polys.size(), Polyline());
+    size_t idx = 0;
+    for (auto it = polys.begin(); it != polys.end(); ++ it) {
+        assert(!it->empty());
+        Polyline &pl = polylines[idx ++];
+        pl.points = std::move(it->points);
+        pl.points.push_back(pl.points.front());
+    }
+    assert(idx == polylines.size());
+    return polylines;
+}
+
+Polygons to_polygons(const Polylines &polylines)
+{
+    Polygons out;
+    out.reserve(polylines.size());
+    for (const Polyline &polyline : polylines) {
+        if (polyline.size())
+            out.emplace_back(polyline.points);
+    }
+    return out;
+}
+
+Polygons to_polygons(const VecOfPoints &paths)
+{
+    Polygons out;
+    out.reserve(paths.size());
+    for (const Points &path : paths)
+        out.emplace_back(path);
+    return out;
+}
+
+Polygons to_polygons(VecOfPoints &&paths)
+{
+    Polygons out;
+    out.reserve(paths.size());
+    for (Points &path : paths)
+        out.emplace_back(std::move(path));
+    return out;
 }
 
 Polyline Polygon::split_at_vertex(const Point &point) const
@@ -126,7 +308,7 @@ void Polygon::douglas_peucker(coord_t tolerance)
     }
 }
 
-Polygons Polygon::simplify(double tolerance) const
+Polygons Polygon::simplify(distf_t tolerance) const
 {
     // Works on CCW polygons only, CW contour will be reoriented to CCW by Clipper's simplify_polygons()!
     assert(this->is_counter_clockwise());
@@ -708,7 +890,6 @@ void remove_point_too_close(Polygons &polygons, coord_t resolution) {
         }
     }
 }
-
 
 #ifdef _DEBUGINFO
 void assert_valid(const Polygons &polygons) {

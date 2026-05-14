@@ -14,6 +14,7 @@
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 namespace Slic3r {
 namespace GUI {
@@ -126,8 +127,8 @@ void Bed_2D::repaint(const std::vector<Vec2d>& shape)
 	for (auto pl : polylines_small)
 	{
 		for (size_t i = 0; i < pl.points.size() - 1; i++) {
-			Point pt1 = to_pixels(unscale(pl.points[i]), ch);
-			Point pt2 = to_pixels(unscale(pl.points[i + 1]), ch);
+			Point pt1 = to_pixels(unscale_p(pl.points[i]), ch);
+			Point pt2 = to_pixels(unscale_p(pl.points[i + 1]), ch);
 			dc.DrawLine(pt1(0), pt1(1), pt2(0), pt2(1));
 		}
 	}
@@ -135,8 +136,8 @@ void Bed_2D::repaint(const std::vector<Vec2d>& shape)
 	for (auto pl : polylines)
 	{
 		for (size_t i = 0; i < pl.points.size() - 1; i++) {
-			Point pt1 = to_pixels(unscale(pl.points[i]), ch);
-			Point pt2 = to_pixels(unscale(pl.points[i + 1]), ch);
+			Point pt1 = to_pixels(unscale_p(pl.points[i]), ch);
+			Point pt2 = to_pixels(unscale_p(pl.points[i + 1]), ch);
 			dc.DrawLine(pt1(0), pt1(1), pt2(0), pt2(1));
 		}
 	}
@@ -144,8 +145,8 @@ void Bed_2D::repaint(const std::vector<Vec2d>& shape)
 	for (auto pl : polylines_big)
 	{
 		for (size_t i = 0; i < pl.points.size() - 1; i++) {
-			Point pt1 = to_pixels(unscale(pl.points[i]), ch);
-			Point pt2 = to_pixels(unscale(pl.points[i + 1]), ch);
+			Point pt1 = to_pixels(unscale_p(pl.points[i]), ch);
+			Point pt2 = to_pixels(unscale_p(pl.points[i + 1]), ch);
 			dc.DrawLine(pt1(0), pt1(1), pt2(0), pt2(1));
 		}
 	}

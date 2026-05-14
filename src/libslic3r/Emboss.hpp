@@ -14,6 +14,7 @@
 #include "ExPolygon.hpp"
 #include "EmbossShape.hpp" // ExPolygonsWithIds
 #include "BoundingBox.hpp"
+#include "PointUtils.hpp"
 #include "TextConfiguration.hpp"
 
 namespace Slic3r {

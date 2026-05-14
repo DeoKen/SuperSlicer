@@ -54,7 +54,7 @@ void Wipe::set_path(const ExtrusionPaths &paths, bool reversed, bool is_loop)
     m_path_is_loop = is_loop;
 
     if (this->is_enabled() && ! paths.empty()) {
-        coord_t wipe_len_max_scaled = scaled(m_wipe_len_max);
+        coord_t wipe_len_max_scaled = scale_i(m_wipe_len_max);
         if (reversed) {
             m_path = paths.back().as_polyline().get_arc();
             Geometry::ArcWelder::reverse(m_path);
@@ -374,7 +374,7 @@ std::string Wipe::wipe(GCodeGenerator &gcodegen, bool toolchange)
                 p = gcodegen.point_to_gcode(it->point + m_offset);
                 // wipe_xxx check itself if prev == p (with quantization)
                 bool done = false;
-                while (it->linear() ? wipe_linear(prev, p, done) : wipe_arc(prev, p, *it/*unscaled<double>(it->radius), it->ccw()*/, done)) {
+                while (it->linear() ? wipe_linear(prev, p, done) : wipe_arc(prev, p, *it/*unscaled(it->radius), it->ccw()*/, done)) {
                     prev = p;
                     if (done) {
                         return;

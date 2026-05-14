@@ -5,6 +5,7 @@
 #include "Tesselate.hpp"
 
 #include "ExPolygon.hpp"
+#include "PointUtils.hpp"
 
 #include <glu-libtess.h>
 
@@ -258,16 +259,16 @@ indexed_triangle_set wall_strip(const Polygon &poly, double lower_z_mm, double u
 
     ret.vertices.reserve(ret.vertices.size() + 2 *offs);
 
-       // The expression unscaled(p).cast<float>().eval() is important here
+       // The expression unscale_p(p).cast<float>().eval() is important here
        // as it ensures identical conversion of 2D scaled coordinates to float 3D
        // to that used by the tesselation. This way, the duplicated vertices in the
        // output mesh can be found with the == operator of the points.
        // its_merge_vertices will then reliably remove the duplicates.
     for (const Point &p : poly.points)
-        ret.vertices.emplace_back(to_3d(unscaled(p).cast<float>().eval(), float(lower_z_mm)));
+        ret.vertices.emplace_back(to_3d(unscale_p(p).cast<float>().eval(), float(lower_z_mm)));
 
     for (const Point &p : poly.points)
-        ret.vertices.emplace_back(to_3d(unscaled(p).cast<float>().eval(), float(upper_z_mm)));
+        ret.vertices.emplace_back(to_3d(unscale_p(p).cast<float>().eval(), float(upper_z_mm)));
 
     for (size_t i = startidx + 1; i < startidx + offs; ++i) {
         ret.indices.emplace_back(i - 1, i, i + offs - 1);

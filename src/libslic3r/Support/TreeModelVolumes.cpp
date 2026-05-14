@@ -48,7 +48,7 @@ static Polygons calculateMachineBorderCollision(Polygon machine_border)
     return {};
 #else
     //FIXME offsetting by 1000mm easily overflows int32_tr coordinate.
-    Polygons out = offset(machine_border, scaled<float>(1000.), jtMiter, 1.2);
+    Polygons out = offset(machine_border, scale_d(1000.), jtMiter, 1.2);
     machine_border.reverse(); // Makes the polygon negative so that we subtract the actual volume from the collision area.
     out.emplace_back(std::move(machine_border));
     return out;
@@ -272,7 +272,7 @@ void TreeModelVolumes::precalculate(const PrintObject& print_object, const coord
             // Collect expolygons in reverse order (largest to smallest).
             std::vector<std::pair<Slic3r::ExPolygons, SVG::ExPolygonAttributes>> expolygons_with_attributes;
             for (int k = int(j - 1); k >= int(i); -- k) {
-                std::string legend = format("radius-%1%", unscaled<float>(sorted[k].first.first));
+                std::string legend = format("radius-%1%", float(unscaled(sorted[k].first.first)));
                 expolygons_with_attributes.push_back({ union_ex(sorted[k].second), SVG::ExPolygonAttributes(legend, std::string(colors[(k - int(i)) % num_colors]), 1.) });
                 SVG::export_expolygons(debug_out_path("treesupport_cache-%s-%d-%s.svg", name.data(), sorted[i].first.second, legend.c_str()), { expolygons_with_attributes.back() });
             }
@@ -672,7 +672,7 @@ void TreeModelVolumes::calculateAvoidance(const std::vector<RadiusLayerPair> &ke
             int   move_steps     = round_up_divide<int>(max_move, move_step);
             assert(move_steps > 0);
             float last_move_step = max_move - (move_steps - 1) * move_step;
-            if (last_move_step < scaled<float>(0.05)) {
+            if (last_move_step < scale_d(0.05)) {
                 assert(move_steps >= 1);
                 if (move_steps > 1) {
                     // Avoid taking a very short last step, stretch the other steps a bit instead.

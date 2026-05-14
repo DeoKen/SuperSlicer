@@ -12,14 +12,19 @@
 #ifndef slic3r_ExPolygon_hpp_
 #define slic3r_ExPolygon_hpp_
 
-#include "Point.hpp"
+#include <vector>
+
 #include "libslic3r.h"
+#include "Point.hpp"
 #include "Polygon.hpp"
 #include "Polyline.hpp"
-#include <vector>
 
 namespace Slic3r {
 
+class Polyline;
+class ThickPolyline;
+using Polylines = std::vector<Polyline>;
+using ThickPolylines = std::vector<ThickPolyline>;
 class ExPolygon;
 using ExPolygons = std::vector<ExPolygon>;
 
@@ -115,480 +120,55 @@ public:
 #endif
 };
 
-inline bool operator==(const ExPolygon &lhs, const ExPolygon &rhs) { return lhs.contour == rhs.contour && lhs.holes == rhs.holes; }
-inline bool operator!=(const ExPolygon &lhs, const ExPolygon &rhs) { return lhs.contour != rhs.contour || lhs.holes != rhs.holes; }
+bool operator==(const ExPolygon &lhs, const ExPolygon &rhs);
+bool operator!=(const ExPolygon &lhs, const ExPolygon &rhs);
 
-inline size_t count_points(const ExPolygons &expolys)
-{
-    size_t n_points = 0;
-    for (const auto &expoly : expolys) { 
-        n_points += expoly.contour.points.size();
-        for (const auto &hole : expoly.holes) 
-            n_points += hole.points.size();
-    }
-    return n_points;
-}
-
-inline size_t count_points(const ExPolygon &expoly)
-{
-    size_t n_points = expoly.contour.points.size();
-    for (const auto &hole : expoly.holes) 
-        n_points += hole.points.size();    
-    return n_points;
-}
-
+size_t count_points(const ExPolygons &expolys);
+size_t count_points(const ExPolygon &expoly);
 // Count a nuber of polygons stored inside the vector of expolygons.
 // Useful for allocating space for polygons when converting expolygons to polygons.
-inline size_t number_polygons(const ExPolygons &expolys)
-{
-    size_t n_polygons = 0;
-    for (const ExPolygon &ex : expolys)
-        n_polygons += ex.holes.size() + 1;
-    return n_polygons;
-}
+size_t number_polygons(const ExPolygons &expolys);
 
+ExPolygon to_expolygon(const Polygon &other);
+ExPolygon to_expolygon(Polygon &&other);
+ExPolygons convert_to_expolygons(const Polygons &other);
+ExPolygons for_union(const ExPolygons &ex1, const ExPolygons &ex2);
 
-inline ExPolygon to_expolygon(const Polygon &other)
-{
-    assert(other.is_counter_clockwise());
-    ExPolygon ex;
-    ex.contour = other;
-    return ex;
-}
-
-inline ExPolygon to_expolygon(Polygon &&other)
-{
-    assert(other.is_counter_clockwise());
-    ExPolygon ex;
-    ex.contour = std::move(other);
-    return ex;
-}
-
-inline ExPolygons convert_to_expolygons(const Polygons &other)
-{
-    ExPolygons exs;
-    for (size_t i = 0; i < other.size(); i++) {
-        if (other[i].is_counter_clockwise()) {
-            exs.emplace_back(other[i]);
-        } else {
-            assert(!exs.empty());
-            exs.back().holes.emplace_back(other[i]);
-        }
-    }
-    return exs;
-}
-
-inline ExPolygons for_union(const ExPolygons &ex1, const ExPolygons &ex2)
-{
-    ExPolygons out = ex1;
-    append(out, ex2);
-    return out;
-}
-
-
-inline Lines to_lines(const ExPolygon &src) 
-{
-    Lines lines;
-    lines.reserve(count_points(src));
-    for (size_t i = 0; i <= src.holes.size(); ++ i) {
-        const Polygon &poly = (i == 0) ? src.contour : src.holes[i - 1];
-        for (Points::const_iterator it = poly.points.begin(); it != poly.points.end()-1; ++it)
-            lines.push_back(Line(*it, *(it + 1)));
-        lines.push_back(Line(poly.points.back(), poly.points.front()));
-    }
-    return lines;
-}
-
-inline Lines to_lines(const ExPolygons &src) 
-{
-    Lines lines;
-    lines.reserve(count_points(src));
-    for (ExPolygons::const_iterator it_expoly = src.begin(); it_expoly != src.end(); ++ it_expoly) {
-        for (size_t i = 0; i <= it_expoly->holes.size(); ++ i) {
-            const Points &points = ((i == 0) ? it_expoly->contour : it_expoly->holes[i - 1]).points;
-            for (Points::const_iterator it = points.begin(); it != points.end()-1; ++it)
-                lines.push_back(Line(*it, *(it + 1)));
-            lines.push_back(Line(points.back(), points.front()));
-        }
-    }
-    return lines;
-}
-
+Lines to_lines(const ExPolygon &src);
+Lines to_lines(const ExPolygons &src);
 // Line is from point index(see to_points) to next point.
 // Next point of last point in polygon is first polygon point.
-inline Linesf to_linesf(const ExPolygons &src, uint32_t count_lines = 0)
-{
-    assert(count_lines == 0 || count_lines == count_points(src));
-    if (count_lines == 0) count_lines = count_points(src);
-    Linesf lines;
-    lines.reserve(count_lines);
-    Vec2d prev_pd;
-    auto to_lines = [&lines, &prev_pd](const Points &pts) {
-        assert(pts.size() >= 3);
-        if (pts.size() < 2) return;
-        bool is_first = true;
-        for (const Point &p : pts) { 
-            Vec2d pd = p.cast<double>();
-            if (is_first) is_first = false;
-            else lines.emplace_back(prev_pd, pd);
-            prev_pd = pd;
-        }
-        lines.emplace_back(prev_pd, pts.front().cast<double>());
-    };
-    for (const ExPolygon& expoly: src) {
-        to_lines(expoly.contour.points);
-        for (const Polygon &hole : expoly.holes) 
-            to_lines(hole.points);
-    }
-    assert(lines.size() == count_lines);
-    return lines;
-}
+Linesf to_linesf(const ExPolygons &src, uint32_t count_lines = 0);
+Linesf to_unscaled_linesf(const ExPolygons &src);
+Points contours_to_points(const ExPolygons &src);
+Points to_points(const ExPolygons &src);
+Points to_points(const ExPolygon &expoly);
 
-inline Linesf to_unscaled_linesf(const ExPolygons &src)
-{
-    Linesf lines;
-    lines.reserve(count_points(src));
-    for (ExPolygons::const_iterator it_expoly = src.begin(); it_expoly != src.end(); ++ it_expoly) {
-        for (size_t i = 0; i <= it_expoly->holes.size(); ++ i) {
-            const Points &points = ((i == 0) ? it_expoly->contour : it_expoly->holes[i - 1]).points;
-            Vec2d unscaled_a = unscaled(points.front());
-            Vec2d unscaled_b = unscaled_a;
-            for (Points::const_iterator it = points.begin()+1; it != points.end(); ++it){
-                unscaled_b = unscaled(*(it));
-                lines.push_back(Linef(unscaled_a, unscaled_b));
-                unscaled_a = unscaled_b;
-            }
-            lines.push_back(Linef(unscaled_a, unscaled(points.front())));
-        }
-    }
-    return lines;
-}
+Polylines to_polylines(const ExPolygon &src);
+Polylines to_polylines(const ExPolygons &src);
+Polylines to_polylines(ExPolygon &&src);
+Polylines to_polylines(ExPolygons &&src);
 
-inline Points contours_to_points(const ExPolygons &src)
-{
-    Points points;
-    size_t count = 0;
-    for (const ExPolygon &expolygon : src) {
-        count += expolygon.contour.points.size();
-    }
-    points.reserve(count);
-    for (const ExPolygon &expolygon : src) {
-        append(points, expolygon.contour.points);
-    }
-    return points;
-}
+Polygons to_polygons(const ExPolygon &src);
+Polygons to_polygons(const ExPolygons &src);
+ConstPolygonPtrs to_polygon_ptrs(const ExPolygon &src);
+ConstPolygonPtrs to_polygon_ptrs(const ExPolygons &src);
+Polygons to_polygons(ExPolygon &&src);
+Polygons to_polygons(ExPolygons &&src);
+ExPolygons to_expolygons(const Polygons &polys);
+ExPolygons to_expolygons(Polygons &&polys);
 
-inline Points to_points(const ExPolygons &src)
-{
-    Points points;
-    size_t count = count_points(src);
-    points.reserve(count);
-    for (const ExPolygon &expolygon : src) {
-        append(points, expolygon.contour.points);
-        for (const Polygon &hole : expolygon.holes)
-            append(points, hole.points);
-    }
-    return points;
-}
-
-inline Polylines to_polylines(const ExPolygon &src)
-{
-    Polylines polylines;
-    polylines.assign(src.holes.size() + 1, Polyline());
-    size_t idx = 0;
-    Polyline &pl = polylines[idx ++];
-    pl.points = src.contour.points;
-    pl.points.push_back(pl.points.front());
-    for (Polygons::const_iterator ith = src.holes.begin(); ith != src.holes.end(); ++ith) {
-        Polyline &pl = polylines[idx ++];
-        pl.points = ith->points;
-        pl.points.push_back(ith->points.front());
-    }
-    assert(idx == polylines.size());
-    return polylines;
-}
-
-inline Polylines to_polylines(const ExPolygons &src)
-{
-    Polylines polylines;
-    polylines.assign(number_polygons(src), Polyline());
-    size_t idx = 0;
-    for (ExPolygons::const_iterator it = src.begin(); it != src.end(); ++it) {
-        Polyline &pl = polylines[idx ++];
-        pl.points = it->contour.points;
-        pl.points.push_back(pl.points.front());
-        for (Polygons::const_iterator ith = it->holes.begin(); ith != it->holes.end(); ++ith) {
-            Polyline &pl = polylines[idx ++];
-            pl.points = ith->points;
-            pl.points.push_back(ith->points.front());
-        }
-    }
-    assert(idx == polylines.size());
-    return polylines;
-}
-
-inline Polylines to_polylines(ExPolygon &&src)
-{
-    Polylines polylines;
-    polylines.assign(src.holes.size() + 1, Polyline());
-    size_t idx = 0;
-    Polyline &pl = polylines[idx ++];
-    pl.points = std::move(src.contour.points);
-    pl.points.push_back(pl.points.front());
-    for (Polygon& ith : src.holes) {
-        Polyline &pl = polylines[idx ++];
-        pl.points = std::move(ith.points);
-        pl.points.push_back(pl.points.front());
-    }
-    assert(idx == polylines.size());
-    return polylines;
-}
-
-inline Polylines to_polylines(ExPolygons &&src)
-{
-    Polylines polylines;
-    polylines.assign(number_polygons(src), Polyline());
-    size_t idx = 0;
-    for (ExPolygon& ex_poly : src) {
-        Polyline &pl = polylines[idx ++];
-        pl.points = std::move(ex_poly.contour.points);
-        pl.points.push_back(pl.points.front());
-        for (Polygon& ith : ex_poly.holes) {
-            Polyline &pl = polylines[idx ++];
-            pl.points = std::move(ith.points);
-            pl.points.push_back(pl.points.front());
-        }
-    }
-    assert(idx == polylines.size());
-    return polylines;
-}
-
-inline Polygons to_polygons(const ExPolygon &src)
-{
-    assert(src.contour.is_counter_clockwise());
-    assert(src.holes.empty() || src.holes.front().is_clockwise());
-    Polygons polygons;
-    polygons.reserve(src.holes.size() + 1);
-    polygons.push_back(src.contour);
-    polygons.insert(polygons.end(), src.holes.begin(), src.holes.end());
-    return polygons;
-}
-
-
-//inline Polygons to_polygons_unsafe(const ExPolygons &src) {
-//    // can be used for asserts, dsiplay, when it isn't fed into clipper
-//}
-
-inline Polygons to_polygons(const ExPolygons &src)
-{
-    // FIXME: put "inside" polygon after the "outside" ones, so the holes of the "outside" don't erase the "inside" contour
-    Polygons polygons;
-    polygons.reserve(number_polygons(src));
-    for (const ExPolygon& ex_poly : src) {
-        assert(ex_poly.contour.is_counter_clockwise());
-        assert(ex_poly.holes.empty() || ex_poly.holes.front().is_clockwise());
-        polygons.push_back(ex_poly.contour);
-        polygons.insert(polygons.end(), ex_poly.holes.begin(), ex_poly.holes.end());
-    }
-#ifdef _DEBUG
-    // check hole ordering
-    Polygons holes;
-    for (size_t i = src.size() - 1; i < src.size(); i--) {
-        for (Polygon &hole : holes) {
-            // a big hole need to be before than the contour that lie inside.
-            assert(!hole.contains(src[i].contour.front()));
-        }
-        for (Polygon hole : src[i].holes) {
-            hole.make_counter_clockwise();
-            holes.push_back(std::move(hole));
-        }
-    }
-#endif
-    return polygons;
-}
-
-inline ConstPolygonPtrs to_polygon_ptrs(const ExPolygon &src)
-{
-    assert(src.contour.is_counter_clockwise());
-    assert(src.holes.empty() || src.holes.front().is_clockwise());
-    ConstPolygonPtrs polygons;
-    polygons.reserve(src.holes.size() + 1);
-    polygons.emplace_back(&src.contour);
-    for (const Polygon &hole : src.holes)
-        polygons.emplace_back(&hole);
-    return polygons;
-}
-
-inline ConstPolygonPtrs to_polygon_ptrs(const ExPolygons &src)
-{
-    ConstPolygonPtrs polygons;
-    polygons.reserve(number_polygons(src));
-    for (const ExPolygon &expoly : src) {
-        assert(expoly.contour.is_counter_clockwise());
-        assert(expoly.holes.empty() || expoly.holes.front().is_clockwise());
-        polygons.emplace_back(&expoly.contour);
-        for (const Polygon &hole : expoly.holes)
-            polygons.emplace_back(&hole);
-    }
-    return polygons;
-}
-
-inline Polygons to_polygons(ExPolygon &&src)
-{
-    Polygons polygons;
-    polygons.reserve(src.holes.size() + 1);
-    polygons.push_back(std::move(src.contour));
-    polygons.insert(polygons.end(),
-        std::make_move_iterator(src.holes.begin()),
-        std::make_move_iterator(src.holes.end()));
-    return polygons;
-}
-
-inline Polygons to_polygons(ExPolygons &&src)
-{
-    Polygons polygons;
-    polygons.reserve(number_polygons(src));
-    for (ExPolygon& expoly: src) {
-        assert(expoly.contour.is_counter_clockwise());
-        assert(expoly.holes.empty() || expoly.holes.front().is_clockwise());
-        polygons.push_back(std::move(expoly.contour));
-        polygons.insert(polygons.end(),
-            std::make_move_iterator(expoly.holes.begin()),
-            std::make_move_iterator(expoly.holes.end()));
-    }
-    return polygons;
-}
-
-inline ExPolygons to_expolygons(const Polygons &polys)
-{
-    ExPolygons ex_polys;
-    ex_polys.assign(polys.size(), ExPolygon());
-    for (size_t idx = 0; idx < polys.size(); ++idx) {
-        assert(polys[idx].is_counter_clockwise());
-        ex_polys[idx].contour = polys[idx];
-    }
-    return ex_polys;
-}
-
-// trasform a list of contour (ccw) into expolygons
-// polys.size() == return.size()
-inline ExPolygons to_expolygons(Polygons &&polys)
-{
-    ExPolygons ex_polys;
-    ex_polys.assign(polys.size(), ExPolygon());
-    for (size_t idx = 0; idx < polys.size(); ++idx) {
-        assert(polys[idx].is_counter_clockwise());
-        ex_polys[idx].contour = std::move(polys[idx]);
-    }
-    return ex_polys;
-}
-
-// trasform a list of contour (ccw) into expolygons
-// polys.size() == return.size()
-inline Points to_points(const ExPolygon &expoly)
-{
-    Points out;
-    out.reserve(count_points(expoly));
-    append(out, expoly.contour.points);
-    for (const Polygon &hole : expoly.holes)
-        append(out, hole.points);
-    return out;
-}
-
-inline void translate(ExPolygons &expolys, const Point &p) {
-    for (ExPolygon &expoly : expolys)
-        expoly.translate(p);
-}
-
-inline void polygons_append(Polygons &dst, const ExPolygon &src) 
-{ 
-    assert(src.contour.is_counter_clockwise());
-    assert(src.holes.empty() || src.holes.front().is_clockwise());
-    dst.reserve(dst.size() + src.holes.size() + 1);
-    dst.push_back(src.contour);
-    dst.insert(dst.end(), src.holes.begin(), src.holes.end());
-}
-
-inline void polygons_append(Polygons &dst, const ExPolygons &src) 
-{ 
-    dst.reserve(dst.size() + number_polygons(src));
-    for (ExPolygons::const_iterator it = src.begin(); it != src.end(); ++ it) {
-        assert(it->contour.is_counter_clockwise());
-        assert(it->holes.empty() || it->holes.front().is_clockwise());
-        dst.push_back(it->contour);
-        dst.insert(dst.end(), it->holes.begin(), it->holes.end());
-    }
-}
-
-inline void polygons_append(Polygons &dst, ExPolygon &&src)
-{ 
-    assert(src.contour.is_counter_clockwise());
-    assert(src.holes.empty() || src.holes.front().is_clockwise());
-    dst.reserve(dst.size() + src.holes.size() + 1);
-    dst.push_back(std::move(src.contour));    
-    dst.insert(dst.end(), 
-        std::make_move_iterator(src.holes.begin()),
-        std::make_move_iterator(src.holes.end()));
-}
-
-inline void polygons_append(Polygons &dst, ExPolygons &&src)
-{ 
-    dst.reserve(dst.size() + number_polygons(src));
-    for (ExPolygon& expoly: src) {
-        assert(expoly.contour.is_counter_clockwise());
-        assert(expoly.holes.empty() || expoly.holes.front().is_clockwise());
-        dst.push_back(std::move(expoly.contour));
-        dst.insert(dst.end(), 
-            std::make_move_iterator(expoly.holes.begin()),
-            std::make_move_iterator(expoly.holes.end()));
-    }
-}
-
-inline void expolygons_append(ExPolygons &dst, const Polygons &src) 
-{ 
-    for (const Polygon& poly: src) {
-        assert(poly.is_counter_clockwise());
-        dst.emplace_back(poly);
-    }
-}
-
-inline void expolygons_append(ExPolygons &dst, Polygons &&src) 
-{ 
-    for (Polygon& poly: src) {
-        assert(poly.is_counter_clockwise());
-        dst.emplace_back(std::move(poly));
-    }
-}
-
-inline void expolygons_append(ExPolygons &dst, const ExPolygons &src) 
-{ 
-    dst.insert(dst.end(), src.begin(), src.end());
-}
-
-inline void expolygons_append(ExPolygons &dst, ExPolygons &&src)
-{ 
-    if (dst.empty()) {
-        dst = std::move(src);
-    } else {
-        dst.insert(dst.end(), 
-            std::make_move_iterator(src.begin()),
-            std::make_move_iterator(src.end()));
-    }
-}
-
-inline void expolygons_rotate(ExPolygons &expolys, double angle)
-{
-    for (ExPolygon &expoly : expolys)
-        expoly.rotate(angle);
-}
-
-inline bool expolygons_contain(const ExPolygons &expolys, const Point &pt, bool border_result = true)
-{
-    for (const ExPolygon &expoly : expolys)
-        if (expoly.contains(pt, border_result))
-            return true;
-    return false;
-}
+void translate(ExPolygons &expolys, const Point &p);
+void polygons_append(Polygons &dst, const ExPolygon &src);
+void polygons_append(Polygons &dst, const ExPolygons &src);
+void polygons_append(Polygons &dst, ExPolygon &&src);
+void polygons_append(Polygons &dst, ExPolygons &&src);
+void expolygons_append(ExPolygons &dst, const Polygons &src);
+void expolygons_append(ExPolygons &dst, Polygons &&src);
+void expolygons_append(ExPolygons &dst, const ExPolygons &src);
+void expolygons_append(ExPolygons &dst, ExPolygons &&src);
+void expolygons_rotate(ExPolygons &expolys, double angle);
+bool expolygons_contain(const ExPolygons &expolys, const Point &pt, bool border_result = true);
 
 // expolygons_simplify will simplify the geometry via douglaspeuker.
 void expolygons_simplify(ExPolygons &expolys, coord_t tolerance);
@@ -628,8 +208,8 @@ bool remove_same_neighbor(ExPolygons &expolys);
 bool remove_sticks(ExPolygon &poly);
 void keep_largest_contour_only(ExPolygons &polygons);
 
-inline double      area(const ExPolygon &poly) { return poly.area(); }
-inline double      area(const ExPolygons &polys) { double s = 0.; for (auto &p : polys) s += p.area(); return s; }
+double      area(const ExPolygon &poly);
+double      area(const ExPolygons &polys);
 
 // Removes all expolygons smaller than min_area and also removes all holes smaller than min_area
 bool        remove_small_and_small_holes(ExPolygons &expolygons, double min_area);

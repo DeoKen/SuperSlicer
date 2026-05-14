@@ -33,6 +33,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Tesselate.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -1044,11 +1045,11 @@ static void thick_lines_to_geometry(
         const bool is_last = (ii == lines_end - 1);
         const bool is_closing = closed && is_last;
 
-        const Vec2d v = unscale(line.vector()).normalized();
+        const Vec2d v = unscale_p(line.vector()).normalized();
         const double len = unscaled(line.length());
 
-        const Vec2d a = unscale(line.a);
-        const Vec2d b = unscale(line.b);
+        const Vec2d a = unscale_p(line.a);
+        const Vec2d b = unscale_p(line.b);
         Vec2d a1 = a;
         Vec2d a2 = a;
         Vec2d b1 = b;
@@ -1064,7 +1065,7 @@ static void thick_lines_to_geometry(
         }
 
         // calculate new XY normals
-        const Vec2d xy_right_normal = unscale(line.normal()).normalized();
+        const Vec2d xy_right_normal = unscale_p(line.normal()).normalized();
 
         std::array<int, 4> idx_a = { 0, 0, 0, 0 };
         std::array<int, 4> idx_b = { 0, 0, 0, 0 };
@@ -1273,7 +1274,7 @@ static void thick_lines_to_geometry(
         const double height = heights[i];
         const double width = widths[i];
 
-        const Vec3d unit_v = unscale(line.vector()).normalized();
+        const Vec3d unit_v = unscale_p(line.vector()).normalized();
         const double len = unscaled(line.length());
 
         Vec3d n_top = Vec3d::Zero();
@@ -1294,8 +1295,8 @@ static void thick_lines_to_geometry(
 
         const Vec3d rl_displacement = 0.5 * width * n_right;
         const Vec3d tb_displacement = 0.5 * height * n_top;
-        const Vec3d l_a = unscale(line.a);
-        const Vec3d l_b = unscale(line.b);
+        const Vec3d l_a = unscale_p(line.a);
+        const Vec3d l_b = unscale_p(line.b);
 
         a[Right]  = l_a + rl_displacement;
         a[Left]   = l_a - rl_displacement;

@@ -408,9 +408,9 @@ double arc_fit_max_deviation(const Point &start_point, const Point &end_point, c
 
 // 1.2m diameter, maximum given by coord_t in 32b
 //static_assert(sizeof(coord_t) == 4); // disabled, but keep the 1.2m max diameter, as it's enough I think.
-static constexpr const coordf_t default_scaled_max_radius = scaled(600.);
+static constexpr const coordf_t default_scaled_max_radius = scale_d(600.);
 // 0.05mm
-static constexpr const coordf_t default_scaled_resolution = scaled(0.05);
+static constexpr const coordf_t default_scaled_resolution = scale_d(0.05);
 // 5 percent
 static constexpr const double default_arc_length_percent_tolerance = 0.05;
 

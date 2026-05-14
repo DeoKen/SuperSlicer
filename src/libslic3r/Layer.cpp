@@ -405,14 +405,14 @@ void Layer::make_slices()
 
     // Top / bottom surfaces must overlap more than 2um to be chained into a Z graph.
     // Also a larger offset will likely be more robust on non-manifold input polygons.
-    static constexpr const float delta = scaled<float>(0.001);
+    static constexpr const float delta = scale_d(0.001);
     // Don't scale the miter limit, it is a factor, not an absolute length!
     co.MiterLimit = 3.;
 // Use the default zero edge merging distance. For this kind of safety offset the accuracy of normal direction is not important.
 //    co.ShortestEdgeLength = delta * ClipperOffsetShortestEdgeFactor;
-//    static constexpr const double accept_area_threshold_ccw = sqr(scaled<double>(0.1 * delta));
+//    static constexpr const double accept_area_threshold_ccw = sqr(scale_d(0.1 * delta));
     // Such a small hole should not survive the shrinkage, it should grow over 
-//    static constexpr const double accept_area_threshold_cw  = sqr(scaled<double>(0.2 * delta));
+//    static constexpr const double accept_area_threshold_cw  = sqr(scale_d(0.2 * delta));
 
     for (const ExPolygon &expoly : expolygons) {
         contours.clear();
@@ -535,7 +535,7 @@ static void connect_layer_slices(
                     // This should not happen. It may only happen if the source contours had just self intersections or intersections with contours at the same layer.
                     // We may safely ignore such cases where the intersection area is meager.
                     double a = ClipperLib_Z::Area(polynode.Contour);
-                    if (a < sqr(scaled<double>(0.001))) {
+                    if (a < sqr(scale_d(0.001))) {
                         // Ignore tiny overlaps. They are not worth resolving.
                     } else {
                         // We should not ignore large cases. Try to resolve the conflict by a majority of references.

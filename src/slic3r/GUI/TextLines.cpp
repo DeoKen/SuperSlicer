@@ -41,7 +41,7 @@ indexed_triangle_set its_create_torus(const Slic3r::Polygon &polygon, float radi
     std::vector<Vec2f> points_d;
     points_d.reserve(count);
     for (const Point &point : polygon.points)
-        points_d.push_back(unscale(point).cast<float>());
+        points_d.push_back(unscale_p(point).cast<float>());
 
     // pre calculate normalized line directions
     auto calc_line_norm = [](const Vec2f &f, const Vec2f &s) -> Vec2f { return  (s - f).normalized(); };    

@@ -6,6 +6,7 @@
 #include "SLA/RasterBase.hpp"
 #include "libslic3r/LocalesUtils.hpp"
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/PointUtils.hpp"
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/Format/ZipperArchiveImport.hpp"
 
@@ -135,8 +136,8 @@ public:
         // scaled coordinates. All the exported polygons will be in these scaled
         // coordinates but svg rendering software will interpret them correctly
         // in mm due to the header's definition.
-        std::string wf = float_to_string_decimal_point(unscaled<float>(m_bb.size().x()));
-        std::string hf = float_to_string_decimal_point(unscaled<float>(m_bb.size().y()));
+        std::string wf = float_to_string_decimal_point(float(unscaled(m_bb.size().x())));
+        std::string hf = float_to_string_decimal_point(float(unscaled(m_bb.size().y())));
         std::string w  = coord2str(coord_t(m_res.width_px));
         std::string h  = coord2str(coord_t(m_res.height_px));
 
@@ -219,7 +220,7 @@ std::unique_ptr<sla::RasterBase> SL1_SVGArchive::create_raster() const
         std::swap(res_x, res_y);
     }
 
-    BoundingBox svgarea{{0, 0}, {scaled(w), scaled(h)}};
+    BoundingBox svgarea{{0, 0}, {scale_i(w), scale_i(h)}};
 
     sla::RasterBase::Trafo tr{orientation, mirror};
 
@@ -293,7 +294,7 @@ ConfigSubstitutions SL1_SVGReader::read(std::vector<ExPolygons> &slices,
                 Polygon p;
                 for (int i = 0; i < path->npts; ++i) {
                     size_t c = 2 * i;
-                    p.points.emplace_back(scaled(Vec2f(path->pts[c], path->pts[c + 1])));
+                    p.points.emplace_back(scale_p(Vec2f(path->pts[c], path->pts[c + 1])));
                 }
                 polys.emplace_back(p);
             }

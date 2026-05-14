@@ -5,6 +5,7 @@
 #include "Circle.hpp"
 
 #include "../Polygon.hpp"
+#include "libslic3r/PointUtils.hpp"
 
 #include <numeric>
 #include <random>
@@ -16,7 +17,7 @@ Point circle_center_taubin_newton(const Points::const_iterator& input_begin, con
 {
     Vec2ds tmp;
     tmp.reserve(std::distance(input_begin, input_end));
-    std::transform(input_begin, input_end, std::back_inserter(tmp), [] (const Point& in) { return unscale(in); } );
+    std::transform(input_begin, input_end, std::back_inserter(tmp), [] (const Point& in) { return unscale_p(in); } );
     Vec2d center = circle_center_taubin_newton(tmp.cbegin(), tmp.end(), cycles);
 	return Point::new_scale(center.x(), center.y());
 }

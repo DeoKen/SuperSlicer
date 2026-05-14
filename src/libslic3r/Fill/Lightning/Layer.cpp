@@ -366,7 +366,7 @@ static unsigned int moveInside(const Polygons& polygons, Point& from, int distan
                             ret = x;
                         } else {
                             // inward direction irrespective of sign of [distance]
-                            Point inward_dir = perp((ab.cast<double>().normalized() * scaled<double>(10.0) + (p1 - p0).cast<double>().normalized() * scaled<double>(10.0)).eval()).cast<coord_t>();
+                            Point inward_dir = perp((ab.cast<double>().normalized() * scale_d(10.0) + (p1 - p0).cast<double>().normalized() * scale_d(10.0)).eval()).cast<coord_t>();
                             // MM2INT(10.0) to retain precision for the eventual normalization
                             ret = x + (inward_dir.cast<double>().normalized() * distance).cast<coord_t>();
                             is_already_on_correct_side_of_boundary = inward_dir.cast<int64_t>().dot((p - x).cast<int64_t>()) * distance >= 0;

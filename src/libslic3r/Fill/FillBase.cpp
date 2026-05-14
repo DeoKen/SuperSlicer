@@ -3274,19 +3274,19 @@ static void export_partial_infill_to_svg(const std::string &path, const Boundary
     svg.draw(infill, "blue");
     svg.draw(emitted, "darkblue");
     for (const ContourIntersectionPoint &cp : graph.map_infill_end_point_to_boundary)
-        svg.draw(graph.point(cp), cp.consumed ? "red" : "green", scaled(0.2));
+        svg.draw(graph.point(cp), cp.consumed ? "red" : "green", scale_d(0.2));
     for (const ContourIntersectionPoint &cp : graph.map_infill_end_point_to_boundary) {
         assert(cp.next_trimmed == cp.next_on_contour->prev_trimmed);
         assert(cp.prev_trimmed == cp.prev_on_contour->next_trimmed);
         if (cp.contour_not_taken_length_next > SCALED_EPSILON) {
             Polyline pl { graph.point(cp) };
             take_ccw_limited(pl, graph.boundary[cp.contour_idx], graph.boundary_params[cp.contour_idx], cp.point_idx, cp.next_on_contour->point_idx, cp.contour_not_taken_length_next);
-            svg.draw(pl, cp.could_take_next() ? "lime" : "magenta", scaled(0.1));
+            svg.draw(pl, cp.could_take_next() ? "lime" : "magenta", scale_d(0.1));
         }
         if (cp.contour_not_taken_length_prev > SCALED_EPSILON) {
             Polyline pl { graph.point(cp) };
             take_cw_limited(pl, graph.boundary[cp.contour_idx], graph.boundary_params[cp.contour_idx], cp.point_idx, cp.prev_on_contour->point_idx, cp.contour_not_taken_length_prev);
-            svg.draw(pl, cp.could_take_prev() ? "lime" : "magenta", scaled(0.1));
+            svg.draw(pl, cp.could_take_prev() ? "lime" : "magenta", scale_d(0.1));
         }
     }
 }
