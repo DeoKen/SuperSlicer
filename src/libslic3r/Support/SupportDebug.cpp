@@ -98,14 +98,14 @@ void export_print_z_polygons_and_extrusions_to_svg(
         svg.draw(to_polylines(layers[i]->polygons), support_surface_type_to_color_name(layers[i]->layer_type));
 
     Polygons polygons_support, polygons_interface;
-    for (const LayerSliceIslandPtr &island : support_layer.islands()) {
-        for (const LayerRegionIslandPtr &region_island : island->regions_islands()) {
-            if (region_island->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                        region_island->extrusion(LayerRegionIsland::SUPPORT)
+    for (const LayerSliceIsland &island : support_layer.islands()) {
+        for (const LayerRegionIsland &region_island : island.regions_islands()) {
+            if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                        region_island.extrusion(LayerRegionIsland::SUPPORT)
                                    .polygons_covered_by_width(polygons_support, float(SCALED_EPSILON));
             }
-            if (region_island->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                        region_island->extrusion(LayerRegionIsland::SUPPORT_INTERFACE)
+            if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                        region_island.extrusion(LayerRegionIsland::SUPPORT_INTERFACE)
                             .polygons_covered_by_width(polygons_interface, float(SCALED_EPSILON));
             }
         }

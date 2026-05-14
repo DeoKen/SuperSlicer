@@ -869,7 +869,7 @@ static inline std::vector<std::vector<ExPolygons>> mm_segmentation_top_and_botto
 {
     const size_t num_extruders = print_object.print()->config().nozzle_diameter.size() + 1;
     const size_t num_layers    = input_expolygons.size();
-    const SpanOfConstPtrs<Layer> layers = print_object.layers();
+    const LayerCRefs layers = print_object.layers();
 
     // Maximum number of top / bottom layers accounts for maximum overlap of one thread group into a neighbor thread group.
     int max_top_layers = 0;
@@ -1005,9 +1005,9 @@ static inline std::vector<std::vector<ExPolygons>> mm_segmentation_top_and_botto
     };
     auto layer_color_stat = [&layers = std::as_const(layers)](const size_t layer_idx, const size_t color_idx) -> LayerColorStat {
         LayerColorStat out;
-        const Layer &layer = *layers[layer_idx];
-        for (const LayerRegion *region : layer.regions())
-            if (const PrintRegionConfig &config = region->region().config();
+        const Layer &layer = layers[layer_idx];
+        for (const LayerRegion &region : layer.regions())
+            if (const PrintRegionConfig &config = region.region().config();
                 // color_idx == 0 means "don't know" extruder aka the underlying extruder.
                 // As this region may split existing regions, we collect statistics over all regions for color_idx == 0.
                 color_idx == 0 || config.perimeter_extruder == int(color_idx)) {
@@ -1246,7 +1246,7 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
     std::vector<std::vector<PaintedLine>> painted_lines(num_layers);
     std::array<std::mutex, 64>            painted_lines_mutex;
     std::vector<EdgeGrid::Grid>           edge_grids(num_layers);
-    const SpanOfConstPtrs<Layer>          layers = print_object.layers();
+    const LayerCRefs                      layers = print_object.layers();
     std::vector<ExPolygons>               input_expolygons(num_layers);
     coordf_t                              resolution = scale_d(print_object.print()->config().resolution);
 
@@ -1262,8 +1262,8 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
         for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
             throw_on_cancel_callback();
             ExPolygons ex_polygons;
-            for (LayerRegion *region : layers[layer_idx]->regions())
-                for (const Surface &surface : region->slices())
+            for (const LayerRegion &region : layers[layer_idx].regions())
+                for (const Surface &surface : region.slices())
                     Slic3r::append(ex_polygons, offset_ex(surface.expolygon, float(10 * SCALED_EPSILON)));
             // All expolygons are expanded by SCALED_EPSILON, merged, and then shrunk again by SCALED_EPSILON
             // to ensure that very close polygons will be merged.
@@ -1282,7 +1282,7 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
             input_expolygons[layer_idx] = remove_duplicates(input_expolygons[layer_idx], scale_i(0.01), PI/6);
 
 #ifdef MM_SEGMENTATION_DEBUG_INPUT
-            export_processed_input_expolygons_to_svg(debug_out_path("mm-input-%d-%d.svg", layer_idx, iRun), layers[layer_idx]->regions(), input_expolygons[layer_idx]);
+            export_processed_input_expolygons_to_svg(debug_out_path("mm-input-%d-%d.svg", layer_idx, iRun), layers[layer_idx].regions(), input_expolygons[layer_idx]);
 #endif // MM_SEGMENTATION_DEBUG_INPUT
         }
     }); // end of parallel_for
@@ -1291,7 +1291,8 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
     std::vector<BoundingBox> layer_bboxes(num_layers);
     for (size_t layer_idx = 0; layer_idx < num_layers; ++layer_idx) {
         throw_on_cancel_callback();
-        layer_bboxes[layer_idx] = get_extents(layers[layer_idx]->regions());
+        for (const LayerRegion &region : layers[layer_idx].regions())
+            layer_bboxes[layer_idx].merge(get_extents(region));
         layer_bboxes[layer_idx].merge(get_extents(input_expolygons[layer_idx]));
     }
 
@@ -1339,29 +1340,29 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
 
                         // Find lowest slice not below the triangle.
                         auto first_layer = std::upper_bound(layers.begin(), layers.end(), float(min_z - EPSILON),
-                                                            [](float z, const Layer *l1) { return z < l1->slice_z; });
+                                                            [](float z, const Layer &l1) { return z < l1.slice_z; });
                         auto last_layer  = std::upper_bound(layers.begin(), layers.end(), float(max_z + EPSILON),
-                                                           [](float z, const Layer *l1) { return z < l1->slice_z; });
+                                                           [](float z, const Layer &l1) { return z < l1.slice_z; });
                         --last_layer;
 
                         for (auto layer_it = first_layer; layer_it != (last_layer + 1); ++layer_it) {
-                            const Layer *layer     = *layer_it;
+                            const Layer &layer     = *layer_it;
                             size_t       layer_idx = layer_it - layers.begin();
-                            if (input_expolygons[layer_idx].empty() || facet[0].z() > layer->slice_z || layer->slice_z > facet[2].z())
+                            if (input_expolygons[layer_idx].empty() || facet[0].z() > layer.slice_z || layer.slice_z > facet[2].z())
                                 continue;
 
                             // https://kandepet.com/3d-printing-slicing-3d-objects/
-                            float t            = (float(layer->slice_z) - facet[0].z()) / (facet[2].z() - facet[0].z());
+                            float t            = (float(layer.slice_z) - facet[0].z()) / (facet[2].z() - facet[0].z());
                             Vec3f line_start_f = facet[0] + t * (facet[2] - facet[0]);
                             Vec3f line_end_f;
 
-                            if (facet[1].z() > layer->slice_z) {
+                            if (facet[1].z() > layer.slice_z) {
                                 // [P0, P2] and [P0, P1]
-                                float t1   = (float(layer->slice_z) - facet[0].z()) / (facet[1].z() - facet[0].z());
+                                float t1   = (float(layer.slice_z) - facet[0].z()) / (facet[1].z() - facet[0].z());
                                 line_end_f = facet[0] + t1 * (facet[1] - facet[0]);
                             } else {
                                 // [P0, P2] and [P1, P2]
-                                float t2   = (float(layer->slice_z) - facet[1].z()) / (facet[2].z() - facet[1].z());
+                                float t2   = (float(layer.slice_z) - facet[1].z()) / (facet[2].z() - facet[1].z());
                                 line_end_f = facet[1] + t2 * (facet[2] - facet[1]);
                             }
 

@@ -2968,8 +2968,8 @@ void GLCanvas3D::load_preview(const std::vector<std::string>& str_tool_colors, c
         const BuildVolume &build_volume = m_bed.build_volume();
         _load_skirt_brim_preview_toolpaths(build_volume);
         _load_wipe_tower_toolpaths(build_volume, str_tool_colors);
-        for (const PrintObject* object : print->objects())
-            _load_print_object_toolpaths(*object, build_volume, str_tool_colors, color_print_values);
+        for (const PrintObject& object : print->objects())
+            _load_print_object_toolpaths(object, build_volume, str_tool_colors, color_print_values);
 
         m_gcode_viewer.set_force_shells_visible(false);
         _set_warning_notification_if_needed(EWarning::ToolpathOutside);
@@ -7386,8 +7386,8 @@ void GLCanvas3D::_load_skirt_brim_preview_toolpaths(const BuildVolume &build_vol
 
     // number of skirt layers
     size_t total_layer_count = 0;
-    for (const PrintObject* print_object : print->objects()) {
-        total_layer_count = std::max(total_layer_count, print_object->total_layer_count());
+    for (const PrintObject& print_object : print->objects()) {
+        total_layer_count = std::max(total_layer_count, print_object.total_layer_count());
     }
     size_t skirt_height = print->has_infinite_skirt() ? total_layer_count : std::min<size_t>(print->config().skirt_height.value, total_layer_count);
     if (skirt_height == 0 && print->has_brim())
@@ -7396,14 +7396,20 @@ void GLCanvas3D::_load_skirt_brim_preview_toolpaths(const BuildVolume &build_vol
     // Get first skirt_height layers.
     //FIXME This code is fishy. It may not work for multiple objects with different layering due to variable layer height feature.
     // This is not critical as this is just an initial preview.
-    const PrintObject* highest_object = *std::max_element(print->objects().begin(), print->objects().end(), [](auto l, auto r){ return l->layers().size() < r->layers().size(); });
+    const PrintObject &highest_object = *std::max_element(print->objects().begin(), print->objects().end(),
+                                                          [](auto &l, auto &r) {
+                                                              return l.layers().size() < r.layers().size();
+                                                          });
     std::vector<float> print_zs_mm;
     print_zs_mm.reserve(skirt_height * 2);
-    for (size_t i = 0; i < std::min(skirt_height, highest_object->layers().size()); ++ i)
-        print_zs_mm.push_back(float(highest_object->layers()[i]->unscaled_print_z()));
+    for (size_t i = 0; i < std::min(skirt_height, highest_object.layers().size()); ++ i)
+        print_zs_mm.push_back(float(highest_object.layer(i).unscaled_print_z()));
     // Only add skirt for the raft layers.
-    for (size_t i = 0; i < std::min(skirt_height, std::min(highest_object->slicing_parameters().raft_layers(), highest_object->support_layers().size())); ++ i)
-        print_zs_mm.push_back(float(highest_object->support_layers()[i]->unscaled_print_z()));
+    for (size_t i = 0; i < std::min(skirt_height,
+                                    std::min(highest_object.slicing_parameters().raft_layers(),
+                                             highest_object.support_layers().size()));
+         ++i)
+        print_zs_mm.push_back(float(highest_object.support_layer(i).unscaled_print_z()));
     sort_remove_duplicates(print_zs_mm);
     skirt_height = std::min(skirt_height, print_zs_mm.size());
     print_zs_mm.erase(print_zs_mm.begin() + skirt_height, print_zs_mm.end());
@@ -7436,11 +7442,11 @@ void GLCanvas3D::_load_skirt_brim_preview_toolpaths(const BuildVolume &build_vol
                 _3DScene::extrusionentity_to_verts(*print->skirt_first_layer(), print_zs_mm[i], Point(0, 0), init_data);
             }
             //skirt & brim from objects
-            for (const PrintObject* print_object : print->objects()) {
-                if (!print_object->brim().empty())
-                    for (const PrintInstance& inst : print_object->instances()) {
-                        if (!print_object->brim().empty()) volume = ensure_volume_is_ready(volume, init_data);
-                        _3DScene::extrusionentity_to_verts(print_object->brim(), print_zs_mm[i],
+            for (const PrintObject& print_object : print->objects()) {
+                if (!print_object.brim().empty())
+                    for (const PrintInstance& inst : print_object.instances()) {
+                        if (!print_object.brim().empty()) volume = ensure_volume_is_ready(volume, init_data);
+                        _3DScene::extrusionentity_to_verts(print_object.brim(), print_zs_mm[i],
                                                            (print->config().complete_objects ||
                                                             (print->config().parallel_objects_step > 0 &&
                                                              !print->config().parallel_islands)) ?
@@ -7448,10 +7454,10 @@ void GLCanvas3D::_load_skirt_brim_preview_toolpaths(const BuildVolume &build_vol
                                                                Point(0, 0),
                                                            init_data);
                     }
-                if (print_object->skirt_first_layer())
-                    for (const PrintInstance& inst : print_object->instances()) {
-                        if (!print_object->skirt_first_layer()->empty()) volume = ensure_volume_is_ready(volume, init_data);
-                        _3DScene::extrusionentity_to_verts(*print_object->skirt_first_layer(), print_zs_mm[i], inst.shift, init_data);
+                if (print_object.skirt_first_layer())
+                    for (const PrintInstance& inst : print_object.instances()) {
+                        if (!print_object.skirt_first_layer()->empty()) volume = ensure_volume_is_ready(volume, init_data);
+                        _3DScene::extrusionentity_to_verts(*print_object.skirt_first_layer(), print_zs_mm[i], inst.shift, init_data);
                     }
             }
         }
@@ -7461,11 +7467,11 @@ void GLCanvas3D::_load_skirt_brim_preview_toolpaths(const BuildVolume &build_vol
             _3DScene::extrusionentity_to_verts(print->skirt(), print_zs_mm[i], Point(0, 0), init_data);
         }
         //skirts from objects
-        for (const PrintObject* print_object : print->objects()) {
-            if ( !print_object->skirt().empty() && (i != 0 || !print_object->skirt_first_layer()))
-                for (const PrintInstance& inst : print_object->instances()) {
-                    if (!print_object->skirt().empty()) volume = ensure_volume_is_ready(volume, init_data);
-                    _3DScene::extrusionentity_to_verts(print_object->skirt(), print_zs_mm[i],
+        for (const PrintObject& print_object : print->objects()) {
+            if ( !print_object.skirt().empty() && (i != 0 || !print_object.skirt_first_layer()))
+                for (const PrintInstance& inst : print_object.instances()) {
+                    if (!print_object.skirt().empty()) volume = ensure_volume_is_ready(volume, init_data);
+                    _3DScene::extrusionentity_to_verts(print_object.skirt(), print_zs_mm[i],
                                                        (print->config().complete_objects ||
                                                         (print->config().parallel_objects_step > 0 &&
                                                          !print->config().parallel_islands)) ?
@@ -7636,11 +7642,11 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
         ctxt.layers.reserve(nlayers);
     }
     if (ctxt.has_perimeters || ctxt.has_infill)
-        for (const Layer *layer : print_object.layers())
-            ctxt.layers.push_back(layer);
+        for (const Layer &layer : print_object.layers())
+            ctxt.layers.push_back(&layer);
     if (ctxt.has_support)
-        for (const Layer *layer : print_object.support_layers())
-            ctxt.layers.push_back(layer);
+        for (const Layer &layer : print_object.support_layers())
+            ctxt.layers.push_back(&layer);
     std::sort(ctxt.layers.begin(), ctxt.layers.end(), [](const Layer *l1, const Layer *l2) { return l1->scaled_print_z() < l2->scaled_print_z(); });
 
     // Maximum size of an allocation block: 32MB / sizeof(float)
@@ -7743,10 +7749,10 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
 
             if (is_selected_separate_extruder) {
                 bool at_least_one_has_correct_extruder = false;
-                for (const LayerRegion* layerm : layer->regions()) {
-                    if (layerm->slices().empty())
+                for (const LayerRegion& layerm : layer->regions()) {
+                    if (layerm.slices().empty())
                         continue;
-                    const PrintRegionConfig& cfg = layerm->region().config();
+                    const PrintRegionConfig& cfg = layerm.region().config();
                     if (cfg.perimeter_extruder.value    == m_selected_extruder ||
                         cfg.infill_extruder.value       == m_selected_extruder ||
                         cfg.solid_infill_extruder.value == m_selected_extruder ) {
@@ -7767,36 +7773,36 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
 
             for (const PrintInstance &instance : *ctxt.shifted_copies) {
                 const Point &copy = instance.shift;
-                for (const LayerSliceIslandPtr &layer_island_ptr : layer->islands()) {
-                    for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-                        if (ctxt.has_perimeters && region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS)) {
-                            const LayerRegion *one_lregion = *region_island_ptr->regions().begin();
+                for (const LayerSliceIsland &layer_island : layer->islands()) {
+                    for (const LayerRegionIsland &region_island : layer_island.regions_islands()) {
+                        if (ctxt.has_perimeters && region_island.has_extrusion(LayerRegionIsland::PERIMETERS)) {
+                            const LayerRegion *one_lregion = *region_island.regions().begin();
                             if (is_selected_separate_extruder) {
                                 const PrintRegionConfig &cfg = one_lregion->region().config();
                                 if (cfg.perimeter_extruder.value != m_selected_extruder)
                                     continue;
                             }
                                 _3DScene::extrusionentity_to_verts(
-                                    region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS), float(layer->unscaled_print_z()), copy,
+                                    region_island.extrusion(LayerRegionIsland::PERIMETERS), float(layer->unscaled_print_z()), copy,
                                     select_geometry(idx_layer, one_lregion->region().config().perimeter_extruder.value,
                                                     GCodeExtrusionRole::Perimeter),
                                     feature_to_geometry_map);
                         }
-                        if (ctxt.has_perimeters && region_island_ptr->has_extrusion(LayerRegionIsland::GAP_FILLS)) {
-                            const LayerRegion *one_lregion = *region_island_ptr->regions().begin();
+                        if (ctxt.has_perimeters && region_island.has_extrusion(LayerRegionIsland::GAP_FILLS)) {
+                            const LayerRegion *one_lregion = *region_island.regions().begin();
                             if (is_selected_separate_extruder) {
                                 const PrintRegionConfig &cfg = one_lregion->region().config();
                                 if (cfg.perimeter_extruder.value != m_selected_extruder)
                                     continue;
                             }
                                 _3DScene::extrusionentity_to_verts(
-                                    region_island_ptr->extrusion(LayerRegionIsland::GAP_FILLS), float(layer->unscaled_print_z()), copy,
+                                    region_island.extrusion(LayerRegionIsland::GAP_FILLS), float(layer->unscaled_print_z()), copy,
                                     select_geometry(idx_layer, one_lregion->region().config().perimeter_extruder.value,
                                                     GCodeExtrusionRole::Perimeter),
                                     feature_to_geometry_map);
                         }
-                        if (ctxt.has_infill && region_island_ptr->has_extrusion(LayerRegionIsland::INFILLS)) {
-                            const LayerRegion *one_lregion = *region_island_ptr->regions().begin();
+                        if (ctxt.has_infill && region_island.has_extrusion(LayerRegionIsland::INFILLS)) {
+                            const LayerRegion *one_lregion = *region_island.regions().begin();
                             if (is_selected_separate_extruder) {
                                 const PrintRegionConfig &cfg = one_lregion->region().config();
                                 if (cfg.infill_extruder.value != m_selected_extruder ||
@@ -7804,7 +7810,7 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
                                     continue;
                             }
                             // fill represents infill extrusions of a single island.
-                            const ExtrusionEntityCollection &fill = region_island_ptr->extrusion(
+                            const ExtrusionEntityCollection &fill = region_island.extrusion(
                                 LayerRegionIsland::INFILLS);
                             if (!fill.entities().empty()) {
                                 bool has_solid_infill = HasRoleVisitor::search(fill.entities(),
@@ -7820,8 +7826,8 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
                                     feature_to_geometry_map);
                             }
                         }
-                        if (ctxt.has_support && region_island_ptr->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                            const LayerRegion *one_lregion = *region_island_ptr->regions().begin();
+                        if (ctxt.has_support && region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                            const LayerRegion *one_lregion = *region_island.regions().begin();
                             if (is_selected_separate_extruder) {
                                 const PrintRegionConfig &cfg = one_lregion->region().config();
                                 if (cfg.infill_extruder.value != m_selected_extruder ||
@@ -7829,7 +7835,7 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
                                     continue;
                             }
                             // fill represents infill extrusions of a single island.
-                            const ExtrusionEntityCollection &fill = region_island_ptr->extrusion(
+                            const ExtrusionEntityCollection &fill = region_island.extrusion(
                                 LayerRegionIsland::SUPPORT);
                             if (!fill.entities().empty()) {
                                 bool has_solid_infill = HasRoleVisitor::search(fill.entities(),
@@ -7842,8 +7848,8 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
                             }
                         }
                         if (ctxt.has_support &&
-                            region_island_ptr->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                            const LayerRegion *one_lregion = *region_island_ptr->regions().begin();
+                            region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                            const LayerRegion *one_lregion = *region_island.regions().begin();
                             if (is_selected_separate_extruder) {
                                 const PrintRegionConfig &cfg = one_lregion->region().config();
                                 if (cfg.infill_extruder.value != m_selected_extruder ||
@@ -7851,7 +7857,7 @@ void GLCanvas3D::_load_print_object_toolpaths(const PrintObject &               
                                     continue;
                             }
                             // fill represents infill extrusions of a single island.
-                            const ExtrusionEntityCollection &fill = region_island_ptr->extrusion(
+                            const ExtrusionEntityCollection &fill = region_island.extrusion(
                                 LayerRegionIsland::SUPPORT_INTERFACE);
                             if (!fill.entities().empty()) {
                                 bool has_solid_infill = HasRoleVisitor::search(fill.entities(),

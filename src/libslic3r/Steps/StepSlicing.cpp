@@ -21,7 +21,7 @@
 #include <vector>
 
 namespace Slic3r {
-LayerPtrs new_layers(PrintObject *print_object, const std::vector<double> &object_layers);
+LayerUPtrs new_layers(PrintObject *print_object, const std::vector<double> &object_layers);
 }
 
 namespace Slic3r::Steps::StepSlicing {
@@ -43,9 +43,9 @@ void recreate_object_layers(PrintObject &object)
 {
     std::vector<double> layer_height_profile =
         to_unscaled_layer_height_profile(object.layer_profile());
-    std::vector<Layer *> object_layers =
+    LayerUPtrs object_layers =
         new_layers(&object, generate_object_layers(object.slicing_parameters(), layer_height_profile));
-    for (Layer *layer : object_layers) {
+    for (std::unique_ptr<Layer> &layer : object_layers) {
         ApiInternal::LayerAccess::init_regions_from_object(*layer);
     }
     ApiInternal::PrintObjectAccess::replace_layers_by_moving_contents(object, std::move(object_layers));
@@ -53,18 +53,18 @@ void recreate_object_layers(PrintObject &object)
 
 void recompute_layer_slices_from_raw_regions(PrintObject &object)
 {
-    for (Layer *layer : object.layers()) {
+    for (Layer &layer : object.layers()) {
         ExPolygons slices;
-        if (layer->region_count() == 1) {
-            slices = layer->get_region(0)->get_raw_slices();
+        if (layer.region_count() == 1) {
+            slices = layer.region(0).get_raw_slices();
         } else {
             ExPolygons slices_exp;
-            for (const LayerRegion *region : layer->regions())
-                append(slices_exp, region->get_raw_slices());
+            for (const LayerRegion &region : layer.regions())
+                append(slices_exp, region.get_raw_slices());
             slices = union_safety_offset_ex(slices_exp);
         }
         ensure_valid(slices, std::max(scale_i(object.print()->config().resolution), SCALED_EPSILON));
-        ApiInternal::LayerAccess::set_islands(*layer, std::move(slices));
+        ApiInternal::LayerAccess::set_islands(layer, std::move(slices));
     }
 }
 
@@ -188,7 +188,7 @@ std::unique_ptr<SlicingRunContext> make_slicing_run_context(Print &print, size_t
 {
     auto out = std::make_unique<SlicingRunContext>();
     out->context_step.print = reinterpret_cast<print_handle *>(&print);
-    out->context_step.object = reinterpret_cast<object_handle *>(print.get_object(object_idx));
+    out->context_step.object = reinterpret_cast<object_handle *>(&print.object(object_idx));
     out->context_step.layer_region_borrow_mutable_slices = layer_region_borrow_mutable_slices;
     out->context_step.layer_range_count = slicing_layer_range_count;
     out->context_step.layer_range_at = slicing_layer_range_at;
@@ -208,9 +208,8 @@ std::unique_ptr<SlicingRunContext> make_slicing_run_context(Print &print, size_t
 
 void clean_and_prepare(Print & print) {
     parallel_for(size_t(0), print.objects().size(), [&print](const size_t object_idx) {
-        PrintObject *object = print.get_object(object_idx);
-        if (object != nullptr)
-            recreate_object_layers(*object);
+        PrintObject &object = print.object(object_idx);
+        recreate_object_layers(object);
     });
 }
 
@@ -219,14 +218,9 @@ bool validate_pre(const Print &print, std::string &out_error)
     bool ok = true;
 
     for (size_t object_idx = 0; object_idx < print.objects().size(); ++object_idx) {
-        const PrintObject *object = print.objects()[object_idx];
-        if (object == nullptr) {
-            ok = false;
-            out_error += "print object is null";
-            continue;
-        }
+        const PrintObject &object = print.objects()[object_idx];
 
-        const std::vector<coord_t> &layer_profile = object->layer_profile();
+        const std::vector<coord_t> &layer_profile = object.layer_profile();
         if (layer_profile.empty()) {
             ok = false;
             std::ostringstream msg;
@@ -251,14 +245,9 @@ bool validate_post(const Print &print, std::string &out_error)
     bool ok = true;
 
     for (size_t object_idx = 0; object_idx < print.objects().size(); ++object_idx) {
-        const PrintObject *object = print.objects()[object_idx];
-        if (object == nullptr) {
-            ok = false;
-            out_error += "print object is null";
-            continue;
-        }
+        const PrintObject &object = print.objects()[object_idx];
 
-        if (object->layer_count() == 0) {
+        if (object.layer_count() == 0) {
             ok = false;
             std::ostringstream msg;
             msg << "object " << object_idx << ": no layers were created";
@@ -307,8 +296,8 @@ void run_step(Orchestrator &orchestrator, Print &print)
         });
 
         parallel_for(size_t(0), run_count, [&print](const size_t object_idx) {
-            if (PrintObject *object = print.get_object(object_idx); object != nullptr)
-                recompute_layer_slices_from_raw_regions(*object);
+            PrintObject &object = print.object(object_idx);
+            recompute_layer_slices_from_raw_regions(object);
         });
 
         Detail::validate_or_report(validate_post, print, "Slicing post-plugin validation");

@@ -12,16 +12,17 @@
 #ifndef slic3r_Layer_hpp_
 #define slic3r_Layer_hpp_
 
-#include "Line.hpp"
-#include "libslic3r.h"
-#include "BoundingBox.hpp"
-#include "Flow.hpp"
-#include "SurfaceCollection.hpp"
-#include "ExtrusionEntityCollection.hpp"
-#include "Steps/StepPipeline.hpp"
-
-#include <boost/container/small_vector.hpp>
 #include <unordered_map>
+
+//#include <boost/container/small_vector.hpp>
+
+#include "BoundingBox.hpp"
+#include "DataTreeFwd.hpp"
+#include "ExtrusionEntityCollection.hpp"
+#include "Flow.hpp"
+#include "libslic3r.h"
+#include "Line.hpp"
+#include "SurfaceCollection.hpp"
 
 namespace Slic3r {
 
@@ -30,16 +31,8 @@ using ExPolygons = std::vector<ExPolygon>;
 namespace ApiInternal { struct LayerAccess; }
 namespace ApiInternal { struct LayerIslandAccess; }
 namespace ApiInternal { struct LayerRegionAccess; }
+namespace Steps { class StepPipeline; }
 
-class Layer;
-using LayerPtrs = std::vector<Layer*>;
-class LayerSliceIsland;
-class LayerRegionIsland;
-class LayerRegion;
-using LayerRegionPtrs = std::vector<LayerRegion*>;
-using LayerRegionSetConstPtrs = std::set<const LayerRegion*>;
-class PrintRegion;
-class PrintObject;
 
 namespace FillAdaptive {
     struct Octree;
@@ -130,13 +123,14 @@ public:
 
     const ExPolygons &get_raw_slices() const { return m_raw_slices; }
 
+    // public destructor to allow unique_ptr
+    ~LayerRegion() = default;
 protected:
     friend class Layer;
     friend class PrintObject;
     friend struct ApiInternal::LayerRegionAccess;
 
     LayerRegion(Layer *layer, const PrintRegion *region) : m_layer(layer), m_region(region) {}
-    ~LayerRegion() = default;
 
 private:
     template<typename ThrowOnCancel>
@@ -182,6 +176,8 @@ private:
 //    // To ease debugging.
 //    std::vector<LayerExtrusionRange>;
 //#endif // NDEBUG
+
+using LayerRegionSetConstPtrs = std::set<const LayerRegion*>;
 
 // LayerSlice contains one or more LayerIsland objects,
 // each LayerIsland containing a set of perimeter extrusions extruded with one particular PrintRegionConfig parameters
@@ -238,8 +234,6 @@ public:
 
 };
 
-using LayerRegionIslandPtr = std::unique_ptr<LayerRegionIsland>;
-
 // kind of similar as old's LayerSlice
 class LayerSliceIsland : public ExtraDataTag
 {
@@ -254,7 +248,7 @@ public:
     std::vector<Link> overlaps_above;
     std::vector<Link> overlaps_below;
 
-    const ExPolygons &get_perimeter_slices() { return m_perimeter_slices; }
+    const ExPolygons &get_perimeter_slices() const { return m_perimeter_slices; }
 
 protected:
     friend struct ApiInternal::LayerIslandAccess;
@@ -264,7 +258,7 @@ protected:
     // only regions that are relevant for this island
     LayerRegionSetConstPtrs m_regions;
     // storing unique_ptr because it's easier to have consistent objects while manipulating the vector.
-    std::vector<LayerRegionIslandPtr> m_extrusions;
+    LayerRegionIslandUPtrs m_extrusions;
     // cache, can be accessed via m_regions. Only set after fill_regions.
     Layer *m_layer = nullptr;
 
@@ -284,12 +278,15 @@ public:
     const ExPolygon &get_slice() const { return m_slice; }
     const BoundingBox &get_bounding_box() const { return m_bbox; }
     const LayerRegionSetConstPtrs &regions() const { return m_regions; }
-    const std::vector<LayerRegionIslandPtr> &regions_islands() const { return m_extrusions; }
-    std::vector<LayerRegionIslandPtr> &regions_islands()  { return m_extrusions; }
+    LayerRegionIslandCRefs regions_islands() const { return make_ref_view<LayerRegionIsland>(m_extrusions); }
+    LayerRegionIslandRefs regions_islands() { return make_ref_view<LayerRegionIsland>(m_extrusions); }
+    const LayerRegionIsland& regions_island(size_t idx) const { return *m_extrusions[idx]; }
+    LayerRegionIsland& regions_island(size_t idx) { return *m_extrusions[idx]; }
+    LayerRegionIslandUPtrs &mutable_regions_islands() { return m_extrusions; }
     const Layer *layer() const { return m_layer; }
 
     LayerRegionIsland& get_or_add_region_island(const LayerRegionSetConstPtrs &regions, uint16_t extruder_id = uint16_t(-1));
-    LayerRegionIsland& add_new_region_island(const LayerRegionSetConstPtrs &regions, uint16_t extruder_id = uint16_t(-1));
+    LayerRegionIsland& add_region_island(const LayerRegionSetConstPtrs &regions, uint16_t extruder_id = uint16_t(-1));
 
         // Unspecified fill polygons, used for overhang detection ("ensure vertical wall thickness feature")
     // and for re-starting of infills.
@@ -310,8 +307,6 @@ public:
 
     void make_perimeters(LayerRegionIsland &region_island);
 };
-using LayerSliceIslandPtr = std::unique_ptr<LayerSliceIsland>;
-
 //static constexpr const size_t LayerIslandsStaticSize = 1;
 //using LayerIslands =
 //#ifdef NDEBUG
@@ -360,23 +355,28 @@ protected:
     // that the lslice is not compensated by the Elephant foot compensation algorithm.
     ExPolygons              m_lslices; // now in LayerSliceIsland, here is just a cache for quicker lslices()
     // in unique_ptr to be sure the address doesn't change when updating the vector.
-    std::vector<LayerSliceIslandPtr> m_islands;
+    LayerSliceIslandUPtrs m_islands;
     bool m_islands_locked = false;
 
 public:
     // shortcut to get slices stored in islands
     const ExPolygons &      lslices() const { return m_lslices; }
 
-    const std::vector<LayerSliceIslandPtr> &islands() const { return m_islands; }
-    LayerSliceIsland& get_mutable_island(size_t idx) { return *m_islands[idx]; }
+    LayerSliceIslandCRefs islands() const { return make_ref_view<LayerSliceIsland>(m_islands); }
+    LayerSliceIslandRefs  islands() { return make_ref_view<LayerSliceIsland>(m_islands); }
+    const LayerSliceIsland& island(size_t idx) const { return *m_islands[idx]; }
+    LayerSliceIsland&     island(size_t idx) { return *m_islands[idx]; }
+    //LayerSliceIslandUPtrs &mutable_islands() { return m_islands; }
+    //LayerSliceIslandUPtr& mutable_island(size_t idx) { return *m_islands[idx]; }
     // to be called after LayerRegion's m_slices are created (but still not separated)
     // create surfaces in layerregion, and fill regionislands.
     void add_regions_to_islands();
 
     size_t                  region_count() const { return m_regions.size(); }
-    const LayerRegion*      get_region(size_t idx) const { return m_regions[idx]; }
-    LayerRegion*            get_region(size_t idx) { return m_regions[idx]; }
-    const LayerRegionPtrs&  regions() const { return m_regions; }
+    const LayerRegion&      region(size_t idx) const { return *m_regions[idx]; }
+    LayerRegion&            region(size_t idx) { return *m_regions[idx]; }
+    const LayerRegionCRefs  regions() const { return make_ref_view<LayerRegion>(m_regions); }
+    LayerRegionRefs         regions() { return make_ref_view<LayerRegion>(m_regions); }
     // Test whether whether there are any slices assigned to this layer.
     bool                    empty() const;
     // After creating the slices on all layers, chain the islands overlapping in Z.
@@ -419,15 +419,17 @@ public:
     bool            has_extrusions() const;
 
     void simplify_extrusion_path() {
-        for (LayerSliceIslandPtr &island_ptr : m_islands)
-            for (LayerRegionIslandPtr &regisland : island_ptr->regions_islands())
-                regisland->simplify_extrusion_entity(*this);
+        for (LayerSliceIslandUPtr &island_ptr : m_islands)
+            for (LayerRegionIsland &regisland : island_ptr->regions_islands())
+                regisland.simplify_extrusion_entity(*this);
     }
 
+    //need public destructor for unique_ptr
+    virtual ~Layer();
 protected:
     friend class PrintObject;
     friend class Steps::StepPipeline;
-    friend std::vector<Layer*> new_layers(PrintObject*, const std::vector<coordf_t>&);
+    friend LayerUPtrs new_layers(PrintObject*, const std::vector<coordf_t>&);
     friend struct ApiInternal::LayerAccess;
 
     Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok) :
@@ -439,7 +441,6 @@ protected:
         assert(height > 100);
         assert(scale_to_layer_coord(unscaled(print_z)) == print_z);
     }
-    virtual ~Layer();
     // Clear fill extrusions, remove them from layer islands.
     void clear_fills();
     //Deprecated, for  legacy slicing in printobject
@@ -448,7 +449,7 @@ private:
     // Sequential index of layer, 0-based, offsetted by number of raft layers.
     size_t              m_id;
     PrintObject        *m_object;
-    LayerRegionPtrs     m_regions;
+    LayerRegionUPtrs     m_regions;
 };
 
 class SupportLayer : public Layer 
@@ -461,6 +462,7 @@ public:
     ExtrusionRole role() const;
 
     void simplify_support_extrusion_path();
+    virtual ~SupportLayer() = default;
 protected:
     friend class PrintObject;
 
@@ -468,23 +470,26 @@ protected:
     // between the raft and the object first layer.
     SupportLayer(size_t id, size_t interface_id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok) :
         Layer(id, object, height, print_z, slice_z, scaledok), m_interface_id(interface_id) {}
-    virtual ~SupportLayer() = default;
 
     size_t m_interface_id;
 };
+
+inline const Layer& layer_ref(const Layer &layer) { return layer; }
+inline const Layer& layer_ref(const Layer *layer) { return *layer; }
+inline const Layer& layer_ref(const std::unique_ptr<Layer> &layer) { return *layer; }
 
 template<typename LayerContainer>
 inline std::vector<float> slice_z_from_layers(const LayerContainer &layers)
 {
     std::vector<float> zs;
     zs.reserve(layers.size());
-    for (const Layer *l : layers)
-        zs.emplace_back((float)l->slice_z);
+    for (const auto &layer : layers)
+        zs.emplace_back((float)layer_ref(layer).slice_z);
     return zs;
 }
 
 extern BoundingBox get_extents(const LayerRegion &layer_region);
-extern BoundingBox get_extents(const LayerRegionPtrs &layer_regions);
+extern BoundingBox get_extents(const LayerRegionRefs &layer_regions);
 
 }
 

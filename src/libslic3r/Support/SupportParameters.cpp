@@ -64,9 +64,9 @@ SupportParameters::SupportParameters(const PrintObject &object)
         if (min_from_extr > 0)
             this->_support_layer_height_min = std::min(this->_support_layer_height_min, min_from_extr);
     }
-    for (const Layer *layer : object.layers()) {
-        if (layer->scaled_height() > 0)
-            this->_support_layer_height_min = std::min(this->_support_layer_height_min, layer->scaled_height());
+    for (const Layer &layer : object.layers()) {
+        if (layer.scaled_height() > 0)
+            this->_support_layer_height_min = std::min(this->_support_layer_height_min, layer.scaled_height());
     }
     if (this->_support_layer_height_min == std::numeric_limits<coord_t>::max()) {
         double max = unscaled(this->_support_layer_height_min);

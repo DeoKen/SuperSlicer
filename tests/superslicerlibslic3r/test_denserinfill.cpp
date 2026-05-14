@@ -33,7 +33,7 @@ SCENARIO("denser infills: ")
             config.save("C:\\Users\\Admin\\Desktop\\config_def.ini");
             Slic3r::Test::init_print(print, { Slic3r::Test::TestMesh::di_5mm_center_notch }, model, &config, false);
             print.process();
-            const PrintObject& object = *(print.get_object(0));
+            const PrintObject& object = print.object(0);
 
             //for (int lidx = 0; lidx < object.layers().size(); lidx++) {
             //    std::cout << "layer " << lidx << " : \n";
@@ -102,7 +102,7 @@ SCENARIO("denser infills: ")
             config.save("C:\\Users\\Admin\\Desktop\\config_def.ini");
             Slic3r::Test::init_print(print, { Slic3r::Test::TestMesh::di_10mm_notch }, model, &config, false);
             print.process();
-            const PrintObject& object = *(print.get_object(0));
+            const PrintObject& object = print.object(0);
             THEN("correct number of fills") {
                 REQUIRE(object.layers().size() == 50);
                 REQUIRE(get_island(object.layers()[20]->regions()[0]->fills(),0).size() == 1); //sparse
@@ -164,7 +164,7 @@ SCENARIO("denser infills: ")
             config.save("C:\\Users\\Admin\\Desktop\\config_def.ini");
             Slic3r::Test::init_print(print, { Slic3r::Test::TestMesh::di_10mm_notch }, model, &config, false);
             print.process();
-            const PrintObject& object = *(print.get_object(0));
+            const PrintObject& object = print.object(0);
             THEN("correct number of fills") {
                 REQUIRE(object.layers().size() == 50);
                 REQUIRE(get_island(object.layers()[20]->regions()[0]->fills(),0).size() == 1); //sparse

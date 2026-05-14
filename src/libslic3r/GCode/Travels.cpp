@@ -134,11 +134,11 @@ std::pair<AABBTreeLines::LinesDistancer<ObjectOrExtrusionLinef>, size_t> TravelO
             for (const PrintInstance &instance : layer->object()->instances()) {
                 visitor.instance = &instance;
                 visitor.instance_idx = &instance - &layer->object()->instances().front();
-                for (const LayerSliceIslandPtr &layer_island_ptr : layer->islands()) {
-                    for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-                        const LayerRegion &layerm = **region_island_ptr->regions().begin(); // FIXME multiple regions
-                        if (region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS)) {
-                            for (const ExtrusionEntity *ee : region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS)) {
+                for (const LayerSliceIsland &layer_island_ptr : layer->islands()) {
+                    for (const LayerRegionIsland &region_island_ptr : layer_island_ptr.regions_islands()) {
+                        const LayerRegion &layerm = **region_island_ptr.regions().begin(); // FIXME multiple regions
+                        if (region_island_ptr.has_extrusion(LayerRegionIsland::PERIMETERS)) {
+                            for (const ExtrusionEntity *ee : region_island_ptr.extrusion(LayerRegionIsland::PERIMETERS)) {
                                 visitor.process(ee);
                                 ++extrusion_entity_cnt;
                             }

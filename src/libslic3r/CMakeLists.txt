@@ -174,6 +174,7 @@ set(SLIC3R_SOURCES
     CSGMesh/VoxelizeCSGMesh.hpp
     CSGMesh/TriangleMeshAdapter.hpp
     CSGMesh/CSGMeshCopy.hpp
+    DataTreeFwd.hpp
     EdgeGrid.cpp
     EdgeGrid.hpp
     ElephantFootCompensation.cpp

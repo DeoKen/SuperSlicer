@@ -70,7 +70,7 @@ SupportGeneratorLayersPtr generate_support_layers(
 // Used by both classic and tree supports.
 void generate_support_toolpaths(
 	PrintObject							&object,
-	SupportLayerPtrs    				&support_layers,
+	SupportLayerUPtrs    				&support_layers,
 	const PrintObjectConfig 			&config,
 	const SupportParameters 			&support_params,
 	const SlicingParameters 			&slicing_params,

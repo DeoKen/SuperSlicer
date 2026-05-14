@@ -115,7 +115,7 @@ void ApiInternal::PrintObjectAccess::set_layer_profile(PrintObject &object, std:
     object.m_layer_profile = std::move(layer_profile);
 }
 
-void ApiInternal::PrintObjectAccess::replace_layers_by_moving_contents(PrintObject &object, LayerPtrs &&new_layers)
+void ApiInternal::PrintObjectAccess::replace_layers_by_moving_contents(PrintObject &object, LayerUPtrs &&new_layers)
 {
     object.clear_layers();
     object.m_layers = std::move(new_layers);
@@ -154,6 +154,8 @@ PrintObject::PrintObject(Print* print, ModelObject* model_object, const Transfor
     //create config hierarchy
     m_config.parent = &print->config();
 }
+
+PrintObject::~PrintObject() = default;
 
 PrintBase::ApplyStatus PrintObject::set_instances(PrintInstances&& instances)
 {
@@ -208,7 +210,7 @@ void PrintObject::make_perimeters()
     
     // Revert the typed slices into untyped slices.
     if (m_typed_slices) {
-        for (Layer *layer : m_layers) {
+        for (std::unique_ptr<Layer> &layer : m_layers) {
             layer->clear_fills();
             layer->restore_untyped_slices();
             m_print->throw_if_canceled();
@@ -235,8 +237,8 @@ void PrintObject::make_perimeters()
             [this, &region, region_id](const size_t layer_idx) {
                     PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
                     m_print->throw_if_canceled();
-                    LayerRegion &layerm                     = *m_layers[layer_idx]->get_region(region_id);
-                    const LayerRegion &upper_layerm         = *m_layers[layer_idx+1]->get_region(region_id);
+                    LayerRegion &layerm                     = m_layers[layer_idx]->region(region_id);
+                    const LayerRegion &upper_layerm         = m_layers[layer_idx+1]->region(region_id);
                     const Polygons upper_layerm_polygons    = to_polygons(upper_layerm.slices().surfaces);
                     // Filter upper layer polygons in intersection_ppl by their bounding boxes?
                     // my $upper_layerm_poly_bboxes= [ map $_->bounding_box, @{$upper_layerm_polygons} ];
@@ -347,7 +349,8 @@ void PrintObject::prepare_infill()
         // The preceding step (perimeter generator) only modifies extra_perimeters and the extra perimeters are only used by discover_vertical_shells()
         // with more than a single region. If this step does not use Surface::extra_perimeters or Surface::extra_perimeters is always zero, it is safe
         // to reset to the untyped slices before re-runnning detect_surfaces_type().
-        for (Layer* layer : m_layers) {
+        for (std::unique_ptr<Layer> &layer_ptr : m_layers) {
+            Layer *layer = layer_ptr.get();
             layer->clear_fills();
             layer->restore_untyped_slices();
             m_print->throw_if_canceled();
@@ -356,8 +359,8 @@ void PrintObject::prepare_infill()
     }
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
-            for (const Surface &srf : layer->get_region(region_id)->fill_surfaces().surfaces) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
+            for (const Surface &srf : layer->region(region_id).fill_surfaces().surfaces) {
                 // only sparse for now
                 assert( // srf.surface_type == (stPosInternal | stDensSolid) ||
                     srf.surface_type == (stPosInternal | stDensSparse)// ||
@@ -390,8 +393,8 @@ void PrintObject::prepare_infill()
 
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
-            for (const Surface &srf : layer->get_region(region_id)->fill_surfaces().surfaces) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
+            for (const Surface &srf : layer->region(region_id).fill_surfaces().surfaces) {
                 assert(// srf.surface_type == (stPosInternal | stDensSolid) ||  //solid will be put by process_external_surfaces / discover_vertical_shells
                        srf.surface_type == (stPosInternal | stDensSparse) ||
                        // srf.surface_type == (stPosInternal | stDensSparse | stModBridge) ||
@@ -417,14 +420,14 @@ void PrintObject::prepare_infill()
                             PrintBase::SlicingStatus::SECONDARY_STATE);
     }
     for (size_t layer_idx = 0; layer_idx < m_layers.size(); ++layer_idx) {
-        Layer *layer = m_layers[layer_idx];
+        Layer *layer = m_layers[layer_idx].get();
         if (m_print->objects().size() == 1) {
             m_print->set_status(int(25 + (5 * layer_idx / m_layers.size())),
                                 L("Prepare fill surfaces: layer %s / %s"),
                                 {std::to_string(layer_idx), std::to_string(m_layers.size())},
                                 PrintBase::SlicingStatus::SECONDARY_STATE);
         }
-        for (auto *region : layer->m_regions) {
+        for (LayerRegionUPtr &region : layer->m_regions) {
             region->prepare_fill_surfaces();
             m_print->throw_if_canceled();
         }
@@ -438,8 +441,8 @@ void PrintObject::prepare_infill()
 
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
-            for (const Surface &srf : layer->get_region(region_id)->fill_surfaces().surfaces) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
+            for (const Surface &srf : layer->region(region_id).fill_surfaces().surfaces) {
                 assert(srf.surface_type == (stPosInternal | stDensSolid) ||
                        srf.surface_type == (stPosInternal | stDensSparse) ||
                        // srf.surface_type == (stPosInternal | stDensSparse | stModBridge) ||
@@ -479,8 +482,8 @@ void PrintObject::prepare_infill()
 
 #ifdef _DEBUG
         for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-            for (const Layer *layer : m_layers) {
-                for (const Surface &srf : layer->get_region(region_id)->fill_surfaces().surfaces) {
+            for (const std::unique_ptr<Layer> &layer : m_layers) {
+                for (const Surface &srf : layer->region(region_id).fill_surfaces().surfaces) {
                     assert(srf.surface_type == (stPosInternal | stDensSolid) ||
                            srf.surface_type == (stPosInternal | stDensSparse) ||
                            // srf.surface_type == (stPosInternal | stDensSparse | stModBridge) ||
@@ -509,8 +512,8 @@ void PrintObject::prepare_infill()
 
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
-            for (const Surface &srf : layer->get_region(region_id)->fill_surfaces().surfaces) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
+            for (const Surface &srf : layer->region(region_id).fill_surfaces().surfaces) {
                 assert(srf.surface_type == (stPosInternal | stDensSolid) ||
                        srf.surface_type == (stPosInternal | stDensSparse) ||
                        // srf.surface_type == (stPosInternal | stDensSparse | stModBridge) ||
@@ -522,7 +525,7 @@ void PrintObject::prepare_infill()
         }
     }
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             for (const Surface &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                 srf.expolygon.assert_valid();
             }
@@ -556,8 +559,8 @@ void PrintObject::prepare_infill()
 
 #ifdef _DEBUG
         for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-            for (const Layer *layer : m_layers) {
-                for (const Surface &srf : layer->get_region(region_id)->fill_surfaces().surfaces) {
+            for (const std::unique_ptr<Layer> &layer : m_layers) {
+                for (const Surface &srf : layer->region(region_id).fill_surfaces().surfaces) {
                     assert(srf.surface_type == (stPosInternal | stDensSolid) ||
                            srf.surface_type == (stPosInternal | stDensSparse) ||
                            // srf.surface_type == (stPosInternal | stDensSparse | stModBridge) ||
@@ -569,7 +572,7 @@ void PrintObject::prepare_infill()
             }
         }
         for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-            for (const Layer *layer : m_layers) {
+            for (const std::unique_ptr<Layer> &layer : m_layers) {
                 for (const Surface &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                     srf.expolygon.assert_valid();
                 }
@@ -581,7 +584,7 @@ void PrintObject::prepare_infill()
     // Debugging output.
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             LayerRegion *layerm = layer->m_regions[region_id];
             layerm->export_region_slices_to_svg_debug("3_discover_vertical_shells-final");
             layerm->export_region_fill_surfaces_to_svg_debug("3_discover_vertical_shells-final");
@@ -592,7 +595,7 @@ void PrintObject::prepare_infill()
     // Debugging output.
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             LayerRegion *layerm = layer->m_regions[region_id];
             layerm->export_region_slices_to_svg_debug("3_process_external_surfaces-final");
             layerm->export_region_fill_surfaces_to_svg_debug("3_process_external_surfaces-final");
@@ -612,7 +615,7 @@ void PrintObject::prepare_infill()
 
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             for (const Surface &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                 srf.expolygon.assert_valid();
             }
@@ -635,7 +638,7 @@ void PrintObject::prepare_infill()
 #ifdef _DEBUG
     //assert each surface is not on top of each other (or almost)
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             for (auto &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                 for (auto &srf2 : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                     if (&srf != &srf2) {
@@ -656,7 +659,7 @@ void PrintObject::prepare_infill()
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             LayerRegion *layerm = layer->m_regions[region_id];
             layerm->export_region_slices_to_svg_debug("7_discover_horizontal_shells-final");
             layerm->export_region_fill_surfaces_to_svg_debug("7_discover_horizontal_shells-final");
@@ -676,7 +679,7 @@ void PrintObject::prepare_infill()
 
 //#ifdef SLIC3R_DEBUG_SLICE_PROCESSING
 //    for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-//        for (const Layer *layer : m_layers) {
+//        for (const std::unique_ptr<Layer> &layer : m_layers) {
 //            LayerRegion *layerm = layer->m_regions[region_id];
 //            layerm->export_region_slices_to_svg_debug("8_clip_surfaces-final");
 //            layerm->export_region_fill_surfaces_to_svg_debug("8_clip_surfaces-final");
@@ -699,7 +702,7 @@ void PrintObject::prepare_infill()
 #ifdef _DEBUG
     //assert each surface is not on top of each other (or almost)
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             for (auto &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                 for (auto &srf2 : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                     if (&srf != &srf2) {
@@ -744,7 +747,7 @@ void PrintObject::prepare_infill()
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             LayerRegion *layerm = layer->m_regions[region_id];
             layerm->export_region_slices_to_svg_debug("8_tag_under_bridge-final1");
             layerm->export_region_fill_surfaces_to_svg_debug("8_tag_under_bridge-final2");
@@ -759,7 +762,7 @@ void PrintObject::prepare_infill()
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             LayerRegion *layerm = layer->m_regions[region_id];
             layerm->export_region_slices_to_svg_debug("8b_bridge_over_infil-final1");
             layerm->export_region_fill_surfaces_to_svg_debug("8b_bridge_over_infil-final2");
@@ -799,21 +802,19 @@ void PrintObject::prepare_infill()
     this->combine_infill();
     m_print->throw_if_canceled();
 
-
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             LayerRegion *layerm = layer->m_regions[region_id];
             layerm->export_region_slices_to_svg_debug("9_prepare_infill-final");
             layerm->export_region_fill_surfaces_to_svg_debug("9_prepare_infill-final");
         } // for each layer
     } // for each region
-    for (const Layer *layer : m_layers) {
+    for (const std::unique_ptr<Layer> &layer : m_layers) {
         layer->export_region_slices_to_svg_debug("9_prepare_infill-final");
         layer->export_region_fill_surfaces_to_svg_debug("9_prepare_infill-final");
     } // for each layer
 #endif /* SLIC3R_DEBUG_SLICE_PROCESSING */
-
 
     //compute m_max_sparse_spacing for fill_aligned_z
     _compute_max_sparse_spacing();
@@ -835,12 +836,12 @@ void PrintObject::_compute_max_sparse_spacing()
     Slic3r::parallel_for(size_t(0), m_layers.size(),
         [this, &max_sparse_spacing](const size_t layer_idx) {
         m_print->throw_if_canceled();
-        const Layer *layer = m_layers[layer_idx];
-        for (const LayerRegion *layerm : layer->regions()) {
+        const Layer *layer = m_layers[layer_idx].get();
+        for (const LayerRegion &layerm : layer->regions()) {
             // check if region has sparse infill.
-            for (const Surface &surface : layerm->fill_surfaces().surfaces) {
+            for (const Surface &surface : layerm.fill_surfaces().surfaces) {
                 if (surface.has_fill_sparse()) {
-                    coord_t spacing = layerm->region().flow(*this, frInfill, (float)layer->unscaled_height(), layer->id()).scaled_spacing();
+                    coord_t spacing = layerm.region().flow(*this, frInfill, (float)layer->unscaled_height(), layer->id()).scaled_spacing();
                     // update atomic to max
                     int64_t prev_value = max_sparse_spacing.load();
                     while (prev_value < int64_t(spacing) &&
@@ -854,7 +855,7 @@ void PrintObject::_compute_max_sparse_spacing()
 }
 void PrintObject::clear_fills()
 {
-    for (Layer *layer : m_layers)
+    for (std::unique_ptr<Layer> &layer : m_layers)
         layer->clear_fills();
 }
 void PrintObject::infill()
@@ -948,7 +949,7 @@ void PrintObject::generate_support_spots()
             auto [supp_points, partial_objects] = SupportSpotsGenerator::full_search(this, cancel_func, params);
             Transform3d po_transform            = this->trafo_centered();
             if (this->layer_count() > 0) {
-                po_transform = Geometry::translation_transform(Vec3d{0, 0, unscaled(this->layers().front()->scaled_bottom_z())}) * po_transform;
+                po_transform = Geometry::translation_transform(Vec3d{0, 0, unscaled(this->layers().front().scaled_bottom_z())}) * po_transform;
             }
             this->m_shared_regions->generated_support_points = {po_transform, supp_points, partial_objects};
             m_print->throw_if_canceled();
@@ -988,7 +989,7 @@ void PrintObject::generate_support_material()
 #if 0
             // Printing without supports. Empty layer means some objects or object parts are levitating,
             // therefore they cannot be printed without supports.
-            for (const Layer *layer : m_layers)
+            for (const std::unique_ptr<Layer> &layer : m_layers)
                 if (layer->empty())
                     throw Slic3r::SlicingError("Levitating objects cannot be printed without supports.");
 #endif
@@ -1100,8 +1101,8 @@ void PrintObject::estimate_curled_extrusions()
                                                  this->config().raft_layers.value, 
                                                  float(this->config().brim_width.value),
                                                  float(this->config().brim_width_interior.value)};
-            SupportSpotsGenerator::estimate_supports_malformations(this->edit_support_layers(), support_flow_width, params);
-            SupportSpotsGenerator::estimate_malformations(this->layers(), params);
+            SupportSpotsGenerator::estimate_supports_malformations(this->mutable_support_layers(), support_flow_width, params);
+            SupportSpotsGenerator::estimate_malformations(this->mutable_layers(), params);
             m_print->throw_if_canceled();
             BOOST_LOG_TRIVIAL(debug) << "Estimating areas with curled extrusions - end";
         }
@@ -1223,9 +1224,9 @@ void PrintObject::calculate_overhanging_perimeters()
 
             std::unordered_map<size_t, AABBTreeLines::LinesDistancer<CurledLine>> curled_lines;
             std::unordered_map<size_t, AABBTreeLines::LinesDistancer<Linef>>      unscaled_polygons_lines;
-            for (const Layer *layer : this->layers()) {
-                curled_lines[layer->id()]            = AABBTreeLines::LinesDistancer<CurledLine>{layer->curled_lines};
-                unscaled_polygons_lines[layer->id()] = AABBTreeLines::LinesDistancer<Linef>{to_unscaled_linesf(layer->lslices())};
+            for (const Layer &layer : this->layers()) {
+                curled_lines[layer.id()]            = AABBTreeLines::LinesDistancer<CurledLine>{layer.curled_lines};
+                unscaled_polygons_lines[layer.id()] = AABBTreeLines::LinesDistancer<Linef>{to_unscaled_linesf(layer.lslices())};
             }
             curled_lines[size_t(-1)]            = {};
             unscaled_polygons_lines[size_t(-1)] = {};
@@ -1234,13 +1235,13 @@ void PrintObject::calculate_overhanging_perimeters()
                 [this, &curled_lines, &unscaled_polygons_lines]
                 (const size_t layer_idx) {
                 PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
-                Layer *layer = m_layers[layer_idx];
+                Layer *layer = m_layers[layer_idx].get();
                 // first layer: do not split
                 if (layer->id() > 0) {
                     for (size_t i_island = 0; i_island < layer->islands().size(); ++i_island) {
-                        LayerSliceIsland &lsi = layer->get_mutable_island(i_island);
-                        for (LayerRegionIslandPtr &lri : lsi.regions_islands()) {
-                            _calculate_overhanging_perimeters(*layer, *lri, curled_lines, unscaled_polygons_lines);
+                        LayerSliceIsland &lsi = layer->island(i_island);
+                        for (LayerRegionIsland &lri : lsi.regions_islands()) {
+                            _calculate_overhanging_perimeters(*layer, lri, curled_lines, unscaled_polygons_lines);
                         }
                     }
 #ifdef _DEBUG
@@ -1256,10 +1257,10 @@ void PrintObject::calculate_overhanging_perimeters()
                             }
                         };
                         OverhangAssertVisitor ov_visitor;
-                        for (const LayerSliceIslandPtr &layer_island_ptr : layer->islands()) {
-                            for (const LayerRegionIslandPtr &lri : layer_island_ptr->regions_islands()) {
-                                if (lri->has_extrusion(LayerRegionIsland::PERIMETERS))
-                                    lri->extrusion(LayerRegionIsland::PERIMETERS).visit(ov_visitor);
+                        for (const LayerSliceIsland &layer_island_ptr : layer->islands()) {
+                            for (const LayerRegionIsland &lri : layer_island_ptr.regions_islands()) {
+                                if (lri.has_extrusion(LayerRegionIsland::PERIMETERS))
+                                    lri.extrusion(LayerRegionIsland::PERIMETERS).visit(ov_visitor);
                             }
                         }
                     }
@@ -1378,8 +1379,6 @@ Polygons PrintObject::get_brim_patch(ModelVolumeType brim_type, const PrintInsta
 
 void PrintObject::clear_layers()
 {
-    for (Layer *l : m_layers)
-        delete l;
     m_layers.clear();
 }
 
@@ -1391,8 +1390,6 @@ void PrintObject::clear_layers()
 
 void PrintObject::clear_support_layers()
 {
-    for (Layer *l : m_support_layers)
-        delete l;
     m_support_layers.clear();
 }
 
@@ -1401,13 +1398,13 @@ void PrintObject::add_support_layer(int id, int interface_id, coord_t height, co
     m_support_layers.emplace_back(new SupportLayer(id, interface_id, this, height, print_z, -1., true));
 }
 
-SupportLayerPtrs::iterator PrintObject::insert_support_layer(SupportLayerPtrs::const_iterator pos,
+SupportLayerUPtrs::iterator PrintObject::insert_support_layer(SupportLayerUPtrs::const_iterator pos,
                                                              size_t id,
                                                              size_t interface_id,
                                                              coord_t height,
                                                              coord_t print_z,
                                                              double slice_z) {
-        return m_support_layers.insert(pos, new SupportLayer(id, interface_id, this, height, print_z, slice_z, true));
+        return m_support_layers.insert(pos, std::unique_ptr<SupportLayer>(new SupportLayer(id, interface_id, this, height, print_z, slice_z, true)));
 }
 
 // Called by Print::apply().
@@ -2055,7 +2052,7 @@ void PrintObject::tag_under_bridge() {
     coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_i(this->print()->config().resolution.value));
 
     for (size_t region_idx = 0; region_idx < this->print()->num_print_regions(); ++ region_idx) {
-        const PrintRegion* region = &this->print()->get_print_region(region_idx);
+        const PrintRegion* region = &this->print()->print_region(region_idx);
         //count how many surface there are on each one
         if (region->config().infill_dense.get_bool() && region->config().fill_density < 40) {
             std::vector<LayerRegion*> layeridx2lregion;
@@ -2065,9 +2062,9 @@ void PrintObject::tag_under_bridge() {
             new_surfaces.resize(this->layers().size(), Surfaces{});
             for (size_t idx_layer = 0; idx_layer < this->layers().size(); ++idx_layer) {
                 LayerRegion* layerm = nullptr;
-                for (LayerRegion* lregion : this->layers()[idx_layer]->regions()) {
-                    if (&lregion->region() == region) {
-                        layerm = lregion;
+                for (LayerRegion &lregion : this->layer(idx_layer).regions()) {
+                    if (&lregion.region() == region) {
+                        layerm = &lregion;
                         break;
                     }
                 }
@@ -2317,7 +2314,7 @@ void PrintObject::detect_surfaces_type()
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
         BOOST_LOG_TRIVIAL(debug) << "Detecting solid surfaces for region " << region_id << " in parallel - start";
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
-        for (Layer *layer : m_layers)
+        for (std::unique_ptr<Layer> &layer : m_layers)
             layer->m_regions[region_id]->export_region_fill_surfaces_to_svg_debug("1_detect_surfaces_type-initial");
 #endif /* SLIC3R_DEBUG_SLICE_PROCESSING */
 
@@ -2350,12 +2347,12 @@ void PrintObject::detect_surfaces_type()
                     PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
                     m_print->throw_if_canceled();
                     // BOOST_LOG_TRIVIAL(trace) << "Detecting solid surfaces for region " << region_id << " and layer " << layer->unscaled_print_z();
-                    Layer       *layer  = m_layers[idx_layer];
-                    LayerRegion *layerm = layer->get_region(region_id);
+                    Layer       *layer  = m_layers[idx_layer].get();
+                    LayerRegion *layerm = &layer->region(region_id);
                     // comparison happens against the *full* slices (considering all regions)
                     // unless internal shells are requested
-                    Layer       *upper_layer = (idx_layer + 1 < this->layer_count()) ? m_layers[idx_layer + 1] : nullptr;
-                    Layer       *lower_layer = (idx_layer > 0) ? m_layers[idx_layer - 1] : nullptr;
+                    Layer       *upper_layer = (idx_layer + 1 < this->layer_count()) ? m_layers[idx_layer + 1].get() : nullptr;
+                    Layer       *lower_layer = (idx_layer > 0) ? m_layers[idx_layer - 1].get() : nullptr;
                     // collapse very narrow parts (using the safety offset in the diff is not enough)
                     float        offset = layerm->flow(frExternalPerimeter).scaled_width() / 10.f;
 
@@ -2373,7 +2370,7 @@ void PrintObject::detect_surfaces_type()
                     if (upper_layer) {
                         for(auto &srf : top) srf.expolygon.assert_valid();
                         ExPolygons upper_slices = interface_shells ? 
-                            diff_ex(layerm_slices_surfaces, upper_layer->get_region(region_id)->slices().surfaces, ApplySafetyOffset::Yes) :
+                            diff_ex(layerm_slices_surfaces, upper_layer->region(region_id).slices().surfaces, ApplySafetyOffset::Yes) :
                             diff_ex(layerm_slices_surfaces, upper_layer->lslices(), ApplySafetyOffset::Yes);
                         ExPolygons new_top_surfaces = opening_ex(upper_slices, offset);
                         ensure_valid(new_top_surfaces, scaled_resolution);
@@ -2395,7 +2392,7 @@ void PrintObject::detect_surfaces_type()
 #if 0
                         //FIXME Why is this branch failing t\multi.t ?
                         Polygons lower_slices = interface_shells ? 
-                            to_polygons(lower_layer->get_region(region_id)->slices.surfaces) : 
+                            to_polygons(lower_layer->region(region_id).slices.surfaces) : 
                             to_polygons(lower_layer->slices);
                         surfaces_append(bottom,
                             opening_ex(diff(layerm_slices_surfaces, lower_slices, true), offset),
@@ -2421,7 +2418,7 @@ void PrintObject::detect_surfaces_type()
                             ExPolygons new_bot_interface_surfs =
                                 opening_ex(diff_ex(intersection(layerm_slices_surfaces,
                                                                 lower_layer->lslices()), // supported
-                                                   lower_layer->get_region(region_id)->slices().surfaces,
+                                                   lower_layer->region(region_id).slices().surfaces,
                                                    ApplySafetyOffset::Yes),
                                            offset); //-+
                             ensure_valid(new_bot_interface_surfs, scaled_resolution);
@@ -2511,7 +2508,7 @@ void PrintObject::detect_surfaces_type()
             // Move surfaces_new to layerm->slices.surfaces
             // not '< num_layers' because spiral vase don't need it?
             for (size_t idx_layer = 0; idx_layer < m_layers.size(); ++idx_layer)
-                m_layers[idx_layer]->get_region(region_id)->m_slices.surfaces = std::move(surfaces_new[idx_layer]);
+                m_layers[idx_layer]->region(region_id).m_slices.surfaces = std::move(surfaces_new[idx_layer]);
         }
 
         if (spiral_vase) {
@@ -2527,7 +2524,7 @@ void PrintObject::detect_surfaces_type()
         Slic3r::parallel_for(size_t(0), m_layers.size(),
             [this, region_id](const size_t idx_layer) {
                 m_print->throw_if_canceled();
-                LayerRegion* layerm = m_layers[idx_layer]->get_region(region_id);
+                LayerRegion* layerm = &m_layers[idx_layer]->region(region_id);
                 layerm->slices_to_fill_surfaces_clipped(
                     std::max(SCALED_EPSILON * 2,
                     std::max(scale_i(m_print->config().resolution) / 4,
@@ -2548,9 +2545,10 @@ void PrintObject::detect_surfaces_type()
 void PrintObject::apply_solid_infill_below_layer_area()
 {
     // compute the total layer surface for the bed, for solid_infill_below_layer_area
-    for (auto *my_layer : this->m_layers) {
+    for (std::unique_ptr<Layer> &my_layer_ptr : this->m_layers) {
+        Layer *my_layer = my_layer_ptr.get();
         bool exists = false;
-        for (auto *region : my_layer->m_regions) {
+        for (LayerRegionUPtr &region : my_layer->m_regions) {
             exists |= region->region().config().solid_infill_below_layer_area.value > 0;
         }
         if (!exists)
@@ -2561,8 +2559,9 @@ void PrintObject::apply_solid_infill_below_layer_area()
             for (const ExPolygon &slice : my_layer->lslices()) { total_area += slice.area(); }
         } else {
             // parallel printing: get all objects
-            for (const PrintObject *object : this->print()->objects()) {
-                for (auto *layer : object->m_layers) {
+            for (const PrintObject &object : this->print()->objects()) {
+                for (const std::unique_ptr<Layer> &layer_ptr : object.m_layers) {
+                    const Layer *layer = layer_ptr.get();
                     if (layer->scaled_print_z() == my_layer->scaled_print_z()) {
                         for (const ExPolygon &slice : layer->lslices()) { total_area += slice.area(); }
                     }
@@ -2570,7 +2569,7 @@ void PrintObject::apply_solid_infill_below_layer_area()
             }
         }
         // is it low enough to apply solid_infill_below_layer_area?
-        for (auto *region : my_layer->m_regions) {
+        for (LayerRegionUPtr &region : my_layer->m_regions) {
             if (!this->print()->config().spiral_vase.value && region->region().config().fill_density.value > 0) {
                 double min_area = scale_d(scale_d(region->region().config().solid_infill_below_layer_area.value));
                 for (Surface& surface : region->set_fill_surfaces()) {
@@ -2588,7 +2587,7 @@ void PrintObject::process_external_surfaces(bool old)
 
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             for (const Surface &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                 srf.expolygon.assert_valid();
             }
@@ -2611,11 +2610,11 @@ void PrintObject::process_external_surfaces(bool old)
         std::vector<unsigned char> layer_expansions_and_voids(m_layers.size(), false);
             // start at 1, because the only use is with `layer_expansions_and_voids[layer_idx + 1]`
         for (size_t layer_idx = 1; layer_idx < m_layers.size(); ++layer_idx) {
-            const Layer* layer = m_layers[layer_idx];
+            const Layer* layer = m_layers[layer_idx].get();
             bool expansions = false;
             bool voids = false;
-	    	for (const LayerRegion *layerm : layer->regions()) {
-	    		for (const Surface &surface : layerm->fill_surfaces()) {
+	    	for (const LayerRegion &layerm : layer->regions()) {
+	    		for (const Surface &surface : layerm.fill_surfaces()) {
                     if (surface.surface_type == (stPosInternal | stDensSparse))
                         voids = true;
                     else
@@ -2654,7 +2653,7 @@ void PrintObject::process_external_surfaces(bool old)
 
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             for (const Surface &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                 srf.expolygon.assert_valid();
             }
@@ -2668,21 +2667,21 @@ void PrintObject::process_external_surfaces(bool old)
             [this, &surfaces_covered, region_id, old](const size_t layer_idx) {
                 PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
                 m_print->throw_if_canceled();
-                if (m_layers[layer_idx]->get_region(int(region_id))->fill_surfaces().empty()) {
+                if (m_layers[layer_idx]->region(int(region_id)).fill_surfaces().empty()) {
                     // nothing to do.
                     return;
                 }
                 // BOOST_LOG_TRIVIAL(trace) << "Processing external surface, layer" << m_layers[layer_idx]->unscaled_print_z();
                 if (old) {
-                    m_layers[layer_idx]->get_region(int(region_id))->process_external_surfaces_old(
+                    m_layers[layer_idx]->region(int(region_id)).process_external_surfaces_old(
                         // lower layer
-                        (layer_idx == 0) ? nullptr : m_layers[layer_idx - 1],
+                        (layer_idx == 0) ? nullptr : m_layers[layer_idx - 1].get(),
                         // lower layer polygons with density > 0%
                         (layer_idx == 0 || surfaces_covered.empty() || surfaces_covered[layer_idx - 1].empty()) ? nullptr : &surfaces_covered[layer_idx - 1]);
                 } else {
-                    m_layers[layer_idx]->get_region(int(region_id))->process_external_surfaces(
+                    m_layers[layer_idx]->region(int(region_id)).process_external_surfaces(
                         // lower layer
-                        (layer_idx == 0) ? nullptr : m_layers[layer_idx - 1],
+                        (layer_idx == 0) ? nullptr : m_layers[layer_idx - 1].get(),
                         // lower layer polygons with density > 0%
                         (layer_idx == 0 || surfaces_covered.empty() || surfaces_covered[layer_idx - 1].empty()) ? nullptr : &surfaces_covered[layer_idx - 1]);
                 }
@@ -2694,7 +2693,7 @@ void PrintObject::process_external_surfaces(bool old)
 
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             for (const Surface &srf : layer->m_regions[region_id]->fill_surfaces().surfaces) {
                 srf.expolygon.assert_valid();
             }
@@ -2706,8 +2705,8 @@ void PrintObject::process_external_surfaces(bool old)
         // Adjust bridge direction of 1st object layer over raft to be perpendicular to the raft contact layer direction.
         Layer &layer = *m_layers.front();
         assert(layer.id() > 0);
-        for (LayerRegion *layerm : layer.regions())
-            for (Surface &fill : layerm->m_fill_surfaces)
+        for (LayerRegion &layerm : layer.regions())
+            for (Surface &fill : layerm.m_fill_surfaces)
                 fill.bridge_angle = -1;
     }
 } // void PrintObject::process_external_surfaces()
@@ -2931,8 +2930,8 @@ void PrintObject::discover_vertical_shells()
                         }  
                         // Holes over all regions. Only collect them once, they are valid for all idx_region iterations.
                         if (cache.holes.empty()) {
-                            for (size_t region_id = 0; region_id < layer.regions().size(); ++ region_id)
-                                expolygons_append(cache.holes, layer.get_region(region_id)->fill_expolygons());
+                            for (size_t region_id = 0; region_id < layer.region_count(); ++ region_id)
+                                expolygons_append(cache.holes, layer.region(region_id).fill_expolygons());
                         }
                 }
             );
@@ -2952,8 +2951,8 @@ void PrintObject::discover_vertical_shells()
         			++ debug_idx;
 #endif /* SLIC3R_DEBUG_SLICE_PROCESSING */
 
-                    Layer       	        *layer          = m_layers[idx_layer];
-                    LayerRegion 	        *layerm         = layer->m_regions[region_id];
+                    Layer       	        *layer          = m_layers[idx_layer].get();
+                    LayerRegion 	        *layerm         = layer->m_regions[region_id].get();
                     const PrintRegionConfig &region_config  = layerm->region().config();
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
@@ -3291,7 +3290,7 @@ void PrintObject::discover_vertical_shells()
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
             for (size_t idx_layer = 0; idx_layer < m_layers.size(); ++idx_layer) {
-			LayerRegion *layerm = m_layers[idx_layer]->get_region(region_id);
+			LayerRegion *layerm = &m_layers[idx_layer]->region(region_id);
 			layerm->export_region_slices_to_svg_debug("3_discover_vertical_shells-final");
 			layerm->export_region_fill_surfaces_to_svg_debug("3_discover_vertical_shells-final");
             }
@@ -3333,12 +3332,11 @@ void PrintObject::replaceSurfaceType(SurfaceType st_to_replace, SurfaceType st_r
         // skip over-bridging in case there are no modification
         if (region.config().over_bridge_flow_ratio.get_effective_value(1) == 1) continue;
 
-        for (LayerPtrs::iterator layer_it = m_layers.begin(); layer_it != m_layers.end(); ++layer_it) {
+        for (LayerUPtrs::iterator layer_it = m_layers.begin(); layer_it != m_layers.end(); ++layer_it) {
             // skip first layer
-            if (layer_it == this->layers().begin()) continue;
+            if (layer_it == m_layers.begin()) continue;
 
-            Layer*       layer       = *layer_it;
-            LayerRegion* layerm      = layer->regions()[region_id];
+            LayerRegion* layerm      = &(*layer_it)->region(region_id);
 
             ExPolygons poly_to_check;
             // extract the surfaces that might be transformed
@@ -3346,12 +3344,12 @@ void PrintObject::replaceSurfaceType(SurfaceType st_to_replace, SurfaceType st_r
             ExPolygons poly_to_replace = poly_to_check;
 
             // check the lower layer
-            if (int(layer_it - this->layers().begin()) - 1 >= 0) {
-                const Layer* lower_layer = this->layers()[int(layer_it - this->layers().begin()) - 1];
+            if (int(layer_it - m_layers.begin()) - 1 >= 0) {
+                const Layer &lower_layer = *m_layers[int(layer_it - m_layers.begin()) - 1];
 
                 // iterate through regions and collect internal surfaces
                 ExPolygons lower_internal;
-                for (LayerRegion* lower_layerm : lower_layer->m_regions) {
+                for (const LayerRegionUPtr &lower_layerm : lower_layer.m_regions) {
                     lower_layerm->fill_surfaces().filter_by_type(st_under_it, lower_internal);
                 }
 
@@ -3421,29 +3419,29 @@ void PrintObject::bridge_over_infill()
         Slic3r::parallel_for(size_t(0), this->layers().size(),
             [po = static_cast<const PrintObject *>(this), &candidate_surfaces](const size_t lidx) {
             PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
-            const Layer *layer = po->get_layer(lidx);
-            if (layer->lower_layer != nullptr) {
-                coord_t spacing = coord_t(layer->regions().front()->flow(frSolidInfill).scaled_spacing());
+            const Layer &layer = po->layer(lidx);
+            if (layer.lower_layer != nullptr) {
+                coord_t spacing = coord_t(layer.regions().front().flow(frSolidInfill).scaled_spacing());
                 bool has_same_internal_bridge_min_width = true;
-                coord_t common_internal_bridge_min_width = scale_i(layer->regions().front()->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
+                coord_t common_internal_bridge_min_width = scale_i(layer.regions().front().region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
                 // unsupported area will serve as a filter for polygons worth bridging.
                 ExPolygons   unsupported_area;
                 ExPolygons   lower_layer_solids;
-                for (const LayerRegion *region : layer->lower_layer->regions()) {
+                for (const LayerRegion &region : layer.lower_layer->regions()) {
                     // initially consider the whole layer unsupported, but also gather solid layers to later cut off supported parts
-                    append(unsupported_area, region->fill_expolygons());
-                    for (const Surface &surface : region->fill_surfaces()) {
+                    append(unsupported_area, region.fill_expolygons());
+                    for (const Surface &surface : region.fill_surfaces()) {
                         // collect below solid surface where you don't need to have brdige on top.
                         if (    surface.has(stDensSolid) ||
                                 // > 80 instead of == 100, because at 80% it's like solid for bridge, it doesn't have space.
-                                (surface.has(stDensSparse) && region->region().config().fill_density.value > 80)) {
+                                (surface.has(stDensSparse) && region.region().config().fill_density.value > 80)) {
                             lower_layer_solids.push_back(surface.expolygon);
                         }
                     }
                     // check if internal_bridge_min_width is the same in all regions, it simplifies things
                     coord_t region_internal_bridge_min_width = scale_i(
-                        region->region().config().internal_bridge_min_width.get_effective_value(
-                            region->flow(frSolidInfill).spacing()));
+                        region.region().config().internal_bridge_min_width.get_effective_value(
+                            region.flow(frSolidInfill).spacing()));
                     if (region_internal_bridge_min_width != common_internal_bridge_min_width) {
                         has_same_internal_bridge_min_width = false;
                     }
@@ -3464,9 +3462,9 @@ void PrintObject::bridge_over_infill()
                 } else {
                     // get the regions ordered per internal_bridge_min_width value
                     std::map<coord_t, ExPolygons> min_width_to_fills;
-                    for (const LayerRegion *region : layer->regions()) {
-                        coord_t region_internal_bridge_min_width = scale_i(region->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
-                        append(min_width_to_fills[region_internal_bridge_min_width], region->fill_expolygons());
+                    for (const LayerRegion &region : layer.regions()) {
+                        coord_t region_internal_bridge_min_width = scale_i(region.region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
+                        append(min_width_to_fills[region_internal_bridge_min_width], region.fill_expolygons());
                     }
                     for (auto &entry : min_width_to_fills) {
                         entry.second = union_safety_offset_ex(entry.second);
@@ -3499,9 +3497,9 @@ void PrintObject::bridge_over_infill()
                     unsupported_area = diff_ex(shrinked_unsupported_area, lower_layer_solids);
                 }
 
-                for (const LayerRegion *region : layer->regions()) {
-                    coord_t region_internal_bridge_min_width = scale_i(region->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
-                    SurfacesPtr region_internal_solids = region->fill_surfaces().filter_by_type(stPosInternal | stDensSolid);
+                for (const LayerRegion &region : layer.regions()) {
+                    coord_t region_internal_bridge_min_width = scale_i(region.region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
+                    SurfacesPtr region_internal_solids = region.fill_surfaces().filter_by_type(stPosInternal | stDensSolid);
                     for (const Surface *srf : region_internal_solids) {
                         ExPolygons unsupported         = intersection_ex(unsupported_area, srf->expolygon);
                         // The following flag marks those surfaces, which overlap with unuspported area, but at least part of them is supported. 
@@ -3517,11 +3515,11 @@ void PrintObject::bridge_over_infill()
                                 }
                             }
                             worth_bridging = intersection_ex(closing_ex(worth_bridging, float(SCALED_EPSILON)), srf->expolygon);
-                            candidate_surfaces.push_back(CandidateSurface(srf, lidx, worth_bridging, region, 0));
+                            candidate_surfaces.push_back(CandidateSurface(srf, lidx, worth_bridging, &region, 0));
 
 #ifdef DEBUG_BRIDGE_OVER_INFILL
                             debug_draw(std::to_string(lidx) + "_candidate_surface_" + std::to_string(area(srf->expolygon)),
-                                       to_polylines(region->layer()->lslices()), to_polylines(srf->expolygon), to_polylines(worth_bridging),
+                                       to_polylines(region.layer()->lslices()), to_polylines(srf->expolygon), to_polylines(worth_bridging),
                                        to_polylines(unsupported_area));
 #endif
 #ifdef DEBUG_BRIDGE_OVER_INFILL
@@ -3566,15 +3564,15 @@ void PrintObject::bridge_over_infill()
                 if (surfaces_by_layer.find(lidx) == surfaces_by_layer.end())
                     return; //continue (next layer)
 
-                Layer       *layer       = po->get_layer(lidx);
-                const Layer *lower_layer = layer->lower_layer;
+                Layer       &layer       = po->layer(lidx);
+                const Layer *lower_layer = layer.lower_layer;
                 if (lower_layer == nullptr)
                     return; //continue (next layer)
 
                 Polygons lightning_fill;
-                for (const LayerRegion *region : lower_layer->regions()) {
-                    if (region->region().config().fill_pattern.value == InfillPattern::ipLightning) {
-                        Polygons lf = to_polygons(region->fill_surfaces().filter_by_type(stPosInternal | stDensSparse));
+                for (const LayerRegion &region : lower_layer->regions()) {
+                    if (region.region().config().fill_pattern.value == InfillPattern::ipLightning) {
+                        Polygons lf = to_polygons(region.fill_surfaces().filter_by_type(stPosInternal | stDensSparse));
                         lightning_fill.insert(lightning_fill.end(), lf.begin(), lf.end());
                     }
                 }
@@ -3582,24 +3580,24 @@ void PrintObject::bridge_over_infill()
                 if (lightning_fill.empty())
                     return; //continue (next layer)
 
-                for (LayerRegion *region : layer->regions()) {
-                    backup_surfaces[lidx][region] = std::move(
-                        region->m_fill_surfaces); // Make backup copy by move!! so that pointers in candidate surfaces stay valid
+                for (LayerRegion &region : layer.regions()) {
+                    backup_surfaces[lidx][&region] = std::move(
+                        region.m_fill_surfaces); // Make backup copy by move!! so that pointers in candidate surfaces stay valid
                     // Copy the surfaces back, this will make copy, but we will later discard it anyway
-                    region->m_fill_surfaces = backup_surfaces[lidx][region];
-                    for(auto &srf : region->m_fill_surfaces)
+                    region.m_fill_surfaces = backup_surfaces[lidx][&region];
+                    for(auto &srf : region.m_fill_surfaces)
                         srf.expolygon.assert_valid();
                 }
 
-                for (LayerRegion *region : layer->regions()) {
-                    ExPolygons sparse_infill = to_expolygons(region->fill_surfaces().filter_by_type(stPosInternal | stDensSparse));
-                    ExPolygons solid_infill  = to_expolygons(region->fill_surfaces().filter_by_type(stPosInternal | stDensSolid));
+                for (LayerRegion &region : layer.regions()) {
+                    ExPolygons sparse_infill = to_expolygons(region.fill_surfaces().filter_by_type(stPosInternal | stDensSparse));
+                    ExPolygons solid_infill  = to_expolygons(region.fill_surfaces().filter_by_type(stPosInternal | stDensSolid));
 
                     if (sparse_infill.empty()) {
                         break;
                     }
                     for (const auto &surface : surfaces_by_layer[lidx]) {
-                        if (surface.region != region)
+                        if (surface.region != &region)
                             continue;
                         ExPolygons expansion = intersection_ex(sparse_infill, /*expand_ex*/offset_ex(surface.new_polys, scale_d(3.0)));
                         solid_infill.insert(solid_infill.end(), expansion.begin(), expansion.end());
@@ -3608,14 +3606,14 @@ void PrintObject::bridge_over_infill()
                     solid_infill  = union_safety_offset_ex(solid_infill);
                     sparse_infill = diff_ex(sparse_infill, solid_infill);
 
-                    region->m_fill_surfaces.remove_types({stPosInternal | stDensSolid, stPosInternal | stDensSparse});
+                    region.m_fill_surfaces.remove_types({stPosInternal | stDensSolid, stPosInternal | stDensSparse});
                     for (const ExPolygon &ep : solid_infill) {
                         ep.assert_valid();
-                        region->m_fill_surfaces.surfaces.emplace_back(stPosInternal | stDensSolid, ep);
+                        region.m_fill_surfaces.surfaces.emplace_back(stPosInternal | stDensSolid, ep);
                     }
                     for (const ExPolygon &ep : sparse_infill) {
                         ep.assert_valid();
-                        region->m_fill_surfaces.surfaces.emplace_back(stPosInternal | stDensSparse, ep);
+                        region.m_fill_surfaces.surfaces.emplace_back(stPosInternal | stDensSparse, ep);
                     }
                 }
             }
@@ -3627,11 +3625,11 @@ void PrintObject::bridge_over_infill()
         // And now restore carefully the original surfaces, again using move to avoid reallocation and preserving the validity of the
         // pointers in surface candidates
         for (size_t lidx = 0; lidx < this->layer_count(); lidx++) {
-            Layer *layer = this->get_layer(lidx);
-            for (LayerRegion *region : layer->regions()) {
-                if (backup_surfaces[lidx].find(region) != backup_surfaces[lidx].end()) {
-                    region->m_fill_surfaces = std::move(backup_surfaces[lidx][region]);
-                    for(auto &srf : region->m_fill_surfaces)
+            Layer &layer = this->layer(lidx);
+            for (LayerRegion &region : layer.regions()) {
+                if (backup_surfaces[lidx].find(&region) != backup_surfaces[lidx].end()) {
+                    region.m_fill_surfaces = std::move(backup_surfaces[lidx][&region]);
+                    for(auto &srf : region.m_fill_surfaces)
                         srf.expolygon.assert_valid();
                 }
             }
@@ -3663,14 +3661,14 @@ void PrintObject::bridge_over_infill()
                 PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
                 size_t lidx = layers_to_generate_infill[job_idx];
                 infill_lines.at(lidx) =
-                    po->get_layer(lidx)->generate_sparse_infill_polylines_for_anchoring(
+                    po->layer(lidx).generate_sparse_infill_polylines_for_anchoring(
                         po->m_adaptive_fill_octrees.first.get(),
                         po->m_adaptive_fill_octrees.second.get(), po->m_lightning_generator.get());
             }
         );
 #ifdef DEBUG_BRIDGE_OVER_INFILL
         for (const auto &il : infill_lines) {
-            debug_draw(std::to_string(il.first) + "_infill_lines", to_lines(get_layer(il.first)->lslices()), to_lines(il.second), {}, {});
+            debug_draw(std::to_string(il.first) + "_infill_lines", to_lines(layer(il.first).lslices()), to_lines(il.second), {}, {});
         }
 #endif
     }
@@ -3703,11 +3701,11 @@ void PrintObject::bridge_over_infill()
 
         // note: surfaces_by_layer is ordered map
         for (auto pair : surfaces_by_layer) {
-            const LayerRegion *first_lregion = this->get_layer(pair.first)->regions()[0];
+            const LayerRegion *first_lregion = &this->layer(pair.first).regions()[0];
             if (clustered_layers_for_threads.empty() ||
                 // FIXME: use scaled_print_z, and check why *0.9
-                this->get_layer(clustered_layers_for_threads.back().back())->unscaled_print_z() <
-                    this->get_layer(pair.first)->unscaled_print_z() -
+                this->layer(clustered_layers_for_threads.back().back()).unscaled_print_z() <
+                    this->layer(pair.first).unscaled_print_z() -
                         first_lregion->bridging_flow(frSolidInfill, first_lregion->region().config().bridge_type.value).height() * target_flow_height_factor -
                         EPSILON ||
                 intersection(layer_area_covered_by_candidates[clustered_layers_for_threads.back().back()],
@@ -3736,16 +3734,16 @@ void PrintObject::bridge_over_infill()
         // Gather layers sparse infill areas, to depth defined by used bridge flow
         ExPolygons layers_sparse_infill{};
         ExPolygons not_sparse_infill{};
-        coord_t    bottom_z = po->get_layer(lidx)->scaled_print_z() - Layer::scale_to_layer_coord(double(target_flow_height) * target_flow_height_factor);
+        coord_t    bottom_z = po->layer(lidx).scaled_print_z() - Layer::scale_to_layer_coord(double(target_flow_height) * target_flow_height_factor);
         for (int i = int(lidx) - 1; i >= 0; --i) {
             // Stop iterating if layer is lower than bottom_z and at least one iteration was made
-            const Layer *layer = po->get_layer(i);
-            if (layer->scaled_print_z() < bottom_z && i < int(lidx) - 1)
+            const Layer &layer = po->layer(i);
+            if (layer.scaled_print_z() < bottom_z && i < int(lidx) - 1)
                 break;
 
-            for (const LayerRegion *region : layer->regions()) {
-                bool has_low_density = region->region().config().fill_density.value < 100;
-                for (const Surface &surface : region->fill_surfaces()) {
+            for (const LayerRegion &region : layer.regions()) {
+                bool has_low_density = region.region().config().fill_density.value < 100;
+                for (const Surface &surface : region.fill_surfaces()) {
                     if ((surface.has(stPosInternal | stDensSparse) && has_low_density) || surface.has(stPosInternal | stDensVoid) ) {
                         layers_sparse_infill.push_back(surface.expolygon);
                     } else {
@@ -4018,7 +4016,7 @@ void PrintObject::bridge_over_infill()
             PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
             for (size_t job_idx = 0; job_idx < clustered_layers_for_threads[cluster_idx].size(); job_idx++) {
                 size_t       lidx  = clustered_layers_for_threads[cluster_idx][job_idx];
-                const Layer *layer = po->get_layer(lidx);
+                const Layer &layer = po->layer(lidx);
                 // this thread has exclusive access to all surfaces in layers enumerated in
                 // clustered_layers_for_threads[cluster_idx]
 
@@ -4050,18 +4048,18 @@ void PrintObject::bridge_over_infill()
                 const LayerRegion *first_lregion = surfaces_by_layer[lidx].front().region;
                 Flow               bridge_flow = first_lregion->bridging_flow(frSolidInfill, first_lregion->region().config().bridge_type); // FIXME: per region
                 const coord_t      spacing     = bridge_flow.scaled_spacing();
-                const coord_t      bridge_height = std::max(layer->scaled_height(), Layer::scale_to_layer_coord(bridge_flow.height()));
+                const coord_t      bridge_height = std::max(layer.scaled_height(), Layer::scale_to_layer_coord(bridge_flow.height()));
                 //const coord_t      bridge_width = bridge_flow.scaled_width();
                 const coord_t      target_flow_height = bridge_flow.height() * target_flow_height_factor;
                 Polygons           deep_infill_area   = gather_areas_w_depth(po, lidx, target_flow_height);
 
                 bool has_same_internal_bridge_min_width = true;
-                coord_t common_internal_bridge_min_width = scale_i(layer->regions().front()->region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
-                for (const LayerRegion *region : layer->regions()) {
+                coord_t common_internal_bridge_min_width = scale_i(layer.regions().front().region().config().internal_bridge_min_width.get_effective_value(unscaled(spacing)));
+                for (const LayerRegion &region : layer.regions()) {
                     // check if internal_bridge_min_width is the same in all regions, it simplifies things
                     coord_t region_internal_bridge_min_width = scale_i(
-                        region->region().config().internal_bridge_min_width.get_effective_value(
-                            region->flow(frSolidInfill).spacing()));
+                        region.region().config().internal_bridge_min_width.get_effective_value(
+                            region.flow(frSolidInfill).spacing()));
                     if (region_internal_bridge_min_width != common_internal_bridge_min_width) {
                         has_same_internal_bridge_min_width = false;
                     }
@@ -4071,12 +4069,12 @@ void PrintObject::bridge_over_infill()
                     // Now also remove area that has been already filled on lower layers by bridging expansion - For this
                     // reason we did the clustering of layers per thread.
                     ExPolygons filled_polyons_on_lower_layers;
-                    coord_t   bottom_z = layer->scaled_print_z() - (bridge_height);
+                    coord_t   bottom_z = layer.scaled_print_z() - (bridge_height);
                     if (job_idx > 0) {
                         for (int lower_job_idx = job_idx - 1; lower_job_idx >= 0; lower_job_idx--) {
                             size_t       lower_layer_idx = clustered_layers_for_threads[cluster_idx][lower_job_idx];
-                            const Layer *lower_layer     = po->get_layer(lower_layer_idx);
-                            if (lower_layer->scaled_print_z() >= bottom_z) {
+                            const Layer &lower_layer     = po->layer(lower_layer_idx);
+                            if (lower_layer.scaled_print_z() >= bottom_z) {
                                 for (const CandidateSurface &c : surfaces_by_layer[lower_layer_idx]) {
                                     filled_polyons_on_lower_layers.insert(filled_polyons_on_lower_layers.end(), c.new_polys.begin(),
                                                                           c.new_polys.end());
@@ -4096,22 +4094,22 @@ void PrintObject::bridge_over_infill()
                 Polygons expansion_area;
                 Polygons total_fill_area;
                 Polygons internal_unsupported_area;
-                for (const LayerRegion *region : layer->regions()) {
-                    Polygons internal_polys = to_polygons(region->fill_surfaces().filter_by_types({(stPosInternal | stDensSparse), (stPosInternal | stDensSparse | stModBridge), (stPosInternal | stDensSolid)}));
+                for (const LayerRegion &region : layer.regions()) {
+                    Polygons internal_polys = to_polygons(region.fill_surfaces().filter_by_types({(stPosInternal | stDensSparse), (stPosInternal | stDensSparse | stModBridge), (stPosInternal | stDensSolid)}));
                     expansion_area.insert(expansion_area.end(), internal_polys.begin(), internal_polys.end());
-                    Polygons fill_polys = to_polygons(region->fill_expolygons());
+                    Polygons fill_polys = to_polygons(region.fill_expolygons());
                     total_fill_area.insert(total_fill_area.end(), fill_polys.begin(), fill_polys.end());
-                    if (region->region().config().fill_pattern.value == ipLightning) {
-                        Polygons l = to_polygons(region->fill_surfaces().filter_by_types(
+                    if (region.region().config().fill_pattern.value == ipLightning) {
+                        Polygons l = to_polygons(region.fill_surfaces().filter_by_types(
                             {(stPosInternal | stDensSparse), (stPosInternal | stDensSparse | stModBridge)}));
                         lightning_area.insert(lightning_area.end(), l.begin(), l.end());
                     }
                     if (!has_same_internal_bridge_min_width) {
                         // do shrink per region, as the value is different.
                         coord_t internal_bridge_min_width = scale_i(
-                            first_lregion->region().config().internal_bridge_min_width.get_effective_value(region->flow(frSolidInfill).spacing()));
+                            first_lregion->region().config().internal_bridge_min_width.get_effective_value(region.flow(frSolidInfill).spacing()));
                         append(internal_unsupported_area,
-                               intersection(to_polygons(region->fill_expolygons()),
+                               intersection(to_polygons(region.fill_expolygons()),
                                             shrink(deep_infill_area, spacing * 1.5 + internal_bridge_min_width)));
                     }
                 }
@@ -4227,7 +4225,7 @@ void PrintObject::bridge_over_infill()
                         static int r = 0;
                         debug_draw(std::to_string(lidx) + "_" + std::to_string(cluster_idx) + "_" +
                                        std::to_string(job_idx) + "_" + "_expanded_bridging" + std::to_string(r++) + ".svg",
-                                   to_polylines(layer->lslices()), (boundary_plines),
+                                   to_polylines(layer.lslices()), (boundary_plines),
                                    to_polylines(candidate.new_polys), to_polylines(bridging_area_final));
                     }
 #endif
@@ -4249,7 +4247,7 @@ void PrintObject::bridge_over_infill()
         coord_t scaled_resolution = std::max(SCALED_EPSILON, scale_i(po->print()->config().resolution.value));
         PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
         if (!(surfaces_by_layer.find(lidx) == surfaces_by_layer.end() && surfaces_by_layer.find(lidx + 1) == surfaces_by_layer.end())) {
-            Layer *layer = po->get_layer(lidx);
+            Layer &layer = po->layer(lidx);
 
             ExPolygons cut_from_infill{};
             if (surfaces_by_layer.find(lidx) != surfaces_by_layer.end()) {
@@ -4268,7 +4266,7 @@ void PrintObject::bridge_over_infill()
             //    }
             //}
 
-            for (LayerRegion *region : layer->regions()) {
+            for (LayerRegion &region : layer.regions()) {
                 Surfaces new_surfaces;
 
                 // why doing that? it creates extra solid infill 
@@ -4276,7 +4274,7 @@ void PrintObject::bridge_over_infill()
                 //near_perimeters          = diff(near_perimeters, shrink(near_perimeters, region->flow(frSolidInfill).scaled_spacing()));
                 //ExPolygons additional_ensuring = intersection_ex(additional_ensuring_areas, near_perimeters);
 
-                SurfacesPtr internal_infills = region->m_fill_surfaces.filter_by_types(
+                SurfacesPtr internal_infills = region.m_fill_surfaces.filter_by_types(
                     {(stPosInternal | stDensSparse), (stPosInternal | stDensSparse | stModBridge)});
                 ExPolygons old_infill;
                 ExPolygons new_infill;
@@ -4293,7 +4291,7 @@ void PrintObject::bridge_over_infill()
                     }
                 }
                 ExPolygons new_internal_solid_bridges;
-                SurfacesPtr internal_solids = region->m_fill_surfaces.filter_by_type((stPosInternal | stDensSolid));
+                SurfacesPtr internal_solids = region.m_fill_surfaces.filter_by_type((stPosInternal | stDensSolid));
                 if (surfaces_by_layer.find(lidx) != surfaces_by_layer.end()) {
                     for (const CandidateSurface &cs : surfaces_by_layer.at(lidx)) {
                         for (const Surface *surface : internal_solids) {
@@ -4330,10 +4328,10 @@ void PrintObject::bridge_over_infill()
 //                           to_polylines(to_polygons(new_internal_solids)));
 //#endif
 
-                region->m_fill_surfaces.remove_types({(stPosInternal | stDensSolid), (stPosInternal | stDensSparse), (stPosInternal | stDensSparse | stModBridge)});
+                region.m_fill_surfaces.remove_types({(stPosInternal | stDensSolid), (stPosInternal | stDensSparse), (stPosInternal | stDensSparse | stModBridge)});
                 for(auto &srf : new_surfaces)
                     srf.expolygon.assert_valid();
-                region->m_fill_surfaces.append(new_surfaces);
+                region.m_fill_surfaces.append(new_surfaces);
             }
         }
     });
@@ -4638,8 +4636,8 @@ void PrintObject::discover_horizontal_shells()
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
         for (size_t layer_id = 0; layer_id < m_layers.size(); ++layer_id) {
             m_print->throw_if_canceled();
-            Layer                   *layer         = m_layers[layer_id];
-            LayerRegion             *layerm        = layer->get_region(region_id);
+            Layer                   *layer         = m_layers[layer_id].get();
+            LayerRegion             *layerm        = &layer->region(region_id);
             const PrintRegionConfig &region_config = layerm->region().config();
             if (region_config.solid_infill_every_layers.value > 0 && region_config.fill_density.value > 0 &&
                 (layer_id % region_config.solid_infill_every_layers) == 0) {
@@ -4711,8 +4709,8 @@ void PrintObject::discover_horizontal_shells()
                 {
                     //                    Slic3r::debugf "  looking for neighbors on layer %d...\n", $n;                  
                                         // Reference to the lower layer of a TOP surface, or an upper layer of a BOTTOM surface.
-                    LayerRegion* neighbor_layerm = m_layers[n]->regions()[region_id];
-                    float        extperi_width   = float(neighbor_layerm->flow(frExternalPerimeter).scaled_width());
+                    LayerRegion& neighbor_layerm = m_layers[n]->region(region_id);
+                    float        extperi_width   = float(neighbor_layerm.flow(frExternalPerimeter).scaled_width());
 
                     // find intersection between neighbor and current layer's surfaces
                     // intersections have contours and holes
@@ -4727,7 +4725,7 @@ void PrintObject::discover_horizontal_shells()
                     ExPolygons new_internal_solid;
                     {
                         ExPolygons internal_no_voids;
-                        for (const Surface& surface : neighbor_layerm->fill_surfaces().surfaces)
+                        for (const Surface& surface : neighbor_layerm.fill_surfaces().surfaces)
                             if (surface.has_pos_internal() && (surface.has_fill_sparse() || surface.has_fill_solid()))
                                 internal_no_voids.push_back(surface.expolygon);
                         internal_no_voids = union_ex(internal_no_voids);
@@ -4775,12 +4773,12 @@ void PrintObject::discover_horizontal_shells()
                     }
 
                     // prepare to move in the new & old surfaces
-                    SurfaceCollection backup = std::move(neighbor_layerm->set_fill_surfaces());
-                    neighbor_layerm->set_fill_surfaces().clear();
+                    SurfaceCollection backup = std::move(neighbor_layerm.set_fill_surfaces());
+                    neighbor_layerm.set_fill_surfaces().clear();
                     // internal-solid are the union of the existing internal-solid surfaces and new ones
                     expolygons_append(new_internal_solid, to_expolygons(backup.filter_by_type(stPosInternal | stDensSolid)));
                     new_internal_solid = ensure_valid(union_ex(new_internal_solid), scaled_resolution);
-                    neighbor_layerm->set_fill_surfaces().set(new_internal_solid, stPosInternal | stDensSolid);
+                    neighbor_layerm.set_fill_surfaces().set(new_internal_solid, stPosInternal | stDensSolid);
                     // subtract intersections from layer surfaces to get resulting internal surfaces
                     for (Surface &surface : backup) {
                         // (stPosInternal | stDensSolid) are already inside new_internal_solid
@@ -4792,11 +4790,11 @@ void PrintObject::discover_horizontal_shells()
                                      ensure_valid(offset2_ex(diff_ex(ExPolygons{surface.expolygon}, new_internal_solid),
                                                              -extperi_width / 4, extperi_width / 4, jtMiter, 5),
                                                   scaled_resolution)) {
-                                    neighbor_layerm->set_fill_surfaces().surfaces.emplace_back(surface, std::move(expoly));
+                                    neighbor_layerm.set_fill_surfaces().surfaces.emplace_back(surface, std::move(expoly));
                                 }
                             } else {
                                 // it hasn't changed, just keep it.
-                                neighbor_layerm->set_fill_surfaces().surfaces.emplace_back(std::move(surface));
+                                neighbor_layerm.set_fill_surfaces().surfaces.emplace_back(std::move(surface));
                             }
                         }
                     }
@@ -4811,7 +4809,7 @@ void PrintObject::discover_horizontal_shells()
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
-        for (const Layer *layer : m_layers) {
+        for (const std::unique_ptr<Layer> &layer : m_layers) {
             const LayerRegion *layerm = layer->m_regions[region_id];
             layerm->export_region_slices_to_svg_debug("5_discover_horizontal_shells");
             layerm->export_region_fill_surfaces_to_svg_debug("5_discover_horizontal_shells");
@@ -4864,15 +4862,15 @@ void merge_surfaces(LayerRegion* lregion) {
 void PrintObject::clean_surfaces() {
     Slic3r::parallel_for(size_t(0), this->layers().size() - 1,
         [this](const size_t idx_layer) {
-            for (LayerRegion* lregion : this->layers()[idx_layer]->regions()) {
-                for (const Surface &srf : lregion->fill_surfaces().surfaces) {
+            for (LayerRegion &lregion : this->layer(idx_layer).regions()) {
+                for (const Surface &srf : lregion.fill_surfaces().surfaces) {
                     srf.expolygon.assert_valid();
                 }
-                coord_t extrusion_width = lregion->flow(frInfill).scaled_width();
-                merge_surfaces(lregion);
+                coord_t extrusion_width = lregion.flow(frInfill).scaled_width();
+                merge_surfaces(&lregion);
                 // collapse too thin solid surfaces.
                 bool changed_type = false;
-                for (Surface& surface : lregion->set_fill_surfaces().surfaces) {
+                for (Surface& surface : lregion.set_fill_surfaces().surfaces) {
                     if (surface.has_fill_solid() && surface.has_pos_internal()) {
                         if (offset2_ex(ExPolygons{ surface.expolygon }, -extrusion_width / 2, extrusion_width / 2).empty()) {
                             //convert to sparse
@@ -4881,7 +4879,7 @@ void PrintObject::clean_surfaces() {
                         }
                     }
                 }
-                merge_surfaces(lregion);
+                merge_surfaces(&lregion);
             }
         }
     );
@@ -4913,7 +4911,7 @@ void PrintObject::combine_infill()
             size_t num_layers = 0;
             for (size_t layer_idx = 0; layer_idx < m_layers.size(); ++ layer_idx) {
                 m_print->throw_if_canceled();
-                const Layer *layer = m_layers[layer_idx];
+                const Layer *layer = m_layers[layer_idx].get();
                 if (layer->id() == 0)
                     // Skip first print layer (which may not be first layer in array because of raft).
                     continue;
@@ -4943,7 +4941,7 @@ void PrintObject::combine_infill()
             std::vector<LayerRegion*> layerms;
             layerms.reserve(num_layers);
 			for (size_t i = layer_idx + 1 - num_layers; i <= layer_idx; ++ i)
-                layerms.emplace_back(m_layers[i]->regions()[region_id]);
+                layerms.emplace_back(&m_layers[i]->region(region_id));
             // We need to perform a multi-layer intersection, so let's split it in pairs.
             // Initialize the intersection with the candidates of the lowest layer.
             ExPolygons intersection = to_expolygons(layerms.front()->fill_surfaces().filter_by_type(stPosInternal | stDensSparse));
@@ -5019,7 +5017,8 @@ void PrintObject::_generate_support_material()
     }
 }
 
-static void project_triangles_to_slabs(SpanOfConstPtrs<Layer> layers, const indexed_triangle_set &custom_facets, const Transform3f &tr, bool seam, std::vector<Polygons> &out)
+template<class LayerPtrContainer>
+static void project_triangles_to_slabs(RefView<Layer, LayerPtrContainer> layers, const indexed_triangle_set &custom_facets, const Transform3f &tr, bool seam, std::vector<Polygons> &out)
 {
     if (custom_facets.indices.empty())
         return;
@@ -5091,8 +5090,8 @@ static void project_triangles_to_slabs(SpanOfConstPtrs<Layer> layers, const inde
 
         // Find lowest slice not below the triangle.
         auto it = std::lower_bound(layers.begin(), layers.end(), facet[0].z()+EPSILON,
-                      [](const Layer* l1, float z) {
-                           return l1->slice_z < z;
+                      [](const Layer &l1, float z) {
+                           return l1.slice_z < z;
                       });
 
         // Count how many projections will be generated for this triangle
@@ -5103,7 +5102,7 @@ static void project_triangles_to_slabs(SpanOfConstPtrs<Layer> layers, const inde
         // be an exact opposite of the one lower in the code where
         // the polygons are appended. And that one is on floats.
         while (last_layer_id + 1 < layers.size()
-            && float(layers[last_layer_id]->slice_z) <= facet[2].z())
+            && float(layers[last_layer_id].slice_z) <= facet[2].z())
             ++last_layer_id;
 
         if (first_layer_id == last_layer_id) {
@@ -5112,7 +5111,7 @@ static void project_triangles_to_slabs(SpanOfConstPtrs<Layer> layers, const inde
             assert(dz >= 0);
             // The face is nearly horizontal and it crosses the slicing plane at first_layer_id - 1.
             // Rather add this face to both the planes.
-            bool add_below = dz < float(2. * EPSILON) && first_layer_id > 0 && layers[first_layer_id - 1]->slice_z > facet[0].z() - EPSILON;
+            bool add_below = dz < float(2. * EPSILON) && first_layer_id > 0 && layers[first_layer_id - 1].slice_z > facet[0].z() - EPSILON;
             projections_of_triangles[idx].polygons.reserve(add_below ? 2 : 1);
             projections_of_triangles[idx].polygons.emplace_back(trianglef);
             if (add_below) {
@@ -5139,7 +5138,7 @@ static void project_triangles_to_slabs(SpanOfConstPtrs<Layer> layers, const inde
 
         // Project a sub-polygon on all slices intersecting the triangle.
         while (it != layers.end()) {
-            const float z = float((*it)->slice_z);
+            const float z = float((*it).slice_z);
 
             // Projections of triangle sides intersections with slices.
             // a moves along one side, b tracks the other.
@@ -5239,8 +5238,8 @@ std::vector<Polygons> PrintObject::project_and_append_custom_facets(
 
 const Layer *PrintObject::get_layer_at_printz(coord_t print_z) const {
     auto it = Slic3r::lower_bound_by_predicate(m_layers.begin(), m_layers.end(),
-                                               [print_z](const Layer *layer) { return layer->scaled_print_z() < print_z; });
-    return (it == m_layers.end() || (*it)->scaled_print_z() != print_z) ? nullptr : *it;
+                                               [print_z](const std::unique_ptr<Layer> &layer) { return layer->scaled_print_z() < print_z; });
+    return (it == m_layers.end() || (*it)->scaled_print_z() != print_z) ? nullptr : it->get();
 }
 
 Layer *PrintObject::get_layer_at_printz(coord_t print_z) {
@@ -5251,8 +5250,8 @@ Layer *PrintObject::get_layer_at_printz(coord_t print_z) {
 const Layer *PrintObject::get_layer_at_printz(double print_z, double epsilon) const {
     double limit = print_z - epsilon;
     auto it = Slic3r::lower_bound_by_predicate(m_layers.begin(), m_layers.end(),
-                                               [limit](const Layer *layer) { return layer->unscaled_print_z() < limit; });
-    return (it == m_layers.end() || (*it)->unscaled_print_z() > print_z + epsilon) ? nullptr : *it;
+                                               [limit](const std::unique_ptr<Layer> &layer) { return layer->unscaled_print_z() < limit; });
+    return (it == m_layers.end() || (*it)->unscaled_print_z() > print_z + epsilon) ? nullptr : it->get();
 }
 
 Layer *PrintObject::get_layer_at_printz(double print_z, double epsilon) {
@@ -5261,15 +5260,15 @@ Layer *PrintObject::get_layer_at_printz(double print_z, double epsilon) {
 
 const Layer *PrintObject::get_first_layer_below_printz(coord_t print_z) const {
     auto it = Slic3r::lower_bound_by_predicate(m_layers.begin(), m_layers.end(),
-                                               [print_z](const Layer *layer) { return layer->scaled_print_z() < print_z; });
-    return (it == m_layers.begin()) ? nullptr : *(--it);
+                                               [print_z](const std::unique_ptr<Layer> &layer) { return layer->scaled_print_z() < print_z; });
+    return (it == m_layers.begin()) ? nullptr : (--it)->get();
 }
 
 const Layer *PrintObject::get_first_layer_below_printz(double print_z, double epsilon) const {
     double limit = print_z + epsilon;
     auto it = Slic3r::lower_bound_by_predicate(m_layers.begin(), m_layers.end(),
-                                               [limit](const Layer *layer) { return layer->unscaled_print_z() < limit; });
-    return (it == m_layers.begin()) ? nullptr : *(--it);
+                                               [limit](const std::unique_ptr<Layer> &layer) { return layer->unscaled_print_z() < limit; });
+    return (it == m_layers.begin()) ? nullptr : (--it)->get();
 }
 
 } // namespace Slic3r

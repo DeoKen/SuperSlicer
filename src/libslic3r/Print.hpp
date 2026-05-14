@@ -40,6 +40,7 @@
 #include "GCode/ThumbnailData.hpp"
 #include "MultiMaterialSegmentation.hpp"
 #include "Steps/StepPipeline.hpp"
+#include "DataTreeFwd.hpp"
 
 #include "libslic3r.h"
 
@@ -56,12 +57,9 @@ namespace Slic3r {
 
 class GCodeGenerator;
 struct GCodeProcessorResult;
-class Layer;
-class ModelObject;
-class Print;
-class PrintObject;
-class SupportLayer;
+class BoundingBox;
 class WipeTower2;
+struct ConflictResult;
 
 namespace FillAdaptive {
     struct Octree;
@@ -202,15 +200,6 @@ private:
 inline bool operator==(const PrintRegion &lhs, const PrintRegion &rhs) { return lhs.config_hash() == rhs.config_hash() && lhs.config() == rhs.config(); }
 inline bool operator!=(const PrintRegion &lhs, const PrintRegion &rhs) { return ! (lhs == rhs); }
 
-// For const correctness: Wrapping a vector of non-const pointers as a span of const pointers.
-template<class T>
-using SpanOfConstPtrs           = tcb::span<const T* const>;
-
-using LayerPtrs                 = std::vector<Layer*>;
-using SupportLayerPtrs          = std::vector<SupportLayer*>;
-
-class BoundingBoxf3;        // TODO: for temporary constructor parameter
-
 // Single instance of a PrintObject.
 // As multiple PrintObjects may be generated for a single ModelObject (their instances differ in rotation around Z),
 // ModelObject's instancess will be distributed among these multiple PrintObjects.
@@ -319,64 +308,61 @@ private: // Prevents erroneous use by other classes.
 
 public:
     // Size of an object: XYZ in scaled coordinates. The size might not be quite snug in XY plane.
-    const Vec3crd&               size() const			{ return m_size; }
+    const Vec3crd&               size() const           { return m_size; }
     const PrintObjectConfig&     config() const         { return m_config; }
     const PrintRegionConfig&     default_region_config(const PrintRegionConfig &from_print) const;
-    auto                         layers() const         { return SpanOfConstPtrs<Layer>(const_cast<const Layer* const* const>(m_layers.data()), m_layers.size()); }
-    auto                         support_layers() const { return SpanOfConstPtrs<SupportLayer>(const_cast<const SupportLayer* const* const>(m_support_layers.data()), m_support_layers.size()); }
     const Transform3d&           trafo() const          { return m_trafo; }
     // Trafo with the center_offset() applied after the transformation, to center the object in XY before slicing.
     Transform3d                  trafo_centered() const 
         { Transform3d t = this->trafo(); t.pretranslate(Vec3d(- unscaled(m_center_offset.x()), - unscaled(m_center_offset.y()), 0)); return t; }
     const PrintInstances&        instances() const      { return m_instances; }
 
-    // Whoever will get a non-const pointer to PrintObject will be able to modify its layers.
-    LayerPtrs&                   layers()               { return m_layers; }
-    SupportLayerPtrs&            edit_support_layers()       { return m_support_layers; }
-
     // Bounding box is used to align the object infill patterns, and to calculate attractor for the rear seam.
     // The bounding box may not be quite snug.
     BoundingBox                  bounding_box() const   { return BoundingBox(Point(- m_size.x() / 2, - m_size.y() / 2), Point(m_size.x() / 2, m_size.y() / 2)); }
     // Height is used for slicing, for sorting the objects by height for sequential printing and for checking vertical clearence in sequential print mode.
     // The height is snug.
-    coord_t 				     height() const         { return m_size.z(); }
+    coord_t                     height() const         { return m_size.z(); }
     // Centering offset of the sliced mesh from the scaled and rotated mesh of the model.
-    const Point& 			     center_offset() const  { return m_center_offset; }
+    const Point&                center_offset() const  { return m_center_offset; }
 
     bool                         has_brim() const;
     Polygons                     get_brim_patch(ModelVolumeType brim_type, const PrintInstance *instance = nullptr) const;
 
-    // This is the *total* layer count (including support layers)
-    // this value is not supposed to be compared with Layer::id
-    // since they have different semantics.
-    size_t 			total_layer_count() const { return this->layer_count() + this->support_layer_count(); }
-    size_t 			layer_count() const { return m_layers.size(); }
-    void 			clear_layers();
-    const Layer* 	get_layer(int idx) const { return m_layers[idx]; }
-    Layer* 			get_layer(int idx) 		 { return m_layers[idx]; }
+    // Whoever will get a non-const pointer to PrintObject will be able to modify its layers.
+    size_t          layer_count() const { return m_layers.size(); }
+    void            clear_layers();
+    const Layer&    layer(size_t idx) const { return *m_layers[idx]; }
+    Layer&          layer(size_t idx) 		{ return *m_layers[idx]; }
+    LayerCRefs      layers() const         { return make_ref_view<Layer>(m_layers); }
+    LayerRefs       layers()               { return make_ref_view<Layer>(m_layers); }
+    LayerUPtrs&     mutable_layers()          { return m_layers; }
     // Get a layer exactly at print_z.
     const Layer*    get_layer_at_printz(coord_t print_z) const;
     Layer*          get_layer_at_printz(coord_t print_z);
     // Get a layer approximately at print_z.
-    const Layer*    get_layer_at_printz(double print_z, double epsilon) const;
-    Layer*          get_layer_at_printz(double print_z, double epsilon);
+    const Layer*    get_layer_at_printz(double print_z_mm, double epsilon) const;
+    Layer*          get_layer_at_printz(double print_z_mm, double epsilon);
     // Get the first layer approximately bellow print_z.
     const Layer*    get_first_layer_below_printz(coord_t print_z) const;
-    const Layer*    get_first_layer_below_printz(double print_z, double epsilon) const;
+    const Layer*    get_first_layer_below_printz(double print_z_mm, double epsilon) const;
     // For sparse infill, get the max spasing avaialable in this object (avaialable after prepare_infill)
     coord_t         get_sparse_max_spacing() const { return m_max_sparse_spacing; }
-
-    // print_z: top of the layer; slice_z: center of the layer.
-    // Deprecated: not used
-    //Layer*          add_layer(int id, coord_t height, coord_t print_z, double slice_z);
-
-    size_t          support_layer_count() const { return m_support_layers.size(); }
-    void            clear_support_layers();
-    const SupportLayer*   get_support_layer(int idx) { return m_support_layers[idx]; }
-    void            add_support_layer(int id, int interface_id, coord_t height, coord_t print_z);
-    SupportLayerPtrs::iterator insert_support_layer(SupportLayerPtrs::const_iterator pos, size_t id, size_t interface_id, coord_t height, coord_t print_z, double slice_z);
-    //void            delete_support_layer(int idx);
     
+    
+    size_t                  support_layer_count() const { return m_support_layers.size(); }
+    void                    clear_support_layers();
+    const SupportLayer&     support_layer(size_t idx) const { return *m_support_layers[idx]; }
+    SupportLayerCRefs       support_layers() const { return make_ref_view<SupportLayer>(m_support_layers); }
+    SupportLayerUPtrs&      mutable_support_layers()  { return m_support_layers; }
+    void                    add_support_layer(int id, int interface_id, coord_t height, coord_t print_z);
+    SupportLayerUPtrs::iterator insert_support_layer(SupportLayerUPtrs::const_iterator pos, size_t id, size_t interface_id, coord_t height, coord_t print_z, double slice_z);
+
+    // This is the *total* layer count (including support layers)
+    // this value is not supposed to be compared with Layer::id
+    // since they have different semantics.
+    size_t          total_layer_count() const { return this->layer_count() + this->support_layer_count(); }
+
     // Initialize the layer_height_profile from the model_object's layer_height_profile, from model_object's layer height table, or from slicing parameters.
     // Returns true, if the layer_height_profile was changed.
     static bool     update_layer_height_profile(const ModelObject &model_object, const SlicingParameters &slicing_parameters, std::vector<coordf_t> &layer_height_profile);
@@ -421,6 +407,8 @@ public:
     const ExtrusionEntityCollection& skirt() const { return m_skirt; }
     const ExtrusionEntityCollection& brim() const { return m_brim; }
 
+    // for unique_ptr
+    ~PrintObject() override;
 protected:
     // to be called from Print only.
     friend class Print;
@@ -428,11 +416,12 @@ protected:
     friend class Steps::StepPipeline;
     friend struct ApiInternal::PrintObjectAccess;
 
-	PrintObject(Print* print, ModelObject* model_object, const Transform3d& trafo, PrintInstances&& instances);
-    ~PrintObject() override {
-        clear_layers();
-        clear_support_layers();
-    }
+    PrintObject(Print* print, ModelObject* model_object, const Transform3d& trafo, PrintInstances&& instances);
+    // as Layers are linked to us via a pointer, we can't move ourselves, or the link is severed
+    PrintObject(PrintObject&&) = delete;
+    PrintObject& operator=(PrintObject&&) = delete;
+    PrintObject(const PrintObject&) = delete;
+    PrintObject& operator=(const PrintObject&) = delete;
 
     void                    config_apply(const ConfigBase &other, bool ignore_nonexistent = false) { m_config.apply(other, ignore_nonexistent); }
     void                    config_apply_only(const ConfigBase &other, const t_config_option_keys &keys, bool ignore_nonexistent = false) { m_config.apply_only(other, keys, ignore_nonexistent); }
@@ -504,8 +493,8 @@ private:
     std::shared_ptr<PrintObjectRegions>     m_shared_regions;
 
     std::shared_ptr<SlicingParameters>      m_slicing_params;
-    LayerPtrs                               m_layers;
-    SupportLayerPtrs                        m_support_layers;
+    LayerUPtrs                               m_layers;
+    SupportLayerUPtrs                        m_support_layers;
 
     // Ordered collections of extrusion paths to build skirt loops and brim.
     // have to be duplicated per copy
@@ -669,12 +658,6 @@ struct ConflictResult
 };
 
 using ConflictResultOpt = std::optional<ConflictResult>;
-
-using PrintObjectPtrs          = std::vector<PrintObject*>;
-using ConstPrintObjectPtrs     = std::vector<const PrintObject*>;
-
-using PrintRegionPtrs          = std::vector<PrintRegion*>;
-
 // The complete print tray with possibly multiple objects.
 class Print : public PrintBaseWithState<PrintStep, psCount>
 {
@@ -684,12 +667,8 @@ private: // Prevents erroneous use by other classes.
     typedef std::pair<PrintObject *, bool>         PrintObjectInfo;
 
 public:
-    Print() {
-        //create config hierachy
-        m_default_object_config.parent = &m_config;
-        m_default_region_config.parent = &m_default_object_config;
-    };
-    virtual ~Print() { this->clear(); }
+    Print();
+    ~Print() override;
 
     PrinterTechnology	technology() const noexcept override { return ptFFF; }
 
@@ -731,7 +710,7 @@ public:
     coord_t             get_min_first_layer_height() const;
     coord_t             get_object_first_layer_height(const PrintObject& object) const;
 
-    // get the extruders of these obejcts
+    // get the extruders of these objects
     std::set<uint16_t>  object_extruders(const PrintObjectPtrs &objects, coord_t z = -1) const;
     // get all extruders from the list of objects in this print ( same as print.object_extruders(print.objects()) )
     std::set<uint16_t>  object_extruders(coord_t z = -1) const;
@@ -746,20 +725,22 @@ public:
     const PrintConfig&          config() const { return m_config; }
     const PrintObjectConfig&    default_object_config() const { return m_default_object_config; }
     const PrintRegionConfig&    default_region_config() const { return m_default_region_config; }
-    SpanOfConstPtrs<PrintObject> objects() const { return SpanOfConstPtrs<PrintObject>(const_cast<const PrintObject* const* const>(m_objects.data()), m_objects.size()); }
-    PrintObject*                get_object(size_t idx) { return const_cast<PrintObject*>(m_objects[idx]); }
-    const PrintObject*          get_object(size_t idx) const { return m_objects[idx]; }
+
+    PrintObjectCRefs            objects() const { return make_ref_view<PrintObject>(m_objects); }
+    PrintObjectRefs             objects() { return make_ref_view<PrintObject>(m_objects); }
+    const PrintObject&          object(size_t idx) const { return *m_objects[idx]; }
+    PrintObject&                object(size_t idx) { return *m_objects[idx]; }
     const PrintObject*          get_print_object_by_model_object_id(ObjectID object_id) const {
         auto it = std::find_if(m_objects.begin(), m_objects.end(),
-                               [object_id](const PrintObject* obj) { return obj->model_object()->id() == object_id; });
-        return (it == m_objects.end()) ? nullptr : *it;
+                               [object_id](const PrintObjectUPtr &obj) { return obj->model_object()->id() == object_id; });
+        return (it == m_objects.end()) ? nullptr : it->get();
     }
     // PrintObject by its ObjectID, to be used to uniquely bind slicing warnings to their source PrintObjects
     // in the notification center.
     const PrintObject*          get_object(ObjectID object_id) const { 
         auto it = std::find_if(m_objects.begin(), m_objects.end(), 
-            [object_id](const PrintObject *obj) { return obj->id() == object_id; });
-        return (it == m_objects.end()) ? nullptr : *it;
+            [object_id](const PrintObjectUPtr &obj) { return obj->id() == object_id; });
+        return (it == m_objects.end()) ? nullptr : it->get();
     }
     // How many of PrintObject::copies() over all print objects are there?
     // If zero, then the print is empty and the print shall not be executed.
@@ -796,7 +777,8 @@ public:
     std::string                 output_filename(const std::string &filename_base = std::string()) const override;
 
     size_t                      num_print_regions() const throw() { return m_print_regions.size(); }
-    const PrintRegion&          get_print_region(size_t idx) const  { return *m_print_regions[idx]; }
+    PrintRegionCRefs            print_regions() const  { return make_ref_view<PrintRegion, PrintRegionPtrs>(m_print_regions); }
+    const PrintRegion&          print_region(size_t idx) const  { return *m_print_regions[idx]; }
 
     const Polygons& get_sequential_print_clearance_contours() const { return m_sequential_print_clearance_contours; }
 //TODO: decide to use this one or the printconfig one.
@@ -853,7 +835,8 @@ private:
     PrintConfig                             m_config;
     PrintObjectConfig                       m_default_object_config;
     PrintRegionConfig                       m_default_region_config;
-    PrintObjectPtrs                         m_objects;
+    PrintObjectUPtrs                        m_objects;
+    // print regions are stored in PrintObjectRegions, here it's a shortcut
     PrintRegionPtrs                         m_print_regions;
 
     // Ordered collections of extrusion paths to build skirt loops and brim.

@@ -2978,8 +2978,8 @@ void GCodeViewer::load_shells(const Print& print)
         return;
 
     // adds objects' volumes 
-    for (const PrintObject* obj : print.objects()) {
-        const ModelObject* model_obj = obj->model_object();
+    for (const PrintObject& obj : print.objects()) {
+        const ModelObject* model_obj = obj.model_object();
         int object_id = -1;
         const ModelObjectPtrs model_objects = wxGetApp().plater()->model().objects;
         for (int i = 0; i < static_cast<int>(model_objects.size()); ++i) {
@@ -3000,7 +3000,7 @@ void GCodeViewer::load_shells(const Print& print)
         m_shells.volumes.load_object(model_obj, object_id, instance_ids);
 
         // adjust shells' z if raft is present
-        const SlicingParameters& slicing_parameters = obj->slicing_parameters();
+        const SlicingParameters& slicing_parameters = obj.slicing_parameters();
         if (slicing_parameters.object_print_z_min != 0.0) {
             const Vec3d z_offset = slicing_parameters.object_print_z_min * Vec3d::UnitZ();
             for (size_t i = current_volumes_count; i < m_shells.volumes.volumes.size(); ++i) {
@@ -3069,7 +3069,7 @@ void GCodeViewer::load_wipetower_shell(const Print& print)
 {
     if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF && print.is_step_done(psWipeTower)) {
         // adds wipe tower's volume
-        const double max_z = print.objects()[0]->model_object()->get_model()->max_z();
+        const double max_z = print.object(0).model_object()->get_model()->max_z();
         const PrintConfig& print_config = print.config();
         const PrintObjectConfig& object_config = print.default_object_config();
         if (print.has_wipe_tower()) {

@@ -128,15 +128,15 @@ void WipeTower2::init(const Print *print, const SpanOfConstPtrs<PrintObject> &ob
     // for each object
     for (const PrintObject *obj : objects) {
         // for each layer
-        for (const Layer *layer : obj->layers()) {
-            if (layer->has_extrusions()) { // layer_tools skip empty layers
-                ordered_layers.push_back(layer);
+        for (const Layer &layer : obj->layers()) {
+            if (layer.has_extrusions()) { // layer_tools skip empty layers
+                ordered_layers.push_back(&layer);
             }
         }
-        for (const Layer *layer : obj->support_layers()) {
+        for (const Layer &layer : obj->support_layers()) {
             // supportlayer are still layer
-            if (layer->has_extrusions()) { // layer_tools skip empty layers
-                ordered_layers.push_back(layer);
+            if (layer.has_extrusions()) { // layer_tools skip empty layers
+                ordered_layers.push_back(&layer);
             }
         }
     }

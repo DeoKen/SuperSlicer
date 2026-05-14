@@ -72,15 +72,15 @@ void remove_bridges_from_contacts(
         //get all periemters lines in relation with this region
         // they can be outside of the region slices, it's not importnat as it's for removing area.
         ArcPolylines perimeters_arcpolylines;
-        for (const LayerSliceIslandPtr &layer_island : layerm.layer()->islands()) {
-            for (const LayerRegionIslandPtr &region_island_ptr : layer_island->regions_islands()) {
-                if (region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS) &&
-                    region_island_ptr->regions().find(&layerm) != region_island_ptr->regions().end()) {
-                    append(perimeters_arcpolylines, region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS).as_polylines());
+        for (const LayerSliceIsland &layer_island : layerm.layer()->islands()) {
+            for (const LayerRegionIsland &region_island : layer_island.regions_islands()) {
+                if (region_island.has_extrusion(LayerRegionIsland::PERIMETERS) &&
+                    region_island.regions().find(&layerm) != region_island.regions().end()) {
+                    append(perimeters_arcpolylines, region_island.extrusion(LayerRegionIsland::PERIMETERS).as_polylines());
                 }
-                if (region_island_ptr->has_extrusion(LayerRegionIsland::GAP_FILLS) &&
-                    region_island_ptr->regions().find(&layerm) != region_island_ptr->regions().end()) {
-                    append(perimeters_arcpolylines, region_island_ptr->extrusion(LayerRegionIsland::GAP_FILLS).as_polylines());
+                if (region_island.has_extrusion(LayerRegionIsland::GAP_FILLS) &&
+                    region_island.regions().find(&layerm) != region_island.regions().end()) {
+                    append(perimeters_arcpolylines, region_island.extrusion(LayerRegionIsland::GAP_FILLS).as_polylines());
                 }
             }
         }
@@ -118,7 +118,7 @@ void remove_bridges_from_contacts(
                 bool  supported[2] = { false, false };
                 for (size_t i = 0; i < lower_layer.lslices().size() && ! (supported[0] && supported[1]); ++ i)
                     for (int j = 0; j < 2; ++ j)
-                        if (! supported[j] && lower_layer.islands()[i]->get_bounding_box().contains(pts[j]) && lower_layer.lslices()[i].contains(pts[j]))
+                        if (! supported[j] && lower_layer.islands()[i].get_bounding_box().contains(pts[j]) && lower_layer.lslices()[i].contains(pts[j]))
                             supported[j] = true;
                 if (supported[0] && supported[1])
                     // Offset a polyline into a thick line.
@@ -392,7 +392,7 @@ SupportGeneratorLayersPtr generate_raft_base(
         const bool     brim_outer      = object.config().brim_width > 0; // brim_type == btOuterOnly || brim_type == btOuterAndInner;
         const bool     brim_inner      = object.config().brim_width_interior > 0; //brim_type == btInnerOnly || brim_type == btOuterAndInner;
         const auto     brim_separation = scale_d(object.config().brim_separation.value + object.config().brim_width.value);
-        for (const ExPolygon &ex : object.layers().front()->lslices()) {
+        for (const ExPolygon &ex : object.layers().front().lslices()) {
             ex.assert_valid();
             if (brim_outer && brim_inner)
                 polygons_append(brim, offset(ex, brim_separation));
@@ -523,7 +523,7 @@ SupportGeneratorLayersPtr generate_raft_base(
         if (columns_base != nullptr) {
             // Expand the bases of the support columns in the 1st layer.
             Polygons &raft     = columns_base->polygons;
-            Polygons  trimming = offset(object.layers().front()->lslices(), (float)support_params._gap_xy, SUPPORT_SURFACES_OFFSET_PARAMETERS);
+            Polygons  trimming = offset(object.layers().front().lslices(), (float)support_params._gap_xy, SUPPORT_SURFACES_OFFSET_PARAMETERS);
             if (inflate_factor_1st_layer > SCALED_EPSILON) {
                 // Inflate in multiple steps to avoid leaking of the support 1st layer through object walls.
                 auto  nsteps = std::max(5, int(ceil(inflate_factor_1st_layer / support_params.first_layer_flow.scaled_width())));
@@ -1644,7 +1644,7 @@ SupportGeneratorLayersPtr generate_support_layers(
             if (this_layer_contacts_only) {
                 // Find a supporting layer for its interface ID.
                 for (auto it = object.support_layers().rbegin(); it != object.support_layers().rend(); ++ it)
-                    if (const SupportLayer &other_layer = **it; other_layer.scaled_print_z() == top_contact_bottom_z) {
+                    if (const SupportLayer &other_layer = *it; other_layer.scaled_print_z() == top_contact_bottom_z) {
                         // other_layer supports this top contact layer. Assign a different support interface direction to this layer
                         // from the layer that supports it.
                         this_layer_id_interface = other_layer.interface_id() + 1;
@@ -1690,7 +1690,7 @@ public:
 
 void generate_support_toolpaths(
     PrintObject                         &object,
-    SupportLayerPtrs                    &support_layers,
+    SupportLayerUPtrs                   &support_layers,
     const PrintObjectConfig             &config,
     const SupportParameters             &support_params,
     const SlicingParameters             &slicing_params,
@@ -1872,11 +1872,11 @@ void generate_support_toolpaths(
                 ApiInternal::LayerAccess::add_region(support_layer, object.printing_region(0));
                 BoundingBox bb_region = raft_bb;
                 //support_layer.get_region(0)->set_raw_slices(ExPolygons{ExPolygon(bb_region.polygon())});
-                ApiInternal::LayerRegionAccess::slices_mutable(*support_layer.get_region(0)) = ExPolygons{ExPolygon(bb_region.polygon())};
+                ApiInternal::LayerRegionAccess::slices_mutable(support_layer.region(0)) = ExPolygons{ExPolygon(bb_region.polygon())};
                 // construct island region
                 support_layer.add_regions_to_islands();
-                for (const LayerSliceIslandPtr &island : support_layer.islands()) {
-                    assert(!island->regions().empty());
+                for (const LayerSliceIsland &island : support_layer.islands()) {
+                    assert(!island.regions().empty());
                 }
                 // push extrusions
                 assert(raft_cache.find(&support_layer) != raft_cache.end());
@@ -1885,12 +1885,12 @@ void generate_support_toolpaths(
                 // add raft that is already computed.
                 for (ExtrusionEntity *ee : supp_and_interface.first.entities()) {
                     int added = 0;
-                    for (const LayerSliceIslandPtr &island : support_layer.islands()) {
+                    for (LayerSliceIsland &island : support_layer.islands()) {
                         // if ee is in this island
                         BoundingBox ee_bb = CreateBoundingBoxVisitor::create(*ee);
-                        if (ee_bb.overlap(island->get_bounding_box())) {
-                            if (!intersection_pl(to_polylines(ee->as_polylines()), island->get_slice()).empty()) {
-                                island->get_or_add_region_island({support_layer.get_region(0)}, support_extruder)
+                        if (ee_bb.overlap(island.get_bounding_box())) {
+                            if (!intersection_pl(to_polylines(ee->as_polylines()), island.get_slice()).empty()) {
+                                island.get_or_add_region_island({&support_layer.region(0)}, support_extruder)
                                     .mutable_extrusion(LayerRegionIsland::SUPPORT)
                                     .append(std::move(*ee));
                                 added++;
@@ -1902,12 +1902,12 @@ void generate_support_toolpaths(
                 }
                 for (ExtrusionEntity *ee : supp_and_interface.second.entities()) {
                     int added = 0;
-                    for (const LayerSliceIslandPtr &island : support_layer.islands()) {
+                    for (LayerSliceIsland &island : support_layer.islands()) {
                         // if ee is in this island
                         BoundingBox ee_bb = CreateBoundingBoxVisitor::create(*ee);
-                        if (ee_bb.overlap(island->get_bounding_box())) {
-                            if (!intersection_pl(to_polylines(ee->as_polylines()), island->get_slice()).empty()) {
-                                island->get_or_add_region_island({support_layer.get_region(0)}, support_interface_extruder)
+                        if (ee_bb.overlap(island.get_bounding_box())) {
+                            if (!intersection_pl(to_polylines(ee->as_polylines()), island.get_slice()).empty()) {
+                                island.get_or_add_region_island({&support_layer.region(0)}, support_interface_extruder)
                                     .mutable_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)
                                     .append(std::move(*ee));
                                 added++;
@@ -2325,11 +2325,11 @@ void generate_support_toolpaths(
                 // note: region slice is on the object, not the support, so we only get the first region, wich should be the default one.
                 ApiInternal::LayerAccess::add_region(support_layer, object.printing_region(0));
                 //support_layer.get_region(0)->set_raw_slices(ExPolygons{ExPolygon(bb_region.polygon())});
-                ApiInternal::LayerRegionAccess::slices_mutable(*support_layer.get_region(0)) = ExPolygons{ExPolygon(bb_region.polygon())};
+                ApiInternal::LayerRegionAccess::slices_mutable(support_layer.region(0)) = ExPolygons{ExPolygon(bb_region.polygon())};
                 // construct island region
                 support_layer.add_regions_to_islands();
-                for (const LayerSliceIslandPtr &island : support_layer.islands()) {
-                    assert(!island->regions().empty());
+                for (const LayerSliceIsland &island : support_layer.islands()) {
+                    assert(!island.regions().empty());
                 }
 
             } else {
@@ -2362,19 +2362,19 @@ void generate_support_toolpaths(
 #endif // NDEBUG
                 for (ExtrusionEntity *ee : layer_cache_item.layer_extruded->extrusions) {
                     int added = 0;
-                    for (const LayerSliceIslandPtr &island : support_layer.islands()) {
+                    for (LayerSliceIsland &island : support_layer.islands()) {
                         // if ee is in this island
                         BoundingBox ee_bb = CreateBoundingBoxVisitor::create(*ee);
-                        if (ee_bb.overlap(island->get_bounding_box())) {
-                            if (!intersection_pl(to_polylines(ee->as_polylines()), island->get_slice()).empty()) {
+                        if (ee_bb.overlap(island.get_bounding_box())) {
+                            if (!intersection_pl(to_polylines(ee->as_polylines()), island.get_slice()).empty()) {
                                 assert(!ee->role().is_mixed());
                                 assert(ee->role().is_support());
                                 if (ee->role().is_support_base()) {
-                                    island->get_or_add_region_island({support_layer.get_region(0)}, support_extruder)
+                                    island.get_or_add_region_island({&support_layer.region(0)}, support_extruder)
                                         .mutable_extrusion(LayerRegionIsland::SUPPORT)
                                         .append(std::move(*ee));
                                 } else {
-                                    island->get_or_add_region_island({support_layer.get_region(0)}, support_interface_extruder)
+                                    island.get_or_add_region_island({&support_layer.region(0)}, support_interface_extruder)
                                         .mutable_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)
                                         .append(std::move(*ee));
                                 }
@@ -2386,13 +2386,13 @@ void generate_support_toolpaths(
                     assert(added == 1);
                 }
 #ifndef NDEBUG
-                for (const LayerSliceIslandPtr &island : support_layer.islands()) {
-                    for (const LayerRegionIslandPtr &region_island : island->regions_islands()) {
-                        if (region_island->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                            region_island->extrusion(LayerRegionIsland::SUPPORT).visit(verifier);
+                for (const LayerSliceIsland &island : support_layer.islands()) {
+                    for (const LayerRegionIsland &region_island : island.regions_islands()) {
+                        if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                            region_island.extrusion(LayerRegionIsland::SUPPORT).visit(verifier);
                         }
-                        if (region_island->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                            region_island->extrusion(LayerRegionIsland::SUPPORT_INTERFACE).visit(verifier);
+                        if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                            region_island.extrusion(LayerRegionIsland::SUPPORT_INTERFACE).visit(verifier);
                         }
                     }
                 }
@@ -2414,17 +2414,17 @@ void generate_support_toolpaths(
 #ifndef NDEBUG
     const SupportLayer *support_layer_current = nullptr;
     int                 idx                   = 0;
-    for (const SupportLayer *support_layer : support_layers) {
+    for (const SupportLayerUPtr &support_layer : support_layers) {
         assert(support_layer->object() == &object);
-        support_layer_current = support_layer;
+        support_layer_current = support_layer.get();
 
-        for (const LayerSliceIslandPtr &island : support_layer->islands()) {
-            for (const LayerRegionIslandPtr &region_island : island->regions_islands()) {
-                if (region_island->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                    region_island->extrusion(LayerRegionIsland::SUPPORT).visit(verifier);
+        for (const LayerSliceIsland &island : support_layer->islands()) {
+            for (const LayerRegionIsland &region_island : island.regions_islands()) {
+                if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                    region_island.extrusion(LayerRegionIsland::SUPPORT).visit(verifier);
                 }
-                if (region_island->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                    region_island->extrusion(LayerRegionIsland::SUPPORT_INTERFACE).visit(verifier);
+                if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                    region_island.extrusion(LayerRegionIsland::SUPPORT_INTERFACE).visit(verifier);
                 }
             }
         }

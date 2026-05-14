@@ -64,14 +64,24 @@ template class PrintState<PrintObjectStep, posCount>;
 PrintRegion::PrintRegion(const PrintRegionConfig& config) : PrintRegion(config, config.hash()) {}
 PrintRegion::PrintRegion(PrintRegionConfig&& config) : PrintRegion(std::move(config), config.hash()) {}
 
+Print::Print()
+{
+    // Create config hierarchy.
+    m_default_object_config.parent = &m_config;
+    m_default_region_config.parent = &m_default_object_config;
+}
+
+Print::~Print()
+{
+    this->clear();
+}
+
 void Print::clear() 
 {
     std::scoped_lock<std::mutex> lock(this->state_mutex());
     // The following call should stop background processing if it is running.
     this->invalidate_all_steps();
-	for (PrintObject *object : m_objects)
-		delete object;
-	m_objects.clear();
+    m_objects.clear();
     m_print_regions.clear();
     m_model.clear_objects();
 }
@@ -422,7 +432,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver& /* ne
         invalidated |= this->invalidate_step(step);
     sort_remove_duplicates(osteps);
     for (PrintObjectStep ostep : osteps)
-        for (PrintObject *object : m_objects)
+        for (PrintObjectUPtr &object : m_objects)
             invalidated |= object->invalidate_step(ostep);
     if(invalidated)
         m_timestamp_last_change = std::time(0);
@@ -445,7 +455,7 @@ bool Print::is_step_done(PrintObjectStep step) const
     if (m_objects.empty())
         return false;
     std::scoped_lock<std::mutex> lock(this->state_mutex());
-    for (const PrintObject *object : m_objects)
+    for (const PrintObjectUPtr &object : m_objects)
         if (! object->is_step_done_unguarded(step))
             return false;
     return true;
@@ -461,12 +471,12 @@ std::set<uint16_t> Print::object_extruders(const PrintObjectPtrs &objects, coord
             ok_regions = object->all_regions();
         } else {
             std::set<const PrintRegion*> region_set;
-            for (const Layer *layer : object->layers()) {
-                if ((layer->scaled_bottom_z()) <= z && z <= layer->scaled_print_z() ) {
-                    for (const LayerSliceIslandPtr &layer_island_ptr : layer->islands()) {
-                        for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-                            if (region_island_ptr->has_extrusions()) {
-                                for (const LayerRegion *lr : region_island_ptr->regions()) {
+            for (const Layer &layer : object->layers()) {
+                if ((layer.scaled_bottom_z()) <= z && z <= layer.scaled_print_z() ) {
+                    for (const LayerSliceIsland &layer_island_ptr : layer.islands()) {
+                        for (const LayerRegionIsland &region_island_ptr : layer_island_ptr.regions_islands()) {
+                            if (region_island_ptr.has_extrusions()) {
+                                for (const LayerRegion *lr : region_island_ptr.regions()) {
                                     region_set.insert(&lr->region());
                                 }
                             }
@@ -487,7 +497,11 @@ std::set<uint16_t> Print::object_extruders(const PrintObjectPtrs &objects, coord
 }
 std::set<uint16_t> Print::object_extruders(coord_t z /*= -1*/) const
 {
-    return object_extruders(m_objects, z);
+    PrintObjectPtrs objects;
+    objects.reserve(m_objects.size());
+    for (const PrintObjectUPtr &object : m_objects)
+        objects.emplace_back(object.get());
+    return object_extruders(objects, z);
 }
 
 // returns 0-based indices of used extruders
@@ -497,14 +511,14 @@ std::set<uint16_t> Print::support_material_extruders(coord_t z /*= -1*/) const
     bool support_uses_current_extruder = false;
     auto num_extruders = (uint16_t)m_config.nozzle_diameter.size();
 
-    for (PrintObject *object : m_objects) {
+    for (const PrintObjectUPtr &object : m_objects) {
         if (object->has_support_material()) {
             bool has_support = true;
             bool has_support_interface = object->config().support_material_interface_layers > 0;
             if (z >= 0) {
                 has_support = false;
-                for (const SupportLayer *suppl : object->support_layers()) {
-                    if (suppl->scaled_bottom_z() <= z && z <= suppl->scaled_print_z() && suppl->has_extrusions()) {
+                for (const SupportLayer &suppl : object->support_layers()) {
+                    if (suppl.scaled_bottom_z() <= z && z <= suppl.scaled_print_z() && suppl.has_extrusions()) {
                         has_support = true;
                     }
                 }
@@ -532,7 +546,7 @@ std::set<uint16_t> Print::support_material_extruders(coord_t z /*= -1*/) const
 
     if (support_uses_current_extruder)
         // Add all object extruders to the support extruders as it is not know which one will be used to print supports.
-        append(extruders, this->object_extruders(m_objects));
+        append(extruders, this->object_extruders());
     
     return extruders;
 }
@@ -540,7 +554,7 @@ std::set<uint16_t> Print::support_material_extruders(coord_t z /*= -1*/) const
 // returns 0-based indices of used extruders
 std::set<uint16_t> Print::extruders(coord_t z /*= -1*/) const
 {
-    std::set<uint16_t> extruders = this->object_extruders(m_objects, z);
+    std::set<uint16_t> extruders = this->object_extruders(z);
     append(extruders, this->support_material_extruders(z));
 
     if (z < 0) {
@@ -559,7 +573,7 @@ std::set<uint16_t> Print::extruders(coord_t z /*= -1*/) const
 uint16_t Print::num_object_instances() const
 {
     uint16_t instances = 0;
-    for (const PrintObject *print_object : m_objects)
+    for (const PrintObjectUPtr &print_object : m_objects)
         instances += (uint16_t)print_object->instances().size();
     return instances;
 }
@@ -577,7 +591,7 @@ std::vector<ObjectID> Print::print_object_ids() const
     std::vector<ObjectID> out; 
     // Reserve one more for the caller to append the ID of the Print itself.
     out.reserve(m_objects.size() + 1);
-    for (const PrintObject *print_object : m_objects)
+    for (const PrintObjectUPtr &print_object : m_objects)
         out.emplace_back(print_object->id());
     return out;
 }
@@ -596,7 +610,7 @@ bool Print::has_skirt() const
 
 bool Print::has_brim() const
 {
-    return !this->m_brim.empty() || std::any_of(m_objects.begin(), m_objects.end(), [](PrintObject* object) { return object->has_brim(); });
+    return !this->m_brim.empty() || std::any_of(m_objects.begin(), m_objects.end(), [](const PrintObjectUPtr &object) { return object->has_brim(); });
 }
 
 bool Print::sequential_print_horizontal_clearance_valid(const Print &print, Polygons* polygons)
@@ -612,14 +626,14 @@ bool Print::sequential_print_horizontal_clearance_valid(const Print &print, Poly
 
 	std::map<ObjectID, Polygon> map_model_object_to_convex_hull;
     const double dist_grow = min_object_distance(static_cast<const ConfigBase*>(&print.full_print_config()), 0);
-	for (const PrintObject *print_object : print.objects()) {
-        const double object_grow = (print.config().complete_objects && !print_object->config().brim_per_object) ? dist_grow : std::max(dist_grow, print_object->config().brim_width.value);
-	    assert(! print_object->model_object()->instances.empty());
-	    assert(! print_object->instances().empty());
-	    ObjectID model_object_id = print_object->model_object()->id();
+	for (const PrintObject &print_object : print.objects()) {
+        const double object_grow = (print.config().complete_objects && !print_object.config().brim_per_object) ? dist_grow : std::max(dist_grow, print_object.config().brim_width.value);
+	    assert(! print_object.model_object()->instances.empty());
+	    assert(! print_object.instances().empty());
+	    ObjectID model_object_id = print_object.model_object()->id();
 	    auto it_convex_hull = map_model_object_to_convex_hull.find(model_object_id);
         // Get convex hull of all printable volumes assigned to this print object.
-        ModelInstance *model_instance0 = print_object->model_object()->instances.front();
+        ModelInstance *model_instance0 = print_object.model_object()->instances.front();
 	      if (it_convex_hull == map_model_object_to_convex_hull.end()) {
 	          // Calculate the convex hull of a printable object. 
 	          // Grow convex hull with the clearance margin.
@@ -628,7 +642,7 @@ bool Print::sequential_print_horizontal_clearance_valid(const Print &print, Poly
 	          // appropriate object distance. Even if I set this to jtMiter the warning still shows up.
             Geometry::Transformation trafo = model_instance0->get_transformation();
             trafo.set_offset(Vec3d{ 0.0, 0.0, model_instance0->get_offset().z() });
-            Polygon ch2d = print_object->model_object()->convex_hull_2d(trafo.get_matrix());
+            Polygon ch2d = print_object.model_object()->convex_hull_2d(trafo.get_matrix());
             Polygons offs_ch2d = offset(ch2d,
                 // Shrink the extruder_clearance_radius a tiny bit, so that if the object arrangement algorithm placed the objects
                 // exactly by satisfying the extruder_clearance_radius, this test will not trigger collision.
@@ -642,15 +656,15 @@ bool Print::sequential_print_horizontal_clearance_valid(const Print &print, Poly
             //FIXME seems like the rotation isn't taken into account
             Polygon convex_hull0 = it_convex_hull->second;
             //this can create bugs in macos, for reasons.
-            const double z_diff = Geometry::rotation_diff_z(model_instance0->get_matrix(), print_object->instances().front().model_instance->get_matrix());
+            const double z_diff = Geometry::rotation_diff_z(model_instance0->get_matrix(), print_object.instances().front().model_instance->get_matrix());
             if (std::abs(z_diff) > EPSILON)
                 convex_hull0.rotate(z_diff);
             // Now we check that no instance of convex_hull intersects any of the previously checked object instances.
-            for (const PrintInstance& instance : print_object->instances()) {
+            for (const PrintInstance& instance : print_object.instances()) {
                 Polygon convex_hull = convex_hull0;
                 // instance.shift is a position of a centered object, while model object may not be centered.
                 // Convert the shift from the PrintObject's coordinates into ModelObject's coordinates by removing the centering offset.
-                convex_hull.translate(instance.shift - print_object->center_offset());
+                convex_hull.translate(instance.shift - print_object.center_offset());
                 // if output needed, collect indices (inside convex_hulls_other) of intersecting hulls
                 for (size_t i = 0; i < convex_hulls_other.size(); ++i) {
                     if (!intersection(convex_hulls_other[i], convex_hull).empty()) {
@@ -716,7 +730,7 @@ coord_t Print::get_min_first_layer_height() const
         throw Slic3r::InvalidArgument("first_layer_height() can't be called without PrintObjects");
 
     coord_t min_layer_height = 10000000000;
-    for(PrintObject* obj : m_objects)
+    for(const PrintObjectUPtr &obj : m_objects)
         min_layer_height = std::min(min_layer_height, get_object_first_layer_height(*obj));
 
     if(min_layer_height == 10000000000)
@@ -765,7 +779,7 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
 
     if (m_config.spiral_vase) {
         size_t total_copies_count = 0;
-        for (const PrintObject *object : m_objects)
+        for (const PrintObjectUPtr &object : m_objects)
             total_copies_count += object->instances().size();
         // #4043
         if (total_copies_count > 1 && ! m_config.complete_objects.value)
@@ -812,7 +826,7 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
 
     // Some of the objects has variable layer height applied by painting or by a table.
     bool has_custom_layering = std::find_if(m_objects.begin(), m_objects.end(), 
-        [](const PrintObject *object) { return object->model_object()->has_custom_layering(); }) 
+        [](const PrintObjectUPtr &object) { return object->model_object()->has_custom_layering(); }) 
         != m_objects.end();
 
     // Custom layering is not allowed for tree supports as of now.
@@ -926,7 +940,7 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
 #endif
 
         const coord_t print_first_layer_height = get_min_first_layer_height();
-        for (PrintObject *object : m_objects) {
+        for (const PrintObjectUPtr &object : m_objects) {
             if (object->has_support_material()) {
                 if ((object->config().support_material_extruder == 0 || object->config().support_material_interface_extruder == 0) && max_nozzle_diameter - min_nozzle_diameter > EPSILON) {
                     // The object has some form of support and either support_material_extruder or support_material_interface_extruder
@@ -951,8 +965,8 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
                 }
                 if (object->config().support_material_style.value == smsOrganic) {
                     float extrusion_width = std::min(
-                        support_material_flow(object).width(),
-                        support_material_interface_flow(object).width());
+                        support_material_flow(object.get()).width(),
+                        support_material_interface_flow(object.get()).width());
                     if (object->config().support_tree_tip_diameter < extrusion_width - EPSILON)
                         return { PrintBase::PrintValidationError::pveWrongSettings, _u8L("Organic support tree tip diameter must not be smaller than support material extrusion width.") };
                     if (object->config().support_tree_branch_diameter < 2. * extrusion_width - EPSILON)
@@ -1095,7 +1109,7 @@ BoundingBox Print::total_bounding_box() const
     BoundingBox bb = this->bounding_box();
     
     // we need to offset the objects bounding box by at least half the perimeters extrusion width
-    Flow perimeter_flow = m_objects.front()->get_layer(0)->get_region(0)->flow(frPerimeter);
+    Flow perimeter_flow = m_objects.front()->layer(0).region(0).flow(frPerimeter);
     double extra = perimeter_flow.width/2;
     
     // consider support material
@@ -1160,7 +1174,7 @@ Flow Print::skirt_flow(size_t extruder_id, bool first_layer/*=false*/) const
 
     //get extruder used to compute first layer height
     double max_nozzle_diam = 0.f;
-    for (PrintObject* pobject : m_objects) {
+    for (const PrintObjectUPtr &pobject : m_objects) {
         PrintObject& object = *pobject;
         std::set<uint16_t> object_extruders;
         for (const PrintRegion& region : pobject->all_regions()) {
@@ -1188,7 +1202,7 @@ Flow Print::skirt_flow(size_t extruder_id, bool first_layer/*=false*/) const
 
 bool Print::has_support_material() const
 {
-    for (const PrintObject *object : m_objects)
+    for (const PrintObjectUPtr &object : m_objects)
         if (object->has_support_material()) 
             return true;
     return false;
@@ -1257,12 +1271,12 @@ void Print::process()
         }
     );
 #ifdef _DEBUG
-    for (const PrintObject* obj : m_objects)
-        for (const Layer* lay : obj->layers())
-            for (const LayerSliceIslandPtr &layer_island_ptr : lay->islands())
-                for (const LayerRegionIslandPtr &lri : layer_island_ptr->regions_islands())
-                    if(lri->has_extrusion(LayerRegionIsland::PERIMETERS))
-                        lri->extrusion(LayerRegionIsland::PERIMETERS).visit(ptvisitor);
+    for (const PrintObjectUPtr &obj : m_objects)
+        for (const Layer &lay : obj->layers())
+            for (const LayerSliceIsland &layer_island_ptr : lay.islands())
+                for (const LayerRegionIsland &lri : layer_island_ptr.regions_islands())
+                    if(lri.has_extrusion(LayerRegionIsland::PERIMETERS))
+                        lri.extrusion(LayerRegionIsland::PERIMETERS).visit(ptvisitor);
 #endif
     secondary_status_counter_reset();
     Slic3r::parallel_for(size_t(0), m_objects.size(),
@@ -1280,7 +1294,7 @@ void Print::process()
     // The following step writes to m_shared_regions, it should not run in parallel.
     //FIXME: only run it when the support is needed.
     secondary_status_counter_reset();
-    for (PrintObject *obj : m_objects)
+    for (PrintObjectUPtr &obj : m_objects)
         obj->generate_support_spots();
     // check data from previous step, format the error message(s) and send alert to ui
     // this also has to be done sequentially.
@@ -1318,7 +1332,7 @@ void Print::process()
         m_tool_orderings.clear();
         //if (this->has_wipe_tower()) {
         //    assert(!this->config().complete_objects.value && config().parallel_objects_step.value == 0);
-        //    this->set_status(printstep_2_percent[PrintStep::psWipeTower], _u8L("Generating wipe tower"));
+        //    this->set_status(printstep_percent(PrintStep::psWipeTower), _u8L("Generating wipe tower"));
         //    // Let the Toolordering class know there will be initial priming extrusions at the start of the print.
         //    m_tool_orderings.emplace_back(*this, (uint16_t) -1, true);
         //    this->_make_wipe_tower();
@@ -1370,7 +1384,11 @@ void Print::process()
                                                 &this->default_region_config());
 
                 assert(m_tool_orderings.size() == 1);
-                this->m_wipe_tower2->init(this, this->objects(), this->m_tool_orderings.back());
+                PrintObjectPtrs objects;
+                objects.reserve(m_objects.size());
+                for (const PrintObjectUPtr &object : m_objects)
+                    objects.emplace_back(object.get());
+                this->m_wipe_tower2->init(this, objects, this->m_tool_orderings.back());
 
                 this->set_done(psWipeTower);
                 // fill wtdata
@@ -1404,19 +1422,23 @@ void Print::process()
         m_wipe_tower_data.rotation_angle = m_default_object_config.wipe_tower_rotation_angle;
     }
     this->set_status(printstep_2_percent[PrintStep::psCheckConflict], _u8L("Checking line conflicts"));
-    auto conflictRes = ConflictChecker::find_inter_of_lines_in_diff_objs(objects(), m_wipe_tower_data);
+    PrintObjectPtrs objects;
+    objects.reserve(m_objects.size());
+    for (const PrintObjectUPtr &object : m_objects)
+        objects.emplace_back(object.get());
+    auto conflictRes = ConflictChecker::find_inter_of_lines_in_diff_objs(objects, m_wipe_tower_data);
 
     m_conflict_result = conflictRes;
     if (conflictRes.has_value())
         BOOST_LOG_TRIVIAL(error) << boost::format("gcode path conflicts found between %1% and %2%") % conflictRes->_objName1 % conflictRes->_objName2;
 
 #ifdef _DEBUG
-    for (const PrintObject* obj : m_objects)
-        for (const Layer* lay : obj->layers())
-            for (const LayerSliceIslandPtr &layer_island_ptr : lay->islands())
-                for (const LayerRegionIslandPtr &lri : layer_island_ptr->regions_islands())
-                    if(lri->has_extrusion(LayerRegionIsland::PERIMETERS))
-                        lri->extrusion(LayerRegionIsland::PERIMETERS).visit(ptvisitor);
+    for (const PrintObjectUPtr &obj : m_objects)
+        for (const Layer &lay : obj->layers())
+            for (const LayerSliceIsland &layer_island_ptr : lay.islands())
+                for (const LayerRegionIsland &lri : layer_island_ptr.regions_islands())
+                    if(lri.has_extrusion(LayerRegionIsland::PERIMETERS))
+                        lri.extrusion(LayerRegionIsland::PERIMETERS).visit(ptvisitor);
 #endif
     //simplify / make arc fitting
     {
@@ -1439,7 +1461,7 @@ void Print::process()
             this->set_status(objectstep_2_percent[PrintObjectStep::posSimplifyPath], L("Simplifying paths"));
         }
         secondary_status_counter_reset();
-        for (PrintObject* obj : m_objects) {
+        for (PrintObjectUPtr &obj : m_objects) {
             obj->simplify_extrusion_path();
         }
         //also simplify object skirt & brim
@@ -1484,13 +1506,13 @@ void Print::process()
     }
     
 #if _DEBUG
-    for (const PrintObject* obj : m_objects) {
-        for (const Layer *l : obj->m_layers) {
-            for (const LayerSliceIslandPtr &layer_island_ptr : l->islands())
-                for (const LayerRegionIslandPtr &lri : layer_island_ptr->regions_islands())
-                    if (lri->has_extrusion(LayerRegionIsland::PERIMETERS)) {
+    for (const PrintObjectUPtr &obj : m_objects) {
+        for (const std::unique_ptr<Layer> &l : obj->m_layers) {
+            for (const LayerSliceIsland &layer_island_ptr : l->islands())
+                for (const LayerRegionIsland &lri : layer_island_ptr.regions_islands())
+                    if (lri.has_extrusion(LayerRegionIsland::PERIMETERS)) {
                         LoopAssertVisitor lav;
-                        lri->extrusion(LayerRegionIsland::PERIMETERS).visit(lav);
+                        lri.extrusion(LayerRegionIsland::PERIMETERS).visit(lav);
                     }
         }
     }
@@ -1525,7 +1547,7 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
     std::unique_ptr<GCodeGenerator> gcode(new GCodeGenerator());
     gcode->do_export(this, path.c_str(), result, thumbnail_cb);
 
-    if (m_conflict_result.has_value())
+    if (m_conflict_result)
         result->conflict_result = *m_conflict_result;
 
     return path.c_str();
@@ -1579,25 +1601,29 @@ void Print::_make_skirt_brim() {
         //first skirt. If it need the brim area, it will extrapolate it from config.
         m_skirt_convex_hull.clear();
         m_first_layer_convex_hull.points.clear();
-        for (PrintObject *obj : m_objects) {
+        for (PrintObjectUPtr &obj : m_objects) {
             obj->m_skirt.clear();
             obj->m_skirt_first_layer.reset();
         }
         if (this->has_skirt()) {
             this->set_status(printstep_2_percent[PrintStep::psSkirtBrim], L("Generating skirt"));
             if (config().complete_objects && !config().complete_objects_one_skirt){
-                for (PrintObject *obj : m_objects) {
+                for (PrintObjectUPtr &obj : m_objects) {
                     //create a skirt "pattern" (one per object)
                     const std::vector<PrintInstance> copies{ obj->instances() };
                     obj->m_instances.clear();
                     obj->m_instances.emplace_back();
-                    this->_make_skirt({ obj }, obj->m_skirt, obj->m_skirt_first_layer);
+                    this->_make_skirt({ obj.get() }, obj->m_skirt, obj->m_skirt_first_layer);
                     obj->m_instances = copies;
                     DEBUG_VISIT(obj->m_skirt, CheckOrientation(true))
                     DEBUG_VISIT(obj->m_skirt, LoopAssertVisitor())
                 }
             } else {
-                this->_make_skirt(m_objects, m_skirt, m_skirt_first_layer);
+                PrintObjectPtrs objects;
+                objects.reserve(m_objects.size());
+                for (PrintObjectUPtr &object : m_objects)
+                    objects.emplace_back(object.get());
+                this->_make_skirt(objects, m_skirt, m_skirt_first_layer);
                 DEBUG_VISIT(m_skirt, CheckOrientation(true))
                 DEBUG_VISIT(m_skirt, LoopAssertVisitor())
             }
@@ -1609,7 +1635,8 @@ void Print::_make_skirt_brim() {
         m_first_layer_convex_hull.points.clear();
         std::vector<std::vector<PrintObject*>> obj_groups;
         bool brim_per_object = false;
-        for (PrintObject *obj : m_objects) {
+        for (PrintObjectUPtr &object : m_objects) {
+            PrintObject *obj = object.get();
             obj->m_brim.clear();
             brim_per_object = brim_per_object || obj->config().brim_per_object.value;
             bool added = false;
@@ -1671,7 +1698,7 @@ void Print::_make_skirt_brim() {
                         //get flow
                         std::set<uint16_t> set_extruders = this->object_extruders(PrintObjectPtrs{ obj });
                         append(set_extruders, this->support_material_extruders());
-                        Flow        flow = this->brim_flow(set_extruders.empty() ? get_print_region(0).config().perimeter_extruder - 1 : *set_extruders.begin(), obj->config());
+                        Flow        flow = this->brim_flow(set_extruders.empty() ? print_region(0).config().perimeter_extruder - 1 : *set_extruders.begin(), obj->config());
                         //if complete objects
                         if (config().complete_objects || config().parallel_objects_step.value > 0) {
                             //don't consider other objects/instances, as they aren't colliding.
@@ -1717,9 +1744,9 @@ void Print::_make_skirt_brim() {
                 } else {
                     brim_area = union_ex(brim_area);
                     //get the first extruder in the list for these objects... replicating gcode generation
-                    std::set<uint16_t> set_extruders = this->object_extruders(m_objects);
+                    std::set<uint16_t> set_extruders = this->object_extruders();
                     append(set_extruders, this->support_material_extruders());
-                    Flow        flow = this->brim_flow(set_extruders.empty() ? get_print_region(0).config().perimeter_extruder - 1 : *set_extruders.begin(), m_default_object_config);
+                    Flow        flow = this->brim_flow(set_extruders.empty() ? print_region(0).config().perimeter_extruder - 1 : *set_extruders.begin(), m_default_object_config);
                     if (brim_config.brim_ears)
                         make_brim_ears(*this, flow, obj_group, brim_area, m_brim);
                     else
@@ -1755,7 +1782,7 @@ void Print::_make_skirt_brim() {
             }
             this->m_brim.visit(visitor);
         }
-        for (PrintObject *object : m_objects) {
+        for (PrintObjectUPtr &object : m_objects) {
             const PrintRegionConfig &region_config = object->default_region_config(this->m_default_region_config);
             if (region_config.perimeter_direction.value == pdCW_CCW ||
                 region_config.perimeter_direction.value == pdCW_CW) {
@@ -1806,7 +1833,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
     for (const PrintObject *object : objects) {
         Points object_points;
         // Get object layers up to skirt_height_z.
-        for (const Layer *layer : object->m_layers) {
+        for (const std::unique_ptr<Layer> &layer : object->m_layers) {
             if (layer->scaled_print_z() > skirt_height_z)
                 break;
             for (const ExPolygon &expoly : layer->lslices())
@@ -1816,11 +1843,11 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
         // simplify
         object_points = Slic3r::Geometry::convex_hull(object_points).points;
         // Get support layers up to skirt_height_z.
-        for (const SupportLayer *layer : object->support_layers()) {
-            if (layer->scaled_print_z() > skirt_height_z)
+        for (const SupportLayer &layer : object->support_layers()) {
+            if (layer.scaled_print_z() > skirt_height_z)
                 break;
-            for (const LayerSliceIslandPtr &island : layer->islands()) {
-                append(object_points, island->get_slice().contour.points);
+            for (const LayerSliceIsland &island : layer.islands()) {
+                append(object_points, island.get_slice().contour.points);
             }
             // simplify
             object_points = Slic3r::Geometry::convex_hull(object_points).points;
@@ -1829,10 +1856,10 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
         if (config().skirt_distance_from_brim) {
             // get first layer support
             if (!object->support_layers().empty() &&
-                object->support_layers().front()->scaled_print_z() == object->m_layers[0]->scaled_print_z()) {
+                object->support_layers().front().scaled_print_z() == object->m_layers[0]->scaled_print_z()) {
                 Points support_points;
-                for (const LayerSliceIslandPtr &island : object->support_layers().front()->islands()) {
-                    append(support_points, island->get_slice().contour.points);
+                for (const LayerSliceIsland &island : object->support_layers().front().islands()) {
+                    append(support_points, island.get_slice().contour.points);
                 }
                 const Polygon hull_support = Slic3r::Geometry::convex_hull(support_points);
                 for (const Polygon& poly : offset(hull_support, scale_d(object->config().brim_width)))
@@ -2006,20 +2033,20 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
 Polygons Print::first_layer_islands() const
 {
     Polygons islands;
-    for (PrintObject *object : m_objects) {
+    for (const PrintObjectUPtr &object : m_objects) {
         Polygons object_islands;
         for (const ExPolygon &expoly : object->m_layers.front()->lslices())
             object_islands.push_back(expoly.contour);
         if (!object->support_layers().empty()) {
             // was polygons_covered_by_spacing, but is it really important?
-            for (const LayerSliceIslandPtr &island : object->support_layers().front()->islands()) {
-                for (const LayerRegionIslandPtr &region_island : island->regions_islands()) {
-                    if (region_island->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                               region_island->extrusion(LayerRegionIsland::SUPPORT)
+            for (const LayerSliceIsland &island : object->support_layers().front().islands()) {
+                for (const LayerRegionIsland &region_island : island.regions_islands()) {
+                    if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                               region_island.extrusion(LayerRegionIsland::SUPPORT)
                                    .polygons_covered_by_width(object_islands, float(SCALED_EPSILON));
                     }
-                    if (region_island->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                               region_island->extrusion(LayerRegionIsland::SUPPORT_INTERFACE)
+                    if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                               region_island.extrusion(LayerRegionIsland::SUPPORT_INTERFACE)
                                    .polygons_covered_by_width(object_islands, float(SCALED_EPSILON));
                     }
                 }
@@ -2156,7 +2183,7 @@ void Print::alert_when_supports_needed()
         // vector of pairs of object and its issues, where each issue is a pair of type and critical flag
         std::vector<std::pair<const PrintObject *, std::vector<std::pair<SupportSpotsGenerator::SupportPointCause, bool>>>> objects_isssues;
 
-        for (const PrintObject *object : m_objects) {
+        for (const PrintObjectUPtr &object : m_objects) {
             std::unordered_set<const ModelObject *> checked_model_objects;
             if (!object->has_support() && checked_model_objects.find(object->model_object()) == checked_model_objects.end()) {
                 if (object->m_shared_regions->generated_support_points.has_value()) {
@@ -2165,7 +2192,7 @@ void Print::alert_when_supports_needed()
                                                                                 ->partial_objects;
                     auto issues = SupportSpotsGenerator::gather_issues(supp_points, partial_objects);
                     if (issues.size() > 0) {
-                        objects_isssues.emplace_back(object, issues);
+                        objects_isssues.emplace_back(object.get(), issues);
                     }
                 }
                 checked_model_objects.emplace(object->model_object());
@@ -2256,24 +2283,24 @@ bool Print::has_wipe_tower() const {
             can_wipe_tower = extruder == extr;
             return !can_wipe_tower;
         };
-        for (const PrintObject *obj : this->objects()) {
-            for (const Layer *layer : obj->layers()) {
-                if (layer->scaled_print_z() > max_z)
+        for (const PrintObject &obj : this->objects()) {
+            for (const Layer &layer : obj.layers()) {
+                if (layer.scaled_print_z() > max_z)
                     continue;
-                for (const LayerSliceIslandPtr &layer_island_ptr : layer->islands()) {
-                    for (const LayerRegionIslandPtr &lri : layer_island_ptr->regions_islands()) {
-                        if (lri->has_extrusions()) {
-                            if (lri->has_extrusion(LayerRegionIsland::PERIMETERS)) {
-                                for (const LayerRegion *lr : lri->regions()) {
+                for (const LayerSliceIsland &layer_island_ptr : layer.islands()) {
+                    for (const LayerRegionIsland &lri : layer_island_ptr.regions_islands()) {
+                        if (lri.has_extrusions()) {
+                            if (lri.has_extrusion(LayerRegionIsland::PERIMETERS)) {
+                                for (const LayerRegion *lr : lri.regions()) {
                                     if (check_extruder(lr->region().config().perimeter_extruder.value)) {
                                         goto finish_search;
                                     }
                                 }
                             }
-                            if (lri->has_extrusion(LayerRegionIsland::INFILLS) ||
-                                lri->has_extrusion(LayerRegionIsland::IRONINGS) ||
-                                lri->has_extrusion(LayerRegionIsland::GAP_FILLS)) {
-                                for (const LayerRegion *lr : lri->regions()) {
+                            if (lri.has_extrusion(LayerRegionIsland::INFILLS) ||
+                                lri.has_extrusion(LayerRegionIsland::IRONINGS) ||
+                                lri.has_extrusion(LayerRegionIsland::GAP_FILLS)) {
+                                for (const LayerRegion *lr : lri.regions()) {
                                     if (check_extruder(lr->region().config().infill_extruder.value) ||
                                         check_extruder(lr->region().config().solid_infill_extruder.value)) {
                                         goto finish_search;
@@ -2285,13 +2312,13 @@ bool Print::has_wipe_tower() const {
                 }
             }
         }
-        for (const PrintObject *obj : this->objects()) {
-            for (const SupportLayer *slayer : obj->support_layers()) {
-                if (slayer->scaled_height() > max_z)
+        for (const PrintObject &obj : this->objects()) {
+            for (const SupportLayer &slayer : obj.support_layers()) {
+                if (slayer.scaled_height() > max_z)
                     continue;
-                if (slayer->has_extrusions() &&
-                    (check_extruder(obj->config().support_material_extruder.value) ||
-                     check_extruder(obj->config().support_material_interface_extruder.value))) {
+                if (slayer.has_extrusions() &&
+                    (check_extruder(obj.config().support_material_extruder.value) ||
+                     check_extruder(obj.config().support_material_interface_extruder.value))) {
                     goto finish_search; // !can_wipe_tower
                 }
             }
@@ -2537,7 +2564,10 @@ std::string Print::output_filename(const std::string &filename_base) const
 // Sort the PrintObjects by their increasing Z, likely useful for avoiding colisions on Deltas during sequential prints.
 std::vector<const PrintInstance*> Print::sort_object_instances_by_max_z() const
 {
-    std::vector<const PrintObject*> objects(this->objects().begin(), this->objects().end());
+    std::vector<const PrintObject*> objects;
+    objects.reserve(this->objects().size());
+    for (const PrintObject &object : this->objects())
+        objects.emplace_back(&object);
     std::sort(objects.begin(), objects.end(), [](const PrintObject* po1, const PrintObject* po2) { return po1->height() < po2->height(); });
     std::vector<const PrintInstance*> instances;
     instances.reserve(objects.size());
@@ -2550,7 +2580,10 @@ std::vector<const PrintInstance*> Print::sort_object_instances_by_max_z() const
 // Sort the PrintObjects by their increasing Y, likely useful for avoiding colisions on printer with a x-bar during sequential prints.
 std::vector<const PrintInstance*> Print::sort_object_instances_by_max_y() const
 {
-    std::vector<const PrintObject*> objects(this->objects().begin(), this->objects().end());
+    std::vector<const PrintObject*> objects;
+    objects.reserve(this->objects().size());
+    for (const PrintObject &object : this->objects())
+        objects.emplace_back(&object);
     std::sort(objects.begin(), objects.end(), [](const PrintObject* po1, const PrintObject* po2) { return po1->height() < po2->height(); });
     std::vector<const PrintInstance*> instances;
     instances.reserve(objects.size());
@@ -2583,8 +2616,8 @@ std::vector<const PrintInstance*> Print::sort_object_instances_by_model_order() 
     // Build up map from ModelInstance* to PrintInstance*
     std::vector<std::pair<const ModelInstance*, const PrintInstance*>> model_instance_to_print_instance;
     model_instance_to_print_instance.reserve(this->num_object_instances());
-    for (const PrintObject *print_object : this->objects())
-        for (const PrintInstance &print_instance : print_object->instances())
+    for (const PrintObject &print_object : this->objects())
+        for (const PrintInstance &print_instance : print_object.instances())
             model_instance_to_print_instance.emplace_back(print_instance.model_instance, &print_instance);
     std::sort(model_instance_to_print_instance.begin(), model_instance_to_print_instance.end(), [](auto &l, auto &r) { return l.first < r.first; });
 

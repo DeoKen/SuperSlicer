@@ -283,8 +283,8 @@ SCENARIO("Flow: stats are okay") {
     const double volume = (cube_side_spacing*cube_side_spacing*20);
     const double volume_layer = (cube_side_spacing*cube_side_spacing*0.2);
     print.process();
-    REQUIRE(print.get_object(0)->get_layer(0)->height == Approx(0.2));
-    REQUIRE(print.get_object(0)->get_layer(1)->height == Approx(0.2));
+    REQUIRE(print.object(0).layer(0).height == Approx(0.2));
+    REQUIRE(print.object(0).layer(1).height == Approx(0.2));
         
     std::string gcode_filepath{ "" };
     Slic3r::Test::gcode(gcode_filepath, print);
@@ -320,14 +320,14 @@ SCENARIO("Flow: stats are okay") {
     });
     REQUIRE(volume_other_extruded == 0);
 
-    REQUIRE(print.get_object(0)->layers().size() == 100);
+    REQUIRE(print.object(0).layers().size() == 100);
     for (size_t layer_id = 0; layer_id < 100; layer_id++) {
-        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.get_object(0)->get_layer(layer_id)->regions()[0]->perimeters);
-        double volumeExtrInfill = ExtrusionVolume{}.get(print.get_object(0)->get_layer(layer_id)->regions()[0]->fills);
+        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.object(0).layer(layer_id).region(0).perimeters);
+        double volumeExtrInfill = ExtrusionVolume{}.get(print.object(0).layer(layer_id).region(0).fills);
         REQUIRE(volume_layer == Approx(volumeExtrInfill + volumeExtrPerimeter));
         // no perimeter -> no fill_no_overlap_expolygons
         REQUIRE( (config.option("perimeters")->get_int() == 0) == (volumeExtrPerimeter == 0));
-        REQUIRE( (volumeExtrPerimeter == 0) == print.get_object(0)->get_layer(0)->regions()[0]->fill_no_overlap_expolygons.empty());
+        REQUIRE( (volumeExtrPerimeter == 0) == print.object(0).layer(0).region(0).fill_no_overlap_expolygons.empty());
     }
     
     std::cout<<name<<" : "<<volume<<" mm3\n";
@@ -357,8 +357,8 @@ SCENARIO("Flow: stats are okay") {
 //    const double volume = (cube_side_spacing*cube_side_spacing*1);
 //    const double volume_layer = (cube_side_spacing*cube_side_spacing*layer_height);
 //    print.process();
-//    REQUIRE(print.get_object(0)->get_layer(0)->height == Approx(layer_height));
-//    REQUIRE(print.get_object(0)->get_layer(1)->height == Approx(layer_height));
+//    REQUIRE(print.object(0).layer(0).height == Approx(layer_height));
+//    REQUIRE(print.object(0).layer(1).height == Approx(layer_height));
 //        
 //    std::string gcode_filepath{ "" };
 //    Slic3r::Test::gcode(gcode_filepath, print);
@@ -404,14 +404,14 @@ SCENARIO("Flow: stats are okay") {
 //    REQUIRE(volume_other_extruded == 0);
 //
 //    double tot_vol_extrusion_struct = 0;
-//    for (size_t layer_id = 0; layer_id < print.get_object(0)->layers().size(); layer_id++) {
-//        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.get_object(0)->get_layer(layer_id)->regions()[0]->perimeters);
-//        double volumeExtrInfill = ExtrusionVolume{}.get(print.get_object(0)->get_layer(layer_id)->regions()[0]->fills);
+//    for (size_t layer_id = 0; layer_id < print.object(0).layers().size(); layer_id++) {
+//        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.object(0).layer(layer_id).region(0).perimeters);
+//        double volumeExtrInfill = ExtrusionVolume{}.get(print.object(0).layer(layer_id).region(0).fills);
 //        REQUIRE(volume_layer == Approx(volumeExtrInfill + volumeExtrPerimeter));
 //        //std::cout<<"
 //        // no perimeter -> no fill_no_overlap_expolygons
 //        REQUIRE( (config.option("perimeters")->get_int() == 0) == (volumeExtrPerimeter == 0));
-//        REQUIRE( (volumeExtrPerimeter == 0) == print.get_object(0)->get_layer(0)->regions()[0]->fill_no_overlap_expolygons.empty());
+//        REQUIRE( (volumeExtrPerimeter == 0) == print.object(0).layer(0).region(0).fill_no_overlap_expolygons.empty());
 //
 //        tot_vol_extrusion_struct += volumeExtrPerimeter + volumeExtrInfill;
 //    }

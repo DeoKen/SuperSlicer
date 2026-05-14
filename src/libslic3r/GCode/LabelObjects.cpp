@@ -53,10 +53,10 @@ void LabelObjects::init(const Print& print)
 
     // Iterate over all PrintObjects and their PrintInstances, collect PrintInstances which
     // belong to the same ModelObject.
-    for (const PrintObject *po : print.objects()) {
+    for (const PrintObject &po : print.objects()) {
         model_object_to_print_instances.push_back(
-            std::pair<const ModelObject *, std::vector<const PrintInstance *>>(po->model_object(), {}));
-        for (const PrintInstance &pi : po->instances()) {
+            std::pair<const ModelObject *, std::vector<const PrintInstance *>>(po.model_object(), {}));
+        for (const PrintInstance &pi : po.instances()) {
             model_object_to_print_instances.back().second.emplace_back(&pi);
         }
     }

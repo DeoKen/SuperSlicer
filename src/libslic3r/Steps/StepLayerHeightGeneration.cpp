@@ -8,6 +8,8 @@
 
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
 #include "libslic3r/Api/internal/PrintObjectAccess.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Slicing.hpp"
 #ifdef _DEBUG
@@ -22,13 +24,9 @@ void clean_and_prepare(Print &) {}
 bool validate_pre(const Print &print, std::string &out_error)
 {
     for (size_t object_idx = 0; object_idx < print.objects().size(); ++object_idx) {
-        const PrintObject *print_object = print.objects()[object_idx];
-        if (print_object == nullptr) {
-            out_error += "Error: can't validate layer height profile: print object is null.";
-            return false;
-        }
+        const PrintObject &print_object = print.objects()[object_idx];
 
-        const ModelObject *model_object = print_object->model_object();
+        const ModelObject *model_object = print_object.model_object();
         if (model_object == nullptr) {
             out_error += "Error: can't validate layer height profile: model object is null.";
             return false;
@@ -38,7 +36,7 @@ bool validate_pre(const Print &print, std::string &out_error)
 #ifdef _DEBUG
         std::string params_error;
         if (!slic3r_api::StandardLayerHeightGeneratorPlugin::test_layer_height_slicing_parameters(
-                print, *print_object, params_error)) {
+                print, print_object, params_error)) {
             out_error += "Error: StandardLayerHeightGenerator slicing parameters mismatch: ";
             out_error += params_error;
             return false;
@@ -83,7 +81,7 @@ std::unique_ptr<LayerHeightRunContext> make_layer_height_run_context(Print &prin
 {
     auto out = std::make_unique<LayerHeightRunContext>();
 
-    PrintObject &print_object = *print.get_object(object_idx);
+    PrintObject &print_object = print.object(object_idx);
     ModelObject &model_object = *print_object.model_object();
     const double object_print_z_max = check_z_step(model_object.max_z(), print.config().z_step.value);
 

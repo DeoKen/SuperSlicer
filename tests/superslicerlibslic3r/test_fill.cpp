@@ -243,7 +243,7 @@ TEST_CASE("Fill area: check if periemter give the good values")
             Print print{};
             Slic3r::Test::init_print(print, { sample_mesh }, model, &config);
             print.process();
-            const LayerRegion *lr = print.get_object(0)->get_layer(0)->regions()[0];
+            const LayerRegion *lr = &print.object(0).layer(0).region(0);
             double area_infill = unscaled(unscaled(lr->fill_surfaces.surfaces.front().area()));
             REQUIRE(lr->fill_no_overlap_expolygons.empty());
             double area_computed = (5-0.5*2) * (5-0.5*2);
@@ -258,7 +258,7 @@ TEST_CASE("Fill area: check if periemter give the good values")
             Print print{};
             Slic3r::Test::init_print(print, { sample_mesh }, model, &config);
             print.process();
-            const LayerRegion *lr = print.get_object(0)->get_layer(0)->regions()[0];
+            const LayerRegion *lr = &print.object(0).layer(0).region(0);
             REQUIRE(1 == lr->fill_surfaces.surfaces.size());
             REQUIRE(1 == lr->fill_no_overlap_expolygons.size());
             double area_infill = unscaled(unscaled(lr->fill_surfaces.surfaces[0].area()));
@@ -280,7 +280,7 @@ TEST_CASE("Fill area: check if periemter give the good values")
             Print print{};
             Slic3r::Test::init_print(print, { sample_mesh }, model, &config);
             print.process();
-            const LayerRegion *lr = print.get_object(0)->get_layer(0)->regions()[0];
+            const LayerRegion *lr = &print.object(0).layer(0).region(0);
             REQUIRE(1 == lr->fill_surfaces.surfaces.size());
             REQUIRE(1 == lr->fill_no_overlap_expolygons.size());
             double area_infill = unscaled(unscaled(lr->fill_surfaces.surfaces[0].area()));
@@ -300,7 +300,7 @@ TEST_CASE("Fill area: check if periemter give the good values")
             Print print{};
             Slic3r::Test::init_print(print, { sample_mesh }, model, &config);
             print.process();
-            const LayerRegion *lr = print.get_object(0)->get_layer(0)->regions()[0];
+            const LayerRegion *lr = &print.object(0).layer(0).region(0);
             REQUIRE(1 == lr->fill_surfaces.surfaces.size());
             REQUIRE(lr->fill_no_overlap_expolygons.empty());
             double area_infill = unscaled(unscaled(lr->fill_surfaces.surfaces[0].area()));
@@ -317,7 +317,7 @@ TEST_CASE("Fill area: check if periemter give the good values")
             Print print{};
             Slic3r::Test::init_print(print, { sample_mesh }, model, &config);
             print.process();
-            const LayerRegion *lr = print.get_object(0)->get_layer(0)->regions()[0];
+            const LayerRegion *lr = &print.object(0).layer(0).region(0);
             REQUIRE(1 == lr->fill_surfaces.surfaces.size());
             REQUIRE(1 == lr->fill_no_overlap_expolygons.size());
             double area_infill = unscaled(unscaled(lr->fill_surfaces.surfaces[0].area()));
@@ -450,26 +450,26 @@ TEST_CASE("Fill: extrude gcode and check it")
             }
         });
 
-        ExPolygons perimeter_center_line = offset_ex(print.get_object(0)->get_layer(0)->lslices[0], -scale_t(0.25f));
+        ExPolygons perimeter_center_line = offset_ex(print.object(0).layer(0).lslices[0], -scale_t(0.25f));
 
-        //double perimeterRoundGapRemove = unscaled(print.get_object(0)->get_layer(0)->lslices[0].contour.length()) * 0.1*0.1 * (2 - (PI / 2));
+        //double perimeterRoundGapRemove = unscaled(print.object(0).layer(0).lslices[0].contour.length()) * 0.1*0.1 * (2 - (PI / 2));
         double perimeterRoundGapRemove = unscaled(perimeter_center_line[0].contour.length()) * 0.1*0.1 * (2 - (PI / 2));
-        //double perimeterRoundGapAdd = unscaled(print.get_object(0)->get_layer(0)->lslices[0].contour.length()) * 0.1*0.1 * ((PI / 2));
-        //for (Line &l : print.get_object(0)->get_layer(0)->slices.expolygons[0].contour.lines()) {
+        //double perimeterRoundGapAdd = unscaled(print.object(0).layer(0).lslices[0].contour.length()) * 0.1*0.1 * ((PI / 2));
+        //for (Line &l : print.object(0).layer(0).slices.expolygons[0].contour.lines()) {
 
         //}
         //std::cout << "flow mm3permm: " << Flow{ 0.5f,0.2f,0.4f,false }.mm3_per_mm() << "\n";
-        //std::cout << "perimeter : " << unscaled(print.get_object(0)->get_layer(0)->slices.expolygons[0].contour.length()) << " != " << (PI * 10) << "\n";
+        //std::cout << "perimeter : " << unscaled(print.object(0).layer(0).slices.expolygons[0].contour.length()) << " != " << (PI * 10) << "\n";
 
         //std::cout << "created a mesh of volume " << volume << " and i have extruded " << volume_extruded << " mm3.\n";
         //std::cout << "Note that if we remove the bits of the external extrusion, it's only a volume of " << (volume - perimeterRoundGapRemove) << " that needs to be filled\n";
         //std::cout << "Note that if we add the bits of the external extrusion, it's a volume of " << (volume + perimeterRoundGapAdd) << " that needs to be filled\n";
 
-        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.get_object(0)->get_layer(0)->regions()[0]->perimeters);
-        double volumeExtrInfill = ExtrusionVolume{}.get(print.get_object(0)->get_layer(0)->regions()[0]->fills);
+        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.object(0).layer(0).region(0).perimeters);
+        double volumeExtrInfill = ExtrusionVolume{}.get(print.object(0).layer(0).region(0).fills);
 
         double volumeInfill = 0;
-        for (const ExPolygon & p : print.get_object(0)->get_layer(0)->regions()[0]->fill_no_overlap_expolygons) {
+        for (const ExPolygon & p : print.object(0).layer(0).region(0).fill_no_overlap_expolygons) {
             volumeInfill += unscaled(unscaled(p.area()));
         }
         double spacing_diff = (extrusion_width - Flow::rounded_rectangle_extrusion_spacing(extrusion_width, 0.2f, 1.f))/2;
@@ -478,7 +478,7 @@ TEST_CASE("Fill: extrude gcode and check it")
 
         double compute_perimeter_area = (5-extrusion_width)*4*Flow::rounded_rectangle_extrusion_spacing(extrusion_width, 0.2f, 1.f);
 
-        std::cout << "area fill_no_overlap_expolygons= " << (unscaled(unscaled(print.get_object(0)->get_layer(0)->regions()[0]->fill_no_overlap_expolygons.front().contour.area()))) << "\n";
+        std::cout << "area fill_no_overlap_expolygons= " << (unscaled(unscaled(print.object(0).layer(0).region(0).fill_no_overlap_expolygons.front().contour.area()))) << "\n";
         volumeInfill *= 0.2;
         std::cout << "\nvolumeRealr=" << (volume_perimeter_extruded + volume_infill_extruded) << " volumeRealPerimeter= " << volume_perimeter_extruded << " and volumeRealInfill=" << volume_infill_extruded << " mm3." << "\n";
         std::cout << "volumeExtr=" << (volumeExtrPerimeter + volumeExtrInfill) << " volumeExtrPerimeter= " << volumeExtrPerimeter << " and volumeExtrInfill=" << volumeExtrInfill << " mm3." << "\n";
@@ -494,12 +494,12 @@ TEST_CASE("Fill: extrude gcode and check it")
         //    stri << "extrusion_width_learning" << ".svg";
         //    SVG svg(stri.str());
         //    //svg.draw(bounds);
-        //    svg.draw(print.get_object(0)->get_layer(0)->slices.expolygons[0].contour, "green");
-        //    svg.draw(print.get_object(0)->get_layer(0)->regions()[0]->fill_no_overlap_expolygons, "black", scale_(0.01));
-        //    svg.draw(print.get_object(0)->get_layer(0)->regions()[0]->perimeters.as_polylines(), "orange", fl.scaled_width());
-        //    svg.draw(print.get_object(0)->get_layer(0)->regions()[0]->perimeters.as_polylines(), "red", fl.scaled_spacing());
-        //    svg.draw(print.get_object(0)->get_layer(0)->regions()[0]->fills.as_polylines(), "cyan", fl.scaled_width());
-        //    svg.draw(print.get_object(0)->get_layer(0)->regions()[0]->fills.as_polylines(), "blue", fl.scaled_spacing());
+        //    svg.draw(print.object(0).layer(0).slices.expolygons[0].contour, "green");
+        //    svg.draw(print.object(0).layer(0).region(0).fill_no_overlap_expolygons, "black", scale_(0.01));
+        //    svg.draw(print.object(0).layer(0).region(0).perimeters.as_polylines(), "orange", fl.scaled_width());
+        //    svg.draw(print.object(0).layer(0).region(0).perimeters.as_polylines(), "red", fl.scaled_spacing());
+        //    svg.draw(print.object(0).layer(0).region(0).fills.as_polylines(), "cyan", fl.scaled_width());
+        //    svg.draw(print.object(0).layer(0).region(0).fills.as_polylines(), "blue", fl.scaled_spacing());
         //    svg.Close();
         //}
         REQUIRE(abs(fill_raw_area_no_encroach*0.2 - volumeInfill) < 0.01);
@@ -585,17 +585,17 @@ TEST_CASE("Fill: extrude gcode and check it")
             }
         });
 
-        ExPolygons perimeter_center_line = offset_ex(print.get_object(0)->get_layer(0)->lslices[0], -scale_t(0.25f));
+        ExPolygons perimeter_center_line = offset_ex(print.object(0).layer(0).lslices[0], -scale_t(0.25f));
 
-        //double perimeterRoundGapRemove = unscaled(print.get_object(0)->get_layer(0)->lslices[0].contour.length()) * 0.1*0.1 * (2 - (PI / 2));
+        //double perimeterRoundGapRemove = unscaled(print.object(0).layer(0).lslices[0].contour.length()) * 0.1*0.1 * (2 - (PI / 2));
         double perimeterRoundGapRemove = unscaled(perimeter_center_line[0].contour.length()) * 0.1*0.1 * (2 - (PI / 2));
-        //double perimeterRoundGapAdd = unscaled(print.get_object(0)->get_layer(0)->lslices[0].contour.length()) * 0.1*0.1 * ((PI / 2));
+        //double perimeterRoundGapAdd = unscaled(print.object(0).layer(0).lslices[0].contour.length()) * 0.1*0.1 * ((PI / 2));
 
-        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.get_object(0)->get_layer(0)->regions()[0]->perimeters);
-        double volumeExtrInfill = ExtrusionVolume{}.get(print.get_object(0)->get_layer(0)->regions()[0]->fills);
+        double volumeExtrPerimeter = ExtrusionVolume{}.get(print.object(0).layer(0).region(0).perimeters);
+        double volumeExtrInfill = ExtrusionVolume{}.get(print.object(0).layer(0).region(0).fills);
 
         double volumeInfill = 0;
-        ExPolygons infill_area = intersection_ex(print.get_object(0)->get_layer(0)->regions()[0]->fill_no_overlap_expolygons, print.get_object(0)->get_layer(0)->regions()[0]->fill_expolygons);
+        ExPolygons infill_area = intersection_ex(print.object(0).layer(0).region(0).fill_no_overlap_expolygons, print.object(0).layer(0).region(0).fill_expolygons);
         for (const ExPolygon & p : infill_area) {
             volumeInfill += unscaled(unscaled(p.area()));
         }

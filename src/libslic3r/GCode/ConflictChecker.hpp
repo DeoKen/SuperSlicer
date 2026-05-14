@@ -104,11 +104,11 @@ public:
 
 void getExtrusionPathsFromEntity(const ExtrusionEntityCollection *entity, ExtrusionPaths &paths);
 
-ExtrusionPaths getExtrusionPathsFromLayer(LayerRegionPtrs layerRegionPtrs);
+ExtrusionPaths getExtrusionPathsFromLayer(LayerSliceIslandCRefs layer_islands);
 
 ExtrusionPaths getExtrusionPathsFromSupportLayer(SupportLayer *supportLayer);
 
-std::pair<std::vector<ExtrusionPaths>, std::vector<ExtrusionPaths>> getAllLayersExtrusionPathsFromObject(PrintObject *obj);
+std::pair<std::vector<ExtrusionPaths>, std::vector<ExtrusionPaths>> getAllLayersExtrusionPathsFromObject(const PrintObject *obj);
 
 struct ConflictComputeResult
 {

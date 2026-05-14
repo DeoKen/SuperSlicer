@@ -413,12 +413,12 @@ void GLGizmoFdmSupports::apply_data_from_backend()
     }
 
     // find the respective PrintObject, we need a pointer to it
-    for (const PrintObject *po : m_parent.fff_print()->objects()) {
-        if (po->model_object()->id() == mo->id()) {
+    for (const PrintObject &po : m_parent.fff_print()->objects()) {
+        if (po.model_object()->id() == mo->id()) {
             std::unordered_map<size_t, TriangleSelectorWrapper> selectors;
-            SupportSpotsGenerator::SupportPoints support_points = po->shared_regions()->generated_support_points->support_points;
-            auto                                 obj_transform  = po->shared_regions()->generated_support_points->object_transform;
-            for (ModelVolume *model_volume : po->model_object()->volumes) {
+            SupportSpotsGenerator::SupportPoints support_points = po.shared_regions()->generated_support_points->support_points;
+            auto                                 obj_transform  = po.shared_regions()->generated_support_points->object_transform;
+            for (ModelVolume *model_volume : po.model_object()->volumes) {
                 if (model_volume->is_model_part()) {
                     Transform3d mesh_transformation = obj_transform * model_volume->get_matrix();
                     Transform3d inv_transform       = mesh_transformation.inverse();
@@ -504,9 +504,9 @@ bool GLGizmoFdmSupports::has_backend_supports()
 
     // find PrintObject with this ID
     bool done = false;
-    for (const PrintObject *po : m_parent.fff_print()->objects()) {
-        if (po->model_object()->id() == mo->id())
-            done = done || po->is_step_done(posSupportSpotsSearch);
+    for (const PrintObject &po : m_parent.fff_print()->objects()) {
+        if (po.model_object()->id() == mo->id())
+            done = done || po.is_step_done(posSupportSpotsSearch);
     }
 
     if (!done && !wxGetApp().plater()->is_background_process_update_scheduled()) {

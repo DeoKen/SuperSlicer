@@ -114,24 +114,24 @@ BoundingBoxf get_print_extrusions_extents(const Print &print)
 BoundingBoxf get_print_object_extrusions_extents(const PrintObject &print_object, const coord_t max_print_z)
 {
     BoundingBoxf bbox;
-    for (const Layer *layer : print_object.layers()) {
-        if (layer->scaled_print_z() > max_print_z)
+    for (const Layer &layer : print_object.layers()) {
+        if (layer.scaled_print_z() > max_print_z)
             break;
         BoundingBoxf bbox_this;
-        for (const LayerSliceIslandPtr &layer_island_ptr : layer->islands()) {
-            for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-                if (region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS)) {
-                    bbox_this.merge(extrusionentity_extents(region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS)));
+        for (const LayerSliceIsland &layer_island_ptr : layer.islands()) {
+            for (const LayerRegionIsland &region_island_ptr : layer_island_ptr.regions_islands()) {
+                if (region_island_ptr.has_extrusion(LayerRegionIsland::PERIMETERS)) {
+                    bbox_this.merge(extrusionentity_extents(region_island_ptr.extrusion(LayerRegionIsland::PERIMETERS)));
                 }
-                if (region_island_ptr->has_extrusion(LayerRegionIsland::INFILLS)) {
-                    bbox_this.merge(extrusionentity_extents(region_island_ptr->extrusion(LayerRegionIsland::INFILLS)));
+                if (region_island_ptr.has_extrusion(LayerRegionIsland::INFILLS)) {
+                    bbox_this.merge(extrusionentity_extents(region_island_ptr.extrusion(LayerRegionIsland::INFILLS)));
                 }
                 // 2 next take care of the case 'dynamic_cast<const SupportLayer*>(layer);'
-                if (region_island_ptr->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                    bbox_this.merge(extrusionentity_extents(region_island_ptr->extrusion(LayerRegionIsland::SUPPORT)));
+                if (region_island_ptr.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                    bbox_this.merge(extrusionentity_extents(region_island_ptr.extrusion(LayerRegionIsland::SUPPORT)));
                 }
-                if (region_island_ptr->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                    bbox_this.merge(extrusionentity_extents(region_island_ptr->extrusion(LayerRegionIsland::SUPPORT_INTERFACE)));
+                if (region_island_ptr.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                    bbox_this.merge(extrusionentity_extents(region_island_ptr.extrusion(LayerRegionIsland::SUPPORT_INTERFACE)));
                 }
             }
         }

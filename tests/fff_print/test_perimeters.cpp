@@ -465,41 +465,41 @@ SCENARIO("Some weird coverage test", "[Perimeters]")
         {{-69000000,-132000000},{-69000000,-110000000},{-64991180,-110000000},{-64991180,-132000000}},
         {{-111008824,-132000000},{-111008824,-110000000},{-107000000,-110000000},{-107000000,-132000000}}
     };
-    PrintObject *object = print.get_object(0);
-    object->slice();
-    Layer       *layer = object->get_layer(1);
-    LayerRegion *layerm = layer->get_region(0);
-    layerm->m_slices.clear();
-    layerm->m_slices.append({ expolygon }, stInternal);
-    layer->lslices = { expolygon };
-    layer->lslices_ex = { { get_extents(expolygon) } };
+    PrintObject &object = print.object(0);
+    object.slice();
+    Layer       &layer = object.layer(1);
+    LayerRegion &layerm = layer.region(0);
+    layerm.m_slices.clear();
+    layerm.m_slices.append({ expolygon }, stInternal);
+    layer.lslices = { expolygon };
+    layer.lslices_ex = { { get_extents(expolygon) } };
     
     // make perimeters
-    layer->make_perimeters();
+    layer.make_perimeters();
     
     // compute the covered area
-    Flow pflow = layerm->flow(frPerimeter);
-    Flow iflow = layerm->flow(frInfill);
+    Flow pflow = layerm.flow(frPerimeter);
+    Flow iflow = layerm.flow(frInfill);
     Polygons covered_by_perimeters;
     Polygons covered_by_infill;
     {
         Polygons acc;
-        for (const ExtrusionEntity *ee : layerm->perimeters())
+        for (const ExtrusionEntity *ee : layerm.perimeters())
             for (const ExtrusionEntity *ee : dynamic_cast<const ExtrusionEntityCollection*>(ee)->entities)
                 append(acc, offset(dynamic_cast<const ExtrusionLoop*>(ee)->polygon().split_at_first_point(), float(pflow.scaled_width() / 2.f + SCALED_EPSILON)));
         covered_by_perimeters = union_(acc);
     }
     {
         Polygons acc;
-        for (const ExPolygon &expolygon : layerm->fill_expolygons())
+        for (const ExPolygon &expolygon : layerm.fill_expolygons())
             append(acc, to_polygons(expolygon));
-        for (const ExtrusionEntity *ee : layerm->thin_fills().entities)
+        for (const ExtrusionEntity *ee : layerm.thin_fills().entities)
             append(acc, offset(dynamic_cast<const ExtrusionPath*>(ee)->polyline, float(iflow.scaled_width() / 2.f + SCALED_EPSILON)));
         covered_by_infill = union_(acc);
     }
     
     // compute the non covered area
-    ExPolygons non_covered = diff_ex(to_polygons(layerm->slices().surfaces), union_(covered_by_perimeters, covered_by_infill));
+    ExPolygons non_covered = diff_ex(to_polygons(layerm.slices().surfaces), union_(covered_by_perimeters, covered_by_infill));
     
     /*
     if (0) {
@@ -507,12 +507,12 @@ SCENARIO("Some weird coverage test", "[Perimeters]")
         require "Slic3r/SVG.pm";
         Slic3r::SVG::output(
             "gaps.svg",
-            expolygons          => [ map $_->expolygon, @{$layerm->slices} ],
+            expolygons          => [ map $_->expolygon, @{$layerm.slices} ],
             red_expolygons      => union_ex([ map @$_, (@$covered_by_perimeters, @$covered_by_infill) ]),
             green_expolygons    => union_ex($non_covered),
             no_arrows           => 1,
             polylines           => [
-                map $_->polygon->split_at_first_point, map @$_, @{$layerm->perimeters},
+                map $_->polygon->split_at_first_point, map @$_, @{$layerm.perimeters},
             ],
         );
     }

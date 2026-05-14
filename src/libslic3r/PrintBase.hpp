@@ -13,6 +13,8 @@
 #include <atomic>
 #include <mutex>
 #include <chrono>
+#include <memory>
+#include <type_traits>
 
 #include "ObjectID.hpp"
 #include "Model.hpp"
@@ -694,8 +696,15 @@ protected:
 
     // After calling the apply() function, set_task() may be called to limit the task to be processed by process().
     template<typename PrintObject>
-    void set_task_impl(const TaskParams &params, std::vector<PrintObject*> &print_objects)
+    static PrintObject *object_ptr(PrintObject *object) { return object; }
+
+    template<typename PrintObject, typename Deleter>
+    static PrintObject *object_ptr(std::unique_ptr<PrintObject, Deleter> &object) { return object.get(); }
+
+    template<typename PrintObjectContainer>
+    void set_task_impl(const TaskParams &params, PrintObjectContainer &print_objects)
     {
+        using PrintObject = std::remove_pointer_t<decltype(object_ptr(print_objects.front()))>;
         static constexpr const auto PrintObjectStepEnumSize = int(PrintObject::PrintObjectStepEnumSize);
         using                       PrintObjectStepEnum     = typename PrintObject::PrintObjectStepEnum;
         // Grab the lock for the Print / PrintObject milestones.
@@ -711,7 +720,7 @@ protected:
             size_t       idx_print_object = 0;
             for (; idx_print_object < print_objects.size(); ++ idx_print_object)
                 if (print_objects[idx_print_object]->model_object()->id() == params.single_model_object) {
-                    print_object = print_objects[idx_print_object];
+                    print_object = object_ptr(print_objects[idx_print_object]);
                     break;
                 }
             assert(print_object != nullptr);
@@ -733,9 +742,9 @@ protected:
             // Now the background process is either stopped, or it is inside one of the print object steps to be calculated anyway.
             if (params.single_model_instance_only) {
                 // Suppress all the steps of other instances.
-                for (PrintObject *po : print_objects)
+                for (auto &po_ref : print_objects)
                     for (size_t istep = 0; istep < PrintObjectStepEnumSize; ++ istep)
-                        po->enable_step_unguarded(PrintObjectStepEnum(istep), false);
+                        object_ptr(po_ref)->enable_step_unguarded(PrintObjectStepEnum(istep), false);
             } else if (! running) {
                 // Swap the print objects, so that the selected print_object is first in the row.
                 // At this point the background processing must be stopped, so it is safe to shuffle print objects.
@@ -750,7 +759,8 @@ protected:
         } else {
             // Slicing all objects.
             bool running = false;
-            for (PrintObject *print_object : print_objects)
+            for (auto &print_object_ref : print_objects) {
+                PrintObject *print_object = object_ptr(print_object_ref);
                 for (int istep = 0; istep < n_object_steps; ++ istep) {
                     if (! print_object->is_step_enabled_unguarded(PrintObjectStepEnum(istep))) {
                         // Step may have been skipped. Restart.
@@ -763,10 +773,12 @@ protected:
                         goto loop_end;
                     }
                 }
+            }
         loop_end:
             if (! running)
                 this->call_cancel_callback();
-            for (PrintObject *po : print_objects) {
+            for (auto &po_ref : print_objects) {
+                PrintObject *po = object_ptr(po_ref);
                 for (int istep = 0; istep < n_object_steps; ++ istep)
                     po->enable_step_unguarded(PrintObjectStepEnum(istep), true);
                 for (int istep = n_object_steps; istep < PrintObjectStepEnumSize; ++ istep)
@@ -787,13 +799,13 @@ protected:
     // Execution of all milestones is enabled in case some of them were suppressed for the last background execution.
     // Also if the background processing was canceled, the current milestone that was just abandoned 
     // in Started state is to be reset to Canceled state.
-    template<typename PrintObject>
-    void finalize_impl(std::vector<PrintObject*> &print_objects)
+    template<typename PrintObjectContainer>
+    void finalize_impl(PrintObjectContainer &print_objects)
     {
         // Grab the lock for the Print / PrintObject milestones.
         std::scoped_lock<std::mutex> lock(this->state_mutex());
-        for (auto *po : print_objects)
-            po->finalize_impl();
+        for (auto &po : print_objects)
+            object_ptr(po)->finalize_impl();
         m_state.enable_all_unguarded(true);
         m_state.mark_canceled_unguarded();
     }

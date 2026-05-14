@@ -626,9 +626,9 @@ static coord_t get_perimeter_spacing(const Layer &layer)
 {
     size_t regions_count     = 0;
     coord_t  perimeter_spacing = 0;
-    for (const LayerRegion *layer_region : layer.regions())
-        if (layer_region != nullptr && ! layer_region->slices().empty()) {
-            perimeter_spacing += layer_region->flow(frPerimeter).scaled_spacing();
+    for (const LayerRegion &layer_region : layer.regions())
+        if (! layer_region.slices().empty()) {
+            perimeter_spacing += layer_region.flow(frPerimeter).scaled_spacing();
             ++regions_count;
         }
 
@@ -645,13 +645,13 @@ static coord_t get_perimeter_spacing_external(const Layer &layer)
 {
     size_t  regions_count     = 0;
     coord_t perimeter_spacing = 0.f;
-    for (const PrintObject *object : layer.object()->print()->objects()) {
-        assert(object->get_layer_at_printz(layer.unscaled_print_z(), EPSILON * 4) ==
-               object->get_layer_at_printz(layer.scaled_print_z()));
-        if (const Layer *l = object->get_layer_at_printz(layer.scaled_print_z()); l) {
-            for (const LayerRegion *layer_region : l->regions()) {
-                if (layer_region != nullptr && !layer_region->slices().empty()) {
-                    perimeter_spacing += layer_region->flow(frPerimeter).scaled_spacing();
+    for (const PrintObject &object : layer.object()->print()->objects()) {
+        assert(object.get_layer_at_printz(layer.unscaled_print_z(), EPSILON * 4) ==
+               object.get_layer_at_printz(layer.scaled_print_z()));
+        if (const Layer *l = object.get_layer_at_printz(layer.scaled_print_z()); l) {
+            for (const LayerRegion &layer_region : l->regions()) {
+                if (!layer_region.slices().empty()) {
+                    perimeter_spacing += layer_region.flow(frPerimeter).scaled_spacing();
                     ++regions_count;
                 }
             }
@@ -738,9 +738,9 @@ static float get_external_perimeter_width(const Layer &layer)
 {
     size_t regions_count     = 0;
     float  perimeter_width   = 0.f;
-    for (const LayerRegion *layer_region : layer.regions())
-        if (layer_region != nullptr && ! layer_region->slices().empty()) {
-            perimeter_width += float(layer_region->flow(frExternalPerimeter).scaled_width());
+    for (const LayerRegion &layer_region : layer.regions())
+        if (! layer_region.slices().empty()) {
+            perimeter_width += float(layer_region.flow(frExternalPerimeter).scaled_width());
             ++regions_count;
         }
 
@@ -756,9 +756,9 @@ static float get_external_perimeter_overlap(const Layer &layer)
 {
     size_t regions_count     = 0;
     float  ext_perimeter_overlap   = 0.f;
-    for (const LayerRegion *layer_region : layer.regions())
-        if (layer_region != nullptr && ! layer_region->slices().empty()) {
-            ext_perimeter_overlap += layer_region->region().config().external_perimeter_overlap.value;
+    for (const LayerRegion &layer_region : layer.regions())
+        if (! layer_region.slices().empty()) {
+            ext_perimeter_overlap += layer_region.region().config().external_perimeter_overlap.value;
             ++regions_count;
         }
 
@@ -1740,10 +1740,10 @@ static size_t avoid_perimeters_inner(      AvoidCrossingPerimeters::Boundary &bo
         bool has_avoid_travel_island = false;
         double avoid_travel_island_weight = 0;
         // avoid_travel_island only works for full layers, so find at least one.
-        for (const LayerRegion *layer_region : layer.regions()) {
-            if (layer_region->region().config().avoid_travel_island.value) {
+        for (const LayerRegion &layer_region : layer.regions()) {
+            if (layer_region.region().config().avoid_travel_island.value) {
                 has_avoid_travel_island = true;
-                avoid_travel_island_weight = layer_region->region().config().avoid_travel_island_weight.value;
+                avoid_travel_island_weight = layer_region.region().config().avoid_travel_island_weight.value;
                 break;
             }
         }
@@ -2269,8 +2269,8 @@ static ExPolygons get_boundary(const Layer &layer, uint16_t extruder_id, std::ve
     ExPolygons  boundary;
 
     //get perimeter_boundary from islands
-    for (const LayerSliceIslandPtr &layer_island : layer.islands()) {
-        append(perimeter_boundary, layer_island->get_perimeter_slices());
+    for (const LayerSliceIsland &layer_island : layer.islands()) {
+        append(perimeter_boundary, layer_island.get_perimeter_slices());
     }
     perimeter_boundary = union_ex(perimeter_boundary);
 
@@ -2293,8 +2293,8 @@ static ExPolygons get_boundary(const Layer &layer, uint16_t extruder_id, std::ve
         if (layer_below) { // why?
             perimeter_boundary.clear();
             //get perimeter_boundary from islands
-            for (const LayerSliceIslandPtr &layer_island : layer_below->islands()) {
-                append(perimeter_boundary, layer_island->get_perimeter_slices());
+            for (const LayerSliceIsland &layer_island : layer_below->islands()) {
+                append(perimeter_boundary, layer_island.get_perimeter_slices());
             }
             perimeter_boundary = union_ex(perimeter_boundary);
             auto old_2_new_expolygons_supp = inner_offset(perimeter_boundary, coordf_t(1.5 * perimeter_spacing));
@@ -2308,21 +2308,21 @@ static ExPolygons get_boundary(const Layer &layer, uint16_t extruder_id, std::ve
     }
     // Collect all top layers that will not be crossed.
     size_t      polygons_count    = 0;
-    for (const LayerRegion *layer_region : layer.regions())
-        if(layer_region->region().config().avoid_crossing_top)
-            for (const Surface &surface : layer_region->fill_surfaces())
+    for (const LayerRegion &layer_region : layer.regions())
+        if(layer_region.region().config().avoid_crossing_top)
+            for (const Surface &surface : layer_region.fill_surfaces())
                 if (surface.has_pos_top()) ++polygons_count;
 
     if (polygons_count > 0) {
         ExPolygons top_layer_polygons;
         top_layer_polygons.reserve(polygons_count);
-        for (const LayerRegion *layer_region : layer.regions()) {
-            if (layer_region->region().config().avoid_crossing_top) {
-                for (const Surface &surface : layer_region->fill_surfaces()) {
+        for (const LayerRegion &layer_region : layer.regions()) {
+            if (layer_region.region().config().avoid_crossing_top) {
+                for (const Surface &surface : layer_region.fill_surfaces()) {
                     if (surface.has_pos_top()) {
                         ExPolygons offseted_top = offset_ex(surface.expolygon, coordf_t(-perimeter_spacing / 2));
                         // still get a perimeter width to travel (unless no perimeters or post-process ironing)
-                        if (layer_region->region().config().perimeters > 0 && !layer_region->region().config().ironing) {
+                        if (layer_region.region().config().perimeters > 0 && !layer_region.region().config().ironing) {
                             append(boundary,
                                    diff_ex(offset_ex(surface.expolygon, coordf_t(perimeter_spacing / 4)), offseted_top));
                         }
@@ -2340,17 +2340,17 @@ static ExPolygons get_boundary(const Layer &layer, uint16_t extruder_id, std::ve
 
     // multiple extruders?
     // clip by region
-    const LayerRegionPtrs &all_regions = layer.regions();
+    LayerRegionCRefs all_regions = layer.regions();
     bool multiple_extruders = false;
-    for (const LayerRegion *lregion : all_regions) {
+    for (const LayerRegion &lregion : all_regions) {
             multiple_extruders = multiple_extruders ||
-                lregion->region().config().perimeter_extruder.value !=
+                lregion.region().config().perimeter_extruder.value !=
                     extruder_id + 1;
             multiple_extruders = multiple_extruders ||
-                lregion->region().config().infill_extruder.value !=
+                lregion.region().config().infill_extruder.value !=
                     extruder_id + 1;
             multiple_extruders = multiple_extruders ||
-                lregion->region().config().solid_infill_extruder.value !=
+                lregion.region().config().solid_infill_extruder.value !=
                     extruder_id + 1;
             if (multiple_extruders) {
                 break;
@@ -2358,31 +2358,31 @@ static ExPolygons get_boundary(const Layer &layer, uint16_t extruder_id, std::ve
     }
     if (multiple_extruders) {
         ExPolygons clip;
-        for (const LayerRegion *lregion : all_regions) {
-            bool same_extruders = lregion->region().config().perimeter_extruder.value ==
-                    lregion->region().config().infill_extruder.value &&
-                lregion->region().config().infill_extruder.value ==
-                    lregion->region().config().solid_infill_extruder.value;
+        for (const LayerRegion &lregion : all_regions) {
+            bool same_extruders = lregion.region().config().perimeter_extruder.value ==
+                    lregion.region().config().infill_extruder.value &&
+                lregion.region().config().infill_extruder.value ==
+                    lregion.region().config().solid_infill_extruder.value;
 
             if (same_extruders) {
-                if (lregion->region().config().perimeter_extruder.value ==
+                if (lregion.region().config().perimeter_extruder.value ==
                     extruder_id + 1) {
-                    clip = union_ex(clip, lregion->get_raw_slices());
+                    clip = union_ex(clip, lregion.get_raw_slices());
                 }
             } else {
-                if (lregion->region().config().infill_extruder.value !=
-                    lregion->region().config().solid_infill_extruder.value) {
+                if (lregion.region().config().infill_extruder.value !=
+                    lregion.region().config().solid_infill_extruder.value) {
                     BOOST_LOG_TRIVIAL(warning) << "";
                 }
-                if (lregion->region().config().perimeter_extruder.value ==
+                if (lregion.region().config().perimeter_extruder.value ==
                     extruder_id + 1) {
-                    assert(lregion->region().config().infill_extruder.value !=
+                    assert(lregion.region().config().infill_extruder.value !=
                             extruder_id + 1);
-                    clip = union_ex(clip, diff_ex(lregion->get_raw_slices(), lregion->fill_expolygons()));
+                    clip = union_ex(clip, diff_ex(lregion.get_raw_slices(), lregion.fill_expolygons()));
                 } else {
-                    assert(lregion->region().config().infill_extruder.value ==
+                    assert(lregion.region().config().infill_extruder.value ==
                             extruder_id + 1);
-                    clip = union_ex(clip, lregion->fill_expolygons());
+                    clip = union_ex(clip, lregion.fill_expolygons());
                 }
             }
         }
@@ -2403,18 +2403,18 @@ static Polygons get_boundary_external(const Layer &layer)
     ExPolygons  supports_boundary;
 #endif
     // Collect all holes for all printed objects and their instances, which will be printed at the same time as passed "layer".
-    for (const PrintObject *object : layer.object()->print()->objects()) {
+    for (const PrintObject &object : layer.object()->print()->objects()) {
         Polygons   holes_per_obj;
 #ifdef INCLUDE_SUPPORTS_IN_BOUNDARY
         ExPolygons supports_per_obj;
 #endif
-        assert(object->get_layer_at_printz(layer.unscaled_print_z(), EPSILON * 4) == object->get_layer_at_printz(layer.scaled_print_z()));
-        if (const Layer *l = object->get_layer_at_printz(layer.scaled_print_z()); l)
+        assert(object.get_layer_at_printz(layer.unscaled_print_z(), EPSILON * 4) == object.get_layer_at_printz(layer.scaled_print_z()));
+        if (const Layer *l = object.get_layer_at_printz(layer.scaled_print_z()); l)
             for (const ExPolygon &island : l->lslices())
                 append(holes_per_obj, island.holes);
         if (support_layer) {
             assert(layer.object()->get_first_layer_below_printz(layer.unscaled_print_z(), EPSILON*4) == layer.object()->get_first_layer_below_printz(layer.scaled_print_z() + SCALED_EPSILON));
-            auto *layer_below = object->get_first_layer_below_printz(layer.scaled_print_z() + SCALED_EPSILON);
+            auto *layer_below = object.get_first_layer_below_printz(layer.scaled_print_z() + SCALED_EPSILON);
             if (layer_below)
                 for (const ExPolygon &island : layer_below->lslices())
                     append(holes_per_obj, island.holes);
@@ -2427,7 +2427,7 @@ static Polygons get_boundary_external(const Layer &layer)
         // instead of expanded because union that makes CCW from CW isn't called anymore. So let's make it CCW.
         polygons_reverse(holes_per_obj);
 
-        for (const PrintInstance &instance : object->instances()) {
+        for (const PrintInstance &instance : object.instances()) {
             size_t boundary_idx = boundary.size();
             append(boundary, holes_per_obj);
             for (; boundary_idx < boundary.size(); ++boundary_idx)
@@ -2643,8 +2643,8 @@ void AvoidCrossingPerimeters::init_layer(const Layer &layer)
 
     float ext_perimeter_width = get_external_perimeter_width(layer);
     //get perimeter_boundary from island instead of layer.lslices()
-    for (const LayerSliceIslandPtr &layer_island : layer.islands()) {
-        append(m_lslices_offset, layer_island->get_perimeter_slices());
+    for (const LayerSliceIsland &layer_island : layer.islands()) {
+        append(m_lslices_offset, layer_island.get_perimeter_slices());
     }
     m_lslices_offset = offset_ex(m_lslices_offset, -ext_perimeter_width / 2);
 
@@ -2930,13 +2930,13 @@ static ExPolygons get_boundary(const Layer &layer)
     const coord_t perimeter_spacing = get_perimeter_spacing(layer);
     const coord_t perimeter_offset  = perimeter_spacing / 2;
     size_t      polygons_count    = 0;
-    for (const LayerRegion *layer_region : layer.regions())
-        polygons_count += layer_region->slices.surfaces.size();
+    for (const LayerRegion &layer_region : layer.regions())
+        polygons_count += layer_region.slices.surfaces.size();
 
     ExPolygons boundary;
     boundary.reserve(polygons_count);
-    for (const LayerRegion *layer_region : layer.regions())
-        for (const Surface &surface : layer_region->slices.surfaces)
+    for (const LayerRegion &layer_region : layer.regions())
+        for (const Surface &surface : layer_region.slices.surfaces)
             boundary.emplace_back(surface.expolygon);
 
     boundary                      = union_ex(boundary);
@@ -2967,15 +2967,15 @@ static ExPolygons get_boundary(const Layer &layer)
 
     // Collect all top layers that will not be crossed.
     polygons_count = 0;
-    for (const LayerRegion *layer_region : layer.regions())
-        for (const Surface &surface : layer_region->fill_surfaces.surfaces)
+    for (const LayerRegion &layer_region : layer.regions())
+        for (const Surface &surface : layer_region.fill_surfaces.surfaces)
             if (surface.is_top()) ++polygons_count;
 
     if (polygons_count > 0) {
         ExPolygons top_layer_polygons;
         top_layer_polygons.reserve(polygons_count);
-        for (const LayerRegion *layer_region : layer.regions())
-            for (const Surface &surface : layer_region->fill_surfaces.surfaces)
+        for (const LayerRegion &layer_region : layer.regions())
+            for (const Surface &surface : layer_region.fill_surfaces.surfaces)
                 if (surface.is_top()) top_layer_polygons.emplace_back(surface.expolygon);
 
         top_layer_polygons = union_ex(top_layer_polygons);
@@ -2992,17 +2992,17 @@ static ExPolygons get_boundary_external(const Layer &layer)
     const coord_t perimeter_offset  = perimeter_spacing / 2;
     ExPolygons  boundary;
     // Collect all polygons for all printed objects and their instances, which will be printed at the same time as passed "layer".
-    for (const PrintObject *object : layer.object()->print()->objects()) {
+    for (const PrintObject &object : layer.object()->print()->objects()) {
         ExPolygons polygons_per_obj;
         //FIXME with different layering, layers on other objects will not be found at this object's print_z.
         // Search an overlap of layers?
-        assert(object->get_layer_at_printz(layer.unscaled_print_z(), EPSILON * 4) == object->get_layer_at_printz(layer.scaled_print_z()));
-        if (const Layer* l = object->get_layer_at_printz(layer.scaled_print_z()); l)
-            for (const LayerRegion *layer_region : l->regions())
-                for (const Surface &surface : layer_region->slices.surfaces)
+        assert(object.get_layer_at_printz(layer.unscaled_print_z(), EPSILON * 4) == object.get_layer_at_printz(layer.scaled_print_z()));
+        if (const Layer* l = object.get_layer_at_printz(layer.scaled_print_z()); l)
+            for (const LayerRegion &layer_region : l->regions())
+                for (const Surface &surface : layer_region.slices.surfaces)
                     polygons_per_obj.emplace_back(surface.expolygon);
 
-        for (const PrintInstance &instance : object->instances()) {
+        for (const PrintInstance &instance : object.instances()) {
             size_t boundary_idx = boundary.size();
             boundary.insert(boundary.end(), polygons_per_obj.begin(), polygons_per_obj.end());
             for (; boundary_idx < boundary.size(); ++boundary_idx)

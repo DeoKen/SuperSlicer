@@ -178,8 +178,8 @@ bool same_island(const LayerSliceIsland &lhs,
     }
 
     for (size_t idx = 0; idx < lhs.regions_islands().size(); ++idx) {
-        if (!same_region_island(*lhs.regions_islands()[idx],
-                                *rhs.regions_islands()[idx],
+        if (!same_region_island(lhs.regions_island(idx),
+                                rhs.regions_island(idx),
                                 out_error,
                                 path + ".region_island[" + std::to_string(idx) + "]"))
             return false;
@@ -230,8 +230,8 @@ bool same_layer(const Layer &lhs, const Layer &rhs, std::string &out_error, cons
         return false;
     }
     for (size_t idx = 0; idx < lhs.region_count(); ++idx) {
-        if (!same_layer_region(*lhs.get_region(idx),
-                               *rhs.get_region(idx),
+        if (!same_layer_region(lhs.region(idx),
+                               rhs.region(idx),
                                out_error,
                                path + ".region[" + std::to_string(idx) + "]"))
             return false;
@@ -244,8 +244,8 @@ bool same_layer(const Layer &lhs, const Layer &rhs, std::string &out_error, cons
         return false;
     }
     for (size_t idx = 0; idx < lhs.islands().size(); ++idx) {
-        if (!same_island(*lhs.islands()[idx],
-                         *rhs.islands()[idx],
+        if (!same_island(lhs.islands()[idx],
+                         rhs.islands()[idx],
                          out_error,
                          path + ".island[" + std::to_string(idx) + "]"))
             return false;
@@ -272,7 +272,7 @@ bool same_object(const PrintObject &lhs, const PrintObject &rhs, std::string &ou
         return false;
     }
     for (size_t idx = 0; idx < lhs.layer_count(); ++idx) {
-        if (!same_layer(*lhs.get_layer(int(idx)), *rhs.get_layer(int(idx)), out_error, path + ".layer[" + std::to_string(idx) + "]"))
+        if (!same_layer(lhs.layer(idx), rhs.layer(idx), out_error, path + ".layer[" + std::to_string(idx) + "]"))
             return false;
     }
 
@@ -284,7 +284,7 @@ bool same_object(const PrintObject &lhs, const PrintObject &rhs, std::string &ou
         return false;
     }
     for (size_t idx = 0; idx < lhs.support_layer_count(); ++idx) {
-        if (!same_layer(*lhs.support_layers()[idx], *rhs.support_layers()[idx], out_error, path + ".support_layer[" + std::to_string(idx) + "]"))
+        if (!same_layer(lhs.support_layer(idx), rhs.support_layer(idx), out_error, path + ".support_layer[" + std::to_string(idx) + "]"))
             return false;
     }
 
@@ -319,8 +319,8 @@ bool DebugPrintProcessComparator::compare_tree(std::string &out_error) const
     }
 
     for (size_t idx = 0; idx < m_reference_print.objects().size(); ++idx) {
-        if (!same_object(*m_reference_print.objects()[idx],
-                         *m_candidate_print.objects()[idx],
+        if (!same_object(m_reference_print.objects()[idx],
+                         m_candidate_print.objects()[idx],
                          out_error,
                          "print.object[" + std::to_string(idx) + "]"))
             return false;

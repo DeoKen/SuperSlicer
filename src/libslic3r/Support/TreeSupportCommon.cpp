@@ -63,12 +63,12 @@ TreeSupportMeshGroupSettings::TreeSupportMeshGroupSettings(const PrintObject &pr
         this->support_top_distance      = 0;
         this->support_bottom_distance   = 0;
     } else if (config.support_material_contact_distance_type.value == zdFilament && print_object.layers().size() > 0 &&
-        print_object.layers().front()->regions().size() > 0) {
+        print_object.layers().front().region_count() > 0) {
         //get one region, with organic support there is only one layer height anyway
         assert(print_object.num_printing_regions() > 0);
-        const LayerRegion *lr = print_object.layers().front()->regions().front();
-        assert(is_approx(lr->layer()->unscaled_height(), layer_height_mm, EPSILON) || lr->layer()->id() == 0);
-        coord_t diff_lh_filamenth = Layer::scale_to_layer_coord(lr->bridging_height_avg_mm()) - this->layer_height;
+        const LayerRegion &lr = print_object.layers().front().regions().front();
+        assert(is_approx(lr.layer()->unscaled_height(), layer_height_mm, EPSILON) || lr.layer()->id() == 0);
+        coord_t diff_lh_filamenth = Layer::scale_to_layer_coord(lr.bridging_height_avg_mm()) - this->layer_height;
         this->support_top_distance += diff_lh_filamenth;
         this->support_bottom_distance += diff_lh_filamenth;
     }

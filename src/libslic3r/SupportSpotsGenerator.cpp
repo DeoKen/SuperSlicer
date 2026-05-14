@@ -226,14 +226,14 @@ SliceConnection estimate_slice_connection(size_t slice_idx, const Layer *layer)
 {
     SliceConnection connection;
 
-    const LayerSliceIslandPtr &layer_island_ptr  = layer->islands()[slice_idx];
-    Polygons           slice_polys  = to_polygons(layer_island_ptr->get_slice()/*layer->lslices()[slice_idx]*/);
-    BoundingBox slice_bb = layer_island_ptr->get_bounding_box(); //get_extents(slice_polys);
+    const LayerSliceIsland &layer_island_ptr  = layer->islands()[slice_idx];
+    Polygons           slice_polys  = to_polygons(layer_island_ptr.get_slice()/*layer->lslices()[slice_idx]*/);
+    BoundingBox slice_bb = layer_island_ptr.get_bounding_box(); //get_extents(slice_polys);
     const Layer        *lower_layer = layer->lower_layer;
 
     //std::unordered_set<size_t> linked_slices_below;
     std::unordered_set<const LayerSliceIsland*> linked_slices_below;
-    for (const auto &link : layer_island_ptr->overlaps_below) { linked_slices_below.insert(link.to); }
+    for (const auto &link : layer_island_ptr.overlaps_below) { linked_slices_below.insert(link.to); }
     if (linked_slices_below.empty())
         return connection;
 
@@ -270,15 +270,15 @@ PrecomputedSliceConnections precompute_slices_connections(const PrintObject *po)
     PrecomputedSliceConnections result{};
     for (size_t lidx = 0; lidx < po->layer_count(); lidx++) {
         result.emplace_back(std::vector<SliceConnection>{});
-        for (size_t slice_idx = 0; slice_idx < po->get_layer(lidx)->islands().size(); slice_idx++) {
+        for (size_t slice_idx = 0; slice_idx < po->layer(lidx).islands().size(); slice_idx++) {
             result[lidx].push_back(SliceConnection{});
         }
     }
 
     Slic3r::parallel_for(size_t(0), po->layers().size(), [po, &result](size_t lidx) {
-            const Layer *l = po->get_layer(lidx);
-            Slic3r::parallel_for(size_t(0), l->islands().size(), [lidx, l, &result](size_t slice_idx) {
-                    result[lidx][slice_idx] = estimate_slice_connection(slice_idx, l);
+            const Layer &l = po->layer(lidx);
+            Slic3r::parallel_for(size_t(0), l.islands().size(), [lidx, &l, &result](size_t slice_idx) {
+                    result[lidx][slice_idx] = estimate_slice_connection(slice_idx, &l);
                 }
             );
         }
@@ -803,13 +803,13 @@ std::vector<const ExtrusionEntityCollection*> gather_extrusions(const LayerSlice
     // TODO reserve might be good, benchmark
     std::vector<const ExtrusionEntityCollection*> result;
 
-    for (const LayerRegionIslandPtr &region_island_ptr : slice_island.regions_islands()) {
-        if(region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS))
-            result.push_back(&region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS));
-        if(region_island_ptr->has_extrusion(LayerRegionIsland::INFILLS))
-            result.push_back(&region_island_ptr->extrusion(LayerRegionIsland::INFILLS));
-        if(region_island_ptr->has_extrusion(LayerRegionIsland::GAP_FILLS))
-            result.push_back(&region_island_ptr->extrusion(LayerRegionIsland::GAP_FILLS));
+    for (const LayerRegionIsland &region_island_ptr : slice_island.regions_islands()) {
+        if(region_island_ptr.has_extrusion(LayerRegionIsland::PERIMETERS))
+            result.push_back(&region_island_ptr.extrusion(LayerRegionIsland::PERIMETERS));
+        if(region_island_ptr.has_extrusion(LayerRegionIsland::INFILLS))
+            result.push_back(&region_island_ptr.extrusion(LayerRegionIsland::INFILLS));
+        if(region_island_ptr.has_extrusion(LayerRegionIsland::GAP_FILLS))
+            result.push_back(&region_island_ptr.extrusion(LayerRegionIsland::GAP_FILLS));
     }
     return result;
 }
@@ -979,20 +979,20 @@ std::vector<EnitityToCheck> gather_entities_to_check(const Layer* layer) {
 
     std::vector<EnitityToCheck> entities_to_check;
     for (size_t slice_idx = 0; slice_idx < layer->islands().size(); ++slice_idx) {
-        const LayerSliceIslandPtr &layer_island_ptr = layer->islands()[slice_idx];
-        for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-            if (region_island_ptr->has_extrusion(LayerRegionIsland::INFILLS)) {
+        const LayerSliceIsland &layer_island_ptr = layer->islands()[slice_idx];
+        for (const LayerRegionIsland &region_island_ptr : layer_island_ptr.regions_islands()) {
+            if (region_island_ptr.has_extrusion(LayerRegionIsland::INFILLS)) {
                 for (const ExtrusionEntity *e :
-                     get_flat_entities(&region_island_ptr->extrusion(LayerRegionIsland::INFILLS))) {
+                     get_flat_entities(&region_island_ptr.extrusion(LayerRegionIsland::INFILLS))) {
                     if (e->role() == ExtrusionRole::BridgeInfill) {
-                        entities_to_check.push_back({e, region_island_ptr->regions(), slice_idx});
+                        entities_to_check.push_back({e, region_island_ptr.regions(), slice_idx});
                     }
                 }
             }
-            if (region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS)) {
+            if (region_island_ptr.has_extrusion(LayerRegionIsland::PERIMETERS)) {
                 for (const ExtrusionEntity *e :
-                     get_flat_entities(&region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS))) {
-                    entities_to_check.push_back({e, region_island_ptr->regions(), slice_idx});
+                     get_flat_entities(&region_island_ptr.extrusion(LayerRegionIsland::PERIMETERS))) {
+                    entities_to_check.push_back({e, region_island_ptr.regions(), slice_idx});
                 }
             }
         }
@@ -1071,8 +1071,8 @@ SliceMappings update_active_object_parts(const Layer                        *lay
     SliceMappings new_slice_mappings;
 
     for (size_t slice_idx = 0; slice_idx < layer->islands().size(); ++slice_idx) {
-        const LayerSliceIslandPtr &layer_island_ptr = layer->islands()[slice_idx];
-        const std::vector<const ExtrusionEntityCollection*> extrusion_collections{gather_extrusions(*layer_island_ptr, layer)};
+        const LayerSliceIsland &layer_island_ptr = layer->islands()[slice_idx];
+        const std::vector<const ExtrusionEntityCollection*> extrusion_collections{gather_extrusions(layer_island_ptr, layer)};
         const bool connected_to_bed = int(layer->id()) == params.raft_layers_count;
 
         const std::optional<Polygons> brim{
@@ -1092,7 +1092,7 @@ SliceMappings update_active_object_parts(const Layer                        *lay
 
 #ifdef DETAILED_DEBUG_LOGS
         std::cout << "SLICE IDX: " << slice_idx << ", ptr:" << uint64_t(layer_island_ptr.get()) << std::endl;
-        for (const auto &link : layer_island_ptr->overlaps_below) {
+        for (const auto &link : layer_island_ptr.overlaps_below) {
             std::cout << "connected to slice below: " << (uint64_t(link.to)) << "  by area : " << link.area << std::endl;
         }
         connection_to_below.print_info("CONNECTION TO BELOW");
@@ -1109,10 +1109,10 @@ SliceMappings update_active_object_parts(const Layer                        *lay
             {
                 std::unordered_set<size_t> parts_ids;
                 assert(layer->lower_layer);
-                for (const auto &link : layer_island_ptr->overlaps_below) {
+                for (const auto &link : layer_island_ptr.overlaps_below) {
                     size_t below_idx = size_t(-1);
                     for (size_t i = 0; i < layer->lower_layer->islands().size(); ++i) {
-                        if (layer->lower_layer->islands()[i].get() == link.to) {
+                        if (&layer->lower_layer->islands()[i] == link.to) {
                             below_idx = i;
                             break;
                         }
@@ -1211,23 +1211,23 @@ std::tuple<SupportPoints, PartialObjects> check_stability(const PrintObject     
 
     for (size_t layer_idx = 0; layer_idx < po->layer_count(); ++layer_idx) {
         cancel_func();
-        const Layer *layer                 = po->get_layer(layer_idx);
-        float        bottom_z              = (float)unscaled(layer->scaled_bottom_z());
+        const Layer &layer                 = po->layer(layer_idx);
+        float        bottom_z              = (float)unscaled(layer.scaled_bottom_z());
 
-        slice_mappings = update_active_object_parts(layer, params, precomputed_slices_connections[layer_idx], slice_mappings, active_object_parts, partial_objects);
+        slice_mappings = update_active_object_parts(&layer, params, precomputed_slices_connections[layer_idx], slice_mappings, active_object_parts, partial_objects);
 
-        std::optional<Linesf> prev_layer_boundary = layer->lower_layer != nullptr ?
-                                                        std::optional{to_unscaled_linesf(layer->lower_layer->lslices())} :
+        std::optional<Linesf> prev_layer_boundary = layer.lower_layer != nullptr ?
+                                                        std::optional{to_unscaled_linesf(layer.lower_layer->lslices())} :
                                                         std::nullopt;
 
         LocalSupports local_supports{
-            compute_local_supports(gather_entities_to_check(layer), prev_layer_boundary, prev_layer_ext_perim_lines, layer->islands().size(), params)};
+            compute_local_supports(gather_entities_to_check(&layer), prev_layer_boundary, prev_layer_ext_perim_lines, layer.islands().size(), params)};
 
         std::vector<ExtrusionLine> current_layer_ext_perims_lines{};
         current_layer_ext_perims_lines.reserve(prev_layer_ext_perim_lines.get_lines().size());
         // All object parts updated, and for each slice we have coresponding weakest connection.
         // We can now check each slice and its corresponding weakest connection and object part for stability.
-        for (size_t slice_idx = 0; slice_idx < layer->islands().size(); ++slice_idx) {
+        for (size_t slice_idx = 0; slice_idx < layer.islands().size(); ++slice_idx) {
             ObjectPart                &part         = active_object_parts.access(slice_mappings.index_to_object_part_mapping[slice_idx]);
             SliceConnection           &weakest_conn = slice_mappings.index_to_weakest_connection[slice_idx];
 
@@ -1312,7 +1312,7 @@ std::tuple<SupportPoints, PartialObjects> full_search(const PrintObject *po, con
     return results;
 }
 
-void estimate_supports_malformations(SupportLayerPtrs &layers, float flow_width, const Params &params)
+void estimate_supports_malformations(SupportLayerUPtrs &layers, float flow_width, const Params &params)
 {
 #ifdef DEBUG_FILES
     FILE *debug_file = boost::nowide::fopen(debug_out_path("supports_malformations.obj").c_str(), "w");
@@ -1321,17 +1321,17 @@ void estimate_supports_malformations(SupportLayerPtrs &layers, float flow_width,
 
     AABBTreeLines::LinesDistancer<ExtrusionLine> prev_layer_lines{};
 
-    for (SupportLayer *l : layers) {
+    for (SupportLayerUPtr &l : layers) {
         l->curled_lines.clear();
         std::vector<ExtrusionLine> current_layer_lines;
         ExtrusionEntitiesPtr coll;
-        for (const LayerSliceIslandPtr &island : l->islands()) {
-            for (const LayerRegionIslandPtr &region_island : island->regions_islands()) {
-                if (region_island->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                    append(coll, region_island->extrusion(LayerRegionIsland::SUPPORT).entities());
+        for (const LayerSliceIsland &island : l->islands()) {
+            for (const LayerRegionIsland &region_island : island.regions_islands()) {
+                if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                    append(coll, region_island.extrusion(LayerRegionIsland::SUPPORT).entities());
                 }
-                if (region_island->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                    append(coll, region_island->extrusion(LayerRegionIsland::SUPPORT_INTERFACE).entities());
+                if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                    append(coll, region_island.extrusion(LayerRegionIsland::SUPPORT_INTERFACE).entities());
                 }
             }
         }
@@ -1403,7 +1403,7 @@ void estimate_supports_malformations(SupportLayerPtrs &layers, float flow_width,
 #endif
 }
 
-void estimate_malformations(LayerPtrs &layers, const Params &params)
+void estimate_malformations(LayerUPtrs &layers, const Params &params)
 {
 #ifdef DEBUG_FILES
     FILE *debug_file = boost::nowide::fopen(debug_out_path("object_malformations.obj").c_str(), "w");
@@ -1412,24 +1412,24 @@ void estimate_malformations(LayerPtrs &layers, const Params &params)
 
     LD prev_layer_lines{};
 
-    for (Layer *l : layers) {
+    for (LayerUPtr &l : layers) {
         l->curled_lines.clear();
         std::vector<Linef> boundary_lines = l->lower_layer != nullptr ? to_unscaled_linesf(l->lower_layer->lslices()) : std::vector<Linef>();
         AABBTreeLines::LinesDistancer<Linef> prev_layer_boundary{std::move(boundary_lines)};
         std::vector<ExtrusionLine>           current_layer_lines;
-        for (const LayerSliceIslandPtr &layer_island_ptr : l->islands()) {
-          for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-            if(!region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS))
+        for (const LayerSliceIsland &layer_island_ptr : l->islands()) {
+          for (const LayerRegionIsland &region_island_ptr : layer_island_ptr.regions_islands()) {
+            if(!region_island_ptr.has_extrusion(LayerRegionIsland::PERIMETERS))
                 continue;
-            const LayerRegion *one_layer_region_for_flow = *region_island_ptr->regions().begin();
-            ExtrusionEntityCollection collection = region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS).flatten(false);
+            const LayerRegion *one_layer_region_for_flow = *region_island_ptr.regions().begin();
+            ExtrusionEntityCollection collection = region_island_ptr.extrusion(LayerRegionIsland::PERIMETERS).flatten(false);
             for (const ExtrusionEntity *extrusion : collection.entities()) {
                 if (!extrusion->role().is_external_perimeter())
                     continue;
 
                 Points extrusion_pts;
                 extrusion->collect_points(extrusion_pts);
-                float flow_width       = get_flow_width(region_island_ptr->regions(), extrusion->role());
+                float flow_width       = get_flow_width(region_island_ptr.regions(), extrusion->role());
                 auto  annotated_points = ExtrusionProcessor::estimate_points_properties<true, true, false, false>(extrusion_pts,
                                                                                                                  prev_layer_lines,
                                                                                                                  flow_width,

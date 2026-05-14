@@ -276,14 +276,14 @@ layer_region_handle *layer_get_region_mutable(layer_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_layer(me)->region_count())
         return nullptr;
-    return reinterpret_cast<layer_region_handle*>(Slic3r::to_layer(me)->get_region(idx));
+    return reinterpret_cast<layer_region_handle*>(&Slic3r::to_layer(me)->region(idx));
 }
 
 const layer_region_handle *layer_get_region(const layer_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_layer(me)->region_count())
         return nullptr;
-    return reinterpret_cast<const layer_region_handle*>(Slic3r::to_layer(me)->get_region(idx));
+    return reinterpret_cast<const layer_region_handle*>(&Slic3r::to_layer(me)->region(idx));
 }
 
 uint32_t layer_count_island(const layer_handle *me)
@@ -295,14 +295,14 @@ layer_island_handle *layer_get_island_mutable(layer_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_layer(me)->islands().size())
         return nullptr;
-    return reinterpret_cast<layer_island_handle*>(&Slic3r::to_layer(me)->get_mutable_island(idx));
+    return reinterpret_cast<layer_island_handle*>(&Slic3r::to_layer(me)->island(idx));
 }
 
 const layer_island_handle *layer_get_island(const layer_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_layer(me)->islands().size())
         return nullptr;
-    return reinterpret_cast<const layer_island_handle*>(Slic3r::to_layer(me)->islands()[idx].get());
+    return reinterpret_cast<const layer_island_handle*>(&Slic3r::to_layer(me)->island(idx));
 }
 
 void layer_region_set_tag(layer_region_handle *me, const char *tag, double value)
@@ -475,14 +475,14 @@ layer_region_island_handle *layer_island_get_region_island_mutable(layer_island_
 {
     if (me == nullptr || idx >= Slic3r::to_layer_island(me)->regions_islands().size())
         return nullptr;
-    return reinterpret_cast<layer_region_island_handle*>(Slic3r::to_layer_island(me)->regions_islands()[idx].get());
+    return reinterpret_cast<layer_region_island_handle*>(&Slic3r::to_layer_island(me)->regions_island(idx));
 }
 
 const layer_region_island_handle *layer_island_get_region_island(const layer_island_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_layer_island(me)->regions_islands().size())
         return nullptr;
-    return reinterpret_cast<const layer_region_island_handle*>(Slic3r::to_layer_island(me)->regions_islands()[idx].get());
+    return reinterpret_cast<const layer_region_island_handle*>(&Slic3r::to_layer_island(me)->regions_island(idx));
 }
 
 const layer_handle *layer_island_get_layer(const layer_island_handle *me)
@@ -597,14 +597,14 @@ layer_handle *object_get_layer_mutable(object_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_object(me)->layer_count())
         return nullptr;
-    return reinterpret_cast<layer_handle*>(Slic3r::to_object(me)->get_layer(static_cast<int>(idx)));
+    return reinterpret_cast<layer_handle*>(&Slic3r::to_object(me)->layer(static_cast<size_t>(idx)));
 }
 
 const layer_handle *object_get_layer(const object_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_object(me)->layer_count())
         return nullptr;
-    return reinterpret_cast<const layer_handle*>(Slic3r::to_object(me)->get_layer(static_cast<int>(idx)));
+    return reinterpret_cast<const layer_handle*>(&Slic3r::to_object(me)->layer(static_cast<size_t>(idx)));
 }
 
 uint32_t object_count_region(const object_handle *me)
@@ -645,14 +645,14 @@ object_handle *print_get_object_mutable(print_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_print(me)->objects().size())
         return nullptr;
-    return reinterpret_cast<object_handle*>(Slic3r::to_print(me)->get_object(idx));
+    return reinterpret_cast<object_handle*>(&Slic3r::to_print(me)->object(idx));
 }
 
 const object_handle *print_get_object(const print_handle *me, uint32_t idx)
 {
     if (me == nullptr || idx >= Slic3r::to_print(me)->objects().size())
         return nullptr;
-    return reinterpret_cast<const object_handle*>(Slic3r::to_print(me)->get_object(idx));
+    return reinterpret_cast<const object_handle*>(&Slic3r::to_print(me)->object(idx));
 }
 
 const_strings_t config_keys(const config_handle *me)

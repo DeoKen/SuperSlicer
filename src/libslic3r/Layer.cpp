@@ -50,7 +50,7 @@ void ApiInternal::LayerAccess::recompute_slices_from_islands(Layer &layer)
 {
     assert(!layer.m_islands_locked);
     layer.m_lslices.clear();
-    for (LayerSliceIslandPtr &island : layer.m_islands) {
+    for (LayerSliceIslandUPtr &island : layer.m_islands) {
         layer.m_lslices.push_back(island->get_slice());
     }
     assert(layer.lslices().size() == layer.m_islands.size());
@@ -82,7 +82,7 @@ void ApiInternal::LayerAccess::recompute_slices_from_layer_regions(Layer &layer)
         slices = layer.m_regions.front()->get_raw_slices();
     } else {
         ExPolygons slices_exp;
-        for (LayerRegion *layerm : layer.m_regions) {
+        for (LayerRegionUPtr &layerm : layer.m_regions) {
             for (const ExPolygon &expolygon : layerm->get_raw_slices())
                 expolygon.assert_valid();
             append(slices_exp, layerm->get_raw_slices());
@@ -140,14 +140,14 @@ void LayerSliceIsland::fill_regions(Layer &layer) {
     // not sure if the offset is really needed
     BoundingBox bb_bigger = m_bbox;
     bb_bigger.offset(SCALED_EPSILON * 10);
-    for (const LayerRegion *lr : layer.regions()) {
+    for (const LayerRegion &lr : layer.regions()) {
         // intersection
-        for (const ExPolygon &region_expoly : lr->get_raw_slices()) {
+        for (const ExPolygon &region_expoly : lr.get_raw_slices()) {
             BoundingBox bb_region = get_extents(region_expoly);
             if (bb_bigger.overlap(bb_region)) {
                 ExPolygons intersections = intersection_ex(m_slice, region_expoly);
                 if (!intersections.empty()) {
-                    this->m_regions.insert(lr);
+                    this->m_regions.insert(&lr);
                 }
             }
         }
@@ -192,8 +192,8 @@ bool LayerSliceIsland::is_expolygons_from_region(const ExPolygon &expolygon) con
 }
 
 bool LayerSliceIsland::has_extrusions() const {
-    for (const LayerRegionIslandPtr &region_island_ptr : this->regions_islands()) {
-        if (region_island_ptr->has_extrusions()) {
+    for (const LayerRegionIsland &region_island : this->regions_islands()) {
+        if (region_island.has_extrusions()) {
             return true;
         }
     }
@@ -248,7 +248,7 @@ void LayerRegionIsland::simplify_extrusion_entity(const Layer& layer)
     }
 }
 
-LayerRegionIsland &LayerSliceIsland::add_new_region_island(const LayerRegionSetConstPtrs &region_set,
+LayerRegionIsland &LayerSliceIsland::add_region_island(const LayerRegionSetConstPtrs &region_set,
                                                             uint16_t extruder_id) {
     // these region are all inside this islands
     for (auto regionptr : region_set) {
@@ -262,14 +262,14 @@ LayerRegionIsland &LayerSliceIsland::add_new_region_island(const LayerRegionSetC
 LayerRegionIsland &LayerSliceIsland::get_or_add_region_island(const LayerRegionSetConstPtrs &region_set,
                                                             uint16_t extruder_id) {
     LayerRegionIsland *region_island = nullptr;
-    for (LayerRegionIslandPtr &ri : this->regions_islands()) {
-        if (ri->regions() == region_set && ri->extruder_id() == extruder_id) {
-            region_island = ri.get();
+    for (LayerRegionIsland &ri : this->regions_islands()) {
+        if (ri.regions() == region_set && ri.extruder_id() == extruder_id) {
+            region_island = &ri;
             break;
         }
     }
     if (region_island == nullptr) {
-        region_island = &this->add_new_region_island(region_set, extruder_id);
+        region_island = &this->add_region_island(region_set, extruder_id);
     }
     return *region_island;
 }
@@ -286,8 +286,6 @@ bool LayerRegionIsland::has_extrusions() const {
 Layer::~Layer()
 {
     this->lower_layer = this->upper_layer = nullptr;
-    for (LayerRegion *region : m_regions)
-        delete region;
     m_regions.clear();
 }
 
@@ -307,14 +305,14 @@ void Layer::add_regions_to_islands() {
     //  note: regions taht don't intersect with this layer are kept (even if empty) to keep region-index ordering.
 
     // fill LayerRegion's m_slices
-    for (LayerRegion *lr : m_regions) {
+    for (LayerRegionUPtr &lr : m_regions) {
 #if _DEBUG
         lr->surfaces_filled = true;
 #endif
     }
     // create RegionIsland 
     assert(!m_islands.empty());
-    for (LayerSliceIslandPtr &li_ptr : m_islands) {
+    for (LayerSliceIslandUPtr &li_ptr : m_islands) {
         li_ptr->fill_regions(*this);
     }
 
@@ -324,7 +322,7 @@ void Layer::add_regions_to_islands() {
 // Test whether whether there are any slices assigned to this layer.
 bool Layer::empty() const
 {
-    for (const LayerRegion *layerm : m_regions)
+    for (const LayerRegionUPtr &layerm : m_regions)
         if (layerm != nullptr && ! layerm->has_slices())
             // Non empty layer.
             return false;
@@ -332,8 +330,8 @@ bool Layer::empty() const
 }
 
 bool Layer::has_extrusions() const {
-    for (const LayerSliceIslandPtr &layer_island_ptr : this->islands()) {
-        if (layer_island_ptr->has_extrusions()) {
+    for (const LayerSliceIsland &layer_island : this->islands()) {
+        if (layer_island.has_extrusions()) {
             return true;
         }
     }
@@ -350,7 +348,7 @@ void Layer::make_slices()
             slices = to_expolygons(m_regions.front()->slices().surfaces);
         } else {
             ExPolygons slices_exp;
-            for (LayerRegion *layerm : m_regions) {
+            for (LayerRegionUPtr &layerm : m_regions) {
                 for (const Surface &srf : layerm->slices().surfaces) srf.expolygon.assert_valid();
                 append(slices_exp, to_expolygons(layerm->slices().surfaces));
             }
@@ -575,15 +573,15 @@ static void connect_layer_slices(
                     for (int icontour = 0; icontour < polynode.ChildCount(); ++ icontour)
                         area -= ClipperLib_Z::Area(polynode.Childs[icontour]->Contour);
                     // Store the links and area into the contours.
-                    std::vector<LayerSliceIsland::Link> &links_below = m_below.get_mutable_island(i).overlaps_above;
-                    std::vector<LayerSliceIsland::Link> &links_above = m_above.get_mutable_island(j).overlaps_below;
+                    std::vector<LayerSliceIsland::Link> &links_below = m_below.island(i).overlaps_above;
+                    std::vector<LayerSliceIsland::Link> &links_above = m_above.island(j).overlaps_below;
                     auto it_below = std::find_if(links_below.begin(), links_below.end(),
-                        [&] (const LayerSliceIsland::Link& lsi) { return m_above.islands()[j].get() == lsi.to; });
+                        [&] (const LayerSliceIsland::Link& lsi) { return &m_above.islands()[j] == lsi.to; });
                     if (it_below != links_below.end()/* && it_below->slice_idx == j*/) {
                         it_below->area += area;
                     } else {
                         auto it_above = std::find_if(links_above.begin(), links_above.end(),
-                            [&] (const LayerSliceIsland::Link& lsi) { return m_below.islands()[i].get() == lsi.to; });
+                            [&] (const LayerSliceIsland::Link& lsi) { return &m_below.islands()[i] == lsi.to; });
                         if (it_above != links_above.end()/* && it_above->slice_idx == i*/) {
                             it_above->area += area;
                         } else {
@@ -597,9 +595,9 @@ static void connect_layer_slices(
                                 take_below = shift_below < shift_above;
                             }
                             if (take_below)
-                                links_below.insert(it_below, { &m_above.get_mutable_island(j), float(area) });
+                                links_below.insert(it_below, { &m_above.island(j), float(area) });
                             else
-                                links_above.insert(it_above, { &m_below.get_mutable_island(i), float(area) });
+                                links_above.insert(it_above, { &m_below.island(i), float(area) });
                         }
                     }
                 }
@@ -751,7 +749,7 @@ static void connect_layer_slices(
                 // The contour below is likely completely inside another contour above. Look-it up in the island above.
                 Point pt(polynode.Contour.front().x(), polynode.Contour.front().y());
                 for (int i = int(other_layer.islands().size()) - 1; i >= 0; -- i)
-                    if (other_layer.islands()[i]->get_bounding_box().contains(pt) && other_layer.lslices()[i].contains(pt))
+                    if (other_layer.islands()[i].get_bounding_box().contains(pt) && other_layer.lslices()[i].contains(pt))
                         return i;
                 // The following shall not happen now as the source expolygons are being shrunk a bit before intersecting,
                 // thus each point of each intersection polygon should fit completely inside one of the original (unshrunk) expolygons.
@@ -772,7 +770,7 @@ static void connect_layer_slices(
             int32_t i_largest = -1;
             double  a_largest = 0;
             for (int i = int(other_layer.islands().size()) - 1; i >= 0; -- i)
-                if (contour_aabb.overlap(other_layer.islands()[i]->get_bounding_box()))
+                if (contour_aabb.overlap(other_layer.islands()[i].get_bounding_box()))
                     // it is potentially slow, but should be executed rarely
                     if (Polygons overlap = intersection(contour_poly, other_layer.lslices()[i]); ! overlap.empty()) {
                         if (other_has_duplicates) {
@@ -812,14 +810,14 @@ static void connect_layer_slices(
 #ifndef NDEBUG
     // Verify that only one directional link is stored: either from bottom slice up or from upper slice down.
     for (int32_t islice = 0; islice < below.islands().size(); ++ islice) {
-        std::vector<LayerSliceIsland::Link> &links1 = below.get_mutable_island(islice).overlaps_above;
+        std::vector<LayerSliceIsland::Link> &links1 = below.island(islice).overlaps_above;
         for (LayerSliceIsland::Link &link1 : links1) {
             std::vector<LayerSliceIsland::Link> &links2 = link1.to->overlaps_below;
             assert(! std::binary_search(links2.begin(), links2.end(), link1, [](auto &l, auto &r){ return uint64_t(l.to) < uint64_t(r.to); }));
         }
     }
     for (int32_t islice = 0; islice < above.islands().size(); ++ islice) {
-        std::vector<LayerSliceIsland::Link> &links1 = above.get_mutable_island(islice).overlaps_below;
+        std::vector<LayerSliceIsland::Link> &links1 = above.island(islice).overlaps_below;
         for (LayerSliceIsland::Link &link1 : links1) {
             std::vector<LayerSliceIsland::Link> &links2 = link1.to->overlaps_above;
             assert(! std::binary_search(links2.begin(), links2.end(), link1, [](auto &l, auto &r){ return uint64_t(l.to) < uint64_t(r.to); }));
@@ -829,18 +827,18 @@ static void connect_layer_slices(
 
     // Scatter the links, but don't sort them yet.
     for (int32_t islice = 0; islice < int32_t(below.islands().size()); ++ islice)
-        for (LayerSliceIsland::Link &link : below.get_mutable_island(islice).overlaps_above)
-            link.to->overlaps_below.push_back({ &below.get_mutable_island(islice), link.area });
+        for (LayerSliceIsland::Link &link : below.island(islice).overlaps_above)
+            link.to->overlaps_below.push_back({ &below.island(islice), link.area });
     for (int32_t islice = 0; islice < int32_t(above.islands().size()); ++ islice)
-        for (LayerSliceIsland::Link &link : above.get_mutable_island(islice).overlaps_below)
-            link.to->overlaps_above.push_back({ &above.get_mutable_island(islice), link.area });
+        for (LayerSliceIsland::Link &link : above.island(islice).overlaps_below)
+            link.to->overlaps_above.push_back({ &above.island(islice), link.area });
     // Sort the links.
     for (size_t i = 0; i < below.islands().size(); ++i) {
-        LayerSliceIsland &lslice = below.get_mutable_island(i);
+        LayerSliceIsland &lslice = below.island(i);
         std::sort(lslice.overlaps_above.begin(), lslice.overlaps_above.end(), [](const LayerSliceIsland::Link &l, const LayerSliceIsland::Link &r){ return uint64_t(l.to) < uint64_t(r.to); });
     }
     for (size_t i = 0; i < above.islands().size(); ++i) {
-        LayerSliceIsland &lslice = above.get_mutable_island(i);
+        LayerSliceIsland &lslice = above.island(i);
         std::sort(lslice.overlaps_below.begin(), lslice.overlaps_below.end(), [](const LayerSliceIsland::Link &l, const LayerSliceIsland::Link &r){ return uint64_t(l.to) < uint64_t(r.to); });
     }
 }
@@ -872,7 +870,7 @@ void Layer::build_up_down_graph(Layer& below, Layer& above)
 }
 
 void Layer::restore_untyped_slices() {
-    for (LayerRegion *layerm : m_regions) {
+    for (LayerRegionUPtr &layerm : m_regions) {
         layerm->m_slices.set(layerm->get_raw_slices(), stPosInternal | stDensSparse);
         for (auto &srf : layerm->m_slices)
             srf.expolygon.assert_valid();
@@ -889,7 +887,7 @@ ExPolygons Layer::merged(coordf_t offset_scaled) const
         offset_scaled2 = float(- SCALED_EPSILON);
     }
     ExPolygons expolygons;
-	for (LayerRegion *layerm : m_regions) {
+	for (const LayerRegionUPtr &layerm : m_regions) {
 		const PrintRegionConfig &config = layerm->region().config();
 		// Our users learned to bend Slic3r to produce empty volumes to act as subtracters. Only add the region if it is non-empty.
         if (config.bottom_solid_layers > 0 || config.top_solid_layers > 0 || config.fill_density > 0. ||
@@ -1020,13 +1018,13 @@ void Layer::make_perimeters() {
     // Remove layer islands, remove references to perimeters and fills from these layer islands to LayerRegion
     // ExtrusionEntities.
     // clear
-    for (LayerSliceIslandPtr &island : this->m_islands) {
-        island->regions_islands().clear();
+    for (LayerSliceIslandUPtr &island : this->m_islands) {
+        island->mutable_regions_islands().clear();
     }
     ExPolygons all_fill_no_overlap_expolygon;
     ExPolygons all_fill_expolygon;
 
-    for (LayerSliceIslandPtr &island : this->m_islands) {
+    for (LayerSliceIslandUPtr &island : this->m_islands) {
         // try to merge layerregions
         std::vector<LayerRegionSetConstPtrs> regions_groups;
         for (const LayerRegion *lregion : island->regions()) {
@@ -1068,16 +1066,16 @@ void Layer::make_perimeters() {
     // It's put inside layerregion, because it's easier to do manipulation wher ethe settings are, and merge afterwards.
     // or maybe because it's how it's done and it needs to be revamp.
     all_fill_no_overlap_expolygon = union_safety_offset_ex(all_fill_no_overlap_expolygon);
-    for (LayerRegion *lregion : this->regions()) {
-        lregion->set_fill_surfaces().clear();
-        for (const Surface &raw_srf : lregion->slices()) {
+    for (LayerRegion &lregion : this->regions()) {
+        lregion.set_fill_surfaces().clear();
+        for (const Surface &raw_srf : lregion.slices()) {
             ExPolygons exp = intersection_ex({raw_srf.expolygon}, all_fill_expolygon);
-            lregion->set_fill_surfaces().append(std::move(exp), raw_srf);
+            lregion.set_fill_surfaces().append(std::move(exp), raw_srf);
         }
         // create all fill_no_overlap_expolygon for LayerRegion (to simplify some computation afterwards)
-        lregion->m_fill_no_overlap_expolygons = intersection_ex(lregion->get_raw_slices(), all_fill_no_overlap_expolygon);
-        if (lregion->m_fill_no_overlap_expolygons == lregion->get_raw_slices()) {
-            ensure_valid(lregion->m_fill_no_overlap_expolygons);
+        lregion.m_fill_no_overlap_expolygons = intersection_ex(lregion.get_raw_slices(), all_fill_no_overlap_expolygon);
+        if (lregion.m_fill_no_overlap_expolygons == lregion.get_raw_slices()) {
+            ensure_valid(lregion.m_fill_no_overlap_expolygons);
         }
     }
     BOOST_LOG_TRIVIAL(trace) << "Generating perimeters for layer " << this->id() << " - Done";
@@ -1228,7 +1226,7 @@ void Layer::make_milling_post_process() {
     std::vector<unsigned char> done(m_regions.size(), false);
 
 
-    for (LayerSliceIslandPtr &island : this->m_islands) {
+    for (LayerSliceIslandUPtr &island : this->m_islands) {
         // try to merge layerregions
         std::vector<LayerRegionSetConstPtrs> regions_groups;
         for (const LayerRegion *layerm : island->regions()) {
@@ -1281,7 +1279,7 @@ void Layer::make_milling_post_process() {
 void Layer::export_region_slices_to_svg(const char *path) const
 {
     BoundingBox bbox;
-    for (const LayerRegion *region : m_regions)
+    for (const LayerRegionUPtr &region : m_regions)
         for (const Surface &surface : region->slices())
             bbox.merge(get_extents(surface.expolygon));
     Point legend_size = export_surface_type_legend_to_svg_box_size();
@@ -1290,7 +1288,7 @@ void Layer::export_region_slices_to_svg(const char *path) const
 
     SVG svg(path, bbox);
     const float transparency = 0.5f;
-    for (const LayerRegion *region : m_regions)
+    for (const LayerRegionUPtr &region : m_regions)
         for (const Surface &surface : region->slices())
             svg.draw(surface.expolygon, surface_type_to_color_name(surface.surface_type), transparency);
     export_surface_type_legend_to_svg(svg, legend_pos);
@@ -1307,7 +1305,7 @@ void Layer::export_region_slices_to_svg_debug(const char *name) const
 void Layer::export_region_fill_surfaces_to_svg(const char *path) const
 {
     BoundingBox bbox;
-    for (const LayerRegion *region : m_regions)
+    for (const LayerRegionUPtr &region : m_regions)
         for (const Surface &surface : region->slices())
             bbox.merge(get_extents(surface.expolygon));
     Point legend_size = export_surface_type_legend_to_svg_box_size();
@@ -1316,7 +1314,7 @@ void Layer::export_region_fill_surfaces_to_svg(const char *path) const
 
     SVG svg(path, bbox);
     const float transparency = 0.5f;
-    for (const LayerRegion *region : m_regions)
+    for (const LayerRegionUPtr &region : m_regions)
         for (const Surface &surface : region->slices())
             svg.draw(surface.expolygon, surface_type_to_color_name(surface.surface_type), transparency);
     export_surface_type_legend_to_svg(svg, legend_pos);
@@ -1344,13 +1342,13 @@ void SupportLayer::simplify_support_extrusion_path() {
                             false,
                             &print_config.arc_fitting_tolerance,
                             enable_arc_fitting ? SCALED_EPSILON * 2 : SCALED_EPSILON};
-    for (LayerSliceIslandPtr &island : m_islands) {
-        for (LayerRegionIslandPtr &region_island : island->regions_islands()) {
-            if (region_island->has_extrusion(LayerRegionIsland::SUPPORT)) {
-                region_island->mutable_extrusion(LayerRegionIsland::SUPPORT).visit(visitor);
+    for (LayerSliceIslandUPtr &island : m_islands) {
+        for (LayerRegionIsland &region_island : island->regions_islands()) {
+            if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
+                region_island.mutable_extrusion(LayerRegionIsland::SUPPORT).visit(visitor);
             }
-            if (region_island->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                region_island->mutable_extrusion(LayerRegionIsland::SUPPORT_INTERFACE).visit(visitor);
+            if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+                region_island.mutable_extrusion(LayerRegionIsland::SUPPORT_INTERFACE).visit(visitor);
             }
         }
     }
@@ -1358,12 +1356,12 @@ void SupportLayer::simplify_support_extrusion_path() {
 
 ExtrusionRole SupportLayer::role() const {
     ExtrusionRole role = ExtrusionRole::None;
-    for (const LayerSliceIslandPtr &island : islands()) {
-        for (LayerRegionIslandPtr &region_island : island->regions_islands()) {
-            if (region_island->has_extrusion(LayerRegionIsland::SUPPORT)) {
+    for (const LayerSliceIsland &island : islands()) {
+        for (const LayerRegionIsland &region_island : island.regions_islands()) {
+            if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
                 role |= ExtrusionRole::SupportMaterial;
             }
-            if (region_island->has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
+            if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
                 role |= ExtrusionRole::SupportMaterialInterface;
             }
         }
@@ -1382,13 +1380,13 @@ BoundingBox get_extents(const LayerRegion &layer_region)
     return bbox;
 }
 
-BoundingBox get_extents(const LayerRegionPtrs &layer_regions)
+BoundingBox get_extents(const LayerRegionRefs &layer_regions)
 {
     BoundingBox bbox;
     if (!layer_regions.empty()) {
-        bbox = get_extents(*layer_regions.front());
+        bbox = get_extents(layer_regions.front());
         for (auto it = layer_regions.begin() + 1; it != layer_regions.end(); ++it)
-            bbox.merge(get_extents(**it));
+            bbox.merge(get_extents(*it));
     }
     return bbox;
 }

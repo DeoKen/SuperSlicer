@@ -732,10 +732,10 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, const LayerSliceIsland&
 
 void Layer::clear_fills()
 {
-    for (LayerSliceIslandPtr &layer_island_ptr : m_islands) {
-        for (LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-            region_island_ptr->m_extrusion_regions.erase(LayerRegionIsland::INFILLS);
-            region_island_ptr->m_extrusion_regions.erase(LayerRegionIsland::IRONINGS);
+    for (LayerSliceIslandUPtr &layer_island_ptr : m_islands) {
+        for (LayerRegionIsland &region_island_ptr : layer_island_ptr->regions_islands()) {
+            region_island_ptr.m_extrusion_regions.erase(LayerRegionIsland::INFILLS);
+            region_island_ptr.m_extrusion_regions.erase(LayerRegionIsland::IRONINGS);
         }
     }
 }
@@ -749,7 +749,7 @@ void Layer::make_fills(FillAdaptive::Octree *adaptive_fill_octree,
     this->export_region_fill_surfaces_to_svg_debug("10_fill-initial");
 #endif /* SLIC3R_DEBUG_SLICE_PROCESSING */
 
-    for (LayerSliceIslandPtr &layer_island_ptr : m_islands) {
+    for (LayerSliceIslandUPtr &layer_island_ptr : m_islands) {
         this->_make_fills(*layer_island_ptr, adaptive_fill_octree, support_fill_octree, lightning_generator);
     }
 }
@@ -898,7 +898,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
     //surface_fills is sorted by region_id
     LayerRegionSetConstPtrs current_regions;
     uint16_t current_extruder = -1;
-    size_t first_object_layer_id = this->object()->get_layer(0)->id();
+    size_t first_object_layer_id = this->object()->layer(0).id();
     for (SurfaceFill &surface_fill : surface_fills) {
         // store the region fill when changing region (if there is something to store in fills_by_priority).
         if (current_regions != surface_fill.regions || current_extruder != surface_fill.params.extruder) {
@@ -1153,10 +1153,10 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
                                                                 FillAdaptive::Octree *support_fill_octree,
                                                                 FillLightning::Generator *lightning_generator) const {
     Polylines all_polylines;
-    for (const LayerSliceIslandPtr &island_ptr : islands()) {
+    for (const LayerSliceIsland &island_ptr : islands()) {
         append(all_polylines,
-               this->_generate_sparse_infill_polylines_for_anchoring(*island_ptr, adaptive_fill_octree,
-                                                                     support_fill_octree, lightning_generator));
+               this->_generate_sparse_infill_polylines_for_anchoring(island_ptr, adaptive_fill_octree,
+                                                                      support_fill_octree, lightning_generator));
     }
     return all_polylines;
 }
@@ -1228,7 +1228,7 @@ Polylines Layer::_generate_sparse_infill_polylines_for_anchoring(const LayerSlic
             //f = std::unique_ptr<Fill>(Fill::new_from_type(ipRectiWithPerimeter));
         }
         f->set_bounding_box(bbox);
-        f->layer_id = this->id() - this->object()->get_layer(0)->id(); // We need to subtract raft layers.
+        f->layer_id = this->id() - this->object()->layer(0).id(); // We need to subtract raft layers.
         f->z        = this->unscaled_print_z();
         f->angle    = surface_fill.params.angle;
         f->adapt_fill_octree   = (surface_fill.params.pattern == ipSupportCubic) ? support_fill_octree : adaptive_fill_octree;
@@ -1296,7 +1296,7 @@ Polylines Layer::_generate_sparse_infill_polylines_for_anchoring(const LayerSlic
 
 
 void Layer::make_ironing() {
-    for (LayerSliceIslandPtr &layer_island_ptr : m_islands) {
+    for (LayerSliceIslandUPtr &layer_island_ptr : m_islands) {
         this->_make_ironing(*layer_island_ptr);
     }
 }
@@ -1434,7 +1434,7 @@ void Layer::_make_ironing(LayerSliceIsland &island)
 	// Layer::id() returns layer ID including raft layers, subtract them to make the infill direction independent
 	// from raft.
 	//FIXME ironing does not take fill angle into account. Shall it? Does it matter?
-	fill.layer_id 			 = this->id() - this->object()->get_layer(0)->id();
+	fill.layer_id 			 = this->id() - this->object()->layer(0).id();
     fill.z                  = this->unscaled_print_z();
     fill.overlap            = 0;
     fill_params.density     = 1.;

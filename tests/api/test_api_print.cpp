@@ -81,7 +81,7 @@ SCENARIO("PrintObject: Perimeter generation") {
             Slic3r::Steps::StepPipeline::debug_run(Orchestrator::instance(), print, STEP_PRE_PERIMETER);
 #endif
             print.process();
-            PrintObject &object = *print.get_object(0);
+            PrintObject &object = print.object(0);
             //THEN("67 layers exist in the model") 
             { REQUIRE(object.layers().size() == 67); }
             //THEN("Every layer in region 0 has 1 island of perimeters")

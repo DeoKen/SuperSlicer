@@ -2,7 +2,7 @@
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/Plugin.hpp"
-#include "libslic3r/Print.hpp"
+#include "libslic3r/DataTreeFwd.hpp"
 #include "libslic3r/Thread.hpp"
 
 #include <boost/log/trivial.hpp>

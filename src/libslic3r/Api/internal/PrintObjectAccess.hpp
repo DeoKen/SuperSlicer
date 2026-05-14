@@ -6,6 +6,7 @@
 #pragma once
 
 #include "libslic3r/libslic3r.h"
+#include "libslic3r/DataTreeFwd.hpp"
 
 #include <vector>
 
@@ -19,7 +20,7 @@ namespace ApiInternal {
 struct PrintObjectAccess
 {
     static void set_layer_profile(PrintObject &object, std::vector<coord_t> &&layer_profile);
-    static void replace_layers_by_moving_contents(PrintObject &object, std::vector<Layer *> &&new_layers);
+    static void replace_layers_by_moving_contents(PrintObject &object, LayerUPtrs &&new_layers);
 };
 
 } // namespace ApiInternal

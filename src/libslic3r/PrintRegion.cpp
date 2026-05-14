@@ -196,8 +196,8 @@ void PrintRegion::collect_object_printing_extruders(const Print& print, std::set
     assert(this->config().infill_extruder.value         <= num_extruders);
     assert(this->config().solid_infill_extruder.value   <= num_extruders);
 #endif
-    for(const PrintObject * obj : print.objects())
-        collect_object_printing_extruders(print.config(), obj->config(), this->config(), object_extruders);
+    for(const PrintObject &obj : print.objects())
+        collect_object_printing_extruders(print.config(), obj.config(), this->config(), object_extruders);
 }
 
 }

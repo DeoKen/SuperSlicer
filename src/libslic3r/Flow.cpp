@@ -604,7 +604,7 @@ Flow support_material_flow(const PrintObject* object, float layer_height)
     int extruder_id = object->config().support_material_extruder.value - 1;
     if (extruder_id < 0) {
         if (!object->layers().empty()) {
-            extruder_id = object->layers().front()->get_region(0)->region().config().infill_extruder - 1;
+            extruder_id = object->layers().front().region(0).region().config().infill_extruder - 1;
         } else {
             extruder_id = object->default_region_config(object->print()->default_region_config()).infill_extruder - 1;
         }
@@ -671,7 +671,7 @@ Flow support_material_1st_layer_flow(const PrintObject *object, float layer_heig
     int extruder_id = object->config().support_material_extruder.value -1;
     if (extruder_id < 0) {
         if (!object->layers().empty()) {
-            extruder_id = object->layers().front()->get_region(0)->region().config().infill_extruder - 1;
+            extruder_id = object->layers().front().region(0).region().config().infill_extruder - 1;
         } else {
             extruder_id = object->default_region_config(object->print()->default_region_config()).infill_extruder - 1;
         }
@@ -694,7 +694,7 @@ Flow support_material_interface_flow(const PrintObject* object, float layer_heig
     if (extruder_id < 0) {
         assert(!object->layers().empty() || object->num_printing_regions() > 0);
         if (!object->layers().empty()) {
-            extruder_id = object->layers().front()->get_region(0)->region().config().infill_extruder - 1;
+            extruder_id = object->layers().front().region(0).region().config().infill_extruder - 1;
         } else {
             extruder_id = object->default_region_config(object->print()->default_region_config()).infill_extruder - 1;
         }
@@ -737,7 +737,7 @@ Flow raft_flow(const PrintObject* object, float layer_height)
 {
     int extruder_id = object->config().support_material_interface_extruder.value - 1;
     if (extruder_id < 0) {
-        extruder_id = object->layers().front()->get_region(0)->region().config().perimeter_extruder - 1;
+        extruder_id = object->layers().front().region(0).region().config().perimeter_extruder - 1;
     }
     double nzd = object->print()->config().nozzle_diameter.get_at(extruder_id);
     const ConfigOptionFloatOrPercent& width = (object->config().support_material_extrusion_width.value > 0) ? object->config().support_material_extrusion_width : object->config().extrusion_width;
@@ -777,7 +777,7 @@ Flow raft_interface_flow(const PrintObject* object, float layer_height)
 {
     int extruder_id = object->config().support_material_interface_extruder.value - 1;
     if (extruder_id < 0) {
-        extruder_id = object->layers().front()->get_region(0)->region().config().infill_extruder - 1;
+        extruder_id = object->layers().front().region(0).region().config().infill_extruder - 1;
     }
     double nzd = object->print()->config().nozzle_diameter.get_at(extruder_id);
     const ConfigOptionFloatOrPercent& width = (object->config().support_material_extrusion_width.value > 0) ? object->config().support_material_extrusion_width : object->config().extrusion_width;

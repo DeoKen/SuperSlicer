@@ -424,8 +424,8 @@ SCENARIO("Combine infill", "[Fill]")
         });        
         THEN("infill combination produces internal void surfaces") {
             bool has_void = false;
-            for (const Layer *layer : print.get_object(0)->layers())
-                if (layer->get_region(0)->fill_surfaces().filter_by_type(stInternalVoid).size() > 0) {
+            for (const Layer &layer : print.object(0).layers())
+                if (layer.region(0).fill_surfaces().filter_by_type(stInternalVoid).size() > 0) {
                     has_void = true;
                     break;
                 }
@@ -445,8 +445,8 @@ SCENARIO("Combine infill", "[Fill]")
 
         THEN("infill combination is idempotent") {
             bool has_infill_on_each_layer = true;
-            for (const Layer *layer : print.get_object(0)->layers())
-                if (layer->get_region(0)->fill_surfaces().empty()) {
+            for (const Layer &layer : print.object(0).layers())
+                if (layer.region(0).fill_surfaces().empty()) {
                     has_infill_on_each_layer = false;
                     break;
                 }

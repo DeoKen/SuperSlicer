@@ -166,11 +166,8 @@ void SceneBuilder::set_brim_and_skirt()
 
     m_brims_offs = 0;
 
-    for (const PrintObject *po : m_fff_print->objects()) {
-        if (po) {
-            m_brims_offs = std::max(m_brims_offs, brim_offset(*po));
-        }
-    }
+    for (const PrintObject &po : m_fff_print->objects())
+        m_brims_offs = std::max(m_brims_offs, brim_offset(po));
 
     m_skirt_offs = get_skirt_inset(*m_fff_print);
 

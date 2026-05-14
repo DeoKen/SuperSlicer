@@ -50,7 +50,7 @@
 #include <vector>
 
 namespace Slic3r {
-LayerPtrs new_layers(PrintObject *print_object, const std::vector<double> &object_layers);
+LayerUPtrs new_layers(PrintObject *print_object, const std::vector<double> &object_layers);
 }
 
 namespace Slic3r::Steps {
@@ -235,20 +235,20 @@ std::vector<double> to_unscaled_layer_height_profile(const std::vector<coord_t> 
 
 void recompute_layer_slices_from_regions(PrintObject &object)
 {
-    for (Layer *layer : object.layers())
-        ApiInternal::LayerAccess::recompute_slices_from_layer_regions(*layer);
+    for (Layer &layer : object.layers())
+        ApiInternal::LayerAccess::recompute_slices_from_layer_regions(layer);
 }
 
 void add_debug_surfaces_from_raw_slices(PrintObject &object)
 {
-    for (Layer *layer : object.layers()) {
-        for (LayerRegion *region : layer->regions()) {
-            SurfaceCollection &surfaces = ApiInternal::LayerRegionAccess::surfaces_mutable(*region);
+    for (Layer &layer : object.layers()) {
+        for (LayerRegion &region : layer.regions()) {
+            SurfaceCollection &surfaces = ApiInternal::LayerRegionAccess::surfaces_mutable(region);
             surfaces.clear();
             // Native slice_volumes() creates temporary internal/sparse surfaces
             // from raw slices. Recreate them only for debug comparisons while
             // the plugin slicing step intentionally owns just the raw slices.
-            surfaces.append(region->get_raw_slices(), stPosInternal | stDensSparse);
+            surfaces.append(region.get_raw_slices(), stPosInternal | stDensSparse);
         }
     }
 }
@@ -256,21 +256,21 @@ void add_debug_surfaces_from_raw_slices(PrintObject &object)
 void add_debug_surfaces_from_raw_slices(Print &print)
 {
     parallel_for(size_t(0), print.objects().size(), [&print](const size_t idx) {
-        add_debug_surfaces_from_raw_slices(*print.get_object(idx));
+        add_debug_surfaces_from_raw_slices(print.object(idx));
     });
 }
 
 void clear_debug_surfaces(PrintObject &object)
 {
-    for (Layer *layer : object.layers())
-        for (LayerRegion *region : layer->regions())
-            ApiInternal::LayerRegionAccess::surfaces_mutable(*region).clear();
+    for (Layer &layer : object.layers())
+        for (LayerRegion &region : layer.regions())
+            ApiInternal::LayerRegionAccess::surfaces_mutable(region).clear();
 }
 
 void clear_debug_surfaces(Print &print)
 {
     parallel_for(size_t(0), print.objects().size(), [&print](const size_t idx) {
-        clear_debug_surfaces(*print.get_object(idx));
+        clear_debug_surfaces(print.object(idx));
     });
 }
 
@@ -293,21 +293,21 @@ void StepPipeline::run(Orchestrator &orchestrator, Print &print)
 void StepPipeline::run_native_layer_height_generation(Print &print)
 {
     parallel_for(size_t(0), print.objects().size(), [&print](const size_t idx) {
-        StepPipeline::run_native_layer_height_generation_object(*print.get_object(idx));
+        StepPipeline::run_native_layer_height_generation_object(print.object(idx));
     });
 }
 
 void StepPipeline::run_native_slicing(Print &print)
 {
     parallel_for(size_t(0), print.objects().size(), [&print](const size_t idx) {
-        StepPipeline::run_native_slicing_object(*print.get_object(idx));
+        StepPipeline::run_native_slicing_object(print.object(idx));
     });
 }
 
 void StepPipeline::run_native_post_slicing(Print &print)
 {
     parallel_for(size_t(0), print.objects().size(), [&print](const size_t idx) {
-        StepPipeline::run_native_post_slicing_object(*print.get_object(idx));
+        StepPipeline::run_native_post_slicing_object(print.object(idx));
     });
 }
 
@@ -327,10 +327,10 @@ void StepPipeline::run_native_layer_height_generation_object(PrintObject &object
 
 void StepPipeline::run_native_slicing_object(PrintObject &object)
 {
-    std::vector<Layer *> object_layers =
+    LayerUPtrs object_layers =
         new_layers(&object, generate_object_layers(object.slicing_parameters(),
                                                    to_unscaled_layer_height_profile(object.layer_profile())));
-    for (Layer *layer : object_layers)
+    for (std::unique_ptr<Layer> &layer : object_layers)
         ApiInternal::LayerAccess::init_regions_from_object(*layer);
 
     ApiInternal::PrintObjectAccess::replace_layers_by_moving_contents(object, std::move(object_layers));

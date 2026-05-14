@@ -127,7 +127,7 @@ static std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> group_me
 
     //FIXME this is ugly, it does not belong here.
     for (size_t object_id : print_object_ids) {
-        const PrintObject       &print_object  = *print.get_object(object_id);
+        const PrintObject       &print_object  = print.object(object_id);
         const PrintObjectConfig &object_config = print_object.config();
         if (object_config.support_material_contact_distance_type.value == zdNone)
             // || min_feature_size < scale_i(0.1) that is the minimum line width
@@ -139,7 +139,7 @@ static std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> group_me
     // Group all meshes that can be processed together. NOTE this is different from mesh-groups! Only one setting object is needed per group, 
     // as different settings in the same group may only occur in the tip, which uses the original settings objects from the meshes.
     for (size_t object_id : print_object_ids) {
-        const PrintObject       &print_object  = *print.get_object(object_id);
+        const PrintObject       &print_object  = print.object(object_id);
 #ifndef NDEBUG
         const PrintObjectConfig &object_config = print_object.config();
 #endif // NDEBUG
@@ -163,7 +163,7 @@ static std::vector<std::pair<TreeSupportSettings, std::vector<size_t>>> group_me
             grouped_meshes.emplace_back(next_settings, std::vector<size_t>{ object_id });
 
         // no need to do this per mesh group as adaptive layers and raft setting are not setable per mesh.
-        if (print.get_object(largest_printed_mesh_idx)->layers().back()->scaled_print_z() < print_object.layers().back()->scaled_print_z())
+        if (print.object(largest_printed_mesh_idx).layers().back().scaled_print_z() < print_object.layers().back().scaled_print_z())
             largest_printed_mesh_idx = object_id;
     }
 
@@ -246,8 +246,8 @@ ExPolygons to_expolys(Polygons polys) {
         [&print_object, &config, &print_config, &enforcers_layers, &enforcers_custom_facets, &blockers_layers, &blockers_custom_facets,
          support_auto, support_enforce_layers, support_threshold_auto, tan_threshold, enforcer_overhang_offset, num_raft_layers, &throw_on_cancel, &out]
         (const size_t layer_id) {
-            const Layer   &current_layer  = *print_object.get_layer(layer_id);
-            const Layer   &lower_layer    = *print_object.get_layer(layer_id - 1);
+            const Layer   &current_layer  = print_object.layer(layer_id);
+            const Layer   &lower_layer    = print_object.layer(layer_id - 1);
             // Full overhangs with zero lower_layer_offset and no blockers applied.
             ExPolygons     raw_overhangs;
             bool           raw_overhangs_calculated = false;
@@ -261,8 +261,8 @@ ExPolygons to_expolys(Polygons polys) {
                     lower_layer_offset = 0;
                 } else if (support_threshold_auto) {
                     float external_perimeter_width = 0;
-                    for (const LayerRegion *layerm : lower_layer.regions()) {
-                        external_perimeter_width += layerm->flow(frExternalPerimeter).scaled_width();
+                    for (const LayerRegion &layerm : lower_layer.regions()) {
+                        external_perimeter_width += layerm.flow(frExternalPerimeter).scaled_width();
                     }
                     external_perimeter_width /= lower_layer.region_count();
                     lower_layer_offset = scale_i(0.5 * external_perimeter_width);
@@ -305,9 +305,9 @@ ExPolygons to_expolys(Polygons polys) {
                     }
                 }
                 if (config.dont_support_bridges) {
-                    for (const LayerRegion *layerm : current_layer.regions())
-                        remove_bridges_from_contacts(print_config, lower_layer, *layerm,
-                                                     layerm->flow(frExternalPerimeter).scaled_width(),
+                    for (const LayerRegion &layerm : current_layer.regions())
+                        remove_bridges_from_contacts(print_config, lower_layer, layerm,
+                                                     layerm.flow(frExternalPerimeter).scaled_width(),
                                                      overhangs);
                 }
             }
@@ -418,7 +418,7 @@ ExPolygons to_expolys(Polygons polys) {
         ExPolygons &overhang = out[lidx];
         if(overhang.empty()) continue;
         assert( lidx < print_object.layers().size());
-        ExPolygons slice = print_object.layers()[lidx]->lslices();
+        ExPolygons slice = print_object.layer(lidx).lslices();
         SVG::export_expolygons(
             debug_out_path("%d-overhangs_areas_final.svg", lidx),
             {
@@ -447,7 +447,7 @@ ExPolygons to_expolys(Polygons polys) {
     // calculate top most layer that is relevant for support
     LayerIndex max_layer = 0;
     for (size_t object_id : object_ids) {
-        const PrintObject &print_object      = *print.get_object(object_id);
+        const PrintObject &print_object      = print.object(object_id);
         const int       num_raft_layers      = int(config.raft_layers.size());
         const int       num_layers           = int(print_object.layer_count()) + num_raft_layers;
         int             max_support_layer_id = 0;
@@ -458,7 +458,7 @@ ExPolygons to_expolys(Polygons polys) {
     }
     if (max_layer > 0)
         // The actual precalculation happens in TreeModelVolumes.
-        volumes.precalculate(*print.get_object(object_ids.front()), max_layer, throw_on_cancel);
+        volumes.precalculate(print.object(object_ids.front()), max_layer, throw_on_cancel);
     return max_layer;
 }
 
@@ -1111,7 +1111,7 @@ int generate_raft_contact(
         while (raft_contact_layer_idx > 0 && config.raft_layers[raft_contact_layer_idx] > print_object.slicing_parameters().raft_contact_top_z + EPSILON)
             -- raft_contact_layer_idx;
         // Create the raft contact layer.
-        const ExPolygons &lslices   = print_object.get_layer(0)->lslices();
+        const ExPolygons &lslices   = print_object.layer(0).lslices();
         double            expansion = print_object.config().raft_expansion.value;
         interface_placer.add_roof_unguarded(expansion > 0 ? expand(lslices, scale_d(expansion)) : to_polygons(lslices), raft_contact_layer_idx, 0);
     }
@@ -3560,7 +3560,7 @@ static void generate_support_areas(Print &print,
         m_progress_multiplier = 1.0 / double(grouped_meshes.size());
         m_progress_offset = counter == 0 ? 0 : TREE_PROGRESS_TOTAL * (double(counter) * m_progress_multiplier);
 #endif // SLIC3R_TREESUPPORT_PROGRESS
-        PrintObject &print_object = *print.get_object(processing.second.front());
+        PrintObject &print_object = print.object(processing.second.front());
         // Generator for model collision, avoidance and internal guide volumes.
         TreeModelVolumes volumes{ print_object, build_volume, config.maximum_move_distance, config.maximum_move_distance_slow, processing.second.front(),
 #ifdef SLIC3R_TREESUPPORTS_PROGRESS
@@ -3570,7 +3570,7 @@ static void generate_support_areas(Print &print,
 
         //FIXME generating overhangs just for the furst mesh of the group.
         assert(processing.second.size() == 1);
-        std::vector<Polygons>      overhangs = generate_overhangs(config, *print.get_object(processing.second.front()), throw_on_cancel);
+        std::vector<Polygons>      overhangs = generate_overhangs(config, print.object(processing.second.front()), throw_on_cancel);
         // ### Precalculate avoidances, collision etc.
         size_t num_support_layers = precalculate(print, overhangs, processing.first, processing.second, volumes, throw_on_cancel);
         bool   has_support = num_support_layers > 0;
@@ -3622,7 +3622,7 @@ static void generate_support_areas(Print &print,
 
             // ### Place tips of the support tree
             for (size_t mesh_idx : processing.second)
-                generate_initial_areas(*print.get_object(mesh_idx), volumes, config, overhangs, 
+                generate_initial_areas(print.object(mesh_idx), volumes, config, overhangs,
                     move_bounds, interface_placer, throw_on_cancel);
             auto t_gen = std::chrono::high_resolution_clock::now();
 
@@ -3650,12 +3650,12 @@ static void generate_support_areas(Print &print,
             // ### draw these points as circles
             
             if (print_object.config().support_material_style.value == smsTree) {
-                draw_areas(*print.get_object(processing.second.front()), volumes, config, overhangs, move_bounds,
+                draw_areas(print.object(processing.second.front()), volumes, config, overhangs, move_bounds,
                            bottom_contacts, top_contacts, intermediate_layers, layer_storage, throw_on_cancel);
             } else {
                 assert(print_object.config().support_material_style.value == smsOrganic);
                 organic_draw_branches(
-                    *print.get_object(processing.second.front()), volumes, config, move_bounds, 
+                    print.object(processing.second.front()), volumes, config, move_bounds,
                     bottom_contacts, top_contacts, interface_placer, intermediate_layers, layer_storage, 
                     throw_on_cancel);
             }
@@ -3706,7 +3706,7 @@ static void generate_support_areas(Print &print,
 #endif // SLIC3R_DEBUG
         generate_support_layers(print_object, raft_layers, bottom_contacts, top_contacts, intermediate_layers, interface_layers, base_interface_layers);
         // Don't fill in the tree supports, make them hollow with just a single sheath line.
-        generate_support_toolpaths(print_object, print_object.edit_support_layers(), print_object.config(), support_params, print_object.slicing_parameters(),
+        generate_support_toolpaths(print_object, print_object.mutable_support_layers(), print_object.config(), support_params, print_object.slicing_parameters(),
             raft_layers, bottom_contacts, top_contacts, intermediate_layers, interface_layers, base_interface_layers);
         
  #if 0
@@ -3731,7 +3731,7 @@ static void generate_support_areas(Print &print,
                     export_print_z_polygons_and_extrusions_to_svg(
                         debug_out_path("support-w-fills-%d-%lf.svg", iRun, layers_sorted[i]->unscaled_print_z()).c_str(),
                         layers_sorted.data() + i, j - i,
-                        *print_object.support_layers()[layer_id]);
+                        print_object.support_layer(layer_id));
                     ++layer_id;
                 }
                 i = j;
@@ -3750,8 +3750,8 @@ static void generate_support_areas(Print &print,
 void fff_tree_support_generate(PrintObject &print_object, std::function<void()> throw_on_cancel)
 {
     size_t idx = 0;
-    for (const PrintObject *po : print_object.print()->objects()) {
-        if (po == &print_object)
+    for (const PrintObject &po : print_object.print()->objects()) {
+        if (&po == &print_object)
             break;
         ++idx;
     }

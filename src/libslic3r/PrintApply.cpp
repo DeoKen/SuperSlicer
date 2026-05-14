@@ -427,6 +427,10 @@ public:
         for (PrintObject *print_object : print_objects)
             m_db.emplace(PrintObjectStatus(print_object));
     }
+    PrintObjectStatusDB(const PrintObjectUPtrs &print_objects) {
+        for (const PrintObjectUPtr &print_object : print_objects)
+            m_db.emplace(PrintObjectStatus(print_object.get()));
+    }
 
     struct iterator_range : std::pair<const_iterator, const_iterator>
     { 
@@ -459,6 +463,21 @@ public:
 private:
     std::multiset<PrintObjectStatus> m_db;
 };
+
+static PrintObjectUPtr take_print_object(PrintObjectUPtrs &objects, PrintObject *object)
+{
+    auto it = std::find_if(objects.begin(), objects.end(), [object](const PrintObjectUPtr &candidate) { return candidate.get() == object; });
+    assert(it != objects.end());
+    PrintObjectUPtr out = std::move(*it);
+    objects.erase(it);
+    return out;
+}
+
+static bool print_object_lists_equal(const PrintObjectUPtrs &lhs, const PrintObjectUPtrs &rhs)
+{
+    return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin(),
+        [](const PrintObjectUPtr &left, const PrintObjectUPtr &right) { return left.get() == right.get(); });
+}
 
 static inline bool model_volume_solid_or_modifier(const ModelVolume &mv)
 {
@@ -1067,10 +1086,9 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         // Stop background processing.
         this->call_cancel_callback();
         update_apply_status(this->invalidate_all_steps());
-        for (PrintObject *object : m_objects) {
+        for (PrintObjectUPtr &object : m_objects) {
             model_object_status_db.add(*object->model_object(), ModelObjectStatus::Deleted);
 			update_apply_status(object->invalidate_all_steps());
-			delete object;
         }
         m_objects.clear();
         print_regions_reshuffled = true;
@@ -1146,16 +1164,15 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                     model_object = nullptr;
             if (deleted_any) {
                 // Delete PrintObjects of the deleted ModelObjects.
-                PrintObjectPtrs print_objects_old = std::move(m_objects);
+                PrintObjectUPtrs print_objects_old = std::move(m_objects);
                 m_objects.clear();
                 m_objects.reserve(print_objects_old.size());
-                for (PrintObject *print_object : print_objects_old) {
+                for (PrintObjectUPtr &print_object : print_objects_old) {
                     const ModelObjectStatus &status = model_object_status_db.get(*print_object->model_object());
                     if (status.status == ModelObjectStatus::Deleted) {
                         update_apply_status(print_object->invalidate_all_steps());
-                        delete print_object;
                     } else
-                        m_objects.emplace_back(print_object);
+                        m_objects.emplace_back(std::move(print_object));
                 }
                 for (ModelObject *model_object : model_objects_old)
                     delete model_object;
@@ -1312,7 +1329,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 
     // 4) Generate PrintObjects from ModelObjects and their instances.
     {
-        PrintObjectPtrs print_objects_new;
+        PrintObjectUPtrs print_objects_new;
         print_objects_new.reserve(std::max(m_objects.size(), m_model.objects.size()));
         bool new_objects = false;
         // Walk over all new model objects and check, whether there are matching PrintObjects.
@@ -1336,9 +1353,10 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             if (old.empty()) {
                 // Simple case, just generate new instances.
                 for (PrintObjectTrafoAndInstances &print_instances : model_object_status.print_instances) {
-                    PrintObject *print_object = new PrintObject(this, model_object, print_instances.trafo, std::move(print_instances.instances));
-                    print_object_apply_config(print_object);
-                    print_objects_new.emplace_back(print_object);
+                    PrintObjectUPtr print_object(new PrintObject(this, model_object, print_instances.trafo, std::move(print_instances.instances)));
+                    PrintObject *print_object_ptr = print_object.get();
+                    print_object_apply_config(print_object_ptr);
+                    print_objects_new.emplace_back(std::move(print_object));
                     // print_object_status.emplace(PrintObjectStatus(print_object, PrintObjectStatus::New));
                     new_objects = true;
                 }
@@ -1353,9 +1371,10 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 				for (; it_old != old.end() && transform3d_lower((*it_old)->trafo, new_instances.trafo); ++ it_old);
 				if (it_old == old.end() || ! transform3d_equal((*it_old)->trafo, new_instances.trafo)) {
                     // This is a new instance (or a set of instances with the same trafo). Just add it.
-                    PrintObject *print_object = new PrintObject(this, model_object, new_instances.trafo, std::move(new_instances.instances));
-                    print_object_apply_config(print_object);
-                    print_objects_new.emplace_back(print_object);
+                    PrintObjectUPtr print_object(new PrintObject(this, model_object, new_instances.trafo, std::move(new_instances.instances)));
+                    PrintObject *print_object_ptr = print_object.get();
+                    print_object_apply_config(print_object_ptr);
+                    print_objects_new.emplace_back(std::move(print_object));
                     // print_object_status.emplace(PrintObjectStatus(print_object, PrintObjectStatus::New));
                     new_objects = true;
                     if (it_old != old.end())
@@ -1365,23 +1384,23 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 					PrintBase::ApplyStatus status = (*it_old)->print_object->set_instances(std::move(new_instances.instances));
                     if (status != PrintBase::APPLY_STATUS_UNCHANGED)
 						update_apply_status(status == PrintBase::APPLY_STATUS_INVALIDATED);
-					print_objects_new.emplace_back((*it_old)->print_object);
+					print_objects_new.emplace_back(take_print_object(m_objects, (*it_old)->print_object));
 					const_cast<PrintObjectStatus*>(*it_old)->status = PrintObjectStatus::Reused;
 				}
             }
         }
-        if (m_objects != print_objects_new) {
+        if (!print_object_lists_equal(m_objects, print_objects_new)) {
             this->call_cancel_callback();
 			update_apply_status(this->invalidate_all_steps());
-            m_objects = print_objects_new;
             // Delete the PrintObjects marked as Unknown or Deleted.
             bool deleted_objects = false;
-            for (const PrintObjectStatus &pos : print_object_status_db)
+            for (const PrintObjectStatus &pos : print_object_status_db) {
                 if (pos.status == PrintObjectStatus::Unknown || pos.status == PrintObjectStatus::Deleted) {
                     update_apply_status(pos.print_object->invalidate_all_steps());
-                    delete pos.print_object;
 					deleted_objects = true;
                 }
+            }
+            m_objects = std::move(print_objects_new);
 			if (new_objects || deleted_objects)
                 update_apply_status(this->invalidate_steps({ psAlertWhenSupportsNeeded, psSkirtBrim, psWipeTower, psGCodeExport }));
 			if (new_objects)
@@ -1481,7 +1500,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         std::set<const PrintRegion*, cmp> region_set;
         m_print_regions.clear();
         std::shared_ptr<PrintObjectRegions> print_object_regions;
-        for (PrintObject *print_object : m_objects) {
+        for (PrintObjectUPtr &print_object : m_objects) {
             if (print_object_regions != print_object->m_shared_regions) {
                 print_object_regions = print_object->m_shared_regions;
                 for (std::unique_ptr<Slic3r::PrintRegion> &print_region : print_object_regions->all_regions) {
@@ -1500,7 +1519,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     // Update SlicingParameters for each object where the SlicingParameters is not valid.
     // If it is not valid, then it is ensured that PrintObject.m_slicing_params is not in use
     // (posSlicing and posSupportMaterial was invalidated).
-    for (PrintObject *object : m_objects)
+    for (PrintObjectUPtr &object : m_objects)
         object->update_slicing_parameters();
 
     if (apply_status == APPLY_STATUS_CHANGED || apply_status == APPLY_STATUS_INVALIDATED)
@@ -1526,7 +1545,10 @@ void Print::cleanup()
 {
     // Invalidate data of a single ModelObject shared by multiple PrintObjects.
     // Find spans of PrintObjects sharing the same PrintObjectRegions.
-    std::vector<PrintObject*> all_objects(m_objects);
+    std::vector<PrintObject*> all_objects;
+    all_objects.reserve(m_objects.size());
+    for (PrintObjectUPtr &object : m_objects)
+        all_objects.emplace_back(object.get());
     std::sort(all_objects.begin(), all_objects.end(), [](const PrintObject *l, const PrintObject *r){ return l->shared_regions() < r->shared_regions(); } );
     for (auto it = all_objects.begin(); it != all_objects.end();) {
         std::shared_ptr<PrintObjectRegions> &shared_regions = (*it)->m_shared_regions;

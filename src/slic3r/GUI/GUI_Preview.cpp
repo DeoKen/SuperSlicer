@@ -656,24 +656,24 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool sho
         const Print& print = wxGetApp().plater()->fff_print();
 
         //bool is_possible_auto_color_change = false;
-        for (auto object : print.objects()) {
-            double object_x = double(object->size().x());
-            double object_y = double(object->size().y());
+        for (const PrintObject &object : print.objects()) {
+            double object_x = double(object.size().x());
+            double object_y = double(object.size().y());
 
             // if it's sign, than object have not to be a too height
-            double height = object->height();
+            double height = object.height();
             coord_t longer_side = std::max(object_x, object_y);
-            auto   num_layers = int(object->layers().size());
+            auto   num_layers = int(object.layers().size());
             if (height / longer_side > 0.3 || num_layers < 2)
                 continue;
 
-            const ExPolygons& bottom = object->get_layer(0)->lslices();
+            const ExPolygons& bottom = object.layer(0).lslices();
             double bottom_area = area(bottom);
 
             // at least 25% of object's height have to be a solid 
             int  i, min_solid_height = int(0.25 * num_layers);
             for (i = 1; i <= min_solid_height; ++ i) {
-                double cur_area = area(object->get_layer(i)->lslices());
+                double cur_area = area(object.layer(i).lslices());
                 if (!DoubleSlider::equivalent_areas(bottom_area, cur_area)) {
                     // but due to the elephant foot compensation, the first layer may be slightly smaller than the others
                     if (i == 1 && fabs(cur_area - bottom_area) / bottom_area < 0.1) {
@@ -687,12 +687,12 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool sho
             if (i < min_solid_height)
                 continue;
 
-            if (DoubleSlider::check_color_change(object, i, num_layers, true, [this, object](const Layer*) {
+            if (DoubleSlider::check_color_change(&object, i, num_layers, true, [this, &object](const Layer*) {
                 NotificationManager* notif_mngr = wxGetApp().plater()->get_notification_manager();
                 notif_mngr->push_notification(
                     NotificationType::SignDetected, NotificationManager::NotificationLevel::PrintInfoNotificationLevel,
                     _u8L("NOTE:") + "\n" +
-                    format(_u8L("Sliced object \"%1%\" looks like a logo or a sign"), object->model_object()->name) + "\n",
+                    format(_u8L("Sliced object \"%1%\" looks like a logo or a sign"), object.model_object()->name) + "\n",
                     _u8L("Apply color change automatically"),
                     [this](wxEvtHandler*) {
                         m_layers_slider->auto_color_change();
@@ -870,15 +870,15 @@ void Preview::load_print_as_fff(bool keep_z_range)
     bool has_layers = false;
     const Print *print = m_process.fff_print();
     if (print->is_step_done(posSlice)) {
-        for (const PrintObject* print_object : print->objects())
-            if (! print_object->layers().empty()) {
+        for (const PrintObject& print_object : print->objects())
+            if (! print_object.layers().empty()) {
                 has_layers = true;
                 break;
             }
     }
     if (!has_layers && print->is_step_done(posSupportMaterial)) {
-        for (const PrintObject* print_object : print->objects())
-            if (! print_object->support_layers().empty()) {
+        for (const PrintObject& print_object : print->objects())
+            if (! print_object.support_layers().empty()) {
                 has_layers = true;
                 break;
             }

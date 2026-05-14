@@ -592,11 +592,11 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
         }
     } visitor(corresponding_regions_for_flow_out, &polylines, configured_seam_preference);
 
-    for (const LayerSliceIslandPtr &layer_island_ptr : layer->islands()) {
-        for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-            if(!region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS)) continue;
-            for (const ExtrusionEntity *ex_entity : region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS)) {
-                const LayerRegion *lregion = *region_island_ptr->regions().begin();
+    for (const LayerSliceIsland &layer_island_ptr : layer->islands()) {
+        for (const LayerRegionIsland &region_island_ptr : layer_island_ptr.regions_islands()) {
+            if(!region_island_ptr.has_extrusion(LayerRegionIsland::PERIMETERS)) continue;
+            for (const ExtrusionEntity *ex_entity : region_island_ptr.extrusion(LayerRegionIsland::PERIMETERS)) {
+                const LayerRegion *lregion = *region_island_ptr.regions().begin();
                 visitor.set_current_layer_region(lregion);
                 assert(!ex_entity->empty());
                 if (ex_entity->empty())
@@ -1262,11 +1262,11 @@ void SeamPlacer::gather_seam_candidates(const PrintObject *po, const SeamPlacerI
                 //for (size_t layer_idx = r.begin(); layer_idx < r.end(); ++layer_idx) {
                 for (size_t layer_idx = next_layer_idx++; layer_idx < po->layers().size(); layer_idx = next_layer_idx++) {
                     PrintObjectSeamData::LayerSeams &layer_seams = seam_data.layers[layer_idx];
-                    const Layer *layer = po->get_layer(layer_idx);
-                    double unscaled_z = layer->slice_z;
+                    const Layer &layer = po->layer(layer_idx);
+                    double unscaled_z = layer.slice_z;
                     std::vector<const LayerRegion*> regions_for_flow;
                     //NOTE corresponding region ptr may be null, if the layer has zero perimeters
-                    PolylineWithEnds polygons_and_lines = extract_perimeter_polylines(layer, configured_seam_preference, regions_for_flow);
+                    PolylineWithEnds polygons_and_lines = extract_perimeter_polylines(&layer, configured_seam_preference, regions_for_flow);
                     for (size_t poly_index = 0; poly_index < polygons_and_lines.size(); ++poly_index) {
                         process_perimeter_polylines(polygons_and_lines[poly_index], unscaled_z,
                                 regions_for_flow[poly_index], global_model_info, layer_seams);
@@ -1305,22 +1305,22 @@ void SeamPlacer::calculate_overhangs_and_layer_embedding(const PrintObject *po) 
             [po, &layers](tbb::blocked_range<size_t> r) {
                 std::unique_ptr<PerimeterDistancer> prev_layer_distancer;
                 if (r.begin() > 0) { // previous layer exists
-                    prev_layer_distancer = std::make_unique<PerimeterDistancer>(to_unscaled_linesf(po->layers()[r.begin() - 1]->lslices()));
+                    prev_layer_distancer = std::make_unique<PerimeterDistancer>(to_unscaled_linesf(po->layer(r.begin() - 1).lslices()));
                 }
 
                 for (size_t layer_idx = r.begin(); layer_idx < r.end(); ++layer_idx) {
                     size_t islands_with_perimeter = 0;
-                    for (const LayerSliceIslandPtr &layer_island_ptr : po->layers()[layer_idx]->islands()) {
-                        for (const LayerRegionIslandPtr &region_island_ptr : layer_island_ptr->regions_islands()) {
-                            if (region_island_ptr->has_extrusion(LayerRegionIsland::PERIMETERS) &&
-                                region_island_ptr->extrusion(LayerRegionIsland::PERIMETERS).size() > 0) {
+                    for (const LayerSliceIsland &layer_island_ptr : po->layer(layer_idx).islands()) {
+                        for (const LayerRegionIsland &region_island_ptr : layer_island_ptr.regions_islands()) {
+                            if (region_island_ptr.has_extrusion(LayerRegionIsland::PERIMETERS) &&
+                                region_island_ptr.extrusion(LayerRegionIsland::PERIMETERS).size() > 0) {
                                 islands_with_perimeter++;
                             }
                         }
                     }
                     bool should_compute_layer_embedding = islands_with_perimeter > 1;
                     std::unique_ptr<PerimeterDistancer> current_layer_distancer        = std::make_unique<PerimeterDistancer>(
-                        to_unscaled_linesf(po->layers()[layer_idx]->lslices()));
+                        to_unscaled_linesf(po->layer(layer_idx).lslices()));
 
                     for (SeamCandidate &perimeter_point : layers[layer_idx].points) {
                         Vec2f point = Vec2f { perimeter_point.position.head<2>() };
@@ -1329,7 +1329,7 @@ void SeamPlacer::calculate_overhangs_and_layer_embedding(const PrintObject *po) 
                                     // Seams: overhangs: don't remove overhang_angle_threshold, it seems to create artifacts. supermerill/SuperSlicer#4217
                                     // + 0.6f * perimeter_point.perimeter.flow_width
                                     // - tan(SeamPlacer::overhang_angle_threshold)
-                                    //         * po->layers()[layer_idx]->height;
+                                    //         * po->layers()[layer_idx].height;
                             perimeter_point.overhang =
                                     perimeter_point.overhang < 0.0f ? 0.0f : perimeter_point.overhang;
                         }
@@ -1455,7 +1455,7 @@ std::vector<std::pair<size_t, size_t>> SeamPlacer::find_seam_string(const PrintO
                 layers[start_seam.first].points[start_seam.second].perimeter.flow_width;
         Vec3f prev_position = layers[prev_point_index.first].points[prev_point_index.second].position;
         Vec3f projected_position = prev_position;
-        projected_position.z() = float(po->get_layer(next_layer)->slice_z);
+        projected_position.z() = float(po->layer(next_layer).slice_z);
 
         std::optional<std::pair<size_t, size_t>> maybe_next_seam = find_next_seam_in_layer(layers, projected_position,
                 next_layer,
@@ -1764,7 +1764,7 @@ void SeamPlacer::init(const Print &print, std::function<void(void)> throw_if_can
     this->external_perimeters_first = print.default_region_config().external_perimeters_first;
 
     for (size_t obj_idx = 0; obj_idx < print.objects().size(); ++ obj_idx) {
-        const PrintObject *po = print.objects()[obj_idx];
+        const PrintObject *po = &print.objects()[obj_idx];
         print.set_status(int((obj_idx * 100) / print.objects().size()),
                          ("Computing seam visibility areas: object %s / %s"),
                          {std::to_string(obj_idx + 1), std::to_string(print.objects().size())},
@@ -1887,8 +1887,8 @@ std::tuple<bool,std::optional<Vec3f>> get_seam_from_modifier(const Layer& layer,
                         MeshSlicingParams slicing_params;
                         // get zs
                         seam_mesh->zs.clear();
-                        for (const Layer *layer : po->layers()) {
-                            seam_mesh->zs.push_back(float(layer->unscaled_print_z()));
+                        for (const Layer &layer : po->layers()) {
+                            seam_mesh->zs.push_back(float(layer.unscaled_print_z()));
                         }
                         std::vector<Polygons> layers = slice_mesh(seam_mesh->mesh.its, seam_mesh->zs, slicing_params);
                         assert(seam_mesh->zs.size() == layers.size());

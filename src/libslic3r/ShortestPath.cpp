@@ -2132,7 +2132,7 @@ std::vector<const PrintInstance*> chain_print_object_instances(const Print &prin
     Points object_reference_points;
     std::vector<std::pair<size_t, size_t>> instances;
     for (size_t i = 0; i < print.objects().size(); ++ i) {
-    	const PrintObject &object = *print.objects()[i];
+    	const PrintObject &object = print.objects()[i];
     	for (size_t j = 0; j < object.instances().size(); ++ j) {
     		// Sliced PrintObjects are centered, object.instances()[j].shift is the center of the PrintObject in G-code coordinates.
         	object_reference_points.emplace_back(object.instances()[j].shift);
@@ -2145,7 +2145,7 @@ std::vector<const PrintInstance*> chain_print_object_instances(const Print &prin
 	out.reserve(instances.size());
 	for (auto &segment_and_reversal : ordered) {
 		const std::pair<size_t, size_t> &inst = instances[segment_and_reversal.first];
-		out.emplace_back(&print.objects()[inst.first]->instances()[inst.second]);
+		out.emplace_back(&print.objects()[inst.first].instances()[inst.second]);
 	}
 	return out;
 }

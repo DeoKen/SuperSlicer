@@ -511,8 +511,8 @@ bool Control::IsNewPrint()
         return false;
     const Print& print = GUI::wxGetApp().plater()->fff_print();
     std::string idxs;
-    for (auto object : print.objects())
-        idxs += std::to_string(object->id().id) + "_";
+    for (const PrintObject &object : print.objects())
+        idxs += std::to_string(object.id().id) + "_";
 
     if (idxs == m_print_obj_idxs)
         return false;
@@ -2246,12 +2246,12 @@ void Control::show_cog_icon_context_menu()
 
 bool check_color_change(const PrintObject* object, size_t frst_layer_id, size_t layers_cnt, bool check_overhangs, std::function<bool(const Layer*)> break_condition)
 {
-    double prev_area = area(object->get_layer(frst_layer_id)->lslices());
+    double prev_area = area(object->layer(frst_layer_id).lslices());
 
     bool detected = false;
     for (size_t i = frst_layer_id+1; i < layers_cnt; i++) {
-        const Layer* layer = object->get_layer(i);
-        double cur_area = area(layer->lslices());
+        const Layer& layer = object->layer(i);
+        double cur_area = area(layer.lslices());
 
         // check for overhangs
         if (check_overhangs && cur_area > prev_area && !equivalent_areas(prev_area, cur_area))
@@ -2261,7 +2261,7 @@ bool check_color_change(const PrintObject* object, size_t frst_layer_id, size_t 
         // This value have to be more than min_delta_area and more then 10%
         if ((prev_area - cur_area > min_delta_area) && (cur_area / prev_area < 0.9)) {
             detected = true;
-            if (break_condition(layer))
+            if (break_condition(&layer))
                 break;
         }
 
@@ -2285,12 +2285,12 @@ void Control::auto_color_change()
 //    int extruder = 2;
 
     const Print& print = GUI::wxGetApp().plater()->fff_print();  
-    for (auto object : print.objects()) {
+    for (const PrintObject& object : print.objects()) {
         // An object should to have at least 2 layers to apply an auto color change
-        if (object->layer_count() < 2)
+        if (object.layer_count() < 2)
             continue;
 
-        check_color_change(object, 1, object->layers().size(), false, [this, extruders_cnt](const Layer* layer)
+        check_color_change(&object, 1, object.layers().size(), false, [this, extruders_cnt](const Layer* layer)
         {
             int tick = get_tick_from_value(layer->unscaled_print_z());
             if (tick >= 0 && !m_ticks.has_tick(tick)) {

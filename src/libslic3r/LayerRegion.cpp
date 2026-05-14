@@ -95,9 +95,9 @@ Flow LayerRegion::bridging_flow(FlowRole role, BridgeType force_type) const
 const ExPolygons& LayerRegion::fill_expolygons() const {
     uint64_t hash_islands = 0;
     int shift = 0;
-    for (const LayerSliceIslandPtr &layer_island_ptr : this->layer()->islands()) {
-        if (layer_island_ptr->regions().find(this) != layer_island_ptr->regions().end()) {
-            for (const ExPolygon &expoly : layer_island_ptr->fill_expolygons()) {
+    for (const LayerSliceIsland &layer_island_ptr : this->layer()->islands()) {
+        if (layer_island_ptr.regions().find(this) != layer_island_ptr.regions().end()) {
+            for (const ExPolygon &expoly : layer_island_ptr.fill_expolygons()) {
                 hash_islands ^= (uint64_t(&expoly) << shift);
                 shift++;
             }
@@ -114,9 +114,9 @@ const ExPolygons& LayerRegion::fill_expolygons() const {
 ExPolygons LayerRegion::_compute_fill_expolygons() const {
     ExPolygons my_fill_expolygons;
     size_t nb_add = 0;
-    for (const LayerSliceIslandPtr &layer_island_ptr : this->layer()->islands()) {
-        if (auto &regions = layer_island_ptr->regions(); regions.find(this) != regions.end()) {
-            append(my_fill_expolygons, layer_island_ptr->fill_expolygons());
+    for (const LayerSliceIsland &layer_island_ptr : this->layer()->islands()) {
+        if (auto &regions = layer_island_ptr.regions(); regions.find(this) != regions.end()) {
+            append(my_fill_expolygons, layer_island_ptr.fill_expolygons());
             nb_add++;
         }
     }
