@@ -32,7 +32,7 @@ struct GroundingLocation
  *
  * Contains the trees to be printed and propagated to the next layer below.
  */
-class Layer
+class LightningLayer
 {
 public:
     std::vector<NodeSPtr> tree_roots;

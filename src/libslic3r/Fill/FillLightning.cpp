@@ -17,7 +17,7 @@ void Filler::_fill_surface_single(
     ExPolygon                      expolygon,
     Polylines                     &polylines_out) const
 {
-    const Layer &layer = generator->getTreesForLayer(this->layer_id);
+    const LightningLayer &layer = generator->getTreesForLayer(this->layer_id);
     Polylines    fill_lines = layer.convertToLines(to_polygons(expolygon), scale_i(0.5 * this->get_spacing() - this->overlap));
 
     if (params.dont_connect() || fill_lines.size() <= 1) {

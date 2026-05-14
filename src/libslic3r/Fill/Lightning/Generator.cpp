@@ -77,7 +77,7 @@ void Generator::generateInitialInternalOverhangs(const PrintObject &print_object
     }
 }
 
-const Layer& Generator::getTreesForLayer(const size_t& layer_id) const
+const LightningLayer& Generator::getTreesForLayer(const size_t& layer_id) const
 {
     assert(layer_id < m_lightning_layers.size());
     return m_lightning_layers[layer_id];
@@ -108,7 +108,7 @@ void Generator::generateTrees(const PrintObject &print_object, const std::functi
     // For-each layer from top to bottom:
     for (int layer_id = int(top_layer_id); layer_id >= 0; layer_id--) {
         throw_on_cancel_callback();
-        Layer& current_lightning_layer = m_lightning_layers[layer_id];
+        LightningLayer& current_lightning_layer = m_lightning_layers[layer_id];
         const Polygons    &current_outlines        = infill_outlines[layer_id];
         const BoundingBox &current_outlines_bbox   = get_extents(current_outlines);
 

@@ -222,8 +222,8 @@ set(SLIC3R_SOURCES
     Fill/Lightning/DistanceField.hpp
     Fill/Lightning/Generator.cpp
     Fill/Lightning/Generator.hpp
-    Fill/Lightning/Layer.cpp
-    Fill/Lightning/Layer.hpp
+    Fill/Lightning/LightningLayer.cpp
+    Fill/Lightning/LightningLayer.hpp
     Fill/Lightning/TreeNode.cpp
     Fill/Lightning/TreeNode.hpp
     Fill/FillRectilinear.cpp

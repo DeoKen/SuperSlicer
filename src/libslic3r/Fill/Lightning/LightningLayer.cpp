@@ -1,7 +1,7 @@
 //Copyright (c) 2021 Ultimaker B.V.
 //CuraEngine is released under the terms of the AGPLv3 or higher.
 
-#include "Layer.hpp" //The class we're implementing.
+#include "LightningLayer.hpp" //The class we're implementing.
 
 #include "DistanceField.hpp"
 #include "TreeNode.hpp"
@@ -16,7 +16,7 @@
 
 namespace Slic3r::FillLightning {
 
-coord_t Layer::getWeightedDistance(const Point& boundary_loc, const Point& unsupported_location)
+coord_t LightningLayer::getWeightedDistance(const Point& boundary_loc, const Point& unsupported_location)
 {
     return coord_t((boundary_loc - unsupported_location).cast<double>().norm());
 }
@@ -32,7 +32,7 @@ inline static Point to_grid_point(const Point &point, const BoundingBox &bbox)
     return (point - bbox.min) / locator_cell_size;
 }
 
-void Layer::fillLocator(SparseNodeGrid &tree_node_locator, const BoundingBox& current_outlines_bbox)
+void LightningLayer::fillLocator(SparseNodeGrid &tree_node_locator, const BoundingBox& current_outlines_bbox)
 {
     std::function<void(NodeSPtr)> add_node_to_locator_func = [&tree_node_locator, &current_outlines_bbox](const NodeSPtr &node) {
         tree_node_locator.insert(std::make_pair(to_grid_point(node->getLocation(), current_outlines_bbox), node));
@@ -41,7 +41,7 @@ void Layer::fillLocator(SparseNodeGrid &tree_node_locator, const BoundingBox& cu
         tree->visitNodes(add_node_to_locator_func);
 }
 
-void Layer::generateNewTrees
+void LightningLayer::generateNewTrees
 (
     const Polygons& current_overhang,
     const Polygons& current_outlines,
@@ -114,7 +114,7 @@ static bool polygonCollidesWithLineSegment(const Point &from, const Point &to, c
     return visitor.intersect;
 }
 
-GroundingLocation Layer::getBestGroundingLocation
+GroundingLocation LightningLayer::getBestGroundingLocation
 (
     const Point& unsupported_location,
     const Polygons& current_outlines,
@@ -199,7 +199,7 @@ GroundingLocation Layer::getBestGroundingLocation
         GroundingLocation{ sub_tree, std::optional<Point>() };
 }
 
-bool Layer::attach(
+bool LightningLayer::attach(
     const Point& unsupported_location,
     const GroundingLocation& grounding_loc,
     NodeSPtr& new_child,
@@ -217,7 +217,7 @@ bool Layer::attach(
     }
 }
 
-void Layer::reconnectRoots
+void LightningLayer::reconnectRoots
 (
     std::vector<NodeSPtr>& to_be_reconnected_tree_roots,
     const Polygons& current_outlines,
@@ -433,7 +433,7 @@ static unsigned int moveInside(const Polygons& polygons, Point& from, int distan
 }
 #endif
 
-Polylines Layer::convertToLines(const Polygons& limit_to_outline, const coord_t line_overlap) const
+Polylines LightningLayer::convertToLines(const Polygons& limit_to_outline, const coord_t line_overlap) const
 {
     if (tree_roots.empty())
         return {};
