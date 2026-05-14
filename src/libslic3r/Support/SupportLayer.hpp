@@ -12,6 +12,7 @@
 #include "../ClipperUtils.hpp"
 #include "../Polygon.hpp"
 #include "../Layer.hpp"
+#include "libslic3r/ContainerUtils.hpp"
 
 namespace Slic3r::FFFSupport {
 

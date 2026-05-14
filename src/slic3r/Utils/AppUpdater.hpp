@@ -8,6 +8,7 @@
 #include <optional>
 #include <boost/filesystem.hpp>
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/Semver.hpp"
 #include "wx/event.h"
 
 //class boost::filesystem::path;

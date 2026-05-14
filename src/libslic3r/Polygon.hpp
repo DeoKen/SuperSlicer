@@ -14,6 +14,7 @@
 #include "libslic3r.h"
 #include <vector>
 #include <string>
+#include "ContainerUtils.hpp"
 #include "Line.hpp"
 #include "Point.hpp"
 #include "MultiPoint.hpp"

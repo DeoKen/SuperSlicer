@@ -41,6 +41,7 @@
 #include "libslic3r.h"
 #include "clonable_ptr.hpp"
 #include "Exception.hpp"
+#include "ContainerUtils.hpp"
 #include "Point.hpp"
 
 #include <boost/any.hpp>

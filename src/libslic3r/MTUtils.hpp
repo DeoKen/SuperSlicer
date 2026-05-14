@@ -5,15 +5,16 @@
 #ifndef MTUTILS_HPP
 #define MTUTILS_HPP
 
+#include <algorithm>
 #include <atomic>       // for std::atomic_flag and memory orders
-#include <mutex>        // for std::lock_guard
+#include <cmath>
 #include <functional>   // for std::function
+#include <mutex>        // for std::lock_guard
 #include <utility>      // for std::forward
 #include <vector>
-#include <algorithm>
-#include <cmath>
 
 #include "libslic3r.h"
+#include "TypeTraits.hpp"
 
 namespace Slic3r {
 

@@ -6,16 +6,18 @@
 #ifndef slic3r_Utils_hpp_
 #define slic3r_Utils_hpp_
 
-#include <locale>
-#include <utility>
-#include <functional>
-#include <type_traits>
-#include <system_error>
 #include <cmath>
+#include <functional>
+#include <iterator>
+#include <locale>
+#include <memory>
+#include <system_error>
+#include <type_traits>
+#include <utility>
 
 #include <boost/filesystem.hpp>
-#include <boost/system/error_code.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/system/error_code.hpp>
 
 #include "libslic3r.h"
 

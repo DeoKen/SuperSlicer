@@ -6,6 +6,7 @@
 #define slic3r_OpenGLManager_hpp_
 
 #include "GLShadersManager.hpp"
+#include "libslic3r/Semver.hpp"
 
 class wxWindow;
 class wxGLCanvas;

@@ -5,6 +5,7 @@
 #ifndef libslic3r_SeamPlacer_hpp_
 #define libslic3r_SeamPlacer_hpp_
 
+#include <array>
 #include <optional>
 #include <vector>
 #include <memory>
@@ -13,6 +14,7 @@
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Polygon.hpp"
+#include "libslic3r/ContainerUtils.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/AABBTreeIndirect.hpp"

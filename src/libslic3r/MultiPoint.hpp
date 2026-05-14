@@ -6,10 +6,12 @@
 #ifndef slic3r_MultiPoint_hpp_
 #define slic3r_MultiPoint_hpp_
 
-#include "libslic3r.h"
 #include <algorithm>
 #include <vector>
+
+#include "libslic3r.h"
 #include "Line.hpp"
+#include "NumericUtils.hpp"
 #include "Point.hpp"
 
 namespace Slic3r {

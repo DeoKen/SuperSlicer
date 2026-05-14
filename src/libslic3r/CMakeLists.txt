@@ -166,6 +166,7 @@ set(SLIC3R_SOURCES
     Color.hpp
     Config.cpp
     Config.hpp
+    ContainerUtils.hpp
     CSGMesh/CSGMesh.hpp
     CSGMesh/SliceCSGMesh.hpp
     CSGMesh/ModelToCSGMesh.hpp
@@ -435,6 +436,7 @@ set(SLIC3R_SOURCES
     MutablePriorityQueue.hpp
     NormalUtils.cpp
     NormalUtils.hpp
+    NumericUtils.hpp
     NSVGUtils.cpp
     NSVGUtils.hpp
     ObjectID.cpp
@@ -548,6 +550,7 @@ set(SLIC3R_SOURCES
     TriangleSetSampling.hpp
     TriangleSelectorWrapper.cpp
     TriangleSelectorWrapper.hpp
+    TypeTraits.hpp
     MTUtils.hpp
     Zipper.hpp
     Zipper.cpp

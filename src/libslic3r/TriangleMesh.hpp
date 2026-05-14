@@ -14,6 +14,7 @@
 
 #include "libslic3r.h"
 #include <admesh/stl.h>
+#include <array>
 #include <functional>
 #include <vector>
 #include "BoundingBox.hpp"

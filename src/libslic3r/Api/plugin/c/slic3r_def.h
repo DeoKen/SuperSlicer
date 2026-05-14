@@ -6,9 +6,8 @@
 #ifndef slic3r_def_h_
 #define slic3r_def_h_
 
-#include <stdint.h>
 #include <assert.h>
-
+#include <stdint.h>
 
 #ifdef __cplusplus
 #define SLIC3R_CONSTEXPR_INLINE constexpr inline
@@ -47,7 +46,8 @@ SLIC3R_CONSTEXPR_INLINE coord_t scale_i(coordf_t val) { return (coord_t) (val * 
 // Equivalent to val * 2^SCALING_POWER. <==> SLIC3R_CONSTEXPR_INLINE coordf_t scale_d(coordf_t val) { return (coordf_t) (std::scalbn(val, SCALING_POWER)); }
 SLIC3R_CONSTEXPR_INLINE coordf_t scale_d(coordf_t val) { return (coordf_t) (val * UNSCALING_FACTOR); }
 //Equivalent to val * 2^-SCALING_POWER. <==> SLIC3R_CONSTEXPR_INLINE coordf_t unscaled(coord_t val) { return (coordf_t) (std::scalbn(coordf_t(val), -SCALING_POWER)); }
-SLIC3R_CONSTEXPR_INLINE coordf_t unscaled(coord_t val) { return (coordf_t) (val * SCALING_FACTOR); }
+SLIC3R_CONSTEXPR_INLINE double unscaled(coord_t val) { return ((double)val) * SCALING_FACTOR; }
+SLIC3R_CONSTEXPR_INLINE double unscaled(coordf_t val) { return val * SCALING_FACTOR; }
 SLIC3R_CONSTEXPR_INLINE distsqrf_t coord_sqr(coord_t length) { return distf_t(length) * distf_t(length); }
 SLIC3R_CONSTEXPR_INLINE coord_index_t coord_index(coord_t coord) { 
     return coord;
@@ -76,7 +76,8 @@ SLIC3R_CONSTEXPR_STATIC coord_t SCALED_EPSILON = 100; // coord_t(EPSILON/ SCALIN
 
 SLIC3R_CONSTEXPR_INLINE coord_t scale_i(coordf_t val) { return (coord_t) (val * UNSCALING_FACTOR); }
 SLIC3R_CONSTEXPR_INLINE coordf_t scale_d(coordf_t val) { return (coordf_t) (val * UNSCALING_FACTOR); }
-SLIC3R_CONSTEXPR_INLINE coordf_t unscaled(coord_t val) { return (coordf_t) ((double) val * SCALING_FACTOR); }
+SLIC3R_CONSTEXPR_INLINE double unscaled(coord_t val) { return ((double) val) * SCALING_FACTOR; }
+SLIC3R_CONSTEXPR_INLINE double unscaled(coordf_t val) { return val * SCALING_FACTOR; }
 SLIC3R_CONSTEXPR_INLINE distsqrf_t coord_sqr(coord_t length) { return distf_t(length) * distf_t(length); }
 #define SLIC3R_SQUARE_BIT_REDUCTION 7
 #define SLIC3R_SQUARE_BIT_FACTOR (1u << SLIC3R_SQUARE_BIT_REDUCTION)

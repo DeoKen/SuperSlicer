@@ -14,6 +14,7 @@
 
 #include "libslic3r.h"
 #include <cstddef>
+#include <optional>
 #include <vector>
 #include <cmath>
 #include <string>
@@ -26,6 +27,7 @@
 #include <Eigen/Geometry> 
 
 #include "LocalesUtils.hpp"
+#include "TypeTraits.hpp"
 
 namespace Slic3r {
 
