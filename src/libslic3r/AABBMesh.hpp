@@ -17,7 +17,7 @@
 // #define SLIC3R_HOLE_RAYCASTER
 
 #ifdef SLIC3R_HOLE_RAYCASTER
-  #include "libslic3r/SLA/Hollowing.hpp"
+  #include "libslic3r/SLA/DrainHole.hpp"
 #endif
 
 struct indexed_triangle_set;
@@ -139,7 +139,6 @@ public:
     const VertexFaceIndex &vertex_face_index() const { return m_vfidx; }
     const std::vector<Vec3i32> &face_neighbor_index() const { return m_fnidx; }
 };
-
 
 } // namespace Slic3r::sla
 

@@ -8,8 +8,8 @@
 #include "GLGizmoSlaBase.hpp"
 #include "slic3r/GUI/GLSelectionRectangle.hpp"
 
-#include <libslic3r/SLA/Hollowing.hpp>
 #include <libslic3r/ObjectID.hpp>
+#include <libslic3r/SLA/DrainHole.hpp>
 #include <wx/dialog.h>
 
 #include <cereal/types/vector.hpp>

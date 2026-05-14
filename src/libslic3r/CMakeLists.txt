@@ -591,6 +591,7 @@ set(SLIC3R_SOURCES
     SLA/RasterToPolygons.cpp
     SLA/ConcaveHull.hpp
     SLA/ConcaveHull.cpp
+    SLA/DrainHole.hpp
     SLA/Hollowing.hpp
     SLA/Hollowing.cpp
     SLA/JobController.hpp
