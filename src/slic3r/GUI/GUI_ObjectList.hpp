@@ -1,24 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_ObjectList_hpp_
 #define slic3r_GUI_ObjectList_hpp_
 
 #include <map>
-#include <vector>
 #include <set>
+#include <vector>
 
 #include <wx/bitmap.h>
 #include <wx/dataview.h>
 #include <wx/menu.h>
 
-#include "Event.hpp"
-#include "wxExtensions.hpp"
-#include "ObjectDataViewModel.hpp"
-
 #include "libslic3r/PrintConfig.hpp"
 
+#include "Event.hpp"
+#include "ObjectDataViewModel.hpp"
+#include "wxExtensions.hpp"
 class wxBoxSizer;
 class wxBitmapComboBox;
 class wxMenuItem;

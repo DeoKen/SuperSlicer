@@ -2,15 +2,18 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "Print.hpp"
+
 #include "ToolOrdering.hpp"
-#include "Layer.hpp"
+
 #include "GCode.hpp"
+#include "Layer.hpp"
+#include "Print.hpp"
 
 // #define SLIC3R_DEBUG
-
 // Make assert active if SLIC3R_DEBUG
+
 #ifdef SLIC3R_DEBUG
     #define DEBUG
     #define _DEBUG

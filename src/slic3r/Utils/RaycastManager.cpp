@@ -1,15 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Enrico Turri @enricoturri1966, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "RaycastManager.hpp"
+
 #include <utility>
 
 #include "libslic3r/PointUtils.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
+
 #include "slic3r/GUI/Camera.hpp"
 #include "slic3r/GUI/CameraUtils.hpp"
-
+#include "slic3r/GUI/GLCanvas3D.hpp"
 using namespace Slic3r::GUI;
 
 namespace{

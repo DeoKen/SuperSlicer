@@ -1,21 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_ObjectManipulation_hpp_
 #define slic3r_GUI_ObjectManipulation_hpp_
 
 #include <cfloat>
 #include <memory>
 
-#include "GUI_ObjectSettings.hpp"
-#include "GUI_ObjectList.hpp"
-#include "GUI_Geometry.hpp"
 #include "libslic3r/Point.hpp"
 
+#include "GUI_Geometry.hpp"
+#include "GUI_ObjectList.hpp"
+#include "GUI_ObjectSettings.hpp"
 #include "Widgets/ComboBox.hpp"
 #include "Widgets/TextInput.hpp"
-
 #ifdef __WXOSX__
 class wxBitmapComboBox;
 #else

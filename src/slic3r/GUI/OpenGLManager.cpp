@@ -1,9 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "OpenGLManager.hpp"
+
+#include "libslic3r/libslic3r.h"
 
 #include "GUI.hpp"
 #if ENABLE_GL_CORE_PROFILE
@@ -28,7 +32,7 @@
 // Part of hack to remove crash when closing the application on OSX 10.9.5 when building against newer wxWidgets
 #include <wx/platinfo.h>
 
-#include "../Utils/MacDarkMode.hpp"
+#include "slic3r/Utils/MacDarkMode.hpp"
 #endif // __APPLE__
 
 namespace Slic3r {

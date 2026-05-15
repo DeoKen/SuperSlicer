@@ -3,7 +3,8 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#pragma once
+#ifndef plugins_polyholes_hpp_
+#define plugins_polyholes_hpp_
 
 #include "libslic3r/Api/plugin/cpp/PluginBase.hpp"
 
@@ -33,3 +34,5 @@ private:
 void register_polyholes_plugin(orchestrator_handle *orch);
 
 }} // namespace slic3r_api::PolyholesPlugin
+
+#endif // plugins_polyholes_hpp_

@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef SLIC3R_GUI_FIELD_HPP
 #define SLIC3R_GUI_FIELD_HPP
 
@@ -165,12 +168,12 @@ public:
 	bool 	set_undo_bitmap(const ScalableBitmap* bmp)			{ return m_undo_ui.set_undo_bitmap(bmp); }
 	bool 	set_undo_to_sys_bitmap(const ScalableBitmap* bmp)	{ return m_undo_ui.set_undo_to_sys_bitmap(bmp); }
 	bool	set_label_colour(const wxColour* clr)				{ return m_undo_ui.set_label_colour(clr); }
-	bool 	set_undo_tooltip(const wxString* tip)				{ return m_undo_ui.set_undo_tooltip(tip); }
-	bool 	set_undo_to_sys_tooltip(const wxString* tip)		{ return m_undo_ui.set_undo_to_sys_tooltip(tip); }	
+	bool	set_undo_tooltip(const wxString* tip)				{ return m_undo_ui.set_undo_tooltip(tip); }
+	bool	set_undo_to_sys_tooltip(const wxString* tip)		{ return m_undo_ui.set_undo_to_sys_tooltip(tip); }
 
-	bool 	set_edit_bitmap(const ScalableBitmap* bmp)			{ return m_edit_ui.set_bitmap(bmp); }
-	bool 	set_edit_tooltip(const wxString& tip)				{ return m_edit_ui.set_tooltip(tip); }
-	
+	bool	set_edit_bitmap(const ScalableBitmap* bmp)			{ return m_edit_ui.set_bitmap(bmp); }
+	bool	set_edit_tooltip(const wxString& tip)				{ return m_edit_ui.set_tooltip(tip); }
+
     void set_enable_bitmap_checked(bool checked) {
         if (m_enable_widget) {
             m_enable_widget->SetValue(checked);

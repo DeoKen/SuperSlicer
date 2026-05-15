@@ -1,18 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_CreateMMUTiledCanvas_hpp_
 #define slic3r_GUI_CreateMMUTiledCanvas_hpp_
 
 #include <map>
-#include <vector>
 #include <regex>
-
-#include "OptionsGroup.hpp"
-
-#include "GUI_App.hpp"
+#include <vector>
 
 #include <wx/combobox.h>
 #include <wx/gbsizer.h>
 
-namespace Slic3r { 
+#include "GUI_App.hpp"
+#include "OptionsGroup.hpp"
+namespace Slic3r {
 namespace GUI {
     class CreateMMUTiledCanvas;
 

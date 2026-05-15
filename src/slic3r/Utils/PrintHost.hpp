@@ -1,24 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_PrintHost_hpp_
 #define slic3r_PrintHost_hpp_
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
-#include <functional>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 
 #include <wx/string.h>
 
-#include <libslic3r/enum_bitmask.hpp>
-#include "Http.hpp"
+#include "libslic3r/enum_bitmask.hpp"
 
+#include "Http.hpp"
 class wxArrayString;
 
 namespace Slic3r {

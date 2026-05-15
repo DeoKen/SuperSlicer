@@ -3,51 +3,54 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "GCodeViewer.hpp"
 
-#include "libslic3r/BuildVolume.hpp"
-#include "libslic3r/Print.hpp"
-#include "libslic3r/Geometry.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/LocalesUtils.hpp"
-#include "libslic3r/PresetBundle.hpp"
-
-#include "slic3r/GUI/format.hpp"
-
-#include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "Plater.hpp"
-#include "Camera.hpp"
-#include "I18N.hpp"
-#include "format.hpp"
-#include "GUI_Utils.hpp"
-#include "GUI.hpp"
-#include "DoubleSlider.hpp"
-#include "GLCanvas3D.hpp"
-#include "GLToolbar.hpp"
-#include "GUI_Preview.hpp"
-#include "GUI_ObjectManipulation.hpp"
-
-#include <imgui/imgui_internal.h>
-
-#include <GL/glew.h>
-#include <boost/locale/generator.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/nowide/cstdio.hpp>
-#include <boost/nowide/fstream.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
-#include <wx/progdlg.h>
-#include <wx/numformatter.h>
-
-#include <array>
 #include <algorithm>
+#include <array>
 #include <chrono>
 
+#include <boost/algorithm/string/split.hpp>
+#include <boost/locale/generator.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/cstdio.hpp>
+#include <boost/nowide/fstream.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+
+#include <GL/glew.h>
+
+#include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>
+
+#include <wx/numformatter.h>
+#include <wx/progdlg.h>
+
+#include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "Camera.hpp"
+#include "DoubleSlider.hpp"
+#include "format.hpp"
+#include "GLCanvas3D.hpp"
+#include "GLToolbar.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "GUI_ObjectManipulation.hpp"
+#include "GUI_Preview.hpp"
+#include "GUI_Utils.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "Plater.hpp"
+#include "slic3r/GUI/format.hpp"
 namespace Slic3r {
 namespace GUI {
 

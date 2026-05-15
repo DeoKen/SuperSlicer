@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GCode_WipeTower_hpp_
 #define slic3r_GCode_WipeTower_hpp_
 
@@ -12,8 +15,8 @@
 #include <string>
 #include <utility>
 
-#include "libslic3r/Point.hpp"
 #include "libslic3r/Config.hpp"
+#include "libslic3r/Point.hpp"
 
 namespace Slic3r
 {

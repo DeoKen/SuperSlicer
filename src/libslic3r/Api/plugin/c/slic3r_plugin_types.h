@@ -2,15 +2,15 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #ifndef slic3r_plugin_types_h_
 #define slic3r_plugin_types_h_
 
 #include <stddef.h>
-#include "slic3r_utils.h"
-#include "slic3r_data_tree.h"
-#include "slic3r_volume.h"
+
 #include "slic3r_bridge_detector.h"
+#include "slic3r_data_tree.h"
+#include "slic3r_utils.h"
+#include "slic3r_volume.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,12 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ArrangeSettingsDialogImgui.hpp"
+
 #include "I18N.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI.hpp"
-
 namespace Slic3r { namespace GUI {
 
 struct Settings {

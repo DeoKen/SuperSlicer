@@ -1,9 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "Button.hpp"
 
-#include <wx/dcgraph.h>
 #include <wx/dc.h>
 #include <wx/dcclient.h>
-
+#include <wx/dcgraph.h>
 BEGIN_EVENT_TABLE(Button, StaticBox)
 
 EVT_LEFT_DOWN(Button::mouseDown)

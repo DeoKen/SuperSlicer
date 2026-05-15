@@ -2,17 +2,17 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#include "Orchestrator.hpp"
-#include "Plugin.hpp"
-#include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
-#include "libslic3r/Print.hpp"
-
-#include <boost/log/trivial.hpp>
-
 #include <algorithm>
 #include <string>
 #include <vector>
+
+#include <boost/log/trivial.hpp>
+
+#include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
+#include "libslic3r/Print.hpp"
+
+#include "Orchestrator.hpp"
+#include "Plugin.hpp"
 
 extern "C" {
 

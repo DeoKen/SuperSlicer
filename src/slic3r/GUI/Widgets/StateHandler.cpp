@@ -1,7 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "StateHandler.hpp"
 
 #include <wx/window.h>
-
 wxDEFINE_EVENT(EVT_ENABLE_CHANGED, wxCommandEvent);
 
 StateHandler::StateHandler(wxWindow * owner)

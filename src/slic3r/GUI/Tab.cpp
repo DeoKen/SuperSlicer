@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2021 Martin Budden
 ///|/ Copyright (c) 2021 Ilya @xorza
@@ -16,18 +17,21 @@
 ///|/ Copyright (c) 2012 Henrik Brix Andersen @henrikbrixandersen
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "Tab.hpp"
+
 // #include "libslic3r/GCodeSender.hpp"
 #include "slic3r/GUI/BedShapeDialog.hpp"
 #include "slic3r/Utils/Serial.hpp"
-#include "Tab.hpp"
 
 #include "libslic3r/Log.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
-#include <libslic3r/Slicing.hpp>
+#include "libslic3r/Slicing.hpp"
 #include "libslic3r/GCode/GCodeWriter.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
 

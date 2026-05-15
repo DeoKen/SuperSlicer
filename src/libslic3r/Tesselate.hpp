@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2021 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Tesselate_hpp_
 #define slic3r_Tesselate_hpp_
 
 #include <vector>
+
 #include <admesh/stl.h>
 
 #include "ExPolygon.hpp"

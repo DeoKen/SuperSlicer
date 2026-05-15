@@ -1,21 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_3DBed_hpp_
 #define slic3r_3DBed_hpp_
 
-#include "GLTexture.hpp"
-#include "3DScene.hpp"
-#include "CoordAxes.hpp"
-#include "MeshUtils.hpp"
+#include <array>
+#include <tuple>
 
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/ExPolygon.hpp"
 
-#include <tuple>
-#include <array>
-
+#include "3DScene.hpp"
+#include "CoordAxes.hpp"
+#include "GLTexture.hpp"
+#include "MeshUtils.hpp"
 namespace Slic3r {
 namespace GUI {
 

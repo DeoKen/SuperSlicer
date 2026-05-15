@@ -1,35 +1,37 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) 2022 KARBOWSKI Piotr
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "AppUpdater.hpp"
 
 #include <atomic>
 #include <regex>
-#include <thread>
 #include <string>
+#include <thread>
 
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/nowide/fstream.hpp>
 #include <boost/nowide/convert.hpp>
+#include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp> 
+#include <boost/property_tree/ptree.hpp>
+
 #include <curl/curl.h>
 
 #include "libslic3r/miniz_extension.hpp"
-
-#include "slic3r/GUI/format.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/GUI.hpp"
-#include "slic3r/GUI/I18N.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/Utils/Http.hpp"
-
 #include "libslic3r/Utils.hpp"
 
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/I18N.hpp"
+#include "slic3r/Utils/Http.hpp"
 #ifdef _WIN32
 #include <shellapi.h>
 #include <Shlobj_core.h>

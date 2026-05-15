@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) Slic3r 2016 Alessandro Ranellucci @alranel
 ///|/
@@ -7,11 +8,13 @@
 ///|/ Copyright (c) 2012 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_FillRectilinear_hpp_
 #define slic3r_FillRectilinear_hpp_
 
-#include "../libslic3r.h"
+#include "libslic3r/libslic3r.h"
 
 #include "FillBase.hpp"
 

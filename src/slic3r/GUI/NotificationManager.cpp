@@ -1,31 +1,33 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "NotificationManager.hpp"
-
-#include "HintNotification.hpp"
-#include "GUI.hpp"
-#include "ImGuiWrapper.hpp"
-#include "PrintHostDialogs.hpp"
-#include "libslic3r/AppConfig.hpp"
-
-#include "wxExtensions.hpp"
-#include "ObjectDataViewModel.hpp"
-#include "libslic3r/Config.hpp"
-#include "../Utils/PrintHost.hpp"
-#include "libslic3r/Config.hpp"
-#include "format.hpp"
-
-#include <boost/algorithm/string.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/bind/bind.hpp>
-#include <boost/nowide/convert.hpp>
 
 #include <iostream>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/bind/bind.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/convert.hpp>
+
 #include <wx/glcanvas.h>
 
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Config.hpp"
+#include "libslic3r/Config.hpp"
+
+#include "format.hpp"
+#include "GUI.hpp"
+#include "HintNotification.hpp"
+#include "ImGuiWrapper.hpp"
+#include "ObjectDataViewModel.hpp"
+#include "PrintHostDialogs.hpp"
+#include "slic3r/Utils/PrintHost.hpp"
+#include "wxExtensions.hpp"
 static constexpr float GAP_WIDTH = 10.0f;
 static constexpr float SPACE_RIGHT_PANEL = 10.0f;
 static constexpr float FADING_OUT_DURATION = 2.0f;

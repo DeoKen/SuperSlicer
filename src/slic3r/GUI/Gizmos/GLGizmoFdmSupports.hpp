@@ -1,14 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoFdmSupports_hpp_
 #define slic3r_GLGizmoFdmSupports_hpp_
 
 #include "GLGizmoPainterBase.hpp"
-
 #include "slic3r/GUI/I18N.hpp"
-
 namespace Slic3r::GUI {
 
 class GLGizmoFdmSupports : public GLGizmoPainterBase

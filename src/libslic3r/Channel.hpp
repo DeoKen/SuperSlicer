@@ -1,17 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Channel_hpp_
 #define slic3r_Channel_hpp_
 
-#include <memory>
-#include <deque>
 #include <condition_variable>
+#include <deque>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <utility>
-
 
 namespace Slic3r {
 

@@ -1,3 +1,8 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_CalibrationPressureAdvDialog_hpp_
 #define slic3r_GUI_CalibrationPressureAdvDialog_hpp_
 

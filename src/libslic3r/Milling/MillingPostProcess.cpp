@@ -1,7 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "MillingPostProcess.hpp"
-#include "../Layer.hpp"
-#include "../ClipperUtils.hpp"
-#include "../BoundingBox.hpp"
+
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Layer.hpp"
 
 namespace Slic3r {
 

@@ -1,18 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_FileArchiveDialog_hpp_
 #define slic3r_GUI_FileArchiveDialog_hpp_
 
-#include "GUI_Utils.hpp"
+#include <boost/filesystem/path.hpp>
+
+#include <wx/dataview.h>
+#include <wx/wx.h>
+
 #include "libslic3r/miniz_extension.hpp"
 
-#include <boost/filesystem/path.hpp>
-#include <wx/wx.h>
-#include <wx/dataview.h>
+#include "GUI_Utils.hpp"
 #include "wxExtensions.hpp"
-
 namespace Slic3r {
 namespace GUI {
 

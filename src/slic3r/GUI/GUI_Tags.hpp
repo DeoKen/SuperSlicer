@@ -1,13 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_Tags_hpp_
 #define slic3r_GUI_Tags_hpp_
-
-#include "libslic3r/Config.hpp"
 
 #include <wx/checklst.h>
 #include <wx/combo.h>
 
-#include "wxExtensions.hpp"
+#include "libslic3r/Config.hpp"
 
+#include "wxExtensions.hpp"
 namespace Slic3r {
 namespace GUI {
 

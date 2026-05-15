@@ -1,23 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_EmbossStyleManager_hpp_
 #define slic3r_EmbossStyleManager_hpp_
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
-#include <functional>
-#include <imgui/imgui.h>
-#include <wx/font.h>
-#include <GL/glew.h>
-#include <libslic3r/BoundingBox.hpp>
-#include <libslic3r/Emboss.hpp>
-#include <libslic3r/TextConfiguration.hpp>
-#include <libslic3r/EmbossShape.hpp>
-#include <libslic3r/AppConfig.hpp>
 
+#include <GL/glew.h>
+
+#include <imgui/imgui.h>
+
+#include <wx/font.h>
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/Emboss.hpp"
+#include "libslic3r/EmbossShape.hpp"
+#include "libslic3r/TextConfiguration.hpp"
 namespace Slic3r::GUI::Emboss {
 /// <summary>
 /// Manage Emboss text styles

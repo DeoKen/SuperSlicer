@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) Slic3r 2013 - 2016 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2014 Petr Ledvina @ledvinap
@@ -9,7 +10,9 @@
 ///|/ Copyright (c) Slic3r 2011 - 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Point.hpp"
 
 #include <algorithm>

@@ -1,12 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "WxFontUtils.hpp"
+
 #include <boost/assign.hpp>
 #include <boost/log/trivial.hpp>
-#include "libslic3r/Utils.hpp"
 
+#include "libslic3r/Utils.hpp"
 #if defined(__APPLE__)
 #include <CoreText/CTFont.h>
 #include <wx/uri.h>

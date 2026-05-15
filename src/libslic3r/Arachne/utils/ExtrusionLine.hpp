@@ -6,11 +6,11 @@
 #define UTILS_EXTRUSION_LINE_H
 
 #include "ExtrusionJunction.hpp"
-#include "../../Polyline.hpp"
-#include "../../Polygon.hpp"
-#include "../../BoundingBox.hpp"
-#include "../../ExtrusionEntity.hpp"
-#include "../../../clipper/clipper_z.hpp"
+#include "libslic3r/Polyline.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "clipper/clipper_z.hpp"
 
 namespace Slic3r {
 class ThickPolyline;

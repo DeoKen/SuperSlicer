@@ -1,20 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_Preview_hpp_
 #define slic3r_GUI_Preview_hpp_
 
+#include <string>
+
 #include <wx/panel.h>
 
-#include "libslic3r/Point.hpp"
 #include "libslic3r/CustomGCode.hpp"
-
-#include <string>
 #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/Point.hpp"
 
 #include "GCodeViewer.hpp"
-
 class wxGLCanvas;
 class wxBoxSizer;
 class wxStaticText;

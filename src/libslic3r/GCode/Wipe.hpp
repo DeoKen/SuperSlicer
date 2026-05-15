@@ -1,17 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GCode_Wipe_hpp_
 #define slic3r_GCode_Wipe_hpp_
 
 // #include "SmoothPath.hpp"
 
-#include "../Geometry/ArcWelder.hpp"
-#include "../Point.hpp"
-#include "../PrintConfig.hpp"
-#include "../ExtrusionEntity.hpp"
-
-#include "GCodeWriter.hpp"
-
 #include <cassert>
 #include <optional>
+
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/Geometry/ArcWelder.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
+#include "GCodeWriter.hpp"
 
 namespace Slic3r {
 

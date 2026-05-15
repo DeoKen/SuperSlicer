@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLTexture_hpp_
 #define slic3r_GLTexture_hpp_
 
 #include <atomic>
 #include <string>
-#include <vector>
 #include <thread>
-
+#include <vector>
 class wxImage;
 
 namespace Slic3r {
@@ -132,5 +134,5 @@ namespace GUI {
 } // namespace GUI
 } // namespace Slic3r
 
-#endif // slic3r_GLTexture_hpp_
 
+#endif // slic3r_GLTexture_hpp_

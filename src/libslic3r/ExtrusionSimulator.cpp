@@ -1,7 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2021 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "ExtrusionSimulator.hpp"
+
 // Optimize the extrusion simulator to the bones.
 //#pragma GCC optimize ("O3")
 //#undef SLIC3R_DEBUG
@@ -18,7 +22,6 @@
 #include <boost/multi_array.hpp>
 
 #include "libslic3r.h"
-#include "ExtrusionSimulator.hpp"
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795

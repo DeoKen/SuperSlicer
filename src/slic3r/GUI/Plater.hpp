@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, David Kocík @kocikdav, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Filip Sykala @Jony01, Vojtěch Král @vojtechkral
 ///|/
 ///|/ ported from lib/Slic3r/GUI/Plater.pm:
@@ -13,29 +14,31 @@
 ///|/ Copyright (c) 2012 Sam Wong
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Plater_hpp_
 #define slic3r_Plater_hpp_
 
 #include <memory>
 #include <vector>
+
 #include <boost/filesystem/path.hpp>
 
 #include <wx/panel.h>
 
-#include "Selection.hpp"
-
-#include "libslic3r/enum_bitmask.hpp"
-#include "libslic3r/Preset.hpp"
 #include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/enum_bitmask.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/Preset.hpp"
+
+#include "GUI_Preview.hpp"
 #include "Jobs/Job.hpp"
 #include "Jobs/Worker.hpp"
-#include "Search.hpp"
-#include "GUI_Preview.hpp"
 #include "ProjectDirtyStateManager.hpp"
+#include "Search.hpp"
+#include "Selection.hpp"
 #include "wxExtensions.hpp"
-
 class wxButton;
 class ScalableButton;
 class wxScrolledWindow;

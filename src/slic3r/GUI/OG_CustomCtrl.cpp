@@ -1,19 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "OG_CustomCtrl.hpp"
-#include "OptionsGroup.hpp"
-#include "Plater.hpp"
-#include "GUI_App.hpp"
-#include "libslic3r/AppConfig.hpp"
+
+#include <boost/algorithm/string/split.hpp>
 
 #include <wx/utils.h>
-#include <boost/algorithm/string/split.hpp>
-#include "libslic3r/Utils.hpp"
-#include "I18N.hpp"
-#include "format.hpp"
 
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "format.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "OptionsGroup.hpp"
+#include "Plater.hpp"
 namespace Slic3r { namespace GUI {
 
 static bool is_point_in_rect(const wxPoint& pt, const wxRect& rect)

@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral, Enrico Turri @enricoturri1966
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
@@ -9,28 +10,33 @@
 ///|/ Copyright (c) 2011 Richard Goodwin
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "OptionsGroup.hpp"
-#include "ConfigExceptions.hpp"
-#include "Plater.hpp"
-#include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "OG_CustomCtrl.hpp"
-#include "MsgDialog.hpp"
-#include "format.hpp"
-#include "Tab.hpp"
 
 #include <utility>
+
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
+
 #include <wx/bookctrl.h>
 #include <wx/numformatter.h>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#include "libslic3r/Exception.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/AppConfig.hpp"
-#include "libslic3r/Preset.hpp"
-#include "I18N.hpp"
 
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/Preset.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "ConfigExceptions.hpp"
+#include "format.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "MsgDialog.hpp"
+#include "OG_CustomCtrl.hpp"
+#include "Plater.hpp"
+#include "Tab.hpp"
 namespace Slic3r { namespace GUI {
 
 const t_field& OptionsGroup::build_field(const Option& opt) {

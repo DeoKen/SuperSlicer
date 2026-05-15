@@ -1,13 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#ifdef __linux__
+
 #ifndef slic3r_DesktopIntegrationDialog_hpp_
 #define slic3r_DesktopIntegrationDialog_hpp_
 
-#include <wx/dialog.h>
+#ifdef __linux__
 
+#include <wx/dialog.h>
 namespace Slic3r {
 namespace GUI {
 class DesktopIntegrationDialog : public wxDialog
@@ -45,5 +48,6 @@ private:
 } // namespace GUI
 } // namespace Slic3r
 
-#endif // slic3r_DesktopIntegrationDialog_hpp_
 #endif // __linux__
+
+#endif // slic3r_DesktopIntegrationDialog_hpp_

@@ -1,15 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GCode_TemperatureMover_hpp_
 #define slic3r_GCode_TemperatureMover_hpp_
 
+#include <regex>
 
 #include "libslic3r/ExtrusionEntity.hpp"
-#include "libslic3r/GCodeReader.hpp"
 #include "libslic3r/GCode/GCodeWriter.hpp"
+#include "libslic3r/GCodeReader.hpp"
+#include "libslic3r/libslic3r.h"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/libslic3r.h"
-
-#include <regex>
 
 namespace Slic3r {
 

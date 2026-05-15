@@ -2,20 +2,20 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
-
-#include "libslic3r/Api/plugin/c/slic3r_plugin.h"
-#include "libslic3r/Api/plugin/cpp/PluginContext.hpp"
+#ifndef slic3r_Api_plugin_cpp_PluginBase_hpp_
+#define slic3r_Api_plugin_cpp_PluginBase_hpp_
 
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <exception>
 #include <string>
 #include <vector>
+
+#include "libslic3r/Api/plugin/c/slic3r_plugin.h"
+#include "libslic3r/Api/plugin/cpp/PluginContext.hpp"
 
 /*
 PluginBase.hpp
@@ -503,3 +503,6 @@ private:
 };
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_PluginBase_hpp_

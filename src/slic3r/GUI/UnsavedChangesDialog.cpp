@@ -1,35 +1,38 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, David Kocík @kocikdav
 ///|/ Copyright (c) 2021 Pascal de Bruijn @pmjdebruijn
 ///|/ Copyright (c) 2021 Sebastian Hammerl
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "UnsavedChangesDialog.hpp"
 
 #include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
+
 #include <boost/algorithm/string.hpp>
 
 #include <wx/tokenzr.h>
 
-#include "libslic3r/Config.hpp"
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Color.hpp"
+#include "libslic3r/Config.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
+#include "ExtraRenderers.hpp"
 #include "format.hpp"
 #include "GUI_App.hpp"
-#include "Plater.hpp"
-#include "Tab.hpp"
-#include "ExtraRenderers.hpp"
-#include "wxExtensions.hpp"
-#include "SavePresetDialog.hpp"
 #include "MainFrame.hpp"
 #include "MsgDialog.hpp"
-
+#include "Plater.hpp"
 #include "PresetComboBoxes.hpp"
-
+#include "SavePresetDialog.hpp"
+#include "Tab.hpp"
+#include "wxExtensions.hpp"
 using std::optional;
 
 #ifdef __linux__

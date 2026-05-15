@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
 #include "Measure.hpp"
-#include "MeasureUtils.hpp"
-
-#include "libslic3r/Geometry/Circle.hpp"
-#include "libslic3r/SurfaceMesh.hpp"
-
 
 #include <numeric>
+
 #include <oneapi/tbb/parallel_for.h>
+
+#include "libslic3r/Geometry/Circle.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/SurfaceMesh.hpp"
+
+#include "MeasureUtils.hpp"
 
 #define DEBUG_EXTRACT_ALL_FEATURES_AT_ONCE 0
 

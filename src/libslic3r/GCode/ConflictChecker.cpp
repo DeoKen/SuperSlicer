@@ -1,16 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966
 ///|/ Copyright (c) BambuStudio 2023 manch1n @manch1n
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ConflictChecker.hpp"
 
-#include <oneapi/tbb/parallel_for.h>
-#include <oneapi/tbb/concurrent_vector.h>
-
-#include <map>
-#include <functional>
 #include <atomic>
+#include <functional>
+#include <map>
+
+#include <oneapi/tbb/concurrent_vector.h>
+#include <oneapi/tbb/parallel_for.h>
 
 #include "libslic3r/PointUtils.hpp"
 
@@ -414,5 +417,5 @@ ConflictComputeOpt ConflictChecker::line_intersect(const LineWithID &l1, const L
     return {};
 }
 
-} // namespace Slic3r
 
+} // namespace Slic3r

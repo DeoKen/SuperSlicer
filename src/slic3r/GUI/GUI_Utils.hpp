@@ -1,30 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_Utils_hpp_
 #define slic3r_GUI_Utils_hpp_
 
-#include <memory>
-#include <string>
-#include <ostream>
+#include <chrono>
 #include <functional>
+#include <memory>
 #include <optional>
+#include <ostream>
+#include <string>
 
-#include <wx/frame.h>
+#include <wx/dcclient.h>
+#include <wx/debug.h>
 #include <wx/dialog.h>
 #include <wx/event.h>
 #include <wx/filedlg.h>
+#include <wx/frame.h>
 #include <wx/gdicmn.h>
 #include <wx/panel.h>
-#include <wx/dcclient.h>
-#include <wx/debug.h>
 #include <wx/settings.h>
 
-#include <chrono>
-
 #include "Event.hpp"
-
 class wxCheckBox;
 class wxTopLevelWindow;
 class wxRect;

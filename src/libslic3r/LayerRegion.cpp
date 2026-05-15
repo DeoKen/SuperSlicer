@@ -1,28 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) superslicer 2019 - 2025 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas
 ///|/ Copyright (c) Slic3r 2014 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ SuperSlicer, PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "ExPolygon.hpp"
-#include "Flow.hpp"
-#include "Layer.hpp"
+#include <map>
+#include <string>
+
+#include <boost/log/trivial.hpp>
+
+#include <algorithm>
+#include "Algorithm/RegionExpansion.hpp"
+#include "BoundingBox.hpp"
 #include "BridgeDetector.hpp"
 #include "ClipperUtils.hpp"
+#include "ExPolygon.hpp"
+#include "Flow.hpp"
 #include "Geometry.hpp"
+#include "Layer.hpp"
 #include "Milling/MillingPostProcess.hpp"
 #include "PerimeterGenerator.hpp"
 #include "Print.hpp"
 #include "Surface.hpp"
-#include "BoundingBox.hpp"
 #include "SVG.hpp"
-#include "Algorithm/RegionExpansion.hpp"
-
-#include <algorithm>
-#include <string>
-#include <map>
-
-#include <boost/log/trivial.hpp>
 
 namespace Slic3r {
 

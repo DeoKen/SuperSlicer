@@ -3,26 +3,28 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GCodeProcessor_hpp_
 #define slic3r_GCodeProcessor_hpp_
 
-#include "libslic3r/Print.hpp"
-#include "libslic3r/GCodeReader.hpp"
-#include "libslic3r/Point.hpp"
-#include "libslic3r/ExtrusionRole.hpp"
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/CustomGCode.hpp"
-
-#include <LibBGCode/binarize/binarize.hpp>
-
+#include <array>
 #include <cstdint>
 #include <ctime>
-#include <array>
-#include <vector>
+#include <optional>
 #include <string>
 #include <string_view>
-#include <optional>
+#include <vector>
+
+#include "libslic3r/CustomGCode.hpp"
+#include "libslic3r/ExtrusionRole.hpp"
+#include "libslic3r/GCodeReader.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
+#include "LibBGCode/binarize/binarize.hpp"
 
 namespace Slic3r {
     //class StatusMonitor;

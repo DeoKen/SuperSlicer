@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Pavel Mikuš @Godrak, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Search.hpp"
 
 #include <cstddef>
@@ -12,16 +15,15 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/nowide/convert.hpp>
 
-#include "wx/dataview.h"
-#include "wx/numformatter.h"
-
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
 #include "Tab.hpp"
-
+#include "wx/dataview.h"
+#include "wx/numformatter.h"
 #define FTS_FUZZY_MATCH_IMPLEMENTATION
 #include "ExtraRenderers.hpp"
 #include "fts_fuzzy_match.h"

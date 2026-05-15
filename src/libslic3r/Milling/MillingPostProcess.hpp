@@ -1,11 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_MillingPostProcess_hpp_
 #define slic3r_MillingPostProcess_hpp_
 
-#include "../libslic3r.h"
-#include "../Polygon.hpp"
-#include "../Layer.hpp"
-#include "../PrintConfig.hpp"
-#include "../SurfaceCollection.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/SurfaceCollection.hpp"
 
 namespace Slic3r {
 

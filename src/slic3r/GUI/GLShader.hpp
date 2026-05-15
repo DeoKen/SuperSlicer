@@ -1,10 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2022 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ ported from lib/Slic3r/GUI/GLShader.pm:
 ///|/ Copyright (c) Prusa Research 2016 - 2017 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLShader_hpp_
 #define slic3r_GLShader_hpp_
 
@@ -13,7 +16,6 @@
 #include <string_view>
 
 #include "libslic3r/Point.hpp"
-
 namespace Slic3r {
 
 class ColorRGB;

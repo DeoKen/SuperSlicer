@@ -1,20 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Emboss_hpp_
 #define slic3r_Emboss_hpp_
 
-#include <vector>
-#include <set>
-#include <optional>
 #include <memory>
+#include <optional>
+#include <set>
+#include <vector>
+
 #include <admesh/stl.h> // indexed_triangle_set
-#include "Polygon.hpp"
-#include "ExPolygon.hpp"
-#include "EmbossShape.hpp" // ExPolygonsWithIds
+
 #include "BoundingBox.hpp"
+#include "EmbossShape.hpp" // ExPolygonsWithIds
+#include "ExPolygon.hpp"
 #include "PointUtils.hpp"
+#include "Polygon.hpp"
 #include "TextConfiguration.hpp"
 
 namespace Slic3r {

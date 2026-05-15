@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, David Kocík @kocikdav, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) Slic3r 2013 - 2016 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2015 Maksim Derbasov @ntfshard
@@ -18,18 +19,18 @@
 ///|/ Copyright (c) 2011 Clarence Risher
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Config_hpp_
 #define slic3r_Config_hpp_
 
 #include <cassert>
 #include <cfloat>
-#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
-#include <limits>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -37,24 +38,26 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
-#include "libslic3r/Api/plugin/c/slic3r_config_option_type.h"
-#include "libslic3r.h"
-#include "clonable_ptr.hpp"
-#include "Exception.hpp"
-#include "ContainerUtils.hpp"
-#include "LocalesUtils.hpp"
-#include "Point.hpp"
 
-#include <boost/any.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/any.hpp>
 #include <boost/format/format_fwd.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
-
 #include <cereal/access.hpp>
 #include <cereal/types/base_class.hpp>
+#include <climits>
+
+#include "libslic3r/Api/plugin/c/slic3r_config_option_type.h"
+
+#include "clonable_ptr.hpp"
+#include "ContainerUtils.hpp"
+#include "Exception.hpp"
+#include "libslic3r.h"
+#include "LocalesUtils.hpp"
+#include "Point.hpp"
 
 namespace Slic3r {
     struct FloatOrPercent

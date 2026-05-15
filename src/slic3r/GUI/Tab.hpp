@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
@@ -11,12 +12,14 @@
 ///|/ Copyright (c) 2012 Henrik Brix Andersen @henrikbrixandersen
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Tab_hpp_
 #define slic3r_Tab_hpp_
 
 //	 The "Expert" tab at the right of the main tabbed window.
-//	
+//
 //	 This file implements following packages:
 //	   Slic3r::GUI::Tab;
 //	       Slic3r::GUI::Tab::Print;
@@ -29,31 +32,31 @@
 //	   Slic3r::GUI::Tab::Preset;
 //	       - Single preset item: name, file is default or external.
 
-#include <wx/panel.h>
-#include <wx/notebook.h>
-#include <wx/listbook.h>
-#include <wx/scrolwin.h>
-#include <wx/sizer.h>
-#include <wx/bmpcbox.h>
-#include <wx/bmpbuttn.h>
-#include <wx/treectrl.h>
-#include <wx/imaglist.h>
-
 #include <atomic>
 #include <map>
 #include <memory>
 #include <vector>
 
-#include "BedShapeDialog.hpp"
-#include "ButtonsDescription.hpp"
-#include "Event.hpp"
-#include "wxExtensions.hpp"
-#include "GUI_Tags.hpp"
-#include "ConfigManipulation.hpp"
-#include "OptionsGroup.hpp"
-#include "ScriptExecutor.hpp"
+#include <wx/bmpbuttn.h>
+#include <wx/bmpcbox.h>
+#include <wx/imaglist.h>
+#include <wx/listbook.h>
+#include <wx/notebook.h>
+#include <wx/panel.h>
+#include <wx/scrolwin.h>
+#include <wx/sizer.h>
+#include <wx/treectrl.h>
+
 #include "libslic3r/Preset.hpp"
 
+#include "BedShapeDialog.hpp"
+#include "ButtonsDescription.hpp"
+#include "ConfigManipulation.hpp"
+#include "Event.hpp"
+#include "GUI_Tags.hpp"
+#include "OptionsGroup.hpp"
+#include "ScriptExecutor.hpp"
+#include "wxExtensions.hpp"
 class CheckBox;
 
 namespace Slic3r {

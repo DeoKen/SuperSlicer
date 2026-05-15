@@ -1,13 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef SLA_ARCHIVE_FORMAT_REGISTRY_HPP
 #define SLA_ARCHIVE_FORMAT_REGISTRY_HPP
 
-#include "SLAArchiveWriter.hpp"
-#include "SLAArchiveReader.hpp"
 #include <cstring>
+
+#include "SLAArchiveReader.hpp"
+#include "SLAArchiveWriter.hpp"
 
 namespace Slic3r {
 

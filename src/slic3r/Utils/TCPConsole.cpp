@@ -1,25 +1,27 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) 2020 - 2021 Sergey Kovalev @RandoMan70
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "TCPConsole.hpp"
+
+#include <iostream>
+#include <string>
+
+#include <boost/algorithm/string.hpp>
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read_until.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/asio/connect.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/algorithm/string.hpp>
-
-#include <iostream>
-#include <string>
-
-#include "TCPConsole.hpp"
-
 using boost::asio::steady_timer;
 using boost::asio::ip::tcp;
 

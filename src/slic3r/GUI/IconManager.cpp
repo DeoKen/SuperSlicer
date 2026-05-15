@@ -1,20 +1,27 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "IconManager.hpp"
-#include <boost/algorithm/string/predicate.hpp>
+
 #include <cmath>
 #include <numeric>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/algorithm/string.hpp>
-#include "nanosvg/nanosvg.h"
-#include "nanosvg/nanosvgrast.h"
-#include "libslic3r/Utils.hpp" // ScopeGuard   
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Utils.hpp" // ScopeGuard
 
 #include "3DScene.hpp" // glsafe
-#include "GUI_App.hpp"
-#include "libslic3r/AppConfig.hpp"
 #include "GL/glew.h"
-
+#include "GUI_App.hpp"
+#include "nanosvg/nanosvg.h"
+#include "nanosvg/nanosvgrast.h"
 #define STB_RECT_PACK_IMPLEMENTATION
 #include "imgui/imstb_rectpack.h" // distribute rectangles
 

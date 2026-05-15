@@ -1,7 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#ifndef slic3r_TreeSupportCommon_hpp
+#define slic3r_TreeSupportCommon_hpp
+
 // Tree supports by Thomas Rahm, losely based on Tree Supports by CuraEngine.
 // Original source of Thomas Rahm's tree supports:
 // https://github.com/ThomasRahm/CuraEngine
@@ -10,11 +16,9 @@
 // Copyright (c) 2021 Ultimaker B.V.
 // CuraEngine is released under the terms of the AGPLv3 or higher.
 
-#ifndef slic3r_TreeSupportCommon_hpp
-#define slic3r_TreeSupportCommon_hpp
 
-#include "../libslic3r.h"
-#include "../Polygon.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Polygon.hpp"
 #include "SupportCommon.hpp"
 
 #include <string_view>

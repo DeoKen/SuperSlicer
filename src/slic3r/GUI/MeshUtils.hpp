@@ -1,24 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_MeshUtils_hpp_
 #define slic3r_MeshUtils_hpp_
 
-#include "libslic3r/Point.hpp"
-#include "libslic3r/Geometry.hpp"
-#include "libslic3r/TriangleMesh.hpp"
-#include "libslic3r/AABBMesh.hpp"
-#include "libslic3r/CSGMesh/TriangleMeshAdapter.hpp"
-#include "libslic3r/CSGMesh/CSGMeshCopy.hpp"
-#include "admesh/stl.h"
-
-#include "slic3r/GUI/GLModel.hpp"
-
 #include <cfloat>
-#include <optional>
 #include <memory>
+#include <optional>
 
+#include "libslic3r/AABBMesh.hpp"
+#include "libslic3r/CSGMesh/CSGMeshCopy.hpp"
+#include "libslic3r/CSGMesh/TriangleMeshAdapter.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/TriangleMesh.hpp"
+
+#include "admesh/stl.h"
+#include "slic3r/GUI/GLModel.hpp"
 namespace Slic3r {
 namespace GUI {
 

@@ -1,12 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 David Kocík @kocikdav, Roman Beránek @zavorka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_InstanceCheck_hpp_
 #define slic3r_InstanceCheck_hpp_
 
 #include "Event.hpp"
-
 #if _WIN32
 #include <windows.h>
 #endif //_WIN32

@@ -1,11 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../Print.hpp"
-#include "../PrintConfig.hpp"
-#include "../Slicing.hpp"
+
 #include "SupportParameters.hpp"
+
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Slicing.hpp"
 
 namespace Slic3r::FFFSupport {
 

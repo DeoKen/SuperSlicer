@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) Slic3r 2013 - 2016 Alessandro Ranellucci @alranel
 ///|/
@@ -11,15 +12,10 @@
 ///|/ Copyright (c) 2012 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r.h"
-#include "Exception.hpp"
 #include "Geometry.hpp"
-#include "ClipperUtils.hpp"
-#include "ExPolygon.hpp"
-#include "Line.hpp"
-#include "clipper.hpp"
-#include <algorithm>
+
 #include <cassert>
 #include <cmath>
 #include <list>
@@ -27,13 +23,21 @@
 #include <numeric>
 #include <set>
 #include <utility>
-#include <stack>
 #include <vector>
-#include <boost/log/trivial.hpp>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/log/trivial.hpp>
+
+#include <stack>
+
+#include <algorithm>
+#include "clipper.hpp"
+#include "ClipperUtils.hpp"
+#include "Exception.hpp"
+#include "ExPolygon.hpp"
+#include "libslic3r.h"
+#include "Line.hpp"
 
 #if defined(_MSC_VER) && defined(__clang__)
 #define BOOST_NO_CXX17_HDR_STRING_VIEW

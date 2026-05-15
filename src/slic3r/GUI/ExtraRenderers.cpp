@@ -1,16 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ExtraRenderers.hpp"
-#include "wxExtensions.hpp"
+
+#include <wx/dc.h>
+
+#include "BitmapComboBox.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
-#include "BitmapComboBox.hpp"
 #include "Plater.hpp"
-
-#include <wx/dc.h>
+#include "wxExtensions.hpp"
 #ifdef wxHAS_GENERIC_DATAVIEWCTRL
 #include "wx/generic/private/markuptext.h"
 #include "wx/generic/private/rowheightcache.h"
@@ -410,6 +414,6 @@ bool TextRenderer::Render(wxRect rect, wxDC* dc, int state)
 wxSize TextRenderer::GetSize() const
 {
     return GetTextExtent(m_value);
+
+
 }
-
-

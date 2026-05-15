@@ -1,18 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) 2020 - 2021 Sergey Kovalev @RandoMan70
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Utils_TCPConsole_hpp_
 #define slic3r_Utils_TCPConsole_hpp_
 
-#include <string>
 #include <deque>
-#include <boost/system/error_code.hpp>
-#include <boost/system/system_error.hpp>
+#include <string>
+
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/streambuf.hpp>
-
+#include <boost/system/error_code.hpp>
+#include <boost/system/system_error.hpp>
 namespace Slic3r {
 namespace Utils {
 

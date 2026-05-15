@@ -1,14 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_DropDown_hpp_
 #define slic3r_GUI_DropDown_hpp_
 
-#include <wx/stattext.h>
-#include <wx/popupwin.h>
-
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include "../wxExtensions.hpp"
-#include "StateHandler.hpp"
+#include <wx/popupwin.h>
+#include <wx/stattext.h>
 
+#include "slic3r/GUI/wxExtensions.hpp"
+#include "StateHandler.hpp"
 #define DD_NO_CHECK_ICON    0x0001
 #define DD_NO_DROP_ICON     0x0002
 #define DD_NO_TEXT          0x0004

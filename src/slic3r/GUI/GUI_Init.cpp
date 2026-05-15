@@ -1,17 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/Technologies.hpp"
+
 #include "GUI_Init.hpp"
 
-#include "libslic3r/AppConfig.hpp" 
+#include "libslic3r/Technologies.hpp"
+
+#include "libslic3r/AppConfig.hpp"
 #include "libslic3r/BlacklistedLibraryCheck.hpp"
 
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/3DScene.hpp"
-#include "slic3r/GUI/InstanceCheck.hpp" 
+#include "slic3r/GUI/InstanceCheck.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/Plater.hpp"

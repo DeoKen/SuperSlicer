@@ -1,4 +1,8 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) superslicer 2021 - 2023 Durand Rémi @supermerill
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 ///// Copyright (c) Prusa Research 2021 - 2022 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
@@ -8,10 +12,9 @@
 #include "MedialAxis.hpp"
 
 #include "clipper.hpp"
-#include "../ClipperUtils.hpp"
+#include "libslic3r/ClipperUtils.hpp"
 #include "ClipperUtils.hpp"
 
-#include <boost/log/trivial.hpp>
 
 namespace Slic3r { namespace Geometry {
 

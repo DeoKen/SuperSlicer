@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2021 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ ported from lib/Slic3r/Format/OBJ.pm:
@@ -5,14 +6,18 @@
 ///|/ Copyright (c) Slic3r 2012 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../libslic3r.h"
-#include "../Model.hpp"
-#include "../TriangleMesh.hpp"
-#include "../NSVGUtils.hpp"
-#include "../Emboss.hpp"
+
+#include "SVG.hpp"
 
 #include <boost/log/trivial.hpp>
+
+#include "libslic3r/Emboss.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/NSVGUtils.hpp"
+#include "libslic3r/TriangleMesh.hpp"
 
 namespace {
 std::string get_file_name(const std::string &file_path)

@@ -1,40 +1,38 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "SL1.hpp"
 
-#include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
+#include "SL1.hpp"
 
 #include <sstream>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/Execution/ExecutionTBB.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/MarchingSquares.hpp"
+#include "libslic3r/miniz_extension.hpp"
+#include "libslic3r/MTUtils.hpp"
+#include "libslic3r/PNGReadWrite.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/SLA/RasterBase.hpp"
+#include "libslic3r/SLAPrint.hpp"
 #include "libslic3r/Time.hpp"
 #include "libslic3r/Zipper.hpp"
-#include "libslic3r/SLAPrint.hpp"
-#include "libslic3r/Exception.hpp"
-#include "libslic3r/MTUtils.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
-#include "libslic3r/miniz_extension.hpp"
-#include "libslic3r/LocalesUtils.hpp"
-#include "libslic3r/GCode/ThumbnailData.hpp"
-
-#include "SLAArchiveReader.hpp"
 #include "SLAArchiveFormatRegistry.hpp"
+#include "SLAArchiveReader.hpp"
 #include "ZipperArchiveImport.hpp"
-
-#include "libslic3r/MarchingSquares.hpp"
-#include "libslic3r/PNGReadWrite.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-#include "libslic3r/Execution/ExecutionTBB.hpp"
-
-#include "libslic3r/SLA/RasterBase.hpp"
-
-
-#include <boost/property_tree/ini_parser.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/algorithm/string.hpp>
 
 namespace Slic3r {
 

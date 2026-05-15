@@ -1,13 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_CustomGCode_hpp_
 #define slic3r_CustomGCode_hpp_
 
+#include <cstdint>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 #include "libslic3r.h"
 

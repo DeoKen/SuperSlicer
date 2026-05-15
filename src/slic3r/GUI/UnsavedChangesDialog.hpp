@@ -1,19 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_UnsavedChangesDialog_hpp_
 #define slic3r_UnsavedChangesDialog_hpp_
 
-#include <wx/dataview.h>
 #include <map>
 #include <vector>
 
-#include "GUI_Utils.hpp"
-#include "wxExtensions.hpp"
+#include <wx/dataview.h>
+
 #include "libslic3r/Config.hpp"
 #include "libslic3r/PresetBundle.hpp"
 
+#include "GUI_Utils.hpp"
+#include "wxExtensions.hpp"
 class ScalableButton;
 class wxStaticText;
 

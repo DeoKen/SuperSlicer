@@ -1,18 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmoMove.hpp"
+
+#include <GL/glew.h>
+
+#include <wx/utils.h>
+
+#include "libslic3r/Model.hpp"
+
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_ObjectManipulation.hpp"
 #include "slic3r/GUI/Plater.hpp"
-#include "libslic3r/Model.hpp"
-
-#include <GL/glew.h>
-
-#include <wx/utils.h> 
-
 namespace Slic3r {
 namespace GUI {
 

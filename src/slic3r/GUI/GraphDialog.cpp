@@ -1,11 +1,9 @@
-#include "GraphDialog.hpp"
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include "BitmapCache.hpp"
-#include "format.hpp"
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "I18N.hpp"
-#include "MsgDialog.hpp"
+#include "GraphDialog.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -14,6 +12,12 @@
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 
+#include "BitmapCache.hpp"
+#include "format.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MsgDialog.hpp"
 namespace Slic3r { namespace GUI {
 
 int scale(const int val) { return val * Slic3r::GUI::wxGetApp().em_unit(); }

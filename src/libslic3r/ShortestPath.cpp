@@ -1,7 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "ShortestPath.hpp"
+
 #if 0
 	#pragma optimize("", off)
 	#undef NDEBUG
@@ -9,7 +13,6 @@
 #endif
 
 #include "clipper.hpp"
-#include "ShortestPath.hpp"
 #include "KDTreeIndirect.hpp"
 #include "MutablePriorityQueue.hpp"
 #include "Print.hpp"

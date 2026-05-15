@@ -1,18 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <numeric>
+
+#include "FirmwareDialog.hpp"
+
 #include <algorithm>
-#include <optional>
-#include <thread>
 #include <condition_variable>
+#include <numeric>
+#include <optional>
 #include <stdexcept>
-#include <boost/format.hpp>
+#include <thread>
+
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-
 #if _WIN32
 	#include <regex>
 #endif
@@ -23,12 +28,11 @@
 #include "GUI_App.hpp"
 #include "I18N.hpp"
 #include "MsgDialog.hpp"
-#include "../Utils/HexFile.hpp"
-#include "../Utils/Serial.hpp"
+#include "slic3r/Utils/HexFile.hpp"
+#include "slic3r/Utils/Serial.hpp"
 #include "wxExtensions.hpp"
 
 // wx includes need to come after asio because of the WinSock.h problem
-#include "FirmwareDialog.hpp"
 
 #include <wx/app.h>
 #include <wx/event.h>

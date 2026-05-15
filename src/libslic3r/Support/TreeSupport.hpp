@@ -1,7 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#ifndef slic3r_TreeSupport_hpp
+#define slic3r_TreeSupport_hpp
+
 // Tree supports by Thomas Rahm, losely based on Tree Supports by CuraEngine.
 // Original source of Thomas Rahm's tree supports:
 // https://github.com/ThomasRahm/CuraEngine
@@ -10,16 +16,14 @@
 // Copyright (c) 2021 Ultimaker B.V.
 // CuraEngine is released under the terms of the AGPLv3 or higher.
 
-#ifndef slic3r_TreeSupport_hpp
-#define slic3r_TreeSupport_hpp
 
 #include "SupportLayer.hpp"
 #include "TreeModelVolumes.hpp"
 #include "TreeSupportCommon.hpp"
 
-#include "../BoundingBox.hpp"
-#include "../Point.hpp"
-#include "../Utils.hpp"
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Utils.hpp"
 
 #include <boost/container/small_vector.hpp>
 

@@ -1,7 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2022 Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#ifndef SLIC3R_INT128_HPP
+#define SLIC3R_INT128_HPP
+
 // This is an excerpt of from the Clipper library by Angus Johnson, see the license below,
 // implementing a 64 x 64 -> 128bit multiply, and 128bit addition, subtraction and compare
 // operations, to be used with exact geometric predicates.
@@ -41,8 +46,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifndef SLIC3R_INT128_HPP
-#define SLIC3R_INT128_HPP
 // #define SLIC3R_DEBUG
 
 // Make assert active if SLIC3R_DEBUG

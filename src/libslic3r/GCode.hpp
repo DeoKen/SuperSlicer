@@ -11,29 +11,31 @@
 ///|/ Copyright (c) 2012 Henrik Brix Andersen @henrikbrixandersen
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_GCode_hpp_
 #define slic3r_GCode_hpp_
 
-#include "GCode/ExtrusionProcessor.hpp"
-#include "JumpPointSearch.hpp"
-#include "libslic3r.h"
 #include "EdgeGrid.hpp"
 #include "ExPolygon.hpp"
-#include "Layer.hpp"
-#include "Point.hpp"
-#include "Print.hpp"
-#include "PlaceholderParser.hpp"
-#include "PrintConfig.hpp"
-#include "Geometry/ArcWelder.hpp"
 #include "GCode/AvoidCrossingPerimeters.hpp"
 #include "GCode/CoolingBuffer.hpp"
+#include "GCode/ExtrusionProcessor.hpp"
 #include "GCode/FanMover.hpp"
 #include "GCode/FindReplace.hpp"
 #include "GCode/GCodeWriter.hpp"
 #include "GCode/LabelObjects.hpp"
 #include "GCode/PressureEqualizer.hpp"
 #include "GCode/RetractWhenCrossingPerimeters.hpp"
+#include "Geometry/ArcWelder.hpp"
+#include "JumpPointSearch.hpp"
+#include "Layer.hpp"
+#include "libslic3r.h"
+#include "PlaceholderParser.hpp"
+#include "Point.hpp"
+#include "Print.hpp"
+#include "PrintConfig.hpp"
+
 // #include "GCode/SmoothPath.hpp"
 #include "GCode/SpiralVase.hpp"
 #include "GCode/TemperatureMover.hpp"
@@ -44,8 +46,7 @@
 #include "GCode/GCodeProcessor.hpp"
 #include "GCode/ThumbnailData.hpp"
 #include "GCode/Travels.hpp"
-#include "EdgeGrid.hpp"
-#include "tcbspan/span.hpp"
+#include <tcbspan/span.hpp>
 
 #include <memory>
 #include <map>

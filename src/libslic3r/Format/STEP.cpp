@@ -1,26 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "STEP.hpp"
-#include "occt_wrapper/OCCTWrapper.hpp"
+
+#include <functional>
+#include <string>
+
+#include <boost/dll/runtime_symbol_info.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
 
 #include "libslic3r/Model.hpp"
 #include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/Utils.hpp"
 
-#include <boost/filesystem.hpp>
-#include <boost/dll/runtime_symbol_info.hpp>
-#include <boost/log/trivial.hpp>
-
-#include <string>
-#include <functional>
+#include "occt_wrapper/OCCTWrapper.hpp"
 
 #ifdef _WIN32
     #include<windows.h>
 #else
-    #include<occt_wrapper/OCCTWrapper.hpp>
-    #include <dlfcn.h>
+#include <dlfcn.h>
 #endif
 
 

@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Filip Sykala @Jony01, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2021 Boleslaw Ciesielski
 ///|/ Copyright (c) 2019 John Drake @foxox
@@ -10,27 +11,9 @@
 ///|/ Copyright (c) Slic3r 2012 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Model.hpp"
-#include "libslic3r.h"
-#include "BuildVolume.hpp"
-#include "Exception.hpp"
-#include "Model.hpp"
-#include "ModelArrange.hpp"
-#include "Geometry/ConvexHull.hpp"
-#include "Polygon.hpp"
-#include "ClipperUtils.hpp"
-#include "Print.hpp"
-#include "MTUtils.hpp"
-#include "TriangleMeshSlicer.hpp"
-#include "TriangleSelector.hpp"
-
-#include "Format/AMF.hpp"
-#include "Format/OBJ.hpp"
-#include "Format/STL.hpp"
-#include "Format/3mf.hpp"
-#include "Format/STEP.hpp"
-#include "Format/SVG.hpp"
 
 #include <cfloat>
 
@@ -40,11 +23,29 @@
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/iostream.hpp>
 
+#include <Eigen/Dense>
+
 #include <oneapi/tbb/concurrent_vector.h>
 
-#include "SVG.hpp"
-#include <Eigen/Dense>
+#include "BuildVolume.hpp"
+#include "ClipperUtils.hpp"
+#include "Exception.hpp"
+#include "Format/3mf.hpp"
+#include "Format/AMF.hpp"
+#include "Format/OBJ.hpp"
+#include "Format/STEP.hpp"
+#include "Format/STL.hpp"
+#include "Format/SVG.hpp"
 #include "GCode/GCodeWriter.hpp"
+#include "Geometry/ConvexHull.hpp"
+#include "libslic3r.h"
+#include "ModelArrange.hpp"
+#include "MTUtils.hpp"
+#include "Polygon.hpp"
+#include "Print.hpp"
+#include "SVG.hpp"
+#include "TriangleMeshSlicer.hpp"
+#include "TriangleSelector.hpp"
 
 namespace Slic3r {
 

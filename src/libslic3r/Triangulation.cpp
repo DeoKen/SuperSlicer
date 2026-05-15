@@ -1,13 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Triangulation.hpp"
-#include "IntersectionPoints.hpp"
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+
 #include <CGAL/Constrained_Delaunay_triangulation_2.h>
-#include <CGAL/Triangulation_vertex_base_with_info_2.h>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/spatial_sort.h>
+#include <CGAL/Triangulation_vertex_base_with_info_2.h>
+
+#include "IntersectionPoints.hpp"
 
 using namespace Slic3r;
 namespace priv{
@@ -72,7 +76,7 @@ inline bool has_self_intersection(
 
 //#define VISUALIZE_TRIANGULATION
 #ifdef VISUALIZE_TRIANGULATION
-#include "admesh/stl.h" // indexed triangle set
+#include <admesh/stl.h> // indexed triangle set
 static void visualize(const Points                 &points,
                const Triangulation::Indices &indices,
                const char                   *filename)

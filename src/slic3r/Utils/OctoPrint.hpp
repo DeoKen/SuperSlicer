@@ -1,21 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_OctoPrint_hpp_
 #define slic3r_OctoPrint_hpp_
 
 #include <optional>
 #include <string>
-#include <wx/string.h>
-#include <wx/arrstr.h>
+
 #include <boost/asio/ip/address.hpp>
 
-#include "PrintHost.hpp"
+#include <wx/arrstr.h>
+#include <wx/string.h>
+
 #include "libslic3r/PrintConfig.hpp"
 
-
+#include "PrintHost.hpp"
 namespace Slic3r {
 
 class DynamicPrintConfig;

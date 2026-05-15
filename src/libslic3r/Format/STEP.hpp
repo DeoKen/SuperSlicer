@@ -1,16 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#ifndef format_step_hpp_
+#define format_step_hpp_
+
+#include <optional>
+#include <utility>
+
 // Original implementation of STEP format import created by Bambulab.
 // https://github.com/bambulab/BambuStudio
 // Forked off commit 1555904, modified by Prusa Research.
-
-#ifndef slic3r_Format_STEP_hpp_
-#define slic3r_Format_STEP_hpp_
-
-#include <utility>
-#include <optional>
 
 namespace Slic3r {
 
@@ -26,4 +29,4 @@ extern bool load_step(const char *path_str, Model *model /*LMBBS:, ImportStepPro
 
 }; // namespace Slic3r
 
-#endif /* slic3r_Format_STEP_hpp_ */
+#endif /* format_step_hpp_ */

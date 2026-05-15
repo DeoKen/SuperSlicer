@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Pavel Mikuš @Godrak, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2014 Petr Ledvina @ledvinap
@@ -7,16 +8,19 @@
 ///|/ Copyright (c) Slic3r 2012 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Flow.hpp"
-#include "I18N.hpp"
-#include "Print.hpp"
-#include "Layer.hpp"
+
 #include <cassert>
 #include <cmath>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
+
+#include "I18N.hpp"
+#include "Layer.hpp"
+#include "Print.hpp"
 
 namespace Slic3r {
 

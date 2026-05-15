@@ -1,9 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_Button_hpp_
 #define slic3r_GUI_Button_hpp_
 
-#include "../wxExtensions.hpp"
+#include "slic3r/GUI/wxExtensions.hpp"
 #include "StaticBox.hpp"
-
 class Button : public StaticBox
 {
     wxSize textSize;

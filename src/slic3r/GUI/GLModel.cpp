@@ -1,13 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "GLModel.hpp"
 
+#include "libslic3r/libslic3r.h"
+
 #include "3DScene.hpp"
-#include "GUI_App.hpp"
 #include "GLShader.hpp"
+#include "GUI_App.hpp"
 #if ENABLE_GLMODEL_STATISTICS
 #include "Plater.hpp"
 #include "GLCanvas3D.hpp"

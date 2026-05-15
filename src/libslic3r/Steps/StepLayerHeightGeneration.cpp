@@ -1,3 +1,8 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "StepLayerHeightGeneration.hpp"
 
 #include <cmath>
@@ -12,6 +17,7 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Slicing.hpp"
+
 #ifdef _DEBUG
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #endif

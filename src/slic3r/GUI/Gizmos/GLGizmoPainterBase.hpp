@@ -1,25 +1,27 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoPainterBase_hpp_
 #define slic3r_GLGizmoPainterBase_hpp_
 
-#include "GLGizmoBase.hpp"
-
-#include "slic3r/GUI/GLModel.hpp"
-
-#include "libslic3r/ObjectID.hpp"
-#include "libslic3r/TriangleSelector.hpp"
-#include "libslic3r/Model.hpp"
+#include <memory>
 
 #include <cereal/types/vector.hpp>
+
 #include <GL/glew.h>
 
-#include <memory>
 #include <wx/string.h>
 
+#include "libslic3r/Model.hpp"
+#include "libslic3r/ObjectID.hpp"
+#include "libslic3r/TriangleSelector.hpp"
 
+#include "GLGizmoBase.hpp"
+#include "slic3r/GUI/GLModel.hpp"
 namespace Slic3r::GUI {
 
 enum class SLAGizmoEventType : unsigned char;

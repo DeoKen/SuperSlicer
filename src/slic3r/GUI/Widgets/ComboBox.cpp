@@ -1,10 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "ComboBox.hpp"
-#include "UIColors.hpp"
 
 #include <wx/dcgraph.h>
 
-#include "../GUI_App.hpp"
-
+#include "slic3r/GUI/GUI_App.hpp"
+#include "UIColors.hpp"
 BEGIN_EVENT_TABLE(ComboBox, TextInput)
 
 EVT_LEFT_DOWN(ComboBox::mouseDown)

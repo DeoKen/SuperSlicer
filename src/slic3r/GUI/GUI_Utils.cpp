@@ -1,15 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GUI_Utils.hpp"
-#include "GUI_App.hpp"
-#include "format.hpp"
 
 #include <algorithm>
-#include <boost/lexical_cast.hpp>
-#include <boost/format.hpp>
 
+#include <boost/format.hpp>
+#include <boost/lexical_cast.hpp>
+
+#include "format.hpp"
+#include "GUI_App.hpp"
 #ifdef _WIN32
     #include <Windows.h>
     #include "libslic3r/AppConfig.hpp"

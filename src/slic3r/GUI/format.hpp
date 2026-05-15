@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_format_hpp_
 #define slic3r_GUI_format_hpp_
 
@@ -12,7 +15,6 @@
 // This wrapper also manages implicit conversion from wxString to UTF8 and format_wxstr() variants are provided to format into wxString.
 
 #include <wx/string.h>
-
 namespace Slic3r::internal::format {
 	// Wrapper around wxScopedCharBuffer to indicate that the content is UTF8 formatted.
 	struct utf8_buffer {
@@ -37,7 +39,7 @@ namespace Slic3r::internal::format {
 	}
 }
 
-#include <libslic3r/format.hpp>
+#include "libslic3r/format.hpp"
 
 namespace Slic3r::GUI {
 

@@ -17,41 +17,40 @@
 ///|/ Copyright (c) 2011 Richard Goodwin
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Print_hpp_
 #define slic3r_Print_hpp_
-
-#include "Fill/FillAdaptive.hpp"
-#include "Fill/FillLightning.hpp"
-#include "PrintBase.hpp"
-
-#include "Api/internal/PrintObjectAccess.hpp"
-#include "BoundingBox.hpp"
-#include "ExtrusionEntityCollection.hpp"
-#include "Flow.hpp"
-#include "Point.hpp"
-#include "Slicing.hpp"
-#include "SupportSpotsGenerator.hpp"
-#include "TriangleMeshSlicer.hpp"
-#include "Surface.hpp"
-#include "GCode/ToolOrdering.hpp"
-#include "GCode/WipeTower.hpp"
-#include "GCode/WipeTower2.hpp"
-#include "GCode/ThumbnailData.hpp"
-#include "MultiMaterialSegmentation.hpp"
-#include "Steps/StepPipeline.hpp"
-#include "DataTreeFwd.hpp"
-
-#include "libslic3r.h"
-
-#include <Eigen/Geometry>
 
 #include <atomic>
 #include <ctime>
 #include <functional>
 #include <optional>
 #include <set>
+
+#include <Eigen/Geometry>
 #include <tcbspan/span.hpp>
+
+#include "Api/internal/PrintObjectAccess.hpp"
+#include "BoundingBox.hpp"
+#include "DataTreeFwd.hpp"
+#include "ExtrusionEntityCollection.hpp"
+#include "Fill/FillAdaptive.hpp"
+#include "Fill/FillLightning.hpp"
+#include "Flow.hpp"
+#include "GCode/ThumbnailData.hpp"
+#include "GCode/ToolOrdering.hpp"
+#include "GCode/WipeTower.hpp"
+#include "GCode/WipeTower2.hpp"
+#include "libslic3r.h"
+#include "MultiMaterialSegmentation.hpp"
+#include "Point.hpp"
+#include "PrintBase.hpp"
+#include "Slicing.hpp"
+#include "Steps/StepPipeline.hpp"
+#include "SupportSpotsGenerator.hpp"
+#include "Surface.hpp"
+#include "TriangleMeshSlicer.hpp"
 
 namespace Slic3r {
 

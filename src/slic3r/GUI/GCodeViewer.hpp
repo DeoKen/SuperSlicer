@@ -3,20 +3,22 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GCodeViewer_hpp_
 #define slic3r_GCodeViewer_hpp_
-
-#include "3DScene.hpp"
-#include "libslic3r/ExtrusionRole.hpp"
-#include "libslic3r/GCode/GCodeProcessor.hpp"
-#include "GLModel.hpp"
 
 #include <cfloat>
 #include <cstdint>
 #include <set>
 #include <unordered_set>
 
+#include "libslic3r/ExtrusionRole.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
+
+#include "3DScene.hpp"
+#include "GLModel.hpp"
 namespace Slic3r {
 
 class Print;

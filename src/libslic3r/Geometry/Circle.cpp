@@ -1,10 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Lukáš Matěna @lukasmatena, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Circle.hpp"
 
-#include "../Polygon.hpp"
+#include "libslic3r/Polygon.hpp"
 #include "libslic3r/PointUtils.hpp"
 
 #include <numeric>

@@ -1,39 +1,42 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Enrico Turri @enricoturri1966, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PrintHostDialogs.hpp"
 
 #include <algorithm>
 #include <iomanip>
 
+#include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/convert.hpp>
+
+#include <wx/button.h>
+#include <wx/checkbox.h>
+#include <wx/dataview.h>
+#include <wx/debug.h>
 #include <wx/frame.h>
+#include <wx/msgdlg.h>
 #include <wx/progdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/checkbox.h>
-#include <wx/button.h>
-#include <wx/dataview.h>
 #include <wx/wupdlock.h>
-#include <wx/debug.h>
-#include <wx/msgdlg.h>
 
-#include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/nowide/convert.hpp>
-
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "Plater.hpp"
-#include "MsgDialog.hpp"
-#include "I18N.hpp"
-#include "MainFrame.hpp"
 #include "libslic3r/AppConfig.hpp"
-#include "NotificationManager.hpp"
+
 #include "ExtraRenderers.hpp"
 #include "format.hpp"
-
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "MsgDialog.hpp"
+#include "NotificationManager.hpp"
+#include "Plater.hpp"
 namespace fs = boost::filesystem;
 
 namespace Slic3r {

@@ -6,8 +6,8 @@
 
 #include <vector>
 
-#include "../../Point.hpp"
-#include "../../Polygon.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Polygon.hpp"
 
 
 namespace Slic3r::Arachne

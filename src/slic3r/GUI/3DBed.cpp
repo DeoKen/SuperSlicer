@@ -1,29 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka
 ///|/ Copyright (c) 2022 Michael Kirsch
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
 
 #include "3DBed.hpp"
-
-#include "libslic3r/Polygon.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-#include "libslic3r/BoundingBox.hpp"
-#include "libslic3r/GCode/PostProcessor.hpp"
-#include "libslic3r/Geometry.hpp"
-#include "libslic3r/Geometry/Circle.hpp"
-#include "libslic3r/Tesselate.hpp"
-#include "libslic3r/PresetBundle.hpp"
-
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "GLCanvas3D.hpp"
-#include "OpenGLManager.hpp"
-#include "Plater.hpp"
-#include "Camera.hpp"
-
-#include <GL/glew.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -33,6 +16,24 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include <GL/glew.h>
+
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/GCode/PostProcessor.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Geometry/Circle.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Tesselate.hpp"
+
+#include "Camera.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "OpenGLManager.hpp"
+#include "Plater.hpp"
 static const float GROUND_Z = -0.02f;
 static const Slic3r::ColorRGBA DEFAULT_MODEL_COLOR             = Slic3r::ColorRGBA::DARK_GRAY();
 static const Slic3r::ColorRGBA PICKING_MODEL_COLOR             = Slic3r::ColorRGBA::BLACK();

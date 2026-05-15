@@ -1,7 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #ifndef slic3r_ExPolygonsIndex_hpp_
 #define slic3r_ExPolygonsIndex_hpp_
 
 #include "ExPolygon.hpp"
+
 namespace Slic3r {
 
 /// <summary>

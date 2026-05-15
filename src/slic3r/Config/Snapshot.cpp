@@ -1,35 +1,37 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Snapshot.hpp"
 
 #include <time.h>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/log/trivial.hpp>
-
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/format.hpp"
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/Time.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/FileParserError.hpp"
-#include "libslic3r/Utils.hpp"
-
-#include "../GUI/GUI.hpp"
-#include "../GUI/GUI_App.hpp"
-#include "../GUI/I18N.hpp"
-#include "../GUI/MainFrame.hpp"
-#include "../GUI/MsgDialog.hpp"
 
 #include <wx/richmsgdlg.h>
 
+#include "libslic3r/Config.hpp"
+#include "libslic3r/FileParserError.hpp"
+#include "libslic3r/format.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Time.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/I18N.hpp"
+#include "slic3r/GUI/MainFrame.hpp"
+#include "slic3r/GUI/MsgDialog.hpp"
 #define SLIC3R_SNAPSHOTS_DIR "snapshots"
 #define SLIC3R_SNAPSHOT_FILE "snapshot.ini"
 

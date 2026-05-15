@@ -1,12 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Utils_Time_hpp_
 #define slic3r_Utils_Time_hpp_
 
-#include <string>
 #include <ctime>
+#include <string>
 
 namespace Slic3r {
 namespace Utils {

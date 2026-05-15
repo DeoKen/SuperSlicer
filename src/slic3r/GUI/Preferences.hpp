@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/ Copyright (c) 2021 Jurriaan Pruis
 ///|/
@@ -6,20 +7,22 @@
 ///|/ Copyright (c) Slic3r 2013 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Preferences_hpp_
 #define slic3r_Preferences_hpp_
+
+#include <map>
+#include <vector>
+#include <vector>
+
+#include <wx/dialog.h>
+#include <wx/timer.h>
 
 #include "GUI.hpp"
 #include "GUI_Utils.hpp"
 #include "wxExtensions.hpp"
-
-#include <wx/dialog.h>
-#include <wx/timer.h>
-#include <vector>
-#include <map>
-#include <vector>
-
 class wxColourPickerCtrl;
 class wxBookCtrlBase;
 class wxSlider;

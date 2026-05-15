@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r.h"
 #include "Color.hpp"
 
 #include <random>
+
+#include "libslic3r.h"
 
 static const float INV_255 = 1.0f / 255.0f;
 

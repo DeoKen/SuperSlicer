@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2021 David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/GUI/ProgressStatusBar.pm:
@@ -5,21 +6,21 @@
 ///|/ Copyright (c) Slic3r 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ProgressStatusBar.hpp"
-
-#include <wx/timer.h>
-#include <wx/gauge.h>
-#include <wx/button.h>
-#include <wx/statusbr.h>
-#include <wx/frame.h>
-
-#include "GUI_App.hpp"
-
-#include "I18N.hpp"
 
 #include <iostream>
 
+#include <wx/button.h>
+#include <wx/frame.h>
+#include <wx/gauge.h>
+#include <wx/statusbr.h>
+#include <wx/timer.h>
+
+#include "GUI_App.hpp"
+#include "I18N.hpp"
 namespace Slic3r {
 
 ProgressStatusBar::ProgressStatusBar(wxWindow *parent, int id)
@@ -191,5 +192,5 @@ void ProgressStatusBar::set_font(const wxFont &font)
     self->SetFont(font);
 }
 
-}
 
+}

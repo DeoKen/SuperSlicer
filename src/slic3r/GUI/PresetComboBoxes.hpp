@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_PresetComboBoxes_hpp_
 #define slic3r_PresetComboBoxes_hpp_
 
@@ -9,10 +12,10 @@
 #include <wx/gdicmn.h>
 
 #include "libslic3r/Preset.hpp"
-#include "wxExtensions.hpp"
+
 #include "BitmapComboBox.hpp"
 #include "GUI_Utils.hpp"
-
+#include "wxExtensions.hpp"
 class wxString;
 class wxTextCtrl;
 class wxStaticText;

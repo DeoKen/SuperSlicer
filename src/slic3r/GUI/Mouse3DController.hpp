@@ -1,26 +1,27 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2021 Lukáš Matěna @lukasmatena, Roman Beránek @zavorka, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Mouse3DController_hpp_
 #define slic3r_Mouse3DController_hpp_
 
 // Enabled debug output to console and extended imgui dialog
 #define ENABLE_3DCONNEXION_DEVICES_DEBUG_OUTPUT 0
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <vector>
+
 #include "libslic3r/Point.hpp"
 
 #include "hidapi.h"
-
-#include <queue>
-#include <atomic>
-#include <mutex>
-#include <thread>
-#include <vector>
-#include <chrono>
-#include <condition_variable>
-
-
 namespace Slic3r {
 
 class AppConfig;

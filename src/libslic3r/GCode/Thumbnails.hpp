@@ -1,23 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GCodeThumbnails_hpp_
 #define slic3r_GCodeThumbnails_hpp_
 
-#include "../Point.hpp"
-#include "../PrintConfig.hpp"
-#include "ThumbnailData.hpp"
-
-#include <vector>
 #include <memory>
 #include <string_view>
-
-#include <LibBGCode/binarize/binarize.hpp>
+#include <vector>
 
 #include <boost/beast/core/detail/base64.hpp>
 
-#include "../libslic3r/enum_bitmask.hpp"
+#include "libslic3r/enum_bitmask.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
+#include "LibBGCode/binarize/binarize.hpp"
+#include "ThumbnailData.hpp"
 
 namespace Slic3r {
     enum class ThumbnailError : int { InvalidVal, OutOfRange, InvalidExt };

@@ -1,19 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ButtonsDescription_hpp
 #define slic3r_ButtonsDescription_hpp
 
-#include <wx/dialog.h>
 #include <vector>
 
 #include <wx/bmpbndl.h>
-
-#include "BitmapComboBox.hpp"
+#include <wx/dialog.h>
 
 #include "libslic3r/AppConfig.hpp"
 
+#include "BitmapComboBox.hpp"
 class ScalableBitmap;
 class wxColourPickerCtrl;
 

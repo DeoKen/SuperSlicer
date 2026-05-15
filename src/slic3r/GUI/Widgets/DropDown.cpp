@@ -1,17 +1,21 @@
-#include "DropDown.hpp"
-#include "ComboBox.hpp"
-#include "../GUI_App.hpp"
-#include "../OptionsGroup.hpp"
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include <wx/dcgraph.h>
+#include "DropDown.hpp"
+
+#include <wx/bitmap.h>
 #include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
-#include <wx/dcscreen.h>
+#include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
-#include <wx/bitmap.h>
-
+#include <wx/dcscreen.h>
 #include <wx/display.h>
 
+#include "ComboBox.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/OptionsGroup.hpp"
 #ifdef __WXGTK__
 #include <gtk/gtk.h>
 #endif

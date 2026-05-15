@@ -1,9 +1,9 @@
 ///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
-///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#pragma once
+#ifndef slic3r_DataTreeFwd_hpp_
+#define slic3r_DataTreeFwd_hpp_
 
 #include <iterator>
 #include <memory>
@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "tcbspan/span.hpp"
+#include <tcbspan/span.hpp>
 
 // Forward declarations for the main data tree types.
 // Include this file from headers that only store pointers, references or simple
@@ -174,3 +174,4 @@ using PrintRegionCRefs = RefView<PrintRegion, const PrintRegionPtrs>;
 
 } // namespace Slic3r
 
+#endif // slic3r_DataTreeFwd_hpp_

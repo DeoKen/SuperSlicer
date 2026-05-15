@@ -1,9 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "WipeTowerIntegration.hpp"
 
-#include "../GCode.hpp"
-#include "../libslic3r.h"
+#include <boost/algorithm/string/replace.hpp>
 
-#include "boost/algorithm/string/replace.hpp"
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/libslic3r.h"
 
 namespace Slic3r::GCode {
 

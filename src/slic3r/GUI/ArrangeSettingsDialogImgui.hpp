@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef ARRANGESETTINGSDIALOGIMGUI_HPP
 #define ARRANGESETTINGSDIALOGIMGUI_HPP
 
-#include "libslic3r/Arrange/ArrangeSettingsView.hpp"
-#include "ImGuiWrapper.hpp"
 #include "libslic3r/AnyPtr.hpp"
+#include "libslic3r/Arrange/ArrangeSettingsView.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
+#include "ImGuiWrapper.hpp"
 namespace Slic3r {
 namespace GUI {
 

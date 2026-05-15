@@ -1,14 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "Zipper.hpp"
+
 #include <exception>
 
-#include "Exception.hpp"
-#include "Zipper.hpp"
-#include "miniz_extension.hpp"
 #include <boost/log/trivial.hpp>
+
+#include "Exception.hpp"
 #include "I18N.hpp"
+#include "miniz_extension.hpp"
 
 #if defined(_MSC_VER) &&  _MSC_VER <= 1800 || __cplusplus < 201103L
     #define SLIC3R_NORETURN

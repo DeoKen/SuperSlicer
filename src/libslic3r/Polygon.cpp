@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Enrico Turri @enricoturri1966
 ///|/ Copyright (c) Slic3r 2013 - 2015 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2014 Petr Ledvina @ledvinap
@@ -8,7 +9,9 @@
 ///|/ Copyright (c) 2012 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Polygon.hpp"
 
 #include <ankerl/unordered_dense.h>

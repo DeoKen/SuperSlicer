@@ -1,8 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_BitmapToggleButton_hpp_
 #define slic3r_GUI_BitmapToggleButton_hpp_
 
 #include <wx/tglbtn.h>
-
 class BitmapToggleButton : public wxBitmapToggleButton
 {
 	virtual void update() = 0;

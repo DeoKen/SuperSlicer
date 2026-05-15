@@ -1,12 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2020 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ASCIIFolding_hpp_
 #define slic3r_ASCIIFolding_hpp_
 
 #include <string>
-
 namespace Slic3r {
 
 // If possible, remove accents from accented latin characters.

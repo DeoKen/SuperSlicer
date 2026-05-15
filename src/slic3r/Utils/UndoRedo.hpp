@@ -1,19 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2021 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Utils_UndoRedo_hpp_
 #define slic3r_Utils_UndoRedo_hpp_
 
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <string>
 #include <vector>
-#include <cassert>
 
-#include <libslic3r/ObjectID.hpp>
-#include <libslic3r/Config.hpp>
-
+#include "libslic3r/Config.hpp"
+#include "libslic3r/ObjectID.hpp"
 typedef double                          coordf_t;
 typedef std::pair<coordf_t, coordf_t>   t_layer_height_range;
 

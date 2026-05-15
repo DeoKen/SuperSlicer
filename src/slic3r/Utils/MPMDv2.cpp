@@ -1,27 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Superslicer 2021 - 2024 Durand Rémi @supermerill
 ///|/ Copyright (c) 2021 Alexander Bachler Jansson
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "MPMDv2.hpp"
 
 #include <algorithm>
-#include <sstream>
 #include <exception>
+#include <sstream>
+
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <wx/progdlg.h>
 
-#include "slic3r/GUI/I18N.hpp"
-#include "slic3r/GUI/GUI.hpp"
-#include "slic3r/GUI/format.hpp"
 #include "Http.hpp"
-
-
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/I18N.hpp"
 namespace fs = boost::filesystem;
 namespace pt = boost::property_tree;
 

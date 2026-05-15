@@ -1,23 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 David Kocík @kocikdav, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Bonjour_hpp_
 #define slic3r_Bonjour_hpp_
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
-#include <string>
 #include <set>
+#include <string>
 #include <unordered_map>
-#include <functional>
 
 #include <boost/asio.hpp>
 #include <boost/asio/ip/address.hpp>
-#include <boost/system/error_code.hpp>
 #include <boost/shared_ptr.hpp>
-
+#include <boost/system/error_code.hpp>
 namespace Slic3r {
 
 

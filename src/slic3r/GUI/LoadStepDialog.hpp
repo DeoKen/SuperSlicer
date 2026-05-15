@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2025 Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
 #ifndef slic3r_LoadStepDialog_hpp_
 #define slic3r_LoadStepDialog_hpp_
 
 #include <string>
-#include <wx/dialog.h>
-#include "GUI_Utils.hpp"
 
+#include <wx/dialog.h>
+
+#include "GUI_Utils.hpp"
 class wxBoxSizer;
 class wxTextCtrl;
 class wxSlider;

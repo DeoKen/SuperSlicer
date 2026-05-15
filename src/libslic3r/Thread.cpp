@@ -1,7 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena, Roman Beránek @zavorka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "Thread.hpp"
+
 #ifdef _WIN32
 	#include <windows.h>
 	#include <boost/nowide/convert.hpp>
@@ -26,7 +30,6 @@
 #include <oneapi/tbb/parallel_for.h>
 #include <oneapi/tbb/task_arena.h>
 
-#include "Thread.hpp"
 #include "Utils.hpp"
 #include "LocalesUtils.hpp"
 

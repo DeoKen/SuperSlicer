@@ -1,31 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-// Tree supports by Thomas Rahm, losely based on Tree Supports by CuraEngine.
-// Original source of Thomas Rahm's tree supports:
-// https://github.com/ThomasRahm/CuraEngine
-//
-// Original CuraEngine copyright:
-// Copyright (c) 2021 Ultimaker B.V.
-// CuraEngine is released under the terms of the AGPLv3 or higher.
 
 #include "TreeSupport.hpp"
-#include "TreeSupportCommon.hpp"
-#include "SupportCommon.hpp"
-#include "OrganicSupport.hpp"
-
-#include "../AABBTreeIndirect.hpp"
-#include "../BuildVolume.hpp"
-#include "../ClipperUtils.hpp"
-#include "../EdgeGrid.hpp"
-#include "../Layer.hpp"
-#include "../Print.hpp"
-#include "../MultiPoint.hpp"
-#include "../Polygon.hpp"
-#include "../Polyline.hpp"
-#include "../MutablePolygon.hpp"
-#include "../Thread.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -36,9 +16,31 @@
 #include <string_view>
 
 #include <boost/log/trivial.hpp>
-
 #include <oneapi/tbb/parallel_for.h>
 
+#include "libslic3r/AABBTreeIndirect.hpp"
+#include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/EdgeGrid.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/MultiPoint.hpp"
+#include "libslic3r/MutablePolygon.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/Polyline.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/Thread.hpp"
+
+#include "OrganicSupport.hpp"
+#include "SupportCommon.hpp"
+#include "TreeSupportCommon.hpp"
+
+// Tree supports by Thomas Rahm, losely based on Tree Supports by CuraEngine.
+// Original source of Thomas Rahm's tree supports:
+// https://github.com/ThomasRahm/CuraEngine
+//
+// Original CuraEngine copyright:
+// Copyright (c) 2021 Ultimaker B.V.
+// CuraEngine is released under the terms of the AGPLv3 or higher.
 // #define TREESUPPORT_DEBUG_SVG
 
 using namespace Slic3r::FFFSupport;

@@ -1,12 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "SLAPrintSteps.hpp"
+
 #include <unordered_set>
 
 #include <libslic3r/Exception.hpp>
-#include <libslic3r/SLAPrintSteps.hpp>
 #include <libslic3r/MeshBoolean.hpp>
+#include <libslic3r/SLAPrintSteps.hpp>
 #include <libslic3r/TriangleMeshSlicer.hpp>
 
 // Need the cylinder method for the the drainholes in hollowing step

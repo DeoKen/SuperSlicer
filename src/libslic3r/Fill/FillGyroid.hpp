@@ -2,12 +2,14 @@
 ///|/ Copyright (c) SuperSlicer 2018 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_FillGyroid_hpp_
 #define slic3r_FillGyroid_hpp_
 
-#include "../libslic3r.h"
-#include "../Geometry.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/libslic3r.h"
 
 #include "FillBase.hpp"
 

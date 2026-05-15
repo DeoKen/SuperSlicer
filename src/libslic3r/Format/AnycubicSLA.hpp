@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) 2023 Mimoja @Mimoja
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef _SLIC3R_FORMAT_PWMX_HPP_
 #define _SLIC3R_FORMAT_PWMX_HPP_
 
 #include <string>
 
-#include "SLAArchiveWriter.hpp"
-#include "SLAArchiveFormatRegistry.hpp"
-
 #include "libslic3r/PrintConfig.hpp"
+
+#include "SLAArchiveFormatRegistry.hpp"
+#include "SLAArchiveWriter.hpp"
 
 constexpr uint16_t ANYCUBIC_SLA_FORMAT_VERSION_1 = 1;
 constexpr uint16_t ANYCUBIC_SLA_FORMAT_VERSION_515 = 515;

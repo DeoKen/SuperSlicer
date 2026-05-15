@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "MinAreaBoundingBox.hpp"
 
 #include <libslic3r/ExPolygon.hpp>
-#include <BoundingBox.hpp>
+
+#include "BoundingBox.hpp"
 
 #if defined(_MSC_VER) && defined(__clang__)
 #define BOOST_NO_CXX17_HDR_STRING_VIEW

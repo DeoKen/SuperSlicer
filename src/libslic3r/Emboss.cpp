@@ -1,28 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <numeric>
-#include <cstdlib>
+#include "Emboss.hpp"
+
 #include <cstdio>
+#include <cstdlib>
 #include <numeric>
 
-#include <boost/nowide/convert.hpp>
 #include <boost/log/trivial.hpp>
-#include <ClipperUtils.hpp> // union_ex + for boldness(polygon extend(offset))
+#include <boost/nowide/convert.hpp>
+
+#include "ClipperUtils.hpp" // union_ex + for boldness(polygon extend(offset))
 
 #define STB_TRUETYPE_IMPLEMENTATION // force following include to generate implementation
 #include "imgui/imstb_truetype.h" // stbtt_fontinfo
 
 
-#include <Triangulation.hpp> // CGAL project
+#include "Triangulation.hpp" // CGAL project
 
 // to heal shape
 #include "libslic3r.h"
 #include "libslic3r/AABBTreeLines.hpp" // search structure for found close points
 #include "libslic3r/Line.hpp"
 #include "libslic3r/BoundingBox.hpp"
-#include "Emboss.hpp"
 #include "ExPolygonsIndex.hpp"
 #include "IntersectionPoints.hpp"
 #include "Utils.hpp" // ScopeGuard
@@ -2053,7 +2056,7 @@ double Emboss::get_align_y_offset_in_mm(FontProp::VerticalAlign align, unsigned 
 }
 
 #ifdef REMOVE_SPIKES
-#include <Geometry.hpp>
+#include "Geometry.hpp"
 void remove_spikes(Polygon &polygon, const SpikeDesc &spike_desc)
 {
     enum class Type {

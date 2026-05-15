@@ -1,24 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2022 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/GUI/GLShader.pm:
 ///|/ Copyright (c) Prusa Research 2016 - 2017 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "GLShader.hpp"
 
-#include "3DScene.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/format.hpp"
-#include "libslic3r/Color.hpp"
-
-#include <boost/nowide/fstream.hpp>
-#include <GL/glew.h>
 #include <cassert>
 
 #include <boost/log/trivial.hpp>
+#include <boost/nowide/fstream.hpp>
 
+#include <GL/glew.h>
+
+#include "libslic3r/Color.hpp"
+#include "libslic3r/format.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Utils.hpp"
+
+#include "3DScene.hpp"
 namespace Slic3r {
 
 GLShaderProgram::~GLShaderProgram()

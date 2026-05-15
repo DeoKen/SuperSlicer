@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2019 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/Format/OBJ.pm:
@@ -5,7 +6,9 @@
 ///|/ Copyright (c) Slic3r 2012 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Format_OBJ_hpp_
 #define slic3r_Format_OBJ_hpp_
 

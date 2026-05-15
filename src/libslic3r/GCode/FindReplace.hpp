@@ -1,13 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_FindReplace_hpp_
 #define slic3r_FindReplace_hpp_
 
-#include "../PrintConfig.hpp"
-
 #include <boost/regex.hpp>
+
+#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {
 

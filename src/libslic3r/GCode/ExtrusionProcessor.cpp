@@ -1,10 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "ExtrusionProcessor.hpp"
+
+#include <string>
 
 #include "Print.hpp"
 #include "PrintConfig.hpp"
 #include "PointUtils.hpp"
-
-#include <string>
 
 namespace Slic3r { namespace ExtrusionProcessor {
 

@@ -1,19 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01, David Kocík @kocikdav, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_GLGizmosManager_hpp_
 #define slic3r_GUI_GLGizmosManager_hpp_
 
-#include "slic3r/GUI/GLTexture.hpp"
-#include "slic3r/GUI/GLToolbar.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoBase.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"
+#include <map>
 
 #include "libslic3r/ObjectID.hpp"
 
-#include <map>
-
+#include "slic3r/GUI/Gizmos/GLGizmoBase.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"
+#include "slic3r/GUI/GLTexture.hpp"
+#include "slic3r/GUI/GLToolbar.hpp"
 namespace Slic3r {
 
 namespace UndoRedo {

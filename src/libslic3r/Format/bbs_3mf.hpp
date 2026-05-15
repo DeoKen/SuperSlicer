@@ -1,8 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef BBS_3MF_hpp_
 #define BBS_3MF_hpp_
 
-#include "../PrintConfig.hpp"
-#include "../GCode/ThumbnailData.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
 //#include "libslic3r/ProjectTask.hpp"
 //#include "libslic3r/GCode/GCodeProcessor.hpp"
 #include <functional>

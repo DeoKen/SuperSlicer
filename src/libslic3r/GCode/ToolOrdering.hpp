@@ -1,26 +1,37 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-// Ordering of the tools to minimize tool switches.
 
 #ifndef slic3r_ToolOrdering_hpp_
 #define slic3r_ToolOrdering_hpp_
 
-#include "../libslic3r.h"
+// Ordering of the tools to minimize tool switches.
 
-#include <utility>
+
+#include <algorithm>
 #include <cstddef>
+#include <map>
+#include <utility>
+#include <vector>
 
 #include <boost/container/small_vector.hpp>
+
+#include "libslic3r/libslic3r.h"
 
 namespace Slic3r {
 
 class Print;
 class PrintObject;
+class ExtrusionEntity;
+class ExtrusionEntityCollection;
 class LayerTools;
 class ToolOrdering;
 namespace CustomGCode { struct Item; }
+class PrintConfig;
+class PrintObjectConfig;
 class PrintRegion;
 namespace GCode {
     struct ObjectLayerToPrint;

@@ -1,13 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_TextLines_hpp_
 #define slic3r_TextLines_hpp_
 
 #include <vector>
-#include <libslic3r/Polygon.hpp>
-#include <libslic3r/Point.hpp>
-#include <libslic3r/Emboss.hpp>
+
+#include "libslic3r/Emboss.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Polygon.hpp"
+
 #include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/Utils/EmbossStyleManager.hpp"
-
 namespace Slic3r {
 class ModelVolume;
 typedef std::vector<ModelVolume *> ModelVolumePtrs;

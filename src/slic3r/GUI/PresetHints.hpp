@@ -1,14 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2020 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_PresetHints_hpp_
 #define slic3r_PresetHints_hpp_
 
 #include <string>
 
 #include "libslic3r/PresetBundle.hpp"
-
 namespace Slic3r {
 
 // GUI utility functions to produce hint messages from the current profile.

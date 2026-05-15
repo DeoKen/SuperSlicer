@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_PlaceholderParser_hpp_
 #define slic3r_PlaceholderParser_hpp_
 
-#include "libslic3r.h"
 #include <map>
 #include <random>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "libslic3r.h"
 #include "PrintConfig.hpp"
 
 namespace Slic3r {

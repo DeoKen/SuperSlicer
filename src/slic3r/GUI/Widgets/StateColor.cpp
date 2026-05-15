@@ -1,5 +1,9 @@
-#include "StateColor.hpp"
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
+#include "StateColor.hpp"
 StateColor::StateColor(wxColour const &color) { append(color, 0); }
 
 StateColor::StateColor(wxString const &color) { append(color, 0); }
@@ -89,5 +93,5 @@ bool StateColor::setColorForStates(wxColour const &color, int states)
     return false;
 }
 
-void StateColor::setTakeFocusedAsHovered(bool set) { takeFocusedAsHovered_ = set; }
 
+void StateColor::setTakeFocusedAsHovered(bool set) { takeFocusedAsHovered_ = set; }

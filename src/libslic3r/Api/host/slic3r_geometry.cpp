@@ -2,22 +2,20 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
+#include <algorithm>
+#include <cstdint>
+#include <utility>
 
 #include "libslic3r/Api/plugin/c/slic3r_geometry.h"
 #include "libslic3r/BoundingBox.hpp"
-#include "clipper/clipper.hpp"
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/MultiPoint.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Polyline.hpp"
 
+#include <clipper/clipper.hpp>
 #include "Orchestrator.hpp"
-
-#include <algorithm>
-#include <cstdint>
-#include <utility>
 
 namespace Slic3r {
 static Slic3r::Point to_point(c_point point) { return Slic3r::Point(point.x, point.y); }

@@ -1,21 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Superslicer 2025 Durand remi @supermerill
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PresetUpdater.hpp"
 
 #include <algorithm>
-#include <unordered_map>
 #include <ostream>
 #include <regex>
-#include <utility>
 #include <stdexcept>
+#include <unordered_map>
+#include <utility>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/log/trivial.hpp>
+
 #include <curl/curl.h>
 #include <curl/curl.h>
 
@@ -23,24 +27,24 @@
 #include <wx/msgdlg.h>
 #include <wx/progdlg.h>
 
-#include "libslic3r/libslic3r.h"
 #include "libslic3r/format.hpp"
+#include "libslic3r/libslic3r.h"
 #include "libslic3r/miniz_extension.hpp"
-#include "libslic3r/Utils.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Utils.hpp"
+
 #include "slic3r/Config/Snapshot.hpp"
 #include "slic3r/Config/Version.hpp"
 #include "slic3r/GUI/ConfigWizard.hpp"
+#include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/GUI/MsgDialog.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/UpdateDialogs.hpp"
 #include "slic3r/Utils/Http.hpp"
-
 namespace fs = boost::filesystem;
 using Slic3r::GUI::Config::Index;
 using Slic3r::GUI::Config::Version;

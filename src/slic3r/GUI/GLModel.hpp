@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLModel_hpp_
 #define slic3r_GLModel_hpp_
 
-#include "libslic3r/Point.hpp"
+#include <string>
+#include <vector>
+
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/Color.hpp"
+#include "libslic3r/Point.hpp"
 #include "libslic3r/Utils.hpp"
-#include <vector>
-#include <string>
-
 struct indexed_triangle_set;
 
 namespace Slic3r {
@@ -322,5 +325,5 @@ namespace GUI {
 } // namespace GUI
 } // namespace Slic3r
 
-#endif // slic3r_GLModel_hpp_
 
+#endif // slic3r_GLModel_hpp_

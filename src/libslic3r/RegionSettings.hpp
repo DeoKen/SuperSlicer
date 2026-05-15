@@ -5,14 +5,14 @@
 #ifndef slic3r_RegionSettings_hpp_
 #define slic3r_RegionSettings_hpp_
 
-#include "libslic3r.h"
-#include "BoundingBox.hpp"
-#include "ExtrusionEntityCollection.hpp"
-#include "ExPolygon.hpp"
-#include "Layer.hpp"
-#include "PrintConfig.hpp"
-
 #include <vector>
+
+#include "BoundingBox.hpp"
+#include "ExPolygon.hpp"
+#include "ExtrusionEntityCollection.hpp"
+#include "Layer.hpp"
+#include "libslic3r.h"
+#include "PrintConfig.hpp"
 
 namespace Slic3r {
 

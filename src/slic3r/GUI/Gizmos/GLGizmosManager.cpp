@@ -1,41 +1,45 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "GLGizmosManager.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/GUI/3DScene.hpp"
-#include "slic3r/GUI/Camera.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/Utils/UndoRedo.hpp"
-#include "slic3r/GUI/NotificationManager.hpp"
 
-#include "slic3r/GUI/Gizmos/GLGizmoMove.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoScale.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoRotate.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoFlatten.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoSlaSupports.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoFdmSupports.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoCut.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoHollow.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoSeam.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoSimplify.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoEmboss.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoSVG.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoMeasure.hpp"
-
-#include "libslic3r/format.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/PresetBundle.hpp"
+#include <GL/glew.h>
 
 #include <wx/glcanvas.h>
 
+#include "libslic3r/format.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
+#include "slic3r/GUI/3DScene.hpp"
+#include "slic3r/GUI/Camera.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoCut.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoEmboss.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoFdmSupports.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoFlatten.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoHollow.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoMeasure.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoMove.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoRotate.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoScale.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoSeam.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoSimplify.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoSlaSupports.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoSVG.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
+#include "slic3r/GUI/NotificationManager.hpp"
+#include "slic3r/GUI/Plater.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
 namespace Slic3r {
 namespace GUI {
 

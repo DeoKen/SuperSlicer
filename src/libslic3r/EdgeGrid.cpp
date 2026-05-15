@@ -1,8 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2022 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <algorithm>
+#include "EdgeGrid.hpp"
+
 #include <cassert>
 #include <cfloat>
 #include <unordered_map>
@@ -10,12 +13,12 @@
 
 #include <png.h>
 
-#include "libslic3r.h"
+#include <algorithm>
 #include "ClipperUtils.hpp"
-#include "EdgeGrid.hpp"
 #include "Geometry.hpp"
-#include "SVG.hpp"
+#include "libslic3r.h"
 #include "PNGReadWrite.hpp"
+#include "SVG.hpp"
 
 // #define EDGE_GRID_DEBUG_OUTPUT
 

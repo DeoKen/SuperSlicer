@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) Slic3r 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_SupportMaterial_hpp_
 #define slic3r_SupportMaterial_hpp_
 
-#include "../Flow.hpp"
-#include "../PrintConfig.hpp"
-#include "../Slicing.hpp"
+#include "libslic3r/Flow.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Slicing.hpp"
 
 #include "SupportLayer.hpp"
 #include "SupportParameters.hpp"

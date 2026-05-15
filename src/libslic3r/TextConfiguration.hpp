@@ -1,17 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_TextConfiguration_hpp_
 #define slic3r_TextConfiguration_hpp_
 
-#include <vector>
-#include <string>
 #include <optional>
+#include <string>
+#include <vector>
+
+#include <cereal/archives/binary.hpp>
 #include <cereal/cereal.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/string.hpp>
-#include <cereal/archives/binary.hpp>
+
 #include "Point.hpp" // Transform3d
 
 namespace Slic3r {

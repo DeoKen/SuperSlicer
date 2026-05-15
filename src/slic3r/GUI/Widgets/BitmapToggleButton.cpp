@@ -1,9 +1,13 @@
-#include "BitmapToggleButton.hpp"
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include "libslic3r/Config.hpp"
+#include "BitmapToggleButton.hpp"
 
 #include <wx/settings.h>
 
+#include "libslic3r/Config.hpp"
 BitmapToggleButton::BitmapToggleButton(wxWindow* parent, const wxString& label, wxWindowID id)
 {
     const long style = wxBORDER_NONE | wxBU_EXACTFIT | wxBU_LEFT;

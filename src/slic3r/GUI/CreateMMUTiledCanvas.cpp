@@ -1,50 +1,54 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "CreateMMUTiledCanvas.hpp"
 
-#include "I18N.hpp"
-#include "libslic3r/AppConfig.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Format/STL.hpp"
-#include "libslic3r/TriangleMesh.hpp"
-#include "format.hpp"
-#include "GUI.hpp"
-#include "GUI_Utils.hpp"
-#include "GUI_ObjectList.hpp"
-#include "Plater.hpp"
-#include "slic3r/Utils/Http.hpp"
-#include "Tab.hpp"
-#include "../Utils/Http.hpp"
-#include <wx/notebook.h>
-#include "Notebook.hpp"
-
-#include "MainFrame.hpp"
-#include "wxExtensions.hpp"
-
-#include <iostream>
-#include <ctime>
 #include <cstdio>
 #include <cstdlib>
-
-#include <wx/wx.h>
-#include <wx/brush.h>
-#include <wx/scrolwin.h>
-#include <wx/display.h>
-#include <wx/file.h>
-#include <wx/mimetype.h>
-#include <wx/odcombo.h>
-#include <wx/rawbmp.h>
-#include <wx/textctrl.h>
-#include <wx/wrapsizer.h>
-#include "wxExtensions.hpp"
+#include <ctime>
+#include <iostream>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
+#include <wx/brush.h>
+#include <wx/display.h>
+#include <wx/file.h>
+#include <wx/mimetype.h>
+#include <wx/notebook.h>
+#include <wx/odcombo.h>
+#include <wx/rawbmp.h>
+#include <wx/scrolwin.h>
+#include <wx/textctrl.h>
+#include <wx/wrapsizer.h>
+#include <wx/wx.h>
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Config.hpp"
+#include "libslic3r/Format/STL.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/TriangleMesh.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "format.hpp"
+#include "GUI.hpp"
+#include "GUI_ObjectList.hpp"
+#include "GUI_Utils.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "Notebook.hpp"
+#include "Plater.hpp"
+#include "slic3r/Utils/Http.hpp"
+#include "slic3r/Utils/Http.hpp"
+#include "Tab.hpp"
+#include "wxExtensions.hpp"
+#include "wxExtensions.hpp"
 #if ENABLE_SCROLLABLE
 static wxSize get_screen_size(wxWindow* window)
 {

@@ -1,3 +1,8 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_EditGCodeDialog_hpp_
 #define slic3r_EditGCodeDialog_hpp_
 
@@ -5,11 +10,11 @@
 
 #include <wx/gdicmn.h>
 
-#include "GUI_Utils.hpp"
-#include "wxExtensions.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
+#include "GUI_Utils.hpp"
+#include "wxExtensions.hpp"
 class wxListBox;
 class wxTextCtrl;
 class ScalableButton;

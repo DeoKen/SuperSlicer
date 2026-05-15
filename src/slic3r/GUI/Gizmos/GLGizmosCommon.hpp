@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_GLGizmosCommon_hpp_
 #define slic3r_GUI_GLGizmosCommon_hpp_
 
-#include <memory>
 #include <map>
+#include <memory>
 
 #include "slic3r/GUI/MeshUtils.hpp"
-
 namespace Slic3r {
 
 class ModelObject;

@@ -1,22 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) 2021 Ilya @xorza
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <cassert>
-
-#include "libslic3r/Flow.hpp"
-#include "libslic3r/Slicing.hpp"
-#include "libslic3r/libslic3r.h"
 
 #include "PresetHints.hpp"
 
-#include <wx/intl.h> 
+#include <cassert>
 
-#include "GUI.hpp"
+#include <wx/intl.h>
+
+#include "libslic3r/Flow.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Slicing.hpp"
+
 #include "format.hpp"
+#include "GUI.hpp"
 #include "I18N.hpp"
-
 namespace Slic3r {
 
 using Slic3r::GUI::format_wxstr;

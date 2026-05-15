@@ -1,14 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Pavel Mikuš @Godrak, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "ExtrusionRole.hpp"
-#include "I18N.hpp"
 
+#include <cassert>
 #include <string>
 #include <string_view>
-#include <cassert>
 
+#include "I18N.hpp"
 
 namespace Slic3r {
 

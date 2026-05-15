@@ -1,17 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) superslicer 2019 - 2023 Durand Rémi @supermerill
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
+#ifndef slic3r_Geometry_MedialAxis_hpp_
+#define slic3r_Geometry_MedialAxis_hpp_
+
 ///// Copyright (c) Prusa Research 2021 - 2022 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#ifndef slic3r_Geometry_MedialAxis_hpp_
-#define slic3r_Geometry_MedialAxis_hpp_
 
-#include "../libslic3r.h"
+#include "libslic3r/libslic3r.h"
 #include "Voronoi.hpp"
-#include "../ExPolygon.hpp"
-#include "../Geometry.hpp"
-#include "../ExtrusionEntityCollection.hpp"
-#include "../Flow.hpp"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Flow.hpp"
 
 #include <vector>
 

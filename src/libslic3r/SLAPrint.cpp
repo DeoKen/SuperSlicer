@@ -1,26 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Roman Beránek @zavorka, Enrico Turri @enricoturri1966
 ///|/ Copyright (c) 2022 ole00 @ole00
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "SLAPrint.hpp"
-#include "SLAPrintSteps.hpp"
+
+#include <numeric>
+#include <unordered_set>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/log/trivial.hpp>
+
+#include <oneapi/tbb/parallel_for.h>
+
 #include "CSGMesh/CSGMeshCopy.hpp"
 #include "CSGMesh/PerformCSGMeshBooleans.hpp"
 #include "format.hpp"
-#include "StaticMap.hpp"
-
 #include "Format/SLAArchiveFormatRegistry.hpp"
-
 #include "Geometry.hpp"
+#include "SLAPrintSteps.hpp"
+#include "StaticMap.hpp"
 #include "Thread.hpp"
-
-#include <unordered_set>
-#include <numeric>
-
-#include <oneapi/tbb/parallel_for.h>
-#include <boost/filesystem/path.hpp>
-#include <boost/log/trivial.hpp>
 
 // #define SLAPRINT_DO_BENCHMARK
 

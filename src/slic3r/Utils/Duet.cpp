@@ -1,37 +1,41 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2020 Manuel Coenen
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Duet.hpp"
 
 #include <algorithm>
 #include <ctime>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <boost/nowide/convert.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
-#include <wx/frame.h>
+#include <curl/curl.h>
+
+#include <wx/checkbox.h>
 #include <wx/event.h>
+#include <wx/frame.h>
 #include <wx/progdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/checkbox.h>
 
 #include "libslic3r/PrintConfig.hpp"
+
+#include "Http.hpp"
+#include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/GUI/MsgDialog.hpp"
-#include "slic3r/GUI/format.hpp"
-#include "Http.hpp"
-
-#include <curl/curl.h>
-
 namespace fs = boost::filesystem;
 namespace pt = boost::property_tree;
 

@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef ARCHIVETRAITS_HPP
 #define ARCHIVETRAITS_HPP
 
 #include <string>
 
-#include "SLAArchiveWriter.hpp"
-#include "SLAArchiveReader.hpp"
-
-#include "libslic3r/Zipper.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Zipper.hpp"
+
+#include "SLAArchiveReader.hpp"
+#include "SLAArchiveWriter.hpp"
 
 namespace Slic3r {
 

@@ -1,26 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) 2021 Scott Mudge @ScottMudge
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PresetComboBoxes.hpp"
 
 #include <cstddef>
-#include <vector>
 #include <string>
+#include <vector>
+
 #include <boost/algorithm/string.hpp>
 
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/textctrl.h>
 #include <wx/button.h>
-#include <wx/statbox.h>
 #include <wx/colordlg.h>
-#include <wx/wupdlock.h>
+#include <wx/listbook.h>
 #include <wx/menu.h>
 #include <wx/odcombo.h>
-#include <wx/listbook.h>
-
+#include <wx/sizer.h>
+#include <wx/statbox.h>
+#include <wx/stattext.h>
+#include <wx/textctrl.h>
+#include <wx/wupdlock.h>
 #ifdef _WIN32
 #include <wx/msw/dcclient.h>
 #include <wx/msw/private.h>
@@ -38,9 +41,9 @@
 #include "format.hpp"
 #include "Tab.hpp"
 #include "ConfigWizard.hpp"
-#include "../Utils/ASCIIFolding.hpp"
-#include "../Utils/FixModelByWin10.hpp"
-#include "../Utils/UndoRedo.hpp"
+#include "slic3r/Utils/ASCIIFolding.hpp"
+#include "slic3r/Utils/FixModelByWin10.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
 #include "BitmapCache.hpp"
 #include "PhysicalPrinterDialog.hpp"
 #include "MsgDialog.hpp"

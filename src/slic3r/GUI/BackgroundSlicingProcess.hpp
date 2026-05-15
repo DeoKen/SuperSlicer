@@ -1,25 +1,27 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_BackgroundSlicingProcess_hpp_
 #define slic3r_GUI_BackgroundSlicingProcess_hpp_
 
-#include <string>
 #include <condition_variable>
 #include <mutex>
+#include <string>
 
 #include <boost/thread.hpp>
 
 #include <wx/event.h>
 
-#include "libslic3r/PrintBase.hpp"
-#include "libslic3r/GCode/ThumbnailData.hpp"
-#include "slic3r/Utils/PrintHost.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/PrintBase.hpp"
 
-
+#include "slic3r/Utils/PrintHost.hpp"
 namespace boost { namespace filesystem { class path; } }
 
 namespace Slic3r {

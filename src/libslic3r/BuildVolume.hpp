@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_BuildVolume_hpp_
 #define slic3r_BuildVolume_hpp_
 
-#include "Point.hpp"
-#include "Geometry/Circle.hpp"
-#include "Polygon.hpp"
-#include "BoundingBox.hpp"
+#include <string_view>
+
 #include <admesh/stl.h>
 
-#include <string_view>
+#include "BoundingBox.hpp"
+#include "Geometry/Circle.hpp"
+#include "Point.hpp"
+#include "Polygon.hpp"
 
 namespace Slic3r {
 

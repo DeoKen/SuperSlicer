@@ -1,22 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ImGuiWrapper_hpp_
 #define slic3r_ImGuiWrapper_hpp_
 
+#include <map>
 #include <string>
 #include <string_view>
-#include <map>
 
 #include <imgui/imgui.h>
 
 #include <wx/string.h>
 
-#include "libslic3r/Point.hpp"
 #include "libslic3r/Color.hpp"
+#include "libslic3r/Point.hpp"
 #include "libslic3r/Polygon.hpp"
-
 namespace Slic3r {
 namespace Search {
 struct OptionViewParameters;
@@ -295,5 +297,5 @@ private:
 } // namespace GUI
 } // namespace Slic3r
 
-#endif // slic3r_ImGuiWrapper_hpp_
 
+#endif // slic3r_ImGuiWrapper_hpp_

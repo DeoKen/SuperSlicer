@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) 2023 Pedro Lamas @PedroLamas
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2020 Sergey Kovalev @RandoMan70
@@ -6,35 +7,38 @@
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PrintHost.hpp"
 
-#include <optional>
-#include <vector>
-#include <thread>
 #include <exception>
-#include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
+#include <optional>
+#include <thread>
+#include <vector>
 
-#include <wx/string.h>
+#include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
+
 #include <wx/app.h>
 #include <wx/arrstr.h>
+#include <wx/string.h>
 
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Channel.hpp"
-#include "OctoPrint.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
+#include "AstroBox.hpp"
 #include "Duet.hpp"
 #include "FlashAir.hpp"
-#include "AstroBox.hpp"
-#include "Repetier.hpp"
 #include "Klipper.hpp"
-#include "MPMDv2.hpp"
 #include "MKS.hpp"
 #include "Moonraker.hpp"
-#include "../GUI/PrintHostDialogs.hpp"
-#include "../GUI/GUI.hpp"
+#include "MPMDv2.hpp"
+#include "OctoPrint.hpp"
+#include "Repetier.hpp"
+#include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/I18N.hpp"
-
+#include "slic3r/GUI/PrintHostDialogs.hpp"
 namespace fs = boost::filesystem;
 using std::optional;
 using Slic3r::GUI::PrintHostQueueDialog;

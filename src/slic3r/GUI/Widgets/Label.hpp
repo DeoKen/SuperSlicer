@@ -1,9 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_Label_hpp_
 #define slic3r_GUI_Label_hpp_
 
-#include <wx/stattext.h>
 #include <wx/dcclient.h>
-
+#include <wx/stattext.h>
 #define LB_HYPERLINK 0x0001
 
 

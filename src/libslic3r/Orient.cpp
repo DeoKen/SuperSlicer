@@ -1,10 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #include "Orient.hpp"
-#include "Geometry.hpp"
+
 #include <numeric>
-#include <ClipperUtils.hpp>
+
 #include <boost/geometry/index/rtree.hpp>
 #include <boost/log/trivial.hpp>
+
 #include <tbb/parallel_for.h>
+
+#include "ClipperUtils.hpp"
+#include "Geometry.hpp"
 
 #if defined(_MSC_VER) && defined(__clang__)
 #define BOOST_NO_CXX17_HDR_STRING_VIEW

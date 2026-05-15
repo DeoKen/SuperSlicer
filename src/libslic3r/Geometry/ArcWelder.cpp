@@ -1,38 +1,41 @@
-// The following code for merging circles into arches originates from https://github.com/FormerLurker/ArcWelderLib
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Arc Welder: Anti-Stutter Library
-//
-// Compresses many G0/G1 commands into G2/G3(arc) commands where possible, ensuring the tool paths stay within the specified resolution.
-// This reduces file size and the number of gcodes per second.
-//
-// Uses the 'Gcode Processor Library' for gcode parsing, position processing, logging, and other various functionality.
-//
-// Copyright(C) 2021 - Brad Hochgesang
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// This program is free software : you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
-// GNU Affero General Public License for more details.
-//
-//
-// You can contact the author at the following email address: 
-// FormerLurker@pm.me
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// change for superslicer: better handling for 2Pi & PI arcs.
-// todo: move start & end point to have a better center (a diff of ~40 unit in radius can move the center by ~50000)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/ The following code for merging circles into arches originates from https://github.com/FormerLurker/ArcWelderLib
+///|/
+///|/ /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///|/ Arc Welder: Anti-Stutter Library
+///|/
+///|/ Compresses many G0/G1 commands into G2/G3(arc) commands where possible, ensuring the tool paths stay within the specified resolution.
+///|/ This reduces file size and the number of gcodes per second.
+///|/
+///|/ Uses the 'Gcode Processor Library' for gcode parsing, position processing, logging, and other various functionality.
+///|/
+///|/ Copyright(C) 2021 - Brad Hochgesang
+///|/ /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///|/ This program is free software : you can redistribute it and/or modify
+///|/ it under the terms of the GNU Affero General Public License as published
+///|/ by the Free Software Foundation, either version 3 of the License, or
+///|/ (at your option) any later version.
+///|/
+///|/ This program is distributed in the hope that it will be useful,
+///|/ but WITHOUT ANY WARRANTY; without even the implied warranty of
+///|/ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+///|/ GNU Affero General Public License for more details.
+///|/
+///|/
+///|/ You can contact the author at the following email address:
+///|/ FormerLurker@pm.me
+///|/ /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///|/ change for superslicer: better handling for 2Pi & PI arcs.
+///|/ todo: move start & end point to have a better center (a diff of ~40 unit in radius can move the center by ~50000)
+///|/ /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
 #include "ArcWelder.hpp"
 #include "Circle.hpp"
 
-#include "../MultiPoint.hpp"
-#include "../Polygon.hpp"
+#include "libslic3r/MultiPoint.hpp"
+#include "libslic3r/Polygon.hpp"
 
 #include <numeric>
 #include <random>

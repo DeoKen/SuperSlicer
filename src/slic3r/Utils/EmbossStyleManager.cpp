@@ -1,22 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "EmbossStyleManager.hpp"
-#include <optional>
-#include <GL/glew.h> // Imgui texture
-#include <imgui/imgui_internal.h> // ImTextCharFromUtf8
-#include <libslic3r/AppConfig.hpp>
-#include <libslic3r/Utils.hpp> // ScopeGuard
 
-#include "WxFontUtils.hpp"
-#include "slic3r/GUI/3DScene.hpp" // ::glsafe
-#include "slic3r/GUI/Jobs/CreateFontStyleImagesJob.hpp"
-#include "slic3r/GUI/ImGuiWrapper.hpp" // check of font ranges
+#include "EmbossStyleManager.hpp"
+
+#include <optional>
 
 #include <boost/assign.hpp>
 #include <boost/bimap.hpp>
 
+#include <GL/glew.h> // Imgui texture
+
+#include <imgui/imgui_internal.h> // ImTextCharFromUtf8
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Utils.hpp" // ScopeGuard
+
+#include "slic3r/GUI/3DScene.hpp" // ::glsafe
+#include "slic3r/GUI/ImGuiWrapper.hpp" // check of font ranges
+#include "slic3r/GUI/Jobs/CreateFontStyleImagesJob.hpp"
+#include "WxFontUtils.hpp"
 using namespace Slic3r;
 using namespace Slic3r::Emboss;
 using namespace Slic3r::GUI::Emboss;
@@ -536,7 +542,7 @@ bool StyleManager::set_wx_font(const wxFont &wx_font, std::unique_ptr<FontFile> 
     return true;
 }
 
-#include <libslic3r/AppConfig.hpp>
+#include "libslic3r/AppConfig.hpp"
 #include "WxFontUtils.hpp"
 #include "fast_float/fast_float.h"
 

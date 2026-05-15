@@ -1,21 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "clipper/clipper_z.hpp"
+#include "ElephantFootCompensation.hpp"
 
-#include "libslic3r.h"
+#include <cassert>
+#include <cmath>
+
+#include <clipper/clipper_z.hpp>
 #include "ClipperUtils.hpp"
 #include "EdgeGrid.hpp"
 #include "ExPolygon.hpp"
-#include "ElephantFootCompensation.hpp"
 #include "Flow.hpp"
 #include "Geometry.hpp"
+#include "libslic3r.h"
 #include "SVG.hpp"
 #include "Utils.hpp"
-
-#include <cmath>
-#include <cassert>
 
 // #define CONTOUR_DISTANCE_DEBUG_SVG
 

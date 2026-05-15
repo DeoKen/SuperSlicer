@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2019 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/GUI/2DBed.pm:
@@ -5,13 +6,15 @@
 ///|/ Copyright (c) Slic3r 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_2DBed_hpp_
 #define slic3r_2DBed_hpp_
 
 #include <wx/wx.h>
-#include "libslic3r/Config.hpp"
 
+#include "libslic3r/Config.hpp"
 namespace Slic3r {
 namespace GUI {
 

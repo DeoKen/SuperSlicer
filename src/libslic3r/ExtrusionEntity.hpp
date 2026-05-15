@@ -4,21 +4,22 @@
 ///|/ Copyright (c) Slic3r 2013 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_ExtrusionEntity_hpp_
 #define slic3r_ExtrusionEntity_hpp_
-
-#include "libslic3r.h"
-#include "ExtrusionRole.hpp"
-#include "Flow.hpp"
-#include "Polygon.hpp"
-#include "Polyline.hpp"
 
 #include <cassert>
 #include <limits>
 #include <numeric>
 #include <optional>
 #include <string_view>
+
+#include "ExtrusionRole.hpp"
+#include "Flow.hpp"
+#include "libslic3r.h"
+#include "Polygon.hpp"
+#include "Polyline.hpp"
 
 namespace Slic3r {
 

@@ -1,13 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2021 Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_ExtruderSequenceDialog_hpp_
 #define slic3r_GUI_ExtruderSequenceDialog_hpp_
 
-#include "GUI_Utils.hpp"
 #include "DoubleSlider.hpp"
-
+#include "GUI_Utils.hpp"
 class wxTextCtrl;
 class wxFlexGridSizer;
 class CheckBox;

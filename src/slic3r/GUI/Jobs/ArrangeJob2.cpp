@@ -1,25 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ArrangeJob2.hpp"
 
-#include <numeric>
 #include <iterator>
-
-#include <libslic3r/Model.hpp>
-#include <libslic3r/TriangleMeshSlicer.hpp>
-#include <libslic3r/Geometry/ConvexHull.hpp>
-
-#include <libslic3r/SLAPrint.hpp>
-#include <libslic3r/Print.hpp>
-
-#include <slic3r/GUI/Plater.hpp>
-#include <slic3r/GUI/GLCanvas3D.hpp>
-#include <slic3r/GUI/GUI_App.hpp>
+#include <numeric>
 
 #include <boost/log/trivial.hpp>
 
+#include "libslic3r/Geometry/ConvexHull.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/SLAPrint.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
+
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r { namespace GUI {
 
 class GUISelectionMask: public arr2::SelectionMask {

@@ -1,21 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) 2023 Mimoja @Mimoja
 ///|/ Copyright (c) Prusa Research 2022 Tomáš Mészáros @tamasmeszaros, Lukáš Hejl @hejllukas
 ///|/ Copyright (c) 2022 ole00 @ole00
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "AnycubicSLA.hpp"
-#include "GCode/ThumbnailData.hpp"
-#include "SLA/RasterBase.hpp"
-#include "libslic3r/SLAPrint.hpp"
 
-#include <sstream>
-#include <iostream>
+#include "AnycubicSLA.hpp"
+
 #include <fstream>
+#include <iostream>
+#include <sstream>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/log/trivial.hpp>
 
+#include "libslic3r/SLAPrint.hpp"
+
+#include "GCode/ThumbnailData.hpp"
+#include "SLA/RasterBase.hpp"
 
 #define TAG_INTRO "ANYCUBIC\0\0\0\0"
 #define TAG_HEADER "HEADER\0\0\0\0\0\0"

@@ -2,8 +2,8 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
+#ifndef slic3r_Api_plugin_cpp_ClipperViews_hpp_
+#define slic3r_Api_plugin_cpp_ClipperViews_hpp_
 
 #include "libslic3r/Api/plugin/c/slic3r_clipper.h"
 #include "libslic3r/Api/plugin/cpp/GeometryViews.hpp"
@@ -454,3 +454,6 @@ private:
 };
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_ClipperViews_hpp_

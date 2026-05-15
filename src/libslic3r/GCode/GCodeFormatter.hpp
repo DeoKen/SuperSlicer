@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav
 ///|/ Copyright (c) 2016 Chow Loong Jin @hyperair
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
@@ -5,17 +6,20 @@
 ///|/ Copyright (c) 2015 Alexander Rössler @machinekoder
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GFormatter_hpp_
 #define slic3r_GFormatter_hpp_
-
-#include "../libslic3r.h"
-#include "../Point.hpp"
 
 #include <string>
 #include <string_view>
 #include <vector>
-#include <charconv>
+
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Point.hpp"
+
+#include "charconv"
 
 namespace Slic3r {
 

@@ -1,13 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "SysInfoDialog.hpp"
-#include "I18N.hpp"
-#include "3DScene.hpp"
-#include "GUI.hpp"
-#include "../Utils/UndoRedo.hpp"
-#include "Plater.hpp"
 
 #include <string>
 
@@ -17,13 +15,19 @@
 
 #include <wx/clipbrd.h>
 #include <wx/platinfo.h>
-#include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "wxExtensions.hpp"
-#include "../libslic3r/BlacklistedLibraryCheck.hpp"
-#include "../libslic3r/Color.hpp"
-#include "format.hpp"
 
+#include "libslic3r/BlacklistedLibraryCheck.hpp"
+#include "libslic3r/Color.hpp"
+
+#include "3DScene.hpp"
+#include "format.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "Plater.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
+#include "wxExtensions.hpp"
 #ifdef _WIN32
 	// The standard Windows includes.
 	#define WIN32_LEAN_AND_MEAN

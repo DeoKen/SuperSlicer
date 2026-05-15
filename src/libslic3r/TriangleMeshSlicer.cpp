@@ -1,30 +1,32 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "ClipperUtils.hpp"
-#include "Geometry.hpp"
-#include "Tesselate.hpp"
-#include "TriangleMesh.hpp"
+
 #include "TriangleMeshSlicer.hpp"
-#include "Utils.hpp"
-#include "PointUtils.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <deque>
-#include <queue>
 #include <mutex>
 #include <new>
+#include <queue>
 #include <utility>
 
+#include <ankerl/unordered_dense.h>
 #include <boost/log/trivial.hpp>
-
 #include <oneapi/tbb/parallel_for.h>
 #include <oneapi/tbb/scalable_allocator.h>
 
-#include <ankerl/unordered_dense.h>
+#include "ClipperUtils.hpp"
+#include "Geometry.hpp"
+#include "PointUtils.hpp"
+#include "Tesselate.hpp"
+#include "TriangleMesh.hpp"
+#include "Utils.hpp"
 
 #ifndef NDEBUG
 //    #define EXPENSIVE_DEBUG_CHECKS

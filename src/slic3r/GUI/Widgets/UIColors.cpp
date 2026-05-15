@@ -1,7 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "UIColors.hpp"
 
 #include <cassert>
-
 namespace Slic3r { namespace GUI { namespace Widget {
 static int clr_border_hovered = 0x000000; //0xED6B21; // 0x00AE42;
 int clr_background_focused = 0x000000; //0xED6B21;       // 0xEDFAF2;

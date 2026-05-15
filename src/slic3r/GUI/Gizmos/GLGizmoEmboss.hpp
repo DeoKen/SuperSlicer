@@ -1,30 +1,33 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoEmboss_hpp_
 #define slic3r_GLGizmoEmboss_hpp_
 
-#include "GLGizmoBase.hpp"
-#include "GLGizmoRotate.hpp"
-#include "slic3r/GUI/IconManager.hpp"
-#include "slic3r/GUI/SurfaceDrag.hpp"
-#include "slic3r/GUI/I18N.hpp" // TODO: not needed
-#include "slic3r/GUI/TextLines.hpp"
-#include "slic3r/Utils/RaycastManager.hpp"
-#include "slic3r/Utils/EmbossStyleManager.hpp"
-
-#include <optional>
-#include <memory>
 #include <atomic>
+#include <memory>
+#include <optional>
+
+#include <GL/glew.h>
+
+#include <imgui/imgui.h>
 
 #include "libslic3r/Emboss.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/TextConfiguration.hpp"
 
-#include <imgui/imgui.h>
-#include <GL/glew.h>
-
+#include "GLGizmoBase.hpp"
+#include "GLGizmoRotate.hpp"
+#include "slic3r/GUI/I18N.hpp" // TODO: not needed
+#include "slic3r/GUI/IconManager.hpp"
+#include "slic3r/GUI/SurfaceDrag.hpp"
+#include "slic3r/GUI/TextLines.hpp"
+#include "slic3r/Utils/EmbossStyleManager.hpp"
+#include "slic3r/Utils/RaycastManager.hpp"
 class wxFont;
 namespace Slic3r{
     class AppConfig;

@@ -1,33 +1,36 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2020 Manuel Coenen
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Http.hpp"
 
 #include <cstdlib>
-#include <functional>
-#include <thread>
 #include <deque>
-#include <sstream>
 #include <exception>
-#include <boost/filesystem/path.hpp>
+#include <functional>
+#include <sstream>
+#include <thread>
+
 #include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
 
 #include <curl/curl.h>
-
 #ifdef OPENSSL_CERT_OVERRIDE
 #include <openssl/x509.h>
 #endif
 
-#include <libslic3r/libslic3r.h>
-#include <libslic3r/Utils.hpp>
-#include <slic3r/GUI/I18N.hpp>
-#include <slic3r/GUI/format.hpp>
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Utils.hpp"
+#include "slic3r/GUI/I18N.hpp"
+#include "slic3r/GUI/format.hpp"
 
 namespace fs = boost::filesystem;
 

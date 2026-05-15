@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) superslicer 2019 - 2025 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Pavel Mikuš @Godrak, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
@@ -7,19 +8,41 @@
 ///|/ Copyright (c) Slic3r 2011 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ SuperSlicer, PrusaSlicer, Slic3r are released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#include "clipper/clipper_z.hpp"
-
 #include "PerimeterGenerator.hpp"
 
-#include "libslic3r.h"
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <cstdlib>
+#include <functional>
+#include <limits>
+#include <list>
+#include <ostream>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+#include <ankerl/unordered_dense.h>
+
+#include <boost/log/trivial.hpp>
+
+#include <iterator>
+
+#include <stack>
 
 #include "AABBTreeIndirect.hpp"
 #include "AABBTreeLines.hpp"
+#include <algorithm>
+#include "Arachne/utils/ExtrusionJunction.hpp"
+#include "Arachne/utils/ExtrusionLine.hpp"
+#include "Arachne/WallToolPaths.hpp"
 #include "BoundingBox.hpp"
 #include "BridgeDetector.hpp"
-#include "ExPolygon.hpp"
+#include <clipper/clipper_z.hpp>
 #include "ExPolygon.hpp"
 #include "ExtrusionEntity.hpp"
 #include "ExtrusionEntityCollection.hpp"
@@ -27,6 +50,7 @@
 #include "Geometry/ConvexHull.hpp"
 #include "Geometry/MedialAxis.hpp"
 #include "KDTreeIndirect.hpp"
+#include "libslic3r.h"
 #include "Line.hpp"
 #include "Milling/MillingPostProcess.hpp"
 #include "MultiPoint.hpp"
@@ -41,35 +65,9 @@
 #include "SVG.hpp"
 #include "Thread.hpp"
 
-#include "Arachne/WallToolPaths.hpp"
-#include "Arachne/utils/ExtrusionLine.hpp"
-#include "Arachne/utils/ExtrusionJunction.hpp"
-
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <cassert>
-#include <cstddef>
-#include <cstdlib>
-#include <functional>
-#include <iterator>
-#include <limits>
-#include <list>
-#include <ostream>
-#include <stack>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <vector>
-
-#include <ankerl/unordered_dense.h>
-#include <boost/log/trivial.hpp>
-
 //#define ARACHNE_DEBUG
 
 #ifdef ARACHNE_DEBUG
-#include "SVG.hpp"
 #include "Utils.hpp"
 #endif
 

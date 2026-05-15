@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_RaycastManager_hpp_
 #define slic3r_RaycastManager_hpp_
 
 #include <memory> // unique_ptr
 #include <optional>
-#include "libslic3r/AABBMesh.hpp" // Structure to cast rays
-#include "libslic3r/Point.hpp" // Transform3d
-#include "libslic3r/ObjectID.hpp"
-#include "libslic3r/Model.hpp" // ModelObjectPtrs, ModelObject, ModelInstance, ModelVolume
 
+#include "libslic3r/AABBMesh.hpp" // Structure to cast rays
+#include "libslic3r/Model.hpp" // ModelObjectPtrs, ModelObject, ModelInstance, ModelVolume
+#include "libslic3r/ObjectID.hpp"
+#include "libslic3r/Point.hpp" // Transform3d
 namespace Slic3r::GUI{
 
 /// <summary>

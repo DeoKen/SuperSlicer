@@ -2,10 +2,8 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
-
-#include "libslic3r/Api/plugin/c/slic3r_geometry.h"
+#ifndef slic3r_Api_plugin_cpp_GeometryViews_hpp_
+#define slic3r_Api_plugin_cpp_GeometryViews_hpp_
 
 #include <algorithm>
 #include <cassert>
@@ -15,6 +13,8 @@
 #include <iterator>
 #include <utility>
 #include <vector>
+
+#include "libslic3r/Api/plugin/c/slic3r_geometry.h"
 
 namespace slic3r_api {
 
@@ -1145,3 +1145,6 @@ private:
 };
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_GeometryViews_hpp_

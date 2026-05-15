@@ -6,7 +6,9 @@
 ///|/ Copyright (c) Slic3r 2011 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_FillBase_hpp_
 #define slic3r_FillBase_hpp_
 
@@ -15,21 +17,19 @@
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
-
 #include <type_traits>
+
 #include <boost/log/trivial.hpp>
 
-#include "../libslic3r.h"
-#include "../BoundingBox.hpp"
-#include "../Exception.hpp"
-#include "../PrintConfig.hpp"
-#include "../Exception.hpp"
-#include "../Utils.hpp"
-
-#include "../ExPolygon.hpp"
-#include "../ExtrusionEntity.hpp"
-#include "../ExtrusionEntityCollection.hpp"
-#include "../Flow.hpp"
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Flow.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Utils.hpp"
 
 namespace Slic3r {
 

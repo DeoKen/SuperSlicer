@@ -1,29 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "slic3r/Utils/Bonjour.hpp"   // On Windows, boost needs to be included before wxWidgets headers
 
 #include "BonjourDialog.hpp"
 
-#include <set>
 #include <mutex>
+#include <set>
 
 #include <boost/nowide/convert.hpp>
 
-#include <wx/sizer.h>
 #include <wx/button.h>
 #include <wx/listctrl.h>
+#include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/timer.h>
 #include <wx/wupdlock.h>
 
+#include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/I18N.hpp"
-#include "slic3r/GUI/format.hpp"
+#include "slic3r/Utils/Bonjour.hpp"   // On Windows, boost needs to be included before wxWidgets headers
 #include "slic3r/Utils/Bonjour.hpp"
-
 namespace Slic3r {
 
 

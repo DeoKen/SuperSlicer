@@ -1,26 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Pavel Mikuš @Godrak, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/Model.hpp"
 
 #include "GUI_Factories.hpp"
-#include "GUI_ObjectList.hpp"
-#include "GUI_App.hpp"
-#include "I18N.hpp"
-#include "Plater.hpp"
-#include "ObjectDataViewModel.hpp"
 
-#include "OptionsGroup.hpp"
-#include "GLCanvas3D.hpp"
-#include "Selection.hpp"
+#include <boost/algorithm/string.hpp>
+
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
 #include "format.hpp"
 #include "Gizmos/GLGizmoEmboss.hpp"
 #include "Gizmos/GLGizmoSVG.hpp"
-
-#include <boost/algorithm/string.hpp>
+#include "GLCanvas3D.hpp"
+#include "GUI_App.hpp"
+#include "GUI_ObjectList.hpp"
+#include "I18N.hpp"
+#include "ObjectDataViewModel.hpp"
+#include "OptionsGroup.hpp"
+#include "Plater.hpp"
+#include "Selection.hpp"
 #include "slic3r/Utils/FixModelByWin10.hpp"
 #ifdef __APPLE__
 #include "wx/dcclient.h"

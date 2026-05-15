@@ -15,8 +15,9 @@
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
-#include "libslic3r/Api/plugin/cpp/Views.hpp"
 #include "libslic3r/Api/plugin/cpp/PrintHelpers.hpp"
+#include "libslic3r/Api/plugin/cpp/Views.hpp"
+
 #ifdef _DEBUG
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Slicing.hpp"

@@ -1,20 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "GCodeReader.hpp"
+
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/nowide/fstream.hpp>
 #include <boost/nowide/cstdio.hpp>
-#include <fstream>
-#include <iostream>
-#include <iomanip>
-#include "Utils.hpp"
-
-#include "LocalesUtils.hpp"
+#include <boost/nowide/fstream.hpp>
 
 #include <fast_float/fast_float.h>
+
+#include "LocalesUtils.hpp"
+#include "Utils.hpp"
 
 namespace Slic3r {
 

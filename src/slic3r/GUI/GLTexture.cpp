@@ -1,29 +1,32 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
-#include <libslic3r/AppConfig.hpp>
+
 #include "GLTexture.hpp"
 
-#include "3DScene.hpp"
-#include "OpenGLManager.hpp"
-#include "GUI_App.hpp"
-#include "GLModel.hpp"
-#include "BitmapCache.hpp"
-
-#include <GL/glew.h>
-
-#include <wx/image.h>
+#include <algorithm>
+#include <thread>
+#include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
-#include <vector>
-#include <algorithm>
-#include <thread>
+#include <GL/glew.h>
 
+#include <wx/image.h>
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/libslic3r.h"
+
+#include "3DScene.hpp"
+#include "BitmapCache.hpp"
+#include "GLModel.hpp"
+#include "GUI_App.hpp"
+#include "OpenGLManager.hpp"
 #define STB_DXT_IMPLEMENTATION
 #include "stb_dxt/stb_dxt.h"
 

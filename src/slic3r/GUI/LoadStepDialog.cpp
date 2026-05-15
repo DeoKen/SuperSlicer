@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav, Lukáš Hejl @hejllukas, Pavel Mikuš @Godrak, Filip Sykala @Jony01, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2022 Michael Kirsch
 ///|/ Copyright (c) 2021 Boleslaw Ciesielski
@@ -16,23 +17,25 @@
 ///|/ Copyright (c) 2012 Sam Wong
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
 #include "LoadStepDialog.hpp"
-#include <wx/window.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/radiobut.h>
-#include <wx/slider.h>
-#include <vector>
-#include <utility>
-#include "I18N.hpp"
 
-#include "GUI_App.hpp"
+#include <utility>
+#include <vector>
+
+#include <wx/radiobut.h>
+#include <wx/sizer.h>
+#include <wx/slider.h>
+#include <wx/stattext.h>
+#include <wx/window.h>
+
 #include "format.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
 #include "MsgDialog.hpp"
 #include "Widgets/CheckBox.hpp"
-
 namespace Slic3r::GUI {
 
 static std::vector<std::pair<std::string, PrecisionParams>> default_step_import_params = {

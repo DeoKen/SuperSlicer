@@ -1,11 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/AppConfig.hpp"
 
 #include "Camera.hpp"
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/libslic3r.h"
+
 #include "GUI_App.hpp"
 #if ENABLE_CAMERA_STATISTICS
 #include "Mouse3DController.hpp"
@@ -599,5 +603,5 @@ void Camera::update_zenit()
 }
 
 } // GUI
-} // Slic3r
 
+} // Slic3r

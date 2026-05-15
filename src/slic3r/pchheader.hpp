@@ -1,7 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2021 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#ifndef slic3r_pchheader_hpp_
+#define slic3r_pchheader_hpp_
+
 #ifdef WIN32
 	#ifndef WIN32_LEAN_AND_MEAN
 		#define WIN32_LEAN_AND_MEAN
@@ -193,3 +199,5 @@
 #ifdef _WIN32
 #include "GUI/format.hpp"
 #endif // _WIN32
+
+#endif // slic3r_pchheader_hpp_

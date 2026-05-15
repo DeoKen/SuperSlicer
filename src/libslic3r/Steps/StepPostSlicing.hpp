@@ -1,9 +1,15 @@
-#pragma once
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
+#ifndef steps_steppostslicing_hpp_
+#define steps_steppostslicing_hpp_
 
 #include <string>
 #include <vector>
+
+#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 namespace Slic3r {
 
@@ -69,3 +75,5 @@ void run_step(Orchestrator &orchestrator, Print &print);
 } // namespace Steps::StepPostSlicing
 
 } // namespace Slic3r
+
+#endif // steps_steppostslicing_hpp_

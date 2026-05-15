@@ -1,24 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 BeldrothTheGold @BeldrothTheGold
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "GLGizmoHollow.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"
 
 #include <GL/glew.h>
 
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/GUI_ObjectSettings.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
-#include "slic3r/GUI/Plater.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/SLAPrint.hpp"
 
-#include "libslic3r/Model.hpp"
-
+#include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/GUI_ObjectSettings.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

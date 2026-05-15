@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_OG_CustomCtrl_hpp_
 #define slic3r_OG_CustomCtrl_hpp_
 
@@ -16,7 +19,7 @@
 
 #include "OptionsGroup.hpp"
 
-// Translate the ifdef 
+// Translate the ifdef
 #ifdef __WXOSX__
     #define wxOSX true
 #else

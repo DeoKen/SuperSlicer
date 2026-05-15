@@ -1,21 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ConfigSnapshotDialog.hpp"
-#include "I18N.hpp"
 
-#include "../Config/Snapshot.hpp"
-
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Time.hpp"
 #include "libslic3r/Color.hpp"
-#include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "wxExtensions.hpp"
-#include "format.hpp"
+#include "libslic3r/Time.hpp"
+#include "libslic3r/Utils.hpp"
 
-namespace Slic3r { 
+#include "format.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "slic3r/Config/Snapshot.hpp"
+#include "wxExtensions.hpp"
+namespace Slic3r {
 namespace GUI {
 
 static wxString format_reason(const Config::Snapshot::Reason reason) 

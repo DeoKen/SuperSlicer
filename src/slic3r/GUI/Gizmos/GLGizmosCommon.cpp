@@ -1,21 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmosCommon.hpp"
 
 #include <cassert>
 
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "libslic3r/SLAPrint.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/Camera.hpp"
-#include "slic3r/GUI/Plater.hpp"
-
-#include "libslic3r/PresetBundle.hpp"
-
 #include <GL/glew.h>
 
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/SLAPrint.hpp"
+
+#include "slic3r/GUI/Camera.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

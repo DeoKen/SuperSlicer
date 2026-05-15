@@ -1,23 +1,27 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../Layer.hpp"
-#include "../GCode.hpp"
-#include "../EdgeGrid.hpp"
-#include "../Print.hpp"
-#include "../Polygon.hpp"
-#include "../ExPolygon.hpp"
-#include "../Geometry.hpp"
-#include "../ClipperUtils.hpp"
-#include "../SVG.hpp"
-#include "AvoidCrossingPerimeters.hpp"
 
-#include <boost/log/trivial.hpp>
+#include "AvoidCrossingPerimeters.hpp"
 
 #include <numeric>
 #include <unordered_set>
+
+#include <boost/log/trivial.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/EdgeGrid.hpp"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/SVG.hpp"
 
 //#define AVOID_CROSSING_PERIMETERS_DEBUG_OUTPUT
 

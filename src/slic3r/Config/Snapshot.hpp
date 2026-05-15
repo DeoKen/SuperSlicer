@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_Snapshot_
 #define slic3r_GUI_Snapshot_
 
@@ -13,9 +16,9 @@
 #include <boost/filesystem/path.hpp>
 
 #include "libslic3r/Semver.hpp"
-#include "Version.hpp"
 
-namespace Slic3r { 
+#include "Version.hpp"
+namespace Slic3r {
 
 class AppConfig;
 

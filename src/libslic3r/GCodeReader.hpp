@@ -1,16 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_GCodeReader_hpp_
 #define slic3r_GCodeReader_hpp_
 
-#include "libslic3r.h"
 #include <cmath>
 #include <cstdlib>
 #include <functional>
 #include <string>
 #include <string_view>
+
+#include "libslic3r.h"
 #include "PrintConfig.hpp"
 
 namespace Slic3r {

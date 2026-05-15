@@ -1,10 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
+#ifndef slic3r_GCode_Travels_hpp_
+#define slic3r_GCode_Travels_hpp_
+
 /**
  * @file
  * @brief Utility functions for travel gcode generation.
  */
 
-#ifndef slic3r_GCode_Travels_hpp_
-#define slic3r_GCode_Travels_hpp_
 
 #include <vector>
 #include <tcbspan/span.hpp>

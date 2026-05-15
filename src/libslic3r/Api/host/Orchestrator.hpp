@@ -2,25 +2,24 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #ifndef slic3r_Orchestrator_hpp_
 #define slic3r_Orchestrator_hpp_
 
-#include <stddef.h>
-#include <stdint.h>
 #include <atomic>
 #include <cassert>
 #include <map>
 #include <memory>
+#include <stddef.h>
+#include <stdint.h>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "Plugin.hpp"
-#include "libslic3r/MultiPoint.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_bridge_detector.h"
 #include "libslic3r/Api/plugin/c/slic3r_config_def.h"
+#include "libslic3r/MultiPoint.hpp"
 
+#include "Plugin.hpp"
 
 namespace Slic3r {
 

@@ -1,29 +1,32 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmoCut.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
+
+#include <algorithm>
 
 #include <GL/glew.h>
 
-#include <algorithm>
 #include <wx/progdlg.h>
 
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
-#include "slic3r/GUI/GUI_Factories.hpp"
-#include "slic3r/GUI/format.hpp"
-#include "slic3r/Utils/UndoRedo.hpp"
-#include "slic3r/Utils/FixModelByWin10.hpp"
 #include "libslic3r/AppConfig.hpp"
-#include "libslic3r/TriangleMeshSlicer.hpp"
 #include "libslic3r/PointUtils.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
 
 #include "imgui/imgui_internal.h"
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/GUI_Factories.hpp"
+#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
 #include "slic3r/GUI/MsgDialog.hpp"
-
+#include "slic3r/GUI/Plater.hpp"
+#include "slic3r/Utils/FixModelByWin10.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
 namespace Slic3r {
 namespace GUI {
 

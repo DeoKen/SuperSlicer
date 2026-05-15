@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2022 Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) Slic3r 2013 - 2016 Alessandro Ranellucci @alranel
 ///|/
@@ -6,16 +7,17 @@
 ///|/ Copyright (c) Slic3r 2011 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_SVG_hpp_
 #define slic3r_SVG_hpp_
 
-#include "libslic3r.h"
 #include "clipper.hpp"
 #include "ExPolygon.hpp"
+#include "libslic3r.h"
 #include "Line.hpp"
-#include "TriangleMesh.hpp"
 #include "Surface.hpp"
+#include "TriangleMesh.hpp"
 
 namespace Slic3r {
 

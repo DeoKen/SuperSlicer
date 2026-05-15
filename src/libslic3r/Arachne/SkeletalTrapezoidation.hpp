@@ -19,7 +19,7 @@
 #include "SkeletalTrapezoidationJoint.hpp"
 #include "libslic3r/Arachne/BeadingStrategy/BeadingStrategy.hpp"
 #include "SkeletalTrapezoidationGraph.hpp"
-#include "../Geometry/Voronoi.hpp"
+#include "libslic3r/Geometry/Voronoi.hpp"
 
 //#define ARACHNE_DEBUG
 //#define ARACHNE_DEBUG_VORONOI

@@ -1,11 +1,17 @@
-#include "../ClipperUtils.hpp"
-#include "../ExtrusionEntityCollection.hpp"
-#include "../Surface.hpp"
-#include <cmath>
-#include <algorithm>
-#include <iostream>
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
 #include "FillSmooth.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Surface.hpp"
 
 namespace Slic3r {
 

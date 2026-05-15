@@ -1,13 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_SupportCommon_hpp_
 #define slic3r_SupportCommon_hpp_
 
-#include "../Layer.hpp"
-#include "../Polygon.hpp"
-#include "../Print.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/Print.hpp"
+
 #include "SupportLayer.hpp"
 #include "SupportParameters.hpp"
 

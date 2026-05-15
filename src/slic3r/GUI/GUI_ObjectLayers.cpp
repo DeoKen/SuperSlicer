@@ -1,23 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "GUI_ObjectLayers.hpp"
-#include "GUI_ObjectList.hpp"
 
-#include "OptionsGroup.hpp"
-#include "GUI_App.hpp"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/Model.hpp"
-#include "GLCanvas3D.hpp"
-#include "Plater.hpp"
+#include "GUI_ObjectLayers.hpp"
 
 #include <boost/algorithm/string.hpp>
 
-#include "I18N.hpp"
-
 #include <wx/wupdlock.h>
 
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
+#include "GLCanvas3D.hpp"
+#include "GUI_App.hpp"
+#include "GUI_ObjectList.hpp"
+#include "I18N.hpp"
+#include "OptionsGroup.hpp"
+#include "Plater.hpp"
 namespace Slic3r
 {
 namespace GUI

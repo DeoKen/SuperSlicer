@@ -1,12 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_VoronoiUtilsCgal_hpp_
 #define slic3r_VoronoiUtilsCgal_hpp_
 
 #include "Voronoi.hpp"
-#include "../Arachne/utils/PolygonsSegmentIndex.hpp"
+#include "libslic3r/Arachne/utils/PolygonsSegmentIndex.hpp"
 
 namespace Slic3r::Geometry {
 class VoronoiDiagram;

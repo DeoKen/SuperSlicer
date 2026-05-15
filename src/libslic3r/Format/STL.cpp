@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2021 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/Format/STL.pm:
@@ -6,14 +7,16 @@
 ///|/ Copyright (c) 2012 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../libslic3r.h"
-#include "../Model.hpp"
-#include "../TriangleMesh.hpp"
 
 #include "STL.hpp"
 
 #include <string>
+
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/TriangleMesh.hpp"
 
 #ifdef _WIN32
 #define DIR_SEPARATOR '\\'

@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2019 Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) Slic3r 2013 - 2015 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2014 Petr Ledvina @ledvinap
@@ -7,9 +8,11 @@
 ///|/ Copyright (c) Slic3r 2011 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "BoundingBox.hpp"
 #include "Surface.hpp"
+
+#include "BoundingBox.hpp"
 #include "SVG.hpp"
 
 namespace Slic3r {

@@ -1,12 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GalleryDialog_hpp_
 #define slic3r_GalleryDialog_hpp_
 
 #include "GUI_Utils.hpp"
-
 class wxListCtrl;
 class wxImageList;
 class wxListEvent;

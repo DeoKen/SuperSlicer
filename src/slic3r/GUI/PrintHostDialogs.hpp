@@ -1,25 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_PrintHostSendDialog_hpp_
 #define slic3r_PrintHostSendDialog_hpp_
 
 #include <set>
 #include <string>
+
 #include <boost/filesystem/path.hpp>
 
-#include <wx/string.h>
-#include <wx/event.h>
-#include <wx/dialog.h>
-#include <wx/combobox.h>
 #include <wx/arrstr.h>
+#include <wx/combobox.h>
+#include <wx/dialog.h>
+#include <wx/event.h>
+#include <wx/string.h>
 
 #include "GUI_Utils.hpp"
 #include "MsgDialog.hpp"
-#include "../Utils/PrintHost.hpp"
-
+#include "slic3r/Utils/PrintHost.hpp"
 class wxButton;
 class wxTextCtrl;
 class wxChoice;

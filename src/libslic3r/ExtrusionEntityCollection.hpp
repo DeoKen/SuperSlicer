@@ -3,13 +3,14 @@
 ///|/ Copyright (c) Slic3r 2013 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_ExtrusionEntityCollection_hpp_
 #define slic3r_ExtrusionEntityCollection_hpp_
 
-#include "libslic3r.h"
 #include "Exception.hpp"
 #include "ExtrusionEntity.hpp"
+#include "libslic3r.h"
 
 namespace Slic3r {
 

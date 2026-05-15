@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) superslicer 2019 - 2025 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, Lukáš Hejl @hejllukas
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
@@ -8,13 +9,20 @@
 ///|/ Copyright (c) Slic3r 2011 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ SuperSlicer, PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Layer.hpp"
+
+#include <boost/log/trivial.hpp>
+
 #include "Api/internal/LayerAccess.hpp"
 #include "Api/internal/LayerIslandAccess.hpp"
 #include "Api/internal/LayerRegionAccess.hpp"
-#include "ClipperZUtils.hpp"
+#include "BoundingBox.hpp"
+#include <clipper/clipper.hpp>
 #include "ClipperUtils.hpp"
+#include "ClipperZUtils.hpp"
+#include "ExtrusionEntity.hpp"
 #include "Milling/MillingPostProcess.hpp"
 #include "PerimeterGenerator.hpp"
 #include "Point.hpp"
@@ -23,11 +31,6 @@
 #include "ShortestPath.hpp"
 #include "Surface.hpp"
 #include "SVG.hpp"
-#include "BoundingBox.hpp"
-#include "ExtrusionEntity.hpp"
-#include "clipper/clipper.hpp"
-
-#include <boost/log/trivial.hpp>
 
 namespace Slic3r {
 

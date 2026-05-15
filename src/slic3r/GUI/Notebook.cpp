@@ -1,18 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Oleksandra Iushchenko @YuSanka, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Notebook.hpp"
+
+#include <wx/button.h>
+#include <wx/sizer.h>
 
 #include "libslic3r/AppConfig.hpp"
 
 #include "GUI_App.hpp"
 #include "GUI_Tags.hpp"
 #include "wxExtensions.hpp"
-
-#include <wx/button.h>
-#include <wx/sizer.h>
-
 wxDEFINE_EVENT(wxCUSTOMEVT_NOTEBOOK_SEL_CHANGED, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_NOTEBOOK_BT_PRESSED, wxCommandEvent);
 
@@ -284,5 +286,5 @@ void Notebook::EmitEventSelChanged(int16_t new_sel) {
             wxQueueEvent(btn, evt);
         }
     }
-}
  
+}

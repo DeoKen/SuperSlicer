@@ -1,24 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "SendSystemInfoDialog.hpp"
-
-#include "libslic3r/AppConfig.hpp"
-#include "libslic3r/BlacklistedLibraryCheck.hpp"
-#include "libslic3r/Platform.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Color.hpp"
-
-#include "slic3r/GUI/format.hpp"
-#include "slic3r/Utils/Http.hpp"
-
-#include "GUI_App.hpp"
-#include "GUI_Utils.hpp"
-#include "I18N.hpp"
-#include "MainFrame.hpp"
-#include "MsgDialog.hpp"
-#include "OpenGLManager.hpp"
 
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -26,6 +13,21 @@
 #include <boost/log/trivial.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/uuid/detail/md5.hpp>
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/BlacklistedLibraryCheck.hpp"
+#include "libslic3r/Color.hpp"
+#include "libslic3r/Platform.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "GUI_App.hpp"
+#include "GUI_Utils.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "MsgDialog.hpp"
+#include "OpenGLManager.hpp"
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/Utils/Http.hpp"
 #if 0
 #include "GL/glew.h"
 

@@ -1,20 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) 2023 Pedro Lamas @PedroLamas
 ///|/ Copyright (c) Prusa Research 2023 David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Moonraker_hpp_
 #define slic3r_Moonraker_hpp_
 
 #include <optional>
 #include <string>
-#include <wx/string.h>
+
 #include <boost/asio/ip/address.hpp>
 
-#include "PrintHost.hpp"
+#include <wx/string.h>
+
 #include "libslic3r/PrintConfig.hpp"
 
-
+#include "PrintHost.hpp"
 namespace Slic3r {
 
 class DynamicPrintConfig;

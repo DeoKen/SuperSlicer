@@ -1,28 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "GUI_Tags.hpp"
 
-#include <stdexcept>
 #include <cmath>
-
-#include <wx/sizer.h>
+#include <stdexcept>
 
 #include <boost/algorithm/string/replace.hpp>
 
+#include <wx/sizer.h>
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Config.hpp"
+#include "libslic3r/Config.hpp"
 
 #include "BitmapCache.hpp"
+#include "BitmapComboBox.hpp"
+#include "format.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "GUI_ObjectList.hpp"
-#include "libslic3r/Config.hpp"
-#include "I18N.hpp"
 #include "GUI_Utils.hpp"
+#include "I18N.hpp"
 #include "Plater.hpp"
-#include "../Utils/MacDarkMode.hpp"
-#include "BitmapComboBox.hpp"
-#include "format.hpp"
-
+#include "slic3r/Utils/MacDarkMode.hpp"
 namespace Slic3r{
 namespace GUI{
 
@@ -257,5 +260,5 @@ void ModeSizer::update_mode_markers()
 }
 
 
-} } //namespace Slic3r GUI
 
+} } //namespace Slic3r GUI

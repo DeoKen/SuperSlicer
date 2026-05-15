@@ -1,3 +1,7 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #ifndef slic3r_enum_bitmask_hpp_
 #define slic3r_enum_bitmask_hpp_
 

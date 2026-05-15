@@ -2,27 +2,29 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Brim.hpp"
 
-#include "clipper/clipper_z.hpp"
+#include <mutex>
+#include <numeric>
+#include <unordered_set>
+
+#include <boost/thread/lock_guard.hpp>
+
+#include <oneapi/tbb/parallel_for.h>
+
+#include <algorithm>
+#include <clipper/clipper_z.hpp>
 #include "ClipperUtils.hpp"
 #include "EdgeGrid.hpp"
 #include "ExtrusionEntityCollection.hpp"
 #include "Flow.hpp"
 #include "Layer.hpp"
+#include "libslic3r.h"
 #include "Print.hpp"
 #include "PrintConfig.hpp"
 #include "ShortestPath.hpp"
-#include "libslic3r.h"
-
-#include <algorithm>
-#include <numeric>
-#include <unordered_set>
-#include <mutex>
-
-#include <oneapi/tbb/parallel_for.h>
-#include <boost/thread/lock_guard.hpp>
 
 #ifndef NDEBUG
     // #define BRIM_DEBUG_TO_SVG

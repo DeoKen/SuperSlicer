@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Vojtěch Bubník @bubnikv, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef libslic3r_Triangulation_hpp_
 #define libslic3r_Triangulation_hpp_
 
-#include <vector>
 #include <set>
+#include <vector>
+
+#include <libslic3r/ExPolygon.hpp>
 #include <libslic3r/Point.hpp>
 #include <libslic3r/Polygon.hpp>
-#include <libslic3r/ExPolygon.hpp>
 
 namespace Slic3r {
 

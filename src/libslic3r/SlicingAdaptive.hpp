@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2019 David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-// Based on implementation by @platsch
-
 #ifndef slic3r_SlicingAdaptive_hpp_
 #define slic3r_SlicingAdaptive_hpp_
 
+// Based on implementation by @platsch
+
+
 #include "Slicing.hpp"
-#include "admesh/stl.h"
+#include <admesh/stl.h>
 
 namespace Slic3r
 {

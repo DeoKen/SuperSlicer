@@ -1,13 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01, David Kocík @kocikdav, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2022 André Althaus
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "GUI_Preview.hpp"
+
 //#include "stdlib.h"
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Layer.hpp"
-#include "GUI_Preview.hpp"
 #include "GUI_App.hpp"
 #include "GUI.hpp"
 #include "I18N.hpp"

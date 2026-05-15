@@ -1,19 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2021 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#ifndef slic3r_FillAdaptive_hpp_
+#define slic3r_FillAdaptive_hpp_
+
 // Adaptive cubic infill was inspired by the work of @mboerwinkle
 // as implemented for Cura.
 // https://github.com/Ultimaker/CuraEngine/issues/381
 // https://github.com/Ultimaker/CuraEngine/pull/401
 //
 // Our implementation is more accurate (discretizes a bit less cubes than Cura's)
-// by splitting only such cubes which contain a triangle. 
+// by splitting only such cubes which contain a triangle.
 // Our line extraction is time optimal instead of O(n^2) when connecting extracted lines,
 // and we also implemented adaptivity for supporting internal overhangs only.
 
-#ifndef slic3r_FillAdaptive_hpp_
-#define slic3r_FillAdaptive_hpp_
 
 #include "FillBase.hpp"
 

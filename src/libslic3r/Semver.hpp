@@ -1,20 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Semver_hpp_
 #define slic3r_Semver_hpp_
 
-#include <string>
 #include <cstring>
+#include <optional>
 #include <ostream>
 #include <stdexcept>
-#include <optional>
+#include <string>
+
 #include <boost/format.hpp>
 
-#include "semver/semver.h"
-
 #include "Exception.hpp"
+#include "semver/semver.h"
 
 namespace Slic3r {
 

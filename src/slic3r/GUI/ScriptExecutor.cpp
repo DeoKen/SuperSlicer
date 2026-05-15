@@ -1,8 +1,30 @@
 ///|/ Copyright (c) SuperSlicer 2023-2025 Remi Durand @supermerill
-///|/ 
+///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ScriptExecutor.hpp"
+
+#include <string>
+
+#include <angelscript/add_on/autowrapper/aswrappedcall.h>
+#include <angelscript/add_on/scriptarray/scriptarray.h>
+#include <angelscript/add_on/scriptbuilder/scriptbuilder.h>
+#include <angelscript/add_on/scriptmath/scriptmath.h>
+#include <angelscript/add_on/scriptstdstring/scriptstdstring.h>
+#include <angelscript/source/as_config.h>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/erase.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/trim_all.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/fstream.hpp>
 
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Print.hpp"
@@ -10,29 +32,6 @@
 #include "GUI_App.hpp"
 #include "Plater.hpp"
 #include "Tab.hpp"
-
-#include <boost/log/trivial.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string/trim_all.hpp>
-#include <boost/algorithm/string/erase.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/filesystem.hpp>
-
-#include <string>
-
-#include <angelscript/source/as_config.h>
-#include <angelscript/add_on/autowrapper/aswrappedcall.h>
-#include <angelscript/add_on/scriptarray/scriptarray.h>
-#include <angelscript/add_on/scriptbuilder/scriptbuilder.h>
-#include <angelscript/add_on/scriptstdstring/scriptstdstring.h>
-#include <angelscript/add_on/scriptmath/scriptmath.h>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/nowide/fstream.hpp>
-
 using namespace gw;
 
 namespace Slic3r {  namespace GUI { namespace script {
@@ -1452,5 +1451,5 @@ void ScriptContainer::refresh(const ConfigOptionDef& def, boost::any value)
 
 //TODO find a way to use the depends_on to add the same lock & points as real configoption in the gui
 
-} } }//namespace Slic3r Gui script
 
+} } }//namespace Slic3r Gui script

@@ -2,28 +2,25 @@
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <libslic3r/SLA/Pad.hpp>
-#include <libslic3r/SLA/SpatIndex.hpp>
+#include "Pad.hpp"
+
+#include <boost/log/trivial.hpp>
+
 #include <libslic3r/BoostAdapter.hpp>
-//#include <libslic3r/SLA/Contour3D.hpp>
+#include <libslic3r/ClipperUtils.hpp>
+#include <libslic3r/MTUtils.hpp>
+#include <libslic3r/Tesselate.hpp>
 #include <libslic3r/TriangleMeshSlicer.hpp>
+#include <libslic3r/TriangulateWall.hpp>
 
 #include "ConcaveHull.hpp"
-
-#include "boost/log/trivial.hpp"
-#include "ClipperUtils.hpp"
-#include "Tesselate.hpp"
-#include "MTUtils.hpp"
-
-#include "TriangulateWall.hpp"
+#include "SpatIndex.hpp"
 
 // For debugging:
 // #include <fstream>
 // #include <libnest2d/tools/benchmark.h>
-#include "SVG.hpp"
-
-#include "I18N.hpp"
-#include <boost/log/trivial.hpp>
+// #include "SVG.hpp"
+// #include "I18N.hpp"
 
 
 namespace Slic3r { namespace sla {

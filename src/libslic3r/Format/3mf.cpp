@@ -1,55 +1,58 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) 2020 Henner Zeller
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../libslic3r.h"
-#include "../Exception.hpp"
-#include "../Model.hpp"
-#include "../Utils.hpp"
-#include "../LocalesUtils.hpp"
-#include "../GCode.hpp"
-#include "../Geometry.hpp"
-#include "../GCode/ThumbnailData.hpp"
-#include "../PrintConfig.hpp"
-#include "../Semver.hpp"
-#include "../Time.hpp"
-#include "BBConfig.hpp"
-
-#include "../I18N.hpp"
 
 #include "3mf.hpp"
+
 #include <limits>
-#include <stdexcept>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/assign.hpp>
 #include <boost/bimap.hpp>
 #include <boost/filesystem.hpp>
-
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/replace.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/property_tree/xml_parser.hpp>
 #include <boost/spirit/include/karma.hpp>
 #include <boost/spirit/include/qi_int.hpp>
-#include <boost/log/trivial.hpp>
-
-#include <boost/property_tree/xml_parser.hpp>
-namespace pt = boost::property_tree;
-
-#include <expat.h>
 #include <Eigen/Dense>
-#include "miniz_extension.hpp"
-
-#include "TextConfiguration.hpp"
-#include "EmbossShape.hpp"
-#include "PointSerialize.hpp"
-
-#include "NSVGUtils.hpp"
-
+#include <expat.h>
 #include <fast_float/fast_float.h>
 
+#include "libslic3r/EmbossShape.hpp"
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/I18N.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/miniz_extension.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/NSVGUtils.hpp"
+#include "libslic3r/PointSerialize.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Semver.hpp"
+#include "libslic3r/TextConfiguration.hpp"
+#include "libslic3r/Time.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "BBConfig.hpp"
 #include "bbs_3mf.hpp"
+#include "EmbossShape.hpp"
+#include "miniz_extension.hpp"
+#include "NSVGUtils.hpp"
+#include "PointSerialize.hpp"
+#include "TextConfiguration.hpp"
+
+namespace pt = boost::property_tree;
 
 // Slightly faster than sprintf("%.9g"), but there is an issue with the karma floating point formatter,
 // https://github.com/boostorg/spirit/pull/586

@@ -1,30 +1,34 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "EditGCodeDialog.hpp"
 
-#include <vector>
 #include <string>
+#include <vector>
 
+#include <wx/button.h>
+#include <wx/html/htmlwin.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/button.h>
 #include <wx/wupdlock.h>
-#include <wx/html/htmlwin.h>
-
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "format.hpp"
-#include "Tab.hpp"
-#include "wxExtensions.hpp"
-#include "BitmapCache.hpp"
-#include "ExtraRenderers.hpp"
-#include "MsgDialog.hpp"
-#include "Plater.hpp"
 
 #include "libslic3r/PlaceholderParser.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/Print.hpp"
 
+#include "BitmapCache.hpp"
+#include "ExtraRenderers.hpp"
+#include "format.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "MainFrame.hpp"
+#include "MsgDialog.hpp"
+#include "Plater.hpp"
+#include "Tab.hpp"
+#include "wxExtensions.hpp"
 namespace Slic3r {
 namespace GUI {
 

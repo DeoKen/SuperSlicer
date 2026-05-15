@@ -1,18 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoMeasure_hpp_
 #define slic3r_GLGizmoMeasure_hpp_
+
+#include "libslic3r/Measure.hpp"
+#include "libslic3r/Model.hpp"
 
 #include "GLGizmoBase.hpp"
 #include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/GUI/GUI_Utils.hpp"
-#include "slic3r/GUI/MeshUtils.hpp"
 #include "slic3r/GUI/I18N.hpp"
-#include "libslic3r/Measure.hpp"
-#include "libslic3r/Model.hpp"
-
+#include "slic3r/GUI/MeshUtils.hpp"
 namespace Slic3r {
 
 enum class ModelVolumeType : int;

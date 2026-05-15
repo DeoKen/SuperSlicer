@@ -1,11 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Král @vojtechkral, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) 2020 Pascal de Bruijn @pmjdebruijn
 ///|/ Copyright (c) 2018 - 2020 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Field.hpp"
 
+#include <regex>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/log/trivial.hpp>
+
+#include <wx/listbook.h>
+#include <wx/notebook.h>
+#include <wx/numformatter.h>
+#include <wx/richtooltip.h>
+#include <wx/tooltip.h>
+
+#include "libslic3r/enum_bitmask.hpp"
+#include "libslic3r/GCode/Thumbnails.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
@@ -15,25 +32,11 @@
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
-#include "OG_CustomCtrl.hpp"
 #include "MainFrame.hpp"
 #include "MsgDialog.hpp"
+#include "OG_CustomCtrl.hpp"
 #include "Plater.hpp"
 #include "wxExtensions.hpp"
-
-#include <regex>
-#include "libslic3r/enum_bitmask.hpp"
-#include "libslic3r/GCode/Thumbnails.hpp"
-
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/log/trivial.hpp>
-
-#include <wx/numformatter.h>
-#include <wx/tooltip.h>
-#include <wx/notebook.h>
-#include <wx/listbook.h>
-#include <wx/richtooltip.h>
 #ifdef __WXGTK2__
 #include <wx/tglbtn.h>
 #endif
@@ -2499,5 +2502,5 @@ boost::any &SliderCtrl::get_value()
 }
 
 
-} // Slic3r :: GUI
 
+} // Slic3r :: GUI

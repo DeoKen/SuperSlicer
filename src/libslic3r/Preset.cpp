@@ -7,11 +7,12 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "Preset.hpp"
+
 #include <cassert>
 
-#include "Exception.hpp"
-#include "Preset.hpp"
 #include "AppConfig.hpp"
+#include "Exception.hpp"
 #include "I18N.hpp"
 
 #ifdef _MSC_VER

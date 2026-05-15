@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_PrincipalComponents2D_hpp_
 #define slic3r_PrincipalComponents2D_hpp_
 
+#include <vector>
+
 #include "AABBTreeLines.hpp"
 #include "BoundingBox.hpp"
 #include "libslic3r.h"
-#include <vector>
 #include "Polygon.hpp"
 
 namespace Slic3r {

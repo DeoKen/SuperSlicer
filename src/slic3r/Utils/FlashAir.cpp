@@ -1,33 +1,37 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/ Copyright (c) 2020 vintagepc
 ///|/ Copyright (c) 2019 Stephan Reichhelm @stephanr
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "FlashAir.hpp"
 
 #include <algorithm>
 #include <ctime>
+
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 
-#include <wx/frame.h>
+#include <wx/checkbox.h>
 #include <wx/event.h>
+#include <wx/frame.h>
 #include <wx/progdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/checkbox.h>
 
 #include "libslic3r/PrintConfig.hpp"
+
+#include "Http.hpp"
+#include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/GUI/MsgDialog.hpp"
-#include "slic3r/GUI/format.hpp"
-#include "Http.hpp"
-
 namespace fs = boost::filesystem;
 namespace pt = boost::property_tree;
 

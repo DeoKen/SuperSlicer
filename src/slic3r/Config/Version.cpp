@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Version.hpp"
 
 #include <cctype>
@@ -9,9 +12,9 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/nowide/fstream.hpp>
 
-#include "libslic3r/libslic3r.h"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/FileParserError.hpp"
+#include "libslic3r/libslic3r.h"
 #include "libslic3r/Utils.hpp"
 
 namespace Slic3r { 

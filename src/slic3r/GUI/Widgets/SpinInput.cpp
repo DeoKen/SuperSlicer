@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "SpinInput.hpp"
-#include "Button.hpp"
-
-#include "UIColors.hpp"
-
-#include "../GUI_App.hpp"
 
 #include <wx/dcgraph.h>
 #include <wx/panel.h>
 #include <wx/spinctrl.h>
 #include <wx/valtext.h>
 
+#include "Button.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "UIColors.hpp"
 BEGIN_EVENT_TABLE(SpinInputBase, wxPanel)
 
 EVT_KEY_DOWN(SpinInputBase::keyPressed)
@@ -660,6 +663,6 @@ void SpinInputDouble::sendSpinDoubleEvent()
     wxSpinDoubleEvent event(wxEVT_SPINCTRLDOUBLE, GetId(), GetValue());
     event.SetEventObject(this);
     GetEventHandler()->ProcessEvent(event); 
+
+
 }
-
-

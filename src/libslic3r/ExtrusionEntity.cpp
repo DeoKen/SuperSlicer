@@ -4,18 +4,21 @@
 ///|/ Copyright (c) 2014 Petr Ledvina @ledvinap
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "ExtrusionEntity.hpp"
-#include "ExtrusionEntityCollection.hpp"
-#include "ExPolygon.hpp"
-#include "ClipperUtils.hpp"
-#include "Config.hpp"
-#include "Exception.hpp"
-#include "Extruder.hpp"
-#include "Flow.hpp"
+
 #include <cmath>
 #include <limits>
 #include <sstream>
+
+#include "ClipperUtils.hpp"
+#include "Config.hpp"
+#include "Exception.hpp"
+#include "ExPolygon.hpp"
+#include "Extruder.hpp"
+#include "ExtrusionEntityCollection.hpp"
+#include "Flow.hpp"
 
 namespace Slic3r {
 

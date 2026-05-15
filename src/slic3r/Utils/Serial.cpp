@@ -1,26 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2021 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Serial.hpp"
 
-#include "libslic3r/Exception.hpp"
-
 #include <algorithm>
-#include <optional>
-#include <string>
-#include <vector>
 #include <chrono>
-#include <thread>
-#include <fstream>
 #include <exception>
+#include <fstream>
+#include <optional>
 #include <stdexcept>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/nowide/fstream.hpp>
 
+#include "libslic3r/Exception.hpp"
 #if _WIN32
 	#include <Windows.h>
 	#include <Setupapi.h>

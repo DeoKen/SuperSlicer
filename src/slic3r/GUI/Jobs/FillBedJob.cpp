@@ -1,19 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "FillBedJob.hpp"
-
-#include "libslic3r/Model.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
 
 #include <numeric>
 
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Model.hpp"
+
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

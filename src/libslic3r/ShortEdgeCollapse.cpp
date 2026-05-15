@@ -1,16 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "ShortEdgeCollapse.hpp"
-#include "libslic3r/NormalUtils.hpp"
 
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
-#include <random>
-#include <algorithm>
 
 #include <ankerl/unordered_dense.h>
+
+#include "libslic3r/NormalUtils.hpp"
+
+#include <algorithm>
 
 namespace Slic3r {
 

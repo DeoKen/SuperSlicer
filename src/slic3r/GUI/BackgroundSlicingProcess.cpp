@@ -1,10 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Roman Beránek @zavorka, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2022 ole00 @ole00
 ///|/ Copyright (c) 2021 Ilya @xorza
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "BackgroundSlicingProcess.hpp"
+
 #include "GUI_App.hpp"
 #include "GUI.hpp"
 #include "MainFrame.hpp"
@@ -46,7 +50,7 @@
 
 #ifdef WIN32
 #include <windows.h>
-#include "../StackWalker.h"
+#include "slic3r/StackWalker.h"
 #endif
 
 namespace Slic3r {

@@ -1,7 +1,14 @@
-#include <sstream>
-#include <iostream>
-#include <string>
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+#include "Log.hpp"
+
 #include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
+
 #include <algorithm>
 
 // Boost

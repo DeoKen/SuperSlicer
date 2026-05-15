@@ -1,20 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoHollow_hpp_
 #define slic3r_GLGizmoHollow_hpp_
 
-#include "GLGizmoSlaBase.hpp"
-#include "slic3r/GUI/GLSelectionRectangle.hpp"
-
-#include <libslic3r/ObjectID.hpp>
-#include <libslic3r/SLA/DrainHole.hpp>
-#include <wx/dialog.h>
-
 #include <cereal/types/vector.hpp>
 
+#include <wx/dialog.h>
 
+#include "libslic3r/ObjectID.hpp"
+#include "libslic3r/SLA/DrainHole.hpp"
+
+#include "GLGizmoSlaBase.hpp"
+#include "slic3r/GUI/GLSelectionRectangle.hpp"
 namespace Slic3r {
 
 class ConfigOption;

@@ -1,43 +1,46 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PhysicalPrinterDialog.hpp"
-#include "PresetComboBoxes.hpp"
 
 #include <cstddef>
-#include <vector>
 #include <string>
+#include <vector>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/log/trivial.hpp>
 
+#include <wx/button.h>
 #include <wx/sizer.h>
+#include <wx/statbox.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/button.h>
-#include <wx/statbox.h>
 #include <wx/wupdlock.h>
 
 #include "libslic3r/libslic3r.h"
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
+#include "BitmapCache.hpp"
+#include "BonjourDialog.hpp"
+#include "format.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "MainFrame.hpp"
-#include "format.hpp"
+#include "MsgDialog.hpp"
+#include "PresetComboBoxes.hpp"
+#include "PrintHostDialogs.hpp"
+#include "RemovableDriveManager.hpp"
+#include "slic3r/Utils/ASCIIFolding.hpp"
+#include "slic3r/Utils/FixModelByWin10.hpp"
+#include "slic3r/Utils/PrintHost.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
 #include "Tab.hpp"
 #include "wxExtensions.hpp"
-#include "PrintHostDialogs.hpp"
-#include "../Utils/ASCIIFolding.hpp"
-#include "../Utils/PrintHost.hpp"
-#include "../Utils/FixModelByWin10.hpp"
-#include "../Utils/UndoRedo.hpp"
-#include "RemovableDriveManager.hpp"
-#include "BitmapCache.hpp"
-#include "BonjourDialog.hpp"
-#include "MsgDialog.hpp"
-
 namespace Slic3r {
 namespace GUI {
 

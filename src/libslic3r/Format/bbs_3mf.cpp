@@ -1,67 +1,68 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) 2020 Henner Zeller
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "bbs_3mf.hpp"
 
-#include "../libslic3r.h"
-#include "../Exception.hpp"
-#include "../Model.hpp"
-#include "../Preset.hpp"
-#include "../Utils.hpp"
-#include "../LocalesUtils.hpp"
-#include "../GCode.hpp"
-#include "../GCode/GCodeProcessor.hpp"
-#include "../GCode/ThumbnailData.hpp"
-#include "../Geometry.hpp"
-#include "../Semver.hpp"
-#include "../Time.hpp"
-#include "BBConfig.hpp"
-
-#include "../I18N.hpp"
-
-
+#include <iomanip>
 #include <limits>
 #include <mutex>
 #include <stdexcept>
-#include <iomanip>
 
-#include <boost/assign.hpp>
-#include <boost/bimap.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/nowide/fstream.hpp>
-#include <boost/nowide/cstdio.hpp>
-#include <boost/spirit/include/karma.hpp>
-#include <boost/spirit/include/qi_int.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/beast/core/detail/base64.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
-#include <boost/foreach.hpp>
-//#include <openssl/md5.h>
-
-namespace pt = boost::property_tree;
-
+#include <Eigen/Dense>
+#include <expat.h>
+#include <fast_float/fast_float.h>
+#include <nlohmann/json.hpp>
 #include <oneapi/tbb/parallel_for.h>
 #include <oneapi/tbb/parallel_reduce.h>
 
-#include <expat.h>
-#include <Eigen/Dense>
-#include "miniz_extension.hpp"
-#include "nlohmann/json.hpp"
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/assign.hpp>
+#include <boost/beast/core/detail/base64.hpp>
+#include <boost/bimap.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/foreach.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/cstdio.hpp>
+#include <boost/nowide/fstream.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
+#include <boost/spirit/include/karma.hpp>
+#include <boost/spirit/include/qi_int.hpp>
+
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/I18N.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/miniz_extension.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Preset.hpp"
+#include "libslic3r/Semver.hpp"
+#include "libslic3r/Time.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "BBConfig.hpp"
+
+//#include <openssl/md5.h>
+
+namespace pt = boost::property_tree;
 
 //#include "TextConfiguration.hpp" //Susi_not_impl
 //#include "EmbossShape.hpp" //Susi_not_impl
 //#include "ExPolygonSerialize.hpp"  //Susi_not_impl
 
 //#include "NSVGUtils.hpp"
-
-#include <fast_float/fast_float.h>
 
 // Slightly faster than sprintf("%.9g"), but there is an issue with the karma floating point formatter,
 // https://github.com/boostorg/spirit/pull/586

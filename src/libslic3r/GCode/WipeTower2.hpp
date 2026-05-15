@@ -1,27 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GCode_WipeTower2_hpp_
 #define slic3r_GCode_WipeTower2_hpp_
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <sstream>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <tcbspan/span.hpp>
-
+#include "libslic3r/Config.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Flow.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Polyline.hpp"
 #include "libslic3r/Print.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/Flow.hpp"
-#include "libslic3r/ExtrusionEntityCollection.hpp"
+
+#include <tcbspan/span.hpp>
 
 namespace Slic3r
 {

@@ -1,10 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "NotificationProgressIndicator.hpp"
-#include "slic3r/GUI/NotificationManager.hpp"
 
+#include "NotificationProgressIndicator.hpp"
+
+#include "slic3r/GUI/NotificationManager.hpp"
 namespace Slic3r { namespace GUI {
 
 NotificationProgressIndicator::NotificationProgressIndicator(NotificationManager *nm): m_nm{nm} {}

@@ -1,14 +1,17 @@
-//Copyright (c) 2021 Ultimaker B.V.
-//CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/ Copyright (c) 2021 Ultimaker B.V.
+///|/ CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
 #include "DistanceField.hpp" //Class we're implementing.
-#include "../../ClipperUtils.hpp"
-#include "../FillRectilinear.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Fill/FillRectilinear.hpp"
 
 #include <oneapi/tbb/parallel_for.h>
 
 #ifdef LIGHTNING_DISTANCE_FIELD_DEBUG_OUTPUT
-#include "../../SVG.hpp"
+#include "libslic3r/SVG.hpp"
 #endif
 
 namespace Slic3r::FillLightning

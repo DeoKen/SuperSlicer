@@ -1,8 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2022 Lukáš Hejl @hejllukas, David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) Slic3r 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_hpp_
 #define slic3r_GUI_hpp_
 
@@ -12,8 +15,8 @@ namespace boost::filesystem { class path; }
 #include <wx/string.h>
 
 #include "libslic3r/Config.hpp"
-#include "libslic3r/Preset.hpp"
 
+#include "libslic3r/Preset.hpp"
 class wxWindow;
 class wxMenuBar;
 class wxComboCtrl;

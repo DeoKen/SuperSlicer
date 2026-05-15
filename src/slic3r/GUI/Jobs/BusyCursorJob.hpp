@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef BUSYCURSORJOB_HPP
 #define BUSYCURSORJOB_HPP
 
-#include "Job.hpp"
-
-#include <wx/utils.h>
 #include <boost/log/trivial.hpp>
 
+#include <wx/utils.h>
+
+#include "Job.hpp"
 namespace Slic3r { namespace GUI {
 
 struct CursorSetterRAII

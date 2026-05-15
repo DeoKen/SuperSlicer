@@ -9,31 +9,33 @@
 ///|/ Copyright (c) 2013 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../ClipperUtils.hpp"
-#include "../ExtrusionEntityCollection.hpp"
-#include "../Layer.hpp"
-#include "../Print.hpp"
-#include "../Fill/FillBase.hpp"
-#include "../Geometry.hpp"
-#include "../Point.hpp"
-#include "../MutablePolygon.hpp"
-#include "../Thread.hpp"
 
-#include "Support/SupportCommon.hpp"
 #include "SupportMaterial.hpp"
 
-#include <clipper/clipper_z.hpp>
-
+#include <atomic>
 #include <cmath>
 #include <memory>
-#include <atomic>
 #include <thread>
-#include <boost/log/trivial.hpp>
-#include <boost/container/static_vector.hpp>
 
+#include <boost/container/static_vector.hpp>
+#include <boost/log/trivial.hpp>
+#include <clipper/clipper_z.hpp>
 #include <oneapi/tbb/parallel_for.h>
 #include <oneapi/tbb/task_group.h>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Fill/FillBase.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/MutablePolygon.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/Thread.hpp"
+
+#include "Support/SupportCommon.hpp"
 
 #define SUPPORT_USE_AGG_RASTERIZER
 
@@ -55,8 +57,8 @@
     #define DEBUG
     #define _DEBUG
     #undef NDEBUG
-    #include "../utils.hpp"
-    #include "../SVG.hpp"
+    #include "libslic3r/utils.hpp"
+    #include "libslic3r/SVG.hpp"
 #endif
 
 #include <cassert>

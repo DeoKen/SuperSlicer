@@ -1,14 +1,14 @@
 ///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
-///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#pragma once
-
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/DataTreeFwd.hpp"
+#ifndef slic3r_Api_internal_PrintObjectAccess_hpp_
+#define slic3r_Api_internal_PrintObjectAccess_hpp_
 
 #include <vector>
+
+#include "libslic3r/DataTreeFwd.hpp"
+#include "libslic3r/libslic3r.h"
 
 namespace Slic3r {
 
@@ -26,3 +26,5 @@ struct PrintObjectAccess
 } // namespace ApiInternal
 
 } // namespace Slic3r
+
+#endif // slic3r_Api_internal_PrintObjectAccess_hpp_

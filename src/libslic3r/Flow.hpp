@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
 ///|/
@@ -6,14 +7,15 @@
 ///|/ Copyright (c) Slic3r 2012 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Flow_hpp_
 #define slic3r_Flow_hpp_
 
-#include "libslic3r.h"
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "ExtrusionRole.hpp"
+#include "libslic3r.h"
 
 namespace Slic3r {
 

@@ -1,14 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef MESHNORMALS_HPP
 #define MESHNORMALS_HPP
 
-#include "AABBMesh.hpp"
-
 #include "libslic3r/Execution/ExecutionSeq.hpp"
 #include "libslic3r/Execution/ExecutionTBB.hpp"
+
+#include "AABBMesh.hpp"
 
 namespace Slic3r {
 

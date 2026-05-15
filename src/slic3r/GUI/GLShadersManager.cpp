@@ -1,10 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "GLShadersManager.hpp"
+
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Platform.hpp"
-#include "GLShadersManager.hpp"
+
 #include "3DScene.hpp"
 #include "GUI_App.hpp"
 #if ENABLE_GL_CORE_PROFILE
@@ -123,5 +128,5 @@ GLShaderProgram* GLShadersManager::get_current_shader()
     return (it != m_shaders.end()) ? it->get() : nullptr;
 }
 
-} // namespace Slic3r
 
+} // namespace Slic3r

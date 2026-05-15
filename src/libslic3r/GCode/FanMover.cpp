@@ -1,12 +1,16 @@
-#include "FanMover.hpp"
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include "GCodeReader.hpp"
-#include "LocalesUtils.hpp"
+#include "FanMover.hpp"
 
 #include <iomanip>
 
 #include <boost/log/trivial.hpp>
 
+#include "GCodeReader.hpp"
+#include "LocalesUtils.hpp"
 
 namespace Slic3r {
 
@@ -578,5 +582,5 @@ void FanMover::write_buffer_data()
     remove_from_buffer(m_buffer.begin());
 }
 
-} // namespace Slic3r
 
+} // namespace Slic3r

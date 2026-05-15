@@ -1,17 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_FreeCADDialog_hpp_
 #define slic3r_GUI_FreeCADDialog_hpp_
 
 #include <map>
-#include <vector>
 #include <regex>
-
-#include "GUI_App.hpp"
+#include <vector>
 
 #include <wx/combobox.h>
 #include <wx/gbsizer.h>
 #include <wx/stc/stc.h>
 
-namespace Slic3r { 
+#include "GUI_App.hpp"
+namespace Slic3r {
 namespace GUI {
 
 //can't be defeined here, so it will be defined in cpp (because of include sheanigans)

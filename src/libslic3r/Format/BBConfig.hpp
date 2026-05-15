@@ -1,10 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_Format_BBconfig_hpp_
 #define slic3r_Format_BBconfig_hpp_
 
-#include "miniz_extension.hpp"
-
-
 #include <map>
+
+#include "miniz_extension.hpp"
 
 #ifdef __APPLE__
     #include <boost/filesystem.hpp>

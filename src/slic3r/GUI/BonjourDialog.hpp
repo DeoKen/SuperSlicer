@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_BonjourDialog_hpp_
 #define slic3r_BonjourDialog_hpp_
 
@@ -14,7 +17,6 @@
 #include <wx/string.h>
 
 #include "libslic3r/PrintConfig.hpp"
-
 class wxListView;
 class wxStaticText;
 class wxTimer;

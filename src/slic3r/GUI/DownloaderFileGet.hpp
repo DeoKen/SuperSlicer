@@ -1,18 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_DownloaderFileGet_hpp_
 #define slic3r_DownloaderFileGet_hpp_
 
-#include "../Utils/Http.hpp"
-
 #include <memory>
 #include <string>
-#include <wx/event.h>
-#include <wx/frame.h>
+
 #include <boost/filesystem.hpp>
 
+#include <wx/event.h>
+#include <wx/frame.h>
+
+#include "slic3r/Utils/Http.hpp"
 namespace Slic3r {
 namespace GUI {
 class FileGet : public std::enable_shared_from_this<FileGet> {

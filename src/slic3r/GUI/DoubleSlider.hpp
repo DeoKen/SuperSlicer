@@ -1,22 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_DoubleSlider_hpp_
 #define slic3r_GUI_DoubleSlider_hpp_
-
-#include "libslic3r/CustomGCode.hpp"
-#include "wxExtensions.hpp"
-
-#include <wx/window.h>
-#include <wx/control.h>
-#include <wx/dc.h>
-#include <wx/slider.h>
 
 #include <mutex>
 #include <set>
 #include <vector>
 
+#include <wx/control.h>
+#include <wx/dc.h>
+#include <wx/slider.h>
+#include <wx/window.h>
+
+#include "libslic3r/CustomGCode.hpp"
+
+#include "wxExtensions.hpp"
 class wxMenu;
 
 namespace Slic3r {

@@ -1,16 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef UITHREADWORKER_HPP
 #define UITHREADWORKER_HPP
 
 #include <deque>
 #include <queue>
 
-#include "Worker.hpp"
 #include "ProgressIndicator.hpp"
-
+#include "Worker.hpp"
 namespace Slic3r { namespace GUI {
 
 // Implementation of a worker which does not create any additional threads.

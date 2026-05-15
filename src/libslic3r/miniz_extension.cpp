@@ -1,13 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <exception>
-
 #include "miniz_extension.hpp"
 
+#include <exception>
+
 #if defined(_MSC_VER) || defined(__MINGW64__)
-#include "boost/nowide/cstdio.hpp"
+#include <boost/nowide/cstdio.hpp>
 #endif
 
 #include "libslic3r/I18N.hpp"

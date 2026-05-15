@@ -1,15 +1,17 @@
 ///|/ Copyright (c) SuperSlicer 2023-2025 Remi Durand @supermerill
-///|/ 
+///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ScriptExecutor_hpp_
 #define slic3r_ScriptExecutor_hpp_
 
-#include "libslic3r/Config.hpp"
-#include "OptionsGroup.hpp"
-
-#include <angelscript/include/angelscript.h>
 #include <angelscript/add_on/scriptbuilder/scriptbuilder.h>
+#include <angelscript/include/angelscript.h>
+
+#include "libslic3r/Config.hpp"
+
+#include "OptionsGroup.hpp"
 namespace AngelScript{
     
 template<class T>

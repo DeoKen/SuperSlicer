@@ -1,11 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_WifiScanner_hpp_
 #define slic3r_WifiScanner_hpp_
 
 #include <map>
-#include <vector>
 #include <string>
-#include <wx/string.h>
+#include <vector>
 
+#include <wx/string.h>
 #ifdef _WIN32
 #include <wlanapi.h>
 #endif //_WIN32

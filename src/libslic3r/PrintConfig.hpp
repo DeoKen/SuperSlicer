@@ -14,7 +14,11 @@
 ///|/ Copyright (c) 2015 Alexander Rössler @machinekoder
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#ifndef slic3r_PrintConfig_hpp_
+#define slic3r_PrintConfig_hpp_
+
 // Configuration store of Slic3r.
 //
 // The configuration store is either static or dynamic.
@@ -42,8 +46,6 @@
 //
 //
 
-#ifndef slic3r_PrintConfig_hpp_
-#define slic3r_PrintConfig_hpp_
 
 #include "libslic3r.h"
 #include "Config.hpp"

@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2020 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/GUI/AboutDialog.pm:
@@ -7,13 +8,15 @@
 ///|/ Copyright (c) 2012 Henrik Brix Andersen @henrikbrixandersen
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_AboutDialog_hpp_
 #define slic3r_GUI_AboutDialog_hpp_
 
-#include <wx/wx.h>
-#include <wx/intl.h>
 #include <wx/html/htmlwin.h>
+#include <wx/intl.h>
+#include <wx/wx.h>
 
 #include "GUI_Utils.hpp"
 #include "wxExtensions.hpp"

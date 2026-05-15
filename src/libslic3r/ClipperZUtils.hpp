@@ -1,6 +1,8 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_ClipperZUtils_hpp_
 #define slic3r_ClipperZUtils_hpp_
@@ -9,6 +11,7 @@
 #include <vector>
 
 #include <clipper/clipper_z.hpp>
+
 #include <libslic3r/Point.hpp>
 
 namespace Slic3r {

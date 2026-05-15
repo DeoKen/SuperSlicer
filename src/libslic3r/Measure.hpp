@@ -1,15 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef Slic3r_Measure_hpp_
 #define Slic3r_Measure_hpp_
 
-#include <optional>
 #include <memory>
+#include <optional>
 
 #include "Point.hpp"
-
 
 struct indexed_triangle_set;
 

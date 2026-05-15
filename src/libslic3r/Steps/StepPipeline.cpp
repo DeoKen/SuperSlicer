@@ -12,8 +12,6 @@
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Slicing.hpp"
-#include "libslic3r/SurfaceCollection.hpp"
-#include "libslic3r/Thread.hpp"
 #include "libslic3r/Steps/StepDetectSupportSpots.hpp"
 #include "libslic3r/Steps/StepDetectSurfaceType.hpp"
 #include "libslic3r/Steps/StepExtrusionEdition.hpp"
@@ -36,6 +34,8 @@
 #include "libslic3r/Steps/StepPrepareInfill.hpp"
 #include "libslic3r/Steps/StepSlicing.hpp"
 #include "libslic3r/Steps/StepSurfaceGeneration.hpp"
+#include "libslic3r/SurfaceCollection.hpp"
+#include "libslic3r/Thread.hpp"
 
 #ifdef _DEBUG
 #include "libslic3r/Steps/DebugPrintProcessComparator.hpp"
@@ -383,5 +383,5 @@ void StepPipeline::debug_run(Orchestrator &orchestrator, const Print &source, sl
 }
 #endif
 
-} // namespace Slic3r::Steps
 
+} // namespace Slic3r::Steps

@@ -15,7 +15,7 @@
 #include "SVG.hpp"
 #include "Geometry/VoronoiVisualUtils.hpp"
 #include "Geometry/VoronoiUtilsCgal.hpp"
-#include "../EdgeGrid.hpp"
+#include "libslic3r/EdgeGrid.hpp"
 
 #include "Geometry/VoronoiUtils.hpp"
 

@@ -1,18 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_WifiConfigDialog_hpp_
 #define slic3r_WifiConfigDialog_hpp_
 
-#include "GUI_Utils.hpp"
-
-#include "../Utils/WifiScanner.hpp"
-
-#include <wx/event.h>
-#include <wx/dialog.h>
 #include <wx/combobox.h>
+#include <wx/dialog.h>
+#include <wx/event.h>
 #include <wx/textctrl.h>
 
+#include "GUI_Utils.hpp"
+#include "slic3r/Utils/WifiScanner.hpp"
 #include "Widgets/ComboBox.hpp"
 #include "Widgets/TextInput.hpp"
-
 namespace Slic3r {
 namespace GUI {
 

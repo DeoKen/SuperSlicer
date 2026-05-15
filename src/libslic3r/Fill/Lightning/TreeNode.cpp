@@ -1,10 +1,13 @@
-//Copyright (c) 2021 Ultimaker B.V.
-//CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/ Copyright (c) 2021 Ultimaker B.V.
+///|/ CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
 #include "TreeNode.hpp"
 
-#include "../../Geometry.hpp"
-#include "../../Thread.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Thread.hpp"
 
 namespace Slic3r::FillLightning {
 

@@ -2,12 +2,12 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
-
-#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
+#ifndef slic3r_Api_plugin_cpp_PluginContext_hpp_
+#define slic3r_Api_plugin_cpp_PluginContext_hpp_
 
 #include <exception>
+
+#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 namespace slic3r_api {
 
@@ -49,3 +49,6 @@ inline void report_progress(const plugin_run_context *ctx, double progress, cons
 }
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_PluginContext_hpp_

@@ -1,13 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "NSVGUtils.hpp"
+
 #include <array>
+
+#include <boost/nowide/fstream.hpp>
+#include <boost/nowide/iostream.hpp>
+
 #include <charconv> // to_chars
 
-#include <boost/nowide/iostream.hpp>
-#include <boost/nowide/fstream.hpp>
 #include "ClipperUtils.hpp"
 #include "Emboss.hpp" // heal for shape
 

@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef libslic3r_MeshBoolean_hpp_
 #define libslic3r_MeshBoolean_hpp_
 
-#include <memory>
 #include <exception>
+#include <memory>
+
+#include <Eigen/Geometry>
 
 #include <libslic3r/TriangleMesh.hpp>
-#include <Eigen/Geometry>
 
 namespace Slic3r {
 

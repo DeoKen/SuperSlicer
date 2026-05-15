@@ -1,22 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Bonjour.hpp"
 
-#include <cstdint>
 #include <algorithm>
 #include <array>
-#include <vector>
-#include <string>
+#include <cstdint>
 #include <map>
+#include <string>
 #include <thread>
-#include <boost/endian/conversion.hpp>
+#include <vector>
+
+#include <boost/bind/bind.hpp>
 #include <boost/date_time/posix_time/posix_time_duration.hpp>
+#include <boost/endian/conversion.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/bind/bind.hpp>
-
 using std::optional;
 using boost::system::error_code;
 namespace endian = boost::endian;
@@ -1206,5 +1209,5 @@ void Bonjour::resolve_sync()
 }
 
 
-}
 
+}

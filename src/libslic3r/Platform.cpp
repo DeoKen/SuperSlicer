@@ -1,11 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Platform.hpp"
 
-#include <boost/log/trivial.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/log/trivial.hpp>
 
 #if defined(__APPLE__)
 #include <sys/types.h>

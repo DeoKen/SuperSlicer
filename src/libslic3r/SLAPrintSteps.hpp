@@ -1,16 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SLAPRINTSTEPS_HPP
 #define SLAPRINTSTEPS_HPP
 
 #include <random>
 
-#include <libslic3r/SLAPrint.hpp>
-
 #include <libslic3r/SLA/Hollowing.hpp>
 #include <libslic3r/SLA/SupportTree.hpp>
+#include <libslic3r/SLAPrint.hpp>
 
 namespace Slic3r {
 

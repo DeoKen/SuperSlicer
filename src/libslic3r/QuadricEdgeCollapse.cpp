@@ -1,12 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Pavel Mikuš @Godrak, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "QuadricEdgeCollapse.hpp"
-#include <tuple>
+
 #include <optional>
-#include "MutablePriorityQueue.hpp"
+#include <tuple>
+
 #include <oneapi/tbb/parallel_for.h>
+
+#include "MutablePriorityQueue.hpp"
 
 using namespace Slic3r;
 

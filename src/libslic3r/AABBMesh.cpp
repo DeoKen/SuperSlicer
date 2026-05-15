@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "AABBMesh.hpp"
-#include <Execution/ExecutionTBB.hpp>
+
+#include <numeric>
 
 #include <libslic3r/AABBTreeIndirect.hpp>
 #include <libslic3r/TriangleMesh.hpp>
 
-#include <numeric>
+#include "Execution/ExecutionTBB.hpp"
 
 #ifdef SLIC3R_HOLE_RAYCASTER
 #include <libslic3r/SLA/Hollowing.hpp>

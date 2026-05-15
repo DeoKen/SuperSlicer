@@ -1,22 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef PLATERWORKER_HPP
 #define PLATERWORKER_HPP
 
-#include <map>
 #include <chrono>
+#include <map>
 
-#include "Worker.hpp"
 #include "BusyCursorJob.hpp"
-
+#include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
-
+#include "Worker.hpp"
 namespace Slic3r { namespace GUI {
 
 class Plater;

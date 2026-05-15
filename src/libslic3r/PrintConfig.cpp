@@ -18,31 +18,33 @@
 ///|/ Copyright (c) 2014 Petr Ledvina @ledvinap
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PrintConfig.hpp"
-#include "Config.hpp"
-#include "Flow.hpp"
-#include "format.hpp"
-#include "I18N.hpp"
-#include "Semver.hpp"
-#include "Utils.hpp"
-#include "PointUtils.hpp"
-
-#include "SLA/SupportTree.hpp"
-#include "GCode/Thumbnails.hpp"
-
-#include <set>
-#include <unordered_set>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/format.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/thread.hpp>
-#include <boost/nowide/iostream.hpp>
 
 #include <algorithm>
 #include <cfloat>
+#include <set>
+#include <unordered_set>
+
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/format.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/iostream.hpp>
+#include <boost/thread.hpp>
+
+#include "Config.hpp"
+#include "Flow.hpp"
+#include "format.hpp"
+#include "GCode/Thumbnails.hpp"
+#include "I18N.hpp"
+#include "PointUtils.hpp"
+#include "Semver.hpp"
+#include "SLA/SupportTree.hpp"
+#include "Utils.hpp"
 
 namespace Slic3r {
 

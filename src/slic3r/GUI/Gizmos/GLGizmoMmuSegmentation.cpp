@@ -1,27 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) 2021 Justin Schuh @jschuh
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmoMmuSegmentation.hpp"
-
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/ImGuiWrapper.hpp"
-#include "slic3r/GUI/Camera.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/BitmapCache.hpp"
-#include "slic3r/GUI/format.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
-#include "slic3r/GUI/NotificationManager.hpp"
-#include "slic3r/GUI/OpenGLManager.hpp"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/Model.hpp"
-#include "slic3r/Utils/UndoRedo.hpp"
-
 
 #include <GL/glew.h>
 
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
+#include "slic3r/GUI/BitmapCache.hpp"
+#include "slic3r/GUI/Camera.hpp"
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/ImGuiWrapper.hpp"
+#include "slic3r/GUI/NotificationManager.hpp"
+#include "slic3r/GUI/OpenGLManager.hpp"
+#include "slic3r/GUI/Plater.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
 namespace Slic3r::GUI {
 
 static inline void show_notification_extruders_limit_exceeded()

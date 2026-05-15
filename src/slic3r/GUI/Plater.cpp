@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav, Lukáš Hejl @hejllukas, Pavel Mikuš @Godrak, Filip Sykala @Jony01, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2022 Michael Kirsch
 ///|/ Copyright (c) 2021 Boleslaw Ciesielski
@@ -16,42 +17,46 @@
 ///|/ Copyright (c) 2012 Sam Wong
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "Plater.hpp"
-#include "slic3r/GUI/Jobs/UIThreadWorker.hpp"
 
-#include <cstddef>
+#include "Plater.hpp"
+
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <future>
 #include <numeric>
 #include <optional>
-#include <vector>
-#include <string>
 #include <regex>
-#include <future>
+#include <string>
 #include <utility>
+#include <vector>
+
 #include <boost/algorithm/string.hpp>
-#include <boost/nowide/cstdio.hpp>
 #include <boost/filesystem/fstream.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/convert.hpp>
+#include <boost/nowide/cstdio.hpp>
 
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/button.h>
 #include <wx/bmpcbox.h>
-#include <wx/statbox.h>
-#include <wx/statbmp.h>
-#include <wx/filedlg.h>
-#include <wx/dnd.h>
-#include <wx/progdlg.h>
-#include <wx/wupdlock.h>
-#include <wx/numdlg.h>
-#include <wx/debug.h>
 #include <wx/busyinfo.h>
+#include <wx/button.h>
+#include <wx/debug.h>
+#include <wx/dnd.h>
+#include <wx/filedlg.h>
+#include <wx/numdlg.h>
+#include <wx/progdlg.h>
+#include <wx/sizer.h>
+#include <wx/statbmp.h>
+#include <wx/statbox.h>
+#include <wx/stattext.h>
 #include <wx/stdpaths.h>
+#include <wx/wupdlock.h>
+
+#include "slic3r/GUI/Jobs/UIThreadWorker.hpp"
 #ifdef _WIN32
 #include <wx/richtooltip.h>
 #include <wx/custombgwin.h>
@@ -127,12 +132,12 @@
 #include "Jobs/PlaterWorker.hpp"
 #include "Jobs/BoostThreadWorker.hpp"
 #include "Jobs/OrientJob.hpp"
-#include "../Utils/ASCIIFolding.hpp"
-#include "../Utils/PrintHost.hpp"
-#include "../Utils/FixModelByWin10.hpp"
-#include "../Utils/UndoRedo.hpp"
-#include "../Utils/PresetUpdater.hpp"
-#include "../Utils/Process.hpp"
+#include "slic3r/Utils/ASCIIFolding.hpp"
+#include "slic3r/Utils/PrintHost.hpp"
+#include "slic3r/Utils/FixModelByWin10.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
+#include "slic3r/Utils/PresetUpdater.hpp"
+#include "slic3r/Utils/Process.hpp"
 #include "Gizmos/GLGizmoSimplify.hpp" // create suggestion notification
 #include "Gizmos/GLGizmoSVG.hpp" // Drop SVG file
 #include "Gizmos/GLGizmoCut.hpp"

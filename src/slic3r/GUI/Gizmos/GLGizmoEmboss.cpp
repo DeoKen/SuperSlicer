@@ -1,8 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmoEmboss.hpp"
+
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
@@ -21,7 +25,7 @@
 #include "slic3r/Utils/UndoRedo.hpp"
 
 #include "libslic3r/Geometry.hpp" // to range pi pi
-#include "libslic3r/Timer.hpp" 
+#include "libslic3r/Timer.hpp"
 
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Preset.hpp"

@@ -2,8 +2,8 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
+#ifndef slic3r_Api_internal_LayerRegionAccess_hpp_
+#define slic3r_Api_internal_LayerRegionAccess_hpp_
 
 #include <vector>
 
@@ -25,3 +25,6 @@ struct LayerRegionAccess
 } // namespace ApiInternal
 
 } // namespace Slic3r
+
+
+#endif // slic3r_Api_internal_LayerRegionAccess_hpp_

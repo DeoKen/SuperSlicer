@@ -2,14 +2,14 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
-
-#include "libslic3r/Api/plugin/c/slic3r_volume.h"
-#include "libslic3r/Api/plugin/cpp/DataTreeViews.hpp"
+#ifndef slic3r_Api_plugin_cpp_VolumeViews_hpp_
+#define slic3r_Api_plugin_cpp_VolumeViews_hpp_
 
 #include <cassert>
 #include <vector>
+
+#include "libslic3r/Api/plugin/c/slic3r_volume.h"
+#include "libslic3r/Api/plugin/cpp/DataTreeViews.hpp"
 
 namespace slic3r_api {
 
@@ -163,3 +163,6 @@ inline Volume Object::volume(uint32_t idx) const
 }
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_VolumeViews_hpp_

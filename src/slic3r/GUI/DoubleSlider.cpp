@@ -1,41 +1,46 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "DoubleSlider.hpp"
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "Plater.hpp"
-#include "I18N.hpp"
-#include "ExtruderSequenceDialog.hpp"
+
+#include <cmath>
+
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/split.hpp>
+
+#include <wx/bmpcbox.h>
+#include <wx/button.h>
+#include <wx/colordlg.h>
+#include <wx/dcclient.h>
+#include <wx/dialog.h>
+#include <wx/menu.h>
+#include <wx/sizer.h>
+#include <wx/slider.h>
+#include <wx/statline.h>
+
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/GCode.hpp"
 #include "libslic3r/GCode/GCodeWriter.hpp"
+#include "libslic3r/libslic3r.h"
 #include "libslic3r/Print.hpp"
-#include "GUI_Utils.hpp"
-#include "MsgDialog.hpp"
-#include "Tab.hpp"
-#include "GUI_ObjectList.hpp"
 
-#include <wx/button.h>
-#include <wx/dialog.h>
-#include <wx/sizer.h>
-#include <wx/slider.h>
-#include <wx/menu.h>
-#include <wx/bmpcbox.h>
-#include <wx/statline.h>
-#include <wx/dcclient.h>
-#include <wx/colordlg.h>
-
-#include <cmath>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
+#include "ExtruderSequenceDialog.hpp"
 #include "Field.hpp"
 #include "format.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "GUI_ObjectList.hpp"
+#include "GUI_Utils.hpp"
+#include "I18N.hpp"
+#include "MsgDialog.hpp"
 #include "NotificationManager.hpp"
+#include "Plater.hpp"
+#include "Tab.hpp"
 #include "wxExtensions.hpp"
-
 namespace Slic3r {
 
 using GUI::from_u8;
@@ -3049,6 +3054,6 @@ ConflictType TickCodeInfo::is_conflict_tick(const TickCode& tick, Mode out_mode,
 
 } // DoubleSlider
 
+
+
 } // Slic3r
-
-

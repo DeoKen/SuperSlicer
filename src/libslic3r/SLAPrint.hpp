@@ -1,7 +1,9 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966
 ///|/ Copyright (c) 2022 ole00 @ole00
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_SLAPrint_hpp_
 #define slic3r_SLAPrint_hpp_
@@ -10,16 +12,17 @@
 #include <mutex>
 #include <set>
 
-#include "PrintBase.hpp"
-#include "SLA/SupportTree.hpp"
-#include "Point.hpp"
-#include "Format/SLAArchiveWriter.hpp"
-#include "GCode/ThumbnailData.hpp"
+#include <boost/functional/hash.hpp>
+
 #include "libslic3r/CSGMesh/CSGMesh.hpp"
 #include "libslic3r/MeshBoolean.hpp"
 #include "libslic3r/OpenVDBUtils.hpp"
 
-#include <boost/functional/hash.hpp>
+#include "Format/SLAArchiveWriter.hpp"
+#include "GCode/ThumbnailData.hpp"
+#include "Point.hpp"
+#include "PrintBase.hpp"
+#include "SLA/SupportTree.hpp"
 
 namespace Slic3r {
 

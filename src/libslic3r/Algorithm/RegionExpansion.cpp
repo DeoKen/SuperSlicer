@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "RegionExpansion.hpp"
 
-#include <libslic3r/AABBTreeIndirect.hpp>
-#include <libslic3r/ClipperZUtils.hpp>
-#include <libslic3r/ClipperUtils.hpp>
-#include <libslic3r/Utils.hpp>
-
 #include <numeric>
+
+#include <libslic3r/AABBTreeIndirect.hpp>
+#include <libslic3r/ClipperUtils.hpp>
+#include <libslic3r/ClipperZUtils.hpp>
+#include <libslic3r/Utils.hpp>
 
 namespace Slic3r {
 namespace Algorithm {

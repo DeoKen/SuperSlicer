@@ -1,14 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Downloader_hpp_
 #define slic3r_Downloader_hpp_
 
-#include "DownloaderFileGet.hpp"
 #include <boost/filesystem/path.hpp>
+
 #include <wx/wx.h>
 
+#include "DownloaderFileGet.hpp"
 namespace Slic3r {
 namespace GUI {
 

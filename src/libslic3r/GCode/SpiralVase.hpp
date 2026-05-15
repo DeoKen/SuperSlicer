@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2021 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/GCode/SpiralVase.pm:
@@ -5,12 +6,14 @@
 ///|/ Copyright (c) Slic3r 2013 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_SpiralVase_hpp_
 #define slic3r_SpiralVase_hpp_
 
-#include "../libslic3r.h"
-#include "../GCodeReader.hpp"
+#include "libslic3r/GCodeReader.hpp"
+#include "libslic3r/libslic3r.h"
 
 namespace Slic3r {
 

@@ -1,13 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_AvoidCrossingPerimeters_hpp_
 #define slic3r_AvoidCrossingPerimeters_hpp_
 
-#include "../libslic3r.h"
-#include "../ExPolygon.hpp"
-#include "../EdgeGrid.hpp"
+#include "libslic3r/EdgeGrid.hpp"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/libslic3r.h"
 
 namespace Slic3r {
 

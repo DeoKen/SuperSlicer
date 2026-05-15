@@ -1,19 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Geometry_Voronoi_hpp_
 #define slic3r_Geometry_Voronoi_hpp_
 
-#include "../Line.hpp"
-#include "../Polyline.hpp"
+#include "libslic3r/Line.hpp"
+#include "libslic3r/Polyline.hpp"
 
 #ifdef _MSC_VER
 // Suppress warning C4146 in OpenVDB: unary minus operator applied to unsigned type, result still unsigned
 #pragma warning(push)
 #pragma warning(disable : 4146)
 #endif // _MSC_VER
-#include "boost/polygon/voronoi.hpp"
+#include <boost/polygon/voronoi.hpp>
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif // _MSC_VER

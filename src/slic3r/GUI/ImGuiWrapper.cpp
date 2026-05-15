@@ -1,28 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 Jason Tibbitts @jasontibbitts
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ImGuiWrapper.hpp"
 
-#include <cstdio>
-#include <vector>
 #include <cmath>
+#include <cstdio>
 #include <stdexcept>
+#include <vector>
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/nowide/convert.hpp>
-
-#include <wx/string.h>
-#include <wx/event.h>
-#include <wx/clipbrd.h>
-#include <wx/debug.h>
 
 #include <GL/glew.h>
 
+#include <wx/clipbrd.h>
+#include <wx/debug.h>
+#include <wx/event.h>
+#include <wx/string.h>
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
@@ -41,7 +43,7 @@
 #include "BitmapCache.hpp"
 #include "wxExtensions.hpp"
 
-#include "../Utils/MacDarkMode.hpp"
+#include "slic3r/Utils/MacDarkMode.hpp"
 #include <nanosvg/nanosvg.h>
 #include <nanosvg/nanosvgrast.h>
 

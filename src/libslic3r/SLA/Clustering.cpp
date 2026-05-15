@@ -3,7 +3,7 @@
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Clustering.hpp"
-#include "boost/geometry/index/rtree.hpp"
+#include <boost/geometry/index/rtree.hpp>
 
 #include <libslic3r/SLA/SpatIndex.hpp>
 #include <libslic3r/BoostAdapter.hpp>

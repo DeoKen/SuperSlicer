@@ -1,19 +1,25 @@
-#include "CalibrationAbstractDialog.hpp"
-#include "I18N.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/Utils.hpp"
-#include "GUI.hpp"
-#include "GUI_ObjectList.hpp"
-#include "Tab.hpp"
-#include "Plater.hpp"
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include <wx/scrolwin.h>
-#include <wx/display.h>
-#include <wx/file.h>
+#include "CalibrationAbstractDialog.hpp"
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include <wx/display.h>
+#include <wx/file.h>
+#include <wx/scrolwin.h>
+
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "GUI.hpp"
+#include "GUI_ObjectList.hpp"
+#include "I18N.hpp"
+#include "Plater.hpp"
+#include "Tab.hpp"
 #if ENABLE_SCROLLABLE
 static wxSize get_screen_size(wxWindow* window)
 {

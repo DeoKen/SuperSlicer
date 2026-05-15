@@ -1,7 +1,9 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Filip Sykala @Jony01
 ///|/ Copyright (c) Slic3r 2013 - 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_ClipperUtils_hpp_
 #define slic3r_ClipperUtils_hpp_
@@ -9,7 +11,7 @@
 //#define SLIC3R_USE_CLIPPER2
 
 #include "libslic3r.h"
-#include "clipper/clipper_z.hpp"
+#include <clipper/clipper_z.hpp>
 #include "ExPolygon.hpp"
 #include "Polygon.hpp"
 #include "Surface.hpp"

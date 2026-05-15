@@ -1,8 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_FillSmooth_hpp_
 #define slic3r_FillSmooth_hpp_
 
-#include "../libslic3r.h"
-#include "../ExtrusionRole.hpp"
+#include "libslic3r/ExtrusionRole.hpp"
+#include "libslic3r/libslic3r.h"
 
 #include "FillBase.hpp"
 

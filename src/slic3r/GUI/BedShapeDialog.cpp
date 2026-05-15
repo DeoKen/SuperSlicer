@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/
 ///|/ ported from lib/Slic3r/GUI/BedShapeDialog.pm:
@@ -7,28 +8,30 @@
 ///|/ Copyright (c) Slic3r 2014 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "BedShapeDialog.hpp"
-#include "GUI_App.hpp"
-#include "OptionsGroup.hpp"
 
-#include <wx/wx.h> 
-#include <wx/numformatter.h>
-#include <wx/sizer.h>
-#include <wx/statbox.h>
-#include <wx/tooltip.h>
-
-#include "libslic3r/BoundingBox.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/Polygon.hpp"
-#include "libslic3r/PointUtils.hpp"
+#include <algorithm>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 
-#include <algorithm>
+#include <wx/numformatter.h>
+#include <wx/sizer.h>
+#include <wx/statbox.h>
+#include <wx/tooltip.h>
+#include <wx/wx.h>
 
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "GUI_App.hpp"
+#include "OptionsGroup.hpp"
 namespace Slic3r {
 namespace GUI {
 

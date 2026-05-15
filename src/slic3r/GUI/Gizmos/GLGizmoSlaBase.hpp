@@ -1,20 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoSlaBase_hpp_
 #define slic3r_GLGizmoSlaBase_hpp_
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "libslic3r/Point.hpp"
+#include "libslic3r/SLAPrint.hpp"
 
 #include "GLGizmoBase.hpp"
 #include "slic3r/GUI/3DScene.hpp"
 #include "slic3r/GUI/SceneRaycaster.hpp"
-#include "libslic3r/SLAPrint.hpp"
-#include "libslic3r/Point.hpp"
-
-#include <vector>
-#include <string>
-#include <memory>
-
 namespace Slic3r {
 
 class SLAPrint;

@@ -1,25 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Hejl @hejllukas, Enrico Turri @enricoturri1966, David Kocík @kocikdav, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmoSimplify.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
-#include "slic3r/GUI/MsgDialog.hpp"
-#include "slic3r/GUI/NotificationManager.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/format.hpp"
-#include "slic3r/GUI/OpenGLManager.hpp"
+
+#include <thread>
+
+#include <GL/glew.h>
+
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/QuadricEdgeCollapse.hpp"
 
-#include <GL/glew.h>
-
-#include <thread>
-
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
+#include "slic3r/GUI/MsgDialog.hpp"
+#include "slic3r/GUI/NotificationManager.hpp"
+#include "slic3r/GUI/OpenGLManager.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r::GUI {
 
 // Extend call after only when Simplify gizmo is still alive

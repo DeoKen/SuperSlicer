@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2019 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Time.hpp"
 
+#include <cassert>
+#include <chrono>
+#include <cstdio>
+#include <ctime>
 #include <iomanip>
 #include <sstream>
-#include <chrono>
-#include <cassert>
-#include <ctime>
-#include <cstdio>
 
 #ifdef _MSC_VER
 #include <map>

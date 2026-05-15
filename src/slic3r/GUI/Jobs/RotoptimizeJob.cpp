@@ -1,23 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "RotoptimizeJob.hpp"
 
-#include "libslic3r/MTUtils.hpp"
-#include "libslic3r/SLA/Rotfinder.hpp"
+#include "libslic3r/AppConfig.hpp"
 #include "libslic3r/MinAreaBoundingBox.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/MTUtils.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/SLA/Rotfinder.hpp"
 #include "libslic3r/SLAPrint.hpp"
 
-#include "slic3r/GUI/Plater.hpp"
-#include "libslic3r/PresetBundle.hpp"
-
 #include "slic3r/GUI/GUI_App.hpp"
-#include "libslic3r/AppConfig.hpp"
-
-#include <slic3r/GUI/I18N.hpp>
-
+#include "slic3r/GUI/I18N.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r { namespace GUI {
 
 void RotoptimizeJob::prepare()

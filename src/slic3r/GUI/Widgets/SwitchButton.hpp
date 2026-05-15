@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_SwitchButton_hpp_
 #define slic3r_GUI_SwitchButton_hpp_
 
-#include "../wxExtensions.hpp"
-#include "StateColor.hpp"
-
 #include "BitmapToggleButton.hpp"
-
+#include "slic3r/GUI/wxExtensions.hpp"
+#include "StateColor.hpp"
 class SwitchButton : public BitmapToggleButton
 {
 public:

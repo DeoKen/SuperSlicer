@@ -1,22 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Pavel Mikuš @Godrak, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01, David Kocík @kocikdav, Roman Beránek @zavorka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2021 Justin Schuh @jschuh
 ///|/ Copyright (c) Slic3r 2013 - 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Utils.hpp"
-#include "I18N.hpp"
 
 #include <atomic>
-#include <locale>
-#include <ctime>
-#include <cstdarg>
 #include <cstdio>
+#include <ctime>
+#include <locale>
 
+#include <cstdarg>
+
+#include "format.hpp"
+#include "I18N.hpp"
+#include "libslic3r.h"
 #include "Platform.hpp"
 #include "Time.hpp"
-#include "format.hpp"
-#include "libslic3r.h"
 
 #ifdef WIN32
 	#include <windows.h>

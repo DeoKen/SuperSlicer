@@ -1,22 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SRC_LIBSLIC3R_PATH_SORTING_HPP_
 #define SRC_LIBSLIC3R_PATH_SORTING_HPP_
 
-#include "AABBTreeLines.hpp"
-#include "BoundingBox.hpp"
-#include "Line.hpp"
-#include "ankerl/unordered_dense.h"
 #include <algorithm>
 #include <iterator>
-#include <libslic3r/Point.hpp>
-#include <libslic3r/Polygon.hpp>
-#include <libslic3r/ExPolygon.hpp>
 #include <limits>
 #include <type_traits>
 #include <unordered_set>
+
+#include <libslic3r/ExPolygon.hpp>
+#include <libslic3r/Point.hpp>
+#include <libslic3r/Polygon.hpp>
+
+#include "AABBTreeLines.hpp"
+#include "ankerl/unordered_dense.h"
+#include "BoundingBox.hpp"
+#include "Line.hpp"
 
 namespace Slic3r {
 namespace Algorithm {

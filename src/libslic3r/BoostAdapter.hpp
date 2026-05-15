@@ -1,16 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SLA_BOOSTADAPTER_HPP
 #define SLA_BOOSTADAPTER_HPP
 
-#include <libslic3r/Point.hpp>
+#include <boost/geometry.hpp>
+
 #include <libslic3r/BoundingBox.hpp>
 #include <libslic3r/ExPolygon.hpp>
+#include <libslic3r/Point.hpp>
 #include <libslic3r/Polyline.hpp>
-
-#include <boost/geometry.hpp>
 
 namespace boost {
 namespace geometry {

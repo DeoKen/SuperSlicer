@@ -1,19 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2021 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from src/libslic3r/PNGRead.cpp:
 ///|/ Copyright (c) Prusa Research 2020 Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "PNGReadWrite.hpp"
 
-#include <memory>
-
 #include <cstdio>
-#include <png.h>
+#include <memory>
 
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
+
+#include <png.h>
 
 namespace Slic3r { namespace png {
 

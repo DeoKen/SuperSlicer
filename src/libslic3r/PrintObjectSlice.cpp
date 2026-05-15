@@ -2,8 +2,15 @@
 ///|/
 ///|/ Copyright (c) SuperSlicer 2020 - 2024 Durand Remi @supermerill
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include <boost/log/trivial.hpp>
 
+#include <oneapi/tbb/parallel_for.h>
+
+#include "Api/internal/LayerAccess.hpp"
+#include "Api/internal/LayerIslandAccess.hpp"
+#include "Api/internal/LayerRegionAccess.hpp"
 #include "BridgeDetector.hpp"
 #include "ClipperUtils.hpp"
 #include "ElephantFootCompensation.hpp"
@@ -13,14 +20,6 @@
 #include "Print.hpp"
 #include "ShortestPath.hpp"
 #include "Thread.hpp"
-
-#include <boost/log/trivial.hpp>
-
-#include <oneapi/tbb/parallel_for.h>
-
-#include "Api/internal/LayerAccess.hpp"
-#include "Api/internal/LayerIslandAccess.hpp"
-#include "Api/internal/LayerRegionAccess.hpp"
 
 namespace Slic3r {
 

@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) 2017 Eyal Soha
 ///|/
@@ -6,9 +7,13 @@
 ///|/ Copyright (c) Slic3r 2011 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
+#include "FillRectilinear.hpp"
+
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -17,21 +22,19 @@
 
 #include <boost/container/small_vector.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/static_assert.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
+#include <boost/static_assert.hpp>
 
-#include "../ExtrusionEntityCollection.hpp"
-#include "../ClipperUtils.hpp"
-#include "../ExPolygon.hpp"
-#include "../Geometry.hpp"
-#include "../ShortestPath.hpp"
-#include "../Surface.hpp"
-#include "../Thread.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Geometry.hpp"
 #include "libslic3r/PointUtils.hpp"
-
-#include "FillRectilinear.hpp"
+#include "libslic3r/ShortestPath.hpp"
+#include "libslic3r/Surface.hpp"
+#include "libslic3r/Thread.hpp"
 
 // #define SLIC3R_DEBUG
 // #define INFILL_DEBUG_OUTPUT
@@ -39,17 +42,14 @@
 // Make assert active if SLIC3R_DEBUG
 #ifdef SLIC3R_DEBUG
     #undef NDEBUG
-    #include "SVG.hpp"
 #endif
 
 #if defined(SLIC3R_DEBUG) || defined(INFILL_DEBUG_OUTPUT)
     #include "SVG.hpp"
 #endif
 
-#include <cassert>
-
 // We want our version of assert.
-#include "../libslic3r.h"
+#include "libslic3r/libslic3r.h"
 
 namespace Slic3r {
 

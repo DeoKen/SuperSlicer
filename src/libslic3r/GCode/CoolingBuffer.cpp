@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) Slic3r 2016 Alessandro Ranellucci @alranel
 ///|/
@@ -7,17 +8,22 @@
 ///|/ Copyright (c) 2016 Chow Loong Jin @hyperair
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/GCode.hpp"
+
 #include "CoolingBuffer.hpp"
+
 #include <algorithm>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/log/trivial.hpp>
 #include <cassert>
 #include <cfloat>
 #include <iostream>
 #include <unordered_set>
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/log/trivial.hpp>
+
+#include "libslic3r/GCode.hpp"
 
 #if 0
     #define DEBUG

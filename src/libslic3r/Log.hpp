@@ -1,12 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #ifndef slic3r_LOG_HPP
 #define slic3r_LOG_HPP
 
-#include <string>
-#include <vector>
-#include <sstream>
 #include <iostream>
 #include <memory>
 #include <set>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace Slic3r {
 

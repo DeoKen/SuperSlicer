@@ -1,27 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmoMeasure.hpp"
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
-
-
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/MeasureUtils.hpp"
-
-#include <imgui/imgui_internal.h>
 
 #include <numeric>
 
 #include <GL/glew.h>
 
+#include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>
+
 #include <oneapi/tbb/parallel_for.h>
 
 #include <wx/clipbrd.h>
 
+#include "libslic3r/MeasureUtils.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/GUI_ObjectManipulation.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

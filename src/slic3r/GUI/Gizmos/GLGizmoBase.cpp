@@ -1,8 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLGizmoBase.hpp"
+
 #include "slic3r/GUI/GLCanvas3D.hpp"
 
 #include <GL/glew.h>
@@ -176,9 +180,9 @@ void GLGizmoBase::set_hover_id(int id)
     // allow empty grabbers when not using grabbers but use hover_id - flatten, rotate
 //    if (!m_grabbers.empty() && id >= (int) m_grabbers.size())
 //        return;
-    
+
     m_hover_id = id;
-    on_set_hover_id();    
+    on_set_hover_id();
 }
 
 bool GLGizmoBase::update_items_state()
@@ -232,12 +236,12 @@ void GLGizmoBase::render_grabbers(size_t first, size_t last, float size, bool fo
 // call start_dragging, stop_dragging, on_dragging
 bool GLGizmoBase::use_grabbers(const wxMouseEvent &mouse_event) {
     bool is_dragging_finished = false;
-    if (mouse_event.Moving()) { 
+    if (mouse_event.Moving()) {
         // it should not happen but for sure
         assert(!m_dragging);
         if (m_dragging) is_dragging_finished = true;
-        else return false; 
-    } 
+        else return false;
+    }
 
     if (mouse_event.LeftDown()) {
         Selection &selection = m_parent.get_selection();
@@ -249,7 +253,7 @@ bool GLGizmoBase::use_grabbers(const wxMouseEvent &mouse_event) {
             for (auto &grabber : m_grabbers) grabber.dragging = false;
 //            if (!m_grabbers.empty() && m_hover_id < int(m_grabbers.size()))
 //                m_grabbers[m_hover_id].dragging = true;
-            
+
             on_start_dragging();
 
             // Let the plater know that the dragging started
@@ -346,4 +350,3 @@ std::string GLGizmoBase::get_name(bool include_shortcut) const
 
 } // namespace GUI
 } // namespace Slic3r
-

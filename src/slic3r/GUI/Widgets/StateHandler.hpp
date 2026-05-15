@@ -1,11 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_StateHandler_hpp_
 #define slic3r_GUI_StateHandler_hpp_
 
-#include <wx/event.h>
 #include <memory>
 
-#include "StateColor.hpp"
+#include <wx/event.h>
 
+#include "StateColor.hpp"
 wxDECLARE_EVENT(EVT_ENABLE_CHANGED, wxCommandEvent);
 
 class StateHandler : public wxEvtHandler

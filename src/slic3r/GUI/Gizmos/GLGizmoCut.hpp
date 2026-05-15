@@ -1,19 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoCut_hpp_
 #define slic3r_GLGizmoCut_hpp_
 
-#include "GLGizmoBase.hpp"
-#include "slic3r/GUI/GLSelectionRectangle.hpp"
-#include "slic3r/GUI/GLModel.hpp"
-#include "slic3r/GUI/I18N.hpp"
-#include "libslic3r/TriangleMesh.hpp"
-#include "libslic3r/Model.hpp"
 #include "libslic3r/CutUtils.hpp"
-#include "imgui/imgui.h"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/TriangleMesh.hpp"
 
+#include "GLGizmoBase.hpp"
+#include "imgui/imgui.h"
+#include "slic3r/GUI/GLModel.hpp"
+#include "slic3r/GUI/GLSelectionRectangle.hpp"
+#include "slic3r/GUI/I18N.hpp"
 namespace Slic3r {
 
 enum class CutConnectorType : int;

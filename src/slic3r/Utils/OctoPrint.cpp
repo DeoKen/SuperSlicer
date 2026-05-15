@@ -1,35 +1,39 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "OctoPrint.hpp"
 
 #include <algorithm>
-#include <sstream>
 #include <exception>
+#include <sstream>
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/asio.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/nowide/convert.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <curl/curl.h>
 
 #include <wx/progdlg.h>
 
-#include "slic3r/GUI/GUI.hpp"
-#include "slic3r/GUI/I18N.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/format.hpp"
-#include "Http.hpp"
 #include "libslic3r/AppConfig.hpp"
-#include "Bonjour.hpp"
-#include "slic3r/GUI/BonjourDialog.hpp"
 
+#include "Bonjour.hpp"
+#include "Http.hpp"
+#include "slic3r/GUI/BonjourDialog.hpp"
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/I18N.hpp"
 namespace fs = boost::filesystem;
 namespace pt = boost::property_tree;
 

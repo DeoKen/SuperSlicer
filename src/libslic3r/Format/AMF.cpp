@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros
 ///|/ Copyright (c) 2019 Jason Tibbitts @jasontibbitts
 ///|/
@@ -6,37 +7,40 @@
 ///|/ Copyright (c) Slic3r 2012 - 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <limits>
-#include <cstring>
-#include <map>
-#include <string>
-#include <expat.h>
-
-#include <boost/nowide/cstdio.hpp>
-
-#include "../libslic3r.h"
-#include "../Exception.hpp"
-#include "../Model.hpp"
-#include "../GCode.hpp"
-#include "../PrintConfig.hpp"
-#include "../Utils.hpp"
-#include "../I18N.hpp"
-#include "../Geometry.hpp"
-#include "../CustomGCode.hpp"
-#include "../LocalesUtils.hpp"
 
 #include "AMF.hpp"
 
+#include <cassert>
+#include <cstring>
+#include <limits>
+#include <map>
+#include <string>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/cstdio.hpp>
+#include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
-namespace pt = boost::property_tree;
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/nowide/fstream.hpp>
-#include "miniz_extension.hpp"
+#include <expat.h>
+
+#include "libslic3r/CustomGCode.hpp"
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/I18N.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/miniz_extension.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Utils.hpp"
+
+namespace pt = boost::property_tree;
 
 #if 0
 // Enable debugging and assert in this file.
@@ -44,8 +48,6 @@ namespace pt = boost::property_tree;
 #define _DEBUG
 #undef NDEBUG
 #endif
-
-#include <cassert>
 
 // VERSION NUMBERS
 // 0 : .amf, .amf.xml and .zip.amf files saved by older slic3r. No version definition in them.

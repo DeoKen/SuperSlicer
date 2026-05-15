@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoSimplify_hpp_
 #define slic3r_GLGizmoSimplify_hpp_
 
-#include "GLGizmoBase.hpp"
-#include "slic3r/GUI/3DScene.hpp"
-#include "slic3r/GUI/I18N.hpp"
-#include "admesh/stl.h" // indexed_triangle_set
 #include <mutex>
 #include <thread>
 
+#include "admesh/stl.h" // indexed_triangle_set
+#include "GLGizmoBase.hpp"
+#include "slic3r/GUI/3DScene.hpp"
+#include "slic3r/GUI/I18N.hpp"
 namespace Slic3r {
 class ModelObject;
 class Model;

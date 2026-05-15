@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/ Copyright (c) 2019 Sijmen Schoon
@@ -9,30 +10,31 @@
 ///|/ Copyright (c) Slic3r 2012 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Model_hpp_
 #define slic3r_Model_hpp_
 
-#include "libslic3r.h"
-#include "enum_bitmask.hpp"
-#include "Geometry.hpp"
-#include "ObjectID.hpp"
-#include "Point.hpp"
-#include "PrintConfig.hpp"
-#include "Slicing.hpp"
-#include "SLA/SupportPoint.hpp"
-#include "SLA/Hollowing.hpp"
-#include "TriangleMesh.hpp"
-#include "CustomGCode.hpp"
-#include "TextConfiguration.hpp"
-#include "EmbossShape.hpp"
-
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
-#include <optional>
+
+#include "CustomGCode.hpp"
+#include "EmbossShape.hpp"
+#include "enum_bitmask.hpp"
+#include "Geometry.hpp"
+#include "libslic3r.h"
+#include "ObjectID.hpp"
+#include "Point.hpp"
+#include "PrintConfig.hpp"
+#include "SLA/Hollowing.hpp"
+#include "SLA/SupportPoint.hpp"
+#include "Slicing.hpp"
+#include "TextConfiguration.hpp"
+#include "TriangleMesh.hpp"
 
 namespace cereal {
 	class BinaryInputArchive;

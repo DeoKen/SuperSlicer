@@ -1,17 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) 2023 Robert Schiele @schiele
 ///|/ Copyright (c) Prusa Research 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_ExtrusionRole_hpp_
 #define slic3r_ExtrusionRole_hpp_
 
-#include "enum_bitmask.hpp"
-
+#include <cassert>
+#include <cstdint>
 #include <string>
 #include <string_view>
-#include <cstdint>
-#include <cassert>
+
+#include "enum_bitmask.hpp"
 
 namespace Slic3r {
 //that's good and clean but a pain in the ass to debug with the debuggeur.

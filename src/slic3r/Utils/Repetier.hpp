@@ -1,18 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 Spencer Owen @spuder
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Repetier_hpp_
 #define slic3r_Repetier_hpp_
 
 #include <optional>
 #include <string>
+
 #include <wx/string.h>
 
 #include "PrintHost.hpp"
-
 namespace Slic3r {
 
 class DynamicPrintConfig;

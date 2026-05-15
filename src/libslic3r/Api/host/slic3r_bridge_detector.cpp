@@ -2,7 +2,6 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #include "libslic3r/Api/plugin/c/slic3r_bridge_detector.h"
 
 namespace {

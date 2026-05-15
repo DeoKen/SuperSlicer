@@ -1,13 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-// Polygon offsetting using Voronoi diagram produced by boost::polygon.
 
 #ifndef slic3r_VoronoiOffset_hpp_
 #define slic3r_VoronoiOffset_hpp_
 
-#include "../libslic3r.h"
+// Polygon offsetting using Voronoi diagram produced by boost::polygon.
+
+
+#include "libslic3r/libslic3r.h"
 
 #include "Voronoi.hpp"
 

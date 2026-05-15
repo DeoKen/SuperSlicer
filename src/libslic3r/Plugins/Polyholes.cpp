@@ -352,5 +352,5 @@ extern "C" void register_plugin(orchestrator_handle *orch)
 {
     slic3r_api::PolyholesPlugin::register_polyholes_plugin(orch);
 }
-#endif //POLYHOLES_PLUGIN_DLL
 
+#endif //POLYHOLES_PLUGIN_DLL

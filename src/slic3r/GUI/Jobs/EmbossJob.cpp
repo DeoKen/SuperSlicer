@@ -1,18 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "EmbossJob.hpp"
 
 #include <stdexcept>
 #include <type_traits>
 #include <boost/log/trivial.hpp>
 
-#include <libslic3r/Model.hpp>
-#include <libslic3r/Format/OBJ.hpp> // load_obj for default mesh
-#include <libslic3r/CutSurface.hpp> // use surface cuts
-#include <libslic3r/BuildVolume.hpp> // create object
-#include <libslic3r/SLA/ReprojectPointsOnMesh.hpp>
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Format/OBJ.hpp" // load_obj for default mesh
+#include "libslic3r/CutSurface.hpp" // use surface cuts
+#include "libslic3r/BuildVolume.hpp" // create object
+#include "libslic3r/SLA/ReprojectPointsOnMesh.hpp"
 
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
@@ -26,7 +29,7 @@
 #include "slic3r/GUI/CameraUtils.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/3DScene.hpp"
-#include "slic3r/GUI/Jobs/Worker.hpp" 
+#include "slic3r/GUI/Jobs/Worker.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 #include "slic3r/Utils/RaycastManager.hpp"
 

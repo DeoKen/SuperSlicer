@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2021 Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmos_hpp_
 #define slic3r_GLGizmos_hpp_
 
@@ -30,14 +33,13 @@ enum class SLAGizmoEventType : unsigned char {
 } // namespace GUI
 } // namespace Slic3r
 
-#include "slic3r/GUI/Gizmos/GLGizmoMove.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoScale.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoRotate.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoFlatten.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoSlaSupports.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoFdmSupports.hpp"
-#include "slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoCut.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoFdmSupports.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoFlatten.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoHollow.hpp"
-
+#include "slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoMove.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoRotate.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoScale.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoSlaSupports.hpp"
 #endif //slic3r_GLGizmos_hpp_

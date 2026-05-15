@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Hejl @hejllukas, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ ported from lib/Slic3r/GUI/BedShapeDialog.pm:
@@ -7,20 +8,21 @@
 ///|/ Copyright (c) Slic3r 2014 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_BedShapeDialog_hpp_
 #define slic3r_BedShapeDialog_hpp_
 // The bed shape dialog.
 // The dialog opens from Print Settins tab->Bed Shape : Set...
 
-#include "GUI_Utils.hpp"
-#include "2DBed.hpp"
-
-#include <libslic3r/BuildVolume.hpp>
-
-#include <wx/dialog.h>
 #include <wx/choicebk.h>
+#include <wx/dialog.h>
 
+#include "libslic3r/BuildVolume.hpp"
+
+#include "2DBed.hpp"
+#include "GUI_Utils.hpp"
 namespace Slic3r {
 namespace GUI {
 

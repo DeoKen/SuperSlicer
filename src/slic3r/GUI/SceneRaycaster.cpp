@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "SceneRaycaster.hpp"
+
+#include "libslic3r/libslic3r.h"
 
 #include "Camera.hpp"
 #include "GUI_App.hpp"
-#include "Selection.hpp"
 #include "Plater.hpp"
-
+#include "Selection.hpp"
 namespace Slic3r {
 namespace GUI {
 

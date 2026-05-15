@@ -1,13 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef MESHSPLITIMPL_HPP
 #define MESHSPLITIMPL_HPP
 
-#include "TriangleMesh.hpp"
-#include "libnest2d/tools/benchmark.h"
 #include "Execution/ExecutionTBB.hpp"
+#include <libnest2d/tools/benchmark.h>
+#include "TriangleMesh.hpp"
 
 namespace Slic3r {
 

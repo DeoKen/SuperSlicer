@@ -1,23 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "SLAImportJob.hpp"
-
-#include "libslic3r/SLAPrint.hpp"
-#include "libslic3r/Format/SL1.hpp"
-#include "libslic3r/Format/SLAArchiveReader.hpp"
-
-#include "slic3r/GUI/GUI.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
-#include "slic3r/GUI/NotificationManager.hpp"
-
-#include "libslic3r/Model.hpp"
-#include "libslic3r/PresetBundle.hpp"
 
 #include <wx/filename.h>
 
+#include "libslic3r/Format/SL1.hpp"
+#include "libslic3r/Format/SLAArchiveReader.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/SLAPrint.hpp"
+
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/NotificationManager.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r { namespace GUI {
 
 class SLAImportJob::priv {

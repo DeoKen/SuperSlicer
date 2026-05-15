@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/
 ///|/ ported from lib/Slic3r/GUI/Preferences.pm:
@@ -5,35 +6,35 @@
 ///|/ Copyright (c) Slic3r 2013 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "Preferences.hpp"
-#include "OptionsGroup.hpp"
-#include "GUI_App.hpp"
-#include "Plater.hpp"
-#include "MsgDialog.hpp"
-#include "I18N.hpp"
-#include "format.hpp"
-#include "libslic3r/AppConfig.hpp"
 
-#include "Notebook.hpp"
-#include "ButtonsDescription.hpp"
-#include "OG_CustomCtrl.hpp"
-#include "GLCanvas3D.hpp"
-#include "ConfigWizard.hpp"
-#include "Widgets/SpinInput.hpp"
-#include "wxExtensions.hpp"
+#include "Preferences.hpp"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/dll/runtime_symbol_info.hpp>
 
 #include <wx/display.h>
 #include <wx/notebook.h>
 #include <wx/scrolwin.h>
 
+#include "libslic3r/AppConfig.hpp"
 
-
+#include "ButtonsDescription.hpp"
+#include "ConfigWizard.hpp"
+#include "format.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MsgDialog.hpp"
+#include "Notebook.hpp"
+#include "OG_CustomCtrl.hpp"
+#include "OptionsGroup.hpp"
+#include "Plater.hpp"
+#include "Widgets/SpinInput.hpp"
+#include "wxExtensions.hpp"
 #ifdef WIN32
 #include <wx/msw/registry.h>
 #endif // WIN32

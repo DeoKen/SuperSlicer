@@ -1,16 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2021 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "RammingChart.hpp"
+
 #include <algorithm>
+
 #include <wx/dcbuffer.h>
 #include <wx/graphics.h>
 
-#include "RammingChart.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
-
 wxDEFINE_EVENT(EVT_SLIC3R_CHART_CHANGED, wxCommandEvent);
 
 void Chart::set_x_label(const wxString &label, float incr)

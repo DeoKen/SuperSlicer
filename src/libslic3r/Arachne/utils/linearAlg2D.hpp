@@ -4,7 +4,7 @@
 #ifndef UTILS_LINEAR_ALG_2D_H
 #define UTILS_LINEAR_ALG_2D_H
 
-#include "../../Point.hpp"
+#include "libslic3r/Point.hpp"
 
 namespace Slic3r::Arachne::LinearAlg2D
 {

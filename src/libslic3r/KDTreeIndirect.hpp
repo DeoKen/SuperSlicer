@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Pavel Mikuš @Godrak, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-// KD tree built upon external data set, referencing the external data by integer indices.
-
 #ifndef slic3r_KDTreeIndirect_hpp_
 #define slic3r_KDTreeIndirect_hpp_
+
+// KD tree built upon external data set, referencing the external data by integer indices.
+
 
 #include <algorithm>
 #include <limits>

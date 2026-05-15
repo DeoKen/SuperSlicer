@@ -1,12 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef SLAARCHIVEREADER_HPP
 #define SLAARCHIVEREADER_HPP
 
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
 struct indexed_triangle_set;
 

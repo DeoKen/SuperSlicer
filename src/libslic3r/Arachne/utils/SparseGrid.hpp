@@ -9,7 +9,7 @@
 #include <vector>
 #include <functional>
 
-#include "../../Point.hpp"
+#include "libslic3r/Point.hpp"
 #include "SquareGrid.hpp"
 
 namespace Slic3r::Arachne {

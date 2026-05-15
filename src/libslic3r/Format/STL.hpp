@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2019 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/Format/STL.pm:
@@ -6,7 +7,9 @@
 ///|/ Copyright (c) 2012 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Format_STL_hpp_
 #define slic3r_Format_STL_hpp_
 

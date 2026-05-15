@@ -1,16 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_SceneRaycaster_hpp_
 #define slic3r_SceneRaycaster_hpp_
 
-#include "MeshUtils.hpp"
-#include "GLModel.hpp"
-#include <vector>
-#include <string>
 #include <optional>
+#include <string>
+#include <vector>
 
+#include "GLModel.hpp"
+#include "MeshUtils.hpp"
 namespace Slic3r {
 namespace GUI {
 

@@ -1,12 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2021 David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_SysInfoDialog_hpp_
 #define slic3r_GUI_SysInfoDialog_hpp_
 
-#include <wx/wx.h>
 #include <wx/html/htmlwin.h>
+#include <wx/wx.h>
 
 #include "GUI_Utils.hpp"
 #include "wxExtensions.hpp"

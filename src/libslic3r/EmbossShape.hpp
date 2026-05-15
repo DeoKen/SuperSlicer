@@ -1,18 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #ifndef slic3r_EmbossShape_hpp_
 #define slic3r_EmbossShape_hpp_
 
-#include <string>
-#include <optional>
 #include <memory> // unique_ptr
+#include <optional>
+#include <string>
+
+#include <cereal/archives/binary.hpp>
 #include <cereal/cereal.hpp>
+#include <cereal/types/optional.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
-#include <cereal/types/optional.hpp>
-#include <cereal/archives/binary.hpp>
-#include "Point.hpp" // Transform3d
+
 #include "ExPolygon.hpp"
 #include "PointSerialize.hpp"
 #include "nanosvg/nanosvg.h" // NSVGimage
+#include "Point.hpp" // Transform3d
 
 namespace Slic3r {
 

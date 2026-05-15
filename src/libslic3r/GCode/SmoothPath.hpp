@@ -1,10 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GCode_SmoothPath_hpp_
 #define slic3r_GCode_SmoothPath_hpp_
 
-#include <ankerl/unordered_dense.h>
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/Geometry/ArcWelder.hpp"
 
-#include "../ExtrusionEntity.hpp"
-#include "../Geometry/ArcWelder.hpp"
+#include "ankerl/unordered_dense.h"
 
 namespace Slic3r {
 

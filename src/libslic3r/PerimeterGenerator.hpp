@@ -1,18 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas
 ///|/ Copyright (c) Slic3r 2015 - 2016 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2015 Maksim Derbasov @ntfshard
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_PerimeterGenerator_hpp_
 #define slic3r_PerimeterGenerator_hpp_
 
-#include "libslic3r.h"
 #include <vector>
-#include "ExtrusionEntityCollection.hpp"
+
 #include "ClipperUtils.hpp"
+#include "ExtrusionEntityCollection.hpp"
 #include "Flow.hpp"
 #include "Layer.hpp"
+#include "libslic3r.h"
 #include "Polygon.hpp"
 #include "PrintConfig.hpp"
 #include "RegionSettings.hpp"

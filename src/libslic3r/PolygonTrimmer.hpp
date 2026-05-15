@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_PolygonTrimmer_hpp_
 #define slic3r_PolygonTrimmer_hpp_
 
-#include "libslic3r.h"
-#include <vector>
 #include <string>
+#include <vector>
+
+#include "libslic3r.h"
 #include "Line.hpp"
 #include "MultiPoint.hpp"
-#include "Polyline.hpp"
 #include "Polygon.hpp"
+#include "Polyline.hpp"
 
 namespace Slic3r {
 

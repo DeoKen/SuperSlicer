@@ -1,7 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#ifndef slic3r_clonable_ptr_hpp_
+#define slic3r_clonable_ptr_hpp_
+
 // clonable_ptr: a smart pointer with a usage similar to unique_ptr, with the exception, that
 // the copy constructor / copy assignment operator work by calling the ->clone() method.
 
@@ -170,3 +175,5 @@ template<class T, class U> inline bool operator>(const clonable_ptr<T>& l, const
 }
 
 } // namespace Slic3r
+
+#endif // slic3r_clonable_ptr_hpp_

@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) 2017 Joseph Lenox @lordofhyphens
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
@@ -6,8 +7,10 @@
 ///|/ Copyright (c) Slic3r 2011 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Extruder.hpp"
+
 #include "GCode/GCodeWriter.hpp"
 #include "PrintConfig.hpp"
 

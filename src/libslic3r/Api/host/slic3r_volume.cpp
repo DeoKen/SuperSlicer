@@ -2,10 +2,8 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#include "libslic3r/Api/plugin/c/slic3r_volume.h"
-
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
+#include "libslic3r/Api/plugin/c/slic3r_volume.h"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"

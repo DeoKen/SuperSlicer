@@ -1,26 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "BitmapComboBox.hpp"
 
 #include <cstddef>
-#include <vector>
 #include <string>
+#include <vector>
+
 #include <boost/algorithm/string.hpp>
 
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/textctrl.h>
 #include <wx/button.h>
-#include <wx/statbox.h>
 #include <wx/colordlg.h>
-#include <wx/wupdlock.h>
+#include <wx/listbook.h>
 #include <wx/menu.h>
 #include <wx/odcombo.h>
-#include <wx/listbook.h>
+#include <wx/sizer.h>
+#include <wx/statbox.h>
+#include <wx/stattext.h>
+#include <wx/textctrl.h>
 #include <wx/window.h>
-
+#include <wx/wupdlock.h>
 #ifdef _WIN32
 #include <wx/msw/dcclient.h>
 #include <wx/msw/private.h>
@@ -204,5 +207,5 @@ void BitmapComboBox::Rescale()
 }
 #endif
 
-}}
 
+}}

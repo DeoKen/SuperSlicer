@@ -3,11 +3,12 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#pragma once
-
-#include "libslic3r/Api/plugin/cpp/PluginBase.hpp"
+#ifndef plugins_standardlayerheightgenerator_hpp_
+#define plugins_standardlayerheightgenerator_hpp_
 
 #include <string>
+
+#include "libslic3r/Api/plugin/cpp/PluginBase.hpp"
 
 #ifdef _DEBUG
 namespace Slic3r {
@@ -46,3 +47,5 @@ bool test_layer_height_slicing_parameters(const Slic3r::Print &print,
 #endif
 
 }} // namespace slic3r_api::StandardLayerHeightGeneratorPlugin
+
+#endif // plugins_standardlayerheightgenerator_hpp_

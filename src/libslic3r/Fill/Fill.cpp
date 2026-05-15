@@ -6,19 +6,22 @@
 ///|/ Copyright (c) 2011 Michael Moon
 ///|/
 ///|/ SuperSlicer, PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include <cassert>
 #include <cstdio>
 #include <memory>
 
-#include "../ClipperUtils.hpp"
-#include "../Geometry.hpp"
-#include "../Layer.hpp"
-#include "../Print.hpp"
-#include "../PrintConfig.hpp"
-#include "../Surface.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Surface.hpp"
+
 // for Arachne based infills
-#include "../PerimeterGenerator.hpp"
+#include "libslic3r/PerimeterGenerator.hpp"
 
 #include "FillBase.hpp"
 #include "FillRectilinear.hpp"

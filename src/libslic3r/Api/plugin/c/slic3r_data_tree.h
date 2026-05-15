@@ -2,18 +2,17 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #ifndef slic3r_data_tree_h_
 #define slic3r_data_tree_h_
 
 #include <stddef.h>
 #include <stdint.h>
 
-#include "slic3r_def.h"
-#include "slic3r_utils.h"
-#include "slic3r_geometry.h"
-#include "slic3r_extrusions.h"
 #include "slic3r_config_option.h"
+#include "slic3r_def.h"
+#include "slic3r_extrusions.h"
+#include "slic3r_geometry.h"
+#include "slic3r_utils.h"
 
 #ifdef __cplusplus
 extern "C" {

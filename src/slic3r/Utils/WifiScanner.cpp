@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "WifiScanner.hpp"
 
-
+#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/system.hpp>
 #include <boost/property_tree/xml_parser.hpp>
-#include <boost/filesystem.hpp>
-
 #ifdef _WIN32
 #include <windows.h>
 #include <objbase.h>

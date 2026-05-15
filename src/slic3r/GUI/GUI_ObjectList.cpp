@@ -1,46 +1,48 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, David Kocík @kocikdav, Filip Sykala @Jony01, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2021 Mathias Rasmussen
 ///|/ Copyright (c) 2020 rongith
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/TextConfiguration.hpp"
-#include "GUI_ObjectList.hpp"
-#include "GUI_Factories.hpp"
-#include "GUI_ObjectManipulation.hpp"
-#include "GUI_ObjectLayers.hpp"
-#include "GUI_App.hpp"
-#include "I18N.hpp"
-#include "Plater.hpp"
-#include "BitmapComboBox.hpp"
-#include "GalleryDialog.hpp"
-#include "MainFrame.hpp"
-#include "slic3r/Utils/UndoRedo.hpp"
-#include "Gizmos/GLGizmosManager.hpp"
-#include "Gizmos/GLGizmoCut.hpp"
-#include "Gizmos/GLGizmoScale.hpp"
 
-#include "OptionsGroup.hpp"
-#include "Tab.hpp"
-#include "wxExtensions.hpp"
-#include "libslic3r/Model.hpp"
-#include "GLCanvas3D.hpp"
-#include "Selection.hpp"
-#include "format.hpp"
-#include "NotificationManager.hpp"
-#include "MsgDialog.hpp"
+#include "GUI_ObjectList.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/log/trivial.hpp>
 
-#include <wx/progdlg.h>
 #include <wx/listbook.h>
 #include <wx/numformatter.h>
+#include <wx/progdlg.h>
 
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/TextConfiguration.hpp"
+
+#include "BitmapComboBox.hpp"
+#include "format.hpp"
+#include "GalleryDialog.hpp"
+#include "Gizmos/GLGizmoCut.hpp"
+#include "Gizmos/GLGizmoScale.hpp"
+#include "Gizmos/GLGizmosManager.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI_App.hpp"
+#include "GUI_Factories.hpp"
+#include "GUI_ObjectLayers.hpp"
+#include "GUI_ObjectManipulation.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "MsgDialog.hpp"
+#include "NotificationManager.hpp"
+#include "OptionsGroup.hpp"
+#include "Plater.hpp"
+#include "Selection.hpp"
 #include "slic3r/Utils/FixModelByWin10.hpp"
-
+#include "slic3r/Utils/UndoRedo.hpp"
+#include "Tab.hpp"
+#include "wxExtensions.hpp"
 #ifdef __WXMSW__
 #include "wx/uiaction.h"
 #endif /* __WXMSW__ */

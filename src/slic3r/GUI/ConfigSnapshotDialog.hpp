@@ -1,18 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2019 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_ConfigSnapshotDialog_hpp_
 #define slic3r_GUI_ConfigSnapshotDialog_hpp_
 
+#include <wx/html/htmlwin.h>
+#include <wx/intl.h>
+#include <wx/wx.h>
+
 #include "GUI.hpp"
 #include "GUI_Utils.hpp"
-
-#include <wx/wx.h>
-#include <wx/intl.h>
-#include <wx/html/htmlwin.h>
-
-namespace Slic3r { 
+namespace Slic3r {
 namespace GUI {
 
 namespace Config {

@@ -2,16 +2,17 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "CWS.hpp"
+
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/log/trivial.hpp>
 
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLAPrint.hpp"
 #include "libslic3r/Time.hpp"
 #include "libslic3r/Zipper.hpp"
-
-#include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 
 namespace Slic3r {
 

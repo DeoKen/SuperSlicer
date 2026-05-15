@@ -1,13 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef POINTGRID_HPP
 #define POINTGRID_HPP
 
+#include <libslic3r/BoundingBox.hpp>
 #include <libslic3r/Execution/Execution.hpp>
 #include <libslic3r/Point.hpp>
-#include <libslic3r/BoundingBox.hpp>
 
 namespace Slic3r {
 

@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/
 ///|/ ported from lib/Slic3r/GUI/OptionsGroup.pm:
@@ -8,7 +9,9 @@
 ///|/ Copyright (c) 2011 Richard Goodwin
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_OptionsGroup_hpp_
 #define slic3r_OptionsGroup_hpp_
 
@@ -24,7 +27,7 @@
 #include "Field.hpp"
 #include "I18N.hpp"
 
-// Translate the ifdef 
+// Translate the ifdef
 #ifdef __WXOSX__
     #define wxOSX true
 #else

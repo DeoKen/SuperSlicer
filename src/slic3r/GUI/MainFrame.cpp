@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2021 Jason Scurtu @xarbit
 ///|/ Copyright (c) 2019 John Drake @foxox
@@ -8,7 +9,9 @@
 ///|/ Copyright (c) 2014 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "MainFrame.hpp"
 
 #include <wx/debug.h>
@@ -34,7 +37,7 @@
 #include "libslic3r/SLAPrint.hpp"
 #include "libslic3r/Time.hpp"
 
-#include "../Utils/Process.hpp"
+#include "slic3r/Utils/Process.hpp"
 #include "3DScene.hpp"
 #include "GLCanvas3D.hpp"
 #include "GUI_ObjectList.hpp"

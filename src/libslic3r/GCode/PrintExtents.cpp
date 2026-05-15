@@ -1,23 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2022 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) 2019 Thomas Moore
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "PrintExtents.hpp"
+
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/Print.hpp"
+
+#include "WipeTower.hpp"
+
 // Calculate extents of the extrusions assigned to Print / PrintObject.
 // The extents are used for assessing collisions of the print with the priming towers,
 // to decide whether to pause the print after the priming towers are extruded
 // to let the operator remove them from the print bed.
-
-#include "../BoundingBox.hpp"
-#include "../ExtrusionEntity.hpp"
-#include "../ExtrusionEntityCollection.hpp"
-#include "../Layer.hpp"
-#include "../Print.hpp"
-#include "libslic3r/PointUtils.hpp"
-
-#include "PrintExtents.hpp"
-#include "WipeTower.hpp"
-
 namespace Slic3r {
 
 static inline BoundingBox extrusion_polyline_extents(const Polyline &polyline, const coord_t radius)

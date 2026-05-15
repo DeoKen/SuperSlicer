@@ -1,16 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2019 Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_Utils_Serial_hpp_
 #define slic3r_GUI_Utils_Serial_hpp_
 
-#include <vector>
 #include <string>
-#include <boost/system/error_code.hpp>
+#include <vector>
+
 #include <boost/asio.hpp>
-
-
+#include <boost/system/error_code.hpp>
 namespace Slic3r {
 namespace Utils {
 

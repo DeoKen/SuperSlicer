@@ -1,38 +1,38 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) BambuStudio 2023 manch1n @manch1n
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLCanvas3D_hpp_
 #define slic3r_GLCanvas3D_hpp_
 
 #include <cfloat>
-#include <cstddef>
-#include <memory>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
-
-#include "GLToolbar.hpp"
-#include "Event.hpp"
-#include "Selection.hpp"
-#include "Gizmos/GLGizmosManager.hpp"
-#include "GUI_ObjectLayers.hpp"
-#include "GLSelectionRectangle.hpp"
-#include "MeshUtils.hpp"
-#include "libslic3r/GCode/GCodeProcessor.hpp"
-#include "libslic3r/Slicing.hpp"
-#include "GCodeViewer.hpp"
-#include "Camera.hpp"
-#include "SceneRaycaster.hpp"
-#include "GUI_Utils.hpp"
-
-#include "libslic3r/Arrange/ArrangeSettingsDb_AppCfg.hpp"
-#include "ArrangeSettingsDialogImgui.hpp"
-
-
+#include <memory>
 
 #include <wx/timer.h>
 
+#include "libslic3r/Arrange/ArrangeSettingsDb_AppCfg.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/Slicing.hpp"
+
+#include "ArrangeSettingsDialogImgui.hpp"
+#include "Camera.hpp"
+#include "Event.hpp"
+#include "GCodeViewer.hpp"
+#include "Gizmos/GLGizmosManager.hpp"
+#include "GLSelectionRectangle.hpp"
+#include "GLToolbar.hpp"
+#include "GUI_ObjectLayers.hpp"
+#include "GUI_Utils.hpp"
+#include "MeshUtils.hpp"
+#include "SceneRaycaster.hpp"
+#include "Selection.hpp"
 class wxSizeEvent;
 class wxIdleEvent;
 class wxKeyEvent;

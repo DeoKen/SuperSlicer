@@ -1,12 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef ANYPTR_HPP
 #define ANYPTR_HPP
 
 #include <memory>
 #include <type_traits>
+
 #include <boost/variant.hpp>
 
 namespace Slic3r {

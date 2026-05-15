@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_SurfaceMesh_hpp_
 #define slic3r_SurfaceMesh_hpp_
 
 #include <admesh/stl.h>
+
 #include <libslic3r/TriangleMesh.hpp>
 
-#include "boost/container/small_vector.hpp"
+#include <boost/container/small_vector.hpp>
 
 namespace Slic3r {
 

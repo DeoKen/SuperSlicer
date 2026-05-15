@@ -1,12 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "LabelObjects.hpp"
+
+#include <regex>
 
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/TriangleMeshSlicer.hpp"
-
-#include <regex>
 
 namespace Slic3r::GCode {
 

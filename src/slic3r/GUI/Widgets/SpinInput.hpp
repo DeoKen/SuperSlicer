@@ -1,9 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_SpinInput_hpp_
 #define slic3r_GUI_SpinInput_hpp_
 
 #include <wx/textctrl.h>
-#include "StaticBox.hpp"
 
+#include "StaticBox.hpp"
 class Button;
 
 class SpinInputBase : public wxNavigationEnabled<StaticBox>

@@ -1,38 +1,42 @@
-///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri
-///@enricoturri1966
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
+///|/ @enricoturri1966
+///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri
 ///|/ Copyright (c) 2020 Paul Arden @ardenpm
 ///|/ Copyright (c) 2019 Thomas Moore
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "WipeTower2.hpp"
 
 #include <cassert>
-#include <iostream>
-#include <vector>
-#include <numeric>
-#include <memory>
-#include <sstream>
 #include <iomanip>
+#include <iostream>
+#include <memory>
+#include <numeric>
+#include <sstream>
+#include <vector>
 
-#include "GCodeProcessor.hpp"
-#include "ToolOrdering.hpp"
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Fill/FillBase.hpp"
+#include "libslic3r/Fill/FillRectilinear.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/PointUtils.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Surface.hpp"
-#include "libslic3r/Fill/FillBase.hpp"
-#include "libslic3r/Fill/FillRectilinear.hpp"
-#include "libslic3r/PointUtils.hpp"
 
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include "GCodeProcessor.hpp"
+#include "ToolOrdering.hpp"
 
 namespace Slic3r {
 

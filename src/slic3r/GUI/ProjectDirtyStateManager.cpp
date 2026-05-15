@@ -1,23 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
 
 #include "ProjectDirtyStateManager.hpp"
-#include "ImGuiWrapper.hpp"
-#include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "I18N.hpp"
-#include "Plater.hpp"
-
-#include "libslic3r/Model.hpp"
-
-#include <boost/algorithm/string/predicate.hpp>
 
 #include <algorithm>
 #include <cassert>
 
+#include <boost/algorithm/string/predicate.hpp>
+
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Model.hpp"
+
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "ImGuiWrapper.hpp"
+#include "MainFrame.hpp"
+#include "Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 
@@ -163,5 +165,5 @@ void ProjectDirtyStateManager::render_debug_window() const
 #endif // ENABLE_PROJECT_DIRTY_STATE_DEBUG_WINDOW
 
 } // namespace GUI
-} // namespace Slic3r
 
+} // namespace Slic3r

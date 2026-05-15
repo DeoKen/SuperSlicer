@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Oleksandra Iushchenko @YuSanka
 ///|/ Copyright (c) 2021 Raphael Sobik
 ///|/ Copyright (c) 2021 Martin Budden
@@ -10,13 +11,10 @@
 ///|/ Copyright (c) 2015 Alexander Rössler @machinekoder
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GCodeWriter.hpp"
-#include "../CustomGCode.hpp"
-
-#include "LocalesUtils.hpp"
-
-#include <boost/lexical_cast.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -24,7 +22,14 @@
 #include <iostream>
 #include <map>
 #include <string_view>
+
+#include <boost/lexical_cast.hpp>
 #include <boost/math/special_functions/pow.hpp>
+
+#include "libslic3r/CustomGCode.hpp"
+
+#include "LocalesUtils.hpp"
+
 #ifdef __APPLE__
     #include <boost/spirit/include/karma.hpp>
 #endif

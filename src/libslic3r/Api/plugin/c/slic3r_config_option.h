@@ -2,15 +2,14 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #ifndef slic3r_config_option_h_
 #define slic3r_config_option_h_
 
-#include "slic3r_config_option_type.h"
-#include "slic3r_geometry.h"
-
 #include <stddef.h>
 #include <stdint.h>
+
+#include "slic3r_config_option_type.h"
+#include "slic3r_geometry.h"
 
 #ifdef __cplusplus
 extern "C" {

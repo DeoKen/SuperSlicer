@@ -1,13 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2021 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Tesselate.hpp"
+
+#include <glu-libtess.h>
 
 #include "ExPolygon.hpp"
 #include "PointUtils.hpp"
-
-#include <glu-libtess.h>
 
 namespace Slic3r {
 

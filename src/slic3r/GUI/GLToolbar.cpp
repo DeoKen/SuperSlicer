@@ -1,24 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Enrico Turri @enricoturri1966, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/AppConfig.hpp"
-#include "libslic3r/Point.hpp"
 
 #include "GLToolbar.hpp"
 
-#include "slic3r/GUI/GLCanvas3D.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/Camera.hpp"
-#include "slic3r/GUI/Plater.hpp"
-
-#include <wx/event.h>
 #include <wx/bitmap.h>
 #include <wx/dcmemory.h>
-#include <wx/settings.h>
+#include <wx/event.h>
 #include <wx/glcanvas.h>
+#include <wx/settings.h>
 
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Point.hpp"
+
+#include "slic3r/GUI/Camera.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

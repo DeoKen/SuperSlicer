@@ -1,21 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "ButtonsDescription.hpp"
-#include <wx/sizer.h>
-#include <wx/string.h>
-#include <wx/stattext.h>
-#include <wx/statbmp.h>
-#include <wx/clrpicker.h>
 
+#include "ButtonsDescription.hpp"
+
+#include <wx/clrpicker.h>
+#include <wx/sizer.h>
+#include <wx/statbmp.h>
+#include <wx/stattext.h>
+#include <wx/string.h>
+
+#include "BitmapCache.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
 #include "OptionsGroup.hpp"
 #include "wxExtensions.hpp"
-#include "BitmapCache.hpp"
-
 namespace Slic3r {
 namespace GUI {
 
@@ -299,5 +302,5 @@ Dialog::Dialog(wxWindow* parent, const std::vector<ButtonEntry> &entries) :
 
 } // GUI_Descriptions
 } // GUI
-} // Slic3r
 
+} // Slic3r

@@ -2,18 +2,18 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#ifndef slic3r_Api_plugin_cpp_Views_hpp_
+#define slic3r_Api_plugin_cpp_Views_hpp_
 
-#pragma once
+#include <cassert>
 
-#include "libslic3r/Api/plugin/cpp/GeometryViews.hpp"
 #include "libslic3r/Api/plugin/cpp/BridgeDetectorViews.hpp"
 #include "libslic3r/Api/plugin/cpp/ClipperViews.hpp"
 #include "libslic3r/Api/plugin/cpp/DataTreeViews.hpp"
+#include "libslic3r/Api/plugin/cpp/GeometryViews.hpp"
 #include "libslic3r/Api/plugin/cpp/PluginBase.hpp"
 #include "libslic3r/Api/plugin/cpp/PluginContext.hpp"
 #include "libslic3r/Api/plugin/cpp/VolumeViews.hpp"
-
-#include <cassert>
 
 namespace slic3r_api {
 
@@ -76,3 +76,6 @@ private:
 };
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_Views_hpp_

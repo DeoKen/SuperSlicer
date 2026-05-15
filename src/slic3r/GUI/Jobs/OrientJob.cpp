@@ -1,12 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "OrientJob.hpp"
 
 #include "libslic3r/Model.hpp"
-#include "slic3r/GUI/Plater.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
-#include "libslic3r/PresetBundle.hpp"
-
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r { namespace GUI {
 
 

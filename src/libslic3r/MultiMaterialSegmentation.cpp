@@ -1,26 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "BoundingBox.hpp"
-#include "ClipperUtils.hpp"
-#include "Point.hpp"
-#include "EdgeGrid.hpp"
-#include "Layer.hpp"
-#include "Print.hpp"
-#include "Geometry/VoronoiVisualUtils.hpp"
-#include "Geometry/VoronoiUtils.hpp"
-#include "MutablePolygon.hpp"
-#include "format.hpp"
-#include "TriangleSelector.hpp"
+#include "MultiMaterialSegmentation.hpp"
 
-#include <utility>
+#include <mutex>
 #include <unordered_set>
+#include <utility>
 
 #include <boost/log/trivial.hpp>
-#include <oneapi/tbb/parallel_for.h>
-#include <mutex>
 #include <boost/thread/lock_guard.hpp>
+
+#include <oneapi/tbb/parallel_for.h>
+
+#include "BoundingBox.hpp"
+#include "ClipperUtils.hpp"
+#include "EdgeGrid.hpp"
+#include "format.hpp"
+#include "Geometry/VoronoiUtils.hpp"
+#include "Geometry/VoronoiVisualUtils.hpp"
+#include "Layer.hpp"
+#include "MutablePolygon.hpp"
+#include "Point.hpp"
+#include "Print.hpp"
+#include "TriangleSelector.hpp"
 
 //#define MM_SEGMENTATION_DEBUG_GRAPH
 //#define MM_SEGMENTATION_DEBUG_REGIONS

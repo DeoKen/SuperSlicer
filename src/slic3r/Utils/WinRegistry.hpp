@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Utils_WinRegistry_hpp_
 #define slic3r_Utils_WinRegistry_hpp_
 
 #ifdef _WIN32
 
-#include <string>
 
+#include <string>
 namespace Slic3r {
 
 // Creates a Windows registry key for the files with the given 'extension' and associates them to the application 'prog_id'.

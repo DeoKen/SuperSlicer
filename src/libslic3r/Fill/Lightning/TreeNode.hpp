@@ -1,5 +1,8 @@
-//Copyright (c) 2021 Ultimaker B.V.
-//CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/ Copyright (c) 2021 Ultimaker B.V.
+///|/ CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
 #ifndef LIGHTNING_TREE_NODE_H
 #define LIGHTNING_TREE_NODE_H
@@ -9,8 +12,8 @@
 #include <optional>
 #include <vector>
 
-#include "../../EdgeGrid.hpp"
-#include "../../Polygon.hpp"
+#include "libslic3r/EdgeGrid.hpp"
+#include "libslic3r/Polygon.hpp"
 #include "SVG.hpp"
 
 //#define LIGHTNING_TREE_NODE_DEBUG_OUTPUT

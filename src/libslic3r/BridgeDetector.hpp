@@ -1,23 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Pavel Mikuš @Godrak, Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_BridgeDetector_hpp_
 #define slic3r_BridgeDetector_hpp_
 
+#include <cmath>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 #include "ClipperUtils.hpp"
+#include "ExPolygon.hpp"
+#include "libslic3r.h"
 #include "Line.hpp"
 #include "Point.hpp"
 #include "Polygon.hpp"
 #include "Polyline.hpp"
 #include "PrincipalComponents2D.hpp"
-#include "libslic3r.h"
-#include "ExPolygon.hpp"
-#include <cmath>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace Slic3r {
 

@@ -1,21 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "DownloaderFileGet.hpp"
 
+#include <iostream>
 #include <thread>
-#include <curl/curl.h>
-#include <boost/nowide/fstream.hpp>
+
+#include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/algorithm/string.hpp>
-#include <iostream>
+#include <boost/nowide/fstream.hpp>
+
+#include <curl/curl.h>
 
 #include "format.hpp"
 #include "GUI.hpp"
 #include "I18N.hpp"
-
 namespace Slic3r {
 namespace GUI {
 

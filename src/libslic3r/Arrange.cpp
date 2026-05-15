@@ -1,10 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Arrange.hpp"
 
-#include "BoundingBox.hpp"
+#include <numeric>
+
+#include <boost/container/small_vector.hpp>
+#include <boost/geometry/index/rtree.hpp>
 
 #include <libnest2d/backends/libslic3r/geometries.hpp>
 #include <libnest2d/optimizers/nlopt/subplex.hpp>
@@ -12,11 +17,8 @@
 #include <libnest2d/selections/firstfit.hpp>
 #include <libnest2d/utils/rotcalipers.hpp>
 
-#include <numeric>
-#include <ClipperUtils.hpp>
-
-#include <boost/geometry/index/rtree.hpp>
-#include <boost/container/small_vector.hpp>
+#include "BoundingBox.hpp"
+#include "ClipperUtils.hpp"
 
 #if defined(_MSC_VER) && defined(__clang__)
 #define BOOST_NO_CXX17_HDR_STRING_VIEW

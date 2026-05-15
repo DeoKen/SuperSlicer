@@ -1,22 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_MsgDialog_hpp_
 #define slic3r_MsgDialog_hpp_
 
 #include <string>
 #include <unordered_map>
 
+#include <wx/bitmap.h>
 #include <wx/dialog.h>
 #include <wx/font.h>
-#include <wx/bitmap.h>
 #include <wx/msgdlg.h>
 #include <wx/richmsgdlg.h>
-#include <wx/textctrl.h>
 #include <wx/statline.h>
+#include <wx/textctrl.h>
 #include <wx/window.h>
-
 class wxBoxSizer;
 class CheckBox;
 class wxStaticBitmap;

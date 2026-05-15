@@ -1,19 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLGizmoBase_hpp_
 #define slic3r_GLGizmoBase_hpp_
 
-#include "libslic3r/Point.hpp"
+#include <cereal/archives/binary.hpp>
+
 #include "libslic3r/Color.hpp"
+#include "libslic3r/Point.hpp"
 
 #include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/GUI/MeshUtils.hpp"
 #include "slic3r/GUI/SceneRaycaster.hpp"
-
-#include <cereal/archives/binary.hpp>
-
 class wxWindow;
 class wxMouseEvent;
 

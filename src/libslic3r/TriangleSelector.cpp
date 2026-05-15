@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "TriangleSelector.hpp"
-#include "Model.hpp"
 
 #include <boost/container/small_vector.hpp>
+
+#include "Model.hpp"
 
 #ifndef NDEBUG
 //    #define EXPENSIVE_DEBUG_CHECKS

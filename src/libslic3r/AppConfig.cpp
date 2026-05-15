@@ -2,23 +2,13 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/ 
 ///|/ SuperSlicer and PrusaSlicer are released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/Utils.hpp"
 #include "AppConfig.hpp"
 
-#include "libslic3r.h"
-#include "format.hpp"
-#include "Exception.hpp"
-#include "I18N.hpp"
-#include "LocalesUtils.hpp"
-#include "Thread.hpp"
-#include "Utils.hpp"
-#include "Color.hpp"
-
+#include <stdexcept>
 #include <utility>
 #include <vector>
-#include <stdexcept>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/directory.hpp>
@@ -30,7 +20,18 @@
 #include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
-#include <boost/log/trivial.hpp>
+
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Utils.hpp"
+
+#include "Color.hpp"
+#include "Exception.hpp"
+#include "format.hpp"
+#include "I18N.hpp"
+#include "libslic3r.h"
+#include "LocalesUtils.hpp"
+#include "Thread.hpp"
+#include "Utils.hpp"
 
 #ifdef WIN32
 //FIXME replace the two following includes with <boost/md5.hpp> after it becomes mainstream.

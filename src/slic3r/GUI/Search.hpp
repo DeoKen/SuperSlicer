@@ -1,31 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_SearchComboBox_hpp_
 #define slic3r_SearchComboBox_hpp_
 
-#include <vector>
 #include <map>
+#include <vector>
 
 #include <boost/nowide/convert.hpp>
 
+#include <wx/checkbox.h>
+#include <wx/combo.h>
+#include <wx/dialog.h>
+#include <wx/listctrl.h>
 #include <wx/panel.h>
 #include <wx/sizer.h>
-#include <wx/listctrl.h>
 
-#include <wx/combo.h>
-
-#include <wx/checkbox.h>
-#include <wx/dialog.h>
-
-#include "GUI_Utils.hpp"
-#include "wxExtensions.hpp"
-#include "OptionsGroup.hpp"
 #include "libslic3r/Preset.hpp"
 
+#include "GUI_Utils.hpp"
+#include "OptionsGroup.hpp"
 #include "Widgets/CheckBox.hpp"
-
+#include "wxExtensions.hpp"
 class CheckBox;
 
 namespace Slic3r {

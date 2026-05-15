@@ -5,12 +5,15 @@
 ///|/ Copyright (c) 2014 Petr Ledvina @ledvinap
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "ExtrusionEntityCollection.hpp"
-#include "ShortestPath.hpp"
-#include <algorithm>
+
 #include <cmath>
 #include <map>
+
+#include <algorithm>
+#include "ShortestPath.hpp"
 
 namespace Slic3r {
 

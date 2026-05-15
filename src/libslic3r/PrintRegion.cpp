@@ -1,8 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2021 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) Slic3r 2014 - 2015 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2015 Maksim Derbasov @ntfshard
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Exception.hpp"
 #include "Print.hpp"

@@ -1,12 +1,15 @@
-//Copyright (c) 2021 Ultimaker B.V.
-//CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/ Copyright (c) 2021 Ultimaker B.V.
+///|/ CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
 #ifndef LIGHTNING_DISTANCE_FIELD_H
 #define LIGHTNING_DISTANCE_FIELD_H
 
-#include "../../BoundingBox.hpp"
-#include "../../Point.hpp"
-#include "../../Polygon.hpp"
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Polygon.hpp"
 
 //#define LIGHTNING_DISTANCE_FIELD_DEBUG_OUTPUT
 

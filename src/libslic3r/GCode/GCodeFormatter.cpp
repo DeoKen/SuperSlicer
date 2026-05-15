@@ -2,9 +2,11 @@
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer & SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
 #include "GCodeFormatter.hpp"
+
 #include <boost/spirit/include/karma.hpp>
 
 namespace Slic3r {

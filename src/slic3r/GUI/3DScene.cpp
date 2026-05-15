@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2017 Eyal Soha @eyal0
 ///|/ Copyright (c) Slic3r 2015 Alessandro Ranellucci @alranel
@@ -8,45 +9,46 @@
 ///|/ Copyright (c) 2013 Guillaume Seguin @iXce
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <GL/glew.h>
 
 #include "3DScene.hpp"
-#include "BitmapCache.hpp"
-#include "Camera.hpp"
-#include "GLShader.hpp"
-#include "GUI_App.hpp"
-#include "OpenGLManager.hpp"
-#include "Plater.hpp"
-
-#include "libslic3r/BuildVolume.hpp"
-#include "libslic3r/ExtrusionEntity.hpp"
-#include "libslic3r/ExtrusionEntityCollection.hpp"
-#include "libslic3r/Geometry.hpp"
-#include "libslic3r/Print.hpp"
-#include "libslic3r/SLAPrint.hpp"
-#include "libslic3r/Slicing.hpp"
-#include "libslic3r/Format/STL.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/AppConfig.hpp"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-#include "libslic3r/Tesselate.hpp"
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/PointUtils.hpp"
 
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-#include <boost/log/trivial.hpp>
-
-#include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <Eigen/Dense>
 
+#include <GL/glew.h>
+
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Format/STL.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/SLAPrint.hpp"
+#include "libslic3r/Slicing.hpp"
+#include "libslic3r/Tesselate.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "BitmapCache.hpp"
+#include "Camera.hpp"
+#include "GLShader.hpp"
+#include "GUI_App.hpp"
+#include "OpenGLManager.hpp"
+#include "Plater.hpp"
 #ifdef HAS_GLSAFE
 void glAssertRecentCallImpl(const char* file_name, unsigned int line, const char* function_name)
 {

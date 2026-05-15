@@ -1,15 +1,21 @@
-#pragma once
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
+#ifndef steps_steprunner_hpp_
+#define steps_steprunner_hpp_
+
+#include <cassert>
+#include <string>
+#include <vector>
+
+#include <boost/log/trivial.hpp>
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/Plugin.hpp"
 #include "libslic3r/DataTreeFwd.hpp"
 #include "libslic3r/Thread.hpp"
-
-#include <boost/log/trivial.hpp>
-
-#include <cassert>
-#include <string>
-#include <vector>
 
 namespace Slic3r::Steps::Detail {
 
@@ -26,3 +32,5 @@ inline void validate_or_report(bool (*validator)(const Print &, std::string &),
 }
 
 } // namespace Slic3r::Steps::Detail
+
+#endif // steps_steprunner_hpp_

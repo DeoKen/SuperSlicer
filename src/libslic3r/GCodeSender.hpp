@@ -1,18 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2021 Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) Slic3r 2014 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_GCodeSender_hpp_
 #define slic3r_GCodeSender_hpp_
 
-#include "libslic3r.h"
 #include <queue>
 #include <string>
 #include <vector>
+
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/thread.hpp>
+
+#include "libslic3r.h"
 
 namespace Slic3r {
 

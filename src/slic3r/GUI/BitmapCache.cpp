@@ -1,20 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2021 Scott Mudge @ScottMudge
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "BitmapCache.hpp"
 
-#include "libslic3r/Utils.hpp"
-#include "../Utils/MacDarkMode.hpp"
-#include "GUI.hpp"
-#include "GUI_Utils.hpp"
-
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
-#include <boost/algorithm/string/replace.hpp>
 
+#include "libslic3r/Utils.hpp"
+
+#include "GUI.hpp"
+#include "GUI_Utils.hpp"
+#include "slic3r/Utils/MacDarkMode.hpp"
 #ifdef __WXGTK2__
     // Broken alpha workaround
     #include <wx/mstream.h>

@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef TRY_CATCH_SIGNAL_SEH_HPP
 #define TRY_CATCH_SIGNAL_SEH_HPP
 
 #include <functional>
+
 #include <csignal>
 
 namespace Slic3r {

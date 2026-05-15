@@ -3,7 +3,8 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#pragma once
+#ifndef plugins_bridgedetector_hpp_
+#define plugins_bridgedetector_hpp_
 
 #include "libslic3r/Api/plugin/c/slic3r_plugin.h"
 #include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
@@ -42,3 +43,5 @@ public:
 void register_bridge_detector_plugin(orchestrator_handle *orch);
 
 }} // namespace slic3r_api::BridgeDetectorPlugin
+
+#endif // plugins_bridgedetector_hpp_

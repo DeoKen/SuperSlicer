@@ -1,18 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GLSelectionRectangle.hpp"
-#include "Camera.hpp"
-#include "CameraUtils.hpp"
-#include "3DScene.hpp"
-#include "GLCanvas3D.hpp"
-#include "GUI_App.hpp"
-#include "Plater.hpp"
-#include <igl/project.h>
 
 #include <GL/glew.h>
 
+#include <igl/project.h>
+
+#include "3DScene.hpp"
+#include "Camera.hpp"
+#include "CameraUtils.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI_App.hpp"
+#include "Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

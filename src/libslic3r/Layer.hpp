@@ -8,13 +8,14 @@
 ///|/ Copyright (c) Slic3r 2011 - 2016 Alessandro Ranellucci @alranel
 ///|/
 ///|/ SuperSlicer, PrusaSlicer, Slic3r are released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Layer_hpp_
 #define slic3r_Layer_hpp_
 
 #include <unordered_map>
 
-//#include <boost/container/small_vector.hpp>
+#include <boost/container/small_vector.hpp>
 
 #include "BoundingBox.hpp"
 #include "DataTreeFwd.hpp"
@@ -22,6 +23,7 @@
 #include "Flow.hpp"
 #include "libslic3r.h"
 #include "Line.hpp"
+#include "Steps/StepPipeline.hpp"
 #include "SurfaceCollection.hpp"
 
 namespace Slic3r {

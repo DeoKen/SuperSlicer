@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, Filip Sykala @Jony01, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2022 KARBOWSKI Piotr
 ///|/ Copyright (c) 2022 ole00 @ole00
@@ -5,16 +6,19 @@
 ///|/ Copyright (c) 2020 Klaus Naumann
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "GUI_App.hpp"
+
 #include "libslic3r/Technologies.hpp"
 #include "libslic3r/Thread.hpp"
-#include "GUI_App.hpp"
 #include "GUI_Init.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_ObjectManipulation.hpp"
 #include "GUI_Factories.hpp"
 #include "format.hpp"
-#include "InstanceCheck.hpp" 
+#include "InstanceCheck.hpp"
 
 // Localization headers: include libslic3r version first so everything in this file
 // uses the slic3r/GUI version (the macros will take precedence over the functions).
@@ -75,12 +79,12 @@
 #include "Plater.hpp"
 #include "GLCanvas3D.hpp"
 
-#include "../Utils/PresetUpdater.hpp"
-#include "../Utils/PrintHost.hpp"
-#include "../Utils/Process.hpp"
-#include "../Utils/MacDarkMode.hpp"
-#include "../Utils/AppUpdater.hpp"
-#include "../Utils/WinRegistry.hpp"
+#include "slic3r/Utils/PresetUpdater.hpp"
+#include "slic3r/Utils/PrintHost.hpp"
+#include "slic3r/Utils/Process.hpp"
+#include "slic3r/Utils/MacDarkMode.hpp"
+#include "slic3r/Utils/AppUpdater.hpp"
+#include "slic3r/Utils/WinRegistry.hpp"
 #include "slic3r/Config/Snapshot.hpp"
 #include "CalibrationBedDialog.hpp"
 #include "CalibrationBridgeDialog.hpp"

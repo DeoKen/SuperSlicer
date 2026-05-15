@@ -1,11 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GCode_LabelObjects_hpp_
 #define slic3r_GCode_LabelObjects_hpp_
 
 #include <string>
 #include <unordered_map>
-#include "../BoundingBox.hpp"
 
-#include "../BoundingBox.hpp"
+#include "libslic3r/BoundingBox.hpp"
 
 namespace Slic3r {
 

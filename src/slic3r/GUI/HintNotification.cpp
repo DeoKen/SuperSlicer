@@ -1,36 +1,40 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas
 ///|/ Copyright (c) 2021 odaki @odaki
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "HintNotification.hpp"
-#include "ImGuiWrapper.hpp"
-#include "format.hpp"
-#include "I18N.hpp"
-#include "GUI_ObjectList.hpp"
-#include "GLCanvas3D.hpp"
-#include "MainFrame.hpp"
-#include "Tab.hpp"
-#include "libslic3r/AppConfig.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/Preset.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
 #include <map>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/nowide/fstream.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Config.hpp"
+#include "libslic3r/Config.hpp"
+#include "libslic3r/Preset.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "format.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI_ObjectList.hpp"
+#include "I18N.hpp"
+#include "ImGuiWrapper.hpp"
+#include "MainFrame.hpp"
+#include "Tab.hpp"
 #define HINTS_CEREAL_VERSION 1
 // structure for writing used hints into binary file with version
 struct HintsCerealData

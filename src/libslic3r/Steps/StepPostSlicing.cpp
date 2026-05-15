@@ -1,4 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "StepPostSlicing.hpp"
+
+#include <sstream>
+#include <utility>
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/Plugin.hpp"
@@ -12,9 +20,6 @@
 #include "libslic3r/Thread.hpp"
 
 #include "StepRunner.hpp"
-
-#include <sstream>
-#include <utility>
 
 namespace Slic3r::Steps::StepPostSlicing {
 namespace {

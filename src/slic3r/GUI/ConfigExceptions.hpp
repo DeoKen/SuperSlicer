@@ -1,8 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2020 Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <exception> 
+
+#ifndef slic3r_GUI_ConfigExceptions_hpp_
+#define slic3r_GUI_ConfigExceptions_hpp_
+
+#include <exception>
 namespace Slic3r {
 
 class ConfigError : public Slic3r::RuntimeError { 
@@ -17,3 +23,5 @@ class ConfigGUITypeError : public ConfigError {
 
 } // namespace GUI
 } // namespace Slic3r
+
+#endif // slic3r_GUI_ConfigExceptions_hpp_

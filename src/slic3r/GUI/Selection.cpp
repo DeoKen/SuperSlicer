@@ -1,38 +1,38 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "Selection.hpp"
-
-#include "3DScene.hpp"
-#include "GLCanvas3D.hpp"
-#include "GUI_App.hpp"
-#include "GUI.hpp"
-#include "GUI_ObjectManipulation.hpp"
-#include "GUI_ObjectList.hpp"
-#include "Camera.hpp"
-#include "Plater.hpp"
-#include "MsgDialog.hpp"
-
-#include "Gizmos/GLGizmoBase.hpp"
-
-#include "slic3r/Utils/UndoRedo.hpp"
-
-#include "libslic3r/LocalesUtils.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/BuildVolume.hpp"
-
-#include <GL/glew.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/log/trivial.hpp>
 
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Min_sphere_of_spheres_d.h>
 #include <CGAL/Min_sphere_of_points_d_traits_3.h>
+#include <CGAL/Min_sphere_of_spheres_d.h>
+#include <CGAL/Simple_cartesian.h>
 
+#include <GL/glew.h>
+
+#include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
+#include "3DScene.hpp"
+#include "Camera.hpp"
+#include "Gizmos/GLGizmoBase.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "GUI_ObjectList.hpp"
+#include "GUI_ObjectManipulation.hpp"
+#include "MsgDialog.hpp"
+#include "Plater.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
 static const Slic3r::ColorRGBA UNIFORM_SCALE_COLOR     = Slic3r::ColorRGBA::ORANGE();
 static const Slic3r::ColorRGBA SOLID_PLANE_COLOR       = Slic3r::ColorRGBA::ORANGE();
 static const Slic3r::ColorRGBA TRANSPARENT_PLANE_COLOR = { 0.8f, 0.8f, 0.8f, 0.5f };

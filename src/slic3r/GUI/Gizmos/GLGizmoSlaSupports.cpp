@@ -1,12 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 BeldrothTheGold @BeldrothTheGold
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "GLGizmoSlaSupports.hpp"
-#include "slic3r/GUI/MainFrame.hpp"
-#include "slic3r/Utils/UndoRedo.hpp"
 
 #include <GL/glew.h>
 
@@ -14,14 +14,17 @@
 #include <wx/settings.h>
 #include <wx/stattext.h>
 
-#include "slic3r/GUI/GUI.hpp"
-#include "slic3r/GUI/GUI_ObjectSettings.hpp"
-#include "slic3r/GUI/GUI_ObjectList.hpp"
-#include "slic3r/GUI/NotificationManager.hpp"
-#include "slic3r/GUI/MsgDialog.hpp"
+#include "libslic3r/libslic3r.h"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/SLAPrint.hpp"
 
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/GUI_ObjectSettings.hpp"
+#include "slic3r/GUI/MainFrame.hpp"
+#include "slic3r/GUI/MsgDialog.hpp"
+#include "slic3r/GUI/NotificationManager.hpp"
+#include "slic3r/Utils/UndoRedo.hpp"
 static const double CONE_RADIUS = 0.25;
 static const double CONE_HEIGHT = 0.75;
 

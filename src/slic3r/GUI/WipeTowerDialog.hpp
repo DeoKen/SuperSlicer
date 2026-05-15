@@ -1,20 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2019 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef _WIPE_TOWER_DIALOG_H_
 #define _WIPE_TOWER_DIALOG_H_
 
+#include <wx/checkbox.h>
+#include <wx/msgdlg.h>
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/checkbox.h>
-#include <wx/msgdlg.h>
 
 #include "RammingChart.hpp"
 #include "Widgets/SpinInput.hpp"
-
-
 class RammingPanel : public wxPanel {
 public:
     RammingPanel(wxWindow* parent);

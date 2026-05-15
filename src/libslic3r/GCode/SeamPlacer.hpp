@@ -1,24 +1,27 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef libslic3r_SeamPlacer_hpp_
 #define libslic3r_SeamPlacer_hpp_
 
 #include <array>
+#include <atomic>
+#include <memory>
 #include <optional>
 #include <vector>
-#include <memory>
-#include <atomic>
 
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/ExtrusionEntity.hpp"
-#include "libslic3r/Polygon.hpp"
-#include "libslic3r/ContainerUtils.hpp"
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/AABBTreeIndirect.hpp"
+#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/ContainerUtils.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/KDTreeIndirect.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {
 

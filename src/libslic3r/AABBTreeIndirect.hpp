@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak, Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#ifndef slic3r_AABBTreeIndirect_hpp_
+#define slic3r_AABBTreeIndirect_hpp_
+
 // AABB tree built upon external data set, referencing the external data by integer indices.
 // The AABB tree balancing and traversal (ray casting, closest triangle of an indexed triangle mesh)
 // were adapted from libigl AABB.{cpp,hpp} Copyright (C) 2015 Alec Jacobson <alecjacobson@gmail.com>
 // while the implicit balanced tree representation and memory optimizations are Vojtech's.
 
-#ifndef slic3r_AABBTreeIndirect_hpp_
-#define slic3r_AABBTreeIndirect_hpp_
 
 #include <algorithm>
 #include <limits>

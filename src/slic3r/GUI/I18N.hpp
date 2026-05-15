@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef _
-#define _(s)    	Slic3r::GUI::I18N::translate((s))
-#define _L(s)    	Slic3r::GUI::I18N::translate((s))
+#define _(s)	Slic3r::GUI::I18N::translate((s))
+#define _L(s)	Slic3r::GUI::I18N::translate((s))
 #define _u8L(s)     Slic3r::GUI::I18N::translate_utf8((s))
 #endif /* _ */
 
 #ifndef _CTX
-#define _CTX(s, ctx) 	  Slic3r::GUI::I18N::translate((s), (ctx))
+#define _CTX(s, ctx)	  Slic3r::GUI::I18N::translate((s), (ctx))
 #define _CTX_utf8(s, ctx) Slic3r::GUI::I18N::translate_utf8((s), (ctx))
 #endif /* _ */
 
@@ -17,7 +20,7 @@
 // !!! If you needed to translate some wxString,
 // !!! please use _L(string)
 // !!! _() - is a standard wxWidgets macro to translate
-// !!! L() is used only for marking localizable string 
+// !!! L() is used only for marking localizable string
 // !!! It will be used in "xgettext" to create a Locating Message Catalog.
 #define L(s) s
 #endif /* L */

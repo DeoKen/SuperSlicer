@@ -1,19 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef BOOSTTHREADWORKER_HPP
 #define BOOSTTHREADWORKER_HPP
 
+#include <boost/log/trivial.hpp>
 #include <boost/variant.hpp>
 
-#include "Worker.hpp"
-
-#include <libslic3r/Thread.hpp>
-#include <boost/log/trivial.hpp>
+#include "libslic3r/Thread.hpp"
 
 #include "ThreadSafeQueue.hpp"
-
+#include "Worker.hpp"
 namespace Slic3r { namespace GUI {
 
 // An implementation of the Worker interface which uses the boost::thread

@@ -1,14 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef ARRANGE_HPP
 #define ARRANGE_HPP
 
 #include <boost/variant.hpp>
 
-#include <libslic3r/ExPolygon.hpp>
 #include <libslic3r/BoundingBox.hpp>
+#include <libslic3r/ExPolygon.hpp>
 
 namespace Slic3r {
 

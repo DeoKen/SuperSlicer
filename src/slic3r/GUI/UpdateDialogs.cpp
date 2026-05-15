@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Superslicer 2025 DUrand remi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/ Copyright (c) 2020 Ondřej Nový @onovy
@@ -5,11 +6,13 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "UpdateDialogs.hpp"
 
 #include <cstring>
-#include <boost/format.hpp>
+
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/format.hpp>
 #include <boost/nowide/convert.hpp>
 
 #include <wx/button.h>
@@ -23,18 +26,17 @@
 
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Utils.hpp"
-#include "slic3r/Config/Snapshot.hpp"
-#include "slic3r/Utils/AppUpdater.hpp"
-#include "slic3r/Utils/Http.hpp"
 
 #include "ConfigWizard.hpp"
+#include "format.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
+#include "slic3r/Config/Snapshot.hpp"
+#include "slic3r/Utils/AppUpdater.hpp"
+#include "slic3r/Utils/Http.hpp"
 #include "UnsavedChangesDialog.hpp"
 #include "wxExtensions.hpp"
-#include "format.hpp"
-
 namespace Slic3r {
 namespace GUI {
 

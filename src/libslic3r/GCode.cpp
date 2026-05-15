@@ -19,66 +19,64 @@
 ///|/ Copyright (c) 2012 Henrik Brix Andersen @henrikbrixandersen
 ///|/
 ///|/ SuperSlicer, PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "GCode.hpp"
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cmath>
+#include <cstdlib>
+#include <map>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/find.hpp>
+#include <boost/algorithm/string/regex.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/foreach.hpp>
+#include <boost/format.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/cstdio.hpp>
+#include <boost/nowide/cstdlib.hpp>
+#include <boost/nowide/iostream.hpp>
+#include <fast_float/fast_float.h>
+#include <oneapi/tbb/parallel_for.h>
+
+#include "ClipperUtils.hpp"
 #include "Color.hpp"
 #include "Config.hpp"
-#include "Geometry/Circle.hpp"
-#include "libslic3r.h"
-#include "GCode/ExtrusionProcessor.hpp"
-#include "I18N.hpp"
-#include "GCode.hpp"
 #include "Exception.hpp"
 #include "ExtrusionEntity.hpp"
-#include "Geometry/ConvexHull.hpp"
+#include "format.hpp"
+#include "GCode/ExtrusionProcessor.hpp"
 #include "GCode/FanMover.hpp"
 #include "GCode/LabelObjects.hpp"
 #include "GCode/PrintExtents.hpp"
 #include "GCode/TemperatureMover.hpp"
 #include "GCode/Thumbnails.hpp"
+#include "GCode/Travels.hpp"
 #include "GCode/WipeTower.hpp"
 #include "GCode/WipeTower2.hpp"
 #include "GCode/WipeTowerIntegration.hpp"
-#include "GCode/Travels.hpp"
+#include "Geometry/Circle.hpp"
+#include "Geometry/ConvexHull.hpp"
+#include "I18N.hpp"
+#include "libslic3r.h"
+#include "LocalesUtils.hpp"
 #include "Point.hpp"
+#include "PointUtils.hpp"
 #include "Polygon.hpp"
 #include "PrintConfig.hpp"
 #include "ShortestPath.hpp"
-#include "PrintConfig.hpp"
+#include "SVG.hpp"
 #include "Thread.hpp"
 #include "Utils.hpp"
-#include "ClipperUtils.hpp"
-#include "libslic3r.h"
-#include "LocalesUtils.hpp"
-#include "format.hpp"
-#include "PointUtils.hpp"
-
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <cstdlib>
-#include <chrono>
-#include <map>
-#include <unordered_set>
-#include <optional>
-#include <string>
-#include <string_view>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/find.hpp>
-#include <boost/algorithm/string/regex.hpp>
-#include <boost/foreach.hpp>
-#include <boost/format.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/log/trivial.hpp>
-
-#include <boost/nowide/iostream.hpp>
-#include <boost/nowide/cstdio.hpp>
-#include <boost/nowide/cstdlib.hpp>
-
-#include "SVG.hpp"
-
-#include <fast_float/fast_float.h>
-#include <oneapi/tbb/parallel_for.h>
 
 // Intel redesigned some TBB interface considerably when merging TBB with their oneAPI set of libraries, see GH #7332.
 // We are using quite an old TBB 2017 U7. Before we update our build servers, let's use the old API, which is deprecated in up to date TBB.

@@ -1,14 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2021 Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#ifndef FTS_FUZZY_MATCH_H
+#define FTS_FUZZY_MATCH_H
+
 // LICENSE
 //
 //   This software is dual-licensed to the public domain and under the following
 //   license: you are granted a perpetual, irrevocable license to copy, modify,
 //   publish, and distribute this file as you see fit.
 //
-// VERSION 
+// VERSION
 //   0.2.0  (2017-02-18)  Scored matches perform exhaustive search for best score
 //   0.1.0  (2016-03-28)  Initial release
 //
@@ -30,11 +36,6 @@
 //     Uses uint8_t for match indices. Therefore patterns are limited to max_matches characters.
 //     Score system should be tuned for YOUR use case. Words, sentences, file names, or method names all prefer different tuning.
 
-
-#ifndef FTS_FUZZY_MATCH_H
-#define FTS_FUZZY_MATCH_H
-
-
 #include <cstdint> // uint8_t
 #include <ctype.h> // ::tolower, ::toupper
 #include <cwctype> // std::towlower, std::towupper
@@ -42,7 +43,7 @@
 
 #include <cstdio>
 
-#include "../Utils/ASCIIFolding.hpp"
+#include "slic3r/Utils/ASCIIFolding.hpp"
 
 // Public interface
 namespace fts {

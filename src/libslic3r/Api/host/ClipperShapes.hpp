@@ -2,15 +2,15 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #ifndef slic3r_Api_ClipperShapes_hpp_
 #define slic3r_Api_ClipperShapes_hpp_
 
-#include "clipper/clipper.hpp"
+#include <memory>
+
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/Polygon.hpp"
 
-#include <memory>
+#include <clipper/clipper.hpp>
 
 namespace Slic3r {
 class MultiPoint;

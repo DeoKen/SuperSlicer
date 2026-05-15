@@ -2,18 +2,22 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "SeamPlacer.hpp"
 
-#include "tbb/parallel_for.h"
-#include "tbb/blocked_range.h"
-#include "tbb/parallel_reduce.h"
-#include <boost/log/trivial.hpp>
 #include <algorithm>
 #include <atomic>
 #include <queue>
 #include <random>
 #include <tuple>
+
+#include <boost/log/trivial.hpp>
+
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+#include <tbb/parallel_reduce.h>
 
 #include "libslic3r/AABBTreeLines.hpp"
 #include "libslic3r/BoundingBox.hpp"

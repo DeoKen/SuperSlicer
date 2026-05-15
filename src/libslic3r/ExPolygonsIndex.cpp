@@ -1,4 +1,9 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #include "ExPolygonsIndex.hpp"
+
 using namespace Slic3r;
 
 // IMPROVE: use one dimensional vector for polygons offset with searching by std::lower_bound

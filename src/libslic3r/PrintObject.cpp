@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Lukáš Hejl @hejllukas, Pavel Mikuš @Godrak, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, David Kocík @kocikdav, Roman Beránek @zavorka
 ///|/ Copyright (c) 2021 Justin Schuh @jschuh
 ///|/ Copyright (c) 2021 Ilya @xorza
@@ -6,48 +7,8 @@
 ///|/ Copyright (c) 2015 Maksim Derbasov @ntfshard
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "AABBTreeLines.hpp"
-#include "BridgeDetector.hpp"
-#include "ExPolygon.hpp"
-#include "Exception.hpp"
-#include "Flow.hpp"
-#include "GCode/ExtrusionProcessor.hpp"
-#include "KDTreeIndirect.hpp"
-#include "Line.hpp"
-#include "Point.hpp"
-#include "Polygon.hpp"
-#include "Polyline.hpp"
-#include "Print.hpp"
-#include "BoundingBox.hpp"
-#include "ClipperUtils.hpp"
-#include "ElephantFootCompensation.hpp"
-#include "Geometry.hpp"
-#include "I18N.hpp"
-#include "Layer.hpp"
-#include "MutablePolygon.hpp"
-#include "PrintBase.hpp"
-#include "PrintConfig.hpp"
-#include "Support/SupportMaterial.hpp"
-#include "Support/TreeSupport.hpp"
-#include "Surface.hpp"
-#include "Slicing.hpp"
-#include "SurfaceCollection.hpp"
-#include "Tesselate.hpp"
-#include "Thread.hpp"
-#include "TriangleMeshSlicer.hpp"
-#include "Utils.hpp"
-#include "Fill/FillAdaptive.hpp"
-#include "Fill/FillLightning.hpp"
-#include "Format/STL.hpp"
-#include "Support/SupportMaterial.hpp"
-#include "SupportSpotsGenerator.hpp"
-#include "TriangleSelectorWrapper.hpp"
-#include "Api/internal/PrintObjectAccess.hpp"
-#include "format.hpp"
-#include "libslic3r.h"
-
-#include <algorithm>
 #include <atomic>
 #include <cfloat>
 #include <cmath>
@@ -69,6 +30,47 @@
 #include <oneapi/tbb/blocked_range.h>
 #include <oneapi/tbb/concurrent_vector.h>
 #include <oneapi/tbb/parallel_for.h>
+
+#include "AABBTreeLines.hpp"
+#include <algorithm>
+#include "Api/internal/PrintObjectAccess.hpp"
+#include "BoundingBox.hpp"
+#include "BridgeDetector.hpp"
+#include "ClipperUtils.hpp"
+#include "ElephantFootCompensation.hpp"
+#include "Exception.hpp"
+#include "ExPolygon.hpp"
+#include "Fill/FillAdaptive.hpp"
+#include "Fill/FillLightning.hpp"
+#include "Flow.hpp"
+#include "format.hpp"
+#include "Format/STL.hpp"
+#include "GCode/ExtrusionProcessor.hpp"
+#include "Geometry.hpp"
+#include "I18N.hpp"
+#include "KDTreeIndirect.hpp"
+#include "Layer.hpp"
+#include "libslic3r.h"
+#include "Line.hpp"
+#include "MutablePolygon.hpp"
+#include "Point.hpp"
+#include "Polygon.hpp"
+#include "Polyline.hpp"
+#include "Print.hpp"
+#include "PrintBase.hpp"
+#include "PrintConfig.hpp"
+#include "Slicing.hpp"
+#include "Support/SupportMaterial.hpp"
+#include "Support/TreeSupport.hpp"
+#include "SupportSpotsGenerator.hpp"
+#include "Surface.hpp"
+#include "SurfaceCollection.hpp"
+#include "Tesselate.hpp"
+#include "Thread.hpp"
+#include "TriangleMeshSlicer.hpp"
+#include "TriangleSelectorWrapper.hpp"
+#include "Utils.hpp"
+
 //#include <oneapi/tbb/parallel_for.h>
 
 using namespace std::literals;

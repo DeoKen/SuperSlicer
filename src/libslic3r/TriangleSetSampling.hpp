@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SRC_LIBSLIC3R_TRIANGLESETSAMPLING_HPP_
 #define SRC_LIBSLIC3R_TRIANGLESETSAMPLING_HPP_
 
 #include <admesh/stl.h>
+
 #include "libslic3r/Point.hpp"
 
 namespace Slic3r {

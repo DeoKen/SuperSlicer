@@ -1,44 +1,47 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "GalleryDialog.hpp"
 
 #include <cstddef>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/log/trivial.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
 
+#include <wx/button.h>
+#include <wx/listctrl.h>
+#include <wx/notebook.h>
 #include <wx/sizer.h>
+#include <wx/statbox.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/button.h>
-#include <wx/statbox.h>
 #include <wx/wupdlock.h>
-#include <wx/notebook.h>
-#include <wx/listctrl.h>
 
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "format.hpp"
-#include "wxExtensions.hpp"
-#include "I18N.hpp"
-#include "Notebook.hpp"
-#include "3DScene.hpp"
-#include "GLCanvas3D.hpp"
-#include "Plater.hpp"
-#include "MsgDialog.hpp"
-#include "libslic3r/Utils.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/BuildVolume.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/GCode/ThumbnailData.hpp"
 #include "libslic3r/Format/OBJ.hpp"
-#include "../Utils/MacDarkMode.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Utils.hpp"
 
+#include "3DScene.hpp"
+#include "format.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MsgDialog.hpp"
+#include "Notebook.hpp"
+#include "Plater.hpp"
+#include "slic3r/Utils/MacDarkMode.hpp"
+#include "wxExtensions.hpp"
 namespace Slic3r {
 namespace GUI {
 

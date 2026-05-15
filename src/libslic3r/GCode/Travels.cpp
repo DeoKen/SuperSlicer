@@ -1,11 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "Travels.hpp"
 
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/Layer.hpp"
-#include "libslic3r/Print.hpp"
-#include "libslic3r/PointUtils.hpp"
-
 #include "libslic3r/GCode.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r::GCode {
     

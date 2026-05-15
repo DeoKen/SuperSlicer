@@ -1,39 +1,41 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2022 Sebastian Nadorp @snadorp
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ConfigWizard_private_hpp_
 #define slic3r_ConfigWizard_private_hpp_
 
-#include "ConfigWizard.hpp"
-
-#include <vector>
+#include <functional>
 #include <set>
 #include <unordered_map>
-#include <functional>
+#include <vector>
+
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
-#include <wx/panel.h>
 #include <wx/button.h>
-#include <wx/choice.h>
-#include <wx/spinctrl.h>
-#include <wx/listbox.h>
 #include <wx/checklst.h>
-#include <wx/radiobut.h>
+#include <wx/choice.h>
 #include <wx/html/htmlwin.h>
+#include <wx/listbox.h>
+#include <wx/panel.h>
+#include <wx/radiobut.h>
+#include <wx/spinctrl.h>
 
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
-#include "slic3r/Utils/PresetUpdater.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
 #include "BedShapeDialog.hpp"
+#include "ConfigWizard.hpp"
 #include "GUI.hpp"
 #include "SavePresetDialog.hpp"
-#include "wxExtensions.hpp"
-
+#include "slic3r/Utils/PresetUpdater.hpp"
 #include "Widgets/SpinInput.hpp"
-
+#include "wxExtensions.hpp"
 namespace fs = boost::filesystem;
 
 namespace Slic3r {

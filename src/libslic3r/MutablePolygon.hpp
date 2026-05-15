@@ -1,13 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_MutablePolygon_hpp_
 #define slic3r_MutablePolygon_hpp_
 
+#include "ExPolygon.hpp"
 #include "Point.hpp"
 #include "Polygon.hpp"
-#include "ExPolygon.hpp"
 
 namespace Slic3r {
 

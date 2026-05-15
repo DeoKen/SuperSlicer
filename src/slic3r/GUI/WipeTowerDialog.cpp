@@ -1,20 +1,24 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "WipeTowerDialog.hpp"
+
 #include <algorithm>
 #include <sstream>
-#include "WipeTowerDialog.hpp"
-#include "BitmapCache.hpp"
-#include "GUI.hpp"
-#include "I18N.hpp"
-#include "GUI_App.hpp"
-#include "MsgDialog.hpp"
-
-#include "libslic3r/Color.hpp"
 
 #include <wx/sizer.h>
 
+#include "libslic3r/Color.hpp"
+
+#include "BitmapCache.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MsgDialog.hpp"
 using namespace Slic3r::GUI;
 
 int scale(const int val) { return val * wxGetApp().em_unit(); }

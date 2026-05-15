@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, David Kocík @kocikdav, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral, Oleksandra Iushchenko @YuSanka
 ///|/ Copyright (c) 2018 fredizzimo @fredizzimo
 ///|/ Copyright (c) Slic3r 2013 - 2016 Alessandro Ranellucci @alranel
@@ -17,19 +18,16 @@
 ///|/ Copyright (c) 2011 Clarence Risher
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Config.hpp"
-#include "Flow.hpp"
-#include "format.hpp"
-#include "Preset.hpp"
-#include "Utils.hpp"
-#include "LocalesUtils.hpp"
 
 #include <cassert>
 #include <cstring>
 #include <fstream>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/erase.hpp>
@@ -38,15 +36,21 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/config.hpp>
 #include <boost/foreach.hpp>
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/nowide/cenv.hpp>
 #include <boost/nowide/cstdio.hpp>
-#include <boost/nowide/iostream.hpp>
 #include <boost/nowide/fstream.hpp>
+#include <boost/nowide/iostream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
-#include <boost/format.hpp>
 
 #include <LibBGCode/binarize/binarize.hpp>
+
+#include "Flow.hpp"
+#include "format.hpp"
+#include "LocalesUtils.hpp"
+#include "Preset.hpp"
+#include "Utils.hpp"
 
 //FIXME for GCodeFlavor and gcfMarlin (for forward-compatibility conversion)
 // This is not nice, likely it would be better to pass the ConfigSubstitutionContext to handle_legacy().

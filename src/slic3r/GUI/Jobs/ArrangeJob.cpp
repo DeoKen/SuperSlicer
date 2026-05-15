@@ -1,29 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 Tomáš Mészáros @tamasmeszaros, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ArrangeJob.hpp"
 
+#include <numeric>
+#include <random>
+
 #include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/SLAPrint.hpp"
-#include "libslic3r/Geometry/ConvexHull.hpp"
 
-#include "slic3r/GUI/Plater.hpp"
+#include "libnest2d/common.hpp"
+#include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_ObjectManipulation.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
-#include "slic3r/GUI/format.hpp"
-
-
-#include "libnest2d/common.hpp"
-
-#include <numeric>
-#include <random>
-
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r { namespace GUI {
 
 // Cache the wti info

@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_PresetUpdate_hpp_
 #define slic3r_PresetUpdate_hpp_
 
@@ -11,11 +14,10 @@
 #include <thread>
 #include <vector>
 
-#include "libslic3r/Semver.hpp"
-#include "libslic3r/Preset.hpp"
-
 #include <wx/event.h>
 
+#include "libslic3r/Preset.hpp"
+#include "libslic3r/Semver.hpp"
 namespace Slic3r {
 
 

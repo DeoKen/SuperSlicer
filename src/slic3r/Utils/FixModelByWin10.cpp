@@ -1,7 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "FixModelByWin10.hpp"
 #ifdef HAS_WIN10SDK
 
 #ifndef NOMINMAX
@@ -17,8 +21,6 @@
 #include <winrt/robuffer.h>
 #include <winrt/windows.storage.provider.h>
 #include <winrt/windows.graphics.printing3d.h>
-
-#include "FixModelByWin10.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -37,9 +39,9 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Format/3mf.hpp"
-#include "../GUI/GUI.hpp"
-#include "../GUI/I18N.hpp"
-#include "../GUI/MsgDialog.hpp"
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/I18N.hpp"
+#include "slic3r/GUI/MsgDialog.hpp"
 
 #include <wx/msgdlg.h>
 #include <wx/progdlg.h>

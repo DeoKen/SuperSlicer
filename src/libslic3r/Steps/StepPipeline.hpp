@@ -3,7 +3,8 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#pragma once
+#ifndef steps_steppipeline_hpp_
+#define steps_steppipeline_hpp_
 
 #include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
@@ -47,3 +48,4 @@ private:
 } // namespace Steps
 } // namespace Slic3r
 
+#endif // steps_steppipeline_hpp_

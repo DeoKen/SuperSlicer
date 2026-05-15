@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2021 David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/GUI/ProgressStatusBar.pm:
@@ -5,17 +6,18 @@
 ///|/ Copyright (c) Slic3r 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef PROGRESSSTATUSBAR_HPP
 #define PROGRESSSTATUSBAR_HPP
 
+#include <functional>
 #include <memory>
 #include <string>
-#include <functional>
 #include <string>
 
 #include "Jobs/ProgressIndicator.hpp"
-
 class wxTimer;
 class wxGauge;
 class wxButton;

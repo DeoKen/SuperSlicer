@@ -1,17 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "Thumbnails.hpp"
-#include "../miniz_extension.hpp"
-#include "../format.hpp"
 
-#include <qoi/qoi.h>
-#include <jpeglib.h>
-#include <jerror.h>
+#include "Thumbnails.hpp"
+
+#include <string>
 
 #include <boost/algorithm/string.hpp>
-#include <string>
+
+#include "libslic3r/format.hpp"
+#include "libslic3r/miniz_extension.hpp"
+
+#include "jerror.h"
+#include "jpeglib.h"
+#include "qoi/qoi.h"
 
 namespace Slic3r::GCodeThumbnails {
 

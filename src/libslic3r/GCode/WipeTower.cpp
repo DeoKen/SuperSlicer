@@ -4,29 +4,31 @@
 ///|/ Copyright (c) 2019 Thomas Moore
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "WipeTower.hpp"
 
 #include <cassert>
-#include <iostream>
-#include <vector>
-#include <numeric>
-#include <memory>
-#include <sstream>
 #include <iomanip>
-
-#include "ClipperUtils.hpp"
-#include "GCodeProcessor.hpp"
-#include "BoundingBox.hpp"
-#include "LocalesUtils.hpp"
-#include "Flow.hpp"
-#include "Geometry.hpp"
-#include "Surface.hpp"
-#include "Fill/FillRectilinear.hpp"
-#include "PointUtils.hpp"
+#include <iostream>
+#include <memory>
+#include <numeric>
+#include <sstream>
+#include <vector>
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+
+#include "BoundingBox.hpp"
+#include "ClipperUtils.hpp"
+#include "Fill/FillRectilinear.hpp"
+#include "Flow.hpp"
+#include "GCodeProcessor.hpp"
+#include "Geometry.hpp"
+#include "LocalesUtils.hpp"
+#include "PointUtils.hpp"
+#include "Surface.hpp"
 
 namespace Slic3r
 {

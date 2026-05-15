@@ -8,6 +8,7 @@
 ///|/ Copyright (c) Slic3r 2011 - 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_Point_hpp_
 #define slic3r_Point_hpp_
@@ -16,16 +17,17 @@
 #include <cmath>
 #include <cstddef>
 #include <optional>
-#include <vector>
-#include <cmath>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <Eigen/Core> 
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <oneapi/tbb/scalable_allocator.h>
 
 #include "libslic3r.h"
+#include "LocalesUtils.hpp"
 #include "NumericUtils.hpp"
 
 namespace Slic3r {

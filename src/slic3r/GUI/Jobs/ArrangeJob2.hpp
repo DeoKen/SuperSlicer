@@ -1,19 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef ARRANGEJOB2_HPP
 #define ARRANGEJOB2_HPP
 
 #include <optional>
 
-#include "Job.hpp"
-
-#include "libslic3r/Arrange/Tasks/ArrangeTask.hpp"
-#include "libslic3r/Arrange/Tasks/FillBedTask.hpp"
 #include "libslic3r/Arrange/Items/ArrangeItem.hpp"
 #include "libslic3r/Arrange/SceneBuilder.hpp"
+#include "libslic3r/Arrange/Tasks/ArrangeTask.hpp"
+#include "libslic3r/Arrange/Tasks/FillBedTask.hpp"
 
+#include "Job.hpp"
 namespace Slic3r {
 
 class Model;

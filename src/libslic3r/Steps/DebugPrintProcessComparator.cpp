@@ -345,5 +345,5 @@ bool DebugPrintProcessComparator::compare_tree_after(const char *label, std::str
 
 } // namespace Slic3r::Steps
 
-#endif // _DEBUG
 
+#endif // _DEBUG

@@ -1,15 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "BuildVolume.hpp"
-#include "ClipperUtils.hpp"
-#include "Geometry/ConvexHull.hpp"
-#include "libslic3r/PointUtils.hpp"
-#include "GCode/GCodeProcessor.hpp"
-#include "Point.hpp"
 
 #include <boost/log/trivial.hpp>
+
+#include "libslic3r/PointUtils.hpp"
+
+#include "ClipperUtils.hpp"
+#include "GCode/GCodeProcessor.hpp"
+#include "Geometry/ConvexHull.hpp"
+#include "Point.hpp"
 
 namespace Slic3r {
 

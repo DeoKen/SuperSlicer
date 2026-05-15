@@ -1,30 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Hejl @hejllukas, Enrico Turri @enricoturri1966, David Kocík @kocikdav, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_wxExtensions_hpp_
 #define slic3r_GUI_wxExtensions_hpp_
 
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/Color.hpp"
+#include <functional>
+#include <vector>
 
+#include <wx/bmpbndl.h>
+#include <wx/bmpbuttn.h>
+#include <wx/bmpcbox.h>
+#include <wx/button.h>
 #include <wx/checklst.h>
 #include <wx/combo.h>
 #include <wx/dataview.h>
-#include <wx/button.h>
-#include <wx/bmpbuttn.h>
-#include <wx/sizer.h>
+#include <wx/dcmemory.h>
 #include <wx/menu.h>
-#include <wx/bmpcbox.h>
-#include <wx/bmpbndl.h>
+#include <wx/sizer.h>
 #include <wx/statbmp.h>
 #include <wx/timer.h>
-#include <wx/dcmemory.h>
 
-#include <vector>
-#include <functional>
-
-
+#include "libslic3r/Color.hpp"
+#include "libslic3r/PrintConfig.hpp"
 #ifndef __linux__
 void                sys_color_changed_menu(wxMenu* menu);
 #else 

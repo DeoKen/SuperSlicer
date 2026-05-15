@@ -5,7 +5,7 @@
 #ifndef UTILS_EXTRUSION_JUNCTION_H
 #define UTILS_EXTRUSION_JUNCTION_H
 
-#include "../../Point.hpp"
+#include "libslic3r/Point.hpp"
 
 namespace Slic3r::Arachne
 {

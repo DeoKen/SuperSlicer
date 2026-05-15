@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_EmbossJob_hpp_
 #define slic3r_EmbossJob_hpp_
 
 #include <atomic>
 #include <memory>
 #include <string>
-#include <libslic3r/Emboss.hpp>
-#include <libslic3r/EmbossShape.hpp> // ExPolygonsWithIds
+#include "libslic3r/Emboss.hpp"
+#include "libslic3r/EmbossShape.hpp" // ExPolygonsWithIds
 #include "libslic3r/Point.hpp" // Transform3d
 #include "libslic3r/ObjectID.hpp"
 

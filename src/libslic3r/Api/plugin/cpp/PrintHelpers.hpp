@@ -2,8 +2,8 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
+#ifndef slic3r_Api_plugin_cpp_PrintHelpers_hpp_
+#define slic3r_Api_plugin_cpp_PrintHelpers_hpp_
 
 #include <cstdint>
 #include <set>
@@ -22,3 +22,6 @@ std::set<uint16_t> object_extruders(const Print &print, const Object &object);
 coord_t check_z_step(coord_t val, coord_t z_step);
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_PrintHelpers_hpp_

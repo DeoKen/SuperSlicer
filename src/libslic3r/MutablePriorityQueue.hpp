@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2022 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_MutablePriorityQueue_hpp_
 #define slic3r_MutablePriorityQueue_hpp_
 
-#include <type_traits>
-#include <vector>
-#include <limits>
 #include <cassert>
 #include <cstdlib> // adds size_t (without std::)
+#include <limits>
+#include <type_traits>
+#include <vector>
 
 namespace Slic3r {
 

@@ -1,16 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef SLAARCHIVE_HPP
 #define SLAARCHIVE_HPP
 
 #include <vector>
 
 #include "libslic3r/Config.hpp"
-#include "libslic3r/SLA/RasterBase.hpp"
 #include "libslic3r/Execution/ExecutionTBB.hpp"
 #include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/SLA/RasterBase.hpp"
 
 namespace Slic3r {
 

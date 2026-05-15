@@ -1,11 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "Exception.hpp"
 #include "MeshBoolean.hpp"
+
 #include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/TryCatchSignal.hpp"
+
+#include "Exception.hpp"
+
 #undef PI
 
 // Include igl first. It defines "L" macro which then clashes with our localization

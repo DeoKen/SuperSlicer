@@ -7,47 +7,48 @@
 ///|/ Copyright (c) 2019 Thomas Moore
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
+
 #include "GLCanvas3D.hpp"
 
 #include <igl/unproject.h>
 
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/ClipperUtils.hpp"
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/GCode/ThumbnailData.hpp"
-#include "libslic3r/GCode/GCodeWriter.hpp"
-#include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/GCode/GCodeWriter.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Layer.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/libslic3r.h"
 #include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Technologies.hpp"
 #include "libslic3r/Tesselate.hpp"
-#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Utils.hpp"
+
 #include "3DBed.hpp"
 #include "3DScene.hpp"
 #include "BackgroundSlicingProcess.hpp"
+#include "format.hpp"
 #include "GLShader.hpp"
 #include "GUI.hpp"
-#include "Tab.hpp"
-#include "GUI_Preview.hpp"
-#include "OpenGLManager.hpp"
-#include "Plater.hpp"
-#include "MainFrame.hpp"
 #include "GUI_App.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_ObjectManipulation.hpp"
-#include "Mouse3DController.hpp"
+#include "GUI_Preview.hpp"
 #include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "Mouse3DController.hpp"
 #include "NotificationManager.hpp"
-#include "format.hpp"
-
+#include "OpenGLManager.hpp"
+#include "Plater.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoPainterBase.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
-
+#include "Tab.hpp"
 #if ENABLE_RETINA_GL
 #include "slic3r/Utils/RetinaHelper.hpp"
 #endif
@@ -83,7 +84,7 @@
 #include "DoubleSlider.hpp"
 
 #include <imgui/imgui_internal.h>
-#include <slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp>
+#include "slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp"
 
 static constexpr const float TRACKBALLSIZE = 0.8f;
 

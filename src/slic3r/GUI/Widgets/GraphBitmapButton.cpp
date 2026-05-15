@@ -1,13 +1,18 @@
-#include "GraphBitmapButton.hpp"
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include "UIColors.hpp"
-#include "../GUI_App.hpp"
-#include "../I18N.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/Point.hpp"
+#include "GraphBitmapButton.hpp"
 
 #include <wx/dcmemory.h>
 
+#include "libslic3r/Config.hpp"
+#include "libslic3r/Point.hpp"
+
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/I18N.hpp"
+#include "UIColors.hpp"
 const int px_cnt = 16;
 
 GraphBitmapButton::GraphBitmapButton(wxWindow* parent, const wxSize &size/*, const wxString& name*/)

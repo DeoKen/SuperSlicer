@@ -1,12 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #ifndef PRUSASLICER_STATICMAP_HPP
 #define PRUSASLICER_STATICMAP_HPP
 
-#include <optional>
 #include <array>
-#include <string_view>
 #include <functional>
+#include <optional>
 #include <stdexcept>
-
+#include <string_view>
 
 namespace Slic3r {
 

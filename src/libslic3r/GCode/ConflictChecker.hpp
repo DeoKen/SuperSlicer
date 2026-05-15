@@ -1,20 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) BambuStudio 2023 manch1n @manch1n
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ConflictChecker_hpp_
 #define slic3r_ConflictChecker_hpp_
 
-#include "libslic3r/Print.hpp"
-
-#include <queue>
-#include <vector>
-#include <optional>
-
-
 //used only in Print::process() after brim generation, to check for object collision
 // arc is done just after, so we don't need to worry about it
+
+#include <optional>
+#include <queue>
+#include <vector>
+
+#include "libslic3r/Print.hpp"
+
 namespace Slic3r {
 
 struct LineWithID

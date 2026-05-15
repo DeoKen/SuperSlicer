@@ -1,17 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2021 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "objparser.hpp"
+
 #include <cstdlib>
 #include <cstring>
 
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
 
-#include "objparser.hpp"
-
 #include "libslic3r/LocalesUtils.hpp"
-#include "fast_float/fast_float.h"
+
+#include <fast_float/fast_float.h>
 
 namespace ObjParser {
 

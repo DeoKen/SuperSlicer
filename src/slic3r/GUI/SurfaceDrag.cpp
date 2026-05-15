@@ -1,22 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "SurfaceDrag.hpp"
 
-#include <libslic3r/Model.hpp> // ModelVolume
-#include <libslic3r/Emboss.hpp>
+#include "libslic3r/Emboss.hpp"
+#include "libslic3r/Model.hpp" // ModelVolume
 
-#include "slic3r/Utils/RaycastManager.hpp"
-
-#include "GLCanvas3D.hpp"
 #include "Camera.hpp"
 #include "CameraUtils.hpp"
-#include "I18N.hpp"
+#include "GLCanvas3D.hpp"
 #include "GUI_App.hpp"
 #include "GUI_ObjectManipulation.hpp"
-
-
+#include "I18N.hpp"
+#include "slic3r/Utils/RaycastManager.hpp"
 using namespace Slic3r;
 using namespace Slic3r::GUI;
 

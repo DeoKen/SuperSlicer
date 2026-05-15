@@ -1,10 +1,9 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "BBConfig.hpp"
-
-#include "../Model.hpp"
-#include "../PrintConfig.hpp"
-#include "../Config.hpp"
-
-#include "../../nlohmann/json.hpp"
 
 #include <map>
 #include <regex>
@@ -14,6 +13,11 @@
 #include <boost/log/trivial.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <nlohmann/json.hpp>
+
+#include "libslic3r/Config.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {
     
@@ -1157,4 +1161,3 @@ std_path extract_file(Model &model, mz_zip_archive &archive, const mz_zip_archiv
 }
 
 } // namespace Slic3r
-

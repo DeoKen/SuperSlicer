@@ -1,13 +1,16 @@
-//Copyright (c) 2021 Ultimaker B.V.
-//CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/ Copyright (c) 2021 Ultimaker B.V.
+///|/ CuraEngine is released under the terms of the AGPLv3 or higher.
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
 #include "LightningLayer.hpp" //The class we're implementing.
 
 #include "DistanceField.hpp"
 #include "TreeNode.hpp"
 
-#include "../../ClipperUtils.hpp"
-#include "../../Geometry.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Geometry.hpp"
 #include "Utils.hpp"
 
 #include <oneapi/tbb/parallel_for.h>

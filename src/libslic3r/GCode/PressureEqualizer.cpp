@@ -2,20 +2,23 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PressureEqualizer.hpp"
 
-#include <memory.h>
-#include <cstring>
 #include <cfloat>
+#include <cstring>
+#include <memory.h>
 
-#include "../libslic3r.h"
-#include "../PrintConfig.hpp"
-#include "../LocalesUtils.hpp"
-#include "../GCode.hpp"
+#include <fast_float/fast_float.h>
+
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/PrintConfig.hpp"
+
 #include "GCodeWriter.hpp"
-
-#include "fast_float/fast_float.h"
 
 namespace Slic3r {
 

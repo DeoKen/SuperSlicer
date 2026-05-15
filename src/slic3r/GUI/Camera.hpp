@@ -1,15 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_Camera_hpp_
 #define slic3r_Camera_hpp_
 
-#include "libslic3r/BoundingBox.hpp"
-#include "3DScene.hpp"
-#include "CoordAxes.hpp"
 #include <array>
 
+#include "libslic3r/BoundingBox.hpp"
+
+#include "3DScene.hpp"
+#include "CoordAxes.hpp"
 namespace Slic3r {
 namespace GUI {
 
@@ -160,5 +164,5 @@ private:
 } // GUI
 } // Slic3r
 
-#endif // slic3r_Camera_hpp_
 
+#endif // slic3r_Camera_hpp_

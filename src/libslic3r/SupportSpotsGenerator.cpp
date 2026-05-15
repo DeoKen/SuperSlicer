@@ -2,14 +2,41 @@
 ///|/ Copyright (c) SuperSlicer 2023 Remi Durand @supermerill
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "SupportSpotsGenerator.hpp"
 
+#include <cmath>
+#include <cstddef>
+#include <cstdio>
+#include <functional>
+#include <limits>
+#include <optional>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+#include <boost/log/trivial.hpp>
+
+#include <oneapi/tbb/concurrent_vector.h>
+#include <oneapi/tbb/parallel_for.h>
+
+#include <stack>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Layer.hpp"
+
+#include "AABBTreeLines.hpp"
+#include <algorithm>
 #include "BoundingBox.hpp"
 #include "ExPolygon.hpp"
 #include "ExtrusionEntity.hpp"
 #include "ExtrusionEntityCollection.hpp"
 #include "GCode/ExtrusionProcessor.hpp"
+#include "Geometry/ConvexHull.hpp"
+#include "KDTreeIndirect.hpp"
+#include "libslic3r.h"
 #include "Line.hpp"
 #include "Point.hpp"
 #include "PointUtils.hpp"
@@ -18,34 +45,12 @@
 #include "Print.hpp"
 #include "PrintBase.hpp"
 #include "PrintConfig.hpp"
+#include <tbb/blocked_range.h>
+#include <tbb/blocked_range2d.h>
+#include <tbb/parallel_reduce.h>
 #include "Tesselate.hpp"
 #include "Thread.hpp"
 #include "Utils.hpp"
-#include "libslic3r.h"
-#include "tbb/blocked_range.h"
-#include "tbb/blocked_range2d.h"
-#include "tbb/parallel_reduce.h"
-#include <algorithm>
-#include <boost/log/trivial.hpp>
-#include <cmath>
-#include <cstddef>
-#include <cstdio>
-#include <functional>
-#include <limits>
-#include <oneapi/tbb/concurrent_vector.h>
-#include <oneapi/tbb/parallel_for.h>
-#include <optional>
-#include <unordered_map>
-#include <unordered_set>
-#include <stack>
-#include <utility>
-#include <vector>
-
-#include "AABBTreeLines.hpp"
-#include "KDTreeIndirect.hpp"
-#include "libslic3r/Layer.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-#include "Geometry/ConvexHull.hpp"
 
 // #define DETAILED_DEBUG_LOGS
 // #define DEBUG_FILES

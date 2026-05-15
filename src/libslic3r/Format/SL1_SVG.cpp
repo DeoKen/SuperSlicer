@@ -1,22 +1,28 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Tomáš Mészáros @tamasmeszaros, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "SL1_SVG.hpp"
-#include "SLA/RasterBase.hpp"
-#include "libslic3r/LocalesUtils.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-#include "libslic3r/PointUtils.hpp"
+
+#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <string_view>
+
 #include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Format/ZipperArchiveImport.hpp"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/PointUtils.hpp"
+
+#include "SLA/RasterBase.hpp"
 
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg/nanosvg.h"
 
-#include <limits>
-#include <cstdint>
-#include <algorithm>
-#include <string_view>
 using namespace std::literals;
 
 namespace Slic3r {

@@ -1,12 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "SwitchButton.hpp"
 
-#include "../wxExtensions.hpp"
-#include "../../Utils/MacDarkMode.hpp"
-
+#include <wx/dcclient.h>
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
-#include <wx/dcclient.h>
 
+#include "slic3r/GUI/wxExtensions.hpp"
+#include "slic3r/Utils/MacDarkMode.hpp"
 SwitchButton::SwitchButton(wxWindow* parent, const wxString& name, wxWindowID id)
 	: BitmapToggleButton(parent, name, id)
     , m_on(this, "toggle_on", 28, 16)

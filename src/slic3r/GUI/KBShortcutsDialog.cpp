@@ -1,20 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01, David Kocík @kocikdav, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/libslic3r.h"
-#include "KBShortcutsDialog.hpp"
-#include "I18N.hpp"
-#include "libslic3r/Utils.hpp"
-#include "GUI.hpp"
-#include "Notebook.hpp"
-#include <wx/scrolwin.h>
-#include <wx/display.h>
-#include "GUI_App.hpp"
-#include "wxExtensions.hpp"
-#include "MainFrame.hpp"
-#include <wx/notebook.h>
 
+#include "KBShortcutsDialog.hpp"
+
+#include <wx/display.h>
+#include <wx/notebook.h>
+#include <wx/scrolwin.h>
+
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Utils.hpp"
+
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+#include "Notebook.hpp"
+#include "wxExtensions.hpp"
 namespace Slic3r {
 namespace GUI {
 

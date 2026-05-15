@@ -1,27 +1,29 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Vojtěch Král @vojtechkral, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "GUI_ObjectSettings.hpp"
-#include "GUI_ObjectList.hpp"
-#include "GUI_Factories.hpp"
 
-#include "OptionsGroup.hpp"
-#include "GUI_App.hpp"
-#include "wxExtensions.hpp"
-#include "Plater.hpp"
-#include "ScriptExecutor.hpp"
-#include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/Model.hpp"
+#include "GUI_ObjectSettings.hpp"
 
 #include <boost/algorithm/string.hpp>
 
-#include "I18N.hpp"
-#include "format.hpp"
-#include "ConfigManipulation.hpp"
-
 #include <wx/wupdlock.h>
 
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PresetBundle.hpp"
+
+#include "ConfigManipulation.hpp"
+#include "format.hpp"
+#include "GUI_App.hpp"
+#include "GUI_Factories.hpp"
+#include "GUI_ObjectList.hpp"
+#include "I18N.hpp"
+#include "OptionsGroup.hpp"
+#include "Plater.hpp"
+#include "ScriptExecutor.hpp"
+#include "wxExtensions.hpp"
 namespace Slic3r
 {
 namespace GUI

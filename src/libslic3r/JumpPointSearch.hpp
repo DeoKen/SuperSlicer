@@ -1,18 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SRC_LIBSLIC3R_JUMPPOINTSEARCH_HPP_
 #define SRC_LIBSLIC3R_JUMPPOINTSEARCH_HPP_
 
-#include "BoundingBox.hpp"
-#include "Polygon.hpp"
-#include "libslic3r/Layer.hpp"
-#include "libslic3r/Point.hpp"
-#include "libslic3r/Polyline.hpp"
-#include "libslic3r/libslic3r.h"
 #include <unordered_map>
 #include <unordered_set>
+
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Polyline.hpp"
+
+#include "BoundingBox.hpp"
+#include "Polygon.hpp"
 
 namespace Slic3r {
 

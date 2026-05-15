@@ -2,25 +2,24 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #include "Orchestrator.hpp"
-
-#include "ClipperShapes.hpp"
-#include "libslic3r/Steps/StepPipeline.hpp"
-#include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
-#include "libslic3r/Api/plugin/c/slic3r_config_def.h"
-#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
-#include "Plugin.hpp"
-#include "libslic3r/Plugins/BridgeDetector.hpp"
-
-#include "libslic3r/ExPolygon.hpp"
-#include "libslic3r/Polygon.hpp"
-#include "libslic3r/Print.hpp"
 
 #include <algorithm>
 #include <cstring>
 #include <string>
 #include <utility>
+
+#include "libslic3r/Api/plugin/c/slic3r_config_def.h"
+#include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
+#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/Plugins/BridgeDetector.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/Steps/StepPipeline.hpp"
+
+#include "ClipperShapes.hpp"
+#include "Plugin.hpp"
 
 namespace Slic3r {
 

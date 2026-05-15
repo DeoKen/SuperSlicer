@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/
 ///|/ ported from lib/Slic3r/GUI/AboutDialog.pm:
@@ -7,20 +8,22 @@
 ///|/ Copyright (c) 2012 Henrik Brix Andersen @henrikbrixandersen
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "AboutDialog.hpp"
-#include "I18N.hpp"
 
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Color.hpp"
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "format.hpp"
+#include "AboutDialog.hpp"
 
 #include <wx/clipbrd.h>
 
-namespace Slic3r { 
+#include "libslic3r/Color.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "format.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MainFrame.hpp"
+namespace Slic3r {
 namespace GUI {
 
 AboutDialogLogo::AboutDialogLogo(wxWindow* parent)

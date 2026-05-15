@@ -2,8 +2,8 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
+#ifndef slic3r_Api_host_ApiHostUtils_hpp_
+#define slic3r_Api_host_ApiHostUtils_hpp_
 
 #include "libslic3r/Api/plugin/c/slic3r_data_tree.h"
 #include "libslic3r/Config.hpp"
@@ -49,3 +49,6 @@ inline ConfigBase *to_config(config_handle *config)
 }
 
 } // namespace Slic3r::ApiHost
+
+
+#endif // slic3r_Api_host_ApiHostUtils_hpp_

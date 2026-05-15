@@ -6,35 +6,38 @@
 ///|/ Copyright (c) Slic3r 2011 - 2014 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
+#include "FillBase.hpp"
+
 #include <cstdio>
 #include <numeric>
 
-#include "../ClipperUtils.hpp"
-#include "../EdgeGrid.hpp"
-#include "../Geometry.hpp"
-#include "../Geometry/Circle.hpp"
-#include "../Geometry/MedialAxis.hpp"
-#include "../Point.hpp"
-#include "../PrintConfig.hpp"
-#include "../Surface.hpp"
-#include "../ExtrusionEntityCollection.hpp"
-#include "../libslic3r.h"
-
-#include "FillBase.hpp"
-#include "FillConcentric.hpp"
-#include "FillHoneycomb.hpp"
-#include "Fill3DHoneycomb.hpp"
-#include "FillGyroid.hpp"
-#include "FillPlanePath.hpp"
-#include "FillLine.hpp"
-#include "FillRectilinear.hpp"
-#include "FillAdaptive.hpp"
-#include "FillLightning.hpp"
-#include "FillSmooth.hpp"
-#include "FillEnsuring.hpp"
-
 #include <boost/log/trivial.hpp>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/EdgeGrid.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Geometry/Circle.hpp"
+#include "libslic3r/Geometry/MedialAxis.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Surface.hpp"
+
+#include "Fill3DHoneycomb.hpp"
+#include "FillAdaptive.hpp"
+#include "FillConcentric.hpp"
+#include "FillEnsuring.hpp"
+#include "FillGyroid.hpp"
+#include "FillHoneycomb.hpp"
+#include "FillLightning.hpp"
+#include "FillLine.hpp"
+#include "FillPlanePath.hpp"
+#include "FillRectilinear.hpp"
+#include "FillSmooth.hpp"
 
 // #define INFILL_DEBUG_OUTPUT
 

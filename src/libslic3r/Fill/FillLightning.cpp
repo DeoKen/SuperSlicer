@@ -1,11 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../Print.hpp"
-#include "../ShortestPath.hpp"
 
 #include "FillLightning.hpp"
+
+#include "libslic3r/Print.hpp"
+#include "libslic3r/ShortestPath.hpp"
+
 #include "Lightning/Generator.hpp"
 
 namespace Slic3r::FillLightning {

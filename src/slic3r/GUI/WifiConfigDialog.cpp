@@ -1,22 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "WifiConfigDialog.hpp"
 
-#include "GUI_App.hpp"
-#include "GUI.hpp"
-#include "I18N.hpp"
-#include "format.hpp"
-#include "RemovableDriveManager.hpp"
-#include "MsgDialog.hpp"
-
-#include <wx/stattext.h>
-#include <wx/button.h>
+#include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/nowide/convert.hpp>
 #include <boost/nowide/fstream.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
-#include "Widgets/ComboBox.hpp"
+#include <wx/button.h>
+#include <wx/stattext.h>
 
+#include "format.hpp"
+#include "GUI.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MsgDialog.hpp"
+#include "RemovableDriveManager.hpp"
+#include "Widgets/ComboBox.hpp"
 namespace Slic3r {
 namespace GUI {
 

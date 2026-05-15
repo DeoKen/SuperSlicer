@@ -1,15 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2021 Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef MARCHINGSQUARES_HPP
 #define MARCHINGSQUARES_HPP
 
-#include <type_traits>
-#include <cstdint>
-#include <vector>
-#include <algorithm>
 #include <cassert>
+#include <cstdint>
+#include <type_traits>
+#include <vector>
+
+#include <algorithm>
 
 namespace marchsq {
 

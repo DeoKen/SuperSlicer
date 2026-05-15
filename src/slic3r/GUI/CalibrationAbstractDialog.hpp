@@ -1,18 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_CalibrationAbstractDialog_hpp_
 #define slic3r_GUI_CalibrationAbstractDialog_hpp_
 
-#include <wx/wx.h>
 #include <map>
 #include <vector>
 
-#include "Jobs/ProgressIndicator.hpp"
+#include <wx/html/htmlwin.h>
+#include <wx/wx.h>
+
 #include "GUI_App.hpp"
 #include "GUI_Utils.hpp"
+#include "Jobs/ProgressIndicator.hpp"
 #include "MainFrame.hpp"
 #include "wxExtensions.hpp"
-#include <wx/html/htmlwin.h>
-
-namespace Slic3r { 
+namespace Slic3r {
 namespace GUI {
 
 class CalibrationAbstractDialog : public DPIDialog

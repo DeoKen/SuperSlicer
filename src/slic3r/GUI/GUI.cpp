@@ -1,16 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2018 Martin Loidl @LoidlM
 ///|/ Copyright (c) Slic3r 2015 Alessandro Ranellucci @alranel
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "GUI.hpp"
-#include "GUI_App.hpp"
-#include "format.hpp"
-#include "I18N.hpp"
 
-#include "libslic3r/AppConfig.hpp"
-#include "libslic3r/LocalesUtils.hpp"
+#include "GUI.hpp"
 
 #include <string>
 
@@ -20,6 +17,12 @@
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/LocalesUtils.hpp"
+
+#include "format.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
 #if __APPLE__
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #elif _WIN32

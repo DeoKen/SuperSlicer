@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Enrico Turri @enricoturri1966, David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLToolbar_hpp_
 #define slic3r_GLToolbar_hpp_
 
@@ -9,10 +12,10 @@
 #include <string>
 #include <vector>
 
-#include "GLTexture.hpp"
-#include "Event.hpp"
 #include "libslic3r/Point.hpp"
 
+#include "Event.hpp"
+#include "GLTexture.hpp"
 class wxEvtHandler;
 
 namespace Slic3r {

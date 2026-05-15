@@ -1,7 +1,12 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "SmoothPath.hpp"
 
-#include "../ExtrusionEntity.hpp"
-#include "../ExtrusionEntityCollection.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
 
 namespace Slic3r::GCode {
 

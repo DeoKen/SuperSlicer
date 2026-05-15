@@ -1,17 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_Klipper_hpp_
 #define slic3r_Klipper_hpp_
 
-#include <boost/algorithm/string.hpp>
-
 #include <optional>
 #include <string>
-#include <wx/string.h>
-#include <wx/arrstr.h>
 
-#include "OctoPrint.hpp"
+#include <boost/algorithm/string.hpp>
+
+#include <wx/arrstr.h>
+#include <wx/string.h>
+
 #include "libslic3r/PrintConfig.hpp"
 
-
+#include "OctoPrint.hpp"
 namespace Slic3r {
 
 class DynamicPrintConfig;

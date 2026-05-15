@@ -1,21 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, Lukáš Hejl @hejllukas, David Kocík @kocikdav, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2020 Gianni Ceccarelli @dakkar
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "ObjectDataViewModel.hpp"
-#include "wxExtensions.hpp"
-#include "BitmapCache.hpp"
-#include "GUI_App.hpp"
-#include "GUI_Factories.hpp"
-#include "I18N.hpp"
 
-#include "libslic3r/Model.hpp"
+#include "ObjectDataViewModel.hpp"
 
 #include <wx/bmpcbox.h>
 #include <wx/dc.h>
 
+#include "libslic3r/Model.hpp"
 
+#include "BitmapCache.hpp"
+#include "GUI_App.hpp"
+#include "GUI_Factories.hpp"
+#include "I18N.hpp"
+#include "wxExtensions.hpp"
 namespace Slic3r {
 
 namespace GUI {
@@ -1818,6 +1820,6 @@ void ObjectDataViewModel::UpdateLockIcon(const wxDataViewItem& item, bool has_lo
 }
 
 } // namespace GUI
+
+
 } // namespace Slic3r
-
-

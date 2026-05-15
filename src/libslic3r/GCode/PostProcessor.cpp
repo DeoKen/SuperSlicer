@@ -1,22 +1,26 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Tomáš Mészáros @tamasmeszaros, Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2018 Colin Gilgenbach @hexane360
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "PostProcessor.hpp"
 
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/format.hpp"
-#include "libslic3r/I18N.hpp"
+#include <cstdlib>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/log/trivial.hpp>
 #include <boost/format.hpp>
-#include <boost/nowide/convert.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/nowide/cenv.hpp>
+#include <boost/nowide/convert.hpp>
 #include <boost/nowide/fstream.hpp>
 
-#include <cstdlib>   // getenv()
+#include "libslic3r/format.hpp"
+#include "libslic3r/I18N.hpp"
+#include "libslic3r/Utils.hpp"
+
 #ifdef WIN32
 // The standard Windows includes.
 #define WIN32_LEAN_AND_MEAN

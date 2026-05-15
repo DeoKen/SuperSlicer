@@ -1,27 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "OrganicSupport.hpp"
-#include "SupportCommon.hpp"
 
-#include "../AABBTreeLines.hpp"
-#include "../ClipperUtils.hpp"
-#include "../Polygon.hpp"
-#include "../Polyline.hpp"
-#include "../MutablePolygon.hpp"
-#include "../TriangleMeshSlicer.hpp"
-#include "libslic3r/PointUtils.hpp"
+#include "OrganicSupport.hpp"
 
 #include <cassert>
 
 #include <oneapi/tbb/parallel_for.h>
 
+#include "libslic3r/AABBTreeLines.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/MutablePolygon.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/Polyline.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
+
+#include "SupportCommon.hpp"
+
 #define TREE_SUPPORT_ORGANIC_NUDGE_NEW 1
 
 #ifndef TREE_SUPPORT_ORGANIC_NUDGE_NEW
     // Old version using OpenVDB, works but it is extremely slow for complex meshes.
-    #include "../OpenVDBUtilsLegacy.hpp"
+    #include "libslic3r/OpenVDBUtilsLegacy.hpp"
     #include <openvdb/tools/VolumeToSpheres.h>
 #endif // TREE_SUPPORT_ORGANIC_NUDGE_NEW
 

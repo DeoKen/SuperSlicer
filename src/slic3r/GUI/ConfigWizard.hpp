@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ ported from lib/Slic3r/GUI/ConfigWizard.pm:
@@ -6,7 +7,9 @@
 ///|/ Copyright (c) 2012 Henrik Brix Andersen @henrikbrixandersen
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ConfigWizard_hpp_
 #define slic3r_ConfigWizard_hpp_
 
@@ -17,7 +20,6 @@
 #include <wx/textctrl.h>
 
 #include "GUI_Utils.hpp"
-
 namespace Slic3r {
 
 class PresetBundle;

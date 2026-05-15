@@ -1,11 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_IconManager_hpp_
 #define slic3r_IconManager_hpp_
 
-#include <vector>
 #include <memory>
+#include <vector>
+
 #include "imgui/imgui.h" // ImVec2
 #include "slic3r/GUI/GLTexture.hpp" // texture storage
-
 namespace Slic3r::GUI {
 
 /// <summary>

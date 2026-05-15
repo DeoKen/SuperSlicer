@@ -1,18 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Filip Sykala @Jony01, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_Selection_hpp_
 #define slic3r_GUI_Selection_hpp_
 
+#include <optional>
+#include <set>
+
 #include "libslic3r/Geometry.hpp"
-#include "GUI_Geometry.hpp"
+
 #include "3DScene.hpp"
 #include "CoordAxes.hpp"
-
-#include <set>
-#include <optional>
-
+#include "GUI_Geometry.hpp"
 namespace Slic3r {
 
 class Shader;

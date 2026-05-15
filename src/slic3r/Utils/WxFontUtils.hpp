@@ -1,17 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_WxFontUtils_hpp_
 #define slic3r_WxFontUtils_hpp_
 
 #include <memory>
 #include <optional>
 #include <string_view>
-#include <boost/bimap.hpp>
-#include <wx/font.h>
-#include "libslic3r/Emboss.hpp"
 
+#include <boost/bimap.hpp>
+
+#include <wx/font.h>
+
+#include "libslic3r/Emboss.hpp"
 namespace Slic3r::GUI {
 
 // Help class to  work with wx widget font object( wxFont )

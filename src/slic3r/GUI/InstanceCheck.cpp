@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "GUI_App.hpp"
-#include "InstanceCheck.hpp"
-#include "Plater.hpp"
 
+#include "InstanceCheck.hpp"
+
+#include "GUI_App.hpp"
+#include "Plater.hpp"
 #ifdef _WIN32
   #include "MainFrame.hpp"
 #endif

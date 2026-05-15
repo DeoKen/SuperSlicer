@@ -1,13 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_OpenGLManager_hpp_
 #define slic3r_OpenGLManager_hpp_
 
-#include "GLShadersManager.hpp"
 #include "libslic3r/Semver.hpp"
 
+#include "GLShadersManager.hpp"
 class wxWindow;
 class wxGLCanvas;
 class wxGLContext;

@@ -1,14 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_CutSurface_hpp_
 #define slic3r_CutSurface_hpp_
 
 #include <vector>
+
 #include <admesh/stl.h> // indexed_triangle_set
-#include "ExPolygon.hpp"
+
 #include "Emboss.hpp" // IProjection
+#include "ExPolygon.hpp"
 
 namespace Slic3r{
 

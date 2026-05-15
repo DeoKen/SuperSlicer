@@ -1,13 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_CalibrationFlowSpeedDialog_hpp_
 #define slic3r_GUI_CalibrationFlowSpeedDialog_hpp_
 
-#include "CalibrationAbstractDialog.hpp"
-#include "libslic3r/Flow.hpp"
-#include "Widgets/ComboBox.hpp"
-
 #include <tuple>
 
-namespace Slic3r { 
+#include "libslic3r/Flow.hpp"
+
+#include "CalibrationAbstractDialog.hpp"
+#include "Widgets/ComboBox.hpp"
+namespace Slic3r {
 namespace GUI {
 
 class CalibrationFlowSpeedDialog : public CalibrationAbstractDialog

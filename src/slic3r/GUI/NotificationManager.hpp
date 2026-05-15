@@ -1,28 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2023 David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Lukáš Hejl @hejllukas, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_NotificationManager_hpp_
 #define slic3r_GUI_NotificationManager_hpp_
 
-#include "GUI_App.hpp"
-#include "Plater.hpp"
-#include "GLCanvas3D.hpp"
-#include "Event.hpp"
-#include "I18N.hpp"
-#include "Jobs/ProgressIndicator.hpp"
-#include "Downloader.hpp"
-
-#include <libslic3r/ObjectID.hpp>
-#include <libslic3r/Technologies.hpp>
+#include <deque>
+#include <string>
+#include <unordered_set>
+#include <vector>
 
 #include <wx/time.h>
 
-#include <string>
-#include <vector>
-#include <deque>
-#include <unordered_set>
+#include "libslic3r/ObjectID.hpp"
+#include "libslic3r/Technologies.hpp"
 
+#include "Downloader.hpp"
+#include "Event.hpp"
+#include "GLCanvas3D.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "Jobs/ProgressIndicator.hpp"
+#include "Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

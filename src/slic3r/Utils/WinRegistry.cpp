@@ -1,10 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "libslic3r/Technologies.hpp"
+
 #include "WinRegistry.hpp"
 
+#include "libslic3r/Technologies.hpp"
 #ifdef _WIN32
 #include <shlobj.h>
 #include <wincrypt.h>

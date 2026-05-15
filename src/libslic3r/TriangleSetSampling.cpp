@@ -1,12 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "TriangleSetSampling.hpp"
+
 #include <map>
 #include <random>
-#include <oneapi/tbb/parallel_for.h>
+
 #include <oneapi/tbb/blocked_range.h>
+#include <oneapi/tbb/parallel_for.h>
 
 namespace Slic3r {
 

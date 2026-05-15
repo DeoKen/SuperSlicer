@@ -1,14 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef SLAIMPORTJOB_HPP
 #define SLAIMPORTJOB_HPP
 
-#include "Job.hpp"
-
 #include "libslic3r/Format/SLAArchiveReader.hpp"
 
+#include "Job.hpp"
 namespace Slic3r { namespace GUI {
 
 class SLAImportJobView {

@@ -2,13 +2,15 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_format_CWS_HPP
 #define slic3r_format_CWS_HPP
 
 #include "libslic3r/Format/SL1.hpp"
 #include "libslic3r/I18N.hpp"
-#include "SLAArchiveWriter.hpp"
+
 #include "SLAArchiveFormatRegistry.hpp"
+#include "SLAArchiveWriter.hpp"
 
 namespace Slic3r {
 // "Masked" CWS as used by Malyan S100

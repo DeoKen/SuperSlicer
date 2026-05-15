@@ -2,7 +2,6 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #ifndef slic3r_extrusion_h_
 #define slic3r_extrusion_h_
 

@@ -1,11 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "StaticBox.hpp"
-#include "../GUI.hpp"
-#include <wx/dcgraph.h>
+
 #include <wx/dcbuffer.h>
+#include <wx/dcgraph.h>
 
 #include "DropDown.hpp"
+#include "slic3r/GUI/GUI.hpp"
 #include "UIColors.hpp"
-
 BEGIN_EVENT_TABLE(StaticBox, wxWindow)
 
 EVT_PAINT(StaticBox::paintEvent)

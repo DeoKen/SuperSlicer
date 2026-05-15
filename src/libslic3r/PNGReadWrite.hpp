@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) 2023 Robert Schiele @schiele
 ///|/ Copyright (c) Prusa Research 2020 - 2021 Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef PNGREAD_HPP
 #define PNGREAD_HPP
 
-#include <vector>
-#include <string>
-#include <istream>
 #include <cstdint>
+#include <istream>
+#include <string>
+#include <vector>
 
 namespace Slic3r { namespace png {
 

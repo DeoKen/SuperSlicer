@@ -3,7 +3,8 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#pragma once
+#ifndef steps_debugprintprocesscomparator_hpp_
+#define steps_debugprintprocesscomparator_hpp_
 
 #ifdef _DEBUG
 
@@ -56,3 +57,4 @@ private:
 
 #endif // _DEBUG
 
+#endif // steps_debugprintprocesscomparator_hpp_

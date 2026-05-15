@@ -1,26 +1,31 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GLGizmoSVG_hpp_
 #define slic3r_GLGizmoSVG_hpp_
 
 // Include GLGizmoBase.hpp before I18N.hpp as it includes some libigl code,
 // which overrides our localization "L" macro.
-#include "GLGizmoBase.hpp"
-#include "GLGizmoRotate.hpp"
-#include "slic3r/GUI/SurfaceDrag.hpp"
-#include "slic3r/GUI/GLTexture.hpp"
-#include "slic3r/Utils/RaycastManager.hpp"
-#include "slic3r/GUI/IconManager.hpp"
-
-#include <optional>
-#include <memory>
 #include <atomic>
+#include <memory>
+#include <optional>
 
-#include "libslic3r/Emboss.hpp"
-#include "libslic3r/Point.hpp"
-#include "libslic3r/Model.hpp"
-
-#include <imgui/imgui.h>
 #include <GL/glew.h>
 
+#include <imgui/imgui.h>
+
+#include "libslic3r/Emboss.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Point.hpp"
+
+#include "GLGizmoBase.hpp"
+#include "GLGizmoRotate.hpp"
+#include "slic3r/GUI/GLTexture.hpp"
+#include "slic3r/GUI/IconManager.hpp"
+#include "slic3r/GUI/SurfaceDrag.hpp"
+#include "slic3r/Utils/RaycastManager.hpp"
 namespace Slic3r{
 class ModelVolume;
 enum class ModelVolumeType : int;

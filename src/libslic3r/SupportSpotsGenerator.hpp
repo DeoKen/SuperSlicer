@@ -1,17 +1,21 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SRC_LIBSLIC3R_SUPPORTABLEISSUESSEARCH_HPP_
 #define SRC_LIBSLIC3R_SUPPORTABLEISSUESSEARCH_HPP_
+
+#include <cstddef>
+#include <vector>
+
+#include <boost/log/trivial.hpp>
 
 #include "Layer.hpp"
 #include "Line.hpp"
 #include "PrintBase.hpp"
 #include "PrintConfig.hpp"
-#include <boost/log/trivial.hpp>
-#include <cstddef>
-#include <vector>
 
 namespace Slic3r {
 

@@ -1,13 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GLSelectionRectangle_hpp_
 #define slic3r_GLSelectionRectangle_hpp_
 
 #include "libslic3r/Point.hpp"
-#include "GLModel.hpp"
 
+#include "GLModel.hpp"
 namespace Slic3r {
 namespace GUI {
     

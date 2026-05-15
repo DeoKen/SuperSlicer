@@ -6,7 +6,7 @@
 
 #include "SparsePointGrid.hpp"
 #include "PolygonsPointIndex.hpp"
-#include "../../Polygon.hpp"
+#include "libslic3r/Polygon.hpp"
 #include <cassert>
 
 namespace Slic3r::Arachne

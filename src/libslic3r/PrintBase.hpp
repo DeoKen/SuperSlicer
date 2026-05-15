@@ -1,23 +1,25 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Pavel Mikuš @Godrak, Roman Beránek @zavorka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_PrintBase_hpp_
 #define slic3r_PrintBase_hpp_
 
-#include "libslic3r.h"
-#include <set>
-#include <vector>
-#include <string>
-#include <functional>
 #include <atomic>
-#include <mutex>
 #include <chrono>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <set>
+#include <string>
 #include <type_traits>
+#include <vector>
 
-#include "ObjectID.hpp"
+#include "libslic3r.h"
 #include "Model.hpp"
+#include "ObjectID.hpp"
 #include "PlaceholderParser.hpp"
 #include "PrintConfig.hpp"
 

@@ -1,19 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SRC_LIBSLIC3R_AABBTREELINES_HPP_
 #define SRC_LIBSLIC3R_AABBTREELINES_HPP_
 
-#include "Point.hpp"
-#include "Utils.hpp"
-#include "libslic3r.h"
-#include "libslic3r/AABBTreeIndirect.hpp"
-#include "libslic3r/Line.hpp"
-#include <algorithm>
 #include <cmath>
 #include <type_traits>
 #include <vector>
+
+#include "libslic3r/AABBTreeIndirect.hpp"
+#include "libslic3r/Line.hpp"
+
+#include <algorithm>
+#include "libslic3r.h"
+#include "Point.hpp"
+#include "Utils.hpp"
 
 namespace Slic3r { namespace AABBTreeLines {
 

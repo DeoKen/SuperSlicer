@@ -1,11 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2023 Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Vojtěch Bubník @bubnikv, Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "libslic3r.h"
 #include "ConvexHull.hpp"
 #include "BoundingBox.hpp"
-#include "../Geometry.hpp"
+#include "libslic3r/Geometry.hpp"
 
 #include <boost/multiprecision/integer.hpp>
 
@@ -423,5 +426,5 @@ bool inside_convex_polygon(const std::pair<std::vector<Vec2d>, std::vector<Vec2d
 }
 
 } // namespace Geometry
-} // namespace Slic3r
 
+} // namespace Slic3r

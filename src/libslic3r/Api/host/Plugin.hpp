@@ -2,16 +2,14 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #ifndef slic3r_Plugin_hpp_
 #define slic3r_Plugin_hpp_
-
-#include "libslic3r/Api/plugin/c/slic3r_plugin.h"
-#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 #include <string>
 #include <vector>
 
+#include "libslic3r/Api/plugin/c/slic3r_plugin.h"
+#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 namespace Slic3r {
 

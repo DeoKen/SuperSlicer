@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2020 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_ObjectLayers_hpp_
 #define slic3r_GUI_ObjectLayers_hpp_
 
 #include "GUI_ObjectSettings.hpp"
 #include "wxExtensions.hpp"
-
 #ifdef __WXOSX__
-#include "../libslic3r/PrintConfig.hpp"
+#include "libslic3r/PrintConfig.hpp"
 #endif
 
 class wxBoxSizer;

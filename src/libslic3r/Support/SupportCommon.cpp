@@ -1,44 +1,45 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2023 Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../ClipperUtils.hpp"
-#include "../ClipperZUtils.hpp"
-#include "../ExtrusionEntityCollection.hpp"
-#include "../Layer.hpp"
-#include "../Print.hpp"
-#include "../Fill/FillBase.hpp"
-#include "../MutablePolygon.hpp"
-#include "../Geometry.hpp"
-#include "../Point.hpp"
-#include "../Thread.hpp"
-#include "libslic3r/PointUtils.hpp"
-
-#include <cmath>
-#include <boost/container/static_vector.hpp>
-
-#include <oneapi/tbb/parallel_for.h>
 
 #include "SupportCommon.hpp"
+
+#include <cassert>
+#include <cmath>
+
+#include <boost/container/static_vector.hpp>
+#include <oneapi/tbb/parallel_for.h>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ClipperZUtils.hpp"
+#include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/Fill/FillBase.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/MutablePolygon.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/Thread.hpp"
+
+#include "Api/internal/LayerAccess.hpp"
+#include "Api/internal/LayerRegionAccess.hpp"
 #include "SupportLayer.hpp"
 #include "SupportParameters.hpp"
 
-#include "Api/internal/LayerRegionAccess.hpp"
-#include "Api/internal/LayerAccess.hpp"
-#include "libslic3r/PointUtils.hpp"
-
 // #define SLIC3R_DEBUG
-
 // Make assert active if SLIC3R_DEBUG
+
 #ifdef SLIC3R_DEBUG
     #define DEBUG
     #define _DEBUG
     #undef NDEBUG
-    #include "../utils.hpp"
-    #include "../SVG.hpp"
+    #include "libslic3r/utils.hpp"
+    #include "libslic3r/SVG.hpp"
 #endif
-
-#include <cassert>
 
 namespace Slic3r::FFFSupport {
 

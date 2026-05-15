@@ -1,30 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "MeshUtils.hpp"
 
-#include "libslic3r/Tesselate.hpp"
-#include "libslic3r/TriangleMesh.hpp"
-#include "libslic3r/TriangleMeshSlicer.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/CSGMesh/SliceCSGMesh.hpp"
-#include "libslic3r/PointUtils.hpp"
-
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/Camera.hpp"
-#include "slic3r/GUI/CameraUtils.hpp"
-
+#include <cstdint>
 
 #include <GL/glew.h>
 
 #include <igl/unproject.h>
 
-#include <cstdint>
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/CSGMesh/SliceCSGMesh.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/Tesselate.hpp"
+#include "libslic3r/TriangleMesh.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
 
-
+#include "slic3r/GUI/Camera.hpp"
+#include "slic3r/GUI/CameraUtils.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/Plater.hpp"
 namespace Slic3r {
 namespace GUI {
 

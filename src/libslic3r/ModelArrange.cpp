@@ -1,15 +1,16 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "ModelArrange.hpp"
 
-#include <libslic3r/Arrange/SceneBuilder.hpp>
 #include <libslic3r/Arrange/Items/ArrangeItem.hpp>
+#include <libslic3r/Arrange/SceneBuilder.hpp>
 #include <libslic3r/Arrange/Tasks/MultiplySelectionTask.hpp>
-
-#include <libslic3r/Model.hpp>
 #include <libslic3r/Geometry/ConvexHull.hpp>
+#include <libslic3r/Model.hpp>
 
 namespace Slic3r {
 

@@ -1,36 +1,36 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2020 Benjamin Greiner
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "wxExtensions.hpp"
 
-#include <stdexcept>
 #include <cmath>
-
-#include <wx/sizer.h>
+#include <stdexcept>
 
 #include <boost/algorithm/string/replace.hpp>
 
+#include <wx/sizer.h>
 
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Color.hpp"
+#include "libslic3r/Config.hpp"
+#include "libslic3r/Utils.hpp"
 
 #include "BitmapCache.hpp"
+#include "BitmapComboBox.hpp"
+#include "format.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "GUI_ObjectList.hpp"
-#include "libslic3r/Config.hpp"
-#include "I18N.hpp"
 #include "GUI_Utils.hpp"
-#include "Plater.hpp"
-#include "../Utils/MacDarkMode.hpp"
-#include "BitmapComboBox.hpp"
-#include "libslic3r/Utils.hpp"
+#include "I18N.hpp"
 #include "OG_CustomCtrl.hpp"
-#include "format.hpp"
-
-#include "libslic3r/Color.hpp"
-
+#include "Plater.hpp"
+#include "slic3r/Utils/MacDarkMode.hpp"
 #ifndef __linux__
 // msw_menuitem_bitmaps is used for MSW and OSX
 static std::map<int, std::string> msw_menuitem_bitmaps;
@@ -949,8 +949,8 @@ void HighlighterForWx::blink()
 }
 
 }// GUI
+
+
+
+
 }//Slicer
-
-
-
-

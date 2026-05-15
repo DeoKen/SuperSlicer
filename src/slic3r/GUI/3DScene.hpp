@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2017 Eyal Soha @eyal0
 ///|/ Copyright (c) Slic3r 2015 Alessandro Ranellucci @alranel
@@ -8,25 +9,26 @@
 ///|/ Copyright (c) 2013 Guillaume Seguin @iXce
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_3DScene_hpp_
 #define slic3r_3DScene_hpp_
-
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/Point.hpp"
-#include "libslic3r/Line.hpp"
-#include "libslic3r/ExtrusionEntity.hpp"
-#include "libslic3r/TriangleMesh.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Geometry.hpp"
-#include "libslic3r/Color.hpp"
-
-#include "GLModel.hpp"
-#include "MeshUtils.hpp"
 
 #include <functional>
 #include <optional>
 
+#include "libslic3r/Color.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Line.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/TriangleMesh.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "GLModel.hpp"
+#include "MeshUtils.hpp"
 #ifndef NDEBUG
 #define HAS_GLSAFE
 #endif // NDEBUG

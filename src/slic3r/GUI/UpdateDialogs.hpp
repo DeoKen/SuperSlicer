@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 David Kocík @kocikdav, Lukáš Hejl @hejllukas, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral, Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_UpdateDialogs_hpp_
 #define slic3r_UpdateDialogs_hpp_
 
@@ -9,16 +12,17 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <boost/filesystem.hpp>
+
 #include <wx/busyinfo.h>
 #include <wx/gbsizer.h>
 #include <wx/hyperlink.h>
 
-#include <boost/filesystem.hpp>
-
 #include "libslic3r/Semver.hpp"
-#include "slic3r/Utils/PresetUpdater.hpp"
-#include "MsgDialog.hpp"
 
+#include "MsgDialog.hpp"
+#include "slic3r/Utils/PresetUpdater.hpp"
 class wxBoxSizer;
 class wxCheckBox;
 

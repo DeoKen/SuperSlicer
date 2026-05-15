@@ -1,9 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef ORIENTJOB_HPP
 #define ORIENTJOB_HPP
 
-#include "Job.hpp"
 #include "libslic3r/Orient.hpp"
 
+#include "Job.hpp"
 namespace Slic3r {
 
 class ModelObject;

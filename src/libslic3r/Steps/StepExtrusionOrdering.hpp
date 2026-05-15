@@ -1,8 +1,14 @@
-#pragma once
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
+#ifndef steps_stepextrusionordering_hpp_
+#define steps_stepextrusionordering_hpp_
 
 #include <string>
+
+#include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 namespace Slic3r {
 class Orchestrator;
@@ -17,3 +23,5 @@ void run_step(Orchestrator &orchestrator, Print &print);
 
 } // namespace Steps::StepExtrusionOrdering
 } // namespace Slic3r
+
+#endif // steps_stepextrusionordering_hpp_

@@ -1,7 +1,10 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef POINTCLOUD_HPP
 #define POINTCLOUD_HPP
 
@@ -13,7 +16,7 @@
 #include "libslic3r/MutablePriorityQueue.hpp"
 
 #include "libslic3r/BoostAdapter.hpp"
-#include "boost/geometry/index/rtree.hpp"
+#include <boost/geometry/index/rtree.hpp>
 
 namespace Slic3r { namespace branchingtree {
 

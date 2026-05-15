@@ -1,12 +1,15 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../ClipperUtils.hpp"
-#include "../Layer.hpp"
-#include "../Polyline.hpp"
 
 #include "RetractWhenCrossingPerimeters.hpp"
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/Polyline.hpp"
 
 namespace Slic3r {
 

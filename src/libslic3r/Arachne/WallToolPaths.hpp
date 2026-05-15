@@ -10,8 +10,8 @@
 
 #include "BeadingStrategy/BeadingStrategyFactory.hpp"
 #include "utils/ExtrusionLine.hpp"
-#include "../Polygon.hpp"
-#include "../PrintConfig.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r::Arachne
 {

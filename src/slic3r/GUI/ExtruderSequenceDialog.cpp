@@ -1,29 +1,30 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "ExtruderSequenceDialog.hpp"
 
-#include <wx/wx.h>
-#include <wx/stattext.h>
-#include <wx/dialog.h>
-#include <wx/sizer.h>
+#include <functional>
+#include <set>
+#include <vector>
+
 #include <wx/bmpcbox.h>
 #include <wx/checkbox.h>
+#include <wx/dialog.h>
+#include <wx/sizer.h>
+#include <wx/stattext.h>
+#include <wx/wx.h>
 
-#include <vector>
-#include <set>
-#include <functional>
-
+#include "BitmapComboBox.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
-#include "OptionsGroup.hpp"
 #include "MainFrame.hpp"
-#include "BitmapComboBox.hpp"
-
+#include "OptionsGroup.hpp"
 #include "Widgets/CheckBox.hpp"
-
 namespace Slic3r {
 namespace GUI {
 
@@ -286,6 +287,6 @@ void ExtruderSequenceDialog::on_dpi_changed(const wxRect& suggested_rect)
 }
 
 }
+
+
 }
-
-

@@ -1,4 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "StepSlicing.hpp"
+
+#include <memory>
+#include <sstream>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
 #include "libslic3r/Api/host/Orchestrator.hpp"
@@ -14,11 +24,6 @@
 #include "libslic3r/Thread.hpp"
 
 #include "StepRunner.hpp"
-
-#include <memory>
-#include <sstream>
-#include <utility>
-#include <vector>
 
 namespace Slic3r {
 LayerUPtrs new_layers(PrintObject *print_object, const std::vector<double> &object_layers);

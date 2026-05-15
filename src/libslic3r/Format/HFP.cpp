@@ -12,16 +12,19 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "HFP.hpp"
+
 #include <fstream>
 #include <iostream>
-#include "../libslic3r.h"
-#include "../Exception.hpp"
-#include "../Model.hpp"
-#include "../Utils.hpp"
-#include "../LocalesUtils.hpp"
-#include "../GCode.hpp"
-#include "../PrintConfig.hpp"
+
+#include "libslic3r/Exception.hpp"
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Utils.hpp"
 
 namespace Slic3r {
 

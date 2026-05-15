@@ -1,33 +1,35 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2022 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Lukáš Hejl @hejllukas
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../ClipperUtils.hpp"
-#include "../ExPolygon.hpp"
-#include "../Surface.hpp"
-#include "../Geometry.hpp"
-#include "../Layer.hpp"
-#include "../Print.hpp"
-#include "../ShortestPath.hpp"
 
 #include "FillAdaptive.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <numeric>
 
 // for indexed_triangle_set
 #include <admesh/stl.h>
 
-#include <cstdlib>
-#include <cmath>
-#include <algorithm>
-#include <numeric>
-
 // Boost pool: Don't use mutexes to synchronize memory allocation.
 #define BOOST_POOL_NO_MT
-#include <boost/pool/object_pool.hpp>
-
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point.hpp>
 #include <boost/geometry/geometries/segment.hpp>
 #include <boost/geometry/index/rtree.hpp>
+#include <boost/pool/object_pool.hpp>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/ShortestPath.hpp"
+#include "libslic3r/Surface.hpp"
 
 #ifndef NDEBUG
 #include "../PointUtils.hpp"

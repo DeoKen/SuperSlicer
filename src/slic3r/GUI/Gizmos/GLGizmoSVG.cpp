@@ -1,39 +1,44 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #include "GLGizmoSVG.hpp"
+
+#include <array>
+#include <chrono> // measure enumeration of fonts
+#include <fstream>
+#include <sstream> // save for svg
+
+#include <boost/log/trivial.hpp>
+
+#include <GL/glew.h>
+
+#include <wx/display.h> // detection of change DPI
+
+#include "libslic3r/ClipperUtils.hpp" // union_ex
+#include "libslic3r/Emboss.hpp" // heal_shape
+#include "libslic3r/Geometry.hpp" // covex hull 2d
+#include "libslic3r/Model.hpp"
+#include "libslic3r/NSVGUtils.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/SVG.hpp"      // debug store
+#include "libslic3r/Timer.hpp" // covex hull 2d
+
+#include "imgui/imgui_stdlib.h" // using std::string for inputs
+#include "nanosvg/nanosvg.h"    // load SVG file
+#include "slic3r/GUI/CameraUtils.hpp"
+#include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/GUI_ObjectManipulation.hpp"
+#include "slic3r/GUI/Jobs/EmbossJob.hpp"
 #include "slic3r/GUI/MainFrame.hpp" // to update title when add text
+#include "slic3r/GUI/MsgDialog.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/Plater.hpp"
-#include "slic3r/GUI/MsgDialog.hpp"
-#include "slic3r/GUI/format.hpp"
-#include "slic3r/GUI/CameraUtils.hpp"
-#include "slic3r/GUI/Jobs/EmbossJob.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
-
-#include "libslic3r/Point.hpp"      
-#include "libslic3r/SVG.hpp"      // debug store
-#include "libslic3r/Geometry.hpp" // covex hull 2d
-#include "libslic3r/Timer.hpp" // covex hull 2d
-#include "libslic3r/Emboss.hpp" // heal_shape
-
-#include "libslic3r/NSVGUtils.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/ClipperUtils.hpp" // union_ex
-
-#include "imgui/imgui_stdlib.h" // using std::string for inputs
-#include "nanosvg/nanosvg.h"    // load SVG file
-
-#include <wx/display.h> // detection of change DPI
-#include <boost/log/trivial.hpp>
-
-#include <GL/glew.h>
-#include <chrono> // measure enumeration of fonts
-#include <sstream> // save for svg
-#include <array>
-#include <fstream>
-
 using namespace Slic3r;
 using namespace Slic3r::Emboss;
 using namespace Slic3r::GUI;

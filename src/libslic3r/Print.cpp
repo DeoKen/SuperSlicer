@@ -19,32 +19,11 @@
 ///|/ Copyright (c) 2011 Richard Goodwin
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "Exception.hpp"
 #include "Print.hpp"
-#include "BoundingBox.hpp"
-#include "Brim.hpp"
-#include "ClipperUtils.hpp"
-#include "clipper/clipper_z.hpp"
-#include "Extruder.hpp"
-#include "Flow.hpp"
-#include "Fill/FillBase.hpp"
-#include "GCode/ToolOrdering.hpp"
-#include "GCode/WipeTower2.hpp"
-#include "Geometry/ConvexHull.hpp"
-#include "I18N.hpp"
-#include "ShortestPath.hpp"
-#include "Thread.hpp"
-#include "GCode.hpp"
-#include "GCode/WipeTower.hpp"
-#include "GCode/ConflictChecker.hpp"
-#include "Utils.hpp"
-#include "BuildVolume.hpp"
-#include "format.hpp"
 
 #include <cfloat>
-
-#include <algorithm>
 #include <limits>
 #include <string>
 #include <unordered_set>
@@ -55,6 +34,28 @@
 #include <boost/regex.hpp>
 
 #include <oneapi/tbb/parallel_for.h>
+
+#include <algorithm>
+#include "BoundingBox.hpp"
+#include "Brim.hpp"
+#include "BuildVolume.hpp"
+#include <clipper/clipper_z.hpp>
+#include "ClipperUtils.hpp"
+#include "Exception.hpp"
+#include "Extruder.hpp"
+#include "Fill/FillBase.hpp"
+#include "Flow.hpp"
+#include "format.hpp"
+#include "GCode.hpp"
+#include "GCode/ConflictChecker.hpp"
+#include "GCode/ToolOrdering.hpp"
+#include "GCode/WipeTower.hpp"
+#include "GCode/WipeTower2.hpp"
+#include "Geometry/ConvexHull.hpp"
+#include "I18N.hpp"
+#include "ShortestPath.hpp"
+#include "Thread.hpp"
+#include "Utils.hpp"
 
 namespace Slic3r {
 

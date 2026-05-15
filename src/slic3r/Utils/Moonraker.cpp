@@ -1,27 +1,32 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) 2023 Pedro Lamas @PedroLamas
 ///|/ Copyright (c) Prusa Research 2023 Vojtěch Bubník @bubnikv, David Kocík @kocikdav
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "Moonraker.hpp"
 
 #include <algorithm>
-#include <sstream>
 #include <exception>
+#include <sstream>
+
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <boost/nowide/convert.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+
 #include <curl/curl.h>
 
-#include "slic3r/GUI/GUI.hpp"
-#include "slic3r/GUI/I18N.hpp"
-#include "slic3r/GUI/GUI_App.hpp"
-#include "slic3r/GUI/format.hpp"
 #include "libslic3r/AppConfig.hpp"
-#include "Http.hpp"
 
+#include "Http.hpp"
+#include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/I18N.hpp"
 namespace fs = boost::filesystem;
 namespace pt = boost::property_tree;
 namespace Slic3r {

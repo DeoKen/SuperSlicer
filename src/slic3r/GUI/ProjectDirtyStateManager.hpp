@@ -1,15 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 - 2022 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_ProjectDirtyStateManager_hpp_
 #define slic3r_ProjectDirtyStateManager_hpp_
 
-#include "libslic3r/Preset.hpp"
-#include "libslic3r/CustomGCode.hpp"
-
 #include <map>
 
+#include "libslic3r/CustomGCode.hpp"
+#include "libslic3r/Preset.hpp"
 namespace Slic3r {
 namespace GUI {
 

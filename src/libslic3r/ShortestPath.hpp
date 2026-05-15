@@ -1,16 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2023 Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_ShortestPath_hpp_
 #define slic3r_ShortestPath_hpp_
 
-#include "libslic3r.h"
-#include "ExtrusionEntity.hpp"
-#include "Point.hpp"
-
 #include <utility>
 #include <vector>
+
+#include "ExtrusionEntity.hpp"
+#include "libslic3r.h"
+#include "Point.hpp"
 
 namespace Slic3r {
 

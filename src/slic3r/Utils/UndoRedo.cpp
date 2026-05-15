@@ -1,29 +1,32 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2019 - 2022 Enrico Turri @enricoturri1966, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena, Oleksandra Iushchenko @YuSanka
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #include "UndoRedo.hpp"
 
 #include <algorithm>
-#include <iostream>
-#include <fstream>
-#include <memory>
-#include <typeinfo> 
 #include <cassert>
 #include <cstddef>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <typeinfo>
 
-#include <cereal/types/polymorphic.hpp>
-#include <cereal/types/map.hpp> 
-#include <cereal/types/string.hpp> 
-#include <cereal/types/utility.hpp> 
-#include <cereal/types/vector.hpp> 
 #include <cereal/archives/binary.hpp>
+#include <cereal/types/map.hpp>
+#include <cereal/types/polymorphic.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/utility.hpp>
+#include <cereal/types/vector.hpp>
 #define CEREAL_FUTURE_EXPERIMENTAL
 #include <cereal/archives/adapters.hpp>
 
-#include <libslic3r/PrintConfig.hpp>
-#include <libslic3r/ObjectID.hpp>
-#include <libslic3r/Utils.hpp>
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/ObjectID.hpp"
+#include "libslic3r/Utils.hpp"
 
 #include "slic3r/GUI/3DScene.hpp"
 
@@ -800,10 +803,10 @@ namespace cereal
 	}
 }
 
-#include <libslic3r/Model.hpp>
-#include <libslic3r/TriangleMesh.hpp>
-#include <slic3r/GUI/Selection.hpp>
-#include <slic3r/GUI/Gizmos/GLGizmosManager.hpp>
+#include "libslic3r/Model.hpp"
+#include "libslic3r/TriangleMesh.hpp"
+#include "slic3r/GUI/Selection.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmosManager.hpp"
 
 namespace Slic3r {
 namespace UndoRedo {

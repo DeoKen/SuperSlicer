@@ -3,26 +3,30 @@
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/#include "libslic3r/libslic3r.h"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Print.hpp"
-#include "libslic3r/LocalesUtils.hpp"
-#include "libslic3r/format.hpp"
-#include "libslic3r/I18N.hpp"
-#include "libslic3r/GCode/GCodeWriter.hpp"
-#include "libslic3r/I18N.hpp"
-#include "libslic3r/Geometry/ArcWelder.hpp"
-#include "GCodeProcessor.hpp"
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
 
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/nowide/fstream.hpp>
-#include <boost/nowide/cstdio.hpp>
-#include <boost/filesystem/path.hpp>
+#include "GCodeProcessor.hpp"
 
 #include <cassert>
 #include <cfloat>
+
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/cstdio.hpp>
+#include <boost/nowide/fstream.hpp>
+
+#include "libslic3r/format.hpp"
+#include "libslic3r/GCode/GCodeWriter.hpp"
+#include "libslic3r/Geometry/ArcWelder.hpp"
+#include "libslic3r/I18N.hpp"
+#include "libslic3r/LocalesUtils.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/Utils.hpp"
 
 #if __has_include(<charconv>)
     #include <charconv>
@@ -5114,5 +5118,5 @@ double GCodeProcessor::extract_absolute_position_on_axis(Axis axis, const GCodeR
         return m_start_position[axis];
 }
 
-} /* namespace Slic3r */
 
+} /* namespace Slic3r */

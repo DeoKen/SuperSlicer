@@ -1,16 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2022 Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/ Copyright (c) 2019 Maeyanie @Maeyanie
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_ObjectSettings_hpp_
 #define slic3r_GUI_ObjectSettings_hpp_
 
 #include <memory>
 #include <vector>
-#include <wx/panel.h>
-#include "wxExtensions.hpp"
 
+#include <wx/panel.h>
+
+#include "wxExtensions.hpp"
 class wxBoxSizer;
 
 namespace Slic3r {

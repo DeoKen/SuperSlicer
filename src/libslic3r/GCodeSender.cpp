@@ -1,14 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2021 Vojtěch Bubník @bubnikv, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) Slic3r 2014 - 2016 Alessandro Ranellucci @alranel
 ///|/ Copyright (c) 2016 Gregor Best
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "GCodeSender.hpp"
+
 #include <iostream>
 #include <istream>
 #include <string>
 #include <thread>
+
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -22,7 +26,6 @@
 #include <IOKit/serial/ioss.h>
 #endif
 #ifdef __linux__
-#include <sys/ioctl.h>
 #include <fcntl.h>
 #include "/usr/include/asm-generic/ioctls.h"
 

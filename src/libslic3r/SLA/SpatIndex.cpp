@@ -13,7 +13,7 @@
 #pragma warning(disable: 4267)
 #endif
 
-#include "boost/geometry/index/rtree.hpp"
+#include <boost/geometry/index/rtree.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(pop)

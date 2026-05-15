@@ -1,34 +1,36 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Enrico Turri @enricoturri1966, David Kocík @kocikdav, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "MsgDialog.hpp"
 
-#include <wx/settings.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/button.h>
-#include <wx/statbmp.h>
-#include <wx/scrolwin.h>
-#include <wx/clipbrd.h>
-#include <wx/checkbox.h>
-#include <wx/html/htmlwin.h>
+#include "MsgDialog.hpp"
 
 #include <boost/algorithm/string/replace.hpp>
 
+#include <wx/button.h>
+#include <wx/checkbox.h>
+#include <wx/clipbrd.h>
+#include <wx/html/htmlwin.h>
+#include <wx/scrolwin.h>
+#include <wx/settings.h>
+#include <wx/sizer.h>
+#include <wx/statbmp.h>
+#include <wx/stattext.h>
+
+#include "libslic3r/Color.hpp"
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Utils.hpp"
-#include "libslic3r/Color.hpp"
-#include "GUI.hpp"
-#include "format.hpp"
-#include "I18N.hpp"
+
 #include "ConfigWizard.hpp"
-#include "wxExtensions.hpp"
-#include "slic3r/GUI/MainFrame.hpp"
+#include "format.hpp"
+#include "GUI.hpp"
 #include "GUI_App.hpp"
-
+#include "I18N.hpp"
+#include "slic3r/GUI/MainFrame.hpp"
 #include "Widgets/CheckBox.hpp"
-
+#include "wxExtensions.hpp"
 namespace Slic3r {
 namespace GUI {
 

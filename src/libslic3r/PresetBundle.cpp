@@ -3,33 +3,34 @@
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <cassert>
-
-#include "libslic3r.h"
 #include "PresetBundle.hpp"
-#include "Utils.hpp"
-#include "Model.hpp"
-#include "format.hpp"
-#include "PrintConfig.hpp"
 
-#include <algorithm>
-#include <set>
+#include <cassert>
 #include <fstream>
+#include <set>
 #include <unordered_set>
-#include <boost/filesystem.hpp>
+
 #include <boost/algorithm/clamp.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-
+#include <boost/filesystem.hpp>
+#include <boost/locale.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/nowide/cenv.hpp>
 #include <boost/nowide/cstdio.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/locale.hpp>
-#include <boost/log/trivial.hpp>
 
 #include <LibBGCode/core/core.hpp>
+
+#include <algorithm>
+#include "format.hpp"
+#include "libslic3r.h"
+#include "Model.hpp"
+#include "PrintConfig.hpp"
+#include "Utils.hpp"
 
 // Store the print/filament/printer presets into a "presets" subdirectory of the Slic3r config dir.
 // This breaks compatibility with the upstream Slic3r if the --datadir is used to switch between the two versions.

@@ -1,16 +1,19 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Filip Sykala @Jony01, Enrico Turri @enricoturri1966, Oleksandra Iushchenko @YuSanka, Vojtěch Král @vojtechkral
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_AppConfig_hpp_
 #define slic3r_AppConfig_hpp_
 
-#include <set>
 #include <map>
+#include <set>
 #include <string>
 
 #include <boost/algorithm/string/trim_all.hpp>
 #include <boost/filesystem/path.hpp>
+
 #ifdef WIN32
 #include <boost/nowide/fstream.hpp>
 #endif

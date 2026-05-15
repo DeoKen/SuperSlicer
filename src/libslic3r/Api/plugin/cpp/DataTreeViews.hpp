@@ -2,18 +2,18 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#pragma once
-
-#include "libslic3r/Api/plugin/c/slic3r_config_option.h"
-#include "libslic3r/Api/plugin/c/slic3r_data_tree.h"
-#include "libslic3r/Api/plugin/cpp/GeometryViews.hpp"
+#ifndef slic3r_Api_plugin_cpp_DataTreeViews_hpp_
+#define slic3r_Api_plugin_cpp_DataTreeViews_hpp_
 
 #include <cstddef>
 #include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "libslic3r/Api/plugin/c/slic3r_config_option.h"
+#include "libslic3r/Api/plugin/c/slic3r_data_tree.h"
+#include "libslic3r/Api/plugin/cpp/GeometryViews.hpp"
 
 namespace slic3r_api {
 
@@ -509,3 +509,6 @@ public:
 };
 
 } // namespace slic3r_api
+
+
+#endif // slic3r_Api_plugin_cpp_DataTreeViews_hpp_

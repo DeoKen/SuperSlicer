@@ -1,9 +1,13 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_GUI_ComboBox_hpp_
 #define slic3r_GUI_ComboBox_hpp_
 
-#include "TextInput.hpp"
 #include "DropDown.hpp"
-
+#include "TextInput.hpp"
 #define CB_NO_DROP_ICON DD_NO_DROP_ICON
 #define CB_NO_TEXT DD_NO_TEXT
 

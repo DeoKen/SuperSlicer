@@ -1,14 +1,17 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2021 Vojtěch Bubník @bubnikv
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "../ClipperUtils.hpp"
-#include "../ExPolygon.hpp"
-#include "../ShortestPath.hpp"
-#include "../Surface.hpp"
-#include "libslic3r/PointUtils.hpp"
 
 #include "FillLine.hpp"
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/PointUtils.hpp"
+#include "libslic3r/ShortestPath.hpp"
+#include "libslic3r/Surface.hpp"
 
 namespace Slic3r {
 

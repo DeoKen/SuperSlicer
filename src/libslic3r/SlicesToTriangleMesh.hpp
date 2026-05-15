@@ -1,12 +1,14 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2020 - 2021 Tomáš Mészáros @tamasmeszaros
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef SLICESTOTRIANGLEMESH_HPP
 #define SLICESTOTRIANGLEMESH_HPP
 
-#include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/TriangleMesh.hpp"
 
 namespace Slic3r {
 

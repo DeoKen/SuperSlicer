@@ -1,14 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2019 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, Lukáš Matěna @lukasmatena
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef RAMMING_CHART_H_
 #define RAMMING_CHART_H_
 
-#include <libslic3r/Config.hpp>
-
 #include <vector>
+
 #include <wx/wxprec.h>
+
+#include "libslic3r/Config.hpp"
 #ifndef WX_PRECOMP
     #include <wx/wx.h>
 #endif

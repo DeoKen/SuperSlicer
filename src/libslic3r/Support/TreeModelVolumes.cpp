@@ -1,27 +1,11 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2022 - 2023 Vojtěch Bubník @bubnikv, Pavel Mikuš @Godrak
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-// Tree supports by Thomas Rahm, losely based on Tree Supports by CuraEngine.
-// Original source of Thomas Rahm's tree supports:
-// https://github.com/ThomasRahm/CuraEngine
-//
-// Original CuraEngine copyright:
-// Copyright (c) 2021 Ultimaker B.V.
-// CuraEngine is released under the terms of the AGPLv3 or higher.
 
 #include "TreeModelVolumes.hpp"
-#include "TreeSupportCommon.hpp"
-
-#include "../BuildVolume.hpp"
-#include "../ClipperUtils.hpp"
-#include "../Flow.hpp"
-#include "../Layer.hpp"
-#include "../Point.hpp"
-#include "../Print.hpp"
-#include "../PrintConfig.hpp"
-#include "../Utils.hpp"
-#include "../format.hpp"
 
 #include <string_view>
 
@@ -29,6 +13,26 @@
 
 #include <oneapi/tbb/parallel_for.h>
 #include <oneapi/tbb/task_group.h>
+
+#include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Flow.hpp"
+#include "libslic3r/format.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/Point.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Utils.hpp"
+
+#include "TreeSupportCommon.hpp"
+
+// Tree supports by Thomas Rahm, losely based on Tree Supports by CuraEngine.
+// Original source of Thomas Rahm's tree supports:
+// https://github.com/ThomasRahm/CuraEngine
+//
+// Original CuraEngine copyright:
+// Copyright (c) 2021 Ultimaker B.V.
+// CuraEngine is released under the terms of the AGPLv3 or higher.
 
 namespace Slic3r::FFFTreeSupport
 {

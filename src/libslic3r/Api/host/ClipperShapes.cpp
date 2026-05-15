@@ -2,16 +2,16 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
 #include "ClipperShapes.hpp"
-
-#include "Orchestrator.hpp"
-#include "libslic3r/ClipperUtils.hpp"
-#include "libslic3r/Polyline.hpp"
 
 #include <iterator>
 #include <memory>
 #include <utility>
+
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Polyline.hpp"
+
+#include "Orchestrator.hpp"
 
 namespace Slic3r {
 

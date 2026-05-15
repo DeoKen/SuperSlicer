@@ -1,20 +1,23 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Superslicer 2021 - 2024 Durand Rémi @supermerill
 ///|/ Copyright (c) 2021 Alexander Bachler Jansson
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_MPMDv2_hpp_
 #define slic3r_MPMDv2_hpp_
 
 #include <optional>
 #include <string>
-#include <wx/string.h>
-#include <wx/arrstr.h>
 
-#include "PrintHost.hpp"
+#include <wx/arrstr.h>
+#include <wx/string.h>
+
 #include "libslic3r/PrintConfig.hpp"
 
-
+#include "PrintHost.hpp"
 namespace Slic3r {
 
 class DynamicPrintConfig;

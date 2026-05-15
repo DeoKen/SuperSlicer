@@ -1,17 +1,20 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2021 Filip Sykala @Jony01
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_NSVGUtils_hpp_
 #define slic3r_NSVGUtils_hpp_
 
 #include <memory>
-#include <string>
 #include <sstream>
-#include "Polygon.hpp"
-#include "ExPolygon.hpp"
+#include <string>
+
 #include "EmbossShape.hpp" // ExPolygonsWithIds
+#include "ExPolygon.hpp"
 #include "nanosvg/nanosvg.h"    // load SVG file
+#include "Polygon.hpp"
 
 // Helper function to work with nano svg
 namespace Slic3r {

@@ -2,10 +2,13 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-
-#include "libslic3r/Api/plugin/c/slic3r_data_tree.h"
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
+#include "libSlic3r/Api/internal/LayerIslandAccess.hpp"
+#include "libslic3r/Api/plugin/c/slic3r_data_tree.h"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
@@ -14,11 +17,6 @@
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Surface.hpp"
-#include "libSlic3r/Api/internal/LayerIslandAccess.hpp"
-
-#include <string>
-#include <utility>
-#include <vector>
 
 namespace Slic3r {
 

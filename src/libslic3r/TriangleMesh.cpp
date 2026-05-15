@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2016 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, Tomáš Mészáros @tamasmeszaros, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 Jason Tibbitts @jasontibbitts
 ///|/ Copyright (c) 2019 Sijmen Schoon
@@ -12,41 +13,42 @@
 ///|/ Copyright (c) 2012 - 2013 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include "Exception.hpp"
 #include "TriangleMesh.hpp"
-#include "TriangleMeshSlicer.hpp"
-#include "MeshSplitImpl.hpp"
-#include "ClipperUtils.hpp"
-#include "Geometry.hpp"
-#include "Geometry/ConvexHull.hpp"
-#include "Point.hpp"
-#include "Execution/ExecutionTBB.hpp"
-#include "Execution/ExecutionSeq.hpp"
-#include "Utils.hpp"
-
-#include <libqhullcpp/Qhull.h>
-#include <libqhullcpp/QhullFacetList.h>
-#include <libqhullcpp/QhullVertexSet.h>
 
 #include <cassert>
 #include <cmath>
 #include <deque>
 #include <queue>
-#include <vector>
-#include <utility>
-#include <algorithm>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
 #include <boost/predef/other/endian.h>
 
-#include <oneapi/tbb/concurrent_vector.h>
-
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
+#include <libqhullcpp/Qhull.h>
+#include <libqhullcpp/QhullFacetList.h>
+#include <libqhullcpp/QhullVertexSet.h>
+
+#include <oneapi/tbb/concurrent_vector.h>
+
+#include <algorithm>
+#include "ClipperUtils.hpp"
+#include "Exception.hpp"
+#include "Execution/ExecutionSeq.hpp"
+#include "Execution/ExecutionTBB.hpp"
+#include "Geometry.hpp"
+#include "Geometry/ConvexHull.hpp"
+#include "MeshSplitImpl.hpp"
+#include "Point.hpp"
+#include "TriangleMeshSlicer.hpp"
+#include "Utils.hpp"
 
 namespace Slic3r {
 

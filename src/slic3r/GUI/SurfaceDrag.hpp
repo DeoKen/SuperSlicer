@@ -1,12 +1,18 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
 #ifndef slic3r_SurfaceDrag_hpp_
 #define slic3r_SurfaceDrag_hpp_
 
+#include <functional>
 #include <optional>
+
 #include "libslic3r/Point.hpp" // Vec2d, Transform3d
+
 #include "slic3r/Utils/RaycastManager.hpp"
 #include "wx/event.h" // wxMouseEvent
-#include <functional>
-
 namespace Slic3r {
 class GLVolume;
 class ModelVolume;

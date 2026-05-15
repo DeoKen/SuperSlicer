@@ -1,3 +1,4 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Oleksandra Iushchenko @YuSanka, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Tomáš Mészáros @tamasmeszaros, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/
@@ -7,16 +8,18 @@
 ///|/ Copyright (c) 2014 Mark Hindess
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_MainFrame_hpp_
 #define slic3r_MainFrame_hpp_
 
-#include "libslic3r/PrintConfig.hpp"
-
+#include <wx/filehistory.h>
 #include <wx/frame.h>
 #include <wx/settings.h>
 #include <wx/string.h>
-#include <wx/filehistory.h>
+
+#include "libslic3r/PrintConfig.hpp"
 #ifdef __APPLE__
 #include <wx/taskbar.h>
 #endif // __APPLE__

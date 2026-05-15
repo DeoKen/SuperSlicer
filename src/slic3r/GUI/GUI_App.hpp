@@ -1,29 +1,32 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand R?mi @supermerill
 ///|/ Copyright (c) Prusa Research 2018 - 2023 Vojtěch Bubník @bubnikv, Oleksandra Iushchenko @YuSanka, Tomáš Mészáros @tamasmeszaros, David Kocík @kocikdav, Lukáš Matěna @lukasmatena, Enrico Turri @enricoturri1966, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2021 Li Jiang
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+
 #ifndef slic3r_GUI_App_hpp_
 #define slic3r_GUI_App_hpp_
 
 #include <memory>
+#include <mutex>
+#include <stack>
 #include <string>
-#include "ImGuiWrapper.hpp"
-#include "ConfigWizard.hpp"
-#include "OpenGLManager.hpp"
-#include "libslic3r/Preset.hpp"
-#include "wxExtensions.hpp"
 
 #include <wx/app.h>
 #include <wx/busyinfo.h>
 #include <wx/colour.h>
 #include <wx/font.h>
-#include <wx/string.h>
 #include <wx/snglinst.h>
+#include <wx/string.h>
 
-#include <mutex>
-#include <stack>
+#include "libslic3r/Preset.hpp"
 
+#include "ConfigWizard.hpp"
+#include "ImGuiWrapper.hpp"
+#include "OpenGLManager.hpp"
+#include "wxExtensions.hpp"
 class wxMenuItem;
 class wxMenuBar;
 class wxTopLevelWindow;

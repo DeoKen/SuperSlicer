@@ -1,19 +1,22 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
 ///|/ Copyright (c) Prusa Research 2017 - 2023 Oleksandra Iushchenko @YuSanka, Enrico Turri @enricoturri1966, Lukáš Matěna @lukasmatena, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Vojtěch Král @vojtechkral
 ///|/ Copyright (c) 2019 John Drake @foxox
 ///|/
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #ifndef slic3r_PresetBundle_hpp_
 #define slic3r_PresetBundle_hpp_
 
-#include "Preset.hpp"
-#include "AppConfig.hpp"
-#include "enum_bitmask.hpp"
-
+#include <array>
 #include <memory>
 #include <unordered_map>
-#include <array>
+
 #include <boost/filesystem/path.hpp>
+
+#include "AppConfig.hpp"
+#include "enum_bitmask.hpp"
+#include "Preset.hpp"
 
 namespace Slic3r {
 
