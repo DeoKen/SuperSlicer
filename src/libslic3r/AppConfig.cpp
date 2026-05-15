@@ -25,6 +25,7 @@
 #include "libslic3r/Utils.hpp"
 
 #include "Color.hpp"
+#include "ConfigDef.hpp"
 #include "Exception.hpp"
 #include "format.hpp"
 #include "I18N.hpp"

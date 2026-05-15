@@ -23,7 +23,7 @@
 #include <wx/clrpicker.h>
 
 #include "libslic3r/libslic3r.h"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/Utils.hpp"
 
 #include "GUI.hpp"

@@ -48,7 +48,7 @@
 
 
 #include "libslic3r.h"
-#include "Config.hpp"
+#include "ConfigDef.hpp"
 #include "SLA/SupportTreeStrategies.hpp"
 
 #include <boost/preprocessor/facilities/empty.hpp>

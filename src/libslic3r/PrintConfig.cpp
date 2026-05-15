@@ -36,7 +36,7 @@
 #include <boost/nowide/iostream.hpp>
 #include <boost/thread.hpp>
 
-#include "Config.hpp"
+#include "ConfigDef.hpp"
 #include "Flow.hpp"
 #include "format.hpp"
 #include "GCode/Thumbnails.hpp"

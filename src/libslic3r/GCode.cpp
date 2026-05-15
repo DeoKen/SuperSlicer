@@ -50,7 +50,7 @@
 
 #include "ClipperUtils.hpp"
 #include "Color.hpp"
-#include "Config.hpp"
+#include "ConfigDef.hpp"
 #include "Exception.hpp"
 #include "ExtrusionEntity.hpp"
 #include "format.hpp"

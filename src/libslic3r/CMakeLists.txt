@@ -168,6 +168,8 @@ set(SLIC3R_SOURCES
     Color.hpp
     Config.cpp
     Config.hpp
+    ConfigDef.cpp
+    ConfigDef.hpp
     ContainerUtils.hpp
     CSGMesh/CSGMesh.hpp
     CSGMesh/SliceCSGMesh.hpp

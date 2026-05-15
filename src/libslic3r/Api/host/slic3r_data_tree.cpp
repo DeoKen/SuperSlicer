@@ -9,7 +9,7 @@
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
 #include "libSlic3r/Api/internal/LayerIslandAccess.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_data_tree.h"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
 #include "libslic3r/ExtrusionRole.hpp"

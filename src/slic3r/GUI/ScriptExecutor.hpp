@@ -9,7 +9,7 @@
 #include <angelscript/add_on/scriptbuilder/scriptbuilder.h>
 #include <angelscript/include/angelscript.h>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigDef.hpp"
 
 #include "OptionsGroup.hpp"
 namespace AngelScript{

@@ -19,7 +19,7 @@
 #include <wx/tokenzr.h>
 
 #include "libslic3r/Color.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
 

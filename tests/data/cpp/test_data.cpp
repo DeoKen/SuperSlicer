@@ -2,7 +2,7 @@
 
 #include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/GCodeReader.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Format/OBJ.hpp"
 #include "libslic3r/Format/STL.hpp"

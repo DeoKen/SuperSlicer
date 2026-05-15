@@ -15,7 +15,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <nlohmann/json.hpp>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
