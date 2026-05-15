@@ -14,7 +14,7 @@
 #endif
 
 #include "libslic3r/Utils.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 
 #include "boost/nowide/convert.hpp"
 #include <boost/log/trivial.hpp>

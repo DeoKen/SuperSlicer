@@ -13,8 +13,8 @@
 #include <wx/sizer.h>
 
 #include "libslic3r/AppConfig.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
+#include "libslic3r/ConfigOption.hpp"
 
 #include "BitmapCache.hpp"
 #include "BitmapComboBox.hpp"

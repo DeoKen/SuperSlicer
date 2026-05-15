@@ -13,7 +13,7 @@
 
 #include <wx/dataview.h>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/PresetBundle.hpp"
 
 #include "GUI_Utils.hpp"

@@ -9,7 +9,7 @@
 Configuration option value kinds shared by the host and the plugin ABI.
 
 The enumerator names are prefixed because C enum values live in the global
-namespace. Keep this header small: Config.hpp includes it to reuse the exact
+namespace. Keep this header small: ConfigOption.hpp includes it to reuse the exact
 same numeric values without pulling the full plugin API function declarations.
 */
 typedef enum config_option_type

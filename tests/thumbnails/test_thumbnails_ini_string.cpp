@@ -1,6 +1,6 @@
 #include <catch2/catch.hpp>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 #include <libslic3r/GCode/Thumbnails.hpp>

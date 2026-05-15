@@ -19,7 +19,7 @@
 
 #include <wx/richmsgdlg.h>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/FileParserError.hpp"
 #include "libslic3r/format.hpp"
 #include "libslic3r/libslic3r.h"

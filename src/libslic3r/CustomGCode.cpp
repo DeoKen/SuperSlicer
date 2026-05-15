@@ -6,7 +6,7 @@
 ///|/
 #include "CustomGCode.hpp"
 
-#include "Config.hpp"
+#include "ConfigOption.hpp"
 #include "GCode.hpp"
 #include "GCode/GCodeWriter.hpp"
 

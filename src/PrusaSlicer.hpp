@@ -1,7 +1,7 @@
 #ifndef SLIC3R_HPP
 #define SLIC3R_HPP
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Model.hpp"
 
 namespace Slic3r {

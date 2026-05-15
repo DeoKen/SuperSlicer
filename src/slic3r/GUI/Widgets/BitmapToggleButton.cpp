@@ -7,7 +7,7 @@
 
 #include <wx/settings.h>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 BitmapToggleButton::BitmapToggleButton(wxWindow* parent, const wxString& label, wxWindowID id)
 {
     const long style = wxBORDER_NONE | wxBU_EXACTFIT | wxBU_LEFT;

@@ -24,7 +24,7 @@
 #ifndef slic3r_ConfigDef_hpp_
 #define slic3r_ConfigDef_hpp_
 
-#include "Config.hpp"
+#include "ConfigOption.hpp"
 
 namespace Slic3r {
 

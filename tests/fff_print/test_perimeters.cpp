@@ -3,7 +3,7 @@
 #include <numeric>
 #include <sstream>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/PerimeterGenerator.hpp"

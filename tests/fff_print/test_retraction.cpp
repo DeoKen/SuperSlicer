@@ -5,7 +5,7 @@
 #include <catch2/catch.hpp>
 
 #include <libslic3r/GCodeReader.hpp>
-#include <libslic3r/Config.hpp>
+#include <libslic3r/ConfigOption.hpp>
 
 #include "test_data.hpp"
 #include <regex>

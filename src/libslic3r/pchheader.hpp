@@ -129,7 +129,7 @@
 #include "clipper.hpp"
 #include "BoundingBox.hpp"
 #include "ClipperUtils.hpp"
-#include "Config.hpp"
+#include "ConfigOption.hpp"
 #include "enum_bitmask.hpp"
 #include "format.hpp"
 #include "I18N.hpp"

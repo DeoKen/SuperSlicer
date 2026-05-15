@@ -17,8 +17,8 @@
 #include <wx/glcanvas.h>
 
 #include "libslic3r/AppConfig.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
+#include "libslic3r/ConfigOption.hpp"
 
 #include "format.hpp"
 #include "GUI.hpp"

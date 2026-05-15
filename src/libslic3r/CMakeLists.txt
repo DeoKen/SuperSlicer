@@ -166,10 +166,10 @@ set(SLIC3R_SOURCES
     ClipperZUtils.hpp
     Color.cpp
     Color.hpp
-    Config.cpp
-    Config.hpp
     ConfigDef.cpp
     ConfigDef.hpp
+    ConfigOption.cpp
+    ConfigOption.hpp
     ContainerUtils.hpp
     CSGMesh/CSGMesh.hpp
     CSGMesh/SliceCSGMesh.hpp

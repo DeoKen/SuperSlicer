@@ -21,8 +21,8 @@
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#ifndef slic3r_Config_hpp_
-#define slic3r_Config_hpp_
+#ifndef slic3r_ConfigOption_hpp_
+#define slic3r_ConfigOption_hpp_
 
 #include <cassert>
 #include <cfloat>

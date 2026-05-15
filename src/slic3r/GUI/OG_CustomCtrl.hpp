@@ -14,7 +14,7 @@
 #include <map>
 #include <functional>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 #include "OptionsGroup.hpp"

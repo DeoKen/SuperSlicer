@@ -6,7 +6,7 @@
 #include <string>
 
 #include "libslic3r/Api/plugin/c/slic3r_config_option.h"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 
 namespace Slic3r {
 

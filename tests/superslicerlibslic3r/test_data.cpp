@@ -2,7 +2,7 @@
 #include <test_utils.hpp>
 #include <libslic3r/TriangleMesh.hpp>
 #include <libslic3r/GCodeReader.hpp>
-#include <libslic3r/Config.hpp>
+#include <libslic3r/ConfigOption.hpp>
 #include <libslic3r/ModelArrange.hpp>
 #include <libslic3r/Print.hpp>
 #include <libslic3r/Point.hpp>

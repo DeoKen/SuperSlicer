@@ -17,7 +17,7 @@
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Color.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Utils.hpp"
 
 #include "BitmapCache.hpp"

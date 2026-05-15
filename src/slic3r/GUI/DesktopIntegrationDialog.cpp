@@ -16,7 +16,7 @@
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Platform.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 
 #include <boost/nowide/fstream.hpp>
 #include <boost/filesystem.hpp>

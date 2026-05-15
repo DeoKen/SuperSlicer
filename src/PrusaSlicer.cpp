@@ -38,7 +38,7 @@
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Plugins/Polyholes.hpp"
 #include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/GCode/PostProcessor.hpp"
 #include "libslic3r/Model.hpp"

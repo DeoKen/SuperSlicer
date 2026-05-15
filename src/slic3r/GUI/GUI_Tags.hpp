@@ -9,7 +9,7 @@
 #include <wx/checklst.h>
 #include <wx/combo.h>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 
 #include "wxExtensions.hpp"
 namespace Slic3r {

@@ -14,7 +14,7 @@
 
 #include <wx/wx.h>
 
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
 namespace Slic3r {
 namespace GUI {
 

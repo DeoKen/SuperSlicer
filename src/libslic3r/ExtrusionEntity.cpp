@@ -13,7 +13,7 @@
 #include <sstream>
 
 #include "ClipperUtils.hpp"
-#include "Config.hpp"
+#include "ConfigOption.hpp"
 #include "Exception.hpp"
 #include "ExPolygon.hpp"
 #include "Extruder.hpp"

@@ -21,8 +21,8 @@
 #include <cereal/types/vector.hpp>
 
 #include "libslic3r/AppConfig.hpp"
-#include "libslic3r/Config.hpp"
-#include "libslic3r/Config.hpp"
+#include "libslic3r/ConfigOption.hpp"
+#include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
