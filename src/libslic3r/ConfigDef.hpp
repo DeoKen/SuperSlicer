@@ -24,9 +24,90 @@
 #ifndef slic3r_ConfigDef_hpp_
 #define slic3r_ConfigDef_hpp_
 
+#include <functional>
+#include <initializer_list>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <boost/property_tree/ptree_fwd.hpp>
+
 #include "ConfigOption.hpp"
+#include "clonable_ptr.hpp"
 
 namespace Slic3r {
+
+enum ForwardCompatibilitySubstitutionRule {
+    // Disable susbtitution, throw exception if an option value is not recognized.
+    Disable,
+    // Enable substitution of an unknown option value with default. Log the substitution.
+    Enable,
+    // Enable substitution of an unknown option value with default. Don't log the substitution.
+    EnableSilent,
+    // Enable substitution of an unknown option value with default. Log substitutions in user profiles, don't log
+    // substitutions in system profiles.
+    EnableSystemSilent,
+    // Enable silent substitution of an unknown option value with default when loading user profiles. Throw on an
+    // unknown option value in a system profile.
+    EnableSilentDisableSystem,
+};
+
+class ConfigOptionDef;
+
+// For forward definition of ConfigOption in ConfigOptionUniquePtr, we have to define a custom deleter.
+struct ConfigOptionDeleter
+{
+    void operator()(ConfigOption *p);
+};
+using ConfigOptionUniquePtr = std::unique_ptr<ConfigOption, ConfigOptionDeleter>;
+
+// When parsing a configuration value, if the old_value is not understood by this PrusaSlicer version,
+// it is being substituted with some default value that this PrusaSlicer could work with.
+// This structure serves to inform the user about the substitutions having been done during file import.
+struct ConfigSubstitution
+{
+    const ConfigOptionDef *opt_def{nullptr};
+    std::string old_name; // for when opt_def is nullptr (option not defined in this version)
+    std::string old_value;
+    ConfigOptionUniquePtr new_value;
+    ConfigSubstitution() = default;
+    ConfigSubstitution(const ConfigOptionDef *def, std::string old, ConfigOptionUniquePtr &&new_v);
+    ConfigSubstitution(std::string bad_key, std::string value)
+        : opt_def(nullptr), old_name(bad_key), old_value(value), new_value() {}
+};
+
+using ConfigSubstitutions = std::vector<ConfigSubstitution>;
+
+// Filled in by ConfigBase::set_deserialize_raw(), which based on "rule" either bails out
+// or performs substitutions when encountering an unknown configuration value.
+struct ConfigSubstitutionContext
+{
+    ConfigSubstitutionContext(ForwardCompatibilitySubstitutionRule rl) : rule(rl) {}
+
+    ForwardCompatibilitySubstitutionRule rule;
+
+    bool empty() const throw() { return m_substitutions.empty(); }
+    const ConfigSubstitutions &get() const { return m_substitutions; }
+    ConfigSubstitutions data() && { return std::move(m_substitutions); }
+    void add(ConfigSubstitution &&substitution) { m_substitutions.push_back(std::move(substitution)); }
+    void emplace(std::string &&key, std::string &&value) {
+        m_substitutions.emplace_back(std::move(key), std::move(value));
+    }
+    void emplace(const ConfigOptionDef *def, std::string &&old_value, ConfigOptionUniquePtr &&new_v) {
+        m_substitutions.emplace_back(def, std::move(old_value), std::move(new_v));
+    }
+    void clear() { m_substitutions.clear(); }
+    void sort_and_remove_duplicates();
+    std::optional<ConfigSubstitution> find(const std::string &old_name);
+    bool erase(std::string old_name);
+
+private:
+    ConfigSubstitutions m_substitutions;
+};
 
 // Definition of values / labels for a combo box.
 // Mostly used for closed enums (when type == coEnum), but may be used for 
@@ -75,7 +156,7 @@ public:
 
     void                    clear();
 
-    ConfigOptionEnumDef*    clone() const { return new ConfigOptionEnumDef{ *this }; }
+    ConfigOptionEnumDef *clone() const;
 
 private:
     friend ConfigDef;
@@ -83,17 +164,7 @@ private:
 
     // Only allow ConfigOptionEnumDef() to be created from ConfigOptionDef.
     ConfigOptionEnumDef() = default;
-    ConfigOptionEnumDef(const ConfigOptionEnumDef &other) // default copy, but with a check for m_enum_names when it reference 'itself'
-        : m_values(other.m_values)
-        , m_labels(other.m_labels)
-        , m_values_ordinary(other.m_values_ordinary)
-        , m_enum_names(other.m_enum_names)
-        , m_enum_keys_map(other.m_enum_keys_map)
-    {
-        if (other.m_enum_names == &other.m_values) {
-            this->m_enum_names = &this->m_values;
-        }
-    }
+    ConfigOptionEnumDef(const ConfigOptionEnumDef &other);
 
     void set_values(const std::vector<std::string> &v);
     void set_values(const std::initializer_list<std::string_view> il);
@@ -388,21 +459,11 @@ public:
     //static void init_mode();
 
 private:
-    void    enum_def_new() {
-        if (enum_def)
-            enum_def->clear();
-        else
-            enum_def = Slic3r::clonable_ptr<ConfigOptionEnumDef>(new ConfigOptionEnumDef{});
-    }
+    void enum_def_new();
 };
 
-inline bool operator<(const ConfigSubstitution &lhs, const ConfigSubstitution &rhs) throw() {
-    return (lhs.opt_def ? lhs.opt_def->opt_key : lhs.old_name) < (rhs.opt_def? rhs.opt_def->opt_key : rhs.old_name) ||
-           ((lhs.opt_def ? lhs.opt_def->opt_key : lhs.old_name) == (rhs.opt_def ? rhs.opt_def->opt_key : rhs.old_name) && lhs.old_value < rhs.old_value);
-}
-inline bool operator==(const ConfigSubstitution &lhs, const ConfigSubstitution &rhs) throw() {
-    return lhs.opt_def == rhs.opt_def && lhs.old_value == rhs.old_value;
-}
+bool operator<(const ConfigSubstitution &lhs, const ConfigSubstitution &rhs) throw();
+bool operator==(const ConfigSubstitution &lhs, const ConfigSubstitution &rhs) throw();
 
 // Map from a config option name to its definition.
 // The definition does not carry an actual value of the config option, only its constant default value.
@@ -609,32 +670,33 @@ public:
     bool set_deserialize_nothrow(const t_config_option_key &opt_key_src, const std::string &value_src, ConfigSubstitutionContext& substitutions, bool append = false);
 	// May throw BadOptionTypeException() if the operation fails.
     void set_deserialize(const t_config_option_key &opt_key, const std::string &str, ConfigSubstitutionContext& config_substitutions, bool append = false);
-    void set_deserialize(const t_config_option_key &opt_key, const std::string &str){ //for tests
-        ConfigSubstitutionContext no_context(ForwardCompatibilitySubstitutionRule::Disable);
-        set_deserialize(opt_key, str, no_context);
-    }
+    void set_deserialize(const t_config_option_key &opt_key, const std::string &str);
     void set_deserialize_strict(const t_config_option_key &opt_key, const std::string &str, bool append = false)
         { ConfigSubstitutionContext ctxt{ ForwardCompatibilitySubstitutionRule::Disable }; this->set_deserialize(opt_key, str, ctxt, append); }
     struct SetDeserializeItem {
-    	SetDeserializeItem(const char *opt_key, const char *opt_value, bool append = false) : opt_key(opt_key), opt_value(opt_value), append(append) {}
-    	SetDeserializeItem(const std::string &opt_key, const std::string &opt_value, bool append = false) : opt_key(opt_key), opt_value(opt_value), append(append) {}
-        SetDeserializeItem(const std::string &opt_key, const std::string_view opt_value, bool append = false) : opt_key(opt_key), opt_value(opt_value), append(append) {}
-    	SetDeserializeItem(const char *opt_key, const bool value, bool append = false) : opt_key(opt_key), opt_value(value ? "1" : "0"), append(append) {}
-    	SetDeserializeItem(const std::string &opt_key, const bool value, bool append = false) : opt_key(opt_key), opt_value(value ? "1" : "0"), append(append) {}
-    	SetDeserializeItem(const char *opt_key, const int32_t value, bool append = false) : opt_key(opt_key), opt_value(std::to_string(value)), append(append) {}
-    	SetDeserializeItem(const std::string &opt_key, const int32_t value, bool append = false) : opt_key(opt_key), opt_value(std::to_string(value)), append(append) {}
-        SetDeserializeItem(const char *opt_key, const std::initializer_list<int32_t> values, bool append = false) : opt_key(opt_key), opt_value(format(values)), append(append) {}
-        SetDeserializeItem(const std::string &opt_key, const std::initializer_list<int32_t> values, bool append = false) : opt_key(opt_key), opt_value(format(values)), append(append) {}
-        SetDeserializeItem(const char *opt_key, const float value, bool append = false) : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
-        SetDeserializeItem(const std::string &opt_key, const float value, bool append = false) : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
-        SetDeserializeItem(const char *opt_key, const double value, bool append = false) : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
-        SetDeserializeItem(const std::string &opt_key, const double value, bool append = false) : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
-        SetDeserializeItem(const char *opt_key, const std::initializer_list<float> values, bool append = false) : opt_key(opt_key), opt_value(format(values)), append(append) {}
-        SetDeserializeItem(const std::string &opt_key, const std::initializer_list<float> values, bool append = false) : opt_key(opt_key), opt_value(format(values)), append(append) {}
-        SetDeserializeItem(const char *opt_key, const std::initializer_list<double> values, bool append = false) : opt_key(opt_key), opt_value(format(values)), append(append) {}
-        SetDeserializeItem(const std::string &opt_key, const std::initializer_list<double> values, bool append = false) : opt_key(opt_key), opt_value(format(values)), append(append) {}
+        SetDeserializeItem(const char *opt_key, const char *opt_value, bool append = false);
+        SetDeserializeItem(const std::string &opt_key, const std::string &opt_value, bool append = false);
+        SetDeserializeItem(const std::string &opt_key, const std::string_view opt_value, bool append = false);
+        SetDeserializeItem(const char *opt_key, const bool value, bool append = false);
+        SetDeserializeItem(const std::string &opt_key, const bool value, bool append = false);
+        SetDeserializeItem(const char *opt_key, const int32_t value, bool append = false);
+        SetDeserializeItem(const std::string &opt_key, const int32_t value, bool append = false);
+        SetDeserializeItem(const char *opt_key, const std::initializer_list<int32_t> values, bool append = false);
+        SetDeserializeItem(const std::string &opt_key,
+                           const std::initializer_list<int32_t> values,
+                           bool append = false);
+        SetDeserializeItem(const char *opt_key, const float value, bool append = false);
+        SetDeserializeItem(const std::string &opt_key, const float value, bool append = false);
+        SetDeserializeItem(const char *opt_key, const double value, bool append = false);
+        SetDeserializeItem(const std::string &opt_key, const double value, bool append = false);
+        SetDeserializeItem(const char *opt_key, const std::initializer_list<float> values, bool append = false);
+        SetDeserializeItem(const std::string &opt_key, const std::initializer_list<float> values, bool append = false);
+        SetDeserializeItem(const char *opt_key, const std::initializer_list<double> values, bool append = false);
+        SetDeserializeItem(const std::string &opt_key,
+                           const std::initializer_list<double> values,
+                           bool append = false);
 
-    	std::string opt_key; std::string opt_value; bool append = false;
+        std::string opt_key; std::string opt_value; bool append = false;
 
     private:
         static std::string format(std::initializer_list<int32_t> values);
@@ -719,93 +781,36 @@ class DynamicConfig : public virtual ConfigBase
 {
 public:
     DynamicConfig() = default;
-    DynamicConfig(const DynamicConfig &rhs) { *this = rhs; }
-    DynamicConfig(DynamicConfig &&rhs) noexcept : options(std::move(rhs.options)) { rhs.options.clear(); }
-	explicit DynamicConfig(const ConfigBase &rhs, const t_config_option_keys &keys);
+    DynamicConfig(const DynamicConfig &rhs);
+    DynamicConfig(DynamicConfig &&rhs) noexcept;
+    explicit DynamicConfig(const ConfigBase &rhs, const t_config_option_keys &keys);
 	explicit DynamicConfig(const ConfigBase& rhs) : DynamicConfig(rhs, rhs.keys()) {}
 	virtual ~DynamicConfig() override = default;
 
     // Copy a content of one DynamicConfig to another DynamicConfig.
-    // If rhs.def() is not null, then it has to be equal to this->def(). 
-    DynamicConfig& operator=(const DynamicConfig &rhs) 
-    {
-        assert(this->def() == nullptr || this->def() == rhs.def());
-        this->clear();
-        for (const auto &kvp : rhs.options)
-            this->options[kvp.first].reset(kvp.second->clone());
-        return *this;
-    }
+    // If rhs.def() is not null, then it has to be equal to this->def().
+    DynamicConfig &operator=(const DynamicConfig &rhs);
 
     // Move a content of one DynamicConfig to another DynamicConfig.
-    // If rhs.def() is not null, then it has to be equal to this->def(). 
-    DynamicConfig& operator=(DynamicConfig &&rhs) noexcept
-    {
-        assert(this->def() == nullptr || this->def() == rhs.def());
-        this->clear();
-        this->options = std::move(rhs.options);
-        rhs.options.clear();
-        return *this;
-    }
+    // If rhs.def() is not null, then it has to be equal to this->def().
+    DynamicConfig &operator=(DynamicConfig &&rhs) noexcept;
 
     // Add a content of one DynamicConfig to another DynamicConfig.
     // If rhs.def() is not null, then it has to be equal to this->def().
-    DynamicConfig& operator+=(const DynamicConfig &rhs)
-    {
-        assert(this->def() == nullptr || this->def() == rhs.def());
-        for (const auto &kvp : rhs.options) {
-            auto it = this->options.find(kvp.first);
-            if (it == this->options.end())
-                this->options[kvp.first].reset(kvp.second->clone());
-            else {
-                assert(it->second->type() == kvp.second->type());
-                if (it->second->type() == kvp.second->type())
-                    *it->second = *kvp.second;
-                else
-                    it->second.reset(kvp.second->clone());
-            }
-        }
-        return *this;
-    }
+    DynamicConfig &operator+=(const DynamicConfig &rhs);
 
     // Move a content of one DynamicConfig to another DynamicConfig.
     // If rhs.def() is not null, then it has to be equal to this->def().
-    DynamicConfig& operator+=(DynamicConfig &&rhs) 
-    {
-        assert(this->def() == nullptr || this->def() == rhs.def());
-        for (auto &kvp : rhs.options) {
-            auto it = this->options.find(kvp.first);
-            if (it == this->options.end()) {
-                this->options.insert(std::make_pair(kvp.first, std::move(kvp.second)));
-            } else {
-                assert(it->second->type() == kvp.second->type());
-                it->second = std::move(kvp.second);
-            }
-        }
-        rhs.options.clear();
-        return *this;
-    }
+    DynamicConfig &operator+=(DynamicConfig &&rhs);
 
     bool           operator==(const DynamicConfig &rhs) const;
     bool           operator!=(const DynamicConfig &rhs) const { return ! (*this == rhs); }
 
-    void swap(DynamicConfig &other) 
-    { 
-        std::swap(this->options, other.options);
-    }
+    void swap(DynamicConfig &other) { std::swap(this->options, other.options); }
 
-    void clear()
-    { 
-        this->options.clear(); 
-    }
+    void clear() { this->options.clear(); }
 
-    bool erase(const t_config_option_key &opt_key)
-    { 
-        auto it = this->options.find(opt_key);
-        if (it == this->options.end())
-            return false;
-        this->options.erase(it);
-        return true;
-    }
+    bool erase(const t_config_option_key &opt_key);
 
     // Remove disabled optional options, it does not help to hold them.
     size_t remove_optional_disabled_options();
@@ -824,26 +829,7 @@ public:
     // Set a value for an opt_key. Returns true if the value did not exist yet.
     // This DynamicConfig will take ownership of opt.
     // Be careful, as this method does not test the existence of opt_key in this->def().
-    bool                    set_key_value(const std::string &opt_key, ConfigOption *opt)
-    {
-        // ensure set_can_be_disabled is set
-        if (def()) {
-            const ConfigOptionDef* opt_def = def()->get(opt_key);
-            if (opt_def && opt_def->can_be_disabled && !opt->can_be_disabled()) {
-                opt->set_can_be_disabled();
-            }
-        }
-        // replace or insert
-        assert(opt != nullptr);
-        auto it = this->options.find(opt_key);
-        if (it == this->options.end()) {
-            this->options[opt_key].reset(opt);
-            return true;
-        } else {
-            it->second.reset(opt);
-            return false;
-        }
-    }
+    bool set_key_value(const std::string &opt_key, ConfigOption *opt);
 
     // Are the two configs equal? Ignoring options not present in both configs and phony fields.
     bool equals(const DynamicConfig &other, bool even_phony =true) const;
@@ -856,8 +842,10 @@ public:
     bool                read_cli(int argc, const char* const argv[], t_config_option_keys* extra, t_config_option_keys* keys = nullptr);
 
     std::map<t_config_option_key, std::unique_ptr<ConfigOption>>::const_iterator cbegin() const { return options.cbegin(); }
-    std::map<t_config_option_key, std::unique_ptr<ConfigOption>>::const_iterator cend()   const { return options.cend(); }
-    size_t                        												 size()   const { return options.size(); }
+    std::map<t_config_option_key, std::unique_ptr<ConfigOption>>::const_iterator cend() const {
+        return options.cend();
+    }
+    size_t size() const { return options.size(); }
 
 private:
     std::map<t_config_option_key, std::unique_ptr<ConfigOption>> options;

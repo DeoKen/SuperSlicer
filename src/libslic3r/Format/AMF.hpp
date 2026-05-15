@@ -12,10 +12,13 @@
 #ifndef slic3r_Format_AMF_hpp_
 #define slic3r_Format_AMF_hpp_
 
+#include <string>
+
 namespace Slic3r {
 
 class Model;
 class DynamicPrintConfig;
+struct ConfigSubstitutionContext;
 
 // Load the content of an amf file into the given model and configuration.
 extern bool load_amf(const char* path, DynamicPrintConfig* config, ConfigSubstitutionContext* config_substitutions, Model* model, bool check_version);

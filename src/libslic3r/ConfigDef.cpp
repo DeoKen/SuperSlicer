@@ -59,9 +59,45 @@ namespace Slic3r {
 
 std::map<std::string, ConfigOptionMode> ConfigOptionDef::names_2_tag_mode = { {"Simple",comSimple},{"Advanced",comAdvanced},{"Expert",comExpert},{"Prusa",comPrusa},{"SuSi",comSuSi} };
 
+ConfigSubstitution::ConfigSubstitution(const ConfigOptionDef *def, std::string old, ConfigOptionUniquePtr &&new_v)
+    : opt_def(def), old_name(def->opt_key), old_value(old), new_value(std::move(new_v)) {
+    assert(def);
+}
+
 void ConfigSubstitutionContext::sort_and_remove_duplicates()
 {
     sort_remove_duplicates(m_substitutions);
+}
+
+std::optional<ConfigSubstitution> ConfigSubstitutionContext::find(const std::string &old_name) {
+    for (const ConfigSubstitution &conf : m_substitutions) {
+        if (old_name == conf.old_name)
+            return std::make_optional<ConfigSubstitution>(conf.old_name, conf.old_value);
+    }
+    return {};
+}
+
+bool ConfigSubstitutionContext::erase(std::string old_name) {
+    for (size_t idx_susbst = 0; idx_susbst < m_substitutions.size(); ++idx_susbst) {
+        if (old_name == m_substitutions[idx_susbst].old_name) {
+            m_substitutions.erase(m_substitutions.begin() + idx_susbst);
+            return true;
+        }
+    }
+    return false;
+}
+
+void ConfigOptionDeleter::operator()(ConfigOption *p) { delete p; }
+
+bool operator<(const ConfigSubstitution &lhs, const ConfigSubstitution &rhs) throw() {
+    return (lhs.opt_def ? lhs.opt_def->opt_key : lhs.old_name) <
+        (rhs.opt_def ? rhs.opt_def->opt_key : rhs.old_name) ||
+        ((lhs.opt_def ? lhs.opt_def->opt_key : lhs.old_name) == (rhs.opt_def ? rhs.opt_def->opt_key : rhs.old_name) &&
+         lhs.old_value < rhs.old_value);
+}
+
+bool operator==(const ConfigSubstitution &lhs, const ConfigSubstitution &rhs) throw() {
+    return lhs.opt_def == rhs.opt_def && lhs.old_value == rhs.old_value;
 }
 
 std::vector<std::string> ConfigOptionDef::cli_args(const std::string &key) const
@@ -286,6 +322,19 @@ std::ostream& ConfigDef::print_cli_help(std::ostream& out, bool show_defaults, s
 
 // Look up a closed enum value of this combo box based on an index of the combo box value / label.
 // Such a mapping should always succeed.
+ConfigOptionEnumDef::ConfigOptionEnumDef(const ConfigOptionEnumDef &other)
+    : m_values(other.m_values)
+    , m_labels(other.m_labels)
+    , m_values_ordinary(other.m_values_ordinary)
+    , m_enum_names(other.m_enum_names)
+    , m_enum_keys_map(other.m_enum_keys_map) {
+    if (other.m_enum_names == &other.m_values) {
+        this->m_enum_names = &this->m_values;
+    }
+}
+
+ConfigOptionEnumDef *ConfigOptionEnumDef::clone() const { return new ConfigOptionEnumDef{*this}; }
+
 int ConfigOptionEnumDef::index_to_enum(int index) const
 {
     // It has to be a closed enum, thus values have to be defined.
@@ -428,6 +477,13 @@ void ConfigOptionEnumDef::finalize_closed_enum()
     }
 }
 
+void ConfigOptionDef::enum_def_new() {
+    if (enum_def)
+        enum_def->clear();
+    else
+        enum_def = Slic3r::clonable_ptr<ConfigOptionEnumDef>(new ConfigOptionEnumDef{});
+}
+
 void ConfigOptionDef::set_enum_values(const std::vector<std::string> il)
 {
     this->enum_def_new();
@@ -512,11 +568,77 @@ bool ConfigOptionDef::has_enum_value(const std::string &value) const {
     return enum_def && enum_def->value_to_index(value).has_value();
 }
 
-std::string ConfigBase::SetDeserializeItem::format(std::initializer_list<int> values)
-{
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key, const char *opt_value, bool append)
+    : opt_key(opt_key), opt_value(opt_value), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key,
+                                                   const std::string &opt_value,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(opt_value), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key,
+                                                   const std::string_view opt_value,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(opt_value), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key, const bool value, bool append)
+    : opt_key(opt_key), opt_value(value ? "1" : "0"), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key, const bool value, bool append)
+    : opt_key(opt_key), opt_value(value ? "1" : "0"), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key, const int32_t value, bool append)
+    : opt_key(opt_key), opt_value(std::to_string(value)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key, const int32_t value, bool append)
+    : opt_key(opt_key), opt_value(std::to_string(value)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key,
+                                                   const std::initializer_list<int32_t> values,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(format(values)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key,
+                                                   const std::initializer_list<int32_t> values,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(format(values)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key, const float value, bool append)
+    : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key, const float value, bool append)
+    : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key, const double value, bool append)
+    : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key, const double value, bool append)
+    : opt_key(opt_key), opt_value(float_to_string_decimal_point(value)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key,
+                                                   const std::initializer_list<float> values,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(format(values)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key,
+                                                   const std::initializer_list<float> values,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(format(values)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const char *opt_key,
+                                                   const std::initializer_list<double> values,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(format(values)), append(append) {}
+
+ConfigBase::SetDeserializeItem::SetDeserializeItem(const std::string &opt_key,
+                                                   const std::initializer_list<double> values,
+                                                   bool append)
+    : opt_key(opt_key), opt_value(format(values)), append(append) {}
+
+std::string ConfigBase::SetDeserializeItem::format(std::initializer_list<int32_t> values) {
     std::string out;
     int i = 0;
-    for (int v : values) {
+    for (int32_t v : values) {
         if (i ++ > 0)
             out += ", ";
         out += std::to_string(v);
@@ -688,6 +810,11 @@ bool ConfigBase::set_deserialize_nothrow(const t_config_option_key &opt_key_src,
     } catch (UnknownOptionException e) {
         return true;
     }
+}
+
+void ConfigBase::set_deserialize(const t_config_option_key &opt_key, const std::string &str) {
+    ConfigSubstitutionContext no_context(ForwardCompatibilitySubstitutionRule::Disable);
+    set_deserialize(opt_key, str, no_context);
 }
 
 void ConfigBase::set_deserialize(const t_config_option_key &opt_key_src, const std::string &value_src, ConfigSubstitutionContext& substitutions_ctxt, bool append)
@@ -1550,10 +1677,70 @@ void ConfigBase::disable_optionals()
     }
 }
 
+DynamicConfig::DynamicConfig(const DynamicConfig &rhs) { *this = rhs; }
+
+DynamicConfig::DynamicConfig(DynamicConfig &&rhs) noexcept : options(std::move(rhs.options)) { rhs.options.clear(); }
+
 DynamicConfig::DynamicConfig(const ConfigBase& rhs, const t_config_option_keys& keys)
 {
 	for (const t_config_option_key& opt_key : keys)
 		this->options[opt_key] = std::unique_ptr<ConfigOption>(rhs.option(opt_key)->clone());
+}
+
+DynamicConfig &DynamicConfig::operator=(const DynamicConfig &rhs) {
+    assert(this->def() == nullptr || this->def() == rhs.def());
+    this->clear();
+    for (const auto &kvp : rhs.options)
+        this->options[kvp.first].reset(kvp.second->clone());
+    return *this;
+}
+
+DynamicConfig &DynamicConfig::operator=(DynamicConfig &&rhs) noexcept {
+    assert(this->def() == nullptr || this->def() == rhs.def());
+    this->clear();
+    this->options = std::move(rhs.options);
+    rhs.options.clear();
+    return *this;
+}
+
+DynamicConfig &DynamicConfig::operator+=(const DynamicConfig &rhs) {
+    assert(this->def() == nullptr || this->def() == rhs.def());
+    for (const auto &kvp : rhs.options) {
+        auto it = this->options.find(kvp.first);
+        if (it == this->options.end())
+            this->options[kvp.first].reset(kvp.second->clone());
+        else {
+            assert(it->second->type() == kvp.second->type());
+            if (it->second->type() == kvp.second->type())
+                *it->second = *kvp.second;
+            else
+                it->second.reset(kvp.second->clone());
+        }
+    }
+    return *this;
+}
+
+DynamicConfig &DynamicConfig::operator+=(DynamicConfig &&rhs) {
+    assert(this->def() == nullptr || this->def() == rhs.def());
+    for (auto &kvp : rhs.options) {
+        auto it = this->options.find(kvp.first);
+        if (it == this->options.end()) {
+            this->options.insert(std::make_pair(kvp.first, std::move(kvp.second)));
+        } else {
+            assert(it->second->type() == kvp.second->type());
+            it->second = std::move(kvp.second);
+        }
+    }
+    rhs.options.clear();
+    return *this;
+}
+
+bool DynamicConfig::erase(const t_config_option_key &opt_key) {
+    auto it = this->options.find(opt_key);
+    if (it == this->options.end())
+        return false;
+    this->options.erase(it);
+    return true;
 }
 
 bool DynamicConfig::operator==(const DynamicConfig &rhs) const
@@ -1581,6 +1768,26 @@ size_t DynamicConfig::remove_optional_disabled_options()
 		} else
 			++ it;
 	return cnt_removed;
+}
+
+bool DynamicConfig::set_key_value(const std::string &opt_key, ConfigOption *opt) {
+    // ensure set_can_be_disabled is set
+    if (def()) {
+        const ConfigOptionDef *opt_def = def()->get(opt_key);
+        if (opt_def && opt_def->can_be_disabled && !opt->can_be_disabled()) {
+            opt->set_can_be_disabled();
+        }
+    }
+    // replace or insert
+    assert(opt != nullptr);
+    auto it = this->options.find(opt_key);
+    if (it == this->options.end()) {
+        this->options[opt_key].reset(opt);
+        return true;
+    } else {
+        it->second.reset(opt);
+        return false;
+    }
 }
 
 ConfigOption* DynamicConfig::optptr(const t_config_option_key &opt_key, bool create)

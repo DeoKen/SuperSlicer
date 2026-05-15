@@ -25,38 +25,25 @@
 #define slic3r_ConfigOption_hpp_
 
 #include <cassert>
-#include <cfloat>
-#include <cstdio>
-#include <cstdlib>
+#include <cmath>
+#include <cstdint>
 #include <functional>
-#include <iostream>
-#include <limits>
 #include <map>
+#include <iosfwd>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <type_traits>
+#include <utility>
 #include <vector>
 
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/trim.hpp>
 #include <boost/any.hpp>
-#include <boost/format/format_fwd.hpp>
-#include <boost/functional/hash.hpp>
-#include <boost/property_tree/ptree_fwd.hpp>
 #include <cereal/access.hpp>
 #include <cereal/types/base_class.hpp>
-#include <climits>
 
 #include "libslic3r/Api/plugin/c/slic3r_config_option_type.h"
 
-#include "clonable_ptr.hpp"
-#include "ContainerUtils.hpp"
 #include "Exception.hpp"
-#include "libslic3r.h"
-#include "LocalesUtils.hpp"
 #include "Point.hpp"
 
 namespace Slic3r {
@@ -170,45 +157,31 @@ namespace Slic3r {
         // if more than 2 values, other are ignored
         Pointfs enforced_values;
     };
+
+    inline void config_hash_combine_value(std::size_t &seed, std::size_t value) noexcept {
+        seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+
+    template<class T> inline void config_hash_combine(std::size_t &seed, const T &value) noexcept {
+        config_hash_combine_value(seed, std::hash<T>{}(value));
+    }
 }
 
 namespace std {
     template<> struct hash<Slic3r::FloatOrPercent> {
-        std::size_t operator()(const Slic3r::FloatOrPercent& v) const noexcept {
-            std::size_t seed = std::hash<double>{}(v.value);
-            return v.percent ? seed ^ 0x9e3779b9 : seed;
-        }
+        std::size_t operator()(const Slic3r::FloatOrPercent &v) const noexcept;
     };
     
     template<> struct hash<Slic3r::GraphData> {
-        std::size_t operator()(const Slic3r::GraphData& v) const noexcept {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, std::hash<double>{}(v.begin_idx));
-            boost::hash_combine(seed, std::hash<double>{}(v.end_idx));
-            boost::hash_combine(seed, std::hash<double>{}(v.type));
-            for (const auto &pt : v.graph_points) {
-                boost::hash_combine(seed, std::hash<double>{}(pt.x()));
-                boost::hash_combine(seed, std::hash<double>{}(pt.y()));
-            }
-            return seed;
-        }
+        std::size_t operator()(const Slic3r::GraphData &v) const noexcept;
     };
 
     template<> struct hash<Slic3r::Vec2d> {
-        std::size_t operator()(const Slic3r::Vec2d& v) const noexcept {
-            std::size_t seed = std::hash<double>{}(v.x());
-            boost::hash_combine(seed, std::hash<double>{}(v.y()));
-            return seed;
-        }
+        std::size_t operator()(const Slic3r::Vec2d &v) const noexcept;
     };
 
     template<> struct hash<Slic3r::Vec3d> {
-        std::size_t operator()(const Slic3r::Vec3d& v) const noexcept {
-            std::size_t seed = std::hash<double>{}(v.x());
-            boost::hash_combine(seed, std::hash<double>{}(v.y()));
-            boost::hash_combine(seed, std::hash<double>{}(v.z()));
-            return seed;
-        }
+        std::size_t operator()(const Slic3r::Vec3d &v) const noexcept;
     };
 }
 
@@ -315,39 +288,19 @@ enum class OptionCategory : int
 std::string toString(OptionCategory opt);
 
 namespace ConfigHelpers {
-	inline bool looks_like_enum_value(std::string value)
-	{
-		boost::trim(value);
-		if (value.empty() || value.size() > 64 || ! isalpha(value.front()))
-			return false;
-		for (const char c : value)
-			if (! (isalnum(c) || c == '_' || c == '-'))
-				return false;
-		return true;
-	}
+void trim(std::string &value);
+bool looks_like_enum_value(std::string value);
+bool enum_looks_like_bool_value(std::string value);
+bool enum_looks_like_true_value(std::string value);
 
-    inline bool enum_looks_like_bool_value(std::string value) {
-        boost::trim(value);
-        return boost::iequals(value, "enabled") || boost::iequals(value, "disabled") || boost::iequals(value, "on") || boost::iequals(value, "off");
-    }
+enum class DeserializationSubstitution { Disabled, DefaultsToFalse, DefaultsToTrue };
 
-    inline bool enum_looks_like_true_value(std::string value) {
-        boost::trim(value);
-        return boost::iequals(value, "enabled") || boost::iequals(value, "on");
-    }
-
-	enum class DeserializationSubstitution {
-		Disabled,
-		DefaultsToFalse,
-		DefaultsToTrue
-	};
-
-    enum class DeserializationResult {
-    	Loaded,
-    	Substituted,
-    	Failed,
-    };
+enum class DeserializationResult {
+    Loaded,
+    Substituted,
+    Failed,
 };
+} // namespace ConfigHelpers
 
 // Base for all exceptions thrown by the configuration layer.
 class ConfigurationError : public Slic3r::RuntimeError {
@@ -387,8 +340,8 @@ public:
 class BadOptionTypeException : public ConfigurationError
 {
 public:
-	BadOptionTypeException() : ConfigurationError("Bad option type exception") {}
-	BadOptionTypeException(const std::string &message) : ConfigurationError(message) {}
+    BadOptionTypeException() : ConfigurationError("Bad option type exception") {}
+    BadOptionTypeException(const std::string &message) : ConfigurationError(message) {}
     BadOptionTypeException(const char* message) : ConfigurationError(message) {}
 };
 
@@ -508,64 +461,8 @@ enum class BridgeType : uint8_t {
     btFromFlow,
 };
 
-enum ForwardCompatibilitySubstitutionRule
-{
-    // Disable susbtitution, throw exception if an option value is not recognized.
-    Disable,
-    // Enable substitution of an unknown option value with default. Log the substitution.
-    Enable,
-    // Enable substitution of an unknown option value with default. Don't log the substitution.
-    EnableSilent,
-    // Enable substitution of an unknown option value with default. Log substitutions in user profiles, don't log substitutions in system profiles.
-    EnableSystemSilent,
-    // Enable silent substitution of an unknown option value with default when loading user profiles. Throw on an unknown option value in a system profile.
-    EnableSilentDisableSystem,
-};
-
-class  ConfigDef;
-class  ConfigOption;
-class  ConfigOptionDef;
-// For forward definition of ConfigOption in ConfigOptionUniquePtr, we have to define a custom deleter.
-struct ConfigOptionDeleter { void operator()(ConfigOption* p); };
-using  ConfigOptionUniquePtr = std::unique_ptr<ConfigOption, ConfigOptionDeleter>;
-
-// When parsing a configuration value, if the old_value is not understood by this PrusaSlicer version,
-// it is being substituted with some default value that this PrusaSlicer could work with.
-// This structure serves to inform the user about the substitutions having been done during file import.
-struct ConfigSubstitution {
-    const ConfigOptionDef   *opt_def { nullptr };
-    std::string              old_name; // for when opt_def is nullptr (option not defined in this version)
-    std::string              old_value;
-    ConfigOptionUniquePtr    new_value;
-    ConfigSubstitution() = default;
-    ConfigSubstitution(const ConfigOptionDef* def, std::string old, ConfigOptionUniquePtr&& new_v);
-    ConfigSubstitution(std::string bad_key, std::string value) : opt_def(nullptr), old_name(bad_key), old_value(value), new_value() {}
-};
-
-using  ConfigSubstitutions = std::vector<ConfigSubstitution>;
-
-// Filled in by ConfigBase::set_deserialize_raw(), which based on "rule" either bails out
-// or performs substitutions when encountering an unknown configuration value.
-struct ConfigSubstitutionContext
-{
-    ConfigSubstitutionContext(ForwardCompatibilitySubstitutionRule rl) : rule(rl) {}
-
-    ForwardCompatibilitySubstitutionRule 	rule;
-    
-    bool empty() const throw() { return m_substitutions.empty(); }
-    const ConfigSubstitutions &get() const { return m_substitutions; }
-    ConfigSubstitutions data() && { return std::move(m_substitutions); }
-    void add(ConfigSubstitution&& substitution) { m_substitutions.push_back(std::move(substitution)); }
-    void emplace(std::string &&key, std::string &&value) { m_substitutions.emplace_back(std::move(key), std::move(value)); }
-    void emplace(const ConfigOptionDef* def, std::string &&old_value, ConfigOptionUniquePtr&& new_v) { m_substitutions.emplace_back(def, std::move(old_value), std::move(new_v)); }
-    void clear() { m_substitutions.clear(); }
-    void sort_and_remove_duplicates();
-    std::optional<ConfigSubstitution> find(const std::string &old_name);
-    bool erase(std::string old_name);
-
-private:
-    ConfigSubstitutions					    m_substitutions;
-};
+class ConfigDef;
+class ConfigOption;
 
 //note: is_nil is replaced by is_enabled
 
@@ -647,10 +544,10 @@ public:
         if (!rhs->is_enabled()) {
             return false;
         }
-    	if (*this == *rhs) 
-    		return false; 
-    	*this = *rhs; 
-    	return true;
+        if (*this == *rhs)
+            return false;
+        *this = *rhs;
+        return true;
     }
 private:
     friend class cereal::access;
@@ -709,8 +606,8 @@ public:
     size_t hash() const throw() override {
         std::hash<T> hasher;
         size_t seed = 0;
-        boost::hash_combine(seed, this->is_enabled());
-        boost::hash_combine(seed, hasher(this->value));
+        config_hash_combine(seed, this->is_enabled());
+        config_hash_combine_value(seed, hasher(this->value));
         return seed;
     }
 
@@ -747,8 +644,11 @@ public:
     }
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive & ar) { ar(this->flags); ar(this->value); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) {
+        ar(this->flags);
+        ar(this->value);
+    }
 };
 
 // Value of a vector valued option (bools, ints, floats, strings, points)
@@ -844,9 +744,12 @@ protected:
             ConfigOption::set_enabled(has_enabled);
         }
     }
-    
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive & ar) { ar(this->flags); ar(this->m_enabled); }
+
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) {
+        ar(this->flags);
+        ar(this->m_enabled);
+    }
 };
 
 // Value of a vector valued option (bools, ints, floats, strings, points), template
@@ -1098,20 +1001,20 @@ public:
         std::hash<bool> hasher_b;
         size_t seed = 0;
         for (const auto &v : this->m_values)
-            boost::hash_combine(seed, hasher(v));
+            config_hash_combine_value(seed, hasher(v));
         for (bool b : this->m_enabled)
-            boost::hash_combine(seed, hasher_b(b));
+            config_hash_combine_value(seed, hasher_b(b));
         return seed;
     }
 
     // Is this option overridden by another option?
     // An option overrides another option if it is not nil and not equal
     bool overriden_by(const ConfigOption *rhs, int32_t idx = -1) const override {
-        //if (this->nullable())
-        //	throw ConfigurationError("Cannot override a nullable ConfigOption.");
+        // if (this->nullable())
+        //   throw ConfigurationError("Cannot override a nullable ConfigOption.");
         if (rhs->type() != this->type())
             throw ConfigurationError("ConfigOptionVector.overriden_by() applied to different types.");
-    	auto rhs_vec = static_cast<const ConfigOptionVector<T>*>(rhs);
+        auto rhs_vec = static_cast<const ConfigOptionVector<T> *>(rhs);
         assert(this->size() == rhs_vec->size());
         if (idx < 0 || idx >= size()) {
             if (this->empty()) {
@@ -1132,8 +1035,8 @@ public:
 
     // Apply an override option, possibly a nullable one.
     bool apply_override(const ConfigOption *rhs, int32_t idx = -1) override {
-        //if (this->nullable())
-        //	throw ConfigurationError("Cannot override a nullable ConfigOption.");
+        // if (this->nullable())
+        //   throw ConfigurationError("Cannot override a nullable ConfigOption.");
         if (rhs->type() != this->type())
             throw ConfigurationError("ConfigOptionVector.apply_override() applied to different types.");
         auto rhs_vec = static_cast<const ConfigOptionVector<T> *>(rhs);
@@ -1193,38 +1096,13 @@ public:
     ConfigOption*           clone()     const override { return new ConfigOptionFloat(*this); }
     bool                    operator==(const ConfigOptionFloat &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator< (const ConfigOptionFloat &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value < rhs.value); }
-    
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        if (!this->is_enabled()) {
-            assert(this->can_be_disabled());
-            ss << "!";
-        }
-        if (std::isfinite(this->value)) {
-            ss << this->value;
-        } else
-            throw ConfigurationError("Serializing invalid number");
-        assert(ss.str() != "!" && !ss.str().empty());
-        return ss.str();
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        if (!str.empty() && str.front() == '!') {
-            this->set_enabled(false);
-        } else {
-            this->set_enabled(true);
-        }
-        std::istringstream iss(this->is_enabled() ? str : str.substr(1));
-        iss >> this->value;
 
-        return !iss.fail();
-    }
+    std::string serialize() const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
+    friend class cereal::access;
     template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<double>>(this)); }
 };
 
@@ -1251,69 +1129,18 @@ public:
     void                    set_int(int32_t value, size_t idx = 0) override { this->set_at(double(value), idx); }
     void                    set_float(double value, size_t idx = 0) override { this->set_at(value, idx); }
 
-    std::string serialize() const override
-    {
-        assert(this->m_values.size() == this->m_enabled.size());
-        std::ostringstream ss;
-        for (size_t idx = 0;idx < this->m_values.size(); ++idx) {
-            if (idx > 0)
-                ss << ",";
-            this->serialize_single_value(ss, this->m_values[idx], this->m_enabled[idx]);
-        }
-        return ss.str();
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        std::ostringstream ss;
-        this->serialize_single_value(ss, this->m_values[idx], this->m_enabled[idx]);
-        return ss.str();
-    }
+    std::string serialize() const override;
 
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        if (!append) {
-            this->m_values.clear();
-            this->m_enabled.clear();
-        }
-        std::istringstream is(str);
-        std::string item_str;
-        while (std::getline(is, item_str, ',')) {
-        	boost::trim(item_str);
-            bool enabled = true;
-            if (!item_str.empty() && item_str.front() == '!') {
-                enabled = false;
-                item_str = item_str.substr(1);
-                boost::trim(item_str);
-                assert(this->can_be_disabled());
-            }
-	        std::istringstream iss(item_str);
-	        double value;
-	        iss >> value;
-            this->m_values.push_back(value);
-            this->m_enabled.push_back(enabled);
-        }
-        set_default_enabled();
-        assert(this->m_values.size() == this->m_enabled.size());
-        return true;
-    }
+    std::string serialize_at(int idx) const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 protected:
-    void serialize_single_value(std::ostringstream &ss, const double v, const bool enabled) const {
-        if (!enabled) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        if (std::isfinite(v)) {
-            ss << v;
-        } else
-            throw ConfigurationError("Serializing invalid number");
-	}
+    void serialize_single_value(std::ostringstream &ss, const double v, const bool enabled) const;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionVector<double>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionVector<double>>(this)); }
 };
 
 
@@ -1335,37 +1162,13 @@ public:
     ConfigOption*           clone()  const override { return new ConfigOptionInt(*this); }
     bool                    operator==(const ConfigOptionInt &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator<(const ConfigOptionInt &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value < rhs.value); }
-    
-    std::string serialize() const override 
-    {
-        std::ostringstream ss;
-        if (!this->is_enabled()) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        ss << this->value;
 
-        return ss.str();
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        if (!str.empty() && str.front() == '!') {
-            this->set_enabled(false);
-            assert(this->can_be_disabled());
-        } else {
-            this->set_enabled(true);
-        }
-        std::istringstream iss(this->is_enabled() ? str : str.substr(1));
+    std::string serialize() const override;
 
-        iss >> this->value;
-
-        return !iss.fail();
-    }
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
+    friend class cereal::access;
     template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<int32_t>>(this)); }
 };
 
@@ -1391,64 +1194,17 @@ public:
     void                    set_int(int32_t value, size_t idx = 0) override { this->set_at(idx, value); }
     void                    set_float(double value, size_t idx = 0) override { this->set_at(idx, int32_t(value)); }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        for (size_t idx = 0;idx < this->m_values.size(); ++idx) {
-            if (idx > 0)
-                ss << ",";
-            this->serialize_single_value(ss, this->m_values[idx], this->is_enabled(idx));
-        }
-        return ss.str();
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        std::ostringstream ss;
-        this->serialize_single_value(ss, this->m_values[idx], this->m_enabled[idx]);
-        return ss.str();
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        if (!append) {
-            this->m_values.clear();
-            this->m_enabled.clear();
-        }
-        std::istringstream is(str);
-        std::string item_str;
-        while (std::getline(is, item_str, ',')) {
-            bool enabled = true;
-            boost::trim(item_str);
-            if (!item_str.empty() && item_str.front() == '!') {
-                enabled  = false;
-                item_str = item_str.substr(1);
-                boost::trim(item_str);
-                assert(this->can_be_disabled());
-            }
-	        std::istringstream iss(item_str);
-	        int32_t value;
-	        iss >> value;
-            this->m_values.push_back(value);
-            this->m_enabled.push_back(enabled);
-        }
-        set_default_enabled();
-        assert(this->m_values.size() == this->m_enabled.size());
-        return true;
-    }
+    std::string serialize() const override;
+
+    std::string serialize_at(int idx) const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-    void serialize_single_value(std::ostringstream &ss, const int32_t v, bool enabled) const {
-        if (!enabled) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        ss << v;
-	}
+    void serialize_single_value(std::ostringstream &ss, const int32_t v, bool enabled) const;
 
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionVector<int32_t>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionVector<int32_t>>(this)); }
 };
 
 class ConfigOptionString : public ConfigOptionSingle<std::string>
@@ -1471,27 +1227,15 @@ public:
     void                    set_int(int32_t value, size_t idx = 0) override { this->value = std::to_string(value); }
     void                    set_float(double value, size_t idx = 0) override { this->value = std::to_string(value); }
 
-    std::string serialize() const override
-    { 
-        if (!this->is_enabled())
-            return std::string("!:") + escape_string_cstyle(this->value);
-        return escape_string_cstyle(this->value); 
-    }
+    std::string serialize() const override;
 
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        if (str.size() > 1 && str.front() == '!' && str[1] == ':') {
-            this->set_enabled(false);
-        } else {
-            this->set_enabled(true);
-        }
-        return unescape_string_cstyle(this->is_enabled() ? str : str.substr(2), this->value);
-    }
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<std::string>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) {
+        ar(cereal::base_class<ConfigOptionSingle<std::string>>(this));
+    }
 };
 
 class ConfigOptionStringVersion : public ConfigOptionString
@@ -1501,10 +1245,7 @@ public:
     explicit ConfigOptionStringVersion(std::string value) : ConfigOptionString(std::move(value)) { this->set_phony(false); }
     ConfigOption*           clone() const override { return new ConfigOptionStringVersion(*this); }
 
-    std::string serialize() const override
-    {
-        return escape_string_cstyle(std::string("SUSI_") + SLIC3R_VERSION_FULL); 
-    }
+    std::string serialize() const override;
 };
 
 // semicolon-separated strings
@@ -1531,42 +1272,17 @@ public:
     void                    set_int(int32_t value, size_t idx = 0) override { this->set_at(std::to_string(value), idx); }
     void                    set_float(double value, size_t idx = 0) override { this->set_at(std::to_string(value), idx); }
 
-    std::string serialize() const override
-    {
-        if (this->m_enabled.empty() && !this->m_values.empty()) {
-            std::vector<bool> filled;
-            filled.resize(this->m_values.size(), ConfigOption::is_enabled(0));
-            return escape_strings_cstyle(this->m_values, filled);
-        }
-        return escape_strings_cstyle(this->m_values, this->m_enabled);
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        if (!this->is_enabled(idx))
-            return std::string("!:") + escape_string_cstyle(this->get_at(idx));
-        return escape_string_cstyle(this->get_at(idx)); 
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        if (!append) {
-            this->m_values.clear();
-            this->m_enabled.clear();
-        }
-        assert(this->m_enabled.size() == this->m_values.size());
-        bool success =  unescape_strings_cstyle(str, this->m_values, this->m_enabled);
-        if (success) {
-            set_default_enabled();
-        }
-        assert(this->m_values.size() == this->m_enabled.size());
-        return success;
-    }
+    std::string serialize() const override;
+
+    std::string serialize_at(int idx) const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionVector<std::string>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) {
+        ar(cereal::base_class<ConfigOptionVector<std::string>>(this));
+    }
 };
 
 class ConfigOptionPercent : public ConfigOptionFloat
@@ -1590,38 +1306,14 @@ public:
     void                    set_int(int32_t value, size_t idx = 0) override { this->value = value; }
     void                    set_float(double scalar_value, size_t idx = 0) override { this->value = value * 100; }
     void                    set_percent(double percent_value, size_t idx = 0) override {  this->value = percent_value; }
-    
-    std::string serialize() const override 
-    {
-        std::ostringstream ss;
-        if (!this->is_enabled()) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        ss << this->value;
-        std::string s(ss.str());
-        s += "%";
-        return s;
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        if (!str.empty() && str.front() == '!') {
-            this->set_enabled(false);
-            assert(this->can_be_disabled());
-        } else {
-            this->set_enabled(true);
-        }
-        // don't try to parse the trailing % since it's optional
-        std::istringstream iss(this->is_enabled() ? str : str.substr(1));
-        iss >> this->value;
-        return !iss.fail();
-    }
+
+    std::string serialize() const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionFloat>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionFloat>(this)); }
 };
 
 class ConfigOptionPercents : public ConfigOptionFloats
@@ -1651,33 +1343,16 @@ public:
     void                    set_float(double value, size_t idx = 0) override { this->set_at(value * 100., idx); }
     void                    set_percent(double percent_value, size_t idx = 0) override {  this->set_at(percent_value, idx); }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        for (size_t idx = 0;idx < this->m_values.size(); ++idx) {
-            if (idx > 0)
-                ss << ",";
-            this->serialize_single_value(ss, this->m_values[idx], this->is_enabled(idx));
-            ss << "%";
-        }
-        std::string str = ss.str();
-        return str;
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        std::ostringstream ss;
-        this->serialize_single_value(ss, this->m_values[idx], this->m_enabled[idx]);
-        return ss.str();
-    }
+    std::string serialize() const override;
+
+    std::string serialize_at(int idx) const override;
 
     // The float's deserialize function shall ignore the trailing optional %.
     // bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionFloats>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionFloats>(this)); }
 };
 
 // note: maybe should be a ConfigOptionSingle<FloatOrPercent>
@@ -1742,37 +1417,15 @@ public:
         this->flags = rhs.flags;
     }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        if (!this->is_enabled()) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        ss << this->value;
-        std::string s(ss.str());
-        if (this->percent) s += "%";
-        return s;
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        if (!str.empty() && str.front() == '!') {
-            this->set_enabled(false);
-            assert(this->can_be_disabled());
-        } else {
-            this->set_enabled(true);
-        }
-        this->percent = str.find_first_of("%") != std::string::npos;
-        std::istringstream iss(this->is_enabled() ? str : str.substr(1));
-        iss >> this->value;
-        return !iss.fail();
-    }
+    std::string serialize() const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionPercent>(this), percent); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) {
+        ar(cereal::base_class<ConfigOptionPercent>(this), percent);
+    }
 };
 
 class ConfigOptionFloatsOrPercents : public ConfigOptionVector<FloatOrPercent>
@@ -1806,70 +1459,17 @@ public:
     void                    set_float(double scalar_value, size_t idx = 0) override { this->set_at(FloatOrPercent{scalar_value, false}, idx); }
     void                    set_percent(double percent_value, size_t idx = 0) override { this->set_at(FloatOrPercent{percent_value, true}, idx); }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        for (size_t idx = 0;idx < this->m_values.size(); ++idx) {
-            if (idx > 0)
-                ss << ",";
-            this->serialize_single_value(ss, this->m_values[idx], this->is_enabled(idx));
-        }
-        return ss.str();
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        std::ostringstream ss;
-        this->serialize_single_value(ss, this->m_values[idx], this->m_enabled[idx]);
-        return ss.str();
-    }
+    std::string serialize() const override;
 
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        if (!append) {
-            this->m_values.clear();
-            this->m_enabled.clear();
-        }
-        std::istringstream is(str);
-        std::string item_str;
-        while (std::getline(is, item_str, ',')) {
-            boost::trim(item_str);
-            bool enabled = true;
-            if (!item_str.empty() && item_str.front() == '!') {
-                enabled = false;
-                item_str = item_str.substr(1);
-                boost::trim(item_str);
-                assert(this->can_be_disabled());
-            }
-            bool percent = item_str.find_first_of("%") != std::string::npos;
-            std::istringstream iss(item_str);
-            double value;
-            iss >> value;
-            this->m_values.push_back({ value, percent });
-            this->m_enabled.push_back(enabled);
-        }
-        set_default_enabled();
-        assert(this->m_values.size() == this->m_enabled.size());
-        return true;
-    }
+    std::string serialize_at(int idx) const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 protected:
     // Special "nil" value to be stored into the vector if this->supports_nil().
-    static FloatOrPercent   NIL_VALUE() { return FloatOrPercent{ std::numeric_limits<double>::max(), false }; }
+    static FloatOrPercent NIL_VALUE();
 
-    void serialize_single_value(std::ostringstream &ss, const FloatOrPercent &v, bool enabled) const {
-        if (!enabled) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        if (std::isfinite(v.value)) {
-            ss << v.value;
-            if (v.percent)
-                ss << "%";
-        } else
-            throw ConfigurationError("Serializing invalid number");
-    }
+    void serialize_single_value(std::ostringstream &ss, const FloatOrPercent &v, bool enabled) const;
 
 private:
     friend class cereal::access;
@@ -1895,48 +1495,13 @@ public:
     void                    set_int(int32_t value, size_t idx = 0) override { assert(idx < 2); (idx == 0 ? this->value.x() : this->value.y()) = double(value); }
     void                    set_float(double value, size_t idx = 0) override { assert(idx < 2); (idx == 0 ? this->value.x() : this->value.y()) = value; }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        if (!this->is_enabled())
-            ss << "!";
-        ss << this->value(0);
-        ss << "x";
-        ss << this->value(1);
-        return ss.str();
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        if (!str.empty() && str.front() == '!') {
-            this->set_enabled(false);
-        } else {
-            this->set_enabled(true);
-        }
+    std::string serialize() const override;
 
-        Vec2d point(Vec2d::Zero());
-        std::istringstream iss(this->is_enabled() ? str : str.substr(1));
-        std::string coord_str;
-        char sep = 'x';
-        // compatibility withy old ',' separator
-        if (str.find(sep) == std::string::npos)
-            sep = ',';
-        if (std::getline(iss, coord_str, sep)) {
-            std::istringstream(coord_str) >> point.x();
-            if (std::getline(iss, coord_str, sep)) {
-                std::istringstream(coord_str) >> point.y();
-            } else
-                return false;
-        } else
-            return false;
-        this->value=point;
-        return true;
-    }
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<Vec2d>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<Vec2d>>(this)); }
 };
 
 class ConfigOptionPoints : public ConfigOptionVector<Vec2d>
@@ -1955,11 +1520,7 @@ public:
     {
         return this->m_enabled == rhs.m_enabled && this->m_values == rhs.m_values;
     }
-    bool                    operator< (const ConfigOptionPoints &rhs) const throw() 
-    { return this->m_enabled < rhs.m_enabled || (this->m_enabled == rhs.m_enabled &&
-               std::lexicographical_compare(this->m_values.begin(), this->m_values.end(), rhs.m_values.begin(),
-                                            rhs.m_values.end(), [](const auto &l, const auto &r) { return l < r; }));
-    }
+    bool operator<(const ConfigOptionPoints &rhs) const throw();
 
     bool                    get_bool(size_t idx = 0) const override { assert(idx < size() * 2); return idx%2 == 0 ? this->get_at(idx/2).x() != 0 : this->get_at(idx/2).y() != 0; }
     int32_t                 get_int(size_t idx = 0) const override { assert(idx < size() * 2); return int32_t(idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()); }
@@ -1968,85 +1529,27 @@ public:
     void                    set_int(int32_t value, size_t idx = 0) override { assert(idx < size() * 2); (idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()) = double(value); }
     void                    set_float(double value, size_t idx = 0) override { assert(idx < size() * 2); (idx%2 == 0 ? this->get_at(idx/2).x() : this->get_at(idx/2).y()) = value; }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        for (size_t idx = 0 ; idx < this->m_values.size(); ++idx) {
-            if (idx != 0) ss << ",";
-            assert(m_enabled.size() == m_values.size());
-            if (!m_enabled[idx]) {
-                ss << "!";
-                assert(this->can_be_disabled());
-            }
-            ss << this->m_values[idx].x();
-            ss << "x";
-            ss << this->m_values[idx].y();
-        }
-        return ss.str();
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        std::ostringstream ss;
-        if (!m_enabled[idx]) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        ss << this->m_values[idx].x();
-        ss << "x";
-        ss << this->m_values[idx].y();
-        return ss.str();
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        if (!append) {
-            this->m_values.clear();
-            this->m_enabled.clear();
-        }
-        std::istringstream is(str);
-        std::string point_str;
-        while (std::getline(is, point_str, ',')) {
-        	boost::trim(point_str);
-            bool enabled = true;
-            if (!point_str.empty() && point_str.front() == '!') {
-                enabled = false;
-                point_str = point_str.substr(1);
-                assert(this->can_be_disabled());
-            }
-            Vec2d point(Vec2d::Zero());
-            std::istringstream iss(point_str);
-            std::string coord_str;
-            if (std::getline(iss, coord_str, 'x')) {
-                std::istringstream(coord_str) >> point(0);
-                if (std::getline(iss, coord_str, 'x')) {
-                    std::istringstream(coord_str) >> point(1);
-                }
-            }
-            this->m_values.push_back(point);
-            this->m_enabled.push_back(enabled);
-        }
-        set_default_enabled();
-        assert(this->m_values.size() == this->m_enabled.size());
-        return true;
-    }
+    std::string serialize() const override;
+
+    std::string serialize_at(int idx) const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void save(Archive& archive) const {
+    friend class cereal::access;
+    template<class Archive> void save(Archive &archive) const {
         archive(flags);
-		size_t cnt = this->m_values.size();
-		archive(cnt);
-		archive.saveBinary((const char*)this->m_values.data(), sizeof(Vec2d) * cnt);
-	}
-	template<class Archive> void load(Archive& archive) {
+        size_t cnt = this->m_values.size();
+        archive(cnt);
+        archive.saveBinary((const char *) this->m_values.data(), sizeof(Vec2d) * cnt);
+    }
+    template<class Archive> void load(Archive &archive) {
         archive(flags);
-		size_t cnt;
-		archive(cnt);
-		this->m_values.assign(cnt, Vec2d());
-		archive.loadBinary((char*)this->m_values.data(), sizeof(Vec2d) * cnt);
-	}
+        size_t cnt;
+        archive(cnt);
+        this->m_values.assign(cnt, Vec2d());
+        archive.loadBinary((char *) this->m_values.data(), sizeof(Vec2d) * cnt);
+    }
 };
 
 class ConfigOptionPoint3 : public ConfigOptionSingle<Vec3d>
@@ -2066,38 +1569,13 @@ public:
         return std::tie(this_enabled, this->value.x(), this->value.y()) < std::tie(rhs_enabled, rhs.value.x(), rhs.value.y());
     }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        if (!this->is_enabled())
-            ss << "!";
-        ss << this->value(0);
-        ss << ",";
-        ss << this->value(1);
-        ss << ",";
-        ss << this->value(2);
-        return ss.str();
-    }
-    
-    bool deserialize(const std::string &str_raw, bool append = false) override
-    {
-        UNUSED(append);
-        if (!str_raw.empty() && str_raw.front() == '!') {
-            this->set_enabled(false);
-        } else {
-            this->set_enabled(true);
-        }
-        
-        Vec2d point(Vec2d::Zero());
-        std::string str = (this->is_enabled() ? str_raw : str_raw.substr(1));
-        char dummy;
-        return sscanf(str.data(), " %lf , %lf , %lf %c", &this->value(0), &this->value(1), &this->value(2), &dummy) == 3 ||
-               sscanf(str.data(), " %lf x %lf x %lf %c", &this->value(0), &this->value(1), &this->value(2), &dummy) == 3;
-    }
+    std::string serialize() const override;
+
+    bool deserialize(const std::string &str_raw, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<Vec3d>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<Vec3d>>(this)); }
 };
 
 class ConfigOptionGraph : public ConfigOptionSingle<GraphData>
@@ -2111,32 +1589,10 @@ public:
     ConfigOption*           clone() const override { return new ConfigOptionGraph(*this); }
     bool                    operator==(const ConfigOptionGraph &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() && this->value == rhs.value; }
     bool                    operator< (const ConfigOptionGraph &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && this->value <  rhs.value); }
-    
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        if(!this->is_enabled())
-            ss << "!";
-        ss << this->value.serialize();
-        return ss.str();
-    }
 
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        GraphData data;
-        bool enabled = true;
-        if (!str.empty() && str.front() == '!') {
-            enabled = false;
-        }
-        bool ok = data.deserialize(enabled ? str : str.substr(1));
-        if (!ok)
-            return false;
-        this->set_enabled(enabled);
-        this->value = data;
-        return true;
-    }
-    
+    std::string serialize() const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
     friend class cereal::access;
@@ -2157,70 +1613,13 @@ public:
     ConfigOptionType        type()  const override { return static_type(); }
     ConfigOption*           clone() const override { assert(this->m_values.size() == this->m_enabled.size()); return new ConfigOptionGraphs(*this); }
     bool                    operator==(const ConfigOptionGraphs &rhs) const throw() { return this->m_enabled == rhs.m_enabled && this->m_values == rhs.m_values; }
-    bool operator<(const ConfigOptionGraphs &rhs) const throw()
-    {
-        return this->m_enabled < rhs.m_enabled || (this->m_enabled == rhs.m_enabled && 
-            std::lexicographical_compare(this->m_values.begin(), this->m_values.end(), rhs.m_values.begin(),
-                                            rhs.m_values.end(), [](const auto &l, const auto &r) { return l < r; }));
-    }
+    bool operator<(const ConfigOptionGraphs &rhs) const throw();
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        for (size_t idx = 0; idx < size(); ++idx) {
-            const GraphData &graph = this->m_values[idx];
-            if (idx != 0) ss << ",";
-            if (!this->is_enabled(idx)) {
-                ss << "!";
-                assert(this->can_be_disabled());
-            }
-            ss << graph.serialize();
-        }
-        return ss.str();
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        std::ostringstream ss;
-        if (!this->is_enabled(idx)) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        ss << this->m_values[idx].serialize();
-        return ss.str();
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        if (!append) {
-            this->m_values.clear();
-            this->m_enabled.clear();
-        }
-        std::istringstream is(str);
-        std::string graph_str;
-        char sep = ',';
-        if (str.find(';') != std::string::npos)
-            sep = ';';
-        while (std::getline(is, graph_str, sep)) {
-            boost::trim(graph_str);
-            bool enabled = true;
-            if (!graph_str.empty() && graph_str.front() == '!') {
-                enabled = false;
-                graph_str = graph_str.substr(1);
-                boost::trim(graph_str);
-                assert(this->can_be_disabled());
-            }
-            GraphData graph;
-            bool ok = graph.deserialize(graph_str);
-            if (ok) {
-                this->m_values.push_back(std::move(graph));
-                this->m_enabled.push_back(enabled);
-            }
-        }
-        set_default_enabled();
-        return true;
-    }
+    std::string serialize() const override;
+
+    std::string serialize_at(int idx) const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
     // use the string representation for cereal archive, as it's convenient.
@@ -2259,35 +1658,13 @@ public:
     bool                    operator==(const ConfigOptionBool &rhs) const throw() { return this->is_enabled() == rhs.is_enabled() &&this->value == rhs.value; }
     bool                    operator< (const ConfigOptionBool &rhs) const throw() { return this->is_enabled() < rhs.is_enabled() || (this->is_enabled() == rhs.is_enabled() && int(this->value) < int(rhs.value)); }
 
-    std::string serialize() const override
-    {
-        return std::string(this->is_enabled() ? "" : "!") + std::string(this->value ? "1" : "0");
-    }
-    
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        if (str.empty())
-            return false;
-        if (str.front() == '!') {
-            this->set_enabled(false);
-        } else {
-            this->set_enabled(true);
-        }
-        if (str.back() == '1') {
-            this->value = true;
-            return true;
-        }
-        if (str.back() == '0') {
-            this->value = false;
-            return true;
-        }
-        return false;
-    }
+    std::string serialize() const override;
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<bool>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<bool>>(this)); }
 };
 
 class ConfigOptionBools : public ConfigOptionVector<unsigned char>
@@ -2310,8 +1687,9 @@ public:
         this->m_enabled.resize(this->m_values.size(), ConfigOption::is_enabled());
         assert(m_enabled.size() == size());
     }
-	explicit ConfigOptionBools(const std::vector<unsigned char>& vec) : ConfigOptionVector<unsigned char>(vec) {}
-	explicit ConfigOptionBools(std::vector<unsigned char>&& vec) : ConfigOptionVector<unsigned char>(std::move(vec)) {}
+    explicit ConfigOptionBools(const std::vector<unsigned char> &vec) : ConfigOptionVector<unsigned char>(vec) {}
+    explicit ConfigOptionBools(std::vector<unsigned char> &&vec)
+        : ConfigOptionVector<unsigned char>(std::move(vec)) {}
 
     static ConfigOptionType static_type() { return coBools; }
     ConfigOptionType        type()  const override { return static_type(); }
@@ -2322,78 +1700,23 @@ public:
     int32_t                 get_int(size_t idx = 0) const override { return ConfigOptionVector<unsigned char>::get_at(idx) != 0 ? 1 : 0; }
     double                  get_float(size_t idx = 0) const override { return ConfigOptionVector<unsigned char>::get_at(idx) != 0 ? 1. : 0.; }
 
-    std::string serialize() const override
-    {
-        std::ostringstream ss;
-        for (size_t idx = 0;idx < this->m_values.size(); ++idx) {
-            if (idx > 0)
-                ss << ",";
-            this->serialize_single_value(ss, this->m_values[idx], this->is_enabled(idx));
-        }
-        return ss.str();
-    }
-    
-    std::string serialize_at(int idx) const override
-    {
-        assert(idx >=0  && idx < size());
-        std::ostringstream ss;
-        this->serialize_single_value(ss, this->m_values[idx], this->m_enabled[idx]);
-        return ss.str();
-    }
+    std::string serialize() const override;
 
-    ConfigHelpers::DeserializationResult deserialize_with_substitutions(const std::string &str, bool append, ConfigHelpers::DeserializationSubstitution substitution)
-    {
-        if (!append) {
-            this->m_values.clear();
-            this->m_enabled.clear();
-        }
-        std::istringstream is(str);
-        std::string item_str;
-        bool substituted = false;
-        while (std::getline(is, item_str, ',')) {
-        	boost::trim(item_str);
-            bool enabled = true;
-            if (!item_str.empty() && item_str.front() == '!') {
-                enabled = false;
-                item_str = item_str.substr(1);
-                boost::trim(item_str);
-                assert(this->can_be_disabled());
-            }
-        	unsigned char new_value = 0;
-            if (item_str == "1") {
-        		new_value = true;
-        	} else if (item_str == "0") {
-        		new_value = false;
-        	} else if (substitution != ConfigHelpers::DeserializationSubstitution::Disabled && ConfigHelpers::looks_like_enum_value(item_str)) {
-        		new_value = ConfigHelpers::enum_looks_like_true_value(item_str) || substitution == ConfigHelpers::DeserializationSubstitution::DefaultsToTrue;
-        		substituted = true;
-        	} else
-        		return ConfigHelpers::DeserializationResult::Failed;
-            this->m_values.push_back(new_value);
-            this->m_enabled.push_back(enabled);
-        }
-        set_default_enabled();
-        assert(this->m_values.size() == this->m_enabled.size());
-        return substituted ? ConfigHelpers::DeserializationResult::Substituted : ConfigHelpers::DeserializationResult::Loaded;
-    }
+    std::string serialize_at(int idx) const override;
 
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-    	return this->deserialize_with_substitutions(str, append, ConfigHelpers::DeserializationSubstitution::Disabled) == ConfigHelpers::DeserializationResult::Loaded;
-    }
+    ConfigHelpers::DeserializationResult deserialize_with_substitutions(
+        const std::string &str, bool append, ConfigHelpers::DeserializationSubstitution substitution);
+
+    bool deserialize(const std::string &str, bool append = false) override;
 
 protected:
-    void serialize_single_value(std::ostringstream &ss, const unsigned char v, bool enabled) const {
-        if (!enabled) {
-            ss << "!";
-            assert(this->can_be_disabled());
-        }
-        ss << (v ? "1" : "0");
-    }
+    void serialize_single_value(std::ostringstream &ss, const unsigned char v, bool enabled) const;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionVector<unsigned char>>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) {
+        ar(cereal::base_class<ConfigOptionVector<unsigned char>>(this));
+    }
 };
 
 // Map from an enum integer value to an enum name.
@@ -2453,7 +1776,7 @@ public:
 
     bool deserialize(const std::string &str, bool append = false) override
     {
-        UNUSED(append);
+        (void) append;
         if (!str.empty() && str.front() == '!') {
             this->set_enabled(false);
         } else {
@@ -2496,7 +1819,7 @@ public:
     explicit ConfigOptionEnumGeneric(const t_config_enum_values* keys_map, int32_t value) : ConfigOptionInt(value), keys_map(keys_map) {}
 
     const t_config_enum_values* keys_map;
-    
+
     static ConfigOptionType     static_type() { return coEnum; }
     ConfigOptionType            type()  const override { return static_type(); }
     ConfigOption*               clone() const override { return new ConfigOptionEnumGeneric(*this); }
@@ -2527,30 +1850,13 @@ public:
         this->flags = rhs.flags;
     }
 
-    std::string serialize() const override
-    {
-        std::string prefix;
-        if (!this->is_enabled())
-            prefix = "!";
-        for (const auto &kvp : *this->keys_map)
-            if (kvp.second == this->value) 
-                return prefix + kvp.first;
-        return prefix;
-    }
+    std::string serialize() const override;
 
-    bool deserialize(const std::string &str, bool append = false) override
-    {
-        UNUSED(append);
-        auto it = this->keys_map->find(str);
-        if (it == this->keys_map->end())
-            return false;
-        this->value = it->second;
-        return true;
-    }
+    bool deserialize(const std::string &str, bool append = false) override;
 
 private:
-	friend class cereal::access;
-	template<class Archive> void serialize(Archive& ar) { ar(cereal::base_class<ConfigOptionInt>(this)); }
+    friend class cereal::access;
+    template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionInt>(this)); }
 };
 
 } // namespace Slic3r
