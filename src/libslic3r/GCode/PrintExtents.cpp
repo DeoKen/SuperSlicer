@@ -14,6 +14,7 @@
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/PointUtils.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 
 #include "WipeTower.hpp"
 

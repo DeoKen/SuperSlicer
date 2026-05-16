@@ -33,9 +33,10 @@
 #include "libslic3r/MutablePolygon.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Thread.hpp"
 
-#include "Support/SupportCommon.hpp"
+#include "SupportCommon.hpp"
 
 #define SUPPORT_USE_AGG_RASTERIZER
 
@@ -45,9 +46,9 @@
     #include <agg/agg_scanline_p.h>
     #include <agg/agg_rasterizer_scanline_aa.h>
     #include <agg/agg_path_storage.h>
-    #include "PNGReadWrite.hpp"
+    #include "libslic3r/PNGReadWrite.hpp"
 #else
-    #include "EdgeGrid.hpp"
+    #include "libslic3r/EdgeGrid.hpp"
 #endif // SUPPORT_USE_AGG_RASTERIZER
 
 // #define SLIC3R_DEBUG

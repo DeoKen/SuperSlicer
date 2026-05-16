@@ -5,6 +5,7 @@
 
 #include "DebugPrintProcessComparator.hpp"
 
+#include "libslic3r/PrintObject.hpp"
 #ifdef _DEBUG
 
 #include "libslic3r/ExtrusionEntityCollection.hpp"

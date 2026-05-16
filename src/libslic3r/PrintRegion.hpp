@@ -25,7 +25,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <set>
-#include <utility>
 
 #include "Flow.hpp"
 #include "libslic3r.h"
@@ -41,9 +40,9 @@ class PrintRegion
 public:
     PrintRegion() = default;
     PrintRegion(const PrintRegionConfig &config);
-    PrintRegion(const PrintRegionConfig &config, const size_t config_hash, int print_object_region_id = -1) : m_config(config), m_config_hash(config_hash), m_print_object_region_id(print_object_region_id) {}
+    PrintRegion(const PrintRegionConfig &config, const size_t config_hash, int print_object_region_id = -1);
     PrintRegion(PrintRegionConfig &&config);
-    PrintRegion(PrintRegionConfig &&config, const size_t config_hash, int print_object_region_id = -1) : m_config(std::move(config)), m_config_hash(config_hash), m_print_object_region_id(print_object_region_id) {}
+    PrintRegion(PrintRegionConfig &&config, const size_t config_hash, int print_object_region_id = -1);
     ~PrintRegion() = default;
 
 // Methods NOT modifying the PrintRegion's state:
@@ -67,7 +66,7 @@ public:
 // Methods modifying the PrintRegion's state:
 public:
     void                        set_config(const PrintRegionConfig &config) { m_config = config; m_config_hash = m_config.hash(); }
-    void                        set_config(PrintRegionConfig &&config) { m_config = std::move(config); m_config_hash = m_config.hash(); }
+    void set_config(PrintRegionConfig &&config);
     void                        config_apply_only(const ConfigBase &other, const t_config_option_keys &keys, bool ignore_nonexistent = false)
                                         { m_config.apply_only(other, keys, ignore_nonexistent); m_config_hash = m_config.hash(); }
 private:

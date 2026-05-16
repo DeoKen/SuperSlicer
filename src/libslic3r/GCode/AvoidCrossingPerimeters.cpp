@@ -21,6 +21,8 @@
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/SVG.hpp"
 
 //#define AVOID_CROSSING_PERIMETERS_DEBUG_OUTPUT

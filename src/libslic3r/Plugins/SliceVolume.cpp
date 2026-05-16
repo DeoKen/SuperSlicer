@@ -13,6 +13,7 @@
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/cpp/Views.hpp"
+#include "libslic3r/PrintRegion.hpp"
 
 namespace slic3r_api { namespace SliceVolumePlugin {
 

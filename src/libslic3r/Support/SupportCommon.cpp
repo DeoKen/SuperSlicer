@@ -13,6 +13,8 @@
 #include <boost/container/static_vector.hpp>
 #include <oneapi/tbb/parallel_for.h>
 
+#include "libslic3r/Api/internal/LayerAccess.hpp"
+#include "libslic3r/Api/internal/LayerRegionAccess.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/ClipperZUtils.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
@@ -23,10 +25,10 @@
 #include "libslic3r/Point.hpp"
 #include "libslic3r/PointUtils.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/Thread.hpp"
 
-#include "Api/internal/LayerAccess.hpp"
-#include "Api/internal/LayerRegionAccess.hpp"
 #include "SupportLayer.hpp"
 #include "SupportParameters.hpp"
 

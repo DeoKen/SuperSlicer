@@ -43,6 +43,7 @@
 #include "Polygon.hpp"
 #include "PrincipalComponents2D.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
 #include "PrintBase.hpp"
 #include "PrintConfig.hpp"
 #include <tbb/blocked_range.h>

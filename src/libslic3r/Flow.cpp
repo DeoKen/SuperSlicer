@@ -21,6 +21,8 @@
 #include "I18N.hpp"
 #include "Layer.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
+#include "PrintRegion.hpp"
 
 namespace Slic3r {
 

@@ -6,7 +6,9 @@
 ///|/
 
 #include "TreeSupportCommon.hpp"
+#include "libslic3r/PrintRegion.hpp"
 
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Slicing.hpp"
 
 // Tree supports by Thomas Rahm, losely based on Tree Supports by CuraEngine.

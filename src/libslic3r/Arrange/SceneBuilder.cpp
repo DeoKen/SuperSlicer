@@ -7,13 +7,15 @@
 
 #include "SceneBuilder.hpp"
 
+#include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PointUtils.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/SLAPrint.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
 
 #include "Core/ArrangeItemTraits.hpp"
-#include "Geometry/ConvexHull.hpp"
 
 namespace Slic3r { namespace arr2 {
 

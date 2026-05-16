@@ -28,11 +28,13 @@
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/ShortestPath.hpp"
 #include "libslic3r/Surface.hpp"
 
 #ifndef NDEBUG
-#include "../PointUtils.hpp"
+#include "libslic3r/PointUtils.hpp"
 #endif
 
 namespace Slic3r {

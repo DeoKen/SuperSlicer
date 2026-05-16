@@ -5,11 +5,13 @@
 ///|/
 
 #include "Generator.hpp"
+#include "libslic3r/PrintObjectRegion.hpp"
 #include "TreeNode.hpp"
 
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 
 /* Possible future tasks/optimizations,etc.:
  * - Improve connecting heuristic to favor connecting to shorter trees

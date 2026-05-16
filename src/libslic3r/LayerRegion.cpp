@@ -28,6 +28,8 @@
 #include "Milling/MillingPostProcess.hpp"
 #include "PerimeterGenerator.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
+#include "PrintRegion.hpp"
 #include "Surface.hpp"
 #include "SVG.hpp"
 

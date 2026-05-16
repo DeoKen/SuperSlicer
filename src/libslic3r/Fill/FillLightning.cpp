@@ -8,6 +8,7 @@
 #include "FillLightning.hpp"
 
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/ShortestPath.hpp"
 
 #include "Lightning/Generator.hpp"

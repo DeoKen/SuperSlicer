@@ -23,6 +23,7 @@
 #include "Layer.hpp"
 #include "libslic3r.h"
 #include "Print.hpp"
+#include "PrintObject.hpp"
 #include "PrintConfig.hpp"
 #include "ShortestPath.hpp"
 

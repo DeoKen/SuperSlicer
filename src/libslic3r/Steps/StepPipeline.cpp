@@ -11,6 +11,7 @@
 #include "libslic3r/Api/internal/PrintObjectAccess.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Slicing.hpp"
 #include "libslic3r/Steps/StepDetectSupportSpots.hpp"
 #include "libslic3r/Steps/StepDetectSurfaceType.hpp"

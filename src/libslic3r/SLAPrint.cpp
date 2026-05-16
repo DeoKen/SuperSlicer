@@ -20,6 +20,7 @@
 #include "format.hpp"
 #include "Format/SLAArchiveFormatRegistry.hpp"
 #include "Geometry.hpp"
+#include "PrintObject.hpp"
 #include "SLAPrintSteps.hpp"
 #include "StaticMap.hpp"
 #include "Thread.hpp"

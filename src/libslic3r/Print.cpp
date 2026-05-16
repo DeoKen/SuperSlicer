@@ -23,6 +23,7 @@
 ///|/
 #include "Print.hpp"
 
+#include <algorithm>
 #include <cfloat>
 #include <limits>
 #include <string>
@@ -35,7 +36,6 @@
 
 #include <oneapi/tbb/parallel_for.h>
 
-#include <algorithm>
 #include "BoundingBox.hpp"
 #include "Brim.hpp"
 #include "BuildVolume.hpp"
@@ -53,6 +53,9 @@
 #include "GCode/WipeTower2.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "I18N.hpp"
+#include "PrintObject.hpp"
+#include "PrintObjectRegion.hpp"
+#include "PrintRegion.hpp"
 #include "ShortestPath.hpp"
 #include "Thread.hpp"
 #include "Utils.hpp"
@@ -74,8 +77,13 @@ Print::~Print()
     this->clear();
 }
 
-void Print::clear() 
-{
+void Print::set_task(const TaskParams &params) {
+    PrintBaseWithState<PrintStep, psCount>::set_task_impl(params, m_objects);
+}
+
+void Print::finalize() { PrintBaseWithState<PrintStep, psCount>::finalize_impl(m_objects); }
+
+void Print::clear() {
     std::scoped_lock<std::mutex> lock(this->state_mutex());
     // The following call should stop background processing if it is running.
     this->invalidate_all_steps();
@@ -84,10 +92,23 @@ void Print::clear()
     m_model.clear_objects();
 }
 
+const PrintObject *Print::get_print_object_by_model_object_id(ObjectID object_id) const {
+    auto it = std::find_if(m_objects.begin(), m_objects.end(), [object_id](const PrintObjectUPtr &obj) {
+        return obj->model_object()->id() == object_id;
+    });
+    return (it == m_objects.end()) ? nullptr : it->get();
+}
+
+const PrintObject *Print::get_object(ObjectID object_id) const {
+    auto it = std::find_if(m_objects.begin(), m_objects.end(),
+                           [object_id](const PrintObjectUPtr &obj) { return obj->id() == object_id; });
+    return (it == m_objects.end()) ? nullptr : it->get();
+}
+
 // Called by Print::apply().
 // This method only accepts PrintConfig option keys. Not PrintObjectConfig or PrintRegionConfig, go to PrintObject for these
-bool Print::invalidate_state_by_config_options(const ConfigOptionResolver& /* new_config */, const std::vector<t_config_option_key> &opt_keys)
-{
+bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* new_config */,
+                                               const std::vector<t_config_option_key> &opt_keys) {
     if (opt_keys.empty())
         return false;
 
@@ -1419,7 +1440,7 @@ void Print::process()
         m_wipe_tower_data.position = { m_default_object_config.wipe_tower_x, m_default_object_config.wipe_tower_y };
         m_wipe_tower_data.rotation_angle = m_default_object_config.wipe_tower_rotation_angle;
     }
-    this->set_status(printstep_2_percent[PrintStep::psCheckConflict], _u8L("Checking line conflicts"));
+    this->set_status(printstep_percent(PrintStep::psCheckConflict), _u8L("Checking line conflicts"));
     PrintObjectPtrs objects;
     objects.reserve(m_objects.size());
     for (const PrintObjectUPtr &object : m_objects)
@@ -1454,9 +1475,9 @@ void Print::process()
         const bool spiral_mode = config().spiral_vase;
         const bool enable_arc_fitting = config().arc_fitting.value != ArcFittingType::Disabled && !spiral_mode;
         if (enable_arc_fitting) {
-            this->set_status(objectstep_2_percent[PrintObjectStep::posSimplifyPath], L("Creating arcs"));
+            this->set_status(objectstep_percent(PrintObjectStep::posSimplifyPath), L("Creating arcs"));
         } else {
-            this->set_status(objectstep_2_percent[PrintObjectStep::posSimplifyPath], L("Simplifying paths"));
+            this->set_status(objectstep_percent(PrintObjectStep::posSimplifyPath), L("Simplifying paths"));
         }
         secondary_status_counter_reset();
         for (PrintObjectUPtr &obj : m_objects) {
@@ -1520,7 +1541,8 @@ void Print::process()
     BOOST_LOG_TRIVIAL(info) << "Slicing process finished." << log_memory_info();
     //notify gui that the slicing/preview structs are ready to be drawed
     if (something_done)
-        this->set_status(printstep_2_percent[PrintStep::psGCodeExport], L("Slicing done"), SlicingStatus::FlagBits::SLICING_ENDED);
+        this->set_status(printstep_percent(PrintStep::psGCodeExport), L("Slicing done"),
+                         SlicingStatus::FlagBits::SLICING_ENDED);
 }
 
 // G-code export process, running at a background thread.
@@ -1534,9 +1556,9 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
     std::string path = this->output_filepath(path_template);
     if (!path.empty() && result == nullptr) {
         // Only show the path if preview_data is not set -> running from command line.
-        this->set_status(printstep_2_percent[PrintStep::psGCodeExport], L("Exporting G-code to %s"), {path});
+        this->set_status(printstep_percent(PrintStep::psGCodeExport), L("Exporting G-code to %s"), {path});
     } else {
-        this->set_status(printstep_2_percent[PrintStep::psGCodeExport], L("Generating G-code"));
+        this->set_status(printstep_percent(PrintStep::psGCodeExport), L("Generating G-code"));
     }
 
     // order tools
@@ -1591,7 +1613,7 @@ struct ExtrusionDirectionSetter : public ExtrusionVisitorRecursive {
 void Print::_make_skirt_brim() {
 
     if (this->set_started(psSkirtBrim)) {
-        this->set_status(printstep_2_percent[PrintStep::psSkirtBrim], L("Generating skirt and brim"));
+        this->set_status(printstep_percent(PrintStep::psSkirtBrim), L("Generating skirt and brim"));
         m_skirt.clear();
         m_skirt_first_layer.reset();
         //const bool draft_shield = config().draft_shield != dsDisabled;
@@ -1604,11 +1626,11 @@ void Print::_make_skirt_brim() {
             obj->m_skirt_first_layer.reset();
         }
         if (this->has_skirt()) {
-            this->set_status(printstep_2_percent[PrintStep::psSkirtBrim], L("Generating skirt"));
+            this->set_status(printstep_percent(PrintStep::psSkirtBrim), L("Generating skirt"));
             if (config().complete_objects && !config().complete_objects_one_skirt){
                 for (PrintObjectUPtr &obj : m_objects) {
                     //create a skirt "pattern" (one per object)
-                    const std::vector<PrintInstance> copies{ obj->instances() };
+                    const std::vector<PrintInstance> copies{obj->instances()};
                     obj->m_instances.clear();
                     obj->m_instances.emplace_back();
                     this->_make_skirt({ obj.get() }, obj->m_skirt, obj->m_skirt_first_layer);
@@ -1690,11 +1712,11 @@ void Print::_make_skirt_brim() {
         for (std::vector<PrintObject*> &obj_group : obj_groups) {
             const PrintObjectConfig &brim_config = obj_group.front()->config();
             if (brim_config.brim_width > 0 || brim_config.brim_width_interior > 0 || has_brim_patch(obj_group, ModelVolumeType::BRIM_PATCH)) {
-                this->set_status(printstep_2_percent[PrintStep::psSkirtBrim] + 2, L("Generating brim"));
+                this->set_status(printstep_percent(PrintStep::psSkirtBrim) + 2, L("Generating brim"));
                 if (brim_config.brim_per_object) {
                     for (PrintObject *obj : obj_group) {
                         //get flow
-                        std::set<uint16_t> set_extruders = this->object_extruders(PrintObjectPtrs{ obj });
+                        std::set<uint16_t> set_extruders = this->object_extruders(PrintObjectPtrs{obj});
                         append(set_extruders, this->support_material_extruders());
                         Flow        flow = this->brim_flow(set_extruders.empty() ? print_region(0).config().perimeter_extruder - 1 : *set_extruders.begin(), obj->config());
                         //if complete objects
@@ -2111,7 +2133,7 @@ void Print::alert_when_supports_needed()
 {
     if (this->set_started(psAlertWhenSupportsNeeded)) {
         BOOST_LOG_TRIVIAL(debug) << "psAlertWhenSupportsNeeded - start";
-        set_status(printstep_2_percent[PrintStep::psAlertWhenSupportsNeeded], L("Alert if supports needed"));
+        set_status(printstep_percent(PrintStep::psAlertWhenSupportsNeeded), L("Alert if supports needed"));
 
         auto issue_to_alert_message = [](SupportSpotsGenerator::SupportPointCause cause, bool critical) {
             std::string message;

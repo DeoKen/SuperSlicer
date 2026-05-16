@@ -7,10 +7,6 @@
 
 #include "ToolOrdering.hpp"
 
-#include "GCode.hpp"
-#include "Layer.hpp"
-#include "Print.hpp"
-
 // #define SLIC3R_DEBUG
 // Make assert active if SLIC3R_DEBUG
 
@@ -25,7 +21,12 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <libslic3r.h>
+#include "libslic3r/GCode.hpp"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/libslic3r.h"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintRegion.hpp"
 
 namespace Slic3r {
 

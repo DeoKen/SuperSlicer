@@ -5,6 +5,7 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include <boost/log/trivial.hpp>
+#include "PrintRegion.hpp"
 
 #include <oneapi/tbb/parallel_for.h>
 
@@ -18,8 +19,11 @@
 #include "Layer.hpp"
 #include "MultiMaterialSegmentation.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
+#include "PrintObjectRegion.hpp"
 #include "ShortestPath.hpp"
 #include "Thread.hpp"
+#include "TriangleMeshSlicer.hpp"
 
 namespace Slic3r {
 

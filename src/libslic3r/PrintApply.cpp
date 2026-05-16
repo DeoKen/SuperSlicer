@@ -5,7 +5,10 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "Model.hpp"
+#include "PrintRegion.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
+#include "PrintObjectRegion.hpp"
 
 namespace Slic3r {
 

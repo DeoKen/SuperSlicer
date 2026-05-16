@@ -12,6 +12,8 @@
 //#include "slic3r/GUI/3DScene.hpp"
 #include "libslic3r/SupportSpotsGenerator.hpp"
 #include "libslic3r/TriangleSelectorWrapper.hpp"
+#include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintObjectRegion.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/ImGuiWrapper.hpp"

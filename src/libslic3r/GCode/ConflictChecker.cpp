@@ -16,6 +16,7 @@
 #include <oneapi/tbb/parallel_for.h>
 
 #include "libslic3r/PointUtils.hpp"
+#include "libslic3r/PrintObject.hpp"
 
 namespace Slic3r {
 

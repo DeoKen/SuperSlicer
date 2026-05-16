@@ -20,6 +20,7 @@
 
 #ifdef _DEBUG
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Slicing.hpp"
 #endif
 

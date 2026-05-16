@@ -29,7 +29,9 @@
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/ShortEdgeCollapse.hpp"
 #include "libslic3r/TriangleMeshSlicer.hpp"
 #include "libslic3r/TriangleSetSampling.hpp"
@@ -40,7 +42,7 @@
 
 #ifdef DEBUG_FILES
 #include <boost/nowide/cstdio.hpp>
-#include <SVG.hpp>
+#include "libslic3r/SVG.hpp"
 #endif
 
 namespace Slic3r {

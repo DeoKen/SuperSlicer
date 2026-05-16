@@ -25,82 +25,33 @@
 #include <atomic>
 #include <ctime>
 #include <functional>
+#include <map>
+#include <mutex>
 #include <optional>
 #include <set>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include <Eigen/Geometry>
-#include <tcbspan/span.hpp>
-
-#include "Api/internal/PrintObjectAccess.hpp"
-#include "BoundingBox.hpp"
 #include "DataTreeFwd.hpp"
 #include "ExtrusionEntityCollection.hpp"
-#include "Fill/FillAdaptive.hpp"
-#include "Fill/FillLightning.hpp"
 #include "Flow.hpp"
 #include "GCode/ThumbnailData.hpp"
 #include "GCode/ToolOrdering.hpp"
 #include "GCode/WipeTower.hpp"
-#include "GCode/WipeTower2.hpp"
 #include "libslic3r.h"
-#include "MultiMaterialSegmentation.hpp"
 #include "Point.hpp"
 #include "PrintBase.hpp"
-#include "PrintObject.hpp"
-#include "Slicing.hpp"
-#include "Steps/StepPipeline.hpp"
-#include "SupportSpotsGenerator.hpp"
-#include "Surface.hpp"
-#include "TriangleMeshSlicer.hpp"
+#include "PrintConfig.hpp"
+#include "PrintSteps.hpp"
 
 namespace Slic3r {
 
 class GCodeGenerator;
 struct GCodeProcessorResult;
-class BoundingBox;
 class WipeTower2;
 struct ConflictResult;
 
-namespace FillAdaptive {
-    struct Octree;
-    struct OctreeDeleter;
-    using OctreePtr = std::unique_ptr<Octree, OctreeDeleter>;
-}; // namespace FillAdaptive
-
-namespace FillLightning {
-    class Generator;
-    struct GeneratorDeleter;
-    using GeneratorPtr = std::unique_ptr<Generator, GeneratorDeleter>;
-}; // namespace FillLightning
-
-
-// Print step IDs for keeping track of the print state.
-// The Print steps are applied in this order.
-enum PrintStep : uint8_t {
-    psWipeTower,
-    // Ordering of the tools on PrintObjects for a multi-material print.
-    // psToolOrdering is a synonym to psWipeTower, as the Wipe Tower calculates and modifies the ToolOrdering,
-    // while if printing without the Wipe Tower, the ToolOrdering is calculated as well.
-    psToolOrdering = psWipeTower,
-    psAlertWhenSupportsNeeded,
-    psSkirtBrim,
-    psCheckConflict,
-    // Last step before G-code export, after this step is finished, the initial extrusion path preview
-    // should be refreshed.
-    psSlicingFinished = psSkirtBrim,
-    psGCodeExport,
-   //TODO: psGCodeLoader (for params that are only used for time display and such)
-    psCount,
-};
-
-inline std::map<PrintStep, int> printstep_2_percent = {
-    {PrintStep::psAlertWhenSupportsNeeded, 45},
-    {PrintStep::psSkirtBrim, 70},
-    {PrintStep::psWipeTower, 75},
-    {PrintStep::psCheckConflict, 80},
-    {PrintStep::psGCodeExport, 85},
-    {PrintStep::psCount, 100},
-};
 struct WipeTowerData
 {
     // Following section will be consumed by the GCodeGenerator.
@@ -263,9 +214,9 @@ public:
     std::vector<ObjectID> print_object_ids() const override;
 
     ApplyStatus         apply(const Model &model, DynamicPrintConfig config) override;
-    void                set_task(const TaskParams &params) override { PrintBaseWithState<PrintStep, psCount>::set_task_impl(params, m_objects); }
-    void                process() override;
-    void                finalize() override { PrintBaseWithState<PrintStep, psCount>::finalize_impl(m_objects); }
+    void set_task(const TaskParams &params) override;
+    void process() override;
+    void finalize() override;
     void                cleanup() override;
 
     // Exports G-code into a file name based on the path_template, returns the file path of the generated G-code file.
@@ -310,18 +261,10 @@ public:
     PrintObjectRefs             objects() { return make_ref_view<PrintObject>(m_objects); }
     const PrintObject&          object(size_t idx) const { return *m_objects[idx]; }
     PrintObject&                object(size_t idx) { return *m_objects[idx]; }
-    const PrintObject*          get_print_object_by_model_object_id(ObjectID object_id) const {
-        auto it = std::find_if(m_objects.begin(), m_objects.end(),
-                               [object_id](const PrintObjectUPtr &obj) { return obj->model_object()->id() == object_id; });
-        return (it == m_objects.end()) ? nullptr : it->get();
-    }
+    const PrintObject *get_print_object_by_model_object_id(ObjectID object_id) const;
     // PrintObject by its ObjectID, to be used to uniquely bind slicing warnings to their source PrintObjects
     // in the notification center.
-    const PrintObject*          get_object(ObjectID object_id) const { 
-        auto it = std::find_if(m_objects.begin(), m_objects.end(), 
-            [object_id](const PrintObjectUPtr &obj) { return obj->id() == object_id; });
-        return (it == m_objects.end()) ? nullptr : it->get();
-    }
+    const PrintObject *get_object(ObjectID object_id) const;
     // How many of PrintObject::copies() over all print objects are there?
     // If zero, then the print is empty and the print shall not be executed.
     uint16_t                    num_object_instances() const;

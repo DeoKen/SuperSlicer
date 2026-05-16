@@ -17,6 +17,7 @@
 #include "libslic3r/PointUtils.hpp"
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Polyline.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/TriangleMeshSlicer.hpp"
 
 #include "SupportCommon.hpp"

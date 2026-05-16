@@ -16,6 +16,7 @@
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/SurfaceCollection.hpp"
 #include "libslic3r/Thread.hpp"
 

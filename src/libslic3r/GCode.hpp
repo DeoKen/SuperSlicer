@@ -60,6 +60,7 @@ namespace Slic3r {
 // Forward declarations.
 class GCodeGenerator;
 struct WipeTowerData;
+class WipeTowerLayer;
 
 namespace { struct Item; }
 struct PrintInstance;

@@ -30,7 +30,6 @@
 
 #include <Eigen/Geometry>
 
-#include "ContainerUtils.hpp"
 #include "DataTreeFwd.hpp"
 #include "libslic3r.h"
 #include "ObjectID.hpp"
@@ -94,10 +93,7 @@ public:
         std::vector<VolumeRegion>   volume_regions;
         std::vector<PaintedRegion>  painted_regions;
 
-        bool has_volume(const ObjectID id) const {
-            auto it = lower_bound_by_predicate(this->volumes.begin(), this->volumes.end(), [id](const VolumeExtents &l) { return l.volume_id < id; });
-            return it != this->volumes.end() && it->volume_id == id;
-        }
+        bool has_volume(const ObjectID id) const;
     };
 
     struct GeneratedSupportPoints{
@@ -115,11 +111,7 @@ public:
 
     std::optional<GeneratedSupportPoints> generated_support_points;
 
-    void clear() {
-        all_regions.clear();
-        layer_ranges.clear();
-        cached_volume_ids.clear();
-    }
+    void clear();
 
 private:
     friend class PrintObject;

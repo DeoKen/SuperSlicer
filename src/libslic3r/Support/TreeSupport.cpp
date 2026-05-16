@@ -28,6 +28,7 @@
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Polyline.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Thread.hpp"
 
 #include "OrganicSupport.hpp"

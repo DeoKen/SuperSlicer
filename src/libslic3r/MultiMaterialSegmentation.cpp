@@ -25,7 +25,10 @@
 #include "MutablePolygon.hpp"
 #include "Point.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
+#include "PrintRegion.hpp"
 #include "TriangleSelector.hpp"
+#include "TriangleMeshSlicer.hpp"
 
 //#define MM_SEGMENTATION_DEBUG_GRAPH
 //#define MM_SEGMENTATION_DEBUG_REGIONS

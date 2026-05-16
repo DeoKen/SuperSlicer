@@ -41,6 +41,7 @@
 #include "libslic3r/SLAPrint.hpp"
 #include "libslic3r/Slicing.hpp"
 #include "libslic3r/Tesselate.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
 #include "libslic3r/Utils.hpp"
 
 #include "BitmapCache.hpp"

@@ -6,6 +6,8 @@
 
 #include <algorithm>
 
+#include "libslic3r/PrintRegion.hpp"
+
 namespace slic3r_api {
 
 coord_t check_z_step(coord_t val, coord_t z_step)

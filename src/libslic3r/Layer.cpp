@@ -14,12 +14,12 @@
 #include "Layer.hpp"
 
 #include <boost/log/trivial.hpp>
+#include <clipper/clipper.hpp>
 
 #include "Api/internal/LayerAccess.hpp"
 #include "Api/internal/LayerIslandAccess.hpp"
 #include "Api/internal/LayerRegionAccess.hpp"
 #include "BoundingBox.hpp"
-#include <clipper/clipper.hpp>
 #include "ClipperUtils.hpp"
 #include "ClipperZUtils.hpp"
 #include "ExtrusionEntity.hpp"
@@ -28,6 +28,9 @@
 #include "Point.hpp"
 #include "Polygon.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
+#include "PrintObjectRegion.hpp"
+#include "PrintRegion.hpp"
 #include "ShortestPath.hpp"
 #include "Surface.hpp"
 #include "SVG.hpp"

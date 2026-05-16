@@ -25,7 +25,7 @@ typedef struct orchestrator_handle orchestrator_handle;
 /*
 Defines the execution stage of a plugin in the slicing pipeline.
 */
-typedef enum slicing_step_t
+typedef enum slicing_step_t : uint16_t
 {
     STEP_LAYER_HEIGHT              = 100,
     STEP_SLICING                   = 200,

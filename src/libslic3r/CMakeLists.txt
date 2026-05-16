@@ -482,9 +482,13 @@ set(SLIC3R_SOURCES
     PrintConfig.hpp
     PrintObject.cpp
     PrintObject.hpp
+    PrintObjectRegion.cpp
+    PrintObjectRegion.hpp
     PrintObjectSlice.cpp
     PrintRegion.cpp
     PrintRegion.hpp
+    PrintSteps.cpp
+    PrintSteps.hpp
     PointGrid.hpp
     PNGReadWrite.hpp
     PNGReadWrite.cpp

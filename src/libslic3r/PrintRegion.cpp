@@ -8,17 +8,28 @@
 ///|/
 #include "PrintRegion.hpp"
 
+#include <utility>
+
 #include "Exception.hpp"
 #include "Print.hpp"
+#include "PrintObject.hpp"
 
 namespace Slic3r {
 
 PrintRegion::PrintRegion(const PrintRegionConfig& config) : PrintRegion(config, config.hash()) {}
-PrintRegion::PrintRegion(PrintRegionConfig&& config) : PrintRegion(std::move(config), config.hash()) {}
+PrintRegion::PrintRegion(const PrintRegionConfig &config, const size_t config_hash, int print_object_region_id)
+    : m_config(config), m_config_hash(config_hash), m_print_object_region_id(print_object_region_id) {}
+PrintRegion::PrintRegion(PrintRegionConfig &&config) : PrintRegion(std::move(config), config.hash()) {}
+PrintRegion::PrintRegion(PrintRegionConfig &&config, const size_t config_hash, int print_object_region_id)
+    : m_config(std::move(config)), m_config_hash(config_hash), m_print_object_region_id(print_object_region_id) {}
+
+void PrintRegion::set_config(PrintRegionConfig &&config) {
+    m_config = std::move(config);
+    m_config_hash = m_config.hash();
+}
 
 // 1-based extruder identifier for this region and role.
-uint16_t PrintRegion::extruder(FlowRole role, const PrintObject& object) const
-{
+uint16_t PrintRegion::extruder(FlowRole role, const PrintObject &object) const {
     size_t extruder = 0;
     if (role == frPerimeter || role == frExternalPerimeter)
         extruder = m_config.perimeter_extruder;

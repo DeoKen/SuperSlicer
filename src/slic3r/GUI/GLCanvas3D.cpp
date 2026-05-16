@@ -66,6 +66,8 @@
 
 // Print now includes tbb, and tbb includes Windows. This breaks compilation of wxWidgets if included before wx.
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/SLAPrint.hpp"
 
 #include "wxExtensions.hpp"

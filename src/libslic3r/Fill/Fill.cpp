@@ -16,19 +16,20 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Layer.hpp"
-#include "libslic3r/Print.hpp"
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/Surface.hpp"
-
 // for Arachne based infills
 #include "libslic3r/PerimeterGenerator.hpp"
+#include "libslic3r/Polygon.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintRegion.hpp"
+#include "libslic3r/Surface.hpp"
 
 #include "FillBase.hpp"
 #include "FillRectilinear.hpp"
 #include "FillLightning.hpp"
 #include "FillConcentric.hpp"
 #include "FillEnsuring.hpp"
-#include "Polygon.hpp"
 
 namespace Slic3r {
 

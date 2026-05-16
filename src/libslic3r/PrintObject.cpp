@@ -11,6 +11,7 @@
 ///|/
 #include "PrintObject.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <cfloat>
 #include <cmath>
@@ -34,7 +35,6 @@
 #include <oneapi/tbb/parallel_for.h>
 
 #include "AABBTreeLines.hpp"
-#include <algorithm>
 #include "Api/internal/PrintObjectAccess.hpp"
 #include "BoundingBox.hpp"
 #include "BridgeDetector.hpp"
@@ -61,6 +61,8 @@
 #include "Print.hpp"
 #include "PrintBase.hpp"
 #include "PrintConfig.hpp"
+#include "PrintObjectRegion.hpp"
+#include "PrintRegion.hpp"
 #include "Slicing.hpp"
 #include "Support/SupportMaterial.hpp"
 #include "Support/TreeSupport.hpp"
@@ -161,8 +163,19 @@ PrintObject::PrintObject(Print* print, ModelObject* model_object, const Transfor
 
 PrintObject::~PrintObject() = default;
 
-PrintBase::ApplyStatus PrintObject::set_instances(PrintInstances&& instances)
-{
+Transform3d PrintObject::trafo_centered() const {
+    Transform3d t = this->trafo();
+    t.pretranslate(Vec3d(-unscaled(m_center_offset.x()), -unscaled(m_center_offset.y()), 0));
+    return t;
+}
+
+BoundingBox PrintObject::bounding_box() const {
+    return BoundingBox(Point(-m_size.x() / 2, -m_size.y() / 2), Point(m_size.x() / 2, m_size.y() / 2));
+}
+
+bool PrintObject::is_mm_painted() const { return this->model_object()->is_mm_painted(); }
+
+PrintBase::ApplyStatus PrintObject::set_instances(PrintInstances &&instances) {
     for (PrintInstance &i : instances) {
         // Add the center offset, which will be subtracted from the mesh when slicing.
         i.shift += m_center_offset;
@@ -196,18 +209,27 @@ std::vector<std::reference_wrapper<const PrintRegion>> PrintObject::all_regions(
     return out;
 }
 
+size_t PrintObject::num_printing_regions() const throw() {
+    assert(m_shared_regions);
+    return m_shared_regions->all_regions.size();
+}
+
+const PrintRegion &PrintObject::printing_region(size_t idx) const throw() {
+    assert(m_shared_regions);
+    return *m_shared_regions->all_regions[idx];
+}
+
 // 1) Merges typed region slices into stInternal type.
 // 2) Increases an "extra perimeters" counter at region slices where needed.
 // 3) Generates perimeters, gap fills and fill regions (fill regions of type stInternal).
-void PrintObject::make_perimeters()
-{
+void PrintObject::make_perimeters() {
     // prerequisites
     this->slice();
 
     if (! this->set_started(posPerimeters))
         return;
 
-    m_print->set_status(objectstep_2_percent[PrintObjectStep::posPerimeters], _u8L("Generating perimeters"));
+    m_print->set_status(objectstep_percent(PrintObjectStep::posPerimeters), _u8L("Generating perimeters"));
     m_print->secondary_status_counter_add_max(m_layers.size());
 
     BOOST_LOG_TRIVIAL(info) << "Generating perimeters..." << log_memory_info();
@@ -334,7 +356,7 @@ void PrintObject::prepare_infill()
     if (!this->set_started(posPrepareInfill))
         return;
 
-    m_print->set_status(objectstep_2_percent[PrintObjectStep::posPrepareInfill], L("Preparing infill"));
+    m_print->set_status(objectstep_percent(PrintObjectStep::posPrepareInfill), L("Preparing infill"));
     if (m_print->objects().size() == 1) {
         m_print->set_status(0, "", PrintBase::SlicingStatus::DEFAULT | PrintBase::SlicingStatus::SECONDARY_STATE);
     } else {
@@ -870,28 +892,33 @@ void PrintObject::infill()
     //m_print->set_status(0, _u8L("Infilling layer %s / %s"),
     //    { std::to_string(0), std::to_string(m_layers.size()) }, PrintBase::SlicingStatus::SECONDARY_STATE);
     if (this->set_started(posInfill)) {
-        // TRN Status for the Print calculation 
-        m_print->set_status(objectstep_2_percent[PrintObjectStep::posInfill], L("Infilling layers"));
+        // TRN Status for the Print calculation
+        m_print->set_status(objectstep_percent(PrintObjectStep::posInfill), L("Infilling layers"));
         m_print->secondary_status_counter_add_max(m_layers.size());
         const auto& adaptive_fill_octree = this->m_adaptive_fill_octrees.first;
         const auto& support_fill_octree = this->m_adaptive_fill_octrees.second;
 
         BOOST_LOG_TRIVIAL(debug) << "Filling layers in parallel - start";
         Slic3r::parallel_for(size_t(0), m_layers.size(),
-            [this, &adaptive_fill_octree = adaptive_fill_octree, &support_fill_octree = support_fill_octree]
-            (const size_t layer_idx) {
-                PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
-                    // updating progress
-                    int32_t nb_layers_done = m_print->secondary_status_counter_increment();
-                    m_print->set_status(100 * nb_layers_done / m_print->secondary_status_counter_get_max(), L("Infilling layer %s / %s"),
-                                    {std::to_string(nb_layers_done), std::to_string(m_print->secondary_status_counter_get_max())},
-                        PrintBase::SlicingStatus::SECONDARY_STATE);
+                             [this, &adaptive_fill_octree = adaptive_fill_octree,
+                              &support_fill_octree = support_fill_octree](const size_t layer_idx) {
+                                 PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
+                                 // updating progress
+                                 int32_t nb_layers_done = m_print->secondary_status_counter_increment();
+                                 m_print->set_status(100 * nb_layers_done /
+                                                         m_print->secondary_status_counter_get_max(),
+                                                     L("Infilling layer %s / %s"),
+                                                     {std::to_string(nb_layers_done),
+                                                      std::to_string(m_print->secondary_status_counter_get_max())},
+                                                     PrintBase::SlicingStatus::SECONDARY_STATE);
 
-                    std::chrono::time_point<std::chrono::system_clock> start_make_fill = std::chrono::system_clock::now();
-                    m_print->throw_if_canceled();
-                    m_layers[layer_idx]->make_fills(adaptive_fill_octree.get(), support_fill_octree.get(), this->m_lightning_generator.get());
-            }
-        );
+                                 std::chrono::time_point<std::chrono::system_clock> start_make_fill =
+                                     std::chrono::system_clock::now();
+                                 m_print->throw_if_canceled();
+                                 m_layers[layer_idx]->make_fills(adaptive_fill_octree.get(),
+                                                                 support_fill_octree.get(),
+                                                                 this->m_lightning_generator.get());
+                             });
         m_print->set_status(100, "", PrintBase::SlicingStatus::SECONDARY_STATE);
         m_print->throw_if_canceled();
         BOOST_LOG_TRIVIAL(debug) << "Filling layers in parallel - end";
@@ -905,7 +932,7 @@ void PrintObject::infill()
 void PrintObject::ironing()
 {
     if (this->set_started(posIroning)) {
-        m_print->set_status(objectstep_2_percent[PrintObjectStep::posIroning], L("Ironing"));
+        m_print->set_status(objectstep_percent(PrintObjectStep::posIroning), L("Ironing"));
         m_print->secondary_status_counter_add_max(m_layers.size());
         BOOST_LOG_TRIVIAL(debug) << "Ironing in parallel - start";
             // Ironing starting with layer 0 to support ironing all surfaces.
@@ -933,7 +960,7 @@ void PrintObject::generate_support_spots()
     assert(this->default_region_config(this->print()->default_region_config()).get_computed_value("perimeter_acceleration") > -1);
     if (this->set_started(posSupportSpotsSearch)) {
         BOOST_LOG_TRIVIAL(debug) << "Searching support spots - start";
-        m_print->set_status(objectstep_2_percent[PrintObjectStep::posSupportSpotsSearch], L("Searching support spots"));
+        m_print->set_status(objectstep_percent(PrintObjectStep::posSupportSpotsSearch), L("Searching support spots"));
         if (m_print->objects().size() > 1) {
             m_print->secondary_status_counter_add_max(1);
             m_print->set_status(0. / m_print->objects().size(), L("Object %s / %s"),
@@ -976,7 +1003,7 @@ void PrintObject::generate_support_spots()
 void PrintObject::generate_support_material()
 {
     if (this->set_started(posSupportMaterial)) {
-        m_print->set_status(objectstep_2_percent[PrintObjectStep::posSupportMaterial], L("Generating support material"));
+        m_print->set_status(objectstep_percent(PrintObjectStep::posSupportMaterial), L("Generating support material"));
         if (m_print->objects().size() > 1) {
             m_print->secondary_status_counter_add_max(1);
             m_print->set_status(0. / m_print->objects().size(), L("Object %s / %s"),
@@ -1083,7 +1110,8 @@ void PrintObject::simplify_extrusion_path()
 void PrintObject::estimate_curled_extrusions()
 {
     if (this->set_started(posEstimateCurledExtrusions)) {
-        m_print->set_status(objectstep_2_percent[PrintObjectStep::posEstimateCurledExtrusions], L("Estimate curled extrusions"));
+        m_print->set_status(objectstep_percent(PrintObjectStep::posEstimateCurledExtrusions),
+                            L("Estimate curled extrusions"));
         if (m_print->objects().size() > 1) {
             m_print->secondary_status_counter_add_max(1);
             m_print->set_status(0. / m_print->objects().size(), L("Object %s / %s"),
@@ -1096,13 +1124,15 @@ void PrintObject::estimate_curled_extrusions()
             std::any_of(this->print()->m_print_regions.begin(), this->print()->m_print_regions.end(),
                         [](const PrintRegion *region) { return region->config().overhangs_dynamic_flow.is_enabled() || region->config().overhangs_dynamic_speed.is_enabled(); })) {
             BOOST_LOG_TRIVIAL(debug) << "Estimating areas with curled extrusions - start";
-            m_print->set_status(objectstep_2_percent[PrintObjectStep::posEstimateCurledExtrusions], _u8L("Estimating curled extrusions"));
+            m_print->set_status(objectstep_percent(PrintObjectStep::posEstimateCurledExtrusions),
+                                _u8L("Estimating curled extrusions"));
 
             // Estimate curling of support material and add it to the malformaition lines of each layer
             float                         support_flow_width = support_material_flow(this, this->config().layer_height).width();
             SupportSpotsGenerator::Params params{this->print()->m_config.filament_type.get_values(),
-                                                 float(this->print()->full_print_config().get_computed_value("perimeter_acceleration")),
-                                                 this->config().raft_layers.value, 
+                                                 float(this->print()->full_print_config().get_computed_value(
+                                                     "perimeter_acceleration")),
+                                                 this->config().raft_layers.value,
                                                  float(this->config().brim_width.value),
                                                  float(this->config().brim_width_interior.value)};
             SupportSpotsGenerator::estimate_supports_malformations(this->mutable_support_layers(), support_flow_width, params);
@@ -1224,14 +1254,16 @@ void PrintObject::calculate_overhanging_perimeters()
 {
     if (this->set_started(posCalculateOverhangingPerimeters)) {
         BOOST_LOG_TRIVIAL(debug) << "Calculating overhanging perimeters - start";
-        m_print->set_status(objectstep_2_percent[PrintObjectStep::posCalculateOverhangingPerimeters], _u8L("Calculating overhanging perimeters"));
+        m_print->set_status(objectstep_percent(PrintObjectStep::posCalculateOverhangingPerimeters),
+                            _u8L("Calculating overhanging perimeters"));
 
-            std::unordered_map<size_t, AABBTreeLines::LinesDistancer<CurledLine>> curled_lines;
-            std::unordered_map<size_t, AABBTreeLines::LinesDistancer<Linef>>      unscaled_polygons_lines;
-            for (const Layer &layer : this->layers()) {
-                curled_lines[layer.id()]            = AABBTreeLines::LinesDistancer<CurledLine>{layer.curled_lines};
-                unscaled_polygons_lines[layer.id()] = AABBTreeLines::LinesDistancer<Linef>{to_unscaled_linesf(layer.lslices())};
-            }
+        std::unordered_map<size_t, AABBTreeLines::LinesDistancer<CurledLine>> curled_lines;
+        std::unordered_map<size_t, AABBTreeLines::LinesDistancer<Linef>> unscaled_polygons_lines;
+        for (const Layer &layer : this->layers()) {
+            curled_lines[layer.id()] = AABBTreeLines::LinesDistancer<CurledLine>{layer.curled_lines};
+            unscaled_polygons_lines[layer.id()] = AABBTreeLines::LinesDistancer<Linef>{
+                to_unscaled_linesf(layer.lslices())};
+        }
             curled_lines[size_t(-1)]            = {};
             unscaled_polygons_lines[size_t(-1)] = {};
 

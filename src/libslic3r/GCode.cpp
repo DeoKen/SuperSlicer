@@ -73,6 +73,8 @@
 #include "PointUtils.hpp"
 #include "Polygon.hpp"
 #include "PrintConfig.hpp"
+#include "PrintObject.hpp"
+#include "PrintRegion.hpp"
 #include "ShortestPath.hpp"
 #include "SVG.hpp"
 #include "Thread.hpp"

@@ -23,7 +23,6 @@
 #define slic3r_PrintObject_hpp_
 
 #include <functional>
-#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -42,7 +41,8 @@
 #include "Point.hpp"
 #include "Polygon.hpp"
 #include "PrintBase.hpp"
-#include "PrintRegion.hpp"
+#include "PrintConfig.hpp"
+#include "PrintSteps.hpp"
 #include "Slicing.hpp"
 #include "SupportSpotsGenerator.hpp"
 #include "Surface.hpp"
@@ -55,20 +55,6 @@ class Print;
 class PrintObject;
 namespace Steps { class StepPipeline; }
 namespace ApiInternal { struct PrintObjectAccess; }
-
-enum PrintObjectStep : uint8_t {
-    posSlice,
-    posPerimeters,
-    posPrepareInfill,
-    posInfill,
-    posIroning,
-    posSupportSpotsSearch,
-    posSupportMaterial, 
-    posEstimateCurledExtrusions,
-    posCalculateOverhangingPerimeters,
-    posSimplifyPath, // simplify &  arc fitting from BBS
-    posCount,
-};
 
 /**
 * order:
@@ -90,19 +76,6 @@ enum PrintObjectStep : uint8_t {
 *           then export_gcode();
 * */
 
-// step % for starting this step
-inline std::map<PrintObjectStep, int> objectstep_2_percent = {{PrintObjectStep::posSlice, 0},
-                                                       {PrintObjectStep::posPerimeters, 10},
-                                                       {PrintObjectStep::posPrepareInfill, 20},
-                                                       {PrintObjectStep::posInfill, 30},
-                                                       {PrintObjectStep::posIroning, 40},
-                                                       {PrintObjectStep::posSupportSpotsSearch, 45},
-                                                       {PrintObjectStep::posSupportMaterial, 50},
-                                                       {PrintObjectStep::posEstimateCurledExtrusions, 60},
-                                                       {PrintObjectStep::posCalculateOverhangingPerimeters, 65},
-                                                       {PrintObjectStep::posSimplifyPath, 80},
-                                                       {PrintObjectStep::posCount, 85}};
-
 // Single instance of a PrintObject.
 // As multiple PrintObjects may be generated for a single ModelObject (their instances differ in rotation around Z),
 // ModelObject's instancess will be distributed among these multiple PrintObjects.
@@ -114,92 +87,6 @@ struct PrintInstance
 	const ModelInstance *model_instance;
 	// Shift of this instance's center into the world coordinates.
 	Point 				 shift;
-};
-
-class PrintObjectRegions
-{
-public:
-    // Bounding box of a ModelVolume transformed into the working space of a PrintObject, possibly
-    // clipped by a layer range modifier.
-    // Only Eigen types of Nx16 size are vectorized. This bounding box will not be vectorized.
-    static_assert(sizeof(Eigen::AlignedBox<float, 3>) == 24, "Eigen::AlignedBox<float, 3> is not being vectorized, thus it does not need to be aligned");
-    using BoundingAlignedBox3f = Eigen::AlignedBox<float, 3>;
-    struct VolumeExtents {
-        ObjectID             volume_id;
-        BoundingAlignedBox3f          bbox;
-    };
-
-    struct VolumeRegion
-    {
-        // ID of the associated ModelVolume.
-        const ModelVolume   *model_volume { nullptr };
-        // Index of a parent VolumeRegion.
-        int                  parent { -1 };
-        // Pointer to PrintObjectRegions::all_regions, null for a negative volume.
-        PrintRegion         *region { nullptr };
-        // Pointer to VolumeExtents::bbox.
-        const BoundingAlignedBox3f   *bbox { nullptr };
-        // To speed up merging of same regions.
-        const VolumeRegion  *prev_same_region { nullptr };
-    };
-
-    struct PaintedRegion
-    {
-        // 1-based extruder identifier.
-        unsigned int     extruder_id;
-        // Index of a parent VolumeRegion.
-        int              parent { -1 };
-        // Pointer to PrintObjectRegions::all_regions.
-        PrintRegion     *region { nullptr };
-    };
-
-    // One slice over the PrintObject (possibly the whole PrintObject) and a list of ModelVolumes and their bounding boxes
-    // possibly clipped by the layer_height_range.
-    struct LayerRangeRegions
-    {
-        std::pair<coord_t, coord_t> layer_height_range_;
-        // Config of the layer range, null if there is just a single range with no config override.
-        // Config is owned by the associated ModelObject.
-        const DynamicPrintConfig*   config { nullptr };
-        // Volumes sorted by ModelVolume::id().
-        std::vector<VolumeExtents>  volumes;
-
-        // Sorted in the order of their source ModelVolumes, thus reflecting the order of region clipping, modifier overrides etc.
-        std::vector<VolumeRegion>   volume_regions;
-        std::vector<PaintedRegion>  painted_regions;
-
-        bool has_volume(const ObjectID id) const {
-            auto it = lower_bound_by_predicate(this->volumes.begin(), this->volumes.end(), [id](const VolumeExtents &l) { return l.volume_id < id; });
-            return it != this->volumes.end() && it->volume_id == id;
-        }
-    };
-
-    struct GeneratedSupportPoints{
-        Transform3d object_transform; // for frontend object mapping
-        SupportSpotsGenerator::SupportPoints support_points;
-        SupportSpotsGenerator::PartialObjects partial_objects;
-    };
-
-    std::vector<std::unique_ptr<PrintRegion>>   all_regions;
-    std::vector<LayerRangeRegions>              layer_ranges;
-    // Transformation of this ModelObject into one of the associated PrintObjects (all PrintObjects derived from a single modelObject differ by a Z rotation only).
-    // This transformation is used to calculate VolumeExtents.
-    Transform3d                                 trafo_bboxes;
-    std::vector<ObjectID>                       cached_volume_ids;
-
-    std::optional<GeneratedSupportPoints> generated_support_points;
-
-    void clear() {
-        all_regions.clear();
-        layer_ranges.clear();
-        cached_volume_ids.clear();
-    }
-
-private:
-    friend class PrintObject;
-    // Number of PrintObjects generated from the same ModelObject and sharing the regions.
-    // ref_cnt could only be modified by the main thread, thus it does not need to be atomic.
-    size_t                                      m_ref_cnt{ 0 };
 };
 
 class PrintObject : public PrintObjectBaseWithState<Print, PrintObjectStep, posCount>
@@ -214,13 +101,12 @@ public:
     const PrintRegionConfig&     default_region_config(const PrintRegionConfig &from_print) const;
     const Transform3d&           trafo() const          { return m_trafo; }
     // Trafo with the center_offset() applied after the transformation, to center the object in XY before slicing.
-    Transform3d                  trafo_centered() const 
-        { Transform3d t = this->trafo(); t.pretranslate(Vec3d(- unscaled(m_center_offset.x()), - unscaled(m_center_offset.y()), 0)); return t; }
+    Transform3d trafo_centered() const;
     const PrintInstances&        instances() const      { return m_instances; }
 
     // Bounding box is used to align the object infill patterns, and to calculate attractor for the rear seam.
     // The bounding box may not be quite snug.
-    BoundingBox                  bounding_box() const   { return BoundingBox(Point(- m_size.x() / 2, - m_size.y() / 2), Point(m_size.x() / 2, m_size.y() / 2)); }
+    BoundingBox bounding_box() const;
     // Height is used for slicing, for sorting the objects by height for sequential printing and for checking vertical clearence in sequential print mode.
     // The height is snug.
     coord_t                     height() const         { return m_size.z(); }
@@ -276,8 +162,8 @@ public:
     const SlicingParameters&                    slicing_parameters() const { return *m_slicing_params; }
     static std::shared_ptr<SlicingParameters>   slicing_parameters(const DynamicPrintConfig &full_config, const ModelObject &model_object, float object_max_z);
 
-    size_t                      num_printing_regions()  const throw() { assert(m_shared_regions); return m_shared_regions->all_regions.size(); }
-    const PrintRegion&          printing_region(size_t idx) const throw() { assert(m_shared_regions); return *(m_shared_regions->all_regions[idx].get()); }
+    size_t num_printing_regions() const throw();
+    const PrintRegion &printing_region(size_t idx) const throw();
     //FIXME returing all possible regions before slicing, thus some of the regions may not be slicing at the end.
     std::vector<std::reference_wrapper<const PrintRegion>> all_regions() const;
     const PrintObjectRegions*   shared_regions()        const throw() { assert(m_shared_regions); return m_shared_regions.get(); }
@@ -286,7 +172,7 @@ public:
     bool                        has_raft()              const { return m_config.raft_layers > 0; }
     bool                        has_support_material()  const { return this->has_support() || this->has_raft(); }
     // Checks if the model object is painted using the multi-material painting gizmo.
-    bool                        is_mm_painted()         const { return this->model_object()->is_mm_painted(); }
+    bool is_mm_painted() const;
 
     // returns 0-based indices of extruders used to print the object (without brim, support and other helper extrusions)
     std::set<uint16_t>   object_extruders() const;
@@ -313,7 +199,7 @@ public:
 protected:
     // to be called from Print only.
     friend class Print;
-    friend class PrintBaseWithState<PrintStep, psCount>;
+    template<typename PrintStepEnumType, const size_t COUNT> friend class PrintBaseWithState;
     friend class Steps::StepPipeline;
     friend struct ApiInternal::PrintObjectAccess;
 
