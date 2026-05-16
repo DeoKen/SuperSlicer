@@ -8,8 +8,6 @@
 ///|/
 #include "SurfaceCollection.hpp"
 
-#include <map>
-
 #include "BoundingBox.hpp"
 #include "SVG.hpp"
 

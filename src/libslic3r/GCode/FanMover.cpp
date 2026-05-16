@@ -5,8 +5,6 @@
 
 #include "FanMover.hpp"
 
-#include <iomanip>
-
 #include <boost/log/trivial.hpp>
 
 #include "GCodeReader.hpp"

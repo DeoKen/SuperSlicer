@@ -9,10 +9,8 @@
 ///|/
 #include "ExtrusionEntityCollection.hpp"
 
-#include <cmath>
-#include <map>
-
 #include <algorithm>
+
 #include "ShortestPath.hpp"
 
 namespace Slic3r {

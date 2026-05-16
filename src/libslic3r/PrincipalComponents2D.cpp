@@ -6,7 +6,9 @@
 ///|/
 #include "PrincipalComponents2D.hpp"
 
-#include "Point.hpp"
+#include <cmath>
+#include <tuple>
+
 #include "libslic3r/PointUtils.hpp"
 
 namespace Slic3r {

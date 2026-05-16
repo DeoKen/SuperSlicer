@@ -6,7 +6,10 @@
 ///|/
 #include "Subdivide.hpp"
 
-#include "Point.hpp"
+#include <cmath>
+#include <map>
+#include <queue>
+#include <tuple>
 
 namespace Slic3r{
 

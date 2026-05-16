@@ -6,9 +6,9 @@
 ///|/
 #include "Color.hpp"
 
+#include <cassert>
+#include <cmath>
 #include <random>
-
-#include "libslic3r.h"
 
 static const float INV_255 = 1.0f / 255.0f;
 

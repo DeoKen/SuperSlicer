@@ -13,7 +13,6 @@
 
 #include "clipper.hpp"
 #include "libslic3r/ClipperUtils.hpp"
-#include "ClipperUtils.hpp"
 
 
 namespace Slic3r { namespace Geometry {

@@ -5,7 +5,6 @@
 #include "PrintHelpers.hpp"
 
 #include <algorithm>
-#include <limits>
 
 namespace slic3r_api {
 

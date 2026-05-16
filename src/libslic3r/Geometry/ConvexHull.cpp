@@ -5,8 +5,11 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#include "libslic3r.h"
 #include "ConvexHull.hpp"
+
+#include <algorithm>
+#include <cassert>
+
 #include "BoundingBox.hpp"
 #include "libslic3r/Geometry.hpp"
 

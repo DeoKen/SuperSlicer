@@ -7,7 +7,6 @@
 
 #include "GUI_Geometry.hpp"
 
-#include "libslic3r/libslic3r.h"
 namespace Slic3r {
 namespace GUI {
 

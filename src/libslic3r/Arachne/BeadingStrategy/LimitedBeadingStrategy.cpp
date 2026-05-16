@@ -5,7 +5,6 @@
 #include <boost/log/trivial.hpp>
 
 #include "LimitedBeadingStrategy.hpp"
-#include "Point.hpp"
 
 namespace Slic3r::Arachne
 {

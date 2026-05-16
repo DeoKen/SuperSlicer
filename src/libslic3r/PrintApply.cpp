@@ -4,8 +4,6 @@
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
-#include <cfloat>
-
 #include "Model.hpp"
 #include "Print.hpp"
 
