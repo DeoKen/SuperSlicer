@@ -64,7 +64,7 @@ SupportParameters::SupportParameters(const PrintObject &object)
     const ConfigOptionFloatsOrPercents &min_layer_height = print_config.min_layer_height;
     const ConfigOptionFloats           &nozzle_diameter  = print_config.nozzle_diameter;
     for (int extr_id = 0; extr_id < min_layer_height.size(); ++extr_id) {
-        coord_t min_from_extr = Layer::scale_to_layer_coord(min_layer_height.get_effective_value(nozzle_diameter.get_at(extr_id), extr_id));
+        coord_t min_from_extr = scale_to_layer_coord(min_layer_height.get_effective_value(nozzle_diameter.get_at(extr_id), extr_id));
         if (min_from_extr > 0)
             this->_support_layer_height_min = std::min(this->_support_layer_height_min, min_from_extr);
     }
@@ -86,9 +86,9 @@ SupportParameters::SupportParameters(const PrintObject &object)
             assert(false);
         }
         if (min > best) {
-            this->_support_layer_height_min = Layer::scale_to_layer_coord(std::min(min, max));
+            this->_support_layer_height_min = scale_to_layer_coord(std::min(min, max));
         } else {
-            this->_support_layer_height_min = Layer::scale_to_layer_coord(best);
+            this->_support_layer_height_min = scale_to_layer_coord(best);
         }
     }
     if (object_config.support_material_interface_layers.value == 0) {
@@ -106,7 +106,7 @@ SupportParameters::SupportParameters(const PrintObject &object)
         external_perimeter_width = std::max(external_perimeter_width, coordf_t(region.flow(object, frExternalPerimeter, slicing_params.layer_height, 2 /*not first layer, even layer*/).width()));
         bridge_flow_ratio += region.config().bridge_flow_ratio.get_effective_value(1.);
     }
-    this->_gap_xy = Layer::scale_to_layer_coord(object_config.support_material_xy_spacing.get_effective_value(external_perimeter_width));
+    this->_gap_xy = scale_to_layer_coord(object_config.support_material_xy_spacing.get_effective_value(external_perimeter_width));
     bridge_flow_ratio /= object.num_printing_regions();
 
     this->support_material_bottom_interface_flow = slicing_params.soluble_interface ?

@@ -1707,7 +1707,7 @@ namespace Slic3r {
                     type  = static_cast<CustomGCode::Type>(tree.get<int>("<xmlattr>.type"));
                     extra = tree.get<std::string>("<xmlattr>.extra", "");
                 }
-                m_model->custom_gcode_per_print_z.gcodes.push_back(CustomGCode::Item{Layer::scale_to_layer_coord(print_z), type, extruder, color, extra}) ;
+                m_model->custom_gcode_per_print_z.gcodes.push_back(CustomGCode::Item{scale_to_layer_coord(print_z), type, extruder, color, extra}) ;
             }
         }
     }

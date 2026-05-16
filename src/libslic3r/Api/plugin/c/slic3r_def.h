@@ -100,4 +100,13 @@ SLIC3R_CONSTEXPR_INLINE lengthsqr_t coord_int_sqr(coord_t length) {
 }
 #endif
 
+SLIC3R_CONSTEXPR_INLINE coord_t scale_to_layer_coord(double z) {
+    assert(z < 10000);
+    assert(z >= 0);
+    coord_t coord_z = scale_i(z + EPSILON / 2);
+    coord_z /= SCALED_EPSILON;
+    coord_z *= SCALED_EPSILON;
+    return coord_z;
+}
+
 #endif // slic3r_def_h_

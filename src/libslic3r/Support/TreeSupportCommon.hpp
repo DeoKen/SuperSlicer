@@ -489,9 +489,9 @@ inline SupportGeneratorLayer& layer_initialize(
     const TreeSupportSettings &config, 
     const size_t               layer_idx)
 {
-    layer_new.set_scaled_print_z(Layer::scale_to_layer_coord(layer_z_mm(slicing_params, config, layer_idx)));
+    layer_new.set_scaled_print_z(scale_to_layer_coord(layer_z_mm(slicing_params, config, layer_idx)));
     layer_new.set_scaled_bottom_z(
-        layer_idx > 0 ? Layer::scale_to_layer_coord(layer_z_mm(slicing_params, config, layer_idx - 1)) : 0);
+        layer_idx > 0 ? scale_to_layer_coord(layer_z_mm(slicing_params, config, layer_idx - 1)) : 0);
     layer_new.set_scaled_height(layer_new.scaled_print_z() - layer_new.scaled_bottom_z());
     return layer_new;
 }

@@ -708,7 +708,7 @@ static inline bool sequential_print_vertical_clearance_valid(const Print &print)
 
 coord_t Print::get_object_first_layer_height(const PrintObject& object) const {
     //get object first layer height
-    coord_t object_first_layer_height = Layer::scale_to_layer_coord(object.config().first_layer_height.value);
+    coord_t object_first_layer_height = scale_to_layer_coord(object.config().first_layer_height.value);
     if (object.config().first_layer_height.percent) {
         std::set<uint16_t> object_extruders;
         for (const PrintRegion& region : object.all_regions()) {
@@ -717,7 +717,7 @@ coord_t Print::get_object_first_layer_height(const PrintObject& object) const {
         object_first_layer_height = 1000000000;
         for (uint16_t extruder_id : object_extruders) {
             const double nozzle_diameter = config().nozzle_diameter.get_at(extruder_id);
-            const coord_t first_layer_height = Layer::scale_to_layer_coord(object.config().first_layer_height.get_effective_value(nozzle_diameter));
+            const coord_t first_layer_height = scale_to_layer_coord(object.config().first_layer_height.get_effective_value(nozzle_diameter));
             object_first_layer_height = std::min(object_first_layer_height, first_layer_height);
         }
     }
@@ -995,13 +995,13 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
                 std::set<uint16_t> object_extruders;
                 PrintRegion::collect_object_printing_extruders(config(), object->config(), region.config(), object_extruders);
                 const coord_t object_first_layer_height = get_object_first_layer_height(*object);
-                const coord_t layer_height = Layer::scale_to_layer_coord(object->config().layer_height.value);
+                const coord_t layer_height = scale_to_layer_coord(object->config().layer_height.value);
                 for (uint16_t extruder_id : object_extruders) {
                     double nozzle_diameter = config().nozzle_diameter.get_at(extruder_id);
-                    const coord_t min_layer_height = Layer::scale_to_layer_coord(config().min_layer_height.get_effective_value(nozzle_diameter, extruder_id));
-                    coord_t max_layer_height = Layer::scale_to_layer_coord(config().max_layer_height.get_effective_value(nozzle_diameter, extruder_id));
+                    const coord_t min_layer_height = scale_to_layer_coord(config().min_layer_height.get_effective_value(nozzle_diameter, extruder_id));
+                    coord_t max_layer_height = scale_to_layer_coord(config().max_layer_height.get_effective_value(nozzle_diameter, extruder_id));
                     if (max_layer_height <= 0 || !config().max_layer_height.is_enabled()) {
-                        max_layer_height = Layer::scale_to_layer_coord(nozzle_diameter * 0.75);
+                        max_layer_height = scale_to_layer_coord(nozzle_diameter * 0.75);
                     }
                     if (min_layer_height > max_layer_height) {
                         return {PrintBase::PrintValidationError::pveWrongSettings,
@@ -1034,7 +1034,7 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
                                 {region.width(FlowRole::frSolidInfill, true, *object), "solid infill extrusion width"},
                                 {region.width(FlowRole::frTopSolidInfill, true, *object), "top solid infill extrusion width"},
                             })
-                            if (object_first_layer_height > Layer::scale_to_layer_coord(tuple.first))
+                            if (object_first_layer_height > scale_to_layer_coord(tuple.first))
                                 return { PrintBase::PrintValidationError::pveWrongSettings,
                                     format(_u8L("First layer height can't be greater than %s"), tuple.second) };
 
@@ -1057,7 +1057,7 @@ std::pair<PrintBase::PrintValidationError, std::string> Print::validate(std::vec
                                 {region.width(FlowRole::frSolidInfill, false, *object), "solid infill extrusion width"},
                                 {region.width(FlowRole::frTopSolidInfill, false, *object), "top solid infill extrusion width"},
                             })
-                            if (layer_height > Layer::scale_to_layer_coord(tuple.first)) {
+                            if (layer_height > scale_to_layer_coord(tuple.first)) {
                                 return {PrintBase::PrintValidationError::pveWrongSettings,
                                         format(_u8L("Layer height can't be greater than %s"), tuple.second)};
                             }
@@ -2270,7 +2270,7 @@ bool Print::has_wipe_tower() const {
     bool has_parallel_objects_step = config().parallel_objects_step.value > 0 && !config().parallel_islands.value;
     if (has_parallel_objects_step && config().parallel_objects_step.value > 0) {
         // check if the print has multiple extruders below has_parallel_objects_step_max_z
-        const coord_t max_z = Layer::scale_to_layer_coord(config().parallel_objects_step.value);
+        const coord_t max_z = scale_to_layer_coord(config().parallel_objects_step.value);
         bool can_wipe_tower = true;
         int extruder = -1;
         auto check_extruder = [&extruder, &can_wipe_tower](int extr) -> bool {

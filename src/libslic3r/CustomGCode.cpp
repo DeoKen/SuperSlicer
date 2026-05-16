@@ -29,7 +29,7 @@ extern void update_custom_gcode_per_print_z_from_config(Info& info, DynamicPrint
         info.gcodes.reserve(colorprint_heights->size());
         int i = 0;
         for (double val : colorprint_heights->get_values())
-            info.gcodes.emplace_back(Item{Layer::scale_to_layer_coord(val), ColorChange, 1, colors[(++i)%7] });
+            info.gcodes.emplace_back(Item{scale_to_layer_coord(val), ColorChange, 1, colors[(++i)%7] });
 
         info.mode = SingleExtruder;
     }

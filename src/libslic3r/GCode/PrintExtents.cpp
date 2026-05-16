@@ -159,7 +159,7 @@ BoundingBoxf get_wipe_tower_extrusions_extents(const Print &print, const coord_t
 
     BoundingBoxf bbox;
     for (const std::vector<WipeTower::ToolChangeResult> &tool_changes : print.wipe_tower_data().tool_changes) {
-        if (! tool_changes.empty() && Layer::scale_to_layer_coord(tool_changes.front().print_z) > max_print_z)
+        if (! tool_changes.empty() && scale_to_layer_coord(tool_changes.front().print_z) > max_print_z)
             break;
         for (const WipeTower::ToolChangeResult &tcr : tool_changes) {
             for (size_t i = 1; i < tcr.extrusions.size(); ++ i) {

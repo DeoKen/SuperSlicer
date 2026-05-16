@@ -244,17 +244,6 @@ Layer::~Layer()
     m_regions.clear();
 }
 
-coord_t Layer::scale_to_layer_coord(double z) {
-    assert(z < 10000);
-    assert(z >= 0);
-    // round it via EPSILON/2
-    coord_t coord_z = scale_i(z + EPSILON/2);
-    // remove epsilon part
-    coord_z /= SCALED_EPSILON;
-    coord_z *= SCALED_EPSILON;
-    return coord_z;
-}
-
 void Layer::add_regions_to_islands() {
     assert(!this->m_islands_locked);
     //  note: regions taht don't intersect with this layer are kept (even if empty) to keep region-index ordering.
@@ -1054,7 +1043,7 @@ void LayerSliceIsland::make_perimeters(LayerRegionIsland &region_island) {
     bool spiral_vase = print_config.spiral_vase &&
         //FIXME account for raft layers.
         (m_layer->id() >= size_t(region_config.bottom_solid_layers.value) &&
-         m_layer->scaled_print_z() >= Layer::scale_to_layer_coord(region_config.bottom_solid_min_thickness.value));
+         m_layer->scaled_print_z() >= scale_to_layer_coord(region_config.bottom_solid_min_thickness.value));
 
     Flow bridging_flow = (region_config.overhangs.get_bool() && region_config.overhangs_flow_ratio.is_enabled()) ?
         default_layerm.bridging_flow(frExternalPerimeter) :
@@ -1171,7 +1160,7 @@ bool config_compatible_for_milling(const PrintConfig &print_config, coord_t bott
     if (config.milling_post_process == other_config.milling_post_process &&
         config.milling_extra_size == other_config.milling_extra_size &&
         (config.milling_after_z == other_config.milling_after_z ||
-         bottom_z > Layer::scale_to_layer_coord(
+         bottom_z > scale_to_layer_coord(
                                        std::min(config.milling_after_z.get_effective_value(
                                                     print_config.milling_diameter.get_at(0)),
                                                 other_config.milling_after_z.get_effective_value(

@@ -116,19 +116,19 @@ public:
     coord_t scaled_print_z() const { return m_print_z; }
     double  unscaled_print_z() const { return unscaled(m_print_z); }
     void set_scaled_print_z(coord_t print_z) { m_print_z = print_z;
-        assert(Layer::scale_to_layer_coord(unscaled(print_z)) == print_z); }
+        assert(scale_to_layer_coord(unscaled(print_z)) == print_z); }
     coord_t scaled_bottom_z() const { return m_bottom_z; }
     double  unscaled_bottom_z() const { return m_bottom_z; }
     void set_scaled_bottom_z(coord_t bottom_z) { m_bottom_z = bottom_z;
-        assert(Layer::scale_to_layer_coord(unscaled(bottom_z)) == bottom_z); }
+        assert(scale_to_layer_coord(unscaled(bottom_z)) == bottom_z); }
     coord_t scaled_height() const { return m_height; }
     double  unscaled_height() const { return unscaled(m_height); }
     void set_scaled_height(coord_t height) { m_height = height;
-        assert(Layer::scale_to_layer_coord(unscaled(height)) == height); }
+        assert(scale_to_layer_coord(unscaled(height)) == height); }
     coord_t scaled_height_block() const { return m_height_block; }
     double  unscaled_height_block() const { return unscaled(m_height_block); }
     void set_scaled_height_block(coord_t height_block) { m_height_block = height_block;
-        assert(Layer::scale_to_layer_coord(unscaled(height_block)) == height_block); }
+        assert(scale_to_layer_coord(unscaled(height_block)) == height_block); }
 	// Index of a PrintObject layer_id supported by this layer. This will be set for top contact layers.
 	// If this is not a contact layer, it will be set to size_t(-1).
 	size_t 	 idx_object_layer_above { size_t(-1) };

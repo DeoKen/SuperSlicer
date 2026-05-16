@@ -377,7 +377,7 @@ Info Control::GetTicksValues() const
         for (const TickCode& tick : m_ticks.ticks) {
             if (tick.tick > val_size)
                 break;
-            values.push_back(CustomGCode::Item{ Layer::scale_to_layer_coord(m_values[tick.tick]), tick.type, tick.extruder, tick.color, tick.extra });
+            values.push_back(CustomGCode::Item{ scale_to_layer_coord(m_values[tick.tick]), tick.type, tick.extruder, tick.color, tick.extra });
         }
 
     if (m_force_mode_apply)

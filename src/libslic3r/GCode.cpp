@@ -435,11 +435,11 @@ GCodeGenerator::ObjectsLayerToPrint GCodeGenerator::collect_layers_to_print(cons
     }
     if (max_nozzle == 0)
         max_nozzle = nozzle_diameters.front();
-    coord_t top_cd = Layer::scale_to_layer_coord(object.config().support_material_contact_distance.get_effective_value(max_nozzle));
+    coord_t top_cd = scale_to_layer_coord(object.config().support_material_contact_distance.get_effective_value(max_nozzle));
     coord_t bottom_cd = object.config().support_material_bottom_contact_distance.value == 0. ?
             top_cd :
-            Layer::scale_to_layer_coord(object.config().support_material_bottom_contact_distance.get_effective_value(max_nozzle));
-    coord_t raft_cd = Layer::scale_to_layer_coord(object.config().raft_contact_distance.value);
+            scale_to_layer_coord(object.config().support_material_bottom_contact_distance.get_effective_value(max_nozzle));
+    coord_t raft_cd = scale_to_layer_coord(object.config().raft_contact_distance.value);
 
     // Pair the object layers with the support layers by z.
     size_t idx_object_layer  = 0;
@@ -502,7 +502,7 @@ GCodeGenerator::ObjectsLayerToPrint GCodeGenerator::collect_layers_to_print(cons
 
             coord_t maximal_print_z = check_z_step(
                 (last_extrusion_layer ? last_extrusion_layer->_print_z() : coord_t(0)) + std::max(coord_t(0), extra_gap),
-                Layer::scale_to_layer_coord(object.print()->config().z_step));
+                scale_to_layer_coord(object.print()->config().z_step));
             // Negative support_contact_z is not taken into account, it can result in false positives in cases
             // where previous layer has object extrusions too (https://github.com/prusa3d/PrusaSlicer/issues/2752)
 
@@ -2557,7 +2557,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
                 //        this->writer().travel_to_z(unscaled(first_layer_height), "Move to first z, for wipe tower"));
                 //    m_last_layer_z_ = first_layer_height;
                 //    m_max_layer_z_ = std::max(m_max_layer_z_,
-                //                              Layer::scale_to_layer_coord(this->writer().get_unlifted_position().z()));
+                //                              scale_to_layer_coord(this->writer().get_unlifted_position().z()));
                 //}
                 
                 //OLDTOREMOVE
@@ -2583,7 +2583,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
                 //    wipe_tower->next_layer();
                 //    file.write(wipe_tower->tool_change(*this, parallel_ordering.first_extruder(), true));
                 //}
-                coord_t height_step_range = Layer::scale_to_layer_coord(
+                coord_t height_step_range = scale_to_layer_coord(
                     std::min(print.config().parallel_objects_step, print.config().extruder_clearance_height));
                 if (print.config().complete_objects_sort.value == cosNearest) {
                     print_object_instances_ordering = chain_print_object_instances(print);
@@ -2603,7 +2603,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
                 bool is_layers = true;
                 while (is_layers && (print.config().parallel_objects_step_max_z.value == 0 || z_start + EPSILON < print.config().parallel_objects_step_max_z.value)) {
                     if (print.config().parallel_objects_step_max_z.value > 0) {
-                        z_end = std::min(z_end, Layer::scale_to_layer_coord(print.config().parallel_objects_step_max_z.value));
+                        z_end = std::min(z_end, scale_to_layer_coord(print.config().parallel_objects_step_max_z.value));
                     }
                     std::set<const LayerSliceIsland*> printed_island;
                     is_layers = false;
@@ -3016,7 +3016,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
 
                 //            assert (parallel_ordering
                 //                       .layer_tools()[m_wipe_tower->get_current_layer_idx() + 1]
-                //                       ._print_z < Layer::scale_to_layer_coord(print.config().parallel_objects_step_max_z.value));
+                //                       ._print_z < scale_to_layer_coord(print.config().parallel_objects_step_max_z.value));
                 //                m_wipe_tower->next_layer();
                 //                this->m_pos_layer = this->m_layer = parallel_layers_to_print[idx].second.back().layer();
                 //                file.write(m_wipe_tower->tool_change(*this, extruder_id, true));
@@ -3039,7 +3039,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
                     // Set position for wipe tower generation.
                     preamble_to_put_start_layer.append(this->writer().travel_to_z(unscaled(first_layer_height), "Move to first z, for wipe tower"));
                     m_last_layer_z_ = first_layer_height;
-                    m_max_layer_z_ = std::max(m_max_layer_z_, Layer::scale_to_layer_coord(this->writer().get_unlifted_position().z()));
+                    m_max_layer_z_ = std::max(m_max_layer_z_, scale_to_layer_coord(this->writer().get_unlifted_position().z()));
 
                     //if (print.config().single_extruder_multi_material_priming) {
                     //// TODO: 2.7: check that the preamble_to_put_start_layer has the z-move at first (from m_wipe_tower->prime, I guess)
@@ -3596,7 +3596,7 @@ std::vector<std::optional<double>> compute_new_position(GCodeGenerator &gcodegen
     if (gcodegen.last_pos_defined()) {
         position[0] = gcodegen.writer().get_position().x();
         position[1] = gcodegen.writer().get_position().y();
-        position[2] = gcodegen.writer().get_position().z() + unscaled(Layer::scale_to_layer_coord(gcodegen.writer().config.z_offset.value));
+        position[2] = gcodegen.writer().get_position().z() + unscaled(scale_to_layer_coord(gcodegen.writer().config.z_offset.value));
     }
     if(gcode.empty()) return position;
     parser.parse_buffer(gcode,
@@ -3711,7 +3711,7 @@ std::string GCodeGenerator::placeholder_parser_process(
                 }
             }
             // Update G-code writer. (without z_offset)
-            coord_t z_offset = Layer::scale_to_layer_coord(m_writer.config.z_offset.value);
+            coord_t z_offset = scale_to_layer_coord(m_writer.config.z_offset.value);
             m_writer.update_position_by_lift({position_vec[0] ? *position_vec[0] : m_writer.get_position().x(),
                                               position_vec[1] ? *position_vec[1] : m_writer.get_position().y(),
                  position_vec[2] ? *position_vec[2] - unscaled(z_offset) : m_writer.get_position().z()});
@@ -4547,7 +4547,7 @@ LayerResult GCodeGenerator::process_layer(
             // there is a lift (on the first llyer, so the first move will bring us to the required height
         (m_writer.tool()->retract_lift() > 0 && (m_config.retract_lift_above.get_at(m_writer.tool()->id()) == 0 || BOOL_EXTRUDER_CONFIG(retract_lift_first_layer)))
         ||   // or lift_min is higher than the first layer height.
-         Layer::scale_to_layer_coord(m_config.lift_min.value) > layer.scaled_print_z()
+         scale_to_layer_coord(m_config.lift_min.value) > layer.scaled_print_z()
         || previous_layer_z > print_z
             )) {
         // still do the retraction
@@ -5458,7 +5458,7 @@ std::string GCodeGenerator::change_layer(coord_t from_z, coord_t to_z) {
         // Increment a progress bar indicator.
         gcode += m_writer.update_progress(++ m_layer_index, layer_count());
     // travel_ramping_lift only if not m_spiral_vase_layer and over the lift_min
-    if (!BOOL_EXTRUDER_CONFIG(travel_ramping_lift) || m_spiral_vase_layer > 0 || Layer::scale_to_layer_coord(m_config.lift_min.value) > to_z) {
+    if (!BOOL_EXTRUDER_CONFIG(travel_ramping_lift) || m_spiral_vase_layer > 0 || scale_to_layer_coord(m_config.lift_min.value) > to_z) {
         if (BOOL_EXTRUDER_CONFIG(retract_layer_change) && m_writer.will_move_z(unscaled_to_print_z))
             gcode += this->retract_and_wipe();
         gcode += m_writer.travel_to_z(unscaled_to_print_z, std::string("move to next layer (") + std::to_string(m_layer_index) + ", "+  to_string_nozero(unscaled_to_print_z, 5) + ")");
@@ -8212,7 +8212,7 @@ std::string GCodeGenerator::_extrude(ExtrusionPath &path, const std::string_view
 
     assert(is_approx(m_writer.get_position().z(), m_layer->unscaled_print_z(), EPSILON) ||
            (!m_z_override.empty() &&
-            m_z_override.back().second == Layer::scale_to_layer_coord(m_writer.get_position().z())));
+            m_z_override.back().second == scale_to_layer_coord(m_writer.get_position().z())));
 
 
     // calculate extrusion length per distance unit
@@ -9203,8 +9203,8 @@ std::string GCodeGenerator::_before_extrude(const ExtrusionPath &path, const std
     }
 #endif // ENABLE_GCODE_VIEWER_DATA_CHECKING
 
-    if (path.height() > 0 && (last_was_wipe_tower || m_last_height_ != Layer::scale_to_layer_coord(path.height()))) {
-        m_last_height_ = Layer::scale_to_layer_coord(path.height());
+    if (path.height() > 0 && (last_was_wipe_tower || m_last_height_ != scale_to_layer_coord(path.height()))) {
+        m_last_height_ = scale_to_layer_coord(path.height());
         if (m_last_height_ >= 0) {
             gcode += std::string(";") + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Height) +
                 float_to_string_decimal_point(unscaled(m_last_height_)) + "\n";
@@ -9503,10 +9503,10 @@ std::vector<coord_t> GCodeGenerator::get_travel_elevation(Polyline& travel, coor
     ElevatedTravelParams elevation_params{
         get_elevated_traval_params(travel, this->m_config, this->m_writer, this->m_travel_obstacle_tracker, this->layer()->id(), unscaled(z_change))};
 
-    assert(Layer::scale_to_layer_coord(elevation_params.lift_height) == z_change);
+    assert(scale_to_layer_coord(elevation_params.lift_height) == z_change);
 
     const double path_length = unscaled(travel.length());
-    const coord_t min_lift_at_travel_end = Layer::scale_to_layer_coord(std::min(
+    const coord_t min_lift_at_travel_end = scale_to_layer_coord(std::min(
         elevation_params.lift_height,
         elevation_params.lift_height / elevation_params.slope_end * path_length
     ));
@@ -9528,7 +9528,7 @@ std::vector<coord_t> GCodeGenerator::get_travel_elevation(Polyline& travel, coor
     ElevatedTravelFormula elevator{elevation_params};
 
     for (const DistancedPoint &point : extended_xy_path) {
-        result.emplace_back(Layer::scale_to_layer_coord(elevator(unscaled(point.dist_from_start))));
+        result.emplace_back(scale_to_layer_coord(elevator(unscaled(point.dist_from_start))));
         new_polyline.points.push_back(std::move(point.point));
     }
 
@@ -9551,8 +9551,8 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
     } else if (m_layer) {
         target_z = m_layer->scaled_print_z();
     }
-    if (target_z != Layer::scale_to_layer_coord(m_writer.get_position().z())) {
-        if (target_z < Layer::scale_to_layer_coord(m_writer.get_position().z())) {
+    if (target_z != scale_to_layer_coord(m_writer.get_position().z())) {
+        if (target_z < scale_to_layer_coord(m_writer.get_position().z())) {
             // if z 'down' travel needed, do it after the travel.
             _m_force_move_z_from.reset();
         } else if (!_m_force_move_z_from) {
@@ -9573,7 +9573,7 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
             assert(*_m_force_move_z_from < target_z);
             // get zdiff
             coord_t layer_change_diff = target_z -
-                Layer::scale_to_layer_coord(m_writer.get_unlifted_position().z());
+                scale_to_layer_coord(m_writer.get_unlifted_position().z());
             // move layer_change_diff into lift & z_diff_layer_and_lift
             z_diff_layer_and_lift += layer_change_diff;
         }
@@ -9585,12 +9585,12 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
         // register get_extra_lift for our ramping lift (ramping lift + lift_min)
         if (m_writer.get_extra_lift() != 0) {
             assert(m_writer.get_extra_lift() > 0);
-            z_diff_layer_and_lift += Layer::scale_to_layer_coord(m_writer.get_extra_lift());
+            z_diff_layer_and_lift += scale_to_layer_coord(m_writer.get_extra_lift());
             m_writer.set_extra_lift(0);
         }
         // ensure print_config.lift_min.value is strait up (TODO: ramp to the end of the current object, via a diff_polyline)
-        if (_m_next_lift_min > Layer::scale_to_layer_coord(m_writer.get_position().z())) {
-            coord_t needed_strait_lift = _m_next_lift_min - Layer::scale_to_layer_coord(m_writer.get_position().z());
+        if (_m_next_lift_min > scale_to_layer_coord(m_writer.get_position().z())) {
+            coord_t needed_strait_lift = _m_next_lift_min - scale_to_layer_coord(m_writer.get_position().z());
             // remove needed_strait_lift from z_diff_layer_and_lift (we move directly, so no need to remove it from lift)
             z_diff_layer_and_lift -= needed_strait_lift;
             gcode += m_writer.travel_to_z(unscaled(_m_next_lift_min), "enforce lift_min");
@@ -9718,7 +9718,7 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
         _m_force_move_z_from.reset();
     }
     // if z 'down travel needed, do it after the travel.
-    if (target_z < Layer::scale_to_layer_coord(m_writer.get_position().z())) {
+    if (target_z < scale_to_layer_coord(m_writer.get_position().z())) {
         gcode += m_writer.travel_to_z(unscaled(target_z), "3D move");
     }
 #ifdef _DEBUGINFO
@@ -10311,17 +10311,17 @@ void GCodeGenerator::set_extra_lift(const coord_t previous_print_z, const int la
     //if first layer, ask for a bigger lift for travel to object, to be on the safe side
     coord_t extra_lift_value = 0;
     if (print_config.lift_min.value > 0) {
-        this->_m_next_lift_min = Layer::scale_to_layer_coord(print_config.lift_min.value);
+        this->_m_next_lift_min = scale_to_layer_coord(print_config.lift_min.value);
         coord_t retract_lift = 0;
-        const coord_t retract_lift_above = Layer::scale_to_layer_coord(print_config.retract_lift_above.get_at(writer.tool()->id()));
+        const coord_t retract_lift_above = scale_to_layer_coord(print_config.retract_lift_above.get_at(writer.tool()->id()));
         //get the current lift (imo, should be given by the writer... i'm duplicating stuff here)
         if(//(previous_print_z == 0 && retract_lift_above == 0) ||
             retract_lift_above <= previous_print_z
             || (layer_id == 0 && print_config.retract_lift_first_layer.get_at(writer.tool()->id())))
-            retract_lift = Layer::scale_to_layer_coord(writer.tool()->retract_lift());
+            retract_lift = scale_to_layer_coord(writer.tool()->retract_lift());
         // see if it's positive
         if (previous_print_z + extra_lift_value + retract_lift < print_config.lift_min.value) {
-            extra_lift_value = Layer::scale_to_layer_coord(print_config.lift_min.value) - previous_print_z - retract_lift;
+            extra_lift_value = scale_to_layer_coord(print_config.lift_min.value) - previous_print_z - retract_lift;
         }
     }
     if(extra_lift_value > 0)
@@ -10378,7 +10378,7 @@ std::string GCodeGenerator::set_extruder(uint16_t extruder_id, coord_t print_z, 
 
     //just for testing
     assert(m_layer == nullptr || is_approx(this->writer().get_unlifted_position().z(), unscaled(print_z), EPSILON) ||
-           _m_force_move_z_from || (!m_z_override.empty() && (m_z_override.back().second == Layer::scale_to_layer_coord(this->writer().get_position().z()))));
+           _m_force_move_z_from || (!m_z_override.empty() && (m_z_override.back().second == scale_to_layer_coord(this->writer().get_position().z()))));
 
     // if we are running a single-extruder setup, just set the extruder and return nothing (if no_toolchange)
     if (!m_writer.multiple_extruders) {

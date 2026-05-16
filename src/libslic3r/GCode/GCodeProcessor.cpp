@@ -2211,7 +2211,7 @@ void GCodeProcessor::process_tags(const std::string_view comment, bool producers
         if (m_extruder_id == extruder_id) {
             m_cp_color.current = m_extruder_colors[extruder_id];
             store_move_vertex(EMoveType::Color_change);
-            CustomGCode::Item item = { Layer::scale_to_layer_coord(m_end_position[2]), CustomGCode::ColorChange, extruder_id + 1, color, "" };
+            CustomGCode::Item item = { scale_to_layer_coord(m_end_position[2]), CustomGCode::ColorChange, extruder_id + 1, color, "" };
             m_result.custom_gcode_per_print_z.emplace_back(item);
             m_options_z_corrector.set();
             process_custom_gcode_time(CustomGCode::ColorChange);
@@ -2224,7 +2224,7 @@ void GCodeProcessor::process_tags(const std::string_view comment, bool producers
     // pause print tag
     if (comment == reserved_tag(ETags::Pause_Print)) {
         store_move_vertex(EMoveType::Pause_Print);
-        CustomGCode::Item item = { Layer::scale_to_layer_coord(m_end_position[2]), CustomGCode::PausePrint, m_extruder_id + 1, "", "" };
+        CustomGCode::Item item = { scale_to_layer_coord(m_end_position[2]), CustomGCode::PausePrint, m_extruder_id + 1, "", "" };
         m_result.custom_gcode_per_print_z.emplace_back(item);
         m_options_z_corrector.set();
         process_custom_gcode_time(CustomGCode::PausePrint);
@@ -2234,7 +2234,7 @@ void GCodeProcessor::process_tags(const std::string_view comment, bool producers
     // custom code tag
     if (comment == reserved_tag(ETags::Custom_Code)) {
         store_move_vertex(EMoveType::Custom_GCode);
-        CustomGCode::Item item = { Layer::scale_to_layer_coord(m_end_position[2]), CustomGCode::Custom, m_extruder_id + 1, "", "" };
+        CustomGCode::Item item = { scale_to_layer_coord(m_end_position[2]), CustomGCode::Custom, m_extruder_id + 1, "", "" };
         m_result.custom_gcode_per_print_z.emplace_back(item);
         m_options_z_corrector.set();
         return;

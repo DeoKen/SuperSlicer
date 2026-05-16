@@ -424,20 +424,20 @@ SupportGeneratorLayersPtr generate_raft_base(
     SupportGeneratorLayer       *base_interfaces  = base_interface_layers.empty() ? nullptr : base_interface_layers.front();
     SupportGeneratorLayer       *columns_base     = base_layers          .empty() ? nullptr : base_layers          .front();
     if (contacts != nullptr &&
-        contacts->scaled_print_z() > Layer::scale_to_layer_coord(std::max(slicing_params.first_print_layer_height,
+        contacts->scaled_print_z() > scale_to_layer_coord(std::max(slicing_params.first_print_layer_height,
                                                                           slicing_params.raft_contact_top_z)))
         // This is not the raft contact layer.
         contacts = nullptr;
     if (interfaces != nullptr &&
-        interfaces->scaled_bottom_print_z() > Layer::scale_to_layer_coord(slicing_params.raft_interface_top_z))
+        interfaces->scaled_bottom_print_z() > scale_to_layer_coord(slicing_params.raft_interface_top_z))
         // This is not the raft column base layer.
         interfaces = nullptr;
     if (base_interfaces != nullptr &&
-        base_interfaces->scaled_bottom_print_z() > Layer::scale_to_layer_coord(slicing_params.raft_interface_top_z))
+        base_interfaces->scaled_bottom_print_z() > scale_to_layer_coord(slicing_params.raft_interface_top_z))
         // This is not the raft column base layer.
         base_interfaces = nullptr;
     if (columns_base != nullptr &&
-        columns_base->scaled_bottom_print_z() > Layer::scale_to_layer_coord(slicing_params.raft_interface_top_z))
+        columns_base->scaled_bottom_print_z() > scale_to_layer_coord(slicing_params.raft_interface_top_z))
         // This is not the raft interface layer.
         columns_base = nullptr;
 
@@ -465,7 +465,7 @@ SupportGeneratorLayersPtr generate_raft_base(
         Polygons columns;
         Polygons first_layer;
         if (columns_base != nullptr) {
-            if (columns_base->scaled_bottom_print_z() >= Layer::scale_to_layer_coord(slicing_params.raft_interface_top_z)) {
+            if (columns_base->scaled_bottom_print_z() >= scale_to_layer_coord(slicing_params.raft_interface_top_z)) {
                 // Classic supports with colums above the raft interface.
                 base = columns_base->polygons;
                 columns = base;
@@ -474,7 +474,7 @@ SupportGeneratorLayersPtr generate_raft_base(
                     columns = diff(columns, interface_polygons);
             } else {
                 // Organic supports with raft on print bed.
-                assert(columns_base->scaled_print_z() == Layer::scale_to_layer_coord(slicing_params.first_print_layer_height));
+                assert(columns_base->scaled_print_z() == scale_to_layer_coord(slicing_params.first_print_layer_height));
                 first_layer = columns_base->polygons;
             }
         }
@@ -488,8 +488,8 @@ SupportGeneratorLayersPtr generate_raft_base(
             SupportGeneratorLayer &new_layer = layer_storage.allocate_unguarded(
                 slicing_params.base_raft_layers > 0 ? SupporLayerType::RaftBase : SupporLayerType::RaftInterface);
             raft_layers.push_back(&new_layer);
-            new_layer.set_scaled_print_z(Layer::scale_to_layer_coord(slicing_params.first_print_layer_height));
-            new_layer.set_scaled_height(Layer::scale_to_layer_coord(slicing_params.first_print_layer_height));
+            new_layer.set_scaled_print_z(scale_to_layer_coord(slicing_params.first_print_layer_height));
+            new_layer.set_scaled_height(scale_to_layer_coord(slicing_params.first_print_layer_height));
             new_layer.set_scaled_bottom_z(0);
             new_layer.resolution = support_params.resolution;
             first_layer = union_(std::move(first_layer), base);
@@ -501,8 +501,8 @@ SupportGeneratorLayersPtr generate_raft_base(
             coord_t print_z = raft_layers.back()->scaled_print_z();
             SupportGeneratorLayer &new_layer = layer_storage.allocate_unguarded(SupporLayerType::RaftBase);
             raft_layers.push_back(&new_layer);
-            new_layer.set_scaled_print_z(print_z + Layer::scale_to_layer_coord(slicing_params.base_raft_layer_height));
-            new_layer.set_scaled_height(Layer::scale_to_layer_coord(slicing_params.base_raft_layer_height));
+            new_layer.set_scaled_print_z(print_z + scale_to_layer_coord(slicing_params.base_raft_layer_height));
+            new_layer.set_scaled_height(scale_to_layer_coord(slicing_params.base_raft_layer_height));
             new_layer.set_scaled_bottom_z(print_z);
             new_layer.resolution = support_params.resolution;
             new_layer.polygons = base;
@@ -512,8 +512,8 @@ SupportGeneratorLayersPtr generate_raft_base(
             coord_t print_z = raft_layers.back()->scaled_print_z();
             SupportGeneratorLayer &new_layer = layer_storage.allocate_unguarded(SupporLayerType::RaftInterface);
             raft_layers.push_back(&new_layer);
-            new_layer.set_scaled_print_z(print_z + Layer::scale_to_layer_coord(slicing_params.interface_raft_layer_height));
-            new_layer.set_scaled_height(Layer::scale_to_layer_coord(slicing_params.interface_raft_layer_height));
+            new_layer.set_scaled_print_z(print_z + scale_to_layer_coord(slicing_params.interface_raft_layer_height));
+            new_layer.set_scaled_height(scale_to_layer_coord(slicing_params.interface_raft_layer_height));
             new_layer.set_scaled_bottom_z(print_z);
             new_layer.resolution = support_params.resolution;
             new_layer.polygons = interface_polygons;
@@ -2054,7 +2054,7 @@ void generate_support_toolpaths(
 
             // This layer is a raft contact layer. Any contact polygons at this layer are raft contacts.
             bool raft_layer = slicing_params.interface_raft_layers && top_contact_layer.layer &&
-                top_contact_layer.layer->scaled_print_z() == Layer::scale_to_layer_coord(slicing_params.raft_contact_top_z);
+                top_contact_layer.layer->scaled_print_z() == scale_to_layer_coord(slicing_params.raft_contact_top_z);
             if (config.support_material_interface_layers == 0) {
                 // If no top interface layers were requested, we treat the contact layer exactly as a generic base layer.
                 // Don't merge the raft contact layer though.

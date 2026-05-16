@@ -37,8 +37,8 @@ LayerUPtrs new_layers(
         double lo = object_layers[i_layer];
         double hi = object_layers[i_layer + 1];
         double slice_z = 0.5 * (lo + hi);
-        Layer *layer = new Layer(id++, print_object, Layer::scale_to_layer_coord(hi - lo),
-                                 Layer::scale_to_layer_coord(hi + zmin), slice_z, true);
+        Layer *layer = new Layer(id++, print_object, scale_to_layer_coord(hi - lo),
+                                 scale_to_layer_coord(hi + zmin), slice_z, true);
         out.emplace_back(layer);
         if (prev != nullptr) {
             prev->upper_layer = layer;
@@ -239,7 +239,7 @@ static inline bool overlap_in_xy(const PrintObjectRegions::BoundingAlignedBox3f 
 
 static std::vector<PrintObjectRegions::LayerRangeRegions>::const_iterator layer_range_first(
     const std::vector<PrintObjectRegions::LayerRangeRegions> &layer_ranges, double z_mm) {
-    coord_t scaled_z = Layer::scale_to_layer_coord(z_mm);
+    coord_t scaled_z = scale_to_layer_coord(z_mm);
     auto  it = lower_bound_by_predicate(layer_ranges.begin(), layer_ranges.end(),
         [scaled_z](const PrintObjectRegions::LayerRangeRegions &lr) { return lr.layer_height_range_.second < scaled_z; });
     assert(it != layer_ranges.end() && it->layer_height_range_.first <= scaled_z && scaled_z <= it->layer_height_range_.second);
@@ -255,7 +255,7 @@ static std::vector<PrintObjectRegions::LayerRangeRegions>::const_iterator layer_
     std::vector<PrintObjectRegions::LayerRangeRegions>::const_iterator   it,
     double                                                               z_mm)
 {
-    coord_t scaled_z = Layer::scale_to_layer_coord(z_mm);
+    coord_t scaled_z = scale_to_layer_coord(z_mm);
     for (; it->layer_height_range_.second <= scaled_z; ++ it)
         assert(it != layer_ranges.end());
     assert(it != layer_ranges.end() && it->layer_height_range_.first <= scaled_z && scaled_z < it->layer_height_range_.second);
@@ -280,7 +280,7 @@ static std::vector<std::vector<ExPolygons>> slices_to_regions(
     {
         size_t z_idx = 0;
         for (const PrintObjectRegions::LayerRangeRegions &layer_range : print_object_regions.layer_ranges) {
-            for (; z_idx < zs.size() && Layer::scale_to_layer_coord(zs[z_idx]) < layer_range.layer_height_range_.first; ++ z_idx) ;
+            for (; z_idx < zs.size() && scale_to_layer_coord(zs[z_idx]) < layer_range.layer_height_range_.first; ++ z_idx) ;
             if (layer_range.volume_regions.empty()) {
             } else if (layer_range.volume_regions.size() == 1) {
                 const ModelVolume *model_volume = layer_range.volume_regions.front().model_volume;
@@ -288,14 +288,14 @@ static std::vector<std::vector<ExPolygons>> slices_to_regions(
                 if (model_volume->is_model_part()) {
                     VolumeSlices &slices_src = volume_slices_find_by_id(volume_slices, model_volume->id());
                     auto         &slices_dst = slices_by_region[layer_range.volume_regions.front().region->print_object_region_id()];
-                    for (; z_idx < zs.size() && Layer::scale_to_layer_coord(zs[z_idx]) < layer_range.layer_height_range_.second; ++z_idx) {
+                    for (; z_idx < zs.size() && scale_to_layer_coord(zs[z_idx]) < layer_range.layer_height_range_.second; ++z_idx) {
                         slices_dst[z_idx] = std::move(slices_src.slices[z_idx]);
                         ensure_valid(slices_dst[z_idx], SCALED_EPSILON);
                     }
                 }
             } else {
                 zs_complex.reserve(zs.size());
-                for (; z_idx < zs.size() && Layer::scale_to_layer_coord(zs[z_idx]) < layer_range.layer_height_range_.second; ++ z_idx) {
+                for (; z_idx < zs.size() && scale_to_layer_coord(zs[z_idx]) < layer_range.layer_height_range_.second; ++ z_idx) {
                     float z                          = zs[z_idx];
                     int   idx_first_printable_region = -1;
                     bool  complex                    = false;

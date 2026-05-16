@@ -31,7 +31,7 @@ FlowErrorNegativeFlow::FlowErrorNegativeFlow() :
     FlowError("Flow::mm3_per_mm() produced negative flow. Did you set some extrusion width too small, or the (maximum) layer height too high?") {}
 
 coord_t Flow::scaled_height() const {
-    return Layer::scale_to_layer_coord(this->m_height);
+    return scale_to_layer_coord(this->m_height);
 }
 
 // This static method returns a sane extrusion width default.

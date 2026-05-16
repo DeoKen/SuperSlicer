@@ -2978,7 +2978,7 @@ void PrintObject::discover_vertical_shells()
                     min_perimeter_infill_spacing *= 0.5;
                     const int nb_perimeter_layers_for_solid_fill = region_config.solid_over_perimeters.value;
                     const int min_layer_no_solid = region_config.bottom_solid_layers.value - 1;
-                    const coord_t min_z_no_solid = Layer::scale_to_layer_coord(region_config.bottom_solid_min_thickness);
+                    const coord_t min_z_no_solid = scale_to_layer_coord(region_config.bottom_solid_min_thickness);
 #if 0
 // #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
                     {
@@ -3028,7 +3028,7 @@ void PrintObject::discover_vertical_shells()
                         for (; i < int(cache_top_botom_regions.size()) &&
                              (i < itop ||
                               (m_layers[i]->scaled_print_z() - print_z) <
-                                  Layer::scale_to_layer_coord(region_config.top_solid_min_thickness));
+                                  scale_to_layer_coord(region_config.top_solid_min_thickness));
                              ++i) {
                             at_least_one_top_projected = true;
                             const DiscoverVerticalShellsCacheEntry &cache = cache_top_botom_regions[i];
@@ -3061,7 +3061,7 @@ void PrintObject::discover_vertical_shells()
                             if (i < int(cache_top_botom_regions.size()) &&
                                 (i <= itop ||
                                  (m_layers[i]->scaled_bottom_z() - print_z) <
-                                     Layer::scale_to_layer_coord(region_config.top_solid_min_thickness)))
+                                     scale_to_layer_coord(region_config.top_solid_min_thickness)))
                                 combine_holes(cache_top_botom_regions[i].holes);
 	                }
 	                if (int n_bottom_layers = region_config.bottom_solid_layers.value; n_bottom_layers > 0) {
@@ -3073,7 +3073,7 @@ void PrintObject::discover_vertical_shells()
 	                    for (; i >= 0 &&
                              (i > ibottom ||
                               (bottom_z - m_layers[i]->scaled_bottom_z()) <
-                                  Layer::scale_to_layer_coord(region_config.bottom_solid_min_thickness));
+                                  scale_to_layer_coord(region_config.bottom_solid_min_thickness));
 	                        -- i) {
                             at_least_one_bottom_projected = true;
 	                        const DiscoverVerticalShellsCacheEntry &cache = cache_top_botom_regions[i];
@@ -3104,7 +3104,7 @@ void PrintObject::discover_vertical_shells()
                             if (i >= 0 &&
                                 (i > ibottom ||
                                  (bottom_z - m_layers[i]->scaled_print_z()) <=
-                                     Layer::scale_to_layer_coord(region_config.bottom_solid_min_thickness))) {
+                                     scale_to_layer_coord(region_config.bottom_solid_min_thickness))) {
                                 combine_holes(cache_top_botom_regions[i].holes);
                             }
                         }
@@ -3736,7 +3736,7 @@ void PrintObject::bridge_over_infill()
         // Gather layers sparse infill areas, to depth defined by used bridge flow
         ExPolygons layers_sparse_infill{};
         ExPolygons not_sparse_infill{};
-        coord_t    bottom_z = po->layer(lidx).scaled_print_z() - Layer::scale_to_layer_coord(double(target_flow_height) * target_flow_height_factor);
+        coord_t    bottom_z = po->layer(lidx).scaled_print_z() - scale_to_layer_coord(double(target_flow_height) * target_flow_height_factor);
         for (int i = int(lidx) - 1; i >= 0; --i) {
             // Stop iterating if layer is lower than bottom_z and at least one iteration was made
             const Layer &layer = po->layer(i);
@@ -4050,7 +4050,7 @@ void PrintObject::bridge_over_infill()
                 const LayerRegion *first_lregion = surfaces_by_layer[lidx].front().region;
                 Flow               bridge_flow = first_lregion->bridging_flow(frSolidInfill, first_lregion->region().config().bridge_type); // FIXME: per region
                 const coord_t      spacing     = bridge_flow.scaled_spacing();
-                const coord_t      bridge_height = std::max(layer.scaled_height(), Layer::scale_to_layer_coord(bridge_flow.height()));
+                const coord_t      bridge_height = std::max(layer.scaled_height(), scale_to_layer_coord(bridge_flow.height()));
                 //const coord_t      bridge_width = bridge_flow.scaled_width();
                 const coord_t      target_flow_height = bridge_flow.height() * target_flow_height_factor;
                 Polygons           deep_infill_area   = gather_areas_w_depth(po, lidx, target_flow_height);
@@ -4703,9 +4703,9 @@ void PrintObject::discover_horizontal_shells()
 
                     ((type & stPosTop) == stPosTop) ?
                     (n >= 0 && (int(layer_id) - n < num_solid_layers ||
-                        (print_z - m_layers[n]->scaled_print_z()) <= Layer::scale_to_layer_coord(region_config.top_solid_min_thickness.value))) :
+                        (print_z - m_layers[n]->scaled_print_z()) <= scale_to_layer_coord(region_config.top_solid_min_thickness.value))) :
                     (n < int(m_layers.size()) && (n - int(layer_id) < num_solid_layers ||
-                        (m_layers[n]->scaled_bottom_z() - bottom_z) <= Layer::scale_to_layer_coord(region_config.bottom_solid_min_thickness.value)));
+                        (m_layers[n]->scaled_bottom_z() - bottom_z) <= scale_to_layer_coord(region_config.bottom_solid_min_thickness.value)));
 
                     ((type & stPosTop) == stPosTop) ? --n : ++n)
                 {
@@ -4919,7 +4919,7 @@ void PrintObject::combine_infill()
                     continue;
                 // Check whether the combination of this layer with the lower layers' buffer
                 // would exceed max layer height or max combined layer count.
-                if (current_height + layer->scaled_height() > Layer::scale_to_layer_coord(nozzle_diameter) || num_layers >= every) {
+                if (current_height + layer->scaled_height() > scale_to_layer_coord(nozzle_diameter) || num_layers >= every) {
                     // Append combination to lower layer.
                     combine[layer_idx - 1] = num_layers;
                     current_height = 0;

@@ -281,15 +281,15 @@ public:
         coord_t last_z = 0;
         for (const std::pair<const t_layer_height_range, ModelConfig> &range : in_mm)
             if (range.first.second > last_z) {
-                coord_t min_z = std::max(Layer::scale_to_layer_coord(range.first.first), coord_t(0));
+                coord_t min_z = std::max(scale_to_layer_coord(range.first.first), coord_t(0));
                 if (min_z > last_z + EPSILON) {
                     m_ranges.push_back({ std::pair<coord_t, coord_t>(last_z, min_z) });
                     last_z = min_z;
                 }
-                if (Layer::scale_to_layer_coord(range.first.second) > last_z) {
+                if (scale_to_layer_coord(range.first.second) > last_z) {
                     const DynamicPrintConfig *cfg = &range.second.get();
-                    m_ranges.push_back({ std::pair<coord_t, coord_t>(last_z, Layer::scale_to_layer_coord(range.first.second)), cfg });
-                    last_z = Layer::scale_to_layer_coord(range.first.second);
+                    m_ranges.push_back({ std::pair<coord_t, coord_t>(last_z, scale_to_layer_coord(range.first.second)), cfg });
+                    last_z = scale_to_layer_coord(range.first.second);
                 }
             }
         if (m_ranges.empty())
@@ -301,8 +301,8 @@ public:
     }
 
     const DynamicPrintConfig* config(const t_layer_height_range &range_mm) const {
-        coord_t z_start = Layer::scale_to_layer_coord(range_mm.first);
-        coord_t z_end = Layer::scale_to_layer_coord(range_mm.second);
+        coord_t z_start = scale_to_layer_coord(range_mm.first);
+        coord_t z_end = scale_to_layer_coord(range_mm.second);
         auto it = std::lower_bound(m_ranges.begin(), m_ranges.end(), LayerRange{ { z_start, z_end } });
         auto it2 = std::lower_bound(m_ranges.begin(), m_ranges.end(), LayerRange{ { z_start - SCALED_EPSILON, z_end - SCALED_EPSILON } });
         assert(it == it2);

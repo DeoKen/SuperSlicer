@@ -7432,7 +7432,7 @@ void GLCanvas3D::_load_skirt_brim_preview_toolpaths(const BuildVolume &build_vol
     GLModel::Geometry init_data;
     init_data.format = { GLModel::Geometry::EPrimitiveType::Triangles, GLModel::Geometry::EVertexLayout::P3N3 };
     for (size_t i = 0; i < skirt_height; ++ i) {
-        volume->_print_zs.push_back(Layer::scale_to_layer_coord(print_zs_mm[i]));
+        volume->_print_zs.push_back(scale_to_layer_coord(print_zs_mm[i]));
         volume->offsets.push_back(init_data.indices_count());
         if (i == 0) {
             //skirt & brim from print
@@ -8017,8 +8017,8 @@ void GLCanvas3D::_load_wipe_tower_toolpaths(const BuildVolume& build_volume, con
             const std::vector<WipeTower::ToolChangeResult> &layer = ctxt.tool_change(idx_layer);
             for (size_t i = 0; i < vols.size(); ++i) {
                 GLVolume &vol = *vols[i];
-                if (vol._print_zs.empty() || vol._print_zs.back() != Layer::scale_to_layer_coord(layer.front().print_z)) {
-                    vol._print_zs.push_back(Layer::scale_to_layer_coord(layer.front().print_z));
+                if (vol._print_zs.empty() || vol._print_zs.back() != scale_to_layer_coord(layer.front().print_z)) {
+                    vol._print_zs.push_back(scale_to_layer_coord(layer.front().print_z));
                     vol.offsets.push_back(geometries[i].indices_count());
                 }
             }

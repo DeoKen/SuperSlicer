@@ -38,10 +38,10 @@ TreeSupportMeshGroupSettings::TreeSupportMeshGroupSettings(const PrintObject &pr
         external_perimeter_width = std::max<double>(external_perimeter_width, region.flow(print_object, frExternalPerimeter, layer_height_mm, 2 /*not first layer, even layer*/).width());
     }
     
-    this->layer_height              = Layer::scale_to_layer_coord(layer_height_mm);
-    this->resolution                = Layer::scale_to_layer_coord(print_config.resolution_internal.value);
+    this->layer_height              = scale_to_layer_coord(layer_height_mm);
+    this->resolution                = scale_to_layer_coord(print_config.resolution_internal.value);
     // Arache feature <- why? it's not even editable when the organic support are activated! And it doesn't take into account the %! I'll fix it to 25% of external_perimeter_width. 
-    this->min_feature_size          = Layer::scale_to_layer_coord(external_perimeter_width * 0.25); //config.min_feature_size.value);
+    this->min_feature_size          = scale_to_layer_coord(external_perimeter_width * 0.25); //config.min_feature_size.value);
     // +1 makes the threshold inclusive
     this->support_angle             = 0.5 * M_PI - std::clamp<double>((config.support_material_threshold + 1) * M_PI / 180., 0., 0.5 * M_PI);
     this->support_line_width        = support_material_flow(&print_object, layer_height_mm).scaled_width();
@@ -72,7 +72,7 @@ TreeSupportMeshGroupSettings::TreeSupportMeshGroupSettings(const PrintObject &pr
         assert(print_object.num_printing_regions() > 0);
         const LayerRegion &lr = print_object.layers().front().regions().front();
         assert(is_approx(lr.layer()->unscaled_height(), layer_height_mm, EPSILON) || lr.layer()->id() == 0);
-        coord_t diff_lh_filamenth = Layer::scale_to_layer_coord(lr.bridging_height_avg_mm()) - this->layer_height;
+        coord_t diff_lh_filamenth = scale_to_layer_coord(lr.bridging_height_avg_mm()) - this->layer_height;
         this->support_top_distance += diff_lh_filamenth;
         this->support_bottom_distance += diff_lh_filamenth;
     }

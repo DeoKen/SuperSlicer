@@ -382,8 +382,8 @@ void GLVolume::set_range(double min_z_mm, double max_z_mm)
     this->tverts_range.first = 0;
     this->tverts_range.second = this->model.indices_count();
 
-    coord_t max_z = Layer::scale_to_layer_coord(max_z_mm);
-    coord_t min_z = Layer::scale_to_layer_coord(min_z_mm);
+    coord_t max_z = scale_to_layer_coord(max_z_mm);
+    coord_t min_z = scale_to_layer_coord(min_z_mm);
 
     if (!this->_print_zs.empty()) {
         // The Z layer range is specified.

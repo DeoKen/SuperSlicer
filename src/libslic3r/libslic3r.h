@@ -74,6 +74,7 @@ using ::SCALED_EPSILON;
 
 using ::scale_i;
 using ::scale_d;
+using ::scale_to_layer_coord;
 using ::unscaled;
 using ::coord_sqr;
 using ::coord_int_sqr;

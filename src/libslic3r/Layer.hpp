@@ -136,7 +136,6 @@ public:
     Layer              *lower_layer;
 //    bool                slicing_errors;
     // heights
-    static coord_t      scale_to_layer_coord(double z);
     double              slice_z;       // Z used for slicing, in unscaled coordinates
     coord_t             scaled_print_z() const { assert(scale_to_layer_coord(unscaled(m_print_z)) == m_print_z); return m_print_z; }
     double              unscaled_print_z() const { assert(scale_to_layer_coord(unscaled(m_print_z)) == m_print_z); return unscaled(m_print_z); }

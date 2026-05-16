@@ -715,7 +715,7 @@ void AMFParserContext::endElement(const char * /* name */)
         CustomGCode::Type type  = static_cast<CustomGCode::Type>(atoi(m_value[3].c_str()));
         const std::string& extra= m_value[4];
 
-        m_model.custom_gcode_per_print_z.gcodes.push_back(CustomGCode::Item{Layer::scale_to_layer_coord(print_z), type, extruder, color, extra});
+        m_model.custom_gcode_per_print_z.gcodes.push_back(CustomGCode::Item{scale_to_layer_coord(print_z), type, extruder, color, extra});
 
         for (std::string& val: m_value)
             val.clear();

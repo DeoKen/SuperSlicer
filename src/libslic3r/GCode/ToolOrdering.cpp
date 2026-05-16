@@ -91,7 +91,7 @@ static coord_t calc_max_layer_height(const PrintConfig &config, coord_t max_obje
         double mlh = config.max_layer_height.get_effective_value(config.nozzle_diameter.get_at(i), i);
         if (mlh == 0. || !config.max_layer_height.is_enabled())
             mlh = 0.75 * config.nozzle_diameter.get_at(i);
-        max_layer_height = std::min(max_layer_height, Layer::scale_to_layer_coord(mlh));
+        max_layer_height = std::min(max_layer_height, scale_to_layer_coord(mlh));
     }
     // The Prusa3D Fast (0.35mm layer height) print profile sets a higher layer height than what is normally allowed
     // by the nozzle. This is a hack and it works by increasing extrusion width. See GH #3919.
@@ -123,7 +123,7 @@ ToolOrdering::ToolOrdering(const PrintObject &object, uint16_t first_extruder, b
         }
         this->initialize_layers(zs);
     }
-    coord_t max_layer_height = calc_max_layer_height(object.print()->config(), Layer::scale_to_layer_coord(object.config().layer_height));
+    coord_t max_layer_height = calc_max_layer_height(object.print()->config(), scale_to_layer_coord(object.config().layer_height));
 
     // Collect extruders required to print the layers.
     this->collect_extruders(object, {}, std::vector<std::pair<coord_t, uint16_t>>(), std::vector<std::pair<coord_t, uint16_t>>());
@@ -171,7 +171,7 @@ ToolOrdering::ToolOrdering(const PrintObject &object, const GCode::ObjectsLayerT
         }
         this->initialize_layers(zs);
     }
-    coord_t max_layer_height = calc_max_layer_height(object.print()->config(), Layer::scale_to_layer_coord(object.config().layer_height));
+    coord_t max_layer_height = calc_max_layer_height(object.print()->config(), scale_to_layer_coord(object.config().layer_height));
 
     // Collect extruders required to print the layers.
     this->collect_extruders(object, layers, std::vector<std::pair<coord_t, uint16_t>>(), std::vector<std::pair<coord_t, uint16_t>>());
@@ -222,7 +222,7 @@ ToolOrdering::ToolOrdering(const Print &print, uint16_t first_extruder, bool pri
                 }
             }
 
-            max_layer_height = std::max(max_layer_height, Layer::scale_to_layer_coord(object.config().layer_height.value));
+            max_layer_height = std::max(max_layer_height, scale_to_layer_coord(object.config().layer_height.value));
         }
         this->initialize_layers(zs);
     }
@@ -765,7 +765,7 @@ void ToolOrdering::assign_custom_gcodes(const Print &print)
 		if (auto it_lt_below = it_lt; ++ it_lt_below != m_layer_tools.rend())
 			print_z_below = it_lt_below->_print_z;
         assert(custom_gcode.print_z_ < scale_i(1000));
-		if (Layer::scale_to_layer_coord(unscaled(custom_gcode.print_z_)) > print_z_below) {
+		if (scale_to_layer_coord(unscaled(custom_gcode.print_z_)) > print_z_below) {
 			// The custom G-code applies to the current layer.
 			bool color_change = custom_gcode.type == CustomGCode::ColorChange;
 			bool tool_change  = custom_gcode.type == CustomGCode::ToolChange;
@@ -888,7 +888,7 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, const LayerTo
         const PrintObject* object = object_list[i];
 
         // Finds this layer:
-        const Layer* this_layer = object->get_layer_at_printz(Layer::scale_to_layer_coord(lt._print_z));
+        const Layer* this_layer = object->get_layer_at_printz(scale_to_layer_coord(lt._print_z));
         assert(object->get_layer_at_printz(unscaled(lt._print_z), SCALED_EPSILON * 2) == this_layer);
         if (this_layer == nullptr)
         	continue;
