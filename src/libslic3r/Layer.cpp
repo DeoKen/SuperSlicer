@@ -203,54 +203,6 @@ bool LayerSliceIsland::has_extrusions() const {
     return false;
 }
 
-void LayerRegionIsland::remove_empty_extrusions() {
-    std::vector<ExtrusionRole> to_del;
-    for (auto &entry : m_extrusion_regions) {
-        if (entry.second.empty()) {
-            to_del.push_back(entry.first);
-        }
-    }
-    for (ExtrusionRole role : to_del) {
-        m_extrusion_regions.erase(role);
-    }
-}
-
-void LayerRegionIsland::simplify_extrusion_entity(const Layer& layer)
-{
-    const PrintConfig& print_config = layer.object()->print()->config();
-    const bool spiral_mode = print_config.spiral_vase;
-    ArcFittingType enable_arc_fitting = print_config.arc_fitting.value;
-    if (spiral_mode)
-        enable_arc_fitting = ArcFittingType::Disabled;
-    coordf_t scaled_resolution = scale_d(print_config.resolution.value);
-    if (enable_arc_fitting != ArcFittingType::Disabled) {
-        scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_effective_value(std::max(EPSILON, unscaled(scaled_resolution))));
-    }
-    if (scaled_resolution == 0) scaled_resolution = enable_arc_fitting != ArcFittingType::Disabled ? SCALED_EPSILON * 2 : SCALED_EPSILON;
-    scaled_resolution = std::max(double(SCALED_EPSILON), scaled_resolution);
-
-    //call simplify for all paths
-    Slic3r::SimplifyVisitor visitor{scaled_resolution, enable_arc_fitting, print_config.arc_fitting_ignore_holes,
-                                    &print_config.arc_fitting_tolerance,
-                                    enable_arc_fitting != ArcFittingType::Disabled ? SCALED_EPSILON * 2 :
-                                                                                     SCALED_EPSILON};
-    if (this->has_extrusion(LayerRegionIsland::PERIMETERS)) {
-        this->mutable_extrusion(LayerRegionIsland::PERIMETERS).visit(visitor);
-    }
-    if (this->has_extrusion(LayerRegionIsland::GAP_FILLS)) {
-        this->mutable_extrusion(LayerRegionIsland::GAP_FILLS).visit(visitor);
-    }
-    if (this->has_extrusion(LayerRegionIsland::INFILLS)) {
-        this->mutable_extrusion(LayerRegionIsland::INFILLS).visit(visitor);
-    }
-    if (this->has_extrusion(LayerRegionIsland::IRONINGS)) {
-        this->mutable_extrusion(LayerRegionIsland::IRONINGS).visit(visitor);
-    }
-    if (this->has_extrusion(LayerRegionIsland::MILLS)) {
-        this->mutable_extrusion(LayerRegionIsland::MILLS).visit(visitor);
-    }
-}
-
 LayerRegionIsland &LayerSliceIsland::add_region_island(const LayerRegionSetConstPtrs &region_set,
                                                             uint16_t extruder_id) {
     // these region are all inside this islands
@@ -275,15 +227,6 @@ LayerRegionIsland &LayerSliceIsland::get_or_add_region_island(const LayerRegionS
         region_island = &this->add_region_island(region_set, extruder_id);
     }
     return *region_island;
-}
-
-bool LayerRegionIsland::has_extrusions() const {
-    for (auto &entry : this->m_extrusion_regions) {
-        if (!entry.second.empty()) {
-            return true;
-        }
-    }
-    return false;
 }
 
 Layer::~Layer()
@@ -1372,28 +1315,6 @@ ExtrusionRole SupportLayer::role() const {
         }
     }
     return role;
-}
-
-BoundingBox get_extents(const LayerRegion &layer_region)
-{
-    BoundingBox bbox;
-    if (! layer_region.slices().empty()) {
-        bbox = get_extents(layer_region.slices().surfaces.front());
-        for (auto it = layer_region.slices().surfaces.cbegin() + 1; it != layer_region.slices().surfaces.cend(); ++ it)
-            bbox.merge(get_extents(*it));
-    }
-    return bbox;
-}
-
-BoundingBox get_extents(const LayerRegionRefs &layer_regions)
-{
-    BoundingBox bbox;
-    if (!layer_regions.empty()) {
-        bbox = get_extents(layer_regions.front());
-        for (auto it = layer_regions.begin() + 1; it != layer_regions.end(); ++it)
-            bbox.merge(get_extents(*it));
-    }
-    return bbox;
 }
 
 }

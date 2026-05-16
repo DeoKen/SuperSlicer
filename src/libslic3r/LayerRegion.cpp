@@ -6,12 +6,15 @@
 ///|/ SuperSlicer, PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "LayerRegion.hpp"
+
 #include <map>
 #include <string>
 
+#include <algorithm>
+
 #include <boost/log/trivial.hpp>
 
-#include <algorithm>
 #include "Algorithm/RegionExpansion.hpp"
 #include "BoundingBox.hpp"
 #include "BridgeDetector.hpp"
@@ -27,6 +30,63 @@
 #include "SVG.hpp"
 
 namespace Slic3r {
+
+void LayerRegionIsland::remove_empty_extrusions() {
+    std::vector<ExtrusionRole> to_del;
+    for (auto &entry : m_extrusion_regions) {
+        if (entry.second.empty()) {
+            to_del.push_back(entry.first);
+        }
+    }
+    for (ExtrusionRole role : to_del) {
+        m_extrusion_regions.erase(role);
+    }
+}
+
+void LayerRegionIsland::simplify_extrusion_entity(const Layer& layer)
+{
+    const PrintConfig& print_config = layer.object()->print()->config();
+    const bool spiral_mode = print_config.spiral_vase;
+    ArcFittingType enable_arc_fitting = print_config.arc_fitting.value;
+    if (spiral_mode)
+        enable_arc_fitting = ArcFittingType::Disabled;
+    coordf_t scaled_resolution = scale_d(print_config.resolution.value);
+    if (enable_arc_fitting != ArcFittingType::Disabled) {
+        scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_effective_value(std::max(EPSILON, unscaled(scaled_resolution))));
+    }
+    if (scaled_resolution == 0) scaled_resolution = enable_arc_fitting != ArcFittingType::Disabled ? SCALED_EPSILON * 2 : SCALED_EPSILON;
+    scaled_resolution = std::max(double(SCALED_EPSILON), scaled_resolution);
+
+    //call simplify for all paths
+    Slic3r::SimplifyVisitor visitor{scaled_resolution, enable_arc_fitting, print_config.arc_fitting_ignore_holes,
+                                    &print_config.arc_fitting_tolerance,
+                                    enable_arc_fitting != ArcFittingType::Disabled ? SCALED_EPSILON * 2 :
+                                                                                     SCALED_EPSILON};
+    if (this->has_extrusion(LayerRegionIsland::PERIMETERS)) {
+        this->mutable_extrusion(LayerRegionIsland::PERIMETERS).visit(visitor);
+    }
+    if (this->has_extrusion(LayerRegionIsland::GAP_FILLS)) {
+        this->mutable_extrusion(LayerRegionIsland::GAP_FILLS).visit(visitor);
+    }
+    if (this->has_extrusion(LayerRegionIsland::INFILLS)) {
+        this->mutable_extrusion(LayerRegionIsland::INFILLS).visit(visitor);
+    }
+    if (this->has_extrusion(LayerRegionIsland::IRONINGS)) {
+        this->mutable_extrusion(LayerRegionIsland::IRONINGS).visit(visitor);
+    }
+    if (this->has_extrusion(LayerRegionIsland::MILLS)) {
+        this->mutable_extrusion(LayerRegionIsland::MILLS).visit(visitor);
+    }
+}
+
+bool LayerRegionIsland::has_extrusions() const {
+    for (auto &entry : this->m_extrusion_regions) {
+        if (!entry.second.empty()) {
+            return true;
+        }
+    }
+    return false;
+}
 
 void LayerRegion::clear() {
     this->m_unsupported_bridge_edges.clear();
@@ -1308,6 +1368,28 @@ void LayerRegion::export_region_fill_surfaces_to_svg_debug(const char *name) con
     static std::map<std::string, size_t> idx_map;
     size_t &idx = idx_map[name];
     this->export_region_fill_surfaces_to_svg(debug_out_path("LayerRegion-fill_surfaces-%s-%d.svg", name, idx ++).c_str());
+}
+
+BoundingBox get_extents(const LayerRegion &layer_region)
+{
+    BoundingBox bbox;
+    if (! layer_region.slices().empty()) {
+        bbox = get_extents(layer_region.slices().surfaces.front());
+        for (auto it = layer_region.slices().surfaces.cbegin() + 1; it != layer_region.slices().surfaces.cend(); ++ it)
+            bbox.merge(get_extents(*it));
+    }
+    return bbox;
+}
+
+BoundingBox get_extents(const LayerRegionRefs &layer_regions)
+{
+    BoundingBox bbox;
+    if (!layer_regions.empty()) {
+        bbox = get_extents(layer_regions.front());
+        for (auto it = layer_regions.begin() + 1; it != layer_regions.end(); ++it)
+            bbox.merge(get_extents(*it));
+    }
+    return bbox;
 }
 
 }
