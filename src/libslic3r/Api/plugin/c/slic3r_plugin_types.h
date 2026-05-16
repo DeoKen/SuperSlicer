@@ -9,6 +9,7 @@
 
 #include "slic3r_bridge_detector.h"
 #include "slic3r_data_tree.h"
+#include "slic3r_slicing_step.h"
 #include "slic3r_utils.h"
 #include "slic3r_volume.h"
 
@@ -19,49 +20,6 @@ extern "C" {
 /* ========================= HANDLES ========================= */
 
 typedef struct orchestrator_handle orchestrator_handle;
-
-/* ========================= SLICING STEP ========================= */
-
-/*
-Defines the execution stage of a plugin in the slicing pipeline.
-*/
-typedef enum slicing_step_t : uint16_t
-{
-    STEP_LAYER_HEIGHT              = 100,
-    STEP_SLICING                   = 200,
-    STEP_POST_SLICING              = 300,
-    STEP_PRE_PERIMETER             = 500,
-    STEP_PERIMETER                 = 600,
-    STEP_POST_PERIMETER            = 700,
-    STEP_SURFACE_GENERATION        = 750,
-    STEP_SURFACE_TYPE              = 800,
-    STEP_PRE_INFILL                = 900,
-    STEP_INFILL_GROUP              = 950,
-    STEP_INFILL                    = 1000,
-    STEP_POST_INFILL               = 1100,
-    STEP_SUPPORT_SPOT              = 1200,
-    STEP_SUPPORT                   = 1300,
-    STEP_PRE_GCODE                 = 1400,
-    STEP_ORDERING                  = 1500,
-    STEP_WIPETOWER                 = 1600,
-    STEP_LAYER_EXTRUSION_EDIT      = 1650,
-    STEP_LAYER_STICHING            = 1700,
-    STEP_EXTRUSION_EDIT            = 1800,
-    STEP_EXTRUSION_SIMPLIFICATION  = 1900,
-    STEP_GCODE                     = 2000,
-
-    /*
-    Service plugin type used to create infill extrusion for a surface
-    */
-    INFILL_PATTERN                 = 10000,
-
-    /*
-    Service plugin used to create bridge detector instances on demand.
-    */
-    BRIDGE_DETECTOR                = 10100
-
-} slicing_step_t;
-
 
 /* ========================= RUN CONTEXT ========================= */
 

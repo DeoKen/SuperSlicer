@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -126,13 +127,13 @@ public:
 
     StateWithTimeStamp state_with_timestamp(StepType step, std::mutex &mtx) const {
         std::scoped_lock<std::mutex> lock(mtx);
-        StateWithTimeStamp state = m_state[step];
+        StateWithTimeStamp state = this->state_or_default(step);
         return state;
     }
 
     StateWithWarnings state_with_warnings(StepType step, std::mutex &mtx) const {
         std::scoped_lock<std::mutex> lock(mtx);
-        StateWithWarnings state = m_state[step];
+        StateWithWarnings state = this->state_or_default(step);
         return state;
     }
 
@@ -145,7 +146,7 @@ public:
     }
 
     StateWithTimeStamp state_with_timestamp_unguarded(StepType step) const { 
-        return m_state[step];
+        return this->state_or_default(step);
     }
 
     bool is_started_unguarded(StepType step) const {
@@ -157,12 +158,12 @@ public:
     }
 
     void enable_unguarded(StepType step, bool enable) {
-        m_state[step].enabled = enable;
+        this->state_for(step).enabled = enable;
     }
 
     void enable_all_unguarded(bool enable) {
-        for (size_t istep = 0; istep < COUNT; ++ istep)
-            m_state[istep].enabled = enable;
+        for (auto &step_and_state : m_state)
+            step_and_state.second.enabled = enable;
     }
 
     bool is_enabled_unguarded(StepType step) const {
@@ -192,13 +193,14 @@ public:
 //        for (int i = 0; i < int(COUNT); ++ i)
 //            assert(m_state[i].state != State::Started);
 #endif // NDEBUG
-        PrintStateBase::StateWithWarnings &state = m_state[step];
+        PrintStateBase::StateWithWarnings &state = this->state_for(step);
         if (! state.enabled || state.state == State::Done)
             return false;
         state.state = State::Started;
         state.timestamp = ++ g_last_timestamp;
         state.mark_warnings_non_current();
-        m_step_active = static_cast<int>(step);
+        m_step_active = step;
+        m_has_active_step = true;
         return true;
     }
 
@@ -212,12 +214,12 @@ public:
         std::scoped_lock<std::mutex> lock(mtx);
         // If canceled, throw before changing the step state.
         throw_if_canceled();
-        assert(m_state[step].state == State::Started);
-        assert(m_step_active == static_cast<int>(step));
-        PrintStateBase::StateWithWarnings &state = m_state[step];
+        assert(this->state_or_default(step).state == State::Started);
+        assert(m_has_active_step && m_step_active == step);
+        PrintStateBase::StateWithWarnings &state = this->state_for(step);
         state.state = State::Done;
         state.timestamp = ++ g_last_timestamp;
-        m_step_active = -1;
+        m_has_active_step = false;
         // Remove all non-current warnings.
     	auto it = std::remove_if(state.warnings.begin(), state.warnings.end(), [](const auto &w) { return ! w.current; });
     	bool update_warning_ui = false;
@@ -234,7 +236,7 @@ public:
     // processing by calling the cancel callback.
     template<typename CancelationCallback>
     bool invalidate(StepType step, CancelationCallback cancel) {
-        if (PrintStateBase::StateWithWarnings &state = m_state[step]; state.try_invalidate()) {
+        if (PrintStateBase::StateWithWarnings &state = this->state_for(step); state.try_invalidate()) {
 #if 0
             if (mtx.state != mtx.HELD) {
                 printf("Not held!\n");
@@ -248,7 +250,7 @@ public:
             // Now the worker thread should be stopped, therefore it cannot write into the warnings field.
             // It is safe to modify it.
             state.mark_warnings_non_current();
-            m_step_active = -1;
+            m_has_active_step = false;
             return true;
         } else
             return false;
@@ -258,7 +260,7 @@ public:
     bool invalidate_multiple(StepTypeIterator step_begin, StepTypeIterator step_end, CancelationCallback cancel) {
         bool invalidated = false;
         for (StepTypeIterator it = step_begin; it != step_end; ++ it)
-            if (m_state[*it].try_invalidate())
+            if (this->state_for(*it).try_invalidate())
                 invalidated = true;
         if (invalidated) {
 #if 0
@@ -274,8 +276,8 @@ public:
             // Now the worker thread should be stopped, therefore it cannot write into the warnings field.
             // It is safe to modify the warnings.
             for (StepTypeIterator it = step_begin; it != step_end; ++ it)
-                m_state[*it].mark_warnings_non_current();
-            m_step_active = -1;
+                this->state_for(*it).mark_warnings_non_current();
+            m_has_active_step = false;
         }
         return invalidated;
     }
@@ -287,16 +289,16 @@ public:
     template<typename CancelationCallback>
     bool invalidate_all(CancelationCallback cancel) {
         bool invalidated = false;
-        for (size_t i = 0; i < COUNT; ++ i)
-            if (m_state[i].try_invalidate())
+        for (auto &step_and_state : m_state)
+            if (step_and_state.second.try_invalidate())
                 invalidated = true;
         if (invalidated) {
             cancel();
             // Now the worker thread should be stopped, therefore it cannot write into the warnings field.
             // It is safe to modify the warnings.
-            for (size_t i = 0; i < COUNT; ++ i)
-                m_state[i].mark_warnings_non_current();
-            m_step_active = -1;
+            for (auto &step_and_state : m_state)
+                step_and_state.second.mark_warnings_non_current();
+            m_has_active_step = false;
         }
         return invalidated;
     }
@@ -304,7 +306,7 @@ public:
     // If the milestone is Canceled or Invalidated, return true and turn the state of the milestone to Fresh.
     // The caller is responsible for releasing the data of the milestone that is no more valid.
     bool query_reset_dirty_unguarded(StepType step) {
-        if (PrintStateBase::StateWithWarnings &state = m_state[step]; state.is_dirty()) {
+        if (PrintStateBase::StateWithWarnings &state = this->state_for(step); state.is_dirty()) {
             state.state = State::Fresh;
             return true;
         } else
@@ -315,10 +317,11 @@ public:
     // which in turn stops the background thread without adjusting state of the milestone being executed.
     // This method fixes the state of the canceled milestone by setting it to a Canceled state.
     void mark_canceled_unguarded() {
-        for (size_t i = 0; i < COUNT; ++ i) {
-            if (State &state = m_state[i].state; state == State::Started)
+        for (auto &step_and_state : m_state) {
+            if (State &state = step_and_state.second.state; state == State::Started)
                 state = State::Canceled;
         }
+        m_has_active_step = false;
     }
 
     // Update list of warnings of the current milestone with a new warning.
@@ -330,10 +333,10 @@ public:
     std::pair<StepType, bool> active_step_add_warning(PrintStateBase::WarningLevel warning_level, const std::string &message, int message_id, std::mutex &mtx)
     {
         std::scoped_lock<std::mutex> lock(mtx);
-        assert(m_step_active != -1);
-        StateWithWarnings &state = m_state[m_step_active];
+        assert(m_has_active_step);
+        StateWithWarnings &state = this->state_for(m_step_active);
         assert(state.state == State::Started);
-        std::pair<StepType, bool> retval(static_cast<StepType>(m_step_active), true);
+        std::pair<StepType, bool> retval(m_step_active, true);
         // Does a warning of the same level and message or message_id exist already?
 		auto it = (message_id == 0) ? 
             std::find_if(state.warnings.begin(), state.warnings.end(), [&message](const auto &w) { return w.message_id == 0 && w.message == message; }) :
@@ -356,11 +359,23 @@ public:
     }
 
 private:
-    StateWithWarnings   m_state[COUNT];
-    // Active class StepType or -1 if none is active.
+    using StateMap = std::map<StepType, StateWithWarnings>;
+
+    StateWithWarnings& state_for(StepType step) { return m_state[step]; }
+    const StateWithWarnings& state_or_default(StepType step) const {
+        typename StateMap::const_iterator it = m_state.find(step);
+        if (it != m_state.end())
+            return it->second;
+        static const StateWithWarnings default_state;
+        return default_state;
+    }
+
+    StateMap            m_state;
+    // Active class StepType, valid only if m_has_active_step is true.
     // If the background processing is canceled, m_step_active may not be resetted
-    // to -1, see the comment in this->set_started().
-    int                 m_step_active = -1;
+    // see the comment in this->set_started().
+    StepType            m_step_active {};
+    bool                m_has_active_step { false };
 };
 
 class PrintBase;

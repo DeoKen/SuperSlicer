@@ -6,43 +6,40 @@
 
 #include <cstdint>
 
+#include "Api/plugin/c/slic3r_slicing_step.h"
+
 namespace Slic3r {
 
-// Print step IDs for keeping track of the print state.
-// The Print steps are applied in this order.
-enum PrintStep : uint8_t {
-    psWipeTower,
-    // Ordering of the tools on PrintObjects for a multi-material print.
-    // psToolOrdering is a synonym to psWipeTower, as the Wipe Tower calculates and modifies the ToolOrdering,
-    // while if printing without the Wipe Tower, the ToolOrdering is calculated as well.
-    psToolOrdering = psWipeTower,
-    psAlertWhenSupportsNeeded,
-    psSkirtBrim,
-    psCheckConflict,
-    // Last step before G-code export, after this step is finished, the initial extrusion path preview
-    // should be refreshed.
-    psSlicingFinished = psCheckConflict,
-    psGCodeExport,
-    // TODO: psGCodeLoader (for params that are only used for time display and such)
-    psCount,
-};
+using PrintStep = slicing_step_t;
+using PrintObjectStep = slicing_step_t;
 
-enum PrintObjectStep : uint8_t {
-    posSlice,
-    posPerimeters,
-    posPrepareInfill,
-    posInfill,
-    posIroning,
-    posSupportSpotsSearch,
-    posSupportMaterial,
-    posEstimateCurledExtrusions,
-    posCalculateOverhangingPerimeters,
-    posSimplifyPath, // simplify &  arc fitting from BBS
-    posCount,
-};
+// Compatibility aliases for the historical FFF print-level steps.
+static constexpr PrintStep psAlertWhenSupportsNeeded = STEP_ALERT_SUPPORTS_NEEDED;
+static constexpr PrintStep psSkirtBrim               = STEP_PRE_GCODE;
+static constexpr PrintStep psCheckConflict           = STEP_CHECK_CONFLICT;
+static constexpr PrintStep psSlicingFinished         = STEP_CHECK_CONFLICT;
+static constexpr PrintStep psToolOrdering            = STEP_ORDERING;
+static constexpr PrintStep psWipeTower               = STEP_WIPETOWER;
+static constexpr PrintStep psGCodeExport             = STEP_GCODE;
+static constexpr PrintStep psCount                   = static_cast<PrintStep>(STEP_GCODE + 1);
 
-int printstep_percent(PrintStep step);
-int objectstep_percent(PrintObjectStep step);
+// Compatibility aliases for the historical FFF object-level steps.
+static constexpr PrintObjectStep posSlice                          = STEP_SLICING;
+static constexpr PrintObjectStep posPerimeters                     = STEP_PERIMETER;
+static constexpr PrintObjectStep posPrepareInfill                  = STEP_PRE_INFILL;
+static constexpr PrintObjectStep posInfill                         = STEP_INFILL;
+static constexpr PrintObjectStep posIroning                        = STEP_POST_INFILL;
+static constexpr PrintObjectStep posSupportSpotsSearch             = STEP_SUPPORT_SPOT;
+static constexpr PrintObjectStep posSupportMaterial                = STEP_SUPPORT;
+static constexpr PrintObjectStep posEstimateCurledExtrusions       = STEP_LAYER_EXTRUSION_EDIT;
+static constexpr PrintObjectStep posCalculateOverhangingPerimeters = STEP_EXTRUSION_EDIT;
+static constexpr PrintObjectStep posSimplifyPath                   = STEP_EXTRUSION_SIMPLIFICATION;
+static constexpr PrintObjectStep posCount                          = static_cast<PrintObjectStep>(STEP_EXTRUSION_SIMPLIFICATION + 1);
+
+int printstep_percent(slicing_step_t step);
+int objectstep_percent(slicing_step_t step);
+bool is_print_step(slicing_step_t step);
+bool is_print_object_step(slicing_step_t step);
 
 } // namespace Slic3r
 

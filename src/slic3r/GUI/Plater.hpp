@@ -30,6 +30,7 @@
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/enum_bitmask.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/PrintSteps.hpp"
 #include "libslic3r/Preset.hpp"
 
 #include "GUI_Preview.hpp"
@@ -53,7 +54,6 @@ class ModelInstance;
 class PrintBase;
 class Print;
 class SLAPrint;
-enum PrintObjectStep : uint8_t;
 enum SLAPrintObjectStep : uint8_t;
 enum class ConversionType : int;
 

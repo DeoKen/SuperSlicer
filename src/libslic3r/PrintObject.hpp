@@ -214,7 +214,7 @@ protected:
     void                    config_apply_only(const ConfigBase &other, const t_config_option_keys &keys, bool ignore_nonexistent = false) { m_config.apply_only(other, keys, ignore_nonexistent); }
     PrintBase::ApplyStatus  set_instances(PrintInstances &&instances);
     // Invalidates the step, and its depending steps in PrintObject and Print.
-    bool                    invalidate_step(PrintObjectStep step);
+    bool                    invalidate_step(slicing_step_t step);
     // Invalidates all PrintObject and Print steps.
     bool                    invalidate_all_steps();
     // Invalidate steps based on a set of parameters changed.

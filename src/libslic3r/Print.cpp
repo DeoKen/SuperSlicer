@@ -458,7 +458,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
     return invalidated;
 }
 
-bool Print::invalidate_step(PrintStep step)
+bool Print::invalidate_step(slicing_step_t step)
 {
 	bool invalidated = Inherited::invalidate_step(step);
     // Propagate to dependent steps.
@@ -467,10 +467,11 @@ bool Print::invalidate_step(PrintStep step)
     return invalidated;
 }
 
-// returns true if an object step is done on all objects
-// and there's at least one object
-bool Print::is_step_done(PrintObjectStep step) const
+bool Print::is_step_done(slicing_step_t step) const
 {
+    if (is_print_step(step))
+        return Inherited::is_step_done(step);
+    assert(is_print_object_step(step));
     if (m_objects.empty())
         return false;
     std::scoped_lock<std::mutex> lock(this->state_mutex());
@@ -1351,7 +1352,7 @@ void Print::process()
         m_tool_orderings.clear();
         //if (this->has_wipe_tower()) {
         //    assert(!this->config().complete_objects.value && config().parallel_objects_step.value == 0);
-        //    this->set_status(printstep_percent(PrintStep::psWipeTower), _u8L("Generating wipe tower"));
+        //    this->set_status(printstep_percent(psWipeTower), _u8L("Generating wipe tower"));
         //    // Let the Toolordering class know there will be initial priming extrusions at the start of the print.
         //    m_tool_orderings.emplace_back(*this, (uint16_t) -1, true);
         //    this->_make_wipe_tower();
@@ -1440,7 +1441,7 @@ void Print::process()
         m_wipe_tower_data.position = { m_default_object_config.wipe_tower_x, m_default_object_config.wipe_tower_y };
         m_wipe_tower_data.rotation_angle = m_default_object_config.wipe_tower_rotation_angle;
     }
-    this->set_status(printstep_percent(PrintStep::psCheckConflict), _u8L("Checking line conflicts"));
+    this->set_status(printstep_percent(psCheckConflict), _u8L("Checking line conflicts"));
     PrintObjectPtrs objects;
     objects.reserve(m_objects.size());
     for (const PrintObjectUPtr &object : m_objects)
@@ -1475,9 +1476,9 @@ void Print::process()
         const bool spiral_mode = config().spiral_vase;
         const bool enable_arc_fitting = config().arc_fitting.value != ArcFittingType::Disabled && !spiral_mode;
         if (enable_arc_fitting) {
-            this->set_status(objectstep_percent(PrintObjectStep::posSimplifyPath), L("Creating arcs"));
+            this->set_status(objectstep_percent(posSimplifyPath), L("Creating arcs"));
         } else {
-            this->set_status(objectstep_percent(PrintObjectStep::posSimplifyPath), L("Simplifying paths"));
+            this->set_status(objectstep_percent(posSimplifyPath), L("Simplifying paths"));
         }
         secondary_status_counter_reset();
         for (PrintObjectUPtr &obj : m_objects) {
@@ -1541,7 +1542,7 @@ void Print::process()
     BOOST_LOG_TRIVIAL(info) << "Slicing process finished." << log_memory_info();
     //notify gui that the slicing/preview structs are ready to be drawed
     if (something_done)
-        this->set_status(printstep_percent(PrintStep::psGCodeExport), L("Slicing done"),
+        this->set_status(printstep_percent(psGCodeExport), L("Slicing done"),
                          SlicingStatus::FlagBits::SLICING_ENDED);
 }
 
@@ -1556,9 +1557,9 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
     std::string path = this->output_filepath(path_template);
     if (!path.empty() && result == nullptr) {
         // Only show the path if preview_data is not set -> running from command line.
-        this->set_status(printstep_percent(PrintStep::psGCodeExport), L("Exporting G-code to %s"), {path});
+        this->set_status(printstep_percent(psGCodeExport), L("Exporting G-code to %s"), {path});
     } else {
-        this->set_status(printstep_percent(PrintStep::psGCodeExport), L("Generating G-code"));
+        this->set_status(printstep_percent(psGCodeExport), L("Generating G-code"));
     }
 
     // order tools
@@ -1613,7 +1614,7 @@ struct ExtrusionDirectionSetter : public ExtrusionVisitorRecursive {
 void Print::_make_skirt_brim() {
 
     if (this->set_started(psSkirtBrim)) {
-        this->set_status(printstep_percent(PrintStep::psSkirtBrim), L("Generating skirt and brim"));
+        this->set_status(printstep_percent(psSkirtBrim), L("Generating skirt and brim"));
         m_skirt.clear();
         m_skirt_first_layer.reset();
         //const bool draft_shield = config().draft_shield != dsDisabled;
@@ -1626,7 +1627,7 @@ void Print::_make_skirt_brim() {
             obj->m_skirt_first_layer.reset();
         }
         if (this->has_skirt()) {
-            this->set_status(printstep_percent(PrintStep::psSkirtBrim), L("Generating skirt"));
+            this->set_status(printstep_percent(psSkirtBrim), L("Generating skirt"));
             if (config().complete_objects && !config().complete_objects_one_skirt){
                 for (PrintObjectUPtr &obj : m_objects) {
                     //create a skirt "pattern" (one per object)
@@ -1712,7 +1713,7 @@ void Print::_make_skirt_brim() {
         for (std::vector<PrintObject*> &obj_group : obj_groups) {
             const PrintObjectConfig &brim_config = obj_group.front()->config();
             if (brim_config.brim_width > 0 || brim_config.brim_width_interior > 0 || has_brim_patch(obj_group, ModelVolumeType::BRIM_PATCH)) {
-                this->set_status(printstep_percent(PrintStep::psSkirtBrim) + 2, L("Generating brim"));
+                this->set_status(printstep_percent(psSkirtBrim) + 2, L("Generating brim"));
                 if (brim_config.brim_per_object) {
                     for (PrintObject *obj : obj_group) {
                         //get flow
@@ -2133,7 +2134,7 @@ void Print::alert_when_supports_needed()
 {
     if (this->set_started(psAlertWhenSupportsNeeded)) {
         BOOST_LOG_TRIVIAL(debug) << "psAlertWhenSupportsNeeded - start";
-        set_status(printstep_percent(PrintStep::psAlertWhenSupportsNeeded), L("Alert if supports needed"));
+        set_status(printstep_percent(psAlertWhenSupportsNeeded), L("Alert if supports needed"));
 
         auto issue_to_alert_message = [](SupportSpotsGenerator::SupportPointCause cause, bool critical) {
             std::string message;

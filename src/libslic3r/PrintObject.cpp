@@ -229,7 +229,7 @@ void PrintObject::make_perimeters() {
     if (! this->set_started(posPerimeters))
         return;
 
-    m_print->set_status(objectstep_percent(PrintObjectStep::posPerimeters), _u8L("Generating perimeters"));
+    m_print->set_status(objectstep_percent(posPerimeters), _u8L("Generating perimeters"));
     m_print->secondary_status_counter_add_max(m_layers.size());
 
     BOOST_LOG_TRIVIAL(info) << "Generating perimeters..." << log_memory_info();
@@ -356,7 +356,7 @@ void PrintObject::prepare_infill()
     if (!this->set_started(posPrepareInfill))
         return;
 
-    m_print->set_status(objectstep_percent(PrintObjectStep::posPrepareInfill), L("Preparing infill"));
+    m_print->set_status(objectstep_percent(posPrepareInfill), L("Preparing infill"));
     if (m_print->objects().size() == 1) {
         m_print->set_status(0, "", PrintBase::SlicingStatus::DEFAULT | PrintBase::SlicingStatus::SECONDARY_STATE);
     } else {
@@ -893,7 +893,7 @@ void PrintObject::infill()
     //    { std::to_string(0), std::to_string(m_layers.size()) }, PrintBase::SlicingStatus::SECONDARY_STATE);
     if (this->set_started(posInfill)) {
         // TRN Status for the Print calculation
-        m_print->set_status(objectstep_percent(PrintObjectStep::posInfill), L("Infilling layers"));
+        m_print->set_status(objectstep_percent(posInfill), L("Infilling layers"));
         m_print->secondary_status_counter_add_max(m_layers.size());
         const auto& adaptive_fill_octree = this->m_adaptive_fill_octrees.first;
         const auto& support_fill_octree = this->m_adaptive_fill_octrees.second;
@@ -932,7 +932,7 @@ void PrintObject::infill()
 void PrintObject::ironing()
 {
     if (this->set_started(posIroning)) {
-        m_print->set_status(objectstep_percent(PrintObjectStep::posIroning), L("Ironing"));
+        m_print->set_status(objectstep_percent(posIroning), L("Ironing"));
         m_print->secondary_status_counter_add_max(m_layers.size());
         BOOST_LOG_TRIVIAL(debug) << "Ironing in parallel - start";
             // Ironing starting with layer 0 to support ironing all surfaces.
@@ -960,7 +960,7 @@ void PrintObject::generate_support_spots()
     assert(this->default_region_config(this->print()->default_region_config()).get_computed_value("perimeter_acceleration") > -1);
     if (this->set_started(posSupportSpotsSearch)) {
         BOOST_LOG_TRIVIAL(debug) << "Searching support spots - start";
-        m_print->set_status(objectstep_percent(PrintObjectStep::posSupportSpotsSearch), L("Searching support spots"));
+        m_print->set_status(objectstep_percent(posSupportSpotsSearch), L("Searching support spots"));
         if (m_print->objects().size() > 1) {
             m_print->secondary_status_counter_add_max(1);
             m_print->set_status(0. / m_print->objects().size(), L("Object %s / %s"),
@@ -1003,7 +1003,7 @@ void PrintObject::generate_support_spots()
 void PrintObject::generate_support_material()
 {
     if (this->set_started(posSupportMaterial)) {
-        m_print->set_status(objectstep_percent(PrintObjectStep::posSupportMaterial), L("Generating support material"));
+        m_print->set_status(objectstep_percent(posSupportMaterial), L("Generating support material"));
         if (m_print->objects().size() > 1) {
             m_print->secondary_status_counter_add_max(1);
             m_print->set_status(0. / m_print->objects().size(), L("Object %s / %s"),
@@ -1110,7 +1110,7 @@ void PrintObject::simplify_extrusion_path()
 void PrintObject::estimate_curled_extrusions()
 {
     if (this->set_started(posEstimateCurledExtrusions)) {
-        m_print->set_status(objectstep_percent(PrintObjectStep::posEstimateCurledExtrusions),
+        m_print->set_status(objectstep_percent(posEstimateCurledExtrusions),
                             L("Estimate curled extrusions"));
         if (m_print->objects().size() > 1) {
             m_print->secondary_status_counter_add_max(1);
@@ -1124,7 +1124,7 @@ void PrintObject::estimate_curled_extrusions()
             std::any_of(this->print()->m_print_regions.begin(), this->print()->m_print_regions.end(),
                         [](const PrintRegion *region) { return region->config().overhangs_dynamic_flow.is_enabled() || region->config().overhangs_dynamic_speed.is_enabled(); })) {
             BOOST_LOG_TRIVIAL(debug) << "Estimating areas with curled extrusions - start";
-            m_print->set_status(objectstep_percent(PrintObjectStep::posEstimateCurledExtrusions),
+            m_print->set_status(objectstep_percent(posEstimateCurledExtrusions),
                                 _u8L("Estimating curled extrusions"));
 
             // Estimate curling of support material and add it to the malformaition lines of each layer
@@ -1254,7 +1254,7 @@ void PrintObject::calculate_overhanging_perimeters()
 {
     if (this->set_started(posCalculateOverhangingPerimeters)) {
         BOOST_LOG_TRIVIAL(debug) << "Calculating overhanging perimeters - start";
-        m_print->set_status(objectstep_percent(PrintObjectStep::posCalculateOverhangingPerimeters),
+        m_print->set_status(objectstep_percent(posCalculateOverhangingPerimeters),
                             _u8L("Calculating overhanging perimeters"));
 
         std::unordered_map<size_t, AABBTreeLines::LinesDistancer<CurledLine>> curled_lines;
@@ -1862,7 +1862,7 @@ bool PrintObject::invalidate_state_by_config_options(
     return invalidated;
 }
 
-bool PrintObject::invalidate_step(PrintObjectStep step)
+bool PrintObject::invalidate_step(slicing_step_t step)
 {
 	bool invalidated = Inherited::invalidate_step(step);
     

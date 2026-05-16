@@ -78,6 +78,7 @@ set(SLIC3R_SOURCES
 	Api/plugin/c/slic3r_orchestrator.h
 	Api/plugin/c/slic3r_plugin.h
 	Api/plugin/c/slic3r_plugin_types.h
+	Api/plugin/c/slic3r_slicing_step.h
 	Api/plugin/c/slic3r_utils.h
 	Api/plugin/c/slic3r_volume.h
 	Api/plugin/cpp/BridgeDetectorViews.hpp

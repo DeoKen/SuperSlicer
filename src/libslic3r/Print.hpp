@@ -224,9 +224,8 @@ public:
     std::string         export_gcode(const std::string& path_template, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb = nullptr);
 
     // methods for handling state
-    bool                is_step_done(PrintStep step) const { return Inherited::is_step_done(step); }
-    // Returns true if an object step is done on all objects and there's at least one object.    
-    bool                is_step_done(PrintObjectStep step) const;
+    // Returns true if a print step is done, or if an object step is done on all objects.
+    bool                is_step_done(slicing_step_t step) const;
     // Returns true if the last step was finished with success.
     bool                finished() const override { return this->is_step_done(psGCodeExport); }
 
@@ -312,7 +311,7 @@ public:
 
     // Invalidates the step, and its depending steps in Print.
     //in public to invalidate gcode when the physical printer change. It's needed if we allow the gcode macro to read these values.
-    bool                invalidate_step(PrintStep step);
+    bool                invalidate_step(slicing_step_t step);
 
     // just a little wrapper to let the user know that this print can only be modified to emit warnings & update advancement status, change stats.
     // TODO: have the status out of the printbase class and into another one, so we can have a const print & a mutable statusmonitor
@@ -330,8 +329,8 @@ public:
             print.active_step_add_warning(warning_level, message, message_id);
         }
         PrintStatistics &stats() { return print.m_print_statistics; }
-        bool             set_started(PrintStep step) { return print.set_started(step); }
-        PrintStateBase::TimeStamp set_done(PrintStep step) { return print.set_done(step); }
+        bool             set_started(slicing_step_t step) { return print.set_started(step); }
+        PrintStateBase::TimeStamp set_done(slicing_step_t step) { return print.set_done(step); }
         
     };
 
