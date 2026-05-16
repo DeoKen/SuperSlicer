@@ -6,10 +6,15 @@
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include "PrintRegion.hpp"
+
 #include "Exception.hpp"
 #include "Print.hpp"
 
 namespace Slic3r {
+
+PrintRegion::PrintRegion(const PrintRegionConfig& config) : PrintRegion(config, config.hash()) {}
+PrintRegion::PrintRegion(PrintRegionConfig&& config) : PrintRegion(std::move(config), config.hash()) {}
 
 // 1-based extruder identifier for this region and role.
 uint16_t PrintRegion::extruder(FlowRole role, const PrintObject& object) const

@@ -62,9 +62,6 @@ namespace Slic3r {
 template class PrintState<PrintStep, psCount>;
 template class PrintState<PrintObjectStep, posCount>;
 
-PrintRegion::PrintRegion(const PrintRegionConfig& config) : PrintRegion(config, config.hash()) {}
-PrintRegion::PrintRegion(PrintRegionConfig&& config) : PrintRegion(std::move(config), config.hash()) {}
-
 Print::Print()
 {
     // Create config hierarchy.
