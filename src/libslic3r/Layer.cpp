@@ -322,10 +322,12 @@ void Layer::add_regions_to_islands() {
 // Test whether whether there are any slices assigned to this layer.
 bool Layer::empty() const
 {
-    for (const LayerRegionUPtr &layerm : m_regions)
-        if (layerm != nullptr && ! layerm->has_slices())
+    for (const LayerRegionUPtr &layerm : m_regions) {
+        if (layerm != nullptr && !layerm->slices().empty()) {
             // Non empty layer.
             return false;
+        }
+    }
     return true;
 }
 
