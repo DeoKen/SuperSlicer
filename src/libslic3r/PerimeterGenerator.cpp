@@ -7362,7 +7362,7 @@ const std::vector<t_config_option_keys> Parameters::perimeter_keys({
 
 //TODO: fuse surface's extra_perimeter with extra_perimeters_count
 // to be acalled after segregate_regions because segregate regions clear the storage.
-void Parameters::segregate_extra_perimeters(const ExPolygon &my_srf, const LayerRegionSetConstPtrs &lregions) {
+void Parameters::segregate_extra_perimeters(const ExPolygon &my_srf, const LayerRegionSetCPtrs &lregions) {
     BoundingBox my_srf_bb(my_srf.contour.points);
     my_srf_bb.offset(SCALED_EPSILON * 3);
     std::map<uint16_t, ExPolygons> extra_peri_to_areas;

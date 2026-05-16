@@ -8,10 +8,12 @@
 ///|/
 #include "LayerRegion.hpp"
 
+#include <algorithm>
+#include <cassert>
 #include <map>
 #include <string>
-
-#include <algorithm>
+#include <unordered_map>
+#include <vector>
 
 #include <boost/log/trivial.hpp>
 
@@ -30,6 +32,22 @@
 #include "SVG.hpp"
 
 namespace Slic3r {
+
+bool LayerRegionIsland::has_extrusion(ExtrusionRole role) const {
+    std::map<ExtrusionRole, ExtrusionEntityCollection>::const_iterator it = m_extrusion_regions.find(role);
+    if (it == m_extrusion_regions.end())
+        return false;
+    return !it->second.empty();
+}
+
+const ExtrusionEntityCollection &LayerRegionIsland::extrusion(ExtrusionRole role) const {
+    assert(has_extrusion(role));
+    return m_extrusion_regions.at(role);
+}
+
+ExtrusionEntityCollection &LayerRegionIsland::mutable_extrusion(ExtrusionRole role) {
+    return m_extrusion_regions[role];
+}
 
 void LayerRegionIsland::remove_empty_extrusions() {
     std::vector<ExtrusionRole> to_del;

@@ -89,7 +89,7 @@ struct Parameters
     static inline ConfigOptionInt OPT_EXTRA_PERIMETER;
     std::vector<ConfigOptionInt> extra_perimeters_storage;
 
-    void segregate_extra_perimeters(const ExPolygon &my_srf, const LayerRegionSetConstPtrs &lregions);
+    void segregate_extra_perimeters(const ExPolygon &my_srf, const LayerRegionSetCPtrs &lregions);
     Parameters(Layer *layer,
                Flow perimeter_flow,
                Flow ext_perimeter_flow,

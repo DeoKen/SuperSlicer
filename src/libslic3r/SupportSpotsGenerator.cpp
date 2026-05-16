@@ -959,7 +959,7 @@ struct LocalSupports {
 struct EnitityToCheck
 {
     const ExtrusionEntity *e;
-    LayerRegionSetConstPtrs regions;
+    LayerRegionSetCPtrs regions;
     size_t                 slice_idx;
 };
 

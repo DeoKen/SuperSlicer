@@ -13,7 +13,6 @@
 #ifndef slic3r_LayerRegion_hpp_
 #define slic3r_LayerRegion_hpp_
 
-#include <cassert>
 #include <cstdint>
 #include <map>
 #include <set>
@@ -37,22 +36,8 @@ using ExPolygons = std::vector<ExPolygon>;
 namespace ApiInternal { struct LayerAccess; }
 namespace ApiInternal { struct LayerRegionAccess; }
 
-class ExtraDataTag
-{
-protected:
-    std::unordered_map<std::string, double> m_tags;
 
-public:
-    double get_tag(const std::string &tag) const {
-        auto it = m_tags.find(tag);
-        if (it == m_tags.end())
-            return 0.0;
-        return it->second;
-    }
-    void set_tag(const std::string &tag, double value) { m_tags[tag] = value; }
-};
-
-class LayerRegion : public ExtraDataTag
+class LayerRegion : public ExtraDataContainer
 {
     friend struct ApiInternal::LayerAccess;
 
@@ -171,13 +156,13 @@ private:
 //    std::vector<LayerExtrusionRange>;
 //#endif // NDEBUG
 
-using LayerRegionSetConstPtrs = std::set<const LayerRegion*>;
+using LayerRegionSetCPtrs = std::set<const LayerRegion*>;
 
 // LayerSlice contains one or more LayerIsland objects,
 // each LayerIsland containing a set of perimeter extrusions extruded with one particular PrintRegionConfig parameters
 // and one or multiple 
 // kind of similar as old's LayerIsland
-class LayerRegionIsland : public ExtraDataTag
+class LayerRegionIsland : public ExtraDataContainer
 {
 private:
     friend class Layer;
@@ -188,11 +173,11 @@ private:
 
     std::map<ExtrusionRole, ExtrusionEntityCollection> m_extrusion_regions;
     // my regions
-    LayerRegionSetConstPtrs m_regions;
+    LayerRegionSetCPtrs m_regions;
 public:
 
-    //LayerRegionIsland(const LayerRegionSetConstPtrs &regions) : m_regions(regions) {}
-    LayerRegionIsland(const LayerRegionSetConstPtrs &regions, uint16_t extruder_id) : m_regions(regions), m_extruder_id(extruder_id) {}
+    //LayerRegionIsland(const LayerRegionSetCPtrs &regions) : m_regions(regions) {}
+    LayerRegionIsland(const LayerRegionSetCPtrs &regions, uint16_t extruder_id) : m_regions(regions), m_extruder_id(extruder_id) {}
 
     static inline ExtrusionRole PERIMETERS = ExtrusionRole::Perimeter;
     static inline ExtrusionRole GAP_FILLS = ExtrusionRole::GapFill;
@@ -203,24 +188,15 @@ public:
     static inline ExtrusionRole SUPPORT_INTERFACE = ExtrusionRole::SupportMaterialInterface;
 
 
-    bool has_extrusion(ExtrusionRole role) const {
-        auto it = m_extrusion_regions.find(role);
-        if(it == m_extrusion_regions.end()) return false;
-        return !it->second.empty();
-    }
+    bool has_extrusion(ExtrusionRole role) const;
     bool has_extrusions() const;
-    const ExtrusionEntityCollection &extrusion(ExtrusionRole role) const {
-        assert(has_extrusion(role));
-        return m_extrusion_regions.at(role);
-    }
+    const ExtrusionEntityCollection &extrusion(ExtrusionRole role) const;
 
     void remove_empty_extrusions();
 
-    ExtrusionEntityCollection & mutable_extrusion(ExtrusionRole role) {
-        return m_extrusion_regions[role];
-    }
+    ExtrusionEntityCollection & mutable_extrusion(ExtrusionRole role);
 
-    const LayerRegionSetConstPtrs &regions() const { return m_regions; }
+    const LayerRegionSetCPtrs &regions() const { return m_regions; }
 
     void simplify_extrusion_entity(const Layer& layer);
 

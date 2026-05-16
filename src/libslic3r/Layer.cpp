@@ -34,13 +34,9 @@
 
 namespace Slic3r {
 
-ExPolygons &ApiInternal::LayerAccess::slices_mutable(Layer &layer)
-{
-    return layer.m_lslices;
-}
+ExPolygons &ApiInternal::LayerAccess::slices_mutable(Layer &layer) { return layer.m_lslices; }
 
-void ApiInternal::LayerAccess::set_islands(Layer &layer, ExPolygons &&new_islands)
-{
+void ApiInternal::LayerAccess::set_islands(Layer &layer, ExPolygons &&new_islands) {
     assert(!layer.m_islands_locked);
     layer.m_lslices = std::move(new_islands);
     layer.m_islands.clear();
@@ -49,8 +45,8 @@ void ApiInternal::LayerAccess::set_islands(Layer &layer, ExPolygons &&new_island
     }
     assert(layer.lslices().size() == layer.m_islands.size());
 }
-void ApiInternal::LayerAccess::recompute_slices_from_islands(Layer &layer)
-{
+
+void ApiInternal::LayerAccess::recompute_slices_from_islands(Layer &layer) {
     assert(!layer.m_islands_locked);
     layer.m_lslices.clear();
     for (LayerSliceIslandUPtr &island : layer.m_islands) {
@@ -133,6 +129,19 @@ ExPolygons &ApiInternal::LayerRegionAccess::slices_mutable(LayerRegion &layer_re
     return layer_region.m_raw_slices;
 }
 
+Layer::Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool /*scaledok*/)
+    : upper_layer(nullptr)
+    , lower_layer(nullptr)
+    , slice_z(slice_z)
+    , m_print_z(print_z)
+    , m_height(height)
+    , m_id(id)
+    , m_object(object) {
+    assert(print_z > 100);
+    assert(height > 100);
+    assert(scale_to_layer_coord(unscaled(print_z)) == print_z);
+}
+
 LayerSliceIsland::LayerSliceIsland(const ExPolygon &slice) {
     m_slice = slice;
     m_bbox = get_extents(m_slice);
@@ -203,7 +212,7 @@ bool LayerSliceIsland::has_extrusions() const {
     return false;
 }
 
-LayerRegionIsland &LayerSliceIsland::add_region_island(const LayerRegionSetConstPtrs &region_set,
+LayerRegionIsland &LayerSliceIsland::add_region_island(const LayerRegionSetCPtrs &region_set,
                                                             uint16_t extruder_id) {
     // these region are all inside this islands
     for (auto regionptr : region_set) {
@@ -214,7 +223,7 @@ LayerRegionIsland &LayerSliceIsland::add_region_island(const LayerRegionSetConst
     return *m_extrusions.back();
 }
 
-LayerRegionIsland &LayerSliceIsland::get_or_add_region_island(const LayerRegionSetConstPtrs &region_set,
+LayerRegionIsland &LayerSliceIsland::get_or_add_region_island(const LayerRegionSetCPtrs &region_set,
                                                             uint16_t extruder_id) {
     LayerRegionIsland *region_island = nullptr;
     for (LayerRegionIsland &ri : this->regions_islands()) {
@@ -284,6 +293,12 @@ bool Layer::has_extrusions() const {
         }
     }
     return false;
+}
+
+void Layer::simplify_extrusion_path() {
+    for (LayerSliceIslandUPtr &island_ptr : m_islands)
+        for (LayerRegionIsland &regisland : island_ptr->regions_islands())
+            regisland.simplify_extrusion_entity(*this);
 }
 
 // merge all regions' slices to get islands
@@ -974,11 +989,11 @@ void Layer::make_perimeters() {
 
     for (LayerSliceIslandUPtr &island : this->m_islands) {
         // try to merge layerregions
-        std::vector<LayerRegionSetConstPtrs> regions_groups;
+        std::vector<LayerRegionSetCPtrs> regions_groups;
         for (const LayerRegion *lregion : island->regions()) {
             const PrintRegionConfig &config = lregion->region().config();
             // check if compatible with an existing region
-            for (LayerRegionSetConstPtrs &layer_group : regions_groups) {
+            for (LayerRegionSetCPtrs &layer_group : regions_groups) {
                 const LayerRegion *other_layerm = *layer_group.begin();
                 const PrintRegionConfig &other_config = other_layerm->region().config();
                 if (config_compatible_for_perimeter(config, other_config, this->id() == 0)) {
@@ -995,7 +1010,7 @@ void Layer::make_perimeters() {
         //if (regions_groups.size() == 1) {
         //    // use the island expolygon
         //} else {
-            for (LayerRegionSetConstPtrs &regions : regions_groups) {
+            for (LayerRegionSetCPtrs &regions : regions_groups) {
                 int16_t perimeter_extruder = int16_t((*regions.begin())->region().config().perimeter_extruder) - 1;
                 assert(perimeter_extruder >= 0);
                 LayerRegionIsland &region_island = island->get_or_add_region_island(regions, uint16_t(perimeter_extruder));
@@ -1176,11 +1191,11 @@ void Layer::make_milling_post_process() {
 
     for (LayerSliceIslandUPtr &island : this->m_islands) {
         // try to merge layerregions
-        std::vector<LayerRegionSetConstPtrs> regions_groups;
+        std::vector<LayerRegionSetCPtrs> regions_groups;
         for (const LayerRegion *layerm : island->regions()) {
             const PrintRegionConfig &config = layerm->region().config();
             // check if compatible with an existing region
-            for (LayerRegionSetConstPtrs &layer_group : regions_groups) {
+            for (LayerRegionSetCPtrs &layer_group : regions_groups) {
                 const LayerRegion *other_layerm = *layer_group.begin();
                 const PrintRegionConfig &other_config = other_layerm->region().config();
                 if (config_compatible_for_milling(this->object()->print()->config(), this->scaled_bottom_z(), config, other_config)) {
@@ -1197,7 +1212,7 @@ void Layer::make_milling_post_process() {
         if (regions_groups.size() == 1) {
             // use the island expolygon
         } else {
-            for (LayerRegionSetConstPtrs &regions : regions_groups) {
+            for (LayerRegionSetCPtrs &regions : regions_groups) {
                 LayerRegionIsland &region_island = island->get_or_add_region_island(regions);
                 ExPolygons slices;
                 if (region_island.regions() == island->regions()) {
@@ -1317,4 +1332,12 @@ ExtrusionRole SupportLayer::role() const {
     return role;
 }
 
+SupportLayer::SupportLayer(size_t id,
+                           size_t interface_id,
+                           PrintObject *object,
+                           coord_t height,
+                           coord_t print_z,
+                           double slice_z,
+                           bool scaledok)
+    : Layer(id, object, height, print_z, slice_z, scaledok), m_interface_id(interface_id) {}
 }

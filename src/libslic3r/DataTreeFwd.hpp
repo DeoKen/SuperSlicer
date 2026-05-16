@@ -42,6 +42,7 @@ using LayerUPtr = std::unique_ptr<Layer>;
 using LayerUPtrs = std::vector<std::unique_ptr<Layer>>;
 using SupportLayerUPtr = std::unique_ptr<SupportLayer>;
 using SupportLayerUPtrs = std::vector<SupportLayerUPtr>;
+using LayerRegionSetCPtrs = std::set<const LayerRegion*>;
 using LayerRegionUPtr = std::unique_ptr<LayerRegion>;
 using LayerRegionUPtrs = std::vector<LayerRegionUPtr>;
 using LayerRegionIslandUPtr = std::unique_ptr<LayerRegionIsland>;
@@ -171,6 +172,23 @@ using LayerRegionIslandCRefs = RefView<LayerRegionIsland, const LayerRegionIslan
 using PrintObjectCRefs = RefView<PrintObject, const PrintObjectUPtrs>;
 using PrintObjectRefs = RefView<PrintObject, PrintObjectUPtrs>;
 using PrintRegionCRefs = RefView<PrintRegion, const PrintRegionPtrs>;
+
+
+// Extended by data objects to be able to support plugin's extra data.
+class ExtraDataContainer
+{
+protected:
+    std::unordered_map<std::string, double> m_tags;
+
+public:
+    double get_tag(const std::string &tag) const {
+        std::unordered_map<std::string, double>::const_iterator it = m_tags.find(tag);
+        if (it == m_tags.end())
+            return 0.0;
+        return it->second;
+    }
+    void set_tag(const std::string &tag, double value) { m_tags[tag] = value; }
+};
 
 } // namespace Slic3r
 

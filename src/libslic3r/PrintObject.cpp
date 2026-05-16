@@ -1127,8 +1127,8 @@ void _calculate_overhanging_perimeters(
     std::unordered_map<size_t, AABBTreeLines::LinesDistancer<CurledLine>> curled_lines,
     std::unordered_map<size_t, AABBTreeLines::LinesDistancer<Linef>> &unscaled_polygons_lines) {
     if (lri.has_extrusion(LayerRegionIsland::PERIMETERS)) {
-        const LayerRegionSetConstPtrs &regions = lri.regions();
-        //LayerRegionSetConstPtrs regions_with_dynamic_speeds;
+        const LayerRegionSetCPtrs &regions = lri.regions();
+        //LayerRegionSetCPtrs regions_with_dynamic_speeds;
         //if (lri.extruder_id != uint16_t(-1)) {
         //    has_at_least_one_dynamic_speed = layer.object()->print()->config().overhangs_dynamic_fan_speed.is_enabled(
         //        extruder_id);
@@ -1156,7 +1156,7 @@ void _calculate_overhanging_perimeters(
         //if (!has_at_least_one_dynamic_speed) {
         //    return;
         //}
-        //LayerRegionSetConstPtrs regions_without_dynamic_speeds;
+        //LayerRegionSetCPtrs regions_without_dynamic_speeds;
         //for (LayerRegion *layer_region : regions) {
         //    if (regions_with_dynamic_speeds.find(layer_region) == regions_with_dynamic_speeds.end()) {
         //        regions_without_dynamic_speeds.insert(layer_region);

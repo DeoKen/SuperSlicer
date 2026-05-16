@@ -13,17 +13,11 @@
 #ifndef slic3r_Layer_hpp_
 #define slic3r_Layer_hpp_
 
-#include <boost/container/small_vector.hpp>
-
 #include "BoundingBox.hpp"
 #include "DataTreeFwd.hpp"
-#include "ExtrusionEntityCollection.hpp"
-#include "Flow.hpp"
 #include "LayerRegion.hpp"
 #include "libslic3r.h"
 #include "Line.hpp"
-#include "Steps/StepPipeline.hpp"
-#include "SurfaceCollection.hpp"
 
 namespace Slic3r {
 
@@ -44,7 +38,7 @@ namespace FillLightning {
 };
 
 // kind of similar as old's LayerSlice
-class LayerSliceIsland : public ExtraDataTag
+class LayerSliceIsland : public ExtraDataContainer
 {
 public:
     // only filled when Layer's LayerSliceIsland are locked.
@@ -65,7 +59,7 @@ protected:
     ExPolygon m_slice;
     BoundingBox m_bbox;
     // only regions that are relevant for this island
-    LayerRegionSetConstPtrs m_regions;
+    LayerRegionSetCPtrs m_regions;
     // storing unique_ptr because it's easier to have consistent objects while manipulating the vector.
     LayerRegionIslandUPtrs m_extrusions;
     // cache, can be accessed via m_regions. Only set after fill_regions.
@@ -86,7 +80,7 @@ public:
 
     const ExPolygon &get_slice() const { return m_slice; }
     const BoundingBox &get_bounding_box() const { return m_bbox; }
-    const LayerRegionSetConstPtrs &regions() const { return m_regions; }
+    const LayerRegionSetCPtrs &regions() const { return m_regions; }
     LayerRegionIslandCRefs regions_islands() const { return make_ref_view<LayerRegionIsland>(m_extrusions); }
     LayerRegionIslandRefs regions_islands() { return make_ref_view<LayerRegionIsland>(m_extrusions); }
     const LayerRegionIsland& regions_island(size_t idx) const { return *m_extrusions[idx]; }
@@ -94,8 +88,8 @@ public:
     LayerRegionIslandUPtrs &mutable_regions_islands() { return m_extrusions; }
     const Layer *layer() const { return m_layer; }
 
-    LayerRegionIsland& get_or_add_region_island(const LayerRegionSetConstPtrs &regions, uint16_t extruder_id = uint16_t(-1));
-    LayerRegionIsland& add_region_island(const LayerRegionSetConstPtrs &regions, uint16_t extruder_id = uint16_t(-1));
+    LayerRegionIsland& get_or_add_region_island(const LayerRegionSetCPtrs &regions, uint16_t extruder_id = uint16_t(-1));
+    LayerRegionIsland& add_region_island(const LayerRegionSetCPtrs &regions, uint16_t extruder_id = uint16_t(-1));
 
         // Unspecified fill polygons, used for overhang detection ("ensure vertical wall thickness feature")
     // and for re-starting of infills.
@@ -120,13 +114,14 @@ public:
 //using LayerIslands =
 //#ifdef NDEBUG
 //    // To reduce memory allocation in release mode.
+//    #include <boost/container/small_vector.hpp>
 //    boost::container::small_vector<LayerIsland, LayerIslandsStaticSize>;
 //#else // NDEBUG
 //    // To ease debugging.
 //    std::vector<LayerIsland>;
 //#endif // NDEBUG
 
-class Layer : public ExtraDataTag
+class Layer : public ExtraDataContainer
 {
     coord_t             m_height;        // layer height
     coord_t             m_print_z;       // Z used for printing
@@ -227,11 +222,7 @@ public:
     // Is there any valid extrusion assigned to any island-region?
     bool            has_extrusions() const;
 
-    void simplify_extrusion_path() {
-        for (LayerSliceIslandUPtr &island_ptr : m_islands)
-            for (LayerRegionIsland &regisland : island_ptr->regions_islands())
-                regisland.simplify_extrusion_entity(*this);
-    }
+    void simplify_extrusion_path();
 
     //need public destructor for unique_ptr
     virtual ~Layer();
@@ -241,15 +232,7 @@ protected:
     friend LayerUPtrs new_layers(PrintObject*, const std::vector<coordf_t>&);
     friend struct ApiInternal::LayerAccess;
 
-    Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok) :
-        upper_layer(nullptr), lower_layer(nullptr), 
-        //slicing_errors(false),
-        slice_z(slice_z), m_print_z(print_z), m_height(height),
-        m_id(id), m_object(object) {
-        assert(print_z > 100);
-        assert(height > 100);
-        assert(scale_to_layer_coord(unscaled(print_z)) == print_z);
-    }
+    Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok);
     // Clear fill extrusions, remove them from layer islands.
     void clear_fills();
     //Deprecated, for  legacy slicing in printobject
@@ -277,8 +260,7 @@ protected:
 
     // The constructor has been made public to be able to insert additional support layers for the skirt or a wipe tower
     // between the raft and the object first layer.
-    SupportLayer(size_t id, size_t interface_id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok) :
-        Layer(id, object, height, print_z, slice_z, scaledok), m_interface_id(interface_id) {}
+    SupportLayer(size_t id, size_t interface_id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool scaledok);
 
     size_t m_interface_id;
 };

@@ -35,7 +35,7 @@ bool RegionSettings::SettingsValue::operator<(const SettingsValue &rhs) const {
     return false;
 }
 
-void RegionSettings::segregate_regions(const ExPolygon &my_srf, const LayerRegionSetConstPtrs &lregions) {
+void RegionSettings::segregate_regions(const ExPolygon &my_srf, const LayerRegionSetCPtrs &lregions) {
     this->key_areas.clear();
     BoundingBox my_srf_bb(my_srf.contour.points);
     my_srf_bb.offset(SCALED_EPSILON * 3);

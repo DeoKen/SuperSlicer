@@ -298,7 +298,7 @@ struct SurfaceFill {
     Surface              surface;
     ExPolygons           expolygons;
     SurfaceFillParams    params;
-    LayerRegionSetConstPtrs regions;
+    LayerRegionSetCPtrs regions;
 };
 
 float compute_fill_angle(const PrintRegionConfig &region_config, size_t layer_id)
@@ -623,9 +623,9 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, const LayerSliceIsland&
         coord_t  distance_between_surfaces = 0;
         Polygons surfaces_polygons;
         Polygons voids;
-        LayerRegionSetConstPtrs regions_internal_infill;
-        LayerRegionSetConstPtrs regions_solid_infill;
-        LayerRegionSetConstPtrs regions_some_infill;
+        LayerRegionSetCPtrs regions_internal_infill;
+        LayerRegionSetCPtrs regions_solid_infill;
+        LayerRegionSetCPtrs regions_some_infill;
         for (SurfaceFill &surface_fill : surface_fills)
             if (! surface_fill.expolygons.empty()) {
                 distance_between_surfaces = std::max(distance_between_surfaces, surface_fill.params.flow.scaled_spacing());
@@ -653,7 +653,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, const LayerSliceIsland&
             ExPolygons extensions = intersection_ex(expand(collapsed, float(distance_between_surfaces)), voids, ApplySafetyOffset::Yes);
             // Now find an internal infill SurfaceFill to add these extrusions to.
             SurfaceFill *internal_solid_fill = nullptr;
-            LayerRegionSetConstPtrs *regions = nullptr;
+            LayerRegionSetCPtrs *regions = nullptr;
             if (!regions_internal_infill.empty())
                 regions = &regions_internal_infill;
             else if (!regions_solid_infill.empty())
@@ -782,7 +782,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
     }
 #endif /* SLIC3R_DEBUG_SLICE_PROCESSING */
     std::vector<std::vector<std::pair<const SurfaceFill*, std::unique_ptr<ExtrusionEntityCollection>>>> fills_by_priority;
-    auto store_fill = [&fills_by_priority, &island, this](LayerRegionSetConstPtrs regions) {
+    auto store_fill = [&fills_by_priority, &island, this](LayerRegionSetCPtrs regions) {
         if (fills_by_priority.empty()) {
             assert(false);//not possible
         }
@@ -899,7 +899,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
         fills_by_priority.clear();
     };
     //surface_fills is sorted by region_id
-    LayerRegionSetConstPtrs current_regions;
+    LayerRegionSetCPtrs current_regions;
     uint16_t current_extruder = -1;
     size_t first_object_layer_id = this->object()->layer(0).id();
     for (SurfaceFill &surface_fill : surface_fills) {
@@ -1366,7 +1366,7 @@ void Layer::_make_ironing(LayerSliceIsland &island)
         const LayerRegion *layerm;
         // id of the region into the layer where the fill is made.
         // uint32_t     layer_region_id;
-        //LayerRegionSetConstPtrs lregions;
+        //LayerRegionSetCPtrs lregions;
 
         // IdeaMaker: ironing
         // ironing flowrate (5% percent)
@@ -1452,7 +1452,7 @@ void Layer::_make_ironing(LayerSliceIsland &island)
 
         // Create the ironing extrusions for regions <i, j)
         ExPolygons ironing_areas;
-        LayerRegionSetConstPtrs region_ironed;
+        LayerRegionSetCPtrs region_ironed;
         double nozzle_dmr = this->object()->print()->config().nozzle_diameter.get_at(ironing_params.extruder - 1);
         const PrintRegionConfig& region_config = ironing_params.layerm->region().config();
         if (ironing_params.just_infill) {

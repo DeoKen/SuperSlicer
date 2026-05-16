@@ -89,7 +89,7 @@ bool same_surface_collection(const SurfaceCollection &lhs,
     return true;
 }
 
-std::vector<int> region_ids(const LayerRegionSetConstPtrs &regions)
+std::vector<int> region_ids(const LayerRegionSetCPtrs &regions)
 {
     std::vector<int> out;
     out.reserve(regions.size());
@@ -98,8 +98,8 @@ std::vector<int> region_ids(const LayerRegionSetConstPtrs &regions)
     return out;
 }
 
-bool same_region_set(const LayerRegionSetConstPtrs &lhs,
-                     const LayerRegionSetConstPtrs &rhs,
+bool same_region_set(const LayerRegionSetCPtrs &lhs,
+                     const LayerRegionSetCPtrs &rhs,
                      std::string &out_error,
                      const std::string &path)
 {
