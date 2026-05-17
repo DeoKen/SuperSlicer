@@ -8,8 +8,13 @@
 #ifndef slic3r_GLGizmoMeasure_hpp_
 #define slic3r_GLGizmoMeasure_hpp_
 
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "libslic3r/Measure.hpp"
-#include "libslic3r/Model.hpp"
 
 #include "GLGizmoBase.hpp"
 #include "slic3r/GUI/GLModel.hpp"
@@ -18,6 +23,9 @@
 #include "slic3r/GUI/MeshUtils.hpp"
 namespace Slic3r {
 
+class ModelInstance;
+class ModelObject;
+class ModelVolume;
 enum class ModelVolumeType : int;
 
 namespace Measure { class Measuring; }

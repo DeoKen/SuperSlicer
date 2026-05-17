@@ -19,6 +19,7 @@
 #include <wx/clipbrd.h>
 
 #include "libslic3r/MeasureUtils.hpp"
+#include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
 
 #include "slic3r/GUI/GLCanvas3D.hpp"

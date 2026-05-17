@@ -36,7 +36,6 @@
 #include "libslic3r/Preset.hpp"
 
 #include "GUI_Preview.hpp"
-#include "Jobs/Worker.hpp"
 #include "Search.hpp"
 #include "wxExtensions.hpp"
 class wxButton;
@@ -92,6 +91,7 @@ class Selection;
 struct Camera;
 class GLToolbar;
 class PlaterPresetComboBox;
+class Worker;
 
 using t_optgroups = std::vector <std::shared_ptr<ConfigOptionsGroup>>;
 

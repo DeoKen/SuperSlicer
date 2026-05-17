@@ -18,8 +18,8 @@
 
 #include "GUI_Geometry.hpp"
 #include "GUI_ObjectSettings.hpp"
-#include "Widgets/ComboBox.hpp"
 #include "Widgets/TextInput.hpp"
+class ComboBox;
 #ifdef __WXOSX__
 class wxBitmapComboBox;
 #else

@@ -22,6 +22,7 @@
 #include "slic3r/GUI/3DScene.hpp" // ::glsafe
 #include "slic3r/GUI/ImGuiWrapper.hpp" // check of font ranges
 #include "slic3r/GUI/Jobs/CreateFontStyleImagesJob.hpp"
+#include "slic3r/GUI/Jobs/Worker.hpp"
 #include "WxFontUtils.hpp"
 using namespace Slic3r;
 using namespace Slic3r::Emboss;

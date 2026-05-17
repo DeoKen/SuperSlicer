@@ -13,6 +13,7 @@
 #include "GLCanvas3D.hpp"
 #include "GUI.hpp"
 #include "GUI_ObjectList.hpp"
+#include "Jobs/Worker.hpp"
 #include "Plater.hpp"
 #include "Tab.hpp"
 #include "Widgets/ComboBox.hpp"

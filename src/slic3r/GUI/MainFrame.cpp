@@ -44,6 +44,7 @@
 #include "GUI_ObjectList.hpp"
 #include "I18N.hpp"
 #include "InstanceCheck.hpp"
+#include "Jobs/Worker.hpp"
 #include "Mouse3DController.hpp"
 #include "Plater.hpp"
 #include "PrintHostDialogs.hpp"

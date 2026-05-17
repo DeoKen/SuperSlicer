@@ -19,6 +19,7 @@
 #include "slic3r/GUI/GUI_ObjectManipulation.hpp"
 #include "slic3r/GUI/ImGuiWrapper.hpp"
 #include "slic3r/GUI/Jobs/RotoptimizeJob.hpp"
+#include "slic3r/GUI/Jobs/Worker.hpp"
 #include "slic3r/GUI/Plater.hpp"
 namespace Slic3r {
 namespace GUI {

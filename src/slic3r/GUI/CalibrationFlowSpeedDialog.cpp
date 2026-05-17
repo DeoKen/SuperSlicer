@@ -21,6 +21,7 @@
 #include "GUI_ObjectList.hpp"
 #include "I18N.hpp"
 #include "Jobs/ArrangeJob.hpp"
+#include "Jobs/Worker.hpp"
 #include "MsgDialog.hpp"
 #include "Plater.hpp"
 #include "Tab.hpp"
