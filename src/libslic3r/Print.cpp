@@ -24,6 +24,7 @@
 #include "Print.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <limits>
 #include <string>
@@ -62,8 +63,109 @@
 
 namespace Slic3r {
 
-template class PrintState<PrintStep, psCount>;
 template class PrintState<PrintObjectStep, posCount>;
+
+namespace {
+
+using SlicingStepArray = std::array<slicing_step_t, 10>;
+using PrintStepArray = std::array<slicing_step_t, 6>;
+
+const SlicingStepArray& ordered_object_steps()
+{
+    static const SlicingStepArray steps {
+        posSlice,
+        posPerimeters,
+        posPrepareInfill,
+        posInfill,
+        posIroning,
+        posSupportSpotsSearch,
+        posSupportMaterial,
+        posEstimateCurledExtrusions,
+        posCalculateOverhangingPerimeters,
+        posSimplifyPath
+    };
+    return steps;
+}
+
+const PrintStepArray& ordered_print_steps()
+{
+    static const PrintStepArray steps {
+        psAlertWhenSupportsNeeded,
+        psSkirtBrim,
+        psToolOrdering,
+        psWipeTower,
+        psCheckConflict,
+        psGCodeExport
+    };
+    return steps;
+}
+
+size_t enabled_step_count(const SlicingStepArray &steps, int requested_step)
+{
+    if (requested_step == -1)
+        return steps.size();
+    SlicingStepArray::const_iterator it = std::find(steps.begin(), steps.end(), static_cast<slicing_step_t>(requested_step));
+    return it == steps.end() ? steps.size() : size_t(std::distance(steps.begin(), it)) + 1;
+}
+
+PrintStateBase::StateWithTimeStamp aggregate_step_state(const PrintObjectUPtrs &objects, slicing_step_t step)
+{
+    PrintStateBase::StateWithTimeStamp result;
+    if (objects.empty()) {
+        result.enabled = false;
+        return result;
+    }
+
+    bool all_done = true;
+    bool any_started = false;
+    bool any_canceled = false;
+    bool any_invalidated = false;
+    bool any_enabled = false;
+
+    for (const PrintObjectUPtr &object : objects) {
+        PrintStateBase::StateWithTimeStamp state = object->step_state_with_timestamp(step);
+        result.timestamp = std::max(result.timestamp, state.timestamp);
+        any_enabled |= state.enabled;
+        all_done &= state.state == PrintStateBase::State::Done;
+        any_started |= state.state == PrintStateBase::State::Started;
+        any_canceled |= state.state == PrintStateBase::State::Canceled;
+        any_invalidated |= state.state == PrintStateBase::State::Invalidated;
+    }
+
+    result.enabled = any_enabled;
+    if (all_done)
+        result.state = PrintStateBase::State::Done;
+    else if (any_started)
+        result.state = PrintStateBase::State::Started;
+    else if (any_canceled)
+        result.state = PrintStateBase::State::Canceled;
+    else if (any_invalidated)
+        result.state = PrintStateBase::State::Invalidated;
+    return result;
+}
+
+void merge_warning(PrintStateBase::StateWithWarnings &state, const PrintStateBase::Warning &warning)
+{
+    std::vector<PrintStateBase::Warning>::iterator it = warning.message_id == 0 ?
+        std::find_if(state.warnings.begin(), state.warnings.end(), [&warning](const PrintStateBase::Warning &existing) {
+            return existing.message_id == 0 && existing.message == warning.message;
+        }) :
+        std::find_if(state.warnings.begin(), state.warnings.end(), [&warning](const PrintStateBase::Warning &existing) {
+            return existing.message_id == warning.message_id;
+        });
+
+    if (it == state.warnings.end())
+        state.warnings.emplace_back(warning);
+    else {
+        it->current |= warning.current;
+        if (warning.level == PrintStateBase::WarningLevel::CRITICAL)
+            it->level = warning.level;
+        if (it->message != warning.message)
+            it->message = warning.message;
+    }
+}
+
+} // namespace
 
 Print::Print()
 {
@@ -77,11 +179,91 @@ Print::~Print()
     this->clear();
 }
 
-void Print::set_task(const TaskParams &params) {
-    PrintBaseWithState<PrintStep, psCount>::set_task_impl(params, m_objects);
+void Print::set_task(const TaskParams &params)
+{
+    const SlicingStepArray &object_steps = ordered_object_steps();
+    const PrintStepArray &print_steps = ordered_print_steps();
+
+    std::scoped_lock<std::mutex> lock(this->state_mutex());
+
+    size_t n_object_steps = enabled_step_count(object_steps, params.to_object_step);
+
+    if (params.single_model_object.valid()) {
+        PrintObject *print_object = nullptr;
+        size_t idx_print_object = 0;
+        for (; idx_print_object < m_objects.size(); ++idx_print_object)
+            if (m_objects[idx_print_object]->model_object()->id() == params.single_model_object) {
+                print_object = m_objects[idx_print_object].get();
+                break;
+            }
+        assert(print_object != nullptr);
+
+        bool running = false;
+        for (size_t istep = 0; istep < n_object_steps; ++istep) {
+            if (!print_object->is_step_enabled_unguarded(object_steps[istep]))
+                break;
+            if (print_object->is_step_started_unguarded(object_steps[istep])) {
+                running = true;
+                break;
+            }
+        }
+        if (!running)
+            this->call_cancel_callback();
+
+        if (params.single_model_instance_only) {
+            for (PrintObjectUPtr &object : m_objects)
+                for (slicing_step_t step : object_steps)
+                    object->enable_step_unguarded(step, false);
+        } else if (!running && idx_print_object != 0)
+            std::swap(m_objects.front(), m_objects[idx_print_object]);
+
+        for (size_t istep = 0; istep < n_object_steps; ++istep)
+            print_object->enable_step_unguarded(object_steps[istep], true);
+        for (size_t istep = n_object_steps; istep < object_steps.size(); ++istep)
+            print_object->enable_step_unguarded(object_steps[istep], false);
+    } else {
+        bool running = false;
+        for (PrintObjectUPtr &object : m_objects) {
+            for (size_t istep = 0; istep < n_object_steps; ++istep) {
+                if (!object->is_step_enabled_unguarded(object_steps[istep]))
+                    goto loop_end;
+                if (object->is_step_started_unguarded(object_steps[istep])) {
+                    running = true;
+                    goto loop_end;
+                }
+            }
+        }
+    loop_end:
+        if (!running)
+            this->call_cancel_callback();
+        for (PrintObjectUPtr &object : m_objects) {
+            for (size_t istep = 0; istep < n_object_steps; ++istep)
+                object->enable_step_unguarded(object_steps[istep], true);
+            for (size_t istep = n_object_steps; istep < object_steps.size(); ++istep)
+                object->enable_step_unguarded(object_steps[istep], false);
+        }
+    }
+
+    if (params.to_object_step != -1) {
+        for (slicing_step_t step : print_steps)
+            for (PrintObjectUPtr &object : m_objects)
+                object->enable_step_unguarded(step, false);
+    } else if (params.to_print_step != -1) {
+        PrintStepArray::const_iterator it = std::find(print_steps.begin(), print_steps.end(), static_cast<slicing_step_t>(params.to_print_step));
+        if (it != print_steps.end()) {
+            for (++it; it != print_steps.end(); ++it)
+                for (PrintObjectUPtr &object : m_objects)
+                    object->enable_step_unguarded(*it, false);
+        }
+    }
 }
 
-void Print::finalize() { PrintBaseWithState<PrintStep, psCount>::finalize_impl(m_objects); }
+void Print::finalize()
+{
+    std::scoped_lock<std::mutex> lock(this->state_mutex());
+    for (PrintObjectUPtr &object : m_objects)
+        object->finalize_impl();
+}
 
 void Print::clear() {
     std::scoped_lock<std::mutex> lock(this->state_mutex());
@@ -460,18 +642,34 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
 
 bool Print::invalidate_step(slicing_step_t step)
 {
-	bool invalidated = Inherited::invalidate_step(step);
+    bool invalidated = false;
+    for (PrintObjectUPtr &object : m_objects)
+        invalidated |= object->invalidate_step_direct(step);
     // Propagate to dependent steps.
     if (step != psGCodeExport)
-        invalidated |= Inherited::invalidate_step(psGCodeExport);
+        for (PrintObjectUPtr &object : m_objects)
+            invalidated |= object->invalidate_step_direct(psGCodeExport);
+    return invalidated;
+}
+
+bool Print::invalidate_steps(std::initializer_list<slicing_step_t> steps)
+{
+    bool invalidated = false;
+    for (slicing_step_t step : steps)
+        invalidated |= this->invalidate_step(step);
+    return invalidated;
+}
+
+bool Print::invalidate_all_steps()
+{
+    bool invalidated = false;
+    for (PrintObjectUPtr &object : m_objects)
+        invalidated |= object->invalidate_all_steps_direct();
     return invalidated;
 }
 
 bool Print::is_step_done(slicing_step_t step) const
 {
-    if (is_print_step(step))
-        return Inherited::is_step_done(step);
-    assert(is_print_object_step(step));
     if (m_objects.empty())
         return false;
     std::scoped_lock<std::mutex> lock(this->state_mutex());
@@ -479,6 +677,72 @@ bool Print::is_step_done(slicing_step_t step) const
         if (! object->is_step_done_unguarded(step))
             return false;
     return true;
+}
+
+PrintStateBase::StateWithTimeStamp Print::step_state_with_timestamp(slicing_step_t step) const
+{
+    return aggregate_step_state(m_objects, step);
+}
+
+PrintStateBase::StateWithWarnings Print::step_state_with_warnings(slicing_step_t step) const
+{
+    PrintStateBase::StateWithWarnings result;
+    PrintStateBase::StateWithTimeStamp state = aggregate_step_state(m_objects, step);
+    result.state = state.state;
+    result.timestamp = state.timestamp;
+    result.enabled = state.enabled;
+
+    for (const PrintObjectUPtr &object : m_objects) {
+        PrintStateBase::StateWithWarnings object_state = object->step_state_with_warnings(step);
+        for (const PrintStateBase::Warning &warning : object_state.warnings)
+            merge_warning(result, warning);
+    }
+    return result;
+}
+
+bool Print::set_started(slicing_step_t step)
+{
+    if (m_objects.empty())
+        return false;
+    for (const PrintObjectUPtr &object : m_objects) {
+        PrintStateBase::StateWithTimeStamp state = object->step_state_with_timestamp(step);
+        if (!state.enabled || state.state == PrintStateBase::State::Done)
+            return false;
+    }
+
+    bool started = false;
+    for (PrintObjectUPtr &object : m_objects)
+        started |= object->set_started(step);
+    return started;
+}
+
+PrintStateBase::TimeStamp Print::set_done(slicing_step_t step)
+{
+    PrintStateBase::TimeStamp timestamp = 0;
+    for (PrintObjectUPtr &object : m_objects) {
+        PrintStateBase::StateWithTimeStamp state = object->step_state_with_timestamp(step);
+        if (state.state == PrintStateBase::State::Started)
+            timestamp = std::max(timestamp, object->set_done(step));
+        else if (state.state == PrintStateBase::State::Done)
+            timestamp = std::max(timestamp, state.timestamp);
+    }
+    return timestamp;
+}
+
+void Print::active_step_add_warning(PrintStateBase::WarningLevel warning_level, const std::string &message, int message_id)
+{
+    for (PrintObjectUPtr &object : m_objects) {
+        bool has_active_step = false;
+        for (slicing_step_t step : { psAlertWhenSupportsNeeded, psSkirtBrim, psWipeTower, psGCodeExport }) {
+            PrintStateBase::StateWithTimeStamp state = object->step_state_with_timestamp(step);
+            if (state.state == PrintStateBase::State::Started) {
+                has_active_step = true;
+                break;
+            }
+        }
+        if (has_active_step)
+            object->active_step_add_warning(warning_level, message, message_id);
+    }
 }
 
 // returns 0-based indices of used extruders
@@ -1282,7 +1546,7 @@ void Print::process()
 {
     m_timestamp_last_change = std::time(0);
     name_tbb_thread_pool_threads_set_locale();
-    bool something_done = !is_step_done_unguarded(psSkirtBrim);
+    bool something_done = !this->is_step_done(psSkirtBrim);
     BOOST_LOG_TRIVIAL(info) << "Starting the slicing process." << log_memory_info();
     secondary_status_counter_reset();
     Slic3r::parallel_for(size_t(0), m_objects.size(),

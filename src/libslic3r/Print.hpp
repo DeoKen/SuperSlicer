@@ -190,10 +190,9 @@ struct ConflictResult
 
 using ConflictResultOpt = std::optional<ConflictResult>;
 // The complete print tray with possibly multiple objects.
-class Print : public PrintBaseWithState<PrintStep, psCount>
+class Print : public PrintBase
 {
 private: // Prevents erroneous use by other classes.
-    typedef PrintBaseWithState<PrintStep, psCount> Inherited;
     // Bool indicates if supports of PrintObject are top-level contour.
     typedef std::pair<PrintObject *, bool>         PrintObjectInfo;
 
@@ -226,6 +225,8 @@ public:
     // methods for handling state
     // Returns true if a print step is done, or if an object step is done on all objects.
     bool                is_step_done(slicing_step_t step) const;
+    PrintStateBase::StateWithTimeStamp step_state_with_timestamp(slicing_step_t step) const;
+    PrintStateBase::StateWithWarnings  step_state_with_warnings(slicing_step_t step) const;
     // Returns true if the last step was finished with success.
     bool                finished() const override { return this->is_step_done(psGCodeExport); }
 
@@ -312,6 +313,8 @@ public:
     // Invalidates the step, and its depending steps in Print.
     //in public to invalidate gcode when the physical printer change. It's needed if we allow the gcode macro to read these values.
     bool                invalidate_step(slicing_step_t step);
+    bool                invalidate_steps(std::initializer_list<slicing_step_t> steps);
+    bool                invalidate_all_steps();
 
     // just a little wrapper to let the user know that this print can only be modified to emit warnings & update advancement status, change stats.
     // TODO: have the status out of the printbase class and into another one, so we can have a const print & a mutable statusmonitor
@@ -336,6 +339,9 @@ public:
 
 protected:
 private:
+    bool                set_started(slicing_step_t step);
+    PrintStateBase::TimeStamp set_done(slicing_step_t step);
+    void                active_step_add_warning(PrintStateBase::WarningLevel warning_level, const std::string &message, int message_id = 0);
 
     void                _make_skirt_brim();
     void                _make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollection &out, std::optional<ExtrusionEntityCollection> &out_first_layer);

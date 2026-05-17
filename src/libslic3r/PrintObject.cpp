@@ -1899,13 +1899,30 @@ bool PrintObject::invalidate_step(slicing_step_t step)
     return invalidated;
 }
 
+bool PrintObject::invalidate_step_direct(slicing_step_t step)
+{
+    return Inherited::invalidate_step(step);
+}
+
+bool PrintObject::invalidate_steps_direct(std::initializer_list<slicing_step_t> steps)
+{
+    return Inherited::invalidate_steps(steps);
+}
+
 bool PrintObject::invalidate_all_steps()
 {
 	// First call the "invalidate" functions, which may cancel background processing.
-    bool result = Inherited::invalidate_all_steps() | m_print->invalidate_all_steps();
+    bool result = this->invalidate_all_steps_direct() | m_print->invalidate_all_steps();
 	// Then reset some of the depending values.
 	m_slicing_params->valid = false;
 	return result;
+}
+
+bool PrintObject::invalidate_all_steps_direct()
+{
+    bool result = Inherited::invalidate_all_steps();
+    m_slicing_params->valid = false;
+    return result;
 }
 
 // Called on main thread with stopped or paused background processing to let PrintObject release data for its milestones that were invalidated or canceled.

@@ -26,33 +26,30 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Geometry>
 
-#include "BoundingBox.hpp"
-#include "ContainerUtils.hpp"
 #include "DataTreeFwd.hpp"
 #include "ExtrusionEntityCollection.hpp"
 #include "Fill/FillAdaptive.hpp"
 #include "Fill/FillLightning.hpp"
-#include "Flow.hpp"
 #include "libslic3r.h"
 #include "Point.hpp"
 #include "Polygon.hpp"
 #include "PrintBase.hpp"
 #include "PrintConfig.hpp"
 #include "PrintSteps.hpp"
-#include "Slicing.hpp"
-#include "SupportSpotsGenerator.hpp"
 #include "Surface.hpp"
-#include "TriangleSelector.hpp"
 
 namespace Slic3r {
 
+class BoundingBox;
 class GCodeGenerator;
 class Print;
 class PrintObject;
+struct SlicingParameters;
 namespace Steps { class StepPipeline; }
 namespace ApiInternal { struct PrintObjectAccess; }
 
@@ -215,8 +212,11 @@ protected:
     PrintBase::ApplyStatus  set_instances(PrintInstances &&instances);
     // Invalidates the step, and its depending steps in PrintObject and Print.
     bool                    invalidate_step(slicing_step_t step);
+    bool                    invalidate_step_direct(slicing_step_t step);
+    bool                    invalidate_steps_direct(std::initializer_list<slicing_step_t> steps);
     // Invalidates all PrintObject and Print steps.
     bool                    invalidate_all_steps();
+    bool                    invalidate_all_steps_direct();
     // Invalidate steps based on a set of parameters changed.
     // It may be called for both the PrintObjectConfig and PrintRegionConfig.
     bool                    invalidate_state_by_config_options(
