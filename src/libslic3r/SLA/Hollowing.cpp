@@ -72,6 +72,27 @@ VoxelGrid &get_grid(Interior &interior)
     return *interior.gridptr;
 }
 
+InteriorPtr generate_interior(const indexed_triangle_set &mesh,
+                              const HollowingConfig &hc,
+                              const JobController &ctl)
+{
+    auto voxel_scale = get_voxel_scale(its_volume(mesh), hc);
+    auto statusfn = [&ctl](int){ return ctl.stopcondition && ctl.stopcondition(); };
+    auto grid = mesh_to_grid(mesh, MeshToGridParams{}
+                                              .voxel_scale(voxel_scale)
+                                              .exterior_bandwidth(3.f)
+                                              .interior_bandwidth(3.f)
+                                              .statusfn(statusfn));
+
+    if (!grid || (ctl.stopcondition && ctl.stopcondition()))
+        return {};
+
+//    if (its_is_splittable(mesh))
+    grid = redistance_grid(*grid, 0.0f, 3.f, 3.f);
+
+    return grid ? generate_interior(*grid, hc, ctl) : InteriorPtr{};
+}
+
 InteriorPtr generate_interior(const VoxelGrid       &vgrid,
                               const HollowingConfig &hc,
                               const JobController   &ctl)
@@ -249,6 +270,12 @@ bool DrainHole::get_intersections(const Vec3f& s, const Vec3f& dir,
         std::swap(out[0], out[1]);
 
     return true;
+}
+
+void swap_normals(indexed_triangle_set &its)
+{
+    for (auto &face : its.indices)
+        std::swap(face(0), face(2));
 }
 
 void cut_drainholes(std::vector<ExPolygons> & obj_slices,

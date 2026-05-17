@@ -6,6 +6,9 @@
 ///|/
 #include "SLAPrintSteps.hpp"
 
+#include <algorithm>
+#include <array>
+#include <set>
 #include <unordered_set>
 
 #include <libslic3r/Exception.hpp>
@@ -56,6 +59,58 @@ const std::array<unsigned, slaposCount> OBJ_STEP_LEVELS = {
     11, // slaposPad,
     11, // slaposSliceSupports,
 };
+
+using CSGPartForStepRange = Range<std::multiset<CSGPartForStep>::const_iterator>;
+
+double csgmesh_positive_maxvolume(const CSGPartForStepRange &csgparts)
+{
+    double mesh_vol = 0;
+
+    bool skip = false;
+    for (const CSGPartForStep &m : csgparts) {
+        csg::CSGType op = csg::get_operation(m);
+        csg::CSGStackOp stackop = csg::get_stack_operation(m);
+        if (stackop == csg::CSGStackOp::Push && op != csg::CSGType::Union)
+            skip = true;
+
+        if (!skip && csg::get_mesh(m) && op == csg::CSGType::Union)
+            mesh_vol = std::max(mesh_vol,
+                                double(its_volume(*(csg::get_mesh(m)))));
+
+        if (stackop == csg::CSGStackOp::Pop)
+            skip = false;
+    }
+
+    return mesh_vol;
+}
+
+sla::InteriorPtr generate_interior(const CSGPartForStepRange &csgparts,
+                                   const sla::HollowingConfig &hc = {},
+                                   const sla::JobController &ctl = {})
+{
+    double mesh_vol = csgmesh_positive_maxvolume(csgparts);
+    double voxsc    = sla::get_voxel_scale(mesh_vol, hc);
+
+    csg::VoxelizeParams params = csg::VoxelizeParams{}
+                                     .voxel_scale(voxsc)
+                                     .exterior_bandwidth(3.f)
+                                     .interior_bandwidth(3.f)
+                                     .statusfn([&ctl](int) {
+                                         return ctl.stopcondition && ctl.stopcondition();
+                                     });
+
+    VoxelGridPtr ptr = csg::voxelize_csgmesh(csgparts, params);
+
+    if (!ptr || (ctl.stopcondition && ctl.stopcondition()))
+        return {};
+
+    // TODO: figure out issues without the redistance
+//    if (csgparts.size() > 1 || its_is_splittable(*csg::get_mesh(*csgparts.begin())))
+
+    ptr = redistance_grid(*ptr, 0.0f, 3.f, 3.f);
+
+    return ptr ? sla::generate_interior(*ptr, hc, ctl) : sla::InteriorPtr{};
+}
 
 std::string OBJ_STEP_LABELS(size_t idx)
 {

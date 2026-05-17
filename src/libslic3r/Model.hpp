@@ -30,7 +30,7 @@
 #include "ObjectID.hpp"
 #include "Point.hpp"
 #include "PrintConfig.hpp"
-#include "SLA/Hollowing.hpp"
+#include "SLA/DrainHole.hpp"
 #include "SLA/SupportPoint.hpp"
 #include "Slicing.hpp"
 #include "TextConfiguration.hpp"

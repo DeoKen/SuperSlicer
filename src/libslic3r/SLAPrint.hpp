@@ -22,6 +22,7 @@
 #include "GCode/ThumbnailData.hpp"
 #include "Point.hpp"
 #include "PrintBase.hpp"
+#include "SLA/Hollowing.hpp"
 #include "SLA/SupportTree.hpp"
 
 namespace Slic3r {

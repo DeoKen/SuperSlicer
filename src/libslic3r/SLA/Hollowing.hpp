@@ -5,21 +5,22 @@
 #ifndef SLA_HOLLOWING_HPP
 #define SLA_HOLLOWING_HPP
 
-#include <algorithm>
 #include <functional>
 #include <memory>
 #include <vector>
 
-#include <libslic3r/ContainerUtils.hpp>
-#include <libslic3r/CSGMesh/VoxelizeCSGMesh.hpp>
-#include <libslic3r/OpenVDBUtils.hpp>
+#include <libslic3r/ExPolygon.hpp>
+#include <libslic3r/Point.hpp>
 #include <libslic3r/SLA/DrainHole.hpp>
 #include <libslic3r/SLA/JobController.hpp>
-#include <libslic3r/TriangleMesh.hpp>
+
+struct indexed_triangle_set;
 
 namespace Slic3r {
 
 class ModelObject;
+class TriangleMesh;
+struct VoxelGrid;
 
 namespace sla {
 
@@ -51,75 +52,9 @@ InteriorPtr generate_interior(const VoxelGrid &mesh,
                               const HollowingConfig &  = {},
                               const JobController &ctl = {});
 
-inline InteriorPtr generate_interior(const indexed_triangle_set &mesh,
-                                     const HollowingConfig &hc = {},
-                                     const JobController &ctl = {})
-{
-    auto voxel_scale = get_voxel_scale(its_volume(mesh), hc);
-    auto statusfn = [&ctl](int){ return ctl.stopcondition && ctl.stopcondition(); };
-    auto grid = mesh_to_grid(mesh, MeshToGridParams{}
-                                              .voxel_scale(voxel_scale)
-                                              .exterior_bandwidth(3.f)
-                                              .interior_bandwidth(3.f)
-                                              .statusfn(statusfn));
-
-    if (!grid || (ctl.stopcondition && ctl.stopcondition()))
-        return {};
-
-//    if (its_is_splittable(mesh))
-    grid = redistance_grid(*grid, 0.0f, 3.f, 3.f);
-
-    return grid ? generate_interior(*grid, hc, ctl) : InteriorPtr{};
-}
-
-template<class Cont> double csgmesh_positive_maxvolume(const Cont &csg)
-{
-    double mesh_vol = 0;
-
-    bool skip = false;
-    for (const auto &m : csg) {
-        auto op = csg::get_operation(m);
-        auto stackop = csg::get_stack_operation(m);
-        if (stackop == csg::CSGStackOp::Push && op != csg::CSGType::Union)
-            skip = true;
-
-        if (!skip && csg::get_mesh(m) && op == csg::CSGType::Union)
-            mesh_vol = std::max(mesh_vol,
-                                double(its_volume(*(csg::get_mesh(m)))));
-
-        if (stackop == csg::CSGStackOp::Pop)
-            skip = false;
-    }
-
-    return mesh_vol;
-}
-
-template<class It>
-InteriorPtr generate_interior(const Range<It>       &csgparts,
-                              const HollowingConfig &hc  = {},
-                              const JobController   &ctl = {})
-{
-    double mesh_vol = csgmesh_positive_maxvolume(csgparts);
-    double voxsc    = get_voxel_scale(mesh_vol, hc);
-
-    auto params = csg::VoxelizeParams{}
-                      .voxel_scale(voxsc)
-                      .exterior_bandwidth(3.f)
-                      .interior_bandwidth(3.f)
-                      .statusfn([&ctl](int){ return ctl.stopcondition && ctl.stopcondition(); });
-
-    auto ptr = csg::voxelize_csgmesh(csgparts, params);
-
-    if (!ptr || (ctl.stopcondition && ctl.stopcondition()))
-        return {};
-
-    // TODO: figure out issues without the redistance
-//    if (csgparts.size() > 1 || its_is_splittable(*csg::get_mesh(*csgparts.begin())))
-
-    ptr = redistance_grid(*ptr, 0.0f, 3.f, 3.f);
-
-    return ptr ? generate_interior(*ptr, hc, ctl) : InteriorPtr{};
-}
+InteriorPtr generate_interior(const indexed_triangle_set &mesh,
+                              const HollowingConfig &hc = {},
+                              const JobController &ctl = {});
 
 // Will do the hollowing
 void hollow_mesh(TriangleMesh &mesh, const HollowingConfig &cfg, int flags = 0);
@@ -162,11 +97,7 @@ void cut_drainholes(std::vector<ExPolygons> & obj_slices,
                     const sla::DrainHoles &   holes,
                     std::function<void(void)> thr);
 
-inline void swap_normals(indexed_triangle_set &its)
-{
-    for (auto &face : its.indices)
-        std::swap(face(0), face(2));
-}
+void swap_normals(indexed_triangle_set &its);
 
 // Create exclude mask for triangle removal inside hollowed interiors.
 // This is necessary when the interior is already part of the mesh which was

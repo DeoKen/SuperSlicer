@@ -9,7 +9,6 @@
 
 #include <random>
 
-#include <libslic3r/SLA/Hollowing.hpp>
 #include <libslic3r/SLA/SupportTree.hpp>
 #include <libslic3r/SLAPrint.hpp>
 
