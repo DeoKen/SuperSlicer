@@ -7,16 +7,19 @@
 
 #include "ConfigManipulation.hpp"
 
-// #include "libslic3r/GCodeSender.hpp"
-#include "I18N.hpp"
-#include "GUI_App.hpp"
-#include "format.hpp"
+#include <string>
+
+#include <wx/msgdlg.h>
+
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
-#include "MsgDialog.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/SLA/SupportTreeStrategies.hpp"
 
-#include <string>
-#include <wx/msgdlg.h>
+#include "format.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
+#include "MsgDialog.hpp"
 
 namespace Slic3r {
 namespace GUI {

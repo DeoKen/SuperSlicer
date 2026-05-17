@@ -25,7 +25,6 @@
 #include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
 
 #include "format.hpp"

@@ -19,7 +19,6 @@
 
 #include "AABBTreeLines.hpp"
 #include "ankerl/unordered_dense.h"
-#include "BoundingBox.hpp"
 #include "Line.hpp"
 
 namespace Slic3r {

@@ -15,9 +15,6 @@
 #ifndef slic3r_OptionsGroup_hpp_
 #define slic3r_OptionsGroup_hpp_
 
-#include <wx/stattext.h>
-#include <wx/settings.h>
-
 #include <exception>
 #include <functional>
 #include <map>
@@ -27,8 +24,10 @@
 #include <utility>
 #include <vector>
 
+#include <wx/settings.h>
+#include <wx/stattext.h>
+
 #include "libslic3r/ConfigDef.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
 #include "Field.hpp"
 #include "I18N.hpp"
@@ -47,7 +46,12 @@
 
 #define BORDER(a, b) ((wxOSX ? a : b))
 
-namespace Slic3r { namespace GUI {
+namespace Slic3r {
+
+class DynamicPrintConfig;
+class ModelConfig;
+
+namespace GUI {
 
 // Thrown if the building of a parameter page is canceled.
 class UIBuildCanceled : public std::exception {};

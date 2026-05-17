@@ -27,11 +27,10 @@
 #include <utility>
 #include <vector>
 
-#include "TreeSupportCommon.hpp"
-
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Polygon.hpp"
-#include "libslic3r/PrintConfig.hpp"
+
+#include "TreeSupportCommon.hpp"
 
 namespace Slic3r
 {

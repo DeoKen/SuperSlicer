@@ -14,9 +14,8 @@
 #include <wx/arrstr.h>
 #include <wx/string.h>
 
-#include "libslic3r/PrintConfig.hpp"
-
 #include "OctoPrint.hpp"
+
 namespace Slic3r {
 
 class DynamicPrintConfig;

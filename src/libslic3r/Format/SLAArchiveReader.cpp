@@ -13,6 +13,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SlicesToTriangleMesh.hpp"
 
 #include "I18N.hpp"

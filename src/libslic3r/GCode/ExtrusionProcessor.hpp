@@ -33,11 +33,15 @@
 #include "libslic3r/Line.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Polygon.hpp"
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SupportSpotsGenerator.hpp"
 #include "libslic3r/SVG.hpp"
 
-namespace Slic3r { namespace ExtrusionProcessor {
+namespace Slic3r {
+
+class FullPrintConfig;
+class PrintConfig;
+
+namespace ExtrusionProcessor {
 
 struct ExtendedPoint
 {

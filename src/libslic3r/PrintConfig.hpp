@@ -45,11 +45,7 @@
 //            class DynamicPrintAndCLIConfig : public DynamicPrintConfig
 //
 //
-
-
-#include "libslic3r.h"
-#include "ConfigDef.hpp"
-#include "SLA/SupportTreeStrategies.hpp"
+#include <unordered_map>
 
 #include <boost/preprocessor/facilities/empty.hpp>
 #include <boost/preprocessor/punctuation/comma_if.hpp>
@@ -59,9 +55,15 @@
 #include <boost/preprocessor/tuple/elem.hpp>
 #include <boost/preprocessor/tuple/to_seq.hpp>
 
-#include <unordered_map>
+#include "ConfigDef.hpp"
+#include "libslic3r.h"
 
 namespace Slic3r {
+
+namespace sla {
+enum class SupportTreeType;
+enum class PillarConnectionMode;
+}
 
 enum CompleteObjectSort {
     cosNearest,

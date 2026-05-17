@@ -8,17 +8,23 @@
 #ifndef SLAARCHIVEREADER_HPP
 #define SLAARCHIVEREADER_HPP
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "libslic3r/Exception.hpp"
 #include "libslic3r/ExPolygon.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
 struct indexed_triangle_set;
 
 namespace Slic3r {
+
+class DynamicPrintConfig;
+struct ConfigSubstitution;
+using ConfigSubstitutions = std::vector<ConfigSubstitution>;
+enum OutputFormat : uint16_t;
 
 // A generic indicator for the quality of an imported model. Obviously, the
 // original cannot be fully reconstructed.

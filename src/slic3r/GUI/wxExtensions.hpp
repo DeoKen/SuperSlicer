@@ -25,7 +25,6 @@
 #include <wx/timer.h>
 
 #include "libslic3r/Color.hpp"
-#include "libslic3r/PrintConfig.hpp"
 #ifndef __linux__
 void                sys_color_changed_menu(wxMenu* menu);
 #else 

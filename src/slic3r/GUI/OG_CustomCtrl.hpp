@@ -8,14 +8,13 @@
 #ifndef slic3r_OG_CustomCtrl_hpp_
 #define slic3r_OG_CustomCtrl_hpp_
 
-#include <wx/stattext.h>
-#include <wx/settings.h>
-
-#include <map>
 #include <functional>
+#include <map>
+
+#include <wx/settings.h>
+#include <wx/stattext.h>
 
 #include "libslic3r/ConfigOption.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
 #include "OptionsGroup.hpp"
 

@@ -8,13 +8,17 @@
 #ifndef ARRANGESETTINGSDIALOGIMGUI_HPP
 #define ARRANGESETTINGSDIALOGIMGUI_HPP
 
+#include <cstdint>
 #include <functional>
 
 #include "libslic3r/Arrange/ArrangeSettingsView.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
 #include "ImGuiWrapper.hpp"
 namespace Slic3r {
+
+class DynamicPrintConfig;
+enum PrinterTechnology : uint8_t;
+
 namespace GUI {
 
 class ArrangeSettingsDialogImgui: public arr2::ArrangeSettingsView {

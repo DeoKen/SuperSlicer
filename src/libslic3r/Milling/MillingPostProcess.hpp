@@ -9,11 +9,13 @@
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Polygon.hpp"
-#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SurfaceCollection.hpp"
 
 namespace Slic3r {
 
+class PrintConfig;
+class PrintObjectConfig;
+class PrintRegionConfig;
 
 class MillingPostProcess {
 public:

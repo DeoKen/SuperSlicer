@@ -15,7 +15,6 @@
 #include <wx/bitmap.h>
 
 #include "libslic3r/ConfigOption.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
 #include "wxExtensions.hpp"
 class wxMenu;
@@ -23,6 +22,7 @@ class wxMenuItem;
 
 namespace Slic3r {
 
+class DynamicPrintConfig;
 enum class ModelVolumeType : int;
 
 namespace GUI {

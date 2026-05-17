@@ -13,9 +13,10 @@
 #include <boost/filesystem.hpp>
 
 #include "libslic3r/libslic3r.h"
-#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {
+
+class DynamicPrintConfig;
 
 // Run post processing script / scripts if defined.
 // Returns true if a post-processing script was executed.

@@ -9,12 +9,13 @@
 #include <string>
 #include <unordered_map>
 
-#include "libslic3r/BoundingBox.hpp"
+#include "libslic3r/libslic3r.h"
 
 namespace Slic3r {
 
 enum GCodeFlavor : unsigned char;
 enum class LabelObjectsStyle;
+class BoundingBoxf3;
 struct PrintInstance;
 class Print;
 class PrintObject;

@@ -15,11 +15,18 @@
  *	 and local config (overrides options on sidebar)
  * */
 
-#include "libslic3r/PrintConfig.hpp"
+#include <functional>
+#include <string>
+
+#include <boost/any.hpp>
 
 #include "Field.hpp"
+
+class wxWindow;
+
 namespace Slic3r {
 
+class DynamicPrintConfig;
 class ModelConfig;
 
 namespace GUI {

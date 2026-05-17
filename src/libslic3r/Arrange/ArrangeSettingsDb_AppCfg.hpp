@@ -5,9 +5,9 @@
 #ifndef ARRANGESETTINGSDB_APPCFG_HPP
 #define ARRANGESETTINGSDB_APPCFG_HPP
 
-#include "ArrangeSettingsView.hpp"
 #include "libslic3r/AppConfig.hpp"
-#include "libslic3r/PrintConfig.hpp"
+
+#include "ArrangeSettingsView.hpp"
 
 namespace Slic3r {
 
