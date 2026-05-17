@@ -8,7 +8,11 @@
 #ifndef slic3r_UnsavedChangesDialog_hpp_
 #define slic3r_UnsavedChangesDialog_hpp_
 
+#include <array>
 #include <map>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <wx/dataview.h>

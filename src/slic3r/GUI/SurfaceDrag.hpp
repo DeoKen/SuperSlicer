@@ -8,13 +8,17 @@
 
 #include <functional>
 #include <optional>
+#include <vector>
 
 #include "libslic3r/Point.hpp" // Vec2d, Transform3d
 
 #include "slic3r/Utils/RaycastManager.hpp"
-#include "wx/event.h" // wxMouseEvent
+
+class wxMouseEvent;
+
 namespace Slic3r {
 class GLVolume;
+class ModelObject;
 class ModelVolume;
 } // namespace Slic3r
 
@@ -112,7 +116,7 @@ std::optional<float> calc_angle(const Selection &selection);
 /// <param name="gl_volume">Scene volume</param>
 /// <param name="objects">To identify Model volume with fix transformation</param>
 /// <returns>Fixed Transformation of gl_volume</returns>
-Transform3d world_matrix_fixed(const GLVolume &gl_volume, const ModelObjectPtrs& objects);
+Transform3d world_matrix_fixed(const GLVolume &gl_volume, const std::vector<ModelObject*> &objects);
 
 /// <summary>
 /// Get transformation to world

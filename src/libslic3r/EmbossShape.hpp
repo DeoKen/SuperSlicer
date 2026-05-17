@@ -8,8 +8,8 @@
 #include <memory> // unique_ptr
 #include <optional>
 #include <string>
+#include <vector>
 
-#include <cereal/archives/binary.hpp>
 #include <cereal/cereal.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/string.hpp>
@@ -17,8 +17,9 @@
 
 #include "ExPolygon.hpp"
 #include "PointSerialize.hpp"
-#include "nanosvg/nanosvg.h" // NSVGimage
 #include "Point.hpp" // Transform3d
+
+struct NSVGimage;
 
 namespace Slic3r {
 

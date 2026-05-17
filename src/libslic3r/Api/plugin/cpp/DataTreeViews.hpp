@@ -5,6 +5,7 @@
 #ifndef slic3r_Api_plugin_cpp_DataTreeViews_hpp_
 #define slic3r_Api_plugin_cpp_DataTreeViews_hpp_
 
+#include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <string>

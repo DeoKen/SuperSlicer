@@ -13,9 +13,13 @@
     #include <wx/wx.h>
 #endif
 
-#include <memory>
 #include <cstdint>
 #include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <boost/any.hpp>
 
 #include <wx/spinctrl.h>

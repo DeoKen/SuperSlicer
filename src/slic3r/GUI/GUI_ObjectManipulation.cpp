@@ -14,6 +14,7 @@
 #include "GLCanvas3D.hpp"
 #include "OptionsGroup.hpp"
 #include "GUI_App.hpp"
+#include "GUI_ObjectList.hpp"
 #include "wxExtensions.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Model.hpp"

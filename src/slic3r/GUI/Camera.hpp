@@ -9,11 +9,18 @@
 #define slic3r_Camera_hpp_
 
 #include <array>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/BoundingBox.hpp"
 
-#include "3DScene.hpp"
 #include "CoordAxes.hpp"
+
+namespace Slic3r {
+class GLVolume;
+}
+
 namespace Slic3r {
 namespace GUI {
 

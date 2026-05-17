@@ -8,7 +8,6 @@
 
 #include <wx/bmpbuttn.h>
 
-#include "slic3r/GUI/wxExtensions.hpp"
 namespace Slic3r {
     struct GraphData;
     struct GraphSettings;

@@ -9,18 +9,20 @@
 #define slic3r_GCode_WipeTower_hpp_
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <cmath>
-#include <cstdio>
-#include <sstream>
+#include <limits>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/Point.hpp"
 
 namespace Slic3r
 {
 
+class ConfigBase;
 class WipeTowerWriter;
 class PrintConfig;
 class PrintObjectConfig;

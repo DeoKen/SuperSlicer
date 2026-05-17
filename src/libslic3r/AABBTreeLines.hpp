@@ -7,17 +7,18 @@
 #ifndef SRC_LIBSLIC3R_AABBTREELINES_HPP_
 #define SRC_LIBSLIC3R_AABBTREELINES_HPP_
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "libslic3r/AABBTreeIndirect.hpp"
 #include "libslic3r/Line.hpp"
-
-#include <algorithm>
 #include "libslic3r.h"
 #include "Point.hpp"
-#include "Utils.hpp"
 
 namespace Slic3r { namespace AABBTreeLines {
 

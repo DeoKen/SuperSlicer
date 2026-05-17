@@ -12,14 +12,14 @@
 #include <set>
 #include <vector>
 
-#include <admesh/stl.h> // indexed_triangle_set
-
 #include "BoundingBox.hpp"
 #include "EmbossShape.hpp" // ExPolygonsWithIds
 #include "ExPolygon.hpp"
 #include "PointUtils.hpp"
 #include "Polygon.hpp"
 #include "TextConfiguration.hpp"
+
+struct indexed_triangle_set;
 
 namespace Slic3r {
 

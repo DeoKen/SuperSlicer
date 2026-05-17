@@ -8,8 +8,10 @@
 #ifndef slic3r_GUI_DoubleSlider_hpp_
 #define slic3r_GUI_DoubleSlider_hpp_
 
+#include <functional>
 #include <mutex>
 #include <set>
+#include <string>
 #include <vector>
 
 #include <wx/control.h>

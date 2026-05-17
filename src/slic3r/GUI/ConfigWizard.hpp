@@ -14,6 +14,7 @@
 #define slic3r_ConfigWizard_hpp_
 
 #include <memory>
+#include <string>
 
 #include <wx/dialog.h>
 #include <wx/sizer.h>

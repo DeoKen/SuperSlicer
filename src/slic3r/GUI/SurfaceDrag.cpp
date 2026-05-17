@@ -7,6 +7,8 @@
 
 #include "SurfaceDrag.hpp"
 
+#include <wx/event.h>
+
 #include "libslic3r/Emboss.hpp"
 #include "libslic3r/Model.hpp" // ModelVolume
 

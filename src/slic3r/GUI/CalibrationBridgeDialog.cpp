@@ -15,6 +15,7 @@
 #include "GUI_ObjectList.hpp"
 #include "Plater.hpp"
 #include "Tab.hpp"
+#include "Widgets/ComboBox.hpp"
 #include <wx/scrolwin.h>
 #include <wx/display.h>
 #include <wx/file.h>

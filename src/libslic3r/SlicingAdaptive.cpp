@@ -8,6 +8,8 @@
 
 #include <cfloat>
 
+#include <admesh/stl.h>
+
 #include <boost/log/trivial.hpp>
 
 #include "libslic3r.h"

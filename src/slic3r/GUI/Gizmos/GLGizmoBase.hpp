@@ -8,14 +8,16 @@
 #ifndef slic3r_GLGizmoBase_hpp_
 #define slic3r_GLGizmoBase_hpp_
 
+#include <array>
+#include <cassert>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <cereal/archives/binary.hpp>
 
 #include "libslic3r/Color.hpp"
 #include "libslic3r/Point.hpp"
-
-#include "slic3r/GUI/GLModel.hpp"
-#include "slic3r/GUI/MeshUtils.hpp"
-#include "slic3r/GUI/SceneRaycaster.hpp"
 class wxWindow;
 class wxMouseEvent;
 
@@ -37,6 +39,8 @@ class ImGuiWrapper;
 class GLCanvas3D;
 enum class CommonGizmosDataID;
 class CommonGizmosDataPool;
+struct PickingModel;
+class SceneRaycasterItem;
 
 class GLGizmoBase
 {

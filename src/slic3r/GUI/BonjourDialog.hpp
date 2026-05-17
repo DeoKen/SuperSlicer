@@ -10,13 +10,14 @@
 
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 #include <boost/asio/ip/address.hpp>
 
 #include <wx/dialog.h>
 #include <wx/string.h>
 
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/ConfigOption.hpp"
 class wxListView;
 class wxStaticText;
 class wxTimer;

@@ -9,8 +9,6 @@
 #ifndef slic3r_FillLine_hpp_
 #define slic3r_FillLine_hpp_
 
-#include "libslic3r/libslic3r.h"
-
 #include "FillBase.hpp"
 
 namespace Slic3r {

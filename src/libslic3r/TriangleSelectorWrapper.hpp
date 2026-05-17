@@ -8,7 +8,6 @@
 #define SRC_LIBSLIC3R_TRIANGLESELECTORWRAPPER_HPP_
 
 #include "AABBTreeIndirect.hpp"
-#include "Model.hpp"
 #include "TriangleSelector.hpp"
 
 namespace Slic3r {

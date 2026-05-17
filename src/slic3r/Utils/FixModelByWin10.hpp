@@ -9,7 +9,9 @@
 #define slic3r_GUI_Utils_FixModelByWin10_hpp_
 
 #include <string>
+
 class wxProgressDialog;
+class wxString;
 
 namespace Slic3r {
 

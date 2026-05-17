@@ -13,6 +13,15 @@
 #ifndef slic3r_Surface_hpp_
 #define slic3r_Surface_hpp_
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "ExPolygon.hpp"
 #include "libslic3r.h"
 

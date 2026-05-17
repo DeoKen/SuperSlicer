@@ -8,7 +8,10 @@
 #ifndef PRUSALSICER_WORKER_HPP
 #define PRUSALSICER_WORKER_HPP
 
+#include <exception>
 #include <memory>
+#include <type_traits>
+#include <utility>
 
 #include "Job.hpp"
 namespace Slic3r { namespace GUI {

@@ -8,17 +8,28 @@
 #ifndef slic3r_GLGizmoSimplify_hpp_
 #define slic3r_GLGizmoSimplify_hpp_
 
+#include <chrono>
+#include <cstdint>
+#include <exception>
+#include <limits>
+#include <map>
+#include <memory>
 #include <mutex>
+#include <optional>
+#include <set>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "admesh/stl.h" // indexed_triangle_set
+#include "libslic3r/ObjectID.hpp"
+
 #include "GLGizmoBase.hpp"
-#include "slic3r/GUI/3DScene.hpp"
+#include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/GUI/I18N.hpp"
 namespace Slic3r {
 class ModelObject;
 class Model;
-class ObjectID;
 
 namespace GUI {
 class NotificationManager; // for simplify suggestion

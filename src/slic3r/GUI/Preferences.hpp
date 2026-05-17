@@ -15,7 +15,6 @@
 
 #include <map>
 #include <vector>
-#include <vector>
 
 #include <wx/dialog.h>
 #include <wx/timer.h>

@@ -8,7 +8,11 @@
 #ifndef slic3r_GLGizmoRotate_hpp_
 #define slic3r_GLGizmoRotate_hpp_
 
+#include <array>
+#include <string>
+
 #include "GLGizmoBase.hpp"
+#include "slic3r/GUI/GLModel.hpp"
 namespace Slic3r {
 namespace GUI {
 class Selection;

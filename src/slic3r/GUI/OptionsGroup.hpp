@@ -18,8 +18,14 @@
 #include <wx/stattext.h>
 #include <wx/settings.h>
 
-#include <map>
+#include <exception>
 #include <functional>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/PrintConfig.hpp"

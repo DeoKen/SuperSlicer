@@ -7,6 +7,10 @@
 #ifndef ARRANGE_HPP
 #define ARRANGE_HPP
 
+#include <cmath>
+#include <functional>
+#include <vector>
+
 #include <boost/variant.hpp>
 
 #include <libslic3r/BoundingBox.hpp>

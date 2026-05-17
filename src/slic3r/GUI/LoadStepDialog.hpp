@@ -8,9 +8,9 @@
 #ifndef slic3r_LoadStepDialog_hpp_
 #define slic3r_LoadStepDialog_hpp_
 
+#include <algorithm>
+#include <cassert>
 #include <string>
-
-#include <wx/dialog.h>
 
 #include "GUI_Utils.hpp"
 class wxBoxSizer;

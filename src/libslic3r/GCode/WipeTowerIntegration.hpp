@@ -6,6 +6,9 @@
 #ifndef slic3r_GCode_WipeTowerIntegration_hpp_
 #define slic3r_GCode_WipeTowerIntegration_hpp_
 
+#include <string>
+#include <vector>
+
 #include "libslic3r/PrintConfig.hpp"
 
 #include "WipeTower.hpp"

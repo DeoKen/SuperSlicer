@@ -107,7 +107,6 @@
 #include "UpdateDialogs.hpp"
 #include "Mouse3DController.hpp"
 #include "RemovableDriveManager.hpp"
-#include "InstanceCheck.hpp"
 #include "NotificationManager.hpp"
 #include "UnsavedChangesDialog.hpp"
 #include "SavePresetDialog.hpp"
@@ -129,13 +128,9 @@
 #include <wx/msw/dark_mode.h>
 #endif // _MSW_DARK_MODE
 #endif
-#ifdef _WIN32
-#include <boost/dll/runtime_symbol_info.hpp>
-#endif
 
 #if ENABLE_THUMBNAIL_GENERATOR_DEBUG
 #include <boost/beast/core/detail/base64.hpp>
-#include <boost/nowide/fstream.hpp>
 #endif // ENABLE_THUMBNAIL_GENERATOR_DEBUG
 
 // Needed for forcing menu icons back under gtk2 and gtk3

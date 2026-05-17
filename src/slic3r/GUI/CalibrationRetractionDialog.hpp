@@ -7,7 +7,8 @@
 #define slic3r_GUI_CalibrationRetractionDialog_hpp_
 
 #include "CalibrationAbstractDialog.hpp"
-#include "Widgets/ComboBox.hpp"
+
+class ComboBox;
 
 namespace Slic3r { 
 namespace GUI {

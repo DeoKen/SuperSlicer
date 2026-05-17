@@ -9,6 +9,7 @@
 #include "TreeNode.hpp"
 
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/EdgeGrid.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"

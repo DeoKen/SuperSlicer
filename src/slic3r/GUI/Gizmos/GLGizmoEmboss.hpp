@@ -17,6 +17,7 @@
 #include <imgui/imgui.h>
 
 #include "libslic3r/Emboss.hpp"
+#include "libslic3r/ObjectID.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/TextConfiguration.hpp"
 
@@ -28,7 +29,9 @@
 #include "slic3r/GUI/TextLines.hpp"
 #include "slic3r/Utils/EmbossStyleManager.hpp"
 #include "slic3r/Utils/RaycastManager.hpp"
+
 class wxFont;
+
 namespace Slic3r{
     class AppConfig;
     class GLVolume;

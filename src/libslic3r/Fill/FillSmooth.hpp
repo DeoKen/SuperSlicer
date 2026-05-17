@@ -6,9 +6,6 @@
 #ifndef slic3r_FillSmooth_hpp_
 #define slic3r_FillSmooth_hpp_
 
-#include "libslic3r/ExtrusionRole.hpp"
-#include "libslic3r/libslic3r.h"
-
 #include "FillBase.hpp"
 
 namespace Slic3r {

@@ -8,7 +8,7 @@
 #include "EmbossJob.hpp"
 
 #include <stdexcept>
-#include <type_traits>
+
 #include <boost/log/trivial.hpp>
 
 #include "libslic3r/Model.hpp"

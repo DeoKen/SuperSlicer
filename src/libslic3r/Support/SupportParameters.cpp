@@ -8,6 +8,7 @@
 #include "SupportParameters.hpp"
 #include "libslic3r/PrintRegion.hpp"
 
+#include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintConfig.hpp"

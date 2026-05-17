@@ -10,7 +10,6 @@
 
 #include "libslic3r/ExtrusionEntityCollection.hpp"
 #include "libslic3r/Layer.hpp"
-#include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/Surface.hpp"
 #include "libslic3r/SurfaceCollection.hpp"

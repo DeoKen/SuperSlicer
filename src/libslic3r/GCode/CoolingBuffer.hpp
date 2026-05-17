@@ -15,11 +15,12 @@
 #define slic3r_CoolingBuffer_hpp_
 
 #include <array>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
 
-#include "libslic3r/libslic3r.h"
+#include "libslic3r/Point.hpp"
 
 namespace Slic3r {
 

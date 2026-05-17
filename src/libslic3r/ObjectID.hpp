@@ -7,6 +7,9 @@
 #ifndef slic3r_ObjectID_hpp_
 #define slic3r_ObjectID_hpp_
 
+#include <cstddef>
+#include <cstdint>
+
 #include <cereal/access.hpp>
 #include <cereal/types/base_class.hpp>
 

@@ -11,6 +11,7 @@
 
 namespace Slic3r {
 
+class BoundingBox;
 class Polygon;
 class ExPolygon;
 

@@ -9,13 +9,15 @@
 #ifndef slic3r_Utils_TCPConsole_hpp_
 #define slic3r_Utils_TCPConsole_hpp_
 
+#include <chrono>
+#include <cstddef>
 #include <deque>
 #include <string>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/system/system_error.hpp>
 namespace Slic3r {
 namespace Utils {
 

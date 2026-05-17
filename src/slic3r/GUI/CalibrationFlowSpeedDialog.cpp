@@ -24,6 +24,7 @@
 #include "MsgDialog.hpp"
 #include "Plater.hpp"
 #include "Tab.hpp"
+#include "Widgets/ComboBox.hpp"
 #include "wxExtensions.hpp"
 #if ENABLE_SCROLLABLE
 static wxSize get_screen_size(wxWindow* window)

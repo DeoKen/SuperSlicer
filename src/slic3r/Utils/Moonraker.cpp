@@ -21,6 +21,7 @@
 #include <curl/curl.h>
 
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
 #include "Http.hpp"
 #include "slic3r/GUI/format.hpp"

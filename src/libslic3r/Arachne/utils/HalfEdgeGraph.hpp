@@ -4,11 +4,7 @@
 #ifndef UTILS_HALF_EDGE_GRAPH_H
 #define UTILS_HALF_EDGE_GRAPH_H
 
-
 #include <list>
-#include <cassert>
-
-
 
 #include "HalfEdge.hpp"
 #include "HalfEdgeNode.hpp"

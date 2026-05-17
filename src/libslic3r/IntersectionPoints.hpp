@@ -7,6 +7,8 @@
 #ifndef slic3r_IntersectionPoints_hpp_
 #define slic3r_IntersectionPoints_hpp_
 
+#include <cstdint>
+
 #include "ExPolygon.hpp"
 
 namespace Slic3r {

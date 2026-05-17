@@ -20,7 +20,9 @@
 #include "I18N.hpp"
 #include "MsgDialog.hpp"
 #include "RemovableDriveManager.hpp"
+#include "slic3r/Utils/WifiScanner.hpp"
 #include "Widgets/ComboBox.hpp"
+#include "Widgets/TextInput.hpp"
 namespace Slic3r {
 namespace GUI {
 

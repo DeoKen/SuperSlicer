@@ -11,6 +11,13 @@
 
 
 #include <cfloat>
+#include <array>
+#include <cassert>
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "Point.hpp"
 #include "TriangleMesh.hpp"
 

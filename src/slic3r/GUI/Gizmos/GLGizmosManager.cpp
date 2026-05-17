@@ -16,6 +16,7 @@
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/SLAPrint.hpp"
 
 #include "slic3r/GUI/3DScene.hpp"
 #include "slic3r/GUI/Camera.hpp"

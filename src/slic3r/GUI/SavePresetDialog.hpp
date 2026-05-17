@@ -10,6 +10,9 @@
 
 //#include <wx/gdicmn.h>
 
+#include <string>
+#include <vector>
+
 #include "libslic3r/Preset.hpp"
 
 #include "GUI_Utils.hpp"

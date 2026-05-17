@@ -45,9 +45,7 @@
 #include "Notebook.hpp"
 #include "Plater.hpp"
 #include "slic3r/Utils/Http.hpp"
-#include "slic3r/Utils/Http.hpp"
 #include "Tab.hpp"
-#include "wxExtensions.hpp"
 #include "wxExtensions.hpp"
 #if ENABLE_SCROLLABLE
 static wxSize get_screen_size(wxWindow* window)

@@ -7,6 +7,7 @@
 #define slic3r_Format_BBconfig_hpp_
 
 #include <map>
+#include <string>
 
 #include "miniz_extension.hpp"
 

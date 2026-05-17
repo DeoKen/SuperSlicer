@@ -8,7 +8,8 @@
 #ifndef ARRANGESETTINGSDIALOGIMGUI_HPP
 #define ARRANGESETTINGSDIALOGIMGUI_HPP
 
-#include "libslic3r/AnyPtr.hpp"
+#include <functional>
+
 #include "libslic3r/Arrange/ArrangeSettingsView.hpp"
 #include "libslic3r/PrintConfig.hpp"
 

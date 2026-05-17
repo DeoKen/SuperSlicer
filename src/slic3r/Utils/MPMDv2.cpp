@@ -20,6 +20,8 @@
 
 #include <wx/progdlg.h>
 
+#include "libslic3r/PrintConfig.hpp"
+
 #include "Http.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI.hpp"

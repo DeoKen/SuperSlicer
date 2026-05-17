@@ -9,15 +9,18 @@
 #define slic3r_PlaceholderParser_hpp_
 
 #include <map>
+#include <memory>
 #include <random>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "ConfigDef.hpp"
 #include "libslic3r.h"
-#include "PrintConfig.hpp"
 
 namespace Slic3r {
+
+class DynamicPrintConfig;
 
 class PlaceholderParser
 {

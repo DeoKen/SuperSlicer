@@ -12,12 +12,16 @@
 #ifndef slic3r_SVG_hpp_
 #define slic3r_SVG_hpp_
 
+#include <cstdio>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "clipper.hpp"
 #include "ExPolygon.hpp"
 #include "libslic3r.h"
 #include "Line.hpp"
 #include "Surface.hpp"
-#include "TriangleMesh.hpp"
 
 namespace Slic3r {
 

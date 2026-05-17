@@ -6,20 +6,32 @@
 #ifndef slic3r_GUI_FreeCADDialog_hpp_
 #define slic3r_GUI_FreeCADDialog_hpp_
 
-#include <map>
+#include <cstdint>
+#include <initializer_list>
 #include <regex>
+#include <string>
 #include <vector>
 
-#include <wx/combobox.h>
-#include <wx/gbsizer.h>
-#include <wx/stc/stc.h>
+#include <boost/filesystem/path.hpp>
 
-#include "GUI_App.hpp"
+#include <wx/stc/stc.h>
+#include <wx/string.h>
+
+#include "GUI_Utils.hpp"
+
+class wxComboBox;
+class wxCommandEvent;
+class wxGridBagSizer;
+class wxKeyEvent;
+class wxTextCtrl;
+
 namespace Slic3r {
 namespace GUI {
 
 //can't be defeined here, so it will be defined in cpp (because of include sheanigans)
 class ExecVar;
+class GUI_App;
+class MainFrame;
 
 enum PyCommandType : uint16_t {
     pctNONE = 0x0,

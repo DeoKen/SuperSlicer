@@ -9,17 +9,19 @@
 #include <vector>
 
 #include "libslic3r/Emboss.hpp"
-#include "libslic3r/Point.hpp"
-#include "libslic3r/Polygon.hpp"
 
 #include "slic3r/GUI/GLModel.hpp"
-#include "slic3r/Utils/EmbossStyleManager.hpp"
 namespace Slic3r {
+struct FontProp;
 class ModelVolume;
 typedef std::vector<ModelVolume *> ModelVolumePtrs;
 }
 
 namespace Slic3r::GUI {
+namespace Emboss {
+class StyleManager;
+}
+
 class TextLinesModel
 {
 public:

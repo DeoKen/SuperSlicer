@@ -10,13 +10,22 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
-#include "libslic3r/EdgeGrid.hpp"
 #include "libslic3r/Polygon.hpp"
-#include "SVG.hpp"
 
 //#define LIGHTNING_TREE_NODE_DEBUG_OUTPUT
+
+#ifdef LIGHTNING_TREE_NODE_DEBUG_OUTPUT
+#include <string>
+
+#include "SVG.hpp"
+#endif
+
+namespace Slic3r {
+namespace EdgeGrid { class Grid; }
+}
 
 namespace Slic3r::FillLightning
 {

@@ -11,6 +11,7 @@
 
 #include "WipeTower2.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
@@ -30,6 +31,7 @@
 #include "libslic3r/Fill/FillRectilinear.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/Geometry.hpp"
+#include "libslic3r/Layer.hpp"
 #include "libslic3r/LocalesUtils.hpp"
 #include "libslic3r/PointUtils.hpp"
 #include "libslic3r/PrintObject.hpp"

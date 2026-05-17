@@ -10,10 +10,12 @@
 // Based on implementation by @platsch
 
 
-#include <cstring>
+#include <cassert>
+#include <cmath>
 #include <map>
+#include <memory>
 #include <set>
-#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "libslic3r.h"

@@ -8,6 +8,10 @@
 #ifndef SLAIMPORTJOB_HPP
 #define SLAIMPORTJOB_HPP
 
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "libslic3r/Format/SLAArchiveReader.hpp"
 
 #include "Job.hpp"

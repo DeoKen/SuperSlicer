@@ -9,15 +9,20 @@
 #ifndef slic3r_GUI_BackgroundSlicingProcess_hpp_
 #define slic3r_GUI_BackgroundSlicingProcess_hpp_
 
+#include <cassert>
 #include <condition_variable>
+#include <exception>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <boost/thread.hpp>
 
 #include <wx/event.h>
 
-#include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/GCode/ThumbnailData.hpp"
 #include "libslic3r/PrintBase.hpp"
 
@@ -27,7 +32,9 @@ namespace boost { namespace filesystem { class path; } }
 namespace Slic3r {
 
 class DynamicPrintConfig;
+struct GCodeProcessorResult;
 class Model;
+class Print;
 class SLAPrint;
 
 class SlicingStatusEvent : public wxEvent

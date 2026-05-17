@@ -8,22 +8,24 @@
 #ifndef slic3r_GUI_NotificationManager_hpp_
 #define slic3r_GUI_NotificationManager_hpp_
 
+#include <cstdint>
 #include <deque>
+#include <functional>
+#include <memory>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <wx/time.h>
 
 #include "libslic3r/ObjectID.hpp"
-#include "libslic3r/Technologies.hpp"
 
 #include "Downloader.hpp"
 #include "Event.hpp"
 #include "GLCanvas3D.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
-#include "Jobs/ProgressIndicator.hpp"
 #include "Plater.hpp"
 namespace Slic3r {
 namespace GUI {

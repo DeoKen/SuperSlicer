@@ -9,8 +9,13 @@
 #define slic3r_EmbossJob_hpp_
 
 #include <atomic>
+#include <exception>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
+
 #include "libslic3r/Emboss.hpp"
 #include "libslic3r/EmbossShape.hpp" // ExPolygonsWithIds
 #include "libslic3r/Point.hpp" // Transform3d

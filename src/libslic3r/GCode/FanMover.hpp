@@ -6,13 +6,18 @@
 #ifndef slic3r_GCode_FanMover_hpp_
 #define slic3r_GCode_FanMover_hpp_
 
-#include <regex>
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <list>
+#include <string>
+#include <string_view>
+#include <utility>
 
-#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionRole.hpp"
 #include "libslic3r/GCode/GCodeWriter.hpp"
 #include "libslic3r/GCodeReader.hpp"
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/Point.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {

@@ -5,6 +5,9 @@
 
 #include "Travels.hpp"
 
+#include <boost/functional/hash.hpp>
+#include <boost/math/special_functions/pow.hpp>
+
 #include "libslic3r/GCode.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/PointUtils.hpp"

@@ -9,6 +9,8 @@
 
 #include <boost/log/trivial.hpp>
 
+#include <admesh/stl.h>
+
 #include "libslic3r/PointUtils.hpp"
 
 #include "ClipperUtils.hpp"

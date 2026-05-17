@@ -16,6 +16,7 @@
 
 #include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/combobox.h>
 #include <wx/dataview.h>
 #include <wx/debug.h>
 #include <wx/frame.h>
@@ -37,6 +38,7 @@
 #include "MsgDialog.hpp"
 #include "NotificationManager.hpp"
 #include "Plater.hpp"
+#include "slic3r/Utils/PrintHost.hpp"
 namespace fs = boost::filesystem;
 
 namespace Slic3r {

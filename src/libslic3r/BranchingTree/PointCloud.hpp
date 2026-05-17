@@ -8,7 +8,14 @@
 #ifndef POINTCLOUD_HPP
 #define POINTCLOUD_HPP
 
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <iterator>
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include "BranchingTree.hpp"
 

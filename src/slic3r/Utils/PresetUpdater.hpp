@@ -9,10 +9,17 @@
 #define slic3r_PresetUpdate_hpp_
 
 #include <atomic>
+#include <ctime>
+#include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <set>
+#include <string>
 #include <thread>
 #include <vector>
+
+#include <boost/filesystem/path.hpp>
 
 #include <wx/event.h>
 

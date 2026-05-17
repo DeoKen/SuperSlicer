@@ -17,6 +17,7 @@
 #include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/GUI/GLSelectionRectangle.hpp"
 #include "slic3r/GUI/I18N.hpp"
+#include "slic3r/GUI/MeshUtils.hpp"
 namespace Slic3r {
 
 enum class CutConnectorType : int;

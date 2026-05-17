@@ -11,6 +11,7 @@
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Format/STL.hpp"
 #include "GUI.hpp"
+#include "GUI_App.hpp"
 #include "GUI_Utils.hpp"
 #include "GUI_ObjectList.hpp"
 #include "slic3r/Utils/Http.hpp"
@@ -30,9 +31,9 @@
 #include <wx/scrolwin.h>
 #include <wx/display.h>
 #include <wx/file.h>
+#include <wx/gbsizer.h>
 #include <wx/html/htmlwin.h>
 #include <wx/textctrl.h>
-#include "wxExtensions.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/locale.hpp>

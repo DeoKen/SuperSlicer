@@ -8,13 +8,15 @@
 #ifndef slic3r_GUI_ObjectManipulation_hpp_
 #define slic3r_GUI_ObjectManipulation_hpp_
 
+#include <array>
 #include <cfloat>
-#include <memory>
+#include <functional>
+#include <string>
+#include <vector>
 
 #include "libslic3r/Point.hpp"
 
 #include "GUI_Geometry.hpp"
-#include "GUI_ObjectList.hpp"
 #include "GUI_ObjectSettings.hpp"
 #include "Widgets/ComboBox.hpp"
 #include "Widgets/TextInput.hpp"
@@ -50,6 +52,7 @@ namespace Slic3r {
 #endif
 
 class Selection;
+struct MeshErrorsInfo;
 
 class ObjectManipulation;
 class ManipulationEditor : public ::TextInput

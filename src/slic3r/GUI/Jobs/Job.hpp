@@ -8,13 +8,11 @@
 #ifndef JOB_HPP
 #define JOB_HPP
 
-#include <atomic>
 #include <exception>
+#include <functional>
 #include <future>
+#include <string>
 
-#include "libslic3r/libslic3r.h"
-
-#include "ProgressIndicator.hpp"
 namespace Slic3r { namespace GUI {
 
 // A class representing a job that is to be run in the background, not blocking

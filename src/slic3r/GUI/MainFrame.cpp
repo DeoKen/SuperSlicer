@@ -34,6 +34,7 @@
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLAPrint.hpp"
 #include "libslic3r/Time.hpp"
 
@@ -60,7 +61,6 @@
 #include "MsgDialog.hpp"
 #include "Notebook.hpp"
 #include "GUI_Factories.hpp"
-#include "GUI_ObjectList.hpp"
 #include "GalleryDialog.hpp"
 #include "NotificationManager.hpp"
 #include "Preferences.hpp"

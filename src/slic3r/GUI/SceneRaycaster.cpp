@@ -11,6 +11,7 @@
 
 #include "Camera.hpp"
 #include "GUI_App.hpp"
+#include "MeshUtils.hpp"
 #include "Plater.hpp"
 #include "Selection.hpp"
 namespace Slic3r {

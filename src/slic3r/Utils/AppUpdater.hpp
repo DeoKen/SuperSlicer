@@ -8,13 +8,15 @@
 #ifndef slic3r_AppUpdate_hpp_
 #define slic3r_AppUpdate_hpp_
 
-#include <optional>
-#include <boost/filesystem.hpp>
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/Semver.hpp"
-#include "wx/event.h"
+#include <cstddef>
+#include <memory>
+#include <string>
 
-//class boost::filesystem::path;
+#include <boost/filesystem/path.hpp>
+
+#include <wx/event.h>
+
+#include "libslic3r/Semver.hpp"
 
 namespace Slic3r {
 

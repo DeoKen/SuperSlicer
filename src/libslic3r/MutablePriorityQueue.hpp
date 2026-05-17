@@ -8,9 +8,11 @@
 #define slic3r_MutablePriorityQueue_hpp_
 
 #include <cassert>
+#include <cstddef>
 #include <cstdlib> // adds size_t (without std::)
 #include <limits>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace Slic3r {

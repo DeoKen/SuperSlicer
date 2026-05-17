@@ -5,14 +5,17 @@
 #ifndef BEDS_HPP
 #define BEDS_HPP
 
+#include <cmath>
+#include <limits>
 #include <numeric>
+#include <type_traits>
+
+#include <boost/variant.hpp>
 
 #include <libslic3r/Point.hpp>
 #include <libslic3r/ExPolygon.hpp>
 #include <libslic3r/BoundingBox.hpp>
 #include <libslic3r/ClipperUtils.hpp>
-
-#include <boost/variant.hpp>
 
 namespace Slic3r { namespace arr2 {
 

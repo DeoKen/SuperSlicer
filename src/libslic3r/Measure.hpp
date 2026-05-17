@@ -7,8 +7,13 @@
 #ifndef Slic3r_Measure_hpp_
 #define Slic3r_Measure_hpp_
 
+#include <cassert>
+#include <cmath>
 #include <memory>
 #include <optional>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 #include "Point.hpp"
 

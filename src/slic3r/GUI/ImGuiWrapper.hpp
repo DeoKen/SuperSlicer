@@ -8,9 +8,12 @@
 #ifndef slic3r_ImGuiWrapper_hpp_
 #define slic3r_ImGuiWrapper_hpp_
 
+#include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <imgui/imgui.h>
 

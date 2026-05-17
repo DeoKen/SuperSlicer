@@ -8,6 +8,8 @@
 
 #include <array>
 
+#include "nanosvg/nanosvg.h"
+
 #include <boost/nowide/fstream.hpp>
 #include <boost/nowide/iostream.hpp>
 

@@ -7,14 +7,18 @@
 #ifndef LIGHTNING_LAYER_H
 #define LIGHTNING_LAYER_H
 
-#include "libslic3r/EdgeGrid.hpp"
+#include <functional>
+#include <memory>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+
 #include "libslic3r/Polygon.hpp"
 
-#include <memory>
-#include <vector>
-#include <list>
-#include <unordered_map>
-#include <optional>
+namespace Slic3r {
+class BoundingBox;
+namespace EdgeGrid { class Grid; }
+}
 
 namespace Slic3r::FillLightning
 {

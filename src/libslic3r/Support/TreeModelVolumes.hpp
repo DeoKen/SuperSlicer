@@ -17,10 +17,15 @@
 // CuraEngine is released under the terms of the AGPLv3 or higher.
 
 
+#include <cassert>
+#include <cstddef>
+#include <functional>
+#include <map>
+#include <memory>
 #include <mutex>
-#include <unordered_map>
-
-#include <boost/functional/hash.hpp>
+#include <optional>
+#include <utility>
+#include <vector>
 
 #include "TreeSupportCommon.hpp"
 

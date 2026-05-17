@@ -13,6 +13,7 @@
 
 #include "ClipperUtils.hpp"
 #include "Geometry.hpp"
+#include "Model.hpp"
 
 #if defined(_MSC_VER) && defined(__clang__)
 #define BOOST_NO_CXX17_HDR_STRING_VIEW

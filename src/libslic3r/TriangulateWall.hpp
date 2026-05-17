@@ -7,6 +7,12 @@
 #ifndef TRIANGULATEWALL_HPP
 #define TRIANGULATEWALL_HPP
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <utility>
+#include <vector>
+
 #include "libslic3r/Polygon.hpp"
 
 namespace Slic3r {

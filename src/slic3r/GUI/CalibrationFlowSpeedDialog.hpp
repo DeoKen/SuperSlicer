@@ -11,7 +11,9 @@
 #include "libslic3r/Flow.hpp"
 
 #include "CalibrationAbstractDialog.hpp"
-#include "Widgets/ComboBox.hpp"
+
+class ComboBox;
+
 namespace Slic3r {
 namespace GUI {
 

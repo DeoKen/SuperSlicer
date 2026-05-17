@@ -8,17 +8,21 @@
 #ifndef slic3r_Bonjour_hpp_
 #define slic3r_Bonjour_hpp_
 
+#include <cassert>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include <boost/asio.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
-#include <boost/shared_ptr.hpp>
+#include <boost/asio/ip/udp.hpp>
 #include <boost/system/error_code.hpp>
 namespace Slic3r {
 

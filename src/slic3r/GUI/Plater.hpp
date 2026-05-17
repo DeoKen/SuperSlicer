@@ -20,29 +20,29 @@
 #ifndef slic3r_Plater_hpp_
 #define slic3r_Plater_hpp_
 
+#include <functional>
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include <boost/filesystem/path.hpp>
 
 #include <wx/panel.h>
 
-#include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/enum_bitmask.hpp"
-#include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/Point.hpp"
 #include "libslic3r/PrintSteps.hpp"
 #include "libslic3r/Preset.hpp"
 
 #include "GUI_Preview.hpp"
-#include "Jobs/Job.hpp"
 #include "Jobs/Worker.hpp"
-#include "ProjectDirtyStateManager.hpp"
 #include "Search.hpp"
-#include "Selection.hpp"
 #include "wxExtensions.hpp"
 class wxButton;
 class ScalableButton;
 class wxScrolledWindow;
+class wxArrayString;
 class wxString;
 
 namespace Slic3r {
@@ -87,6 +87,8 @@ class ObjectList;
 class GLCanvas3D;
 class Mouse3DController;
 class NotificationManager;
+class ProjectDirtyStateManager;
+class Selection;
 struct Camera;
 class GLToolbar;
 class PlaterPresetComboBox;

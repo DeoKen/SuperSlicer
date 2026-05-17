@@ -7,17 +7,16 @@
 #ifndef slic3r_SurfaceMesh_hpp_
 #define slic3r_SurfaceMesh_hpp_
 
-#include <admesh/stl.h>
-
-#include <libslic3r/TriangleMesh.hpp>
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <vector>
 
 #include <boost/container/small_vector.hpp>
 
+#include <libslic3r/TriangleMesh.hpp>
+
 namespace Slic3r {
-
-class TriangleMesh;
-
-
 
 enum Face_index : int;
 

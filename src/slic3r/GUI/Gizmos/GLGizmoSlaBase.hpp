@@ -8,12 +8,12 @@
 #ifndef slic3r_GLGizmoSlaBase_hpp_
 #define slic3r_GLGizmoSlaBase_hpp_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "libslic3r/Point.hpp"
-#include "libslic3r/SLAPrint.hpp"
 
 #include "GLGizmoBase.hpp"
 #include "slic3r/GUI/3DScene.hpp"
@@ -21,6 +21,7 @@
 namespace Slic3r {
 
 class SLAPrint;
+enum SLAPrintObjectStep : uint8_t;
 
 namespace GUI {
 

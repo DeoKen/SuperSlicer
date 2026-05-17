@@ -8,10 +8,11 @@
 #ifndef slic3r_Utils_UndoRedo_hpp_
 #define slic3r_Utils_UndoRedo_hpp_
 
-#include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "libslic3r/ConfigOption.hpp"

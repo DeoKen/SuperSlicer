@@ -8,6 +8,8 @@
 
 #include <memory>
 
+#include "Model.hpp"
+
 namespace Slic3r {
 
 TriangleSelectorWrapper::TriangleSelectorWrapper(const TriangleMesh &mesh, const Transform3d& mesh_transform) :

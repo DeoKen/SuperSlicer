@@ -32,6 +32,7 @@
 #include "libslic3r/PrintConfig.hpp"
 
 #include "Http.hpp"
+#include "TCPConsole.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/I18N.hpp"

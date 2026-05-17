@@ -6,12 +6,20 @@
 #ifndef BBS_3MF_hpp_
 #define BBS_3MF_hpp_
 
+#include <functional>
+#include <iosfwd>
+#include <map>
+#include <set>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include "libslic3r/GCode/ThumbnailData.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 //#include "libslic3r/ProjectTask.hpp"
 //#include "libslic3r/GCode/GCodeProcessor.hpp"
-#include <functional>
 
 namespace Slic3r {
 class Model;

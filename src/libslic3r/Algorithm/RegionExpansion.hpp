@@ -7,7 +7,9 @@
 #ifndef SRC_LIBSLIC3R_ALGORITHM_REGION_EXPANSION_HPP_
 #define SRC_LIBSLIC3R_ALGORITHM_REGION_EXPANSION_HPP_
 
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include <libslic3r/ExPolygon.hpp>
 #include <libslic3r/Point.hpp>

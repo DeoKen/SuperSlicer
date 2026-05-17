@@ -7,6 +7,8 @@
 #include "libslic3r/Tesselate.hpp"
 #include "libslic3r/SLA/SupportTreeUtils.hpp"
 
+#include <admesh/stl.h>
+
 #include <igl/random_points_on_mesh.h>
 
 namespace Slic3r { namespace branchingtree {

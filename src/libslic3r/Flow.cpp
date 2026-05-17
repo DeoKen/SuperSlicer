@@ -18,6 +18,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
+#include "ConfigDef.hpp"
 #include "I18N.hpp"
 #include "Layer.hpp"
 #include "Print.hpp"

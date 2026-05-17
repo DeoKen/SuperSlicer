@@ -24,7 +24,6 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/Utils/Bonjour.hpp"   // On Windows, boost needs to be included before wxWidgets headers
-#include "slic3r/Utils/Bonjour.hpp"
 namespace Slic3r {
 
 

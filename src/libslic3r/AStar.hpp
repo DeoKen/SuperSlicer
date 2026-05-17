@@ -7,8 +7,13 @@
 #ifndef ASTAR_HPP
 #define ASTAR_HPP
 
+#include <cassert>
 #include <cmath> // std::isinf() is here
+#include <cstddef>
+#include <limits>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
 
 #include "libslic3r/MutablePriorityQueue.hpp"
 

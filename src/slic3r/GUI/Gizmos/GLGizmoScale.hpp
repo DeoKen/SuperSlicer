@@ -9,6 +9,7 @@
 #define slic3r_GLGizmoScale_hpp_
 
 #include "GLGizmoBase.hpp"
+#include "slic3r/GUI/GLModel.hpp"
 namespace Slic3r {
 namespace GUI {
 

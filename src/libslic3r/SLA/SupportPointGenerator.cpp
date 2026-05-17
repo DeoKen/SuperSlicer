@@ -5,6 +5,7 @@
 #include <oneapi/tbb/parallel_for.h>
 
 #include "SupportPointGenerator.hpp"
+#include "AABBMesh.hpp"
 #include "Execution/ExecutionTBB.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "Model.hpp"

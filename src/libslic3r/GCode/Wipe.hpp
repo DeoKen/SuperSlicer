@@ -9,7 +9,11 @@
 // #include "SmoothPath.hpp"
 
 #include <cassert>
+#include <cmath>
 #include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Geometry/ArcWelder.hpp"

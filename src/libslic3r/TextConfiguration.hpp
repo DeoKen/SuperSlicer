@@ -9,14 +9,14 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include <cereal/archives/binary.hpp>
 #include <cereal/cereal.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/string.hpp>
 
-#include "Point.hpp" // Transform3d
+#include "NumericUtils.hpp"
 
 namespace Slic3r {
 

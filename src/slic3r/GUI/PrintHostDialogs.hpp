@@ -9,27 +9,33 @@
 #ifndef slic3r_PrintHostSendDialog_hpp_
 #define slic3r_PrintHostSendDialog_hpp_
 
-#include <set>
+#include <cstddef>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <boost/filesystem/path.hpp>
 
 #include <wx/arrstr.h>
-#include <wx/combobox.h>
-#include <wx/dialog.h>
 #include <wx/event.h>
 #include <wx/string.h>
 
+#include "libslic3r/enum_bitmask.hpp"
+
 #include "GUI_Utils.hpp"
 #include "MsgDialog.hpp"
-#include "slic3r/Utils/PrintHost.hpp"
 class wxButton;
 class wxTextCtrl;
 class wxChoice;
 class wxComboBox;
 class wxDataViewListCtrl;
+class wxWindow;
 
 namespace Slic3r {
+
+enum class PrintHostPostUploadAction;
+using PrintHostPostUploadActions = enum_bitmask<PrintHostPostUploadAction>;
+struct PrintHostJob;
 
 namespace GUI {
 

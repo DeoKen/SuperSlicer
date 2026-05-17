@@ -11,13 +11,18 @@
 // Enabled debug output to console and extended imgui dialog
 #define ENABLE_3DCONNEXION_DEVICES_DEBUG_OUTPUT 0
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
+#include <deque>
+#include <limits>
+#include <map>
 #include <mutex>
-#include <queue>
+#include <string>
 #include <thread>
-#include <vector>
 
 #include "libslic3r/Point.hpp"
 

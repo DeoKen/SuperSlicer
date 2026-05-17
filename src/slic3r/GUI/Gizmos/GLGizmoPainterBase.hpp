@@ -8,7 +8,11 @@
 #ifndef slic3r_GLGizmoPainterBase_hpp_
 #define slic3r_GLGizmoPainterBase_hpp_
 
+#include <array>
+#include <cstddef>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <cereal/types/vector.hpp>
 

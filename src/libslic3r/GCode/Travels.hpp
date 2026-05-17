@@ -10,20 +10,22 @@
  * @brief Utility functions for travel gcode generation.
  */
 
-
-#include <vector>
-#include <tcbspan/span.hpp>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <optional>
+#include <set>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
-#include <boost/functional/hash.hpp>
-#include <boost/math/special_functions/pow.hpp>
+#include <tcbspan/span.hpp>
 
 #include "libslic3r/AABBTreeLines.hpp"
-#include "libslic3r/GCode/GCodeWriter.hpp"
 
 // Forward declarations.
 namespace Slic3r {
+class GCodeWriter;
 class Layer;
 class Point;
 class Linef;

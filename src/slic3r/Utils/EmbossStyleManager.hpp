@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <GL/glew.h>
 

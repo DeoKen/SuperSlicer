@@ -8,10 +8,11 @@
 #ifndef slic3r_SearchComboBox_hpp_
 #define slic3r_SearchComboBox_hpp_
 
+#include <algorithm>
 #include <map>
+#include <string>
+#include <utility>
 #include <vector>
-
-#include <boost/nowide/convert.hpp>
 
 #include <wx/checkbox.h>
 #include <wx/combo.h>

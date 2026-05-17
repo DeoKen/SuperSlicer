@@ -6,8 +6,6 @@
 #ifndef slic3r_GUI_CreateMMUTiledCanvas_hpp_
 #define slic3r_GUI_CreateMMUTiledCanvas_hpp_
 
-#include <map>
-#include <regex>
 #include <vector>
 
 #include <wx/combobox.h>

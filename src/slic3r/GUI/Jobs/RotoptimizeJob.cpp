@@ -18,6 +18,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/Selection.hpp"
 namespace Slic3r { namespace GUI {
 
 void RotoptimizeJob::prepare()

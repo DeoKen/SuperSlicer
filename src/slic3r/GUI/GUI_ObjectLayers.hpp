@@ -8,6 +8,9 @@
 #ifndef slic3r_GUI_ObjectLayers_hpp_
 #define slic3r_GUI_ObjectLayers_hpp_
 
+#include <functional>
+#include <utility>
+
 #include "GUI_ObjectSettings.hpp"
 #include "wxExtensions.hpp"
 #ifdef __WXOSX__

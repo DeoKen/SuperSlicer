@@ -8,14 +8,18 @@
 #ifndef slic3r_GCode_PressureEqualizer_hpp_
 #define slic3r_GCode_PressureEqualizer_hpp_
 
+#include <cassert>
+#include <cmath>
+#include <cstddef>
 #include <queue>
+#include <string>
+#include <vector>
 
 #include "libslic3r/ExtrusionRole.hpp"
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {
 
+class GCodeConfig;
 struct LayerResult;
 
 class GCodeG1Formatter;

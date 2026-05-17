@@ -8,6 +8,10 @@
 #ifndef slic3r_FillAdaptive_hpp_
 #define slic3r_FillAdaptive_hpp_
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 // Adaptive cubic infill was inspired by the work of @mboerwinkle
 // as implemented for Cura.
 // https://github.com/Ultimaker/CuraEngine/issues/381

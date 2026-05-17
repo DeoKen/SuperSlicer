@@ -9,10 +9,19 @@
 #ifndef slic3r_GCodeViewer_hpp_
 #define slic3r_GCodeViewer_hpp_
 
-#include <cfloat>
+#include <array>
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <limits>
+#include <map>
+#include <optional>
 #include <set>
+#include <string>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/ExtrusionRole.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"

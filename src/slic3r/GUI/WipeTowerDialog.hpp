@@ -8,6 +8,9 @@
 #ifndef _WIPE_TOWER_DIALOG_H_
 #define _WIPE_TOWER_DIALOG_H_
 
+#include <string>
+#include <vector>
+
 #include <wx/checkbox.h>
 #include <wx/msgdlg.h>
 #include <wx/spinctrl.h>

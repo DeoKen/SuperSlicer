@@ -11,8 +11,8 @@
 #include <atomic>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
-class wxImage;
 
 namespace Slic3r {
 namespace GUI {

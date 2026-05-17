@@ -12,6 +12,8 @@
 #ifndef slic3r_GCodeWriter_hpp_
 #define slic3r_GCodeWriter_hpp_
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,8 +23,6 @@
 #include "libslic3r/Point.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
-#include "charconv"
-#include "CoolingBuffer.hpp"
 #include "GCodeFormatter.hpp"
 
 namespace Slic3r {

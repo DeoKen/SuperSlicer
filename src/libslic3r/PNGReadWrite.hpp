@@ -8,8 +8,9 @@
 #ifndef PNGREAD_HPP
 #define PNGREAD_HPP
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
-#include <istream>
 #include <string>
 #include <vector>
 

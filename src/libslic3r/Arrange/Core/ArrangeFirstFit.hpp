@@ -5,8 +5,14 @@
 #ifndef ARRANGEFIRSTFIT_HPP
 #define ARRANGEFIRSTFIT_HPP
 
+#include <algorithm>
+#include <cassert>
+#include <functional>
 #include <iterator>
 #include <map>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <libslic3r/Arrange/Core/ArrangeBase.hpp>
 

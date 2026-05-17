@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include <boost/bimap.hpp>

@@ -8,7 +8,11 @@
 #ifndef ARCHIVETRAITS_HPP
 #define ARCHIVETRAITS_HPP
 
+#include <functional>
+#include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Zipper.hpp"

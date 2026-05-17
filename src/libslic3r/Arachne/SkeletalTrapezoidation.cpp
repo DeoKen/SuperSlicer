@@ -7,7 +7,6 @@
 #include <functional>
 #include <sstream>
 #include <queue>
-#include <functional>
 #include <boost/log/trivial.hpp>
 
 #include "utils/linearAlg2D.hpp"

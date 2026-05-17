@@ -5,10 +5,10 @@
 #ifndef SLA_SUPPORTTREE_HPP
 #define SLA_SUPPORTTREE_HPP
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
-#include <memory>
 
-#include <libslic3r/Polygon.hpp>
 #include <libslic3r/ExPolygon.hpp>
 #include <libslic3r/AABBMesh.hpp>
 

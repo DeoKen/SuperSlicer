@@ -8,9 +8,13 @@
 #ifndef slic3r_AvoidCrossingPerimeters_hpp_
 #define slic3r_AvoidCrossingPerimeters_hpp_
 
+#include <cstddef>
+#include <map>
+#include <utility>
+#include <vector>
+
 #include "libslic3r/EdgeGrid.hpp"
 #include "libslic3r/ExPolygon.hpp"
-#include "libslic3r/libslic3r.h"
 
 namespace Slic3r {
 

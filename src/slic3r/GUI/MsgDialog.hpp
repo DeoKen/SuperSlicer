@@ -8,8 +8,9 @@
 #ifndef slic3r_MsgDialog_hpp_
 #define slic3r_MsgDialog_hpp_
 
+#include <cstddef>
+#include <functional>
 #include <string>
-#include <unordered_map>
 
 #include <wx/bitmap.h>
 #include <wx/dialog.h>

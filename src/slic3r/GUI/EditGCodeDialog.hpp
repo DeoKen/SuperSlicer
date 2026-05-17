@@ -10,7 +10,6 @@
 
 #include <wx/gdicmn.h>
 
-#include "libslic3r/Preset.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 #include "GUI_Utils.hpp"

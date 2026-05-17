@@ -15,16 +15,16 @@
 
 #include "HFP.hpp"
 
+#include <exception>
 #include <fstream>
-#include <iostream>
+#include <sstream>
 
-#include "libslic3r/Exception.hpp"
+#include <boost/log/trivial.hpp>
+
 #include "libslic3r/GCode.hpp"
 #include "libslic3r/libslic3r.h"
-#include "libslic3r/LocalesUtils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/Utils.hpp"
 
 namespace Slic3r {
 

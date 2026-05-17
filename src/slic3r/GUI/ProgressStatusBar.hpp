@@ -15,7 +15,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <string>
 
 #include "Jobs/ProgressIndicator.hpp"
 class wxTimer;

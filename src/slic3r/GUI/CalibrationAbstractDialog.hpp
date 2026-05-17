@@ -6,8 +6,7 @@
 #ifndef slic3r_GUI_CalibrationAbstractDialog_hpp_
 #define slic3r_GUI_CalibrationAbstractDialog_hpp_
 
-#include <map>
-#include <vector>
+#include <string>
 
 #include <wx/html/htmlwin.h>
 #include <wx/wx.h>

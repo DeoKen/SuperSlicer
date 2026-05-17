@@ -8,6 +8,13 @@
 #ifndef ROTOPTIMIZEJOB_HPP
 #define ROTOPTIMIZEJOB_HPP
 
+#include <exception>
+#include <functional>
+#include <iterator>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLA/Rotfinder.hpp"
 

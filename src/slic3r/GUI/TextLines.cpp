@@ -22,6 +22,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/Selection.hpp"
+#include "slic3r/Utils/EmbossStyleManager.hpp"
 using namespace Slic3r;
 using namespace Slic3r::Emboss;
 using namespace Slic3r::GUI;

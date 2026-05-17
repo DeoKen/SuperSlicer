@@ -11,7 +11,6 @@
 
 #include <vector>
 
-#include "Exception.hpp"
 #include "libslic3r.h"
 #include "NumericUtils.hpp"
 #include "Point.hpp"

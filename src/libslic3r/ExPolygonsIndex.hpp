@@ -5,9 +5,13 @@
 #ifndef slic3r_ExPolygonsIndex_hpp_
 #define slic3r_ExPolygonsIndex_hpp_
 
-#include "ExPolygon.hpp"
+#include <cstdint>
+#include <vector>
 
 namespace Slic3r {
+
+class ExPolygon;
+using ExPolygons = std::vector<ExPolygon>;
 
 /// <summary>
 /// Index into ExPolygons

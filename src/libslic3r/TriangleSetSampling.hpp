@@ -7,6 +7,9 @@
 #ifndef SRC_LIBSLIC3R_TRIANGLESETSAMPLING_HPP_
 #define SRC_LIBSLIC3R_TRIANGLESETSAMPLING_HPP_
 
+#include <cstddef>
+#include <vector>
+
 #include <admesh/stl.h>
 
 #include "libslic3r/Point.hpp"

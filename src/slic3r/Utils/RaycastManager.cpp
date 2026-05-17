@@ -9,6 +9,7 @@
 
 #include <utility>
 
+#include "libslic3r/Model.hpp"
 #include "libslic3r/PointUtils.hpp"
 
 #include "slic3r/GUI/Camera.hpp"

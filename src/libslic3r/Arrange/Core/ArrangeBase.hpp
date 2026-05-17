@@ -5,8 +5,10 @@
 #ifndef ARRANGEBASE_HPP
 #define ARRANGEBASE_HPP
 
+#include <algorithm>
 #include <iterator>
 #include <type_traits>
+#include <vector>
 
 #include "ArrangeItemTraits.hpp"
 #include "PackingContext.hpp"

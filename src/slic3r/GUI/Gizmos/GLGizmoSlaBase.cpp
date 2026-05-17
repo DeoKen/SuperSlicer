@@ -8,6 +8,7 @@
 #include "GLGizmoSlaBase.hpp"
 
 #include "libslic3r/libslic3r.h"
+#include "libslic3r/SLAPrint.hpp"
 
 #include "slic3r/GUI/Camera.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"

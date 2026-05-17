@@ -6,6 +6,8 @@
 ///|/
 #include "NormalUtils.hpp"
 
+#include <cmath>
+
 using namespace Slic3r;
 
 Vec3f NormalUtils::create_triangle_normal(

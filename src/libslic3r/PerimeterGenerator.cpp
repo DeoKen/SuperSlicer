@@ -50,6 +50,7 @@
 #include "Geometry/ConvexHull.hpp"
 #include "Geometry/MedialAxis.hpp"
 #include "KDTreeIndirect.hpp"
+#include "Layer.hpp"
 #include "libslic3r.h"
 #include "Line.hpp"
 #include "Milling/MillingPostProcess.hpp"

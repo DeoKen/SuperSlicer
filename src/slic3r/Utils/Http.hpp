@@ -10,7 +10,9 @@
 #ifndef slic3r_Http_hpp_
 #define slic3r_Http_hpp_
 
+#include <cstddef>
 #include <functional>
+#include <iosfwd>
 #include <memory>
 #include <string>
 

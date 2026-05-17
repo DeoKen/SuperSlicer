@@ -8,16 +8,22 @@
 #ifndef slic3r_SceneRaycaster_hpp_
 #define slic3r_SceneRaycaster_hpp_
 
+#include <memory>
 #include <optional>
-#include <string>
 #include <vector>
 
+#include "libslic3r/Point.hpp"
+
+#if ENABLE_RAYCAST_PICKING_DEBUG
 #include "GLModel.hpp"
-#include "MeshUtils.hpp"
+#endif
+
 namespace Slic3r {
 namespace GUI {
 
 struct Camera;
+class ClippingPlane;
+class MeshRaycaster;
 
 class SceneRaycasterItem
 {

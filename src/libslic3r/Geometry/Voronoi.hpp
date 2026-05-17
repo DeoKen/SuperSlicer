@@ -8,8 +8,11 @@
 #ifndef slic3r_Geometry_Voronoi_hpp_
 #define slic3r_Geometry_Voronoi_hpp_
 
+#include <cstddef>
+#include <iterator>
+#include <vector>
+
 #include "libslic3r/Line.hpp"
-#include "libslic3r/Polyline.hpp"
 
 #ifdef _MSC_VER
 // Suppress warning C4146 in OpenVDB: unary minus operator applied to unsigned type, result still unsigned

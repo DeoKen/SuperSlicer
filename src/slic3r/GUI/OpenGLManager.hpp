@@ -8,6 +8,10 @@
 #ifndef slic3r_OpenGLManager_hpp_
 #define slic3r_OpenGLManager_hpp_
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "libslic3r/Semver.hpp"
 
 #include "GLShadersManager.hpp"

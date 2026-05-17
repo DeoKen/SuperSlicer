@@ -6,28 +6,10 @@
 #ifndef SLIC3R_FORMAT_HFP_HPP_
 #define SLIC3R_FORMAT_HFP_HPP_
 
-#include <functional>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/log/trivial.hpp>
-
 #include "nlohmann/json.hpp"
-
-#include "libslic3r/Exception.hpp"
-#include "libslic3r/GCode.hpp"
-#include "libslic3r/GCode/ThumbnailData.hpp"
-#include "libslic3r/Geometry.hpp"
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/LocalesUtils.hpp"
-#include "libslic3r/Model.hpp"
-#include "libslic3r/PrintConfig.hpp"
-#include "libslic3r/Utils.hpp"
-
-#include "any"
 
 namespace Slic3r {
 

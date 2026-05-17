@@ -8,14 +8,19 @@
 #ifndef slic3r_Downloader_hpp_
 #define slic3r_Downloader_hpp_
 
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <boost/filesystem/path.hpp>
 
-#include <wx/wx.h>
+#include <wx/event.h>
 
-#include "DownloaderFileGet.hpp"
 namespace Slic3r {
 namespace GUI {
 
+class FileGet;
 class NotificationManager;
 
 enum DownloadState

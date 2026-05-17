@@ -8,17 +8,19 @@
 #ifndef slic3r_GUI_ObjectDataViewModel_hpp_
 #define slic3r_GUI_ObjectDataViewModel_hpp_
 
+#include <cassert>
 #include <map>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <wx/dataview.h>
-
-#include "libslic3r/ConfigOption.hpp"
 
 #include "ExtraRenderers.hpp"
 namespace Slic3r {
 
 enum class ModelVolumeType : int;
+enum class OptionCategory : int;
 
 namespace GUI {
 

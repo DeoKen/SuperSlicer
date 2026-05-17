@@ -8,6 +8,11 @@
 #ifndef SLAARCHIVEREADER_HPP
 #define SLAARCHIVEREADER_HPP
 
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/PrintConfig.hpp"
 

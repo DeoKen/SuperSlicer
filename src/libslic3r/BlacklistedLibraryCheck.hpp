@@ -8,7 +8,6 @@
 #define slic3r_BlacklistedLibraryCheck_hpp_
 
 #ifdef  WIN32
-#include <windows.h>
 #include <vector>
 #include <string>
 #endif //WIN32

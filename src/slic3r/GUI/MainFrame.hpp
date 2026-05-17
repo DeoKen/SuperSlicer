@@ -15,17 +15,17 @@
 #define slic3r_MainFrame_hpp_
 
 #include <wx/filehistory.h>
-#include <wx/frame.h>
-#include <wx/settings.h>
 #include <wx/string.h>
 
-#include "libslic3r/PrintConfig.hpp"
 #ifdef __APPLE__
 #include <wx/taskbar.h>
 #endif // __APPLE__
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <string>
-#include <map>
+#include <vector>
 
 #include "GUI_Utils.hpp"
 #include "Event.hpp"
@@ -36,6 +36,8 @@ class wxProgressDialog;
 
 namespace Slic3r {
 
+class DynamicConfig;
+class DynamicPrintConfig;
 class ProgressStatusBar;
 
 namespace GUI

@@ -8,16 +8,24 @@
 #define SRC_LIBSLIC3R_SUPPORTABLEISSUESSEARCH_HPP_
 
 #include <cstddef>
+#include <optional>
+#include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include <boost/log/trivial.hpp>
 
-#include "Layer.hpp"
+#include "DataTreeFwd.hpp"
+#include "ExPolygon.hpp"
 #include "Line.hpp"
-#include "PrintBase.hpp"
 #include "PrintConfig.hpp"
 
 namespace Slic3r {
+
+class ExtrusionEntity;
+class ExtrusionEntityCollection;
+class PrintTryCancel;
 
 namespace SupportSpotsGenerator {
 

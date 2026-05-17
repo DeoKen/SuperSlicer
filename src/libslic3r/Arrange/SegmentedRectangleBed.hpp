@@ -5,7 +5,11 @@
 #ifndef SEGMENTEDRECTANGLEBED_HPP
 #define SEGMENTEDRECTANGLEBED_HPP
 
+#include <cstddef>
+#include <type_traits>
+
 #include "libslic3r/Arrange/Core/Beds.hpp"
+#include "libslic3r/TypeTraits.hpp"
 
 namespace Slic3r { namespace arr2 {
 

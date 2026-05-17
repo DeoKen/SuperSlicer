@@ -6,10 +6,10 @@
 #ifndef slic3r_GUI_Label_hpp_
 #define slic3r_GUI_Label_hpp_
 
-#include <wx/dcclient.h>
 #include <wx/stattext.h>
 #define LB_HYPERLINK 0x0001
 
+class wxDC;
 
 class Label : public wxStaticText
 {

@@ -10,8 +10,11 @@
 // Based on implementation by @platsch
 
 
+#include <cstddef>
+#include <utility>
+#include <vector>
+
 #include "Slicing.hpp"
-#include <admesh/stl.h>
 
 namespace Slic3r
 {

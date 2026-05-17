@@ -11,12 +11,10 @@
 #include <memory>
 #include <string>
 
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <wx/event.h>
-#include <wx/frame.h>
 
-#include "slic3r/Utils/Http.hpp"
 namespace Slic3r {
 namespace GUI {
 class FileGet : public std::enable_shared_from_this<FileGet> {

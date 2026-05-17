@@ -10,6 +10,7 @@
 #include <boost/nowide/convert.hpp>
 
 #ifdef  WIN32
+#include <windows.h>
 #include <psapi.h>
 # endif //WIN32
 

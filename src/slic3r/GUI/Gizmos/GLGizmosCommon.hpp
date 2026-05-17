@@ -8,8 +8,12 @@
 #ifndef slic3r_GUI_GLGizmosCommon_hpp_
 #define slic3r_GUI_GLGizmosCommon_hpp_
 
+#include <cassert>
+#include <cstddef>
 #include <map>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "slic3r/GUI/MeshUtils.hpp"
 namespace Slic3r {

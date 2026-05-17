@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "istream"
+#include <istream>
 
 namespace ObjParser {
 

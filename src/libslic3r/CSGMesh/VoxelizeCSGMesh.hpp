@@ -11,6 +11,7 @@
 #include "CSGMesh.hpp"
 #include "libslic3r/OpenVDBUtils.hpp"
 #include "libslic3r/Execution/ExecutionTBB.hpp"
+#include "libslic3r/TriangleMesh.hpp"
 
 namespace Slic3r { namespace csg {
 

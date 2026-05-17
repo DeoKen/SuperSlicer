@@ -8,7 +8,8 @@
 #define slic3r_GCodeReader_hpp_
 
 #include <cmath>
-#include <cstdlib>
+#include <cstdint>
+#include <cstring>
 #include <functional>
 #include <string>
 #include <string_view>

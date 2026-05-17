@@ -8,8 +8,9 @@
 #ifndef slic3r_VoronoiUtilsCgal_hpp_
 #define slic3r_VoronoiUtilsCgal_hpp_
 
+#include <iterator>
+
 #include "Voronoi.hpp"
-#include "libslic3r/Arachne/utils/PolygonsSegmentIndex.hpp"
 
 namespace Slic3r::Geometry {
 class VoronoiDiagram;

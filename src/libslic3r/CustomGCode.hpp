@@ -7,11 +7,13 @@
 #ifndef slic3r_CustomGCode_hpp_
 #define slic3r_CustomGCode_hpp_
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "libslic3r.h"
+#include "Api/plugin/c/slic3r_def.h"
 
 namespace Slic3r {
 

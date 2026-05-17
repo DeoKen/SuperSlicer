@@ -5,6 +5,9 @@
 #ifndef RECTANGLEOVERFITPACKINGSTRATEGY_HPP
 #define RECTANGLEOVERFITPACKINGSTRATEGY_HPP
 
+#include <functional>
+#include <utility>
+
 #include "Kernels/RectangleOverfitKernelWrapper.hpp"
 
 #include "libslic3r/Arrange/Core/NFP/PackStrategyNFP.hpp"

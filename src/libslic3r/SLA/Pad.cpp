@@ -10,6 +10,7 @@
 #include <libslic3r/ClipperUtils.hpp>
 #include <libslic3r/MTUtils.hpp>
 #include <libslic3r/Tesselate.hpp>
+#include <libslic3r/TriangleMesh.hpp>
 #include <libslic3r/TriangleMeshSlicer.hpp>
 #include <libslic3r/TriangulateWall.hpp>
 

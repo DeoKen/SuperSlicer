@@ -9,7 +9,6 @@
 #define slic3r_FillGyroid_hpp_
 
 #include "libslic3r/Geometry.hpp"
-#include "libslic3r/libslic3r.h"
 
 #include "FillBase.hpp"
 

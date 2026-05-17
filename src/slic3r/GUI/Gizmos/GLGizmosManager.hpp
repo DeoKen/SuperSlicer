@@ -8,7 +8,12 @@
 #ifndef slic3r_GUI_GLGizmosManager_hpp_
 #define slic3r_GUI_GLGizmosManager_hpp_
 
-#include <map>
+#include <cmath>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/ObjectID.hpp"
 

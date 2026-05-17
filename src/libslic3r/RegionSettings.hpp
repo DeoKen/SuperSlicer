@@ -5,12 +5,15 @@
 #ifndef slic3r_RegionSettings_hpp_
 #define slic3r_RegionSettings_hpp_
 
+#include <cassert>
+#include <cstdint>
+#include <map>
+#include <utility>
 #include <vector>
 
 #include "BoundingBox.hpp"
+#include "DataTreeFwd.hpp"
 #include "ExPolygon.hpp"
-#include "ExtrusionEntityCollection.hpp"
-#include "Layer.hpp"
 #include "libslic3r.h"
 #include "PrintConfig.hpp"
 

@@ -5,7 +5,10 @@
 #ifndef SLA_HOLLOWING_HPP
 #define SLA_HOLLOWING_HPP
 
+#include <algorithm>
+#include <functional>
 #include <memory>
+#include <vector>
 
 #include <libslic3r/ContainerUtils.hpp>
 #include <libslic3r/CSGMesh/VoxelizeCSGMesh.hpp>

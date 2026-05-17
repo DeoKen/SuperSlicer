@@ -7,7 +7,12 @@
 #ifndef OPENVDBUTILS_HPP
 #define OPENVDBUTILS_HPP
 
-#include <libslic3r/TriangleMesh.hpp>
+#include <functional>
+#include <memory>
+
+#include <libslic3r/Point.hpp>
+
+struct indexed_triangle_set;
 
 namespace Slic3r {
 

@@ -6,13 +6,21 @@
 #ifndef slic3r_GCode_TemperatureMover_hpp_
 #define slic3r_GCode_TemperatureMover_hpp_
 
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <iterator>
+#include <list>
 #include <regex>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <vector>
 
-#include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionRole.hpp"
 #include "libslic3r/GCode/GCodeWriter.hpp"
 #include "libslic3r/GCodeReader.hpp"
-#include "libslic3r/libslic3r.h"
-#include "libslic3r/Point.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {

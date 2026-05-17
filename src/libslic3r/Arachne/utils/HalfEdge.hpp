@@ -4,9 +4,6 @@
 #ifndef UTILS_HALF_EDGE_H
 #define UTILS_HALF_EDGE_H
 
-#include <forward_list>
-#include <optional>
-
 namespace Slic3r::Arachne
 {
 

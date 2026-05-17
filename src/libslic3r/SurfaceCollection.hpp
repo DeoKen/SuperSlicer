@@ -8,11 +8,11 @@
 #ifndef slic3r_SurfaceCollection_hpp_
 #define slic3r_SurfaceCollection_hpp_
 
+#include <cstddef>
+#include <initializer_list>
+#include <utility>
 #include <vector>
 
-#include <initializer_list>
-
-#include "libslic3r.h"
 #include "Surface.hpp"
 
 namespace Slic3r {

@@ -8,6 +8,7 @@
 #ifndef slic3r_GUI_Snapshot_
 #define slic3r_GUI_Snapshot_
 
+#include <ctime>
 #include <map>
 #include <set>
 #include <string>

@@ -12,13 +12,15 @@
 #ifndef slic3r_Flow_hpp_
 #define slic3r_Flow_hpp_
 
-#include "ConfigDef.hpp"
 #include "Exception.hpp"
 #include "ExtrusionRole.hpp"
 #include "libslic3r.h"
 
 namespace Slic3r {
 
+class ConfigOptionFloatOrPercent;
+class ConfigOptionResolver;
+class DynamicConfig;
 class PrintObject;
 
 enum FlowRole {

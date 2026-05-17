@@ -8,6 +8,9 @@
 #ifndef slic3r_GalleryDialog_hpp_
 #define slic3r_GalleryDialog_hpp_
 
+#include <string>
+#include <vector>
+
 #include "GUI_Utils.hpp"
 class wxListCtrl;
 class wxImageList;

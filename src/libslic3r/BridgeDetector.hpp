@@ -9,7 +9,6 @@
 #define slic3r_BridgeDetector_hpp_
 
 #include <cmath>
-#include <string>
 #include <unordered_map>
 #include <vector>
 

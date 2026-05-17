@@ -7,8 +7,15 @@
 #ifndef MESHSPLITIMPL_HPP
 #define MESHSPLITIMPL_HPP
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <iterator>
+#include <limits>
+#include <utility>
+#include <vector>
+
 #include "Execution/ExecutionTBB.hpp"
-#include <libnest2d/tools/benchmark.h>
 #include "TriangleMesh.hpp"
 
 namespace Slic3r {

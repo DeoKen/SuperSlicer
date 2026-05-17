@@ -12,11 +12,7 @@
 #include <optional>
 #include <string>
 
-#include <boost/asio/ip/address.hpp>
-
 #include <wx/string.h>
-
-#include "libslic3r/PrintConfig.hpp"
 
 #include "PrintHost.hpp"
 namespace Slic3r {

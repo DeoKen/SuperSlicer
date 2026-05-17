@@ -29,10 +29,8 @@
 #include "Exception.hpp"
 #include "format.hpp"
 #include "I18N.hpp"
-#include "libslic3r.h"
 #include "LocalesUtils.hpp"
 #include "Thread.hpp"
-#include "Utils.hpp"
 
 #ifdef WIN32
 //FIXME replace the two following includes with <boost/md5.hpp> after it becomes mainstream.

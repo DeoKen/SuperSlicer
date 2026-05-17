@@ -8,6 +8,9 @@
 #ifndef slic3r_GLModel_hpp_
 #define slic3r_GLModel_hpp_
 
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -8,33 +8,32 @@
 #ifndef slic3r_GCode_WipeTower2_hpp_
 #define slic3r_GCode_WipeTower2_hpp_
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
+#include <cstdint>
+#include <map>
+#include <memory>
 #include <set>
-#include <sstream>
-#include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
-#include "libslic3r/ConfigDef.hpp"
-#include "libslic3r/ExtrusionEntityCollection.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Polyline.hpp"
-#include "libslic3r/Print.hpp"
 
 #include <tcbspan/span.hpp>
 
 namespace Slic3r
 {
 
+class ConfigBase;
+class ExtrusionEntityCollection;
 class PrintConfig;
 class PrintObjectConfig;
 class PrintRegionConfig;
 class FullPrintConfig;
 class Print;
 enum GCodeFlavor : unsigned char;
+class ToolOrdering;
 
 class Layer;
 class PrintObject;

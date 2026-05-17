@@ -33,8 +33,11 @@
 //	       - Single preset item: name, file is default or external.
 
 #include <atomic>
+#include <cassert>
+#include <functional>
 #include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <wx/bmpbuttn.h>

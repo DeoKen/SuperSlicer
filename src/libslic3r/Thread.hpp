@@ -7,6 +7,10 @@
 #ifndef GUI_THREAD_HPP
 #define GUI_THREAD_HPP
 
+#include <cstddef>
+#include <cstdlib>
+#include <functional>
+#include <optional>
 #include <random>
 #include <string>
 #include <thread>
@@ -14,7 +18,6 @@
 
 #include <boost/thread.hpp>
 
-#include <oneapi/tbb/enumerable_thread_specific.h>
 #include <oneapi/tbb/parallel_for.h>
 #include <oneapi/tbb/task_scheduler_observer.h>
 

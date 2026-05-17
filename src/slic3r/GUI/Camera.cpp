@@ -10,6 +10,7 @@
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/libslic3r.h"
 
+#include "3DScene.hpp"
 #include "GUI_App.hpp"
 #if ENABLE_CAMERA_STATISTICS
 #include "Mouse3DController.hpp"

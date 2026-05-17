@@ -8,12 +8,15 @@
 #ifndef slic3r_GUI_RemovableDriveManager_hpp_
 #define slic3r_GUI_RemovableDriveManager_hpp_
 
-#include <vector>
-#include <string>
+#include <atomic>
+#include <cassert>
+#include <condition_variable>
 #include <mutex>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <boost/thread.hpp>
-#include <condition_variable>
 
 // Custom wxWidget events
 #include "Event.hpp"

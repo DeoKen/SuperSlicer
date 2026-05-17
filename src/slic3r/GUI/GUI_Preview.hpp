@@ -8,12 +8,13 @@
 #ifndef slic3r_GUI_Preview_hpp_
 #define slic3r_GUI_Preview_hpp_
 
+#include <functional>
 #include <string>
+#include <vector>
 
 #include <wx/panel.h>
 
 #include "libslic3r/CustomGCode.hpp"
-#include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/Point.hpp"
 
 #include "GCodeViewer.hpp"
@@ -27,6 +28,7 @@ class wxCheckBox;
 namespace Slic3r {
 
 class DynamicPrintConfig;
+struct GCodeProcessorResult;
 class Print;
 class BackgroundSlicingProcess;
 class Model;

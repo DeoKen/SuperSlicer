@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <wx/busyinfo.h>
 #include <wx/gbsizer.h>

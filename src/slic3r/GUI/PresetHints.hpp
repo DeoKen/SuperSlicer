@@ -10,8 +10,10 @@
 
 #include <string>
 
-#include "libslic3r/PresetBundle.hpp"
 namespace Slic3r {
+
+class Preset;
+class PresetBundle;
 
 // GUI utility functions to produce hint messages from the current profile.
 class PresetHints

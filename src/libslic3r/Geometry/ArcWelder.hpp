@@ -5,7 +5,10 @@
 #ifndef slic3r_Geometry_ArcWelder_hpp_
 #define slic3r_Geometry_ArcWelder_hpp_
 
+#include <cassert>
+#include <cmath>
 #include <optional>
+#include <type_traits>
 
 #include "libslic3r/Point.hpp"
 

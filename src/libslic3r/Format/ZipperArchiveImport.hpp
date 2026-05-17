@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/property_tree/ptree.hpp>

@@ -5,12 +5,17 @@
 #ifndef SUPPORTTREEBRANCHING_HPP
 #define SUPPORTTREEBRANCHING_HPP
 
-// For indexed_triangle_set
-#include <admesh/stl.h>
+#include <optional>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/ExPolygon.hpp"
 
-namespace Slic3r { namespace branchingtree {
+struct indexed_triangle_set;
+
+namespace Slic3r {
+
+namespace branchingtree {
 
 // Branching tree input parameters. This is an in-line fillable structure with
 // setters returning self references.

@@ -5,6 +5,7 @@
 
 #include "Label.hpp"
 
+#include <wx/dcclient.h>
 #include <wx/settings.h>
 
 #include "StaticBox.hpp"

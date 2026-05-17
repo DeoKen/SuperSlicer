@@ -8,13 +8,22 @@
 #ifndef slic3r_RaycastManager_hpp_
 #define slic3r_RaycastManager_hpp_
 
+#include <algorithm>
 #include <memory> // unique_ptr
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include "libslic3r/AABBMesh.hpp" // Structure to cast rays
-#include "libslic3r/Model.hpp" // ModelObjectPtrs, ModelObject, ModelInstance, ModelVolume
-#include "libslic3r/ObjectID.hpp"
 #include "libslic3r/Point.hpp" // Transform3d
+
+namespace Slic3r {
+class ModelInstance;
+class ModelObject;
+class ModelVolume;
+class ObjectID;
+}
+
 namespace Slic3r::GUI{
 
 /// <summary>
@@ -180,7 +189,7 @@ std::optional<RaycastManager::Hit> ray_from_camera(const RaycastManager        &
 /// <param name="volumes">List of allowed volumes included one which is dissalowed and non parts</param>
 /// <param name="disallowed_volume_id">Disallowed volume</param>
 /// <returns>Condition</returns>
-RaycastManager::AllowVolumes create_condition(const ModelVolumePtrs &volumes, const ObjectID &disallowed_volume_id);
+RaycastManager::AllowVolumes create_condition(const std::vector<ModelVolume*> &volumes, const ObjectID &disallowed_volume_id);
 
 } // namespace Slic3r::GUI
 

@@ -9,7 +9,12 @@
 #define UITHREADWORKER_HPP
 
 #include <deque>
+#include <exception>
+#include <functional>
+#include <future>
+#include <memory>
 #include <queue>
+#include <string>
 
 #include "ProgressIndicator.hpp"
 #include "Worker.hpp"

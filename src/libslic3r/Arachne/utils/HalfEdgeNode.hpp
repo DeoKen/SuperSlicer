@@ -4,8 +4,6 @@
 #ifndef UTILS_HALF_EDGE_NODE_H
 #define UTILS_HALF_EDGE_NODE_H
 
-#include <list>
-
 #include "libslic3r/Point.hpp"
 
 namespace Slic3r::Arachne

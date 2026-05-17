@@ -12,14 +12,16 @@
 #ifndef slic3r_GFormatter_hpp_
 #define slic3r_GFormatter_hpp_
 
+#include <array>
+#include <cassert>
+#include <charconv>
+#include <cmath>
+#include <cstring>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Point.hpp"
-
-#include "charconv"
 
 namespace Slic3r {
 

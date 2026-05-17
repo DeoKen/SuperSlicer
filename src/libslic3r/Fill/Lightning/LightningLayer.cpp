@@ -10,6 +10,7 @@
 #include "TreeNode.hpp"
 
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/EdgeGrid.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "Utils.hpp"
 

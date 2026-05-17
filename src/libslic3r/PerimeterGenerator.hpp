@@ -14,7 +14,6 @@
 #include "ClipperUtils.hpp"
 #include "ExtrusionEntityCollection.hpp"
 #include "Flow.hpp"
-#include "Layer.hpp"
 #include "libslic3r.h"
 #include "Polygon.hpp"
 #include "PrintConfig.hpp"
@@ -25,6 +24,9 @@
 
 namespace Slic3r::Arachne {
 struct ExtrusionLine;
+}
+namespace Slic3r {
+class Layer;
 }
 namespace Slic3r::PerimeterGenerator {
 

@@ -5,6 +5,13 @@
 #ifndef AGGRASTER_HPP
 #define AGGRASTER_HPP
 
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include <libslic3r/SLA/RasterBase.hpp>
 #include "libslic3r/ExPolygon.hpp"
 

@@ -8,6 +8,8 @@
 #include "GLGizmoBase.hpp"
 
 #include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/MeshUtils.hpp"
+#include "slic3r/GUI/SceneRaycaster.hpp"
 
 #include <GL/glew.h>
 

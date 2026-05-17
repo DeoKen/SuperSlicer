@@ -8,11 +8,17 @@
 #ifndef slic3r_GCodeThumbnails_hpp_
 #define slic3r_GCodeThumbnails_hpp_
 
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <iomanip>
 #include <memory>
+#include <sstream>
 #include <string_view>
 #include <vector>
 
 #include <boost/beast/core/detail/base64.hpp>
+#include <boost/format.hpp>
 
 #include "libslic3r/enum_bitmask.hpp"
 #include "libslic3r/Point.hpp"

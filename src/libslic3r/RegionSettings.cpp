@@ -4,6 +4,7 @@
 ///|/
 #include "RegionSettings.hpp"
 
+#include "LayerRegion.hpp"
 #include "Print.hpp"
 #include "PrintRegion.hpp"
 

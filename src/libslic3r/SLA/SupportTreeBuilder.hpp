@@ -5,10 +5,14 @@
 #ifndef SLA_SUPPORTTREEBUILDER_HPP
 #define SLA_SUPPORTTREEBUILDER_HPP
 
-#include <libslic3r/Execution/ExecutionTBB.hpp>
+#include <cassert>
+#include <limits>
+#include <mutex>
+#include <utility>
+#include <vector>
+
 #include <libslic3r/SLA/SupportTree.hpp>
 #include <libslic3r/TriangleMesh.hpp>
-#include <libslic3r/SLA/Pad.hpp>
 #include <libslic3r/MTUtils.hpp>
 
 namespace Slic3r {

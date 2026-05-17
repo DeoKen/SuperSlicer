@@ -9,16 +9,21 @@
 #ifndef slic3r_GLCanvas3D_hpp_
 #define slic3r_GLCanvas3D_hpp_
 
+#include <array>
 #include <cfloat>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <wx/timer.h>
 
 #include "libslic3r/Arrange/ArrangeSettingsDb_AppCfg.hpp"
-#include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/Slicing.hpp"
 
 #include "ArrangeSettingsDialogImgui.hpp"
@@ -57,6 +62,7 @@ class ModelInstance;
 class PrintObject;
 class Print;
 class SLAPrint;
+struct GCodeProcessorResult;
 namespace CustomGCode { struct Item; }
 
 namespace GUI {

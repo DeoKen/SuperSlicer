@@ -8,6 +8,13 @@
 #ifndef slic3r_GLGizmoSlaSupports_hpp_
 #define slic3r_GLGizmoSlaSupports_hpp_
 
+#include <functional>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <cereal/types/vector.hpp>
 
 #include <wx/dialog.h>

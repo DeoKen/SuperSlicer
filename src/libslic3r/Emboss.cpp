@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <numeric>
 
+#include <admesh/stl.h> // indexed_triangle_set
+
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/convert.hpp>
 

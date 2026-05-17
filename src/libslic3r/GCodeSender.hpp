@@ -8,15 +8,17 @@
 #ifndef slic3r_GCodeSender_hpp_
 #define slic3r_GCodeSender_hpp_
 
+#include <cstddef>
+#include <deque>
+#include <list>
 #include <queue>
 #include <string>
 #include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
+#include <boost/core/noncopyable.hpp>
 #include <boost/thread.hpp>
-
-#include "libslic3r.h"
 
 namespace Slic3r {
 

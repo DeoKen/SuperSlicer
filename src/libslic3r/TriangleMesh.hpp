@@ -15,15 +15,19 @@
 #define slic3r_TriangleMesh_hpp_
 
 #include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <utility>
 #include <vector>
 
 #include <admesh/stl.h>
 
 #include "BoundingBox.hpp"
+#include "ContainerUtils.hpp"
 #include "ExPolygon.hpp"
 #include "libslic3r.h"
-#include "Line.hpp"
 #include "Point.hpp"
 #include "Polygon.hpp"
 

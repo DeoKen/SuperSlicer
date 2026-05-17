@@ -16,7 +16,6 @@
 #include <cfloat>
 #include <cstdint>
 #include <memory>
-#include <stdexcept>
 #include <type_traits>
 
 #include <boost/log/trivial.hpp>

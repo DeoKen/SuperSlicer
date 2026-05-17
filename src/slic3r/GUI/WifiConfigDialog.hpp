@@ -6,16 +6,19 @@
 #ifndef slic3r_WifiConfigDialog_hpp_
 #define slic3r_WifiConfigDialog_hpp_
 
-#include <wx/combobox.h>
+#include <string>
+
 #include <wx/dialog.h>
 #include <wx/event.h>
-#include <wx/textctrl.h>
+#include <wx/string.h>
 
 #include "GUI_Utils.hpp"
-#include "slic3r/Utils/WifiScanner.hpp"
-#include "Widgets/ComboBox.hpp"
-#include "Widgets/TextInput.hpp"
+class ComboBox;
+class TextInput;
+
 namespace Slic3r {
+class WifiScanner;
+
 namespace GUI {
 
 class RemovableDriveManager;

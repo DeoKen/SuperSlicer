@@ -7,6 +7,13 @@
 #ifndef LIGHTNING_DISTANCE_FIELD_H
 #define LIGHTNING_DISTANCE_FIELD_H
 
+#include <cassert>
+#include <cstddef>
+#include <functional>
+#include <limits>
+#include <string>
+#include <vector>
+
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Polygon.hpp"

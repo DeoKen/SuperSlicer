@@ -8,13 +8,15 @@
 #define slic3r_BuildVolume_hpp_
 
 #include <string_view>
-
-#include <admesh/stl.h>
+#include <utility>
+#include <vector>
 
 #include "BoundingBox.hpp"
 #include "Geometry/Circle.hpp"
 #include "Point.hpp"
 #include "Polygon.hpp"
+
+struct indexed_triangle_set;
 
 namespace Slic3r {
 

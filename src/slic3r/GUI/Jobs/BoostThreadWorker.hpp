@@ -8,11 +8,20 @@
 #ifndef BOOSTTHREADWORKER_HPP
 #define BOOSTTHREADWORKER_HPP
 
+#include <atomic>
+#include <exception>
+#include <functional>
+#include <future>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include <boost/log/trivial.hpp>
 #include <boost/variant.hpp>
 
 #include "libslic3r/Thread.hpp"
 
+#include "ProgressIndicator.hpp"
 #include "ThreadSafeQueue.hpp"
 #include "Worker.hpp"
 namespace Slic3r { namespace GUI {
