@@ -18,8 +18,8 @@
 
 #include "DataTreeFwd.hpp"
 #include "ExPolygon.hpp"
+#include "FFFPrintConfig.hpp"
 #include "Line.hpp"
-#include "PrintConfig.hpp"
 
 namespace Slic3r {
 

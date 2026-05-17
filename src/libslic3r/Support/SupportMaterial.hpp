@@ -10,7 +10,7 @@
 #define slic3r_SupportMaterial_hpp_
 
 #include "libslic3r/Flow.hpp"
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/Slicing.hpp"
 
 #include "SupportLayer.hpp"

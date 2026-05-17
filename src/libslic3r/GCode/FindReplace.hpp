@@ -10,7 +10,7 @@
 
 #include <boost/regex.hpp>
 
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 
 namespace Slic3r {
 

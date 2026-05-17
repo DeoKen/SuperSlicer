@@ -50,6 +50,7 @@
 #include <wx/sizer.h>
 #include <wx/treectrl.h>
 
+#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/Preset.hpp"
 
 #include "BedShapeDialog.hpp"

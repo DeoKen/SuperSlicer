@@ -26,10 +26,11 @@
 #include <LibBGCode/core/core.hpp>
 
 #include <algorithm>
+#include "FFFPrintConfig.hpp"
 #include "format.hpp"
 #include "libslic3r.h"
 #include "Model.hpp"
-#include "PrintConfig.hpp"
+#include "SLA/SLAPrintConfig.hpp"
 #include "Utils.hpp"
 
 // Store the print/filament/printer presets into a "presets" subdirectory of the Slic3r config dir.

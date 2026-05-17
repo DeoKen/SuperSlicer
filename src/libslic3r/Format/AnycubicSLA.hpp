@@ -11,7 +11,7 @@
 
 #include <string>
 
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/SLA/SLAPrintConfig.hpp"
 
 #include "SLAArchiveFormatRegistry.hpp"
 #include "SLAArchiveWriter.hpp"

@@ -18,7 +18,7 @@
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Geometry/ArcWelder.hpp"
 #include "libslic3r/Point.hpp"
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 
 #include "GCodeWriter.hpp"
 

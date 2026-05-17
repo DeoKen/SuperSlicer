@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/SLA/SLAPrintConfig.hpp"
 #include "libslic3r/Zipper.hpp"
 
 #include "SLAArchiveReader.hpp"

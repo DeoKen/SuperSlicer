@@ -23,6 +23,7 @@
 #include "Point.hpp"
 #include "PrintBase.hpp"
 #include "SLA/Hollowing.hpp"
+#include "SLA/SLAPrintConfig.hpp"
 #include "SLA/SupportTree.hpp"
 
 namespace Slic3r {

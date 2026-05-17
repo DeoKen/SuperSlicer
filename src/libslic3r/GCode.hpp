@@ -34,7 +34,7 @@
 #include "PlaceholderParser.hpp"
 #include "Point.hpp"
 #include "Print.hpp"
-#include "PrintConfig.hpp"
+#include "FFFPrintConfig.hpp"
 
 // #include "GCode/SmoothPath.hpp"
 #include "GCode/SpiralVase.hpp"

@@ -18,7 +18,7 @@
 #include "libslic3r/ExtrusionRole.hpp"
 #include "libslic3r/GCode/GCodeWriter.hpp"
 #include "libslic3r/GCodeReader.hpp"
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 
 namespace Slic3r {
 

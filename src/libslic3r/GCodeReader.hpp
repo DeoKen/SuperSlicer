@@ -15,7 +15,7 @@
 #include <string_view>
 
 #include "libslic3r.h"
-#include "PrintConfig.hpp"
+#include "FFFPrintConfig.hpp"
 
 namespace Slic3r {
 

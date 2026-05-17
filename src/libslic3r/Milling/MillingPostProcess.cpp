@@ -7,8 +7,8 @@
 
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/Layer.hpp"
-#include "libslic3r/PrintConfig.hpp"
 
 namespace Slic3r {
 

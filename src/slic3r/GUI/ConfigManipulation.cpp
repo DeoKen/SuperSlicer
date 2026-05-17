@@ -13,7 +13,7 @@
 
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/SLA/SupportTreeStrategies.hpp"
 
 #include "format.hpp"

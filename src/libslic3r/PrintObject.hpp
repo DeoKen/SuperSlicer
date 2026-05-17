@@ -39,7 +39,7 @@
 #include "Point.hpp"
 #include "Polygon.hpp"
 #include "PrintBase.hpp"
-#include "PrintConfig.hpp"
+#include "FFFPrintConfig.hpp"
 #include "PrintSteps.hpp"
 #include "Surface.hpp"
 

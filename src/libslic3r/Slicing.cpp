@@ -8,10 +8,10 @@
 
 #include <limits>
 
+#include "FFFPrintConfig.hpp"
 #include "Flow.hpp"
 #include "libslic3r.h"
 #include "Model.hpp"
-#include "PrintConfig.hpp"
 #include "SlicingAdaptive.hpp"
 
 // #define SLIC3R_DEBUG

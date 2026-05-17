@@ -27,7 +27,7 @@
 #include "libslic3r/ExtrusionEntityCollection.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/libslic3r.h"
-#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
 
 namespace Slic3r {

@@ -202,6 +202,8 @@ set(SLIC3R_SOURCES
     ExtrusionRole.hpp
     ExtrusionSimulator.cpp
     ExtrusionSimulator.hpp
+    FFFPrintConfig.cpp
+    FFFPrintConfig.hpp
     FileParserError.hpp
     Fill/Fill.cpp
     Fill/Fill3DHoneycomb.cpp
@@ -604,6 +606,8 @@ set(SLIC3R_SOURCES
     SLA/AGGRaster.hpp
     SLA/RasterToPolygons.hpp
     SLA/RasterToPolygons.cpp
+    SLA/SLAPrintConfig.cpp
+    SLA/SLAPrintConfig.hpp
     SLA/ConcaveHull.hpp
     SLA/ConcaveHull.cpp
     SLA/DrainHole.hpp
