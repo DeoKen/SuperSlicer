@@ -1,0 +1,77 @@
+* text=auto
+
+# C / C++
+*.c text
+*.cc text
+*.cpp text
+*.cxx text
+*.h text
+*.hh text
+*.hpp text
+*.hxx text
+*.ipp text
+*.inl text
+
+# CMake / build scripts
+CMakeLists.txt text
+*.cmake text
+*.in text
+
+# Scripts / config / docs
+*.py text
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.md text
+*.txt text
+*.json text
+*.yml text
+*.yaml text
+*.ini text
+*.cfg text
+*.conf text
+
+# XML-ish project files
+*.vcxproj text eol=crlf
+*.filters text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
+*.sln text eol=crlf
+*.vcproj text eol=crlf
+*.xml text
+*.plist text
+*.svg text
+*.ui text
+
+# Translation / resources
+*.po text
+*.pot text
+
+# Source-like data formats
+*.gcode text eol=lf
+
+# Images / archives / binaries
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.bmp -text
+*.ico -text
+*.zip -text
+*.7z -text
+*.gz -text
+*.tar -text
+*.dll -text
+*.lib -text
+*.exe -text
+*.pdb -text
+*.so -text
+*.dylib -text
+*.ttf -text
+*.otf -text
+*.amf -text
+*.obj -text
+*.stl -text
+*.3mf -text
+*.sl1 -text
