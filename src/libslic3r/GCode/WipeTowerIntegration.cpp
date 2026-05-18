@@ -10,6 +10,9 @@
 #include "libslic3r/GCode.hpp"
 #include "libslic3r/libslic3r.h"
 
+#include "AvoidCrossingPerimeters.hpp"
+#include "Wipe.hpp"
+
 namespace Slic3r::GCode {
 
 static inline Point wipe_tower_point_to_object_point(GCodeGenerator &gcodegen, const Vec2f& wipe_tower_pt)
@@ -23,7 +26,7 @@ std::string WipeTowerIntegration::deretraction_from_wipe_tower_generator(GCodeGe
                          || (! gcodegen.config().single_extruder_multi_material && gcodegen.config().filament_multitool_ramming.get_at(tcr.initial_tool));
     if (tcr.priming || (new_extruder_id >= 0)) {
         if (is_ramming)
-            gcodegen.m_wipe.reset_path(); // We don't want wiping on the ramming lines.
+            gcodegen.m_wipe->reset_path(); // We don't want wiping on the ramming lines.
         if (gcodegen.config().wipe_tower) {
             //const double retract_to_z = tcr.priming ? tcr.print_z : z;
             deretraction_str += gcodegen.writer().unlift();
@@ -39,7 +42,7 @@ std::string WipeTowerIntegration::toolchange_gcode_from_wipe_tower_generator(GCo
     std::string toolchange_gcode_str;
     if (tcr.priming || (new_extruder_id >= 0)) {
         if (is_ramming)
-            gcodegen.m_wipe.reset_path(); // We don't want wiping on the ramming lines.
+            gcodegen.m_wipe->reset_path(); // We don't want wiping on the ramming lines.
         toolchange_gcode_str = gcodegen.set_extruder(new_extruder_id,
                                                      scale_i(tcr.print_z + EPSILON)); // TODO: toolchange_z vs print_z
     }
@@ -109,7 +112,7 @@ std::string WipeTowerIntegration::append_tcr(GCodeGenerator &gcodegen, const Wip
         const Point xy_point = wipe_tower_point_to_object_point(gcodegen, start_pos);
         if (should_travel_to_tower) {
             gcode += gcodegen.retract_and_wipe(needs_toolchange);
-            gcodegen.m_avoid_crossing_perimeters.use_external_mp_once();
+            gcodegen.m_avoid_crossing_perimeters->use_external_mp_once();
             need_unretract = true;
         }
         const std::string comment{"Travel to a Wipe Tower"};
@@ -175,12 +178,12 @@ std::string WipeTowerIntegration::append_tcr(GCodeGenerator &gcodegen, const Wip
                 return Geometry::ArcWelder::Segment(wipe_tower_point_to_object_point(gcodegen, transform_wt_pt(wipe_pt)), 0, Geometry::ArcWelder::Orientation::Unknown);
             });
         // Pass to the wipe cache.
-        assert(gcodegen.m_wipe.path().empty());
-        gcodegen.m_wipe.set_path(std::move(path), false);
+        assert(gcodegen.m_wipe->path().empty());
+        gcodegen.m_wipe->set_path(std::move(path), false);
     }
 
     // Let the planner know we are traveling between objects.
-    gcodegen.m_avoid_crossing_perimeters.use_external_mp_once();
+    gcodegen.m_avoid_crossing_perimeters->use_external_mp_once();
     return gcode;
 }
 

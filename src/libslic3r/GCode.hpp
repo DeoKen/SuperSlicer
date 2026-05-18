@@ -16,54 +16,62 @@
 #ifndef slic3r_GCode_hpp_
 #define slic3r_GCode_hpp_
 
-#include "EdgeGrid.hpp"
-#include "ExPolygon.hpp"
-#include "GCode/AvoidCrossingPerimeters.hpp"
-#include "GCode/CoolingBuffer.hpp"
-#include "GCode/ExtrusionProcessor.hpp"
-#include "GCode/FanMover.hpp"
-#include "GCode/FindReplace.hpp"
-#include "GCode/GCodeWriter.hpp"
-#include "GCode/LabelObjects.hpp"
-#include "GCode/PressureEqualizer.hpp"
-#include "GCode/RetractWhenCrossingPerimeters.hpp"
-#include "Geometry/ArcWelder.hpp"
-#include "JumpPointSearch.hpp"
-#include "Layer.hpp"
-#include "libslic3r.h"
-#include "PlaceholderParser.hpp"
-#include "Point.hpp"
-#include "Print.hpp"
-#include "FFFPrintConfig.hpp"
+#include <cstdint>
+#include <cstdio>
+#include <functional>
+#include <limits>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-// #include "GCode/SmoothPath.hpp"
-#include "GCode/SpiralVase.hpp"
-#include "GCode/TemperatureMover.hpp"
-#include "GCode/ToolOrdering.hpp"
-#include "GCode/Wipe.hpp"
-#include "GCode/WipeTowerIntegration.hpp"
-#include "GCode/SeamPlacer.hpp"
-#include "GCode/GCodeProcessor.hpp"
-#include "GCode/ThumbnailData.hpp"
-#include "GCode/Travels.hpp"
 #include <tcbspan/span.hpp>
 
-#include <memory>
-#include <map>
-#include <string>
-#include <chrono>
-
-//#include "GCode/PressureEqualizer.hpp"
+#include "EdgeGrid.hpp"
+#include "ExPolygon.hpp"
+#include "ExtrusionEntity.hpp"
+#include "FFFPrintConfig.hpp"
+#include "GCode/GCodeWriter.hpp"
+#include "GCode/ThumbnailData.hpp"
+#include "Layer.hpp"
+#include "libslic3r.h"
+#include "Point.hpp"
+#include "Print.hpp"
 
 namespace Slic3r {
 
 // Forward declarations.
+class AvoidCrossingPerimeters;
+class CoolingBuffer;
+class FanMover;
+class GCodeFindReplace;
 class GCodeGenerator;
+class GCodeProcessor;
+struct GCodeProcessorResult;
+class JPSPathFinder;
+class PlaceholderParser;
+class PressureEqualizer;
+class RetractWhenCrossingPerimeters;
+class SeamPlacer;
+class SpiralVase;
+class TemperatureMover;
+class ToolOrdering;
 struct WipeTowerData;
 class WipeTowerLayer;
 
 namespace { struct Item; }
 struct PrintInstance;
+
+namespace GCode {
+class LabelObjects;
+class TravelObstacleTracker;
+class Wipe;
+class WipeTowerIntegration;
+} // namespace GCode
 
 class OozePrevention {
 public:
@@ -138,7 +146,11 @@ class GCodeGenerator : ExtrusionVisitorConst, ExtrusionPropertyVisitorConst {
 
 public:
     GCodeGenerator();
-    ~GCodeGenerator() = default;
+    ~GCodeGenerator();
+    GCodeGenerator(const GCodeGenerator&) = delete;
+    GCodeGenerator(GCodeGenerator&&) = delete;
+    GCodeGenerator& operator=(const GCodeGenerator&) = delete;
+    GCodeGenerator& operator=(GCodeGenerator&&) = delete;
 
     // throws std::runtime_exception on error,
     // throws CanceledException through print->throw_if_canceled().
@@ -190,8 +202,8 @@ public:
     const Layer*    current_z_layer() const { return m_pos_layer; }
     GCodeWriter&    writer() { return m_writer; }
     const GCodeWriter& writer() const { return m_writer; }
-    PlaceholderParser& placeholder_parser() { return m_placeholder_parser_integration.parser; }
-    const PlaceholderParser& placeholder_parser() const { return m_placeholder_parser_integration.parser; }
+    PlaceholderParser& placeholder_parser();
+    const PlaceholderParser& placeholder_parser() const;
     // Process a template through the placeholder parser, collect error messages to be reported
     // inside the generated string and after the G-code export finishes.
     std::string placeholder_parser_process(const std::string &name,
@@ -430,7 +442,9 @@ private:
     bool line_distancer_is_required(const std::vector<uint16_t>& extruder_ids);
 
     // Cache for custom seam enforcers/blockers for each layer.
-    SeamPlacer                          m_seam_placer;
+    // Owned subsystems are kept behind pointers so GCode.hpp does not pull their
+    // implementation headers into every translation unit including it.
+    std::unique_ptr<SeamPlacer>         m_seam_placer;
     bool                                m_seam_perimeters = false;
     // area unpraticable for the nozzle ot move on on this layer if Z lower than print_z.
     bool                                m_need_layer_collision_already_printed = false;
@@ -444,49 +458,16 @@ private:
     FullPrintConfig                     m_config;
     GCodeWriter                         m_writer;
 
-    struct PlaceholderParserIntegration {
-        void reset();
-        void init(const PrintConfig &print_config, const GCodeWriter &config);
-        void update_from_gcodewriter(const GCodeWriter &writer, const WipeTowerData& wipe_tower_data);
-        void validate_output_vector_variables();
-
-        PlaceholderParser                   parser;
-    // For random number generator etc.
-        PlaceholderParser::ContextData      context;
-    // Collection of templates, on which the placeholder substitution failed.
-        std::map<std::string, std::string>  failed_templates;
-        // Input/output from/to custom G-code block, for returning position, retraction etc.
-        // output_config contains unique_ptr of ConfigOptions
-        DynamicConfig                       output_config;
-        // these are pointer to unique_ptr from output_config
-        ConfigOptionFloats                 *opt_e_retracted { nullptr };
-        ConfigOptionFloats                 *opt_e_restart_extra { nullptr };
-        ConfigOptionFloats                 *opt_e_position { nullptr };
-        ConfigOptionFloats                 *opt_position { nullptr };
-        // these are pointer to unique_ptr from parser.m_config
-        ConfigOptionFloats                 *opt_position_parser { nullptr };
-        ConfigOptionFloat                  *opt_zhop { nullptr };
-        ConfigOptionFloats                 *opt_extruded_volume { nullptr };
-        ConfigOptionFloats                 *opt_extruded_weight { nullptr };
-        ConfigOptionFloat                  *opt_extruded_volume_total { nullptr };
-        ConfigOptionFloat                  *opt_extruded_weight_total { nullptr };
-        ConfigOptionInts                   *opt_extruder_colour_int { nullptr };
-        ConfigOptionInts                   *opt_filament_colour_int { nullptr };
-        // Caches of the data passed to the script.
-        size_t                              num_extruders;
-        std::vector<double>                 position;
-        std::vector<double>                 e_position;
-        std::vector<double>                 e_retracted;
-        std::vector<double>                 e_restart_extra;
-    } m_placeholder_parser_integration;
+    struct PlaceholderParserIntegration;
+    std::unique_ptr<PlaceholderParserIntegration> m_placeholder_parser_integration;
 
     OozePrevention                      m_ooze_prevention;
-    GCode::Wipe                         m_wipe;
-    GCode::LabelObjects                 m_label_objects;
-    AvoidCrossingPerimeters             m_avoid_crossing_perimeters;
-    JPSPathFinder                       m_avoid_crossing_curled_overhangs;
-    RetractWhenCrossingPerimeters       m_retract_when_crossing_perimeters;
-    GCode::TravelObstacleTracker        m_travel_obstacle_tracker;
+    std::unique_ptr<GCode::Wipe>        m_wipe;
+    std::unique_ptr<GCode::LabelObjects> m_label_objects;
+    std::unique_ptr<AvoidCrossingPerimeters> m_avoid_crossing_perimeters;
+    std::unique_ptr<JPSPathFinder>      m_avoid_crossing_curled_overhangs;
+    std::unique_ptr<RetractWhenCrossingPerimeters> m_retract_when_crossing_perimeters;
+    std::unique_ptr<GCode::TravelObstacleTracker> m_travel_obstacle_tracker;
     bool                                m_enable_loop_clipping;
     // If enabled, the G-code generator will put following comments at the ends
     // of the G-code lines: _EXTRUDE_SET_SPEED, _WIPE, _BRIDGE_FAN_START, _BRIDGE_FAN_END, _BRIDGE_INTERNAL_FAN_START, _BRIDGE_INTERNAL_FAN_END
@@ -631,7 +612,7 @@ private:
     bool m_silent_time_estimator_enabled;
 
     // Processor
-    GCodeProcessor m_processor;
+    std::unique_ptr<GCodeProcessor> m_processor;
 
     //some post-processing on the file, with their data class
     std::unique_ptr<FanMover> m_fan_mover;

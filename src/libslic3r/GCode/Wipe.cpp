@@ -10,6 +10,7 @@
 #include <Eigen/Geometry>
 
 #include "libslic3r/GCode.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
 
 using namespace std::string_view_literals;
 

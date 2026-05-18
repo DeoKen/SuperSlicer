@@ -49,6 +49,7 @@
 #include "format.hpp"
 #include "GCode.hpp"
 #include "GCode/ConflictChecker.hpp"
+#include "GCode/GCodeProcessor.hpp"
 #include "GCode/ToolOrdering.hpp"
 #include "GCode/WipeTower.hpp"
 #include "GCode/WipeTower2.hpp"
