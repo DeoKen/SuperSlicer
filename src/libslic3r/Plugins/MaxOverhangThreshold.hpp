@@ -17,9 +17,10 @@ namespace slic3r_api { namespace MaxOverhangThresholdPlugin {
 class MaxOverhangThreshold : public PluginBase
 {
 public:
-    static MaxOverhangThreshold &instance();
+    static MaxOverhangThreshold &instance(orchestrator_handle *orch);
 
 private:
+    MaxOverhangThreshold(orchestrator_handle *orch) : PluginBase(orch) {}
     const char *id_impl() const noexcept override;
     slicing_step_t step_impl() const noexcept override;
     const char *const *dependencies_impl() const noexcept override;

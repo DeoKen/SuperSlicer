@@ -110,20 +110,26 @@ typedef enum raw_container_type {
     RAW_CONTAINER_TYPE_PROJECT,
     RAW_CONTAINER_TYPE_PLATER,
     RAW_CONTAINER_TYPE_OBJECT,
+    RAW_CONTAINER_TYPE_LAYER,
     RAW_CONTAINER_TYPE_REGION
 } raw_container_type;
 
-/* Where the option instance is stored */
-typedef enum raw_option_preset_type {
+/* Where the option instance is available */
+typedef enum raw_option_preset_type : uint32_t{
     RAW_PRESET_TYPE_NONE = 0,
     RAW_PRESET_TYPE_FFF_PRINT,
     RAW_PRESET_TYPE_FFF_FILAMENT,
-    RAW_PRESET_TYPE_FFF_EXTRUDER,
+    RAW_PRESET_TYPE_FFF_FILAMENT_OVERRIDE,
+    RAW_PRESET_TYPE_FFF_TOOL_EXTRUDER,
+    RAW_PRESET_TYPE_FFF_TOOL_EXTRUDER_RETRACTION,
+    RAW_PRESET_TYPE_FFF_TOOL_MILLING,
     RAW_PRESET_TYPE_FFF_PRINTER,
-    RAW_PRESET_TYPE_FFF_MACHINE_LIMITS,
+    RAW_PRESET_TYPE_FFF_PRINTER_MACHINE_LIMITS,
     RAW_PRESET_TYPE_SLA_PRINT,
     RAW_PRESET_TYPE_SLA_MATERIAL,
-    RAW_PRESET_TYPE_SLA_PRINTER
+    RAW_PRESET_TYPE_SLA_MATERIAL_OVERRIDE,
+    RAW_PRESET_TYPE_SLA_PRINTER,
+    RAW_PRESET_TYPE_COUNT
 } raw_option_preset_type;
 
 /* Which printer technology this config applies to */
@@ -135,6 +141,15 @@ typedef enum raw_printer_technology {
 
 /* Bitmask flags for modes (mirrors ConfigOptionMode) */
 typedef uint64_t raw_config_option_mode;
+#define RAW_CONFIG_OPTION_MODE_NONE 0
+#define RAW_CONFIG_OPTION_MODE_SIMPLE 1
+#define RAW_CONFIG_OPTION_MODE_ADVANCED (1 << 1)
+#define RAW_CONFIG_OPTION_MODE_EXPERT (1 << 2)
+#define RAW_CONFIG_OPTION_MODE_ADV_EXP RAW_CONFIG_OPTION_MODE_ADVANCED | RAW_CONFIG_OPTION_MODE_EXPERT
+#define RAW_CONFIG_OPTION_MODE_SIM_ADV_EXP RAW_CONFIG_OPTION_MODE_SIMPLE | RAW_CONFIG_OPTION_MODE_ADVANCED | RAW_CONFIG_OPTION_MODE_EXPERT
+#define RAW_CONFIG_OPTION_MODE_PRUSA (1 << 3)
+#define RAW_CONFIG_OPTION_MODE_SUSI (1 << 4)
+#define RAW_CONFIG_OPTION_MODE_HIDDEN (1 << 5)
 
 /* Generic extensibility flags */
 typedef uint64_t RawConfigOptionFlags;

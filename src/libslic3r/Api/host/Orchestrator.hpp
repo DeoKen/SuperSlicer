@@ -84,6 +84,7 @@ public:
     bool is_plugin_cancelled() const;
     void request_plugin_cancel();
     void reset_plugin_cancel();
+    void initialize_plugins();
 
 private:
     Orchestrator() = default;

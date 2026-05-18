@@ -29,7 +29,12 @@ public:
     slicing_step_t get_step() const noexcept { return m_step; }
     const std::vector<std::string>& get_dependencies() const noexcept { return m_dependencies; }
     int get_priority() const noexcept { return m_priority; }
-    void setup(const plugin_run_context &context, uint32_t run_count) const { m_c_api.vt->setup(m_c_api.ctx, &context, run_count); }
+    void initialize(storage_handle *storage) const {
+        m_c_api.vt->initialize(m_c_api.ctx, storage);
+    }
+    void setup(const plugin_run_context &context, uint32_t run_count) const {
+        m_c_api.vt->setup(m_c_api.ctx, &context, run_count);
+    }
     void setup_run(const plugin_run_context &context) const { m_c_api.vt->setup_run(m_c_api.ctx, &context); }
     void run(const plugin_run_context &context) const { m_c_api.vt->run(m_c_api.ctx, &context); }
 

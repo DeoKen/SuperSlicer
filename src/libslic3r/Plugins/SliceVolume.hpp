@@ -18,9 +18,10 @@ namespace slic3r_api { namespace SliceVolumePlugin {
 class SliceVolume : public PluginBase
 {
 public:
-    static SliceVolume &instance();
+    static SliceVolume &instance(orchestrator_handle *orch);
 
 private:
+    SliceVolume(orchestrator_handle *orch) : PluginBase(orch) {}
     const char *id_impl() const noexcept override;
     slicing_step_t step_impl() const noexcept override;
     const char *const *dependencies_impl() const noexcept override;

@@ -353,6 +353,11 @@ public:
     }
 
 protected:
+    // Constructor: please give the orchestrator that register you so you can reuse it afterwards.
+    PluginBase(orchestrator_handle *orch) : m_orchestrator(orch) {
+        assert(m_orchestrator);
+    }
+
     // Shared progress helper owned by this plugin instance.
     //
     // It is mutable internally so run_impl() can stay const while still
@@ -372,10 +377,6 @@ protected:
     // Lower priority runs first inside a step.
     virtual int32_t priority_impl() const noexcept = 0;
 
-    // Optional: called once before setup_run_impl()/run_impl().
-    // PluginBase resets progress before calling this method.
-    virtual void setup_impl(const plugin_run_context *, uint32_t) const {}
-
     // Optional: message format used by PluginProgress when increment() reports
     // progress. It receives two unsigned integers: completed work and total
     // expected work. Override for clearer plugin-specific messages.
@@ -383,6 +384,14 @@ protected:
     {
         return "Plugin progress: %u / %u";
     }
+    
+    // Optional: called once at startup.
+    // You can ask the orchestrator to add settings definitions here.
+    virtual void inilialize_impl(storage_handle *storage) const {};
+
+    // Optional: called once before setup_run_impl()/run_impl().
+    // PluginBase resets progress before calling this method.
+    virtual void setup_impl(const plugin_run_context *, uint32_t) const {}
 
     // Optional: called once for each future run context, before any run_impl()
     // starts. Use it to call progress().add_max(...).
@@ -396,6 +405,17 @@ protected:
 private:
     // The *_safe() wrappers are the C++/C ABI safety belt: exceptions are
     // converted to plugin errors instead of crossing function pointers.
+
+    void initialize_safe(storage_handle *storage) const noexcept {
+        try {
+            inilialize_impl(storage);
+        } catch (...) {
+            assert(false);
+            return;
+        }
+    }
+
+
     void setup_safe(const plugin_run_context *run_ctx, uint32_t run_count) const noexcept
     {
         try {
@@ -470,6 +490,11 @@ private:
         return static_cast<PluginBase *>(plugin_ctx)->priority_impl();
     }
 
+    static void initialize_bridge(void *plugin_ctx, storage_handle *storage)
+    {
+        static_cast<PluginBase *>(plugin_ctx)->initialize_safe(storage);
+    }
+
     static void setup_bridge(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count)
     {
         static_cast<PluginBase *>(plugin_ctx)->setup_safe(run_ctx, run_count);
@@ -492,6 +517,7 @@ private:
             &PluginBase::get_step_bridge,
             &PluginBase::get_dependencies_bridge,
             &PluginBase::get_priority_bridge,
+            &PluginBase::initialize_bridge,
             &PluginBase::setup_bridge,
             &PluginBase::setup_run_bridge,
             &PluginBase::run_bridge
@@ -500,6 +526,9 @@ private:
     }
 
     mutable PluginProgress m_progress;
+
+protected:
+    orchestrator_handle *m_orchestrator;
 };
 
 } // namespace slic3r_api

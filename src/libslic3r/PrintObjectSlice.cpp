@@ -1080,7 +1080,7 @@ void PrintObject::_transform_hole_to_polyholes()
             for (size_t region_idx = 0; region_idx < layer.m_regions.size(); ++region_idx)
             {
                 LayerRegion &layer_region = layer.region(region_idx);
-                if (layer_region.region().config().hole_to_polyhole) {
+                if (layer_region.region().config().option("hole_to_polyhole")->get_bool()) {
                     for (ExPolygon& surf_expoly : ApiInternal::LayerRegionAccess::slices_mutable(layer_region)) {
                         for (Polygon& hole : surf_expoly.holes) {
                             //test if convex (as it's clockwise bc it's a hole, we have to do the opposite)
@@ -1107,8 +1107,8 @@ void PrintObject::_transform_hole_to_polyholes()
 
 
                                 // SCALED_EPSILON was a bit too harsh. Now using a config, as some may want some harsh setting and some don't.
-                                coord_t max_variation = std::max(SCALED_EPSILON, scale_i(this->m_layers[layer_idx]->m_regions[region_idx]->region().config().hole_to_polyhole_threshold.get_effective_value(unscaled(diameter_sum / hole.points.size()))));
-                                bool twist = this->m_layers[layer_idx]->m_regions[region_idx]->region().config().hole_to_polyhole_twisted.value;
+                                coord_t max_variation = std::max(SCALED_EPSILON, scale_i(this->m_layers[layer_idx]->m_regions[region_idx]->region().config().option("hole_to_polyhole_threshold")->get_effective_value(unscaled(diameter_sum / hole.points.size()))));
+                                bool twist = this->m_layers[layer_idx]->m_regions[region_idx]->region().config().option("hole_to_polyhole_twisted")->get_bool();
                                 if (diameter_max - diameter_min < max_variation * 2 && diameter_line_max - diameter_line_min < max_variation * 2) {
                                     LayerData ldata{center, diameter_max,
                                                     int16_t(layer.m_regions[region_idx]->region().config().perimeter_extruder.value - 1),

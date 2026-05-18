@@ -18,6 +18,7 @@
 #include "libslic3r/PlaceholderParser.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
 
 #include "BitmapCache.hpp"
 #include "ExtraRenderers.hpp"
@@ -254,14 +255,17 @@ void EditGCodeDialog::init_params_list(const std::string& custom_gcode_name)
 
 wxDataViewItem EditGCodeDialog::add_presets_placeholders()
 {
-    auto get_set_from_vec = [](const std::vector<std::string>&vec) {
-        return std::set<std::string>(vec.begin(), vec.end());
-    };
 
     const bool                  is_fff           = wxGetApp().plater()->printer_technology() == ptFFF;
-    const std::set<std::string> print_options    = get_set_from_vec(is_fff ? Preset::print_options()    : Preset::sla_print_options());
-    const std::set<std::string> material_options = get_set_from_vec(is_fff ? Preset::filament_options() : Preset::sla_material_options());
-    const std::set<std::string> printer_options  = get_set_from_vec(is_fff ? Preset::printer_options()  : Preset::sla_printer_options());
+    const std::set<std::string> print_options    = (
+        is_fff ? PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_FFF_PRINT) :
+                 PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_SLA_PRINT));
+    const std::set<std::string> material_options = (
+        is_fff ? PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_FFF_FILAMENT) :
+                 PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_SLA_MATERIAL));
+    const std::set<std::string> printer_options = (
+        is_fff ? PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_FFF_PRINTER) :
+                 PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_SLA_PRINTER));
 
     const auto&full_config = wxGetApp().preset_bundle->full_config();
 

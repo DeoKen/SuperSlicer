@@ -17,7 +17,8 @@ namespace slic3r_api { namespace BridgeDetectorPlugin {
 class BridgeDetector
 {
 public:
-    static BridgeDetector &instance();
+    static BridgeDetector &instance(orchestrator_handle *orch);
+    BridgeDetector(orchestrator_handle *orch) {}
 
     plugin_instance c_instance() const;
 
@@ -25,6 +26,7 @@ public:
     slicing_step_t step() const noexcept;
     const char *const *dependencies() const noexcept;
     int32_t priority() const noexcept;
+    void initialize(storage_handle *storage) const;
     void setup(const plugin_run_context *run_ctx, uint32_t run_count) const;
     void setup_run(const plugin_run_context *run_ctx) const;
     void run(const plugin_run_context *run_ctx) const;
@@ -33,6 +35,7 @@ public:
     static slicing_step_t get_step_bridge(void *plugin_ctx);
     static const_strings_t get_dependencies_bridge(void *plugin_ctx);
     static int32_t get_priority_bridge(void *plugin_ctx);
+    static void initialize_bridge(void *plugin_ctx, storage_handle *storage);
     static void setup_bridge(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count);
     static void setup_run_bridge(void *plugin_ctx, const plugin_run_context *run_ctx);
     static void run_bridge(void *plugin_ctx, const plugin_run_context *run_ctx);

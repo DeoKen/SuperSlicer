@@ -26,9 +26,10 @@ namespace slic3r_api { namespace StandardLayerHeightGeneratorPlugin {
 class StandardLayerHeightGenerator : public PluginBase
 {
 public:
-    static StandardLayerHeightGenerator &instance();
+    static StandardLayerHeightGenerator &instance(orchestrator_handle *orch);
 
 private:
+    StandardLayerHeightGenerator(orchestrator_handle *orch) : PluginBase(orch) {}
     const char *id_impl() const noexcept override;
     slicing_step_t step_impl() const noexcept override;
     const char *const *dependencies_impl() const noexcept override;

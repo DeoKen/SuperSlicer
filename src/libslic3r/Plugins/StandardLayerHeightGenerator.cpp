@@ -351,8 +351,8 @@ void StandardLayerHeightGenerator::run_impl(const plugin_run_context *run_ctx) c
     }
 }
 
-StandardLayerHeightGenerator &StandardLayerHeightGenerator::instance() {
-    static StandardLayerHeightGenerator s_instance;
+StandardLayerHeightGenerator &StandardLayerHeightGenerator::instance(orchestrator_handle *orch) {
+    static StandardLayerHeightGenerator s_instance(orch);
     return s_instance;
 }
 
@@ -380,7 +380,7 @@ bool test_layer_height_slicing_parameters(const Slic3r::Print &native_print,
 #endif
 
 void register_standard_layer_height_generator_plugin(orchestrator_handle *orch) {
-    orchestrator_register_plugin(orch, StandardLayerHeightGenerator::instance().c_instance());
+    orchestrator_register_plugin(orch, StandardLayerHeightGenerator::instance(orch).c_instance());
 }
 
 }} // namespace slic3r_api::StandardLayerHeightGeneratorPlugin

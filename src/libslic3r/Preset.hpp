@@ -129,6 +129,7 @@ class _BBS_3MF_Importer;
 class Preset
 {
 public:
+
     enum Type : uint8_t
     {
         TYPE_INVALID = 0,
@@ -264,22 +265,6 @@ public:
     // Sort lexicographically by a preset name. The preset name shall be unique across a single PresetCollection.
     bool                operator<(const Preset &other) const { return this->name < other.name; }
 
-    static const std::vector<std::string>&  print_options();
-    static const std::vector<std::string>&  filament_options();
-    // Printer options contain the nozzle options.
-    static const std::vector<std::string>&  printer_options();
-    // Nozzle options of the printer options.
-    static const std::vector<std::string>&  nozzle_options();
-    // mill options of the printer options.
-    static const std::vector<std::string>&  milling_options();
-
-    // Printer machine limits, those are contained in printer_options().
-    static const std::vector<std::string>&  machine_limits_options();
-
-    static const std::vector<std::string>&  sla_printer_options();
-    static const std::vector<std::string>&  sla_material_options();
-    static const std::vector<std::string>&  sla_print_options();
-
 	static void                             update_suffix_modified(const std::string& new_suffix_modified);
     static const std::string&               suffix_modified();
     static std::string                      remove_suffix_modified(const std::string& name);
@@ -368,7 +353,7 @@ class PresetCollection
 {
 public:
     // Initialize the PresetCollection with the "- default -" preset.
-    PresetCollection(Preset::Type type, const std::vector<std::string> &keys, const Slic3r::StaticPrintConfig &defaults, const std::string &default_name = "- default -");
+    PresetCollection(Preset::Type type, const std::set<std::string> &keys, const Slic3r::StaticPrintConfig &defaults, const std::string &default_name = "- default -");
 
     typedef std::deque<Preset>::iterator Iterator;
     typedef std::deque<Preset>::const_iterator ConstIterator;
@@ -389,7 +374,7 @@ public:
     const std::deque<Preset>& operator()() const { return m_presets; }
 
     // Add default preset at the start of the collection, increment the m_default_preset counter.
-    void            add_default_preset(const std::vector<std::string> &keys, const Slic3r::StaticPrintConfig &defaults, const std::string &preset_name);
+    void            add_default_preset(const std::set<std::string> &keys, const Slic3r::StaticPrintConfig &defaults, const std::string &preset_name);
 
     // Load ini files of the particular type from the provided directory path.
     void            load_presets(const std::string &dir_path, const std::string &subdir, PresetsConfigSubstitutions& substitutions, ForwardCompatibilitySubstitutionRule rule);
@@ -686,8 +671,8 @@ private:
 class PrinterPresetCollection : public PresetCollection
 {
 public:
-    PrinterPresetCollection(Preset::Type type, const std::vector<std::string> &keys, const Slic3r::StaticPrintConfig &defaults, const std::string &default_name = "- default -") :
-		PresetCollection(type, keys, defaults, default_name) {}
+    PrinterPresetCollection(Preset::Type type, const std::set<std::string> &keys, const Slic3r::StaticPrintConfig &defaults, const std::string &default_name = "- default -") :
+        PresetCollection(type, keys, defaults, default_name) {}
 
     const Preset&   default_preset_for(const DynamicPrintConfig &config) const override;
 

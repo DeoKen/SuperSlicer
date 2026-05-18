@@ -15,6 +15,8 @@
 
 namespace Slic3r {
 
+void initialize_sla_print_config_cache();
+
 enum SLADisplayOrientation {
     sladoLandscape,
     sladoPortrait
@@ -37,14 +39,16 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLASupportTreeType)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
-PRINT_CONFIG_CLASS_DEFINE(
+PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     SLAPrintConfig,
+    StaticPrintConfig::DynamicOptionScope::SLAPrint,
     ((ConfigOptionString, output_filename_format))
     ((ConfigOptionString, print_custom_variables))
 )
 
-PRINT_CONFIG_CLASS_DEFINE(
+PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     SLAPrintObjectConfig,
+    StaticPrintConfig::DynamicOptionScope::SLAObject,
 
     ((ConfigOptionFloat, layer_height))
 
@@ -252,8 +256,9 @@ PRINT_CONFIG_CLASS_DEFINE(
 )
 
 
-PRINT_CONFIG_CLASS_DEFINE(
+PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     SLAMaterialConfig,
+    StaticPrintConfig::DynamicOptionScope::SLAMaterial,
 
     ((ConfigOptionFloat,                       initial_layer_height))
     ((ConfigOptionFloat,                       bottle_cost))
@@ -284,8 +289,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                       material_ow_relative_correction_z))
 )
 
-PRINT_CONFIG_CLASS_DEFINE(
+PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     SLAPrinterConfig,
+    StaticPrintConfig::DynamicOptionScope::SLAPrinter,
 
     ((ConfigOptionEnum<PrinterTechnology>,      printer_technology))
     ((ConfigOptionEnum<OutputFormat>,           output_format))
@@ -325,13 +331,16 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                        z_rotate))
 )
 
-PRINT_CONFIG_CLASS_DERIVED_DEFINE0(
+PRINT_CONFIG_CLASS_DERIVED_DEFINE0_WITH_SCOPE(
     SLAFullPrintConfig,
-    (SLAPrinterConfig, SLAPrintConfig, SLAPrintObjectConfig, SLAMaterialConfig)
+    (SLAPrinterConfig, SLAPrintConfig, SLAPrintObjectConfig, SLAMaterialConfig),
+    StaticPrintConfig::DynamicOptionScope::SLAAggregate
 )
 
 Points get_bed_shape(const SLAPrinterConfig &cfg);
 std::string get_sla_suptree_prefix(const DynamicPrintConfig &config);
+
+void init_sla_params(PrintConfigDef &definition);
 
 } // namespace Slic3r
 

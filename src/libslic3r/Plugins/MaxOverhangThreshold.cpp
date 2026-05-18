@@ -486,8 +486,8 @@ void MaxOverhangThreshold::run_impl(const plugin_run_context *run_ctx) const {
     storage_clear(storage);
 }
 
-MaxOverhangThreshold &MaxOverhangThreshold::instance() {
-    static MaxOverhangThreshold s_instance;
+MaxOverhangThreshold &MaxOverhangThreshold::instance(orchestrator_handle *orch) {
+    static MaxOverhangThreshold s_instance(orch);
     return s_instance;
 }
 
@@ -514,7 +514,7 @@ void MaxOverhangThreshold::setup_run_impl(const plugin_run_context *run_ctx) con
 }
 
 void register_max_overhang_threshold_plugin(orchestrator_handle *orch) {
-    orchestrator_register_plugin(orch, MaxOverhangThreshold::instance().c_instance());
+    orchestrator_register_plugin(orch, MaxOverhangThreshold::instance(orch).c_instance());
 }
 
 }} // namespace slic3r_api::MaxOverhangThresholdPlugin

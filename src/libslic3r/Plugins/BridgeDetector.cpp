@@ -168,12 +168,15 @@ plugin_vtable default_plugin_vtable = {
     &BridgeDetector::get_step_bridge,
     &BridgeDetector::get_dependencies_bridge,
     &BridgeDetector::get_priority_bridge,
+    &BridgeDetector::initialize_bridge,
     &BridgeDetector::setup_bridge,
     &BridgeDetector::setup_run_bridge,
     &BridgeDetector::run_bridge
 };
 
 } // namespace
+
+void BridgeDetector::initialize(storage_handle * storage) const {}
 
 void BridgeDetector::setup(const plugin_run_context *, uint32_t) const {}
 
@@ -196,9 +199,9 @@ void BridgeDetector::run(const plugin_run_context *run_ctx) const
     ctx->detector.vt = &native_bridge_detector_vtable;
 }
 
-BridgeDetector &BridgeDetector::instance()
+BridgeDetector &BridgeDetector::instance(orchestrator_handle *orch)
 {
-    static BridgeDetector s_instance;
+    static BridgeDetector s_instance(orch);
     return s_instance;
 }
 
@@ -259,6 +262,11 @@ int32_t BridgeDetector::get_priority_bridge(void *plugin_ctx)
     return static_cast<BridgeDetector *>(plugin_ctx)->priority();
 }
 
+void BridgeDetector::initialize_bridge(void *plugin_ctx, storage_handle *storage)
+{
+    static_cast<BridgeDetector *>(plugin_ctx)->initialize(storage);
+}
+
 void BridgeDetector::setup_bridge(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count)
 {
     static_cast<BridgeDetector *>(plugin_ctx)->setup(run_ctx, run_count);
@@ -276,7 +284,7 @@ void BridgeDetector::run_bridge(void *plugin_ctx, const plugin_run_context *run_
 
 void register_bridge_detector_plugin(orchestrator_handle *orch)
 {
-    orchestrator_register_plugin(orch, BridgeDetector::instance().c_instance());
+    orchestrator_register_plugin(orch, BridgeDetector::instance(orch).c_instance());
 }
 
 }} // namespace slic3r_api::BridgeDetectorPlugin

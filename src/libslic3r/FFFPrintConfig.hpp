@@ -17,6 +17,9 @@
 
 namespace Slic3r {
 
+
+void initialize_fff_print_config_cache();
+
 enum CompleteObjectSort {
     cosNearest,
     cosObject,
@@ -250,8 +253,9 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(WipeAlgo)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
-PRINT_CONFIG_CLASS_DEFINE(
+PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     PrintObjectConfig,
+    StaticPrintConfig::DynamicOptionScope::FFFObject,
 
     ((ConfigOptionFloatOrPercent,       brim_acceleration))
     ((ConfigOptionBool,                 brim_inside_holes))
@@ -384,8 +388,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                wipe_tower_y))
 )
 
-PRINT_CONFIG_CLASS_DEFINE(
+PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     PrintRegionConfig,
+    StaticPrintConfig::DynamicOptionScope::FFFRegion,
 
     ((ConfigOptionBool,                 avoid_crossing_top))
     ((ConfigOptionBool,                 avoid_travel_island))
@@ -459,9 +464,6 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,       gap_fill_speed))
     ((ConfigOptionFloatOrPercent,       infill_anchor))
     ((ConfigOptionFloatOrPercent,       infill_anchor_max))
-    ((ConfigOptionBool,                 hole_to_polyhole))
-    ((ConfigOptionFloatOrPercent,       hole_to_polyhole_threshold))
-    ((ConfigOptionBool,                 hole_to_polyhole_twisted))
     ((ConfigOptionFloatOrPercent,       infill_acceleration))
     ((ConfigOptionInt,                  infill_extruder))
     ((ConfigOptionFloatOrPercent,       infill_extrusion_width))
@@ -800,9 +802,10 @@ static inline std::string get_extrusion_axis(const GCodeConfig& cfg)
         (cfg.gcode_flavor.value == gcfNoExtrusion) ? "" : cfg.extrusion_axis.value;
 }
 
-PRINT_CONFIG_CLASS_DERIVED_DEFINE(
+PRINT_CONFIG_CLASS_DERIVED_DEFINE_WITH_SCOPE(
     PrintConfig,
     (MachineEnvelopeConfig, GCodeConfig),
+    StaticPrintConfig::DynamicOptionScope::FFFPrint,
 
     ((ConfigOptionBool,                 allow_empty_layers))
     ((ConfigOptionBool,                 avoid_crossing_curled_overhangs))
@@ -919,9 +922,10 @@ double min_object_distance(const PrintConfig& config); //TODO: remove
 double min_object_distance(const ConfigBase* config, double height = 0); //TODO: remove
 
 // This object is mapped to Perl as Slic3r::Config::Full.
-PRINT_CONFIG_CLASS_DERIVED_DEFINE0(
+PRINT_CONFIG_CLASS_DERIVED_DEFINE0_WITH_SCOPE(
     FullPrintConfig,
-    (PrintObjectConfig, PrintRegionConfig, PrintConfig)
+    (PrintObjectConfig, PrintRegionConfig, PrintConfig),
+    StaticPrintConfig::DynamicOptionScope::FFFAggregate
 )
 // Validate the FullPrintConfig. Returns an empty string on success, otherwise an error message is returned.
 std::string validate(const FullPrintConfig &config);
@@ -933,6 +937,8 @@ std::string validate(const FullPrintConfig &config);
 
 bool is_XL_printer(const PrintConfig &cfg);
 Points get_bed_shape(const PrintConfig &cfg);
+
+void init_fff_params(PrintConfigDef &definition);
 
 } // namespace Slic3r
 

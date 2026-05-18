@@ -17,14 +17,17 @@ namespace slic3r_api { namespace PolyholesPlugin {
 class Polyholes : public PluginBase
 {
 public:
-    static Polyholes &instance();
+    static Polyholes &instance(orchestrator_handle *orch);
 
 private:
+    Polyholes(orchestrator_handle *orch) : PluginBase(orch) {}
+
     const char *id_impl() const noexcept override;
     slicing_step_t step_impl() const noexcept override;
     const char *const *dependencies_impl() const noexcept override;
     int32_t priority_impl() const noexcept override;
     const char *progress_message_format_impl() const noexcept override;
+    void inilialize_impl(storage_handle *storage) const override;
     void setup_impl(const plugin_run_context *run_ctx, uint32_t run_count) const override;
     void setup_run_impl(const plugin_run_context *run_ctx) const override;
     void run_impl(const plugin_run_context *run_ctx) const override;

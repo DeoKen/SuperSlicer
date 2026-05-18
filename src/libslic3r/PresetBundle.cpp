@@ -45,14 +45,25 @@ static std::vector<std::string> s_project_options {
     "wiping_volumes_matrix"
 };
 
-PresetBundle::PresetBundle() :
-    fff_prints(Preset::TYPE_FFF_PRINT, Preset::print_options(), static_cast<const PrintRegionConfig&>(FullPrintConfig::defaults())),
-    filaments(Preset::TYPE_FFF_FILAMENT, Preset::filament_options(), static_cast<const PrintRegionConfig&>(FullPrintConfig::defaults())),
-    sla_materials(Preset::TYPE_SLA_MATERIAL, Preset::sla_material_options(), static_cast<const SLAMaterialConfig&>(SLAFullPrintConfig::defaults())), 
-    sla_prints(Preset::TYPE_SLA_PRINT, Preset::sla_print_options(), static_cast<const SLAPrintObjectConfig&>(SLAFullPrintConfig::defaults())),
-    printers(Preset::TYPE_PRINTER, Preset::printer_options(), static_cast<const PrintRegionConfig&>(FullPrintConfig::defaults()), "- default FFF -"),
-    physical_printers(PhysicalPrinter::printer_options(), this)
-{
+PresetBundle::PresetBundle()
+    : fff_prints(Preset::TYPE_FFF_PRINT,
+                 PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_FFF_PRINT),
+                 static_cast<const PrintRegionConfig &>(FullPrintConfig::defaults()))
+    , filaments(Preset::TYPE_FFF_FILAMENT,
+                PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_FFF_FILAMENT),
+                static_cast<const PrintRegionConfig &>(FullPrintConfig::defaults()))
+    , sla_materials(Preset::TYPE_SLA_MATERIAL,
+                    PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_SLA_MATERIAL),
+                    static_cast<const SLAMaterialConfig &>(SLAFullPrintConfig::defaults()))
+    , sla_prints(Preset::TYPE_SLA_PRINT,
+                 PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_SLA_PRINT),
+                 static_cast<const SLAPrintObjectConfig &>(SLAFullPrintConfig::defaults()))
+    , printers(Preset::TYPE_PRINTER,
+               PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_FFF_PRINTER),
+               static_cast<const PrintRegionConfig &>(FullPrintConfig::defaults()),
+               "- default FFF -")
+    //TODO: SLA/PRINT PRINTER (why it's the same???)
+    , physical_printers(PhysicalPrinter::printer_options(), this) {
     // The following keys are handled by the UI, they do not have a counterpart in any StaticPrintConfig derived classes,
     // therefore they need to be handled differently. As they have no counterpart in StaticPrintConfig, they are not being
     // initialized based on PrintConfigDef(), but to empty values (zeros, empty vectors, empty strings).
@@ -83,7 +94,7 @@ PresetBundle::PresetBundle() :
     this->sla_prints.default_preset().compatible_printers_condition();
     this->sla_prints.default_preset().inherits();
 
-    this->printers.add_default_preset(Preset::sla_printer_options(), static_cast<const SLAMaterialConfig&>(SLAFullPrintConfig::defaults()), "- default SLA -");
+    this->printers.add_default_preset(PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_SLA_PRINTER), static_cast<const SLAMaterialConfig&>(SLAFullPrintConfig::defaults()), "- default SLA -");
     this->printers.preset(1).printer_technology_ref() = ptSLA;
     for (size_t i = 0; i < 2; ++ i) {
 		// The following ugly switch is to avoid printers.preset(0) to return the edited instance, as the 0th default is the current one.

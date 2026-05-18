@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
+#include "libslic3r/Api/plugin/c/slic3r_config_def.h"
 #include "libslic3r/Api/plugin/cpp/Views.hpp"
 
 namespace slic3r_api { namespace PolyholesPlugin {
@@ -289,9 +290,9 @@ void Polyholes::run_impl(const plugin_run_context *run_ctx) const
     storage_clear(run_ctx->plugin_storage);
 }
 
-Polyholes &Polyholes::instance()
+Polyholes &Polyholes::instance(orchestrator_handle *orch)
 {
-    static Polyholes s_instance;
+    static Polyholes s_instance(orch);
     return s_instance;
 }
 
@@ -321,6 +322,61 @@ const char *Polyholes::progress_message_format_impl() const noexcept
     return "Searching holes: %u / %u layers";
 }
 
+void Polyholes::inilialize_impl(storage_handle *storage) const {
+
+    raw_config_option_def def{};
+    def.opt_key = "hole_to_polyhole";
+    def.type = RAW_CO_BOOL;
+    def.container_type = RAW_CONTAINER_TYPE_REGION;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = "Convert round holes to polyholes";
+    def.full_label = "Convert round holes to polyholes";
+    def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.tooltip = ("Search for almost-circular holes that span more than one layer and convert the geometry to polyholes."
+        " Use the nozzle size and the (biggest) diameter to compute the polyhole."
+        "\nSee http://hydraraptor.blogspot.com/2011/02/polyholes.html");
+    def.mode = RAW_CONFIG_OPTION_MODE_ADV_EXP | RAW_CONFIG_OPTION_MODE_SUSI;
+    def.default_serialized_value = "0";
+    orchestrator_create_option_def(m_orchestrator, &def);
+
+    def = raw_config_option_def();
+    def.opt_key = "hole_to_polyhole_threshold";
+    def.type = RAW_CO_FLOAT_OR_PERCENT;
+    def.container_type = RAW_CONTAINER_TYPE_REGION;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = ("Roundness margin");
+    def.full_label = ("Polyhole detection margin");
+    def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.tooltip = ("Maximum deflection of a point to the estimated radius of the circle."
+        "\nAs cylinders are often exported as triangles of varying size, points may not be on the circle circumference."
+        " This setting allows you some leeway to broaden the detection."
+        "\nIn mm or in % of the radius.");
+    def.sidetext = ("mm or %");
+    def.has_max_literal = true;
+    def.max_literal_value = 10;
+    def.max_literal_is_percent = false;
+    def.mode = RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI;
+    def.default_serialized_value = "0.01";
+    orchestrator_create_option_def(m_orchestrator, &def);
+
+    def = raw_config_option_def();
+    def.opt_key = "hole_to_polyhole_twisted";
+    def.type = RAW_CO_BOOL;
+    def.container_type = RAW_CONTAINER_TYPE_REGION;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = ("Twisting");
+    def.full_label = ("Polyhole twist");
+    def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.tooltip = ("Rotate the polyhole every layer.");
+    def.mode = RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI;
+    def.default_serialized_value = "1";
+    orchestrator_create_option_def(m_orchestrator, &def);
+
+}
+
 void Polyholes::setup_impl(const plugin_run_context *, uint32_t) const
 {
     // Phase-specific formats make the shared PluginProgress bar readable even
@@ -342,7 +398,7 @@ void Polyholes::setup_run_impl(const plugin_run_context *run_ctx) const
 
 void register_polyholes_plugin(orchestrator_handle *orch)
 {
-    orchestrator_register_plugin(orch, Polyholes::instance().c_instance());
+    orchestrator_register_plugin(orch, Polyholes::instance(orch).c_instance());
 }
 
 }} // namespace slic3r_api::PolyholesPlugin

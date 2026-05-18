@@ -50,7 +50,7 @@
 #include "format.hpp"
 #include "LocalesUtils.hpp"
 #include "PrintConfig.hpp"
-#include "Preset.hpp"
+#include "Semver.hpp"
 #include "Utils.hpp"
 
 #define L(s) (s)
@@ -186,12 +186,14 @@ void ConfigOptionDef::set_default_value(ConfigOptionVectorBase *ptr) {
 }
 
 // Assignment of the serialization IDs is not thread safe. The Defs shall be initialized from the main thread!
-ConfigOptionDef* ConfigDef::add(const t_config_option_key &opt_key, ConfigOptionType type)
+ConfigOptionDef* ConfigDef::add(const t_config_option_key &opt_key, ConfigOptionType type, PrinterTechnology pt)
 {
-	static size_t serialization_key_ordinal_last = 0;
+    assert(!is_finalized());
+    static size_t serialization_key_ordinal_last = 0;
     ConfigOptionDef *opt = &this->options[opt_key];
     opt->opt_key = opt_key;
     opt->type = type;
+    opt->printer_technology = pt;
     opt->serialization_key_ordinal = ++ serialization_key_ordinal_last;
     this->by_serialization_key_ordinal[opt->serialization_key_ordinal] = opt;
     return opt;
@@ -199,6 +201,7 @@ ConfigOptionDef* ConfigDef::add(const t_config_option_key &opt_key, ConfigOption
 
 void ConfigDef::finalize()
 {
+    assert(!m_is_finalized);
     // Validate & finalize open & closed enums.
     for (std::pair<const t_config_option_key, ConfigOptionDef> &kvp : options) {
         ConfigOptionDef& def = kvp.second;
@@ -219,6 +222,7 @@ void ConfigDef::finalize()
             assert(! def.enum_def);
         }
     }
+    m_is_finalized = true;
 }
 
 std::ostream& ConfigDef::print_cli_help(std::ostream& out, bool show_defaults, std::function<bool(const ConfigOptionDef &)> filter) const
@@ -670,46 +674,56 @@ std::string ConfigBase::SetDeserializeItem::format(std::initializer_list<double>
     return out;
 }
 
-void ConfigBase::apply_only(const ConfigBase &other, const t_config_option_keys &keys, bool ignore_nonexistent)
-{
+void ConfigBase::apply_only(const ConfigBase &other, const t_config_option_key &opt_key, bool ignore_nonexistent) {
+    // Create a new option with default value for the key.
+    // If the key is not in the parameter definition, or this ConfigBase is a static type and it does not support the
+    // parameter, an exception is thrown if not ignore_nonexistent.
+    ConfigOption *my_opt = this->option(opt_key, true);
+    // If we didn't find an option, look for any other option having this as an alias.
+    if (my_opt == nullptr) {
+        const ConfigDef *def = this->def();
+        for (const auto &opt : def->options) {
+            for (const t_config_option_key &opt_key2 : opt.second.aliases) {
+                if (opt_key2 == opt_key) {
+                    my_opt = this->option(opt.first, true);
+                    break;
+                }
+            }
+            if (my_opt != nullptr)
+                break;
+        }
+    }
+    if (my_opt == nullptr) {
+        // opt_key does not exist in this ConfigBase and it cannot be created, because it is not defined by
+        // this->def(). This is only possible if other is of DynamicConfig type.
+        if (ignore_nonexistent)
+            return; //continue
+        throw UnknownOptionException(opt_key);
+    }
+    const ConfigOption *other_opt = other.option(opt_key);
+    if (other_opt == nullptr) {
+        // The key was not found in the source config, therefore it will not be initialized!
+        //          printf("Not found, therefore not initialized: %s\n", opt_key.c_str());
+    } else {
+        try {
+            my_opt->set(*other_opt);
+        } catch (ConfigurationException &e) {
+            throw ConfigurationException(std::string(e.what()) + ", when ConfigBase::apply_only on " + opt_key);
+        }
+    }
+}
+
+void ConfigBase::apply_only(const ConfigBase &other, const std::set<t_config_option_key> &keys, bool ignore_nonexistent) {
     // loop through options and apply them
     for (const t_config_option_key &opt_key : keys) {
-        // Create a new option with default value for the key.
-        // If the key is not in the parameter definition, or this ConfigBase is a static type and it does not support the parameter,
-        // an exception is thrown if not ignore_nonexistent.
-        ConfigOption *my_opt = this->option(opt_key, true);
-        // If we didn't find an option, look for any other option having this as an alias.
-        if (my_opt == nullptr) {
-            const ConfigDef       *def = this->def();
-            for (const auto &opt : def->options) {
-                for (const t_config_option_key &opt_key2 : opt.second.aliases) {
-                    if (opt_key2 == opt_key) {
-                        my_opt = this->option(opt.first, true);
-                        break;
-                    }
-                }
-                if (my_opt != nullptr)
-                    break;
-            }
-        }
-        if (my_opt == nullptr) {
-            // opt_key does not exist in this ConfigBase and it cannot be created, because it is not defined by this->def().
-            // This is only possible if other is of DynamicConfig type.
-            if (ignore_nonexistent)
-                continue;
-            throw UnknownOptionException(opt_key);
-        }
-        const ConfigOption *other_opt = other.option(opt_key);
-        if (other_opt == nullptr) {
-            // The key was not found in the source config, therefore it will not be initialized!
-//          printf("Not found, therefore not initialized: %s\n", opt_key.c_str());
-        } else {
-            try {
-                my_opt->set(*other_opt);
-            } catch (ConfigurationException& e) {
-                throw ConfigurationException(std::string(e.what()) + ", when ConfigBase::apply_only on " + opt_key);
-            }
-        }
+        apply_only(other, opt_key, ignore_nonexistent);
+    }
+}
+
+void ConfigBase::apply_only(const ConfigBase &other, const t_config_option_keys &keys, bool ignore_nonexistent) {
+    // loop through options and apply them
+    for (const t_config_option_key &opt_key : keys) {
+        apply_only(other, opt_key, ignore_nonexistent);
     }
 }
 
@@ -1044,10 +1058,11 @@ double ConfigBase::get_computed_value(const t_config_option_key &opt_key, int ex
                 idx = extruder_id;
             }
         } else {
-            t_config_option_keys machine_limits = Preset::machine_limits_options();
-            if (std::find(machine_limits.begin(), machine_limits.end(), opt_key) != machine_limits.end()) {
-                idx = 0;
-            }
+            //t_config_option_keys machine_limits = Preset::machine_limits_options();
+            //if (std::find(machine_limits.begin(), machine_limits.end(), opt_key) != machine_limits.end()) {
+            //    idx = 0;
+            //}
+            idx = extruder_id;
         }
         if (idx >= 0) {
             if (raw_opt->type() == coFloats || raw_opt->type() == coInts || raw_opt->type() == coBools)

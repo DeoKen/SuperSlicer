@@ -31,6 +31,19 @@ const Orchestrator *orchestrator_from_handle(const orchestrator_handle *me) {
     return me == nullptr ? &Orchestrator::instance() : reinterpret_cast<const Orchestrator *>(me);
 }
 
+static ConfigOptionContainerType config_option_container_type(raw_container_type type)
+{
+    switch (type) {
+    case RAW_CONTAINER_TYPE_PROJECT: return ConfigOptionContainerType::Project;
+    case RAW_CONTAINER_TYPE_PLATER:  return ConfigOptionContainerType::Plater;
+    case RAW_CONTAINER_TYPE_OBJECT:  return ConfigOptionContainerType::Object;
+    case RAW_CONTAINER_TYPE_LAYER:   return ConfigOptionContainerType::Layer;
+    case RAW_CONTAINER_TYPE_REGION:  return ConfigOptionContainerType::Region;
+    case RAW_CONTAINER_TYPE_NONE:
+    default:                         return ConfigOptionContainerType::None;
+    }
+}
+
 } // namespace Slic3r
 
 extern "C" {
@@ -117,13 +130,16 @@ void Orchestrator::reset_plugin_cancel() { m_plugin_cancel_requested.store(false
 void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     //PrintOptionPresetType preset_type = static_cast<PrintOptionPresetType>(def->option_preset_type);
     //PrintOptionContainer container = static_cast<PrintOptionContainer>(def->container_type);
-    ConfigOptionDef out;
+
+    ConfigOptionDef &out = *PrintConfigDef::instance_mutable().add(def->opt_key, static_cast<ConfigOptionType>(def->type));
 
     out.opt_key = def->opt_key;
     out.type = static_cast<ConfigOptionType>(def->type);
     out.category = static_cast<OptionCategory>(def->category);
     out.gui_type = static_cast<ConfigOptionDef::GUIType>(def->gui_type);
     out.printer_technology = static_cast<PrinterTechnology>(def->printer_technology);
+    out.container_type = config_option_container_type(def->container_type);
+    out.option_preset_type = static_cast<uint32_t>(def->option_preset_type);
 
     out.can_be_disabled = def->can_be_disabled != 0;
     out.is_optional = def->is_optional != 0;
@@ -252,6 +268,25 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
             }
         }
     }
+
+    // publish it?
+    PrintConfigDef::instance_mutable().option_keys(def->option_preset_type).insert(out.opt_key);
+    if(def->option_preset_type == RAW_PRESET_TYPE_FFF_FILAMENT_OVERRIDE) {
+        assert(false); // please do'nt yet, not made for that
+    }
+    if(def->option_preset_type == RAW_PRESET_TYPE_SLA_MATERIAL_OVERRIDE) {
+        assert(false); // please do'nt yet, not made for that
+    }
+    if(def->option_preset_type == RAW_PRESET_TYPE_FFF_TOOL_EXTRUDER
+        || def->option_preset_type == RAW_PRESET_TYPE_FFF_PRINTER_MACHINE_LIMITS
+        || def->option_preset_type == RAW_PRESET_TYPE_FFF_TOOL_MILLING) {
+        PrintConfigDef::instance_mutable().option_keys(RAW_PRESET_TYPE_FFF_PRINTER).insert(out.opt_key);
+    }
+    if(def->option_preset_type == RAW_PRESET_TYPE_FFF_TOOL_EXTRUDER_RETRACTION) {
+        PrintConfigDef::instance_mutable().option_keys(RAW_PRESET_TYPE_FFF_TOOL_EXTRUDER).insert(out.opt_key);
+        PrintConfigDef::instance_mutable().option_keys(RAW_PRESET_TYPE_FFF_PRINTER).insert(out.opt_key);
+    }
+    add_to_prusa_export_to_remove_keys(out.opt_key);
 }
 
 std::vector<Plugin *> Orchestrator::get_all_plugins_for_step(slicing_step_t step) const {
@@ -344,6 +379,12 @@ bridge_detector_instance Orchestrator::create_bridge_detector(const bridge_detec
 
 void Orchestrator::slice(Print &print) {
     Steps::StepPipeline::run(*this, print);
+}
+
+void Orchestrator::initialize_plugins() {
+    for (const std::unique_ptr<Plugin> &plugin_ptr : m_registered_plugins) {
+        plugin_ptr->initialize(reinterpret_cast<storage_handle *>(&m_plugin_storage[plugin_ptr.get()]));
+    }
 }
 
 PluginStorage::PluginStorage() = default;

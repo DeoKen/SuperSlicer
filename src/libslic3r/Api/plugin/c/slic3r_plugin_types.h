@@ -497,18 +497,19 @@ plugin_ctx_as_bridge_detector(const plugin_run_context *ctx)
     return (run_ctx_bridge_detector *)ctx->data;
 }
 
+/* ========================= initialisation callbacks ========================= */
+
+typedef void (*plugin_initialize_fn)(void *plugin_ctx, storage_handle *storage);
+
+
 /* ========================= RUN callbacks ========================= */
 
-typedef void (*plugin_run_fn)(
-    void *plugin_ctx,
-    /* This plugin_run_context is destroyed after this function return, so don't keep it, copy the data you want instead. */
-    const plugin_run_context *run_ctx
-);
-
-/* ========================= PLUGIN VTABLE ========================= */
-
+/* This plugin_run_context is destroyed after each of these function return, so don't keep it, copy the data you want instead. */
 typedef void (*plugin_setup_fn)(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count);
 typedef void (*plugin_setup_run_fn)(void *plugin_ctx, const plugin_run_context *run_ctx);
+typedef void (*plugin_run_fn)(void *plugin_ctx, const plugin_run_context *run_ctx);
+
+/* ========================= PLUGIN VTABLE ========================= */
 
 typedef struct plugin_vtable {
 
@@ -519,6 +520,11 @@ typedef struct plugin_vtable {
     const_strings_t (*get_dependencies)(void *plugin_ctx);
 
     int32_t (*get_priority)(void *plugin_ctx);
+
+    /**
+     * Called once at startup, to be able to setup settings, via orchestrator_create_option_def
+    */
+    plugin_initialize_fn initialize;
 
     /*
     Called once before any setup_run()/run() call for this step/plugin pair.
@@ -534,6 +540,9 @@ typedef struct plugin_vtable {
     */
     plugin_setup_run_fn setup_run;
 
+    /*
+    * Called once per object to do the step this plugin is made for.
+    */
     plugin_run_fn run;
 
 } plugin_vtable;

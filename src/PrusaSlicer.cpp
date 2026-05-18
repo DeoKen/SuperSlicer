@@ -54,7 +54,9 @@
 #include "libslic3r/Format/OBJ.hpp"
 #include "libslic3r/Format/SL1.hpp"
 #include "libslic3r/Format/CWS.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/SLA/SLAPrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Thread.hpp"
 #include "libslic3r/BlacklistedLibraryCheck.hpp"
@@ -535,9 +537,6 @@ int CLI::run(int argc, char **argv)
         }
     }
 
-    slic3r_api::PolyholesPlugin::register_polyholes_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
-    slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
-
     // All transforms have been dealt with. Now ensure that the objects are on bed.
     // (Unless the user said otherwise.)
     if (m_config.opt_bool("ensure_on_bed"))
@@ -833,6 +832,25 @@ bool CLI::setup(int argc, char **argv)
     set_local_dir((path_resources / "localization").string());
     set_sys_shapes_dir((path_resources / "shapes").string());
     set_custom_gcodes_dir((path_resources / "custom_gcodes").string());
+
+    //setup configs
+    PrintConfigDef::instance_mutable().init_common_params();
+    init_fff_params(PrintConfigDef::instance_mutable());
+    init_sla_params(PrintConfigDef::instance_mutable());
+
+    //setup plugins
+    // plugins: register from dll / code
+    slic3r_api::PolyholesPlugin::register_polyholes_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
+    slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
+
+    //plugins: initialise
+    Orchestrator::instance().initialize_plugins();
+
+    initialize_fff_print_config_cache();
+    initialize_sla_print_config_cache();
+
+    //finalize
+    PrintConfigDef::instance_mutable().finalize();
 
     // Parse all command line options into a DynamicConfig.
     // If any option is unsupported, print usage and abort immediately.

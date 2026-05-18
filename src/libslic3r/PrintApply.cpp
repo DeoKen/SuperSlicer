@@ -214,7 +214,7 @@ static t_config_option_keys print_config_diffs(
     const DynamicPrintConfig &new_full_config,
     DynamicPrintConfig       &filament_overrides)
 {
-    const std::vector<std::string> &extruder_retract_keys = PrintConfigDef::instance().extruder_retract_keys();
+    const std::set<std::string>    &extruder_retract_keys = PrintConfigDef::instance().extruder_retract_keys();
     const std::string               filament_prefix       = "filament_";
     t_config_option_keys            print_diff;
     for (const t_config_option_key &opt_key : current_config.keys()) {
@@ -225,7 +225,7 @@ static t_config_option_keys print_config_diffs(
         if (opt_new == nullptr)
             //FIXME This may happen when executing some test cases.
             continue;
-        const ConfigOption *opt_new_filament = std::binary_search(extruder_retract_keys.begin(), extruder_retract_keys.end(), opt_key) ? new_full_config.option(filament_prefix + opt_key) : nullptr;
+        const ConfigOption *opt_new_filament = extruder_retract_keys.find(opt_key) != extruder_retract_keys.end() ? new_full_config.option(filament_prefix + opt_key) : nullptr;
         if (opt_new_filament != nullptr) {
             // An extruder retract override is available at some of the filament presets.
             if (*opt_old != *opt_new || opt_new->overriden_by(opt_new_filament)) {

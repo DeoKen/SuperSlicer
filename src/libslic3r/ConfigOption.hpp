@@ -390,7 +390,7 @@ enum ConfigOptionMode : uint64_t {
     comPrusa = 1 << 3,
     comSuSi = 1 << 4,
     comHidden = 1 << 5,
-    
+
 };
 //note: you have to add ConfigOptionMode into the ConfigOptionDef::names_2_tag_mode (in the .cpp)
 inline ConfigOptionMode operator|(ConfigOptionMode a, ConfigOptionMode b) {

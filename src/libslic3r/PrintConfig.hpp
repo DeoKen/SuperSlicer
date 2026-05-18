@@ -45,6 +45,8 @@
 //            class DynamicPrintAndCLIConfig : public DynamicPrintConfig
 //
 //
+#include <algorithm>
+#include <cstdint>
 #include <unordered_map>
 
 #include <boost/preprocessor/facilities/empty.hpp>
@@ -57,6 +59,7 @@
 
 #include "ConfigDef.hpp"
 #include "libslic3r.h"
+#include "Api/plugin/c/slic3r_config_def.h"
 
 namespace Slic3r {
 
@@ -128,10 +131,17 @@ class DynamicPrintConfig;
 class PrintConfigDef : public ConfigDef
 {
 public:
+    enum class InitializationState : uint8_t {
+        Empty,
+        Initializing,
+        Finalized,
+    };
+
     PrintConfigDef();
 
     // Get print_config_def stored in the singleton
     static const PrintConfigDef& instance();
+    static PrintConfigDef& instance_mutable();
     static void handle_legacy_map(std::unordered_map<t_config_option_key, std::pair<t_config_option_key, std::string>> &dict, bool remove_unkown_keys = true);
     static void handle_legacy_pair(t_config_option_key &opt_key, std::string &value, bool remove_unkown_keys = true);
     static bool is_defined(const t_config_option_key& opt_key);
@@ -140,34 +150,28 @@ public:
     static void handle_legacy_composite(DynamicPrintConfig &config, std::map<t_config_option_key, std::string> &opt_deleted);
 
     // Array options growing with the number of extruders
-    const std::vector<std::string>& extruder_option_keys() const { return m_extruder_option_keys; }
-    const std::set<std::string>&    filament_override_option_keys() const { return m_filament_override_option_keys; }
+    const std::set<t_config_option_key>& extruder_option_keys() const;
+    const std::set<t_config_option_key>&    filament_override_option_keys() const;
     // Options defining the extruder retract properties. These keys are sorted lexicographically.
     // The extruder retract keys could be overidden by the same values defined at the Filament level
     // (then the key is further prefixed with the "filament_" prefix).
-    const std::vector<std::string>& extruder_retract_keys() const { return m_extruder_retract_keys; }
+    const std::set<t_config_option_key>& extruder_retract_keys() const;
     // Array options growing with the number of milling cutters
-    const std::vector<std::string>& milling_option_keys() const { return m_milling_option_keys; }
-    const std::set<std::string>&    material_overrides_option_keys() const { return m_material_overrides_option_keys; }
+    const std::set<t_config_option_key>& milling_option_keys() const;
+    const std::set<t_config_option_key>&    material_overrides_option_keys() const;
 
-private:
+    const std::set<t_config_option_key> &option_keys(raw_option_preset_type) const;
+    std::set<t_config_option_key> &option_keys(raw_option_preset_type);
+
     void init_common_params();
-    void init_fff_params();
-    void init_extruder_option_keys();
-    void init_sla_params();
-    void init_sla_support_params(const std::string &method_prefix);
-    void init_milling_params();
+private:
+    friend class FFFPrintConfigDef;
+    friend class SLAPrintConfigDef;
 
-    std::vector<std::string>    m_extruder_option_keys;
-    std::set<std::string>       m_filament_override_option_keys;
-    std::vector<std::string>    m_extruder_retract_keys;
-    std::vector<std::string>    m_milling_option_keys;
-    std::set<std::string>       m_material_overrides_option_keys;
+    void assign_printer_technology_to_unknown(PrinterTechnology printer_technology);
 
-    // The one and only global definition of SLic3r configuration options is created as static in get_mutable()
-    // This definition is constant (after initialisation & plugin loaded)
-    // only use get_mutable() directly for initilisation, never after
-    static PrintConfigDef& instance_mutable();
+    // <=> std::map<raw_option_preset_type, t_config_option_keys>
+    std::vector<std::set<t_config_option_key>> m_key_categories;
 };
 
 class StaticPrintConfig;
@@ -275,7 +279,6 @@ public:
     // Overrides ConfigBase::keys(). Collect names of all configuration values maintained by this configuration store.
     t_config_option_keys    keys() const override;
 
-    
     std::vector<ConfigBase*> storages;
 private:
 };
@@ -285,12 +288,43 @@ void handle_legacy_sla(DynamicPrintConfig& config);
 class StaticPrintConfig : public StaticConfig
 {
 public:
+    enum class DynamicOptionScope : uint8_t {
+        None,
+        FFFPrint,
+        FFFObject,
+        FFFRegion,
+        FFFAggregate,
+        SLAPrint,
+        SLAObject,
+        SLAMaterial,
+        SLAPrinter,
+        SLAAggregate,
+    };
+
     StaticPrintConfig() {}
+    StaticPrintConfig(const StaticPrintConfig &rhs) : StaticConfig(rhs) { this->copy_dynamic_options_from(rhs); }
+    StaticPrintConfig(StaticPrintConfig &&rhs) noexcept = default;
+    StaticPrintConfig& operator=(const StaticPrintConfig &rhs)
+    {
+        if (this != &rhs)
+            this->copy_dynamic_options_from(rhs);
+        return *this;
+    }
+    StaticPrintConfig& operator=(StaticPrintConfig &&rhs) noexcept = default;
 
     // Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here.
     const ConfigDef*    def() const override { return &PrintConfigDef::instance(); }
+    ConfigDef*    def_for_init() const { return &PrintConfigDef::instance_mutable(); }
     // Reference to the cached list of keys.
     virtual const t_config_option_keys& keys_ref() const = 0;
+
+    // prefer using apply()
+    void add_plugin_option(ConfigOptionDef &def) {
+        if (this->accepts_dynamic_option(def)) {
+            m_dynamic_options[def.opt_key].reset(def.create_default_option());
+            m_keys_with_dynamic_dirty = true;
+        }
+    }
 
 protected:
 #ifdef _DEBUGINFO
@@ -301,6 +335,85 @@ protected:
     void                handle_legacy(t_config_option_key &opt_key, std::string &value) const override
         { PrintConfigDef::handle_legacy_pair(opt_key, value); }
 #endif
+    virtual DynamicOptionScope dynamic_option_scope() const { return DynamicOptionScope::None; }
+
+    //TODO: push into childs (so we don't know if sla or fff)
+    bool accepts_dynamic_option(const ConfigOptionDef &def) const
+    {
+        if (def.container_type == ConfigOptionContainerType::None)
+            return false;
+
+        const raw_option_preset_type preset_type = static_cast<raw_option_preset_type>(def.option_preset_type);
+        switch (this->dynamic_option_scope()) {
+        case DynamicOptionScope::FFFPrint:
+            return this->is_fff_option_preset(preset_type) &&
+                (def.container_type == ConfigOptionContainerType::Project ||
+                 def.container_type == ConfigOptionContainerType::Plater);
+        case DynamicOptionScope::FFFObject:
+            return this->is_fff_option_preset(preset_type) &&
+                def.container_type == ConfigOptionContainerType::Object;
+        case DynamicOptionScope::FFFRegion:
+            return this->is_fff_option_preset(preset_type) &&
+                (def.container_type == ConfigOptionContainerType::Layer ||
+                 def.container_type == ConfigOptionContainerType::Region);
+        case DynamicOptionScope::FFFAggregate:
+            return this->is_fff_option_preset(preset_type);
+        case DynamicOptionScope::SLAPrint:
+            return preset_type == RAW_PRESET_TYPE_SLA_PRINT &&
+                (def.container_type == ConfigOptionContainerType::Project ||
+                 def.container_type == ConfigOptionContainerType::Plater);
+        case DynamicOptionScope::SLAObject:
+            return preset_type == RAW_PRESET_TYPE_SLA_PRINT &&
+                def.container_type == ConfigOptionContainerType::Object;
+        case DynamicOptionScope::SLAMaterial:
+            return preset_type == RAW_PRESET_TYPE_SLA_MATERIAL ||
+                preset_type == RAW_PRESET_TYPE_SLA_MATERIAL_OVERRIDE;
+        case DynamicOptionScope::SLAPrinter:
+            return preset_type == RAW_PRESET_TYPE_SLA_PRINTER;
+        case DynamicOptionScope::SLAAggregate:
+            return this->is_sla_option_preset(preset_type);
+        case DynamicOptionScope::None:
+        default:
+            return false;
+        }
+    }
+
+    ConfigOption* optptr_dynamic(const std::string &name, bool create = false) {
+        auto it = m_dynamic_options.find(name);
+        if (it != m_dynamic_options.end())
+            return it->second.get();
+        if (!create)
+            return nullptr;
+        const ConfigOptionDef *def = this->def()->get(name);
+        if (def == nullptr)
+            return nullptr;
+        if (!this->accepts_dynamic_option(*def))
+            return nullptr;
+        auto inserted = m_dynamic_options.emplace(name, std::unique_ptr<ConfigOption>(def->create_default_option()));
+        m_keys_with_dynamic_dirty = true;
+        return inserted.first->second.get();
+    }
+
+    const ConfigOption* optptr_dynamic(const std::string &name) const {
+        auto it = m_dynamic_options.find(name);
+        return it != m_dynamic_options.end() ? it->second.get() : nullptr;
+    }
+
+    const t_config_option_keys& keys_ref_with_dynamic(const t_config_option_keys &static_keys) const
+    {
+        if (m_dynamic_options.empty())
+            return static_keys;
+        if (m_keys_with_dynamic_dirty) {
+            m_keys_with_dynamic = static_keys;
+            m_keys_with_dynamic.reserve(static_keys.size() + m_dynamic_options.size());
+            for (const auto &option : m_dynamic_options)
+                m_keys_with_dynamic.emplace_back(option.first);
+            std::sort(m_keys_with_dynamic.begin(), m_keys_with_dynamic.end());
+            m_keys_with_dynamic.erase(std::unique(m_keys_with_dynamic.begin(), m_keys_with_dynamic.end()), m_keys_with_dynamic.end());
+            m_keys_with_dynamic_dirty = false;
+        }
+        return m_keys_with_dynamic;
+    }
 
     // Internal class for keeping a dynamic map to static options.
     class StaticCacheBase
@@ -330,16 +443,22 @@ protected:
 
         bool                initialized() const { return ! m_keys.empty(); }
 
-        ConfigOption*       optptr(const std::string &name, T *owner) const
+        ConfigOption*       optptr(const std::string &name, T *owner, bool create = false) const
         {
             const auto it = m_map_name_to_offset.find(name);
-            return (it == m_map_name_to_offset.end()) ? nullptr : reinterpret_cast<ConfigOption*>((char*)owner + it->second);
+            if (it != m_map_name_to_offset.end()) {
+                return reinterpret_cast<ConfigOption *>((char *) owner + it->second);
+            }
+            return static_cast<StaticPrintConfig *>(owner)->optptr_dynamic(name, create);
         }
 
         const ConfigOption* optptr(const std::string &name, const T *owner) const
         {
             const auto it = m_map_name_to_offset.find(name);
-            return (it == m_map_name_to_offset.end()) ? nullptr : reinterpret_cast<const ConfigOption*>((const char*)owner + it->second);
+            if (it != m_map_name_to_offset.end()) {
+                return reinterpret_cast<const ConfigOption *>((const char *) owner + it->second);
+            }
+            return static_cast<const StaticPrintConfig *>(owner)->optptr_dynamic(name);
         }
 
         const std::vector<std::string>& keys()      const { return m_keys; }
@@ -357,7 +476,7 @@ protected:
             m_keys.reserve(m_map_name_to_offset.size());
             for (const auto &kvp : defs->options) {
                 // Find the option given the option name kvp.first by an offset from (char*)m_defaults.
-                ConfigOption *opt = this->optptr(kvp.first, m_defaults);
+                ConfigOption *opt = this->optptr(kvp.first, m_defaults, true);
                 if (opt == nullptr)
                     // This option is not defined by the ConfigBase of type T.
                     continue;
@@ -373,10 +492,57 @@ protected:
         T                                  *m_defaults;
         std::vector<std::string>            m_keys;
     };
+
+private:
+    static bool is_fff_option_preset(raw_option_preset_type preset_type)
+    {
+        switch (preset_type) {
+        case RAW_PRESET_TYPE_FFF_PRINT:
+        case RAW_PRESET_TYPE_FFF_FILAMENT:
+        case RAW_PRESET_TYPE_FFF_FILAMENT_OVERRIDE:
+        case RAW_PRESET_TYPE_FFF_TOOL_EXTRUDER:
+        case RAW_PRESET_TYPE_FFF_TOOL_EXTRUDER_RETRACTION:
+        case RAW_PRESET_TYPE_FFF_TOOL_MILLING:
+        case RAW_PRESET_TYPE_FFF_PRINTER:
+        case RAW_PRESET_TYPE_FFF_PRINTER_MACHINE_LIMITS:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    static bool is_sla_option_preset(raw_option_preset_type preset_type)
+    {
+        switch (preset_type) {
+        case RAW_PRESET_TYPE_SLA_PRINT:
+        case RAW_PRESET_TYPE_SLA_MATERIAL:
+        case RAW_PRESET_TYPE_SLA_MATERIAL_OVERRIDE:
+        case RAW_PRESET_TYPE_SLA_PRINTER:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    // declare friends for StaticCache, to let them access m_dynamic_options;
+    template<typename T> friend class StaticCache;
+    void copy_dynamic_options_from(const StaticPrintConfig &rhs)
+    {
+        m_dynamic_options.clear();
+        for (const auto &option : rhs.m_dynamic_options)
+            m_dynamic_options[option.first].reset(option.second == nullptr ? nullptr : option.second->clone());
+        m_keys_with_dynamic_dirty = true;
+    }
+
+    std::unordered_map<t_config_option_key, std::unique_ptr<ConfigOption>> m_dynamic_options;
+    mutable t_config_option_keys m_keys_with_dynamic;
+    mutable bool m_keys_with_dynamic_dirty { true };
+
 };
 
-#define STATIC_PRINT_CONFIG_CACHE_BASE(CLASS_NAME) \
+#define STATIC_PRINT_CONFIG_CACHE_BASE(CLASS_NAME, DYNAMIC_OPTION_SCOPE) \
 public: \
+    StaticPrintConfig::DynamicOptionScope dynamic_option_scope() const override { return DYNAMIC_OPTION_SCOPE; } \
     /* Overrides ConfigBase::optptr(). Find ando/or create a ConfigOption instance for a given name. */ \
     const ConfigOption*      optptr(const t_config_option_key &opt_key) const override \
         {   const ConfigOption* opt = s_cache_##CLASS_NAME.optptr(opt_key, this); \
@@ -387,10 +553,10 @@ public: \
         } \
     /* Overrides ConfigBase::optptr(). Find ando/or create a ConfigOption instance for a given name. */ \
     ConfigOption*            optptr(const t_config_option_key &opt_key, bool create = false) override \
-        { return s_cache_##CLASS_NAME.optptr(opt_key, this); } \
+        { return s_cache_##CLASS_NAME.optptr(opt_key, this, create); } \
     /* Overrides ConfigBase::keys(). Collect names of all configuration values maintained by this configuration store. */ \
-    t_config_option_keys     keys() const override { return s_cache_##CLASS_NAME.keys(); } \
-    const t_config_option_keys& keys_ref() const override { return s_cache_##CLASS_NAME.keys(); } \
+    t_config_option_keys     keys() const override { return this->keys_ref(); } \
+    const t_config_option_keys& keys_ref() const override { return this->keys_ref_with_dynamic(s_cache_##CLASS_NAME.keys()); } \
     static const CLASS_NAME& defaults() { assert(s_cache_##CLASS_NAME.initialized()); return s_cache_##CLASS_NAME.defaults(); } \
 private: \
     friend int print_config_static_initializer(); \
@@ -402,14 +568,14 @@ private: \
         if (! s_cache_##CLASS_NAME.initialized()) { \
             CLASS_NAME *inst = new CLASS_NAME(1); \
             inst->initialize(s_cache_##CLASS_NAME, (const char*)inst); \
-            s_cache_##CLASS_NAME.finalize(inst, inst->def()); \
+            s_cache_##CLASS_NAME.finalize(inst, inst->def_for_init()); \
         } \
     } \
     /* Cache object holding a key/option map, a list of option keys and a copy of this static config initialized with the defaults. */ \
     static StaticPrintConfig::StaticCache<CLASS_NAME> s_cache_##CLASS_NAME;
 
-#define STATIC_PRINT_CONFIG_CACHE(CLASS_NAME) \
-    STATIC_PRINT_CONFIG_CACHE_BASE(CLASS_NAME) \
+#define STATIC_PRINT_CONFIG_CACHE(CLASS_NAME, DYNAMIC_OPTION_SCOPE) \
+    STATIC_PRINT_CONFIG_CACHE_BASE(CLASS_NAME, DYNAMIC_OPTION_SCOPE) \
 public: \
     /* Public default constructor will initialize the key/option cache and the default object copy if needed. */ \
     CLASS_NAME() { assert(s_cache_##CLASS_NAME.initialized()); *this = s_cache_##CLASS_NAME.defaults(); } \
@@ -417,8 +583,8 @@ protected: \
     /* Protected constructor to be called when compounded. */ \
     CLASS_NAME(int) {}
 
-#define STATIC_PRINT_CONFIG_CACHE_DERIVED(CLASS_NAME) \
-    STATIC_PRINT_CONFIG_CACHE_BASE(CLASS_NAME) \
+#define STATIC_PRINT_CONFIG_CACHE_DERIVED(CLASS_NAME, DYNAMIC_OPTION_SCOPE) \
+    STATIC_PRINT_CONFIG_CACHE_BASE(CLASS_NAME, DYNAMIC_OPTION_SCOPE) \
 public: \
     /* Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here. */ \
     const ConfigDef*    def() const override { return &PrintConfigDef::instance(); }
@@ -432,9 +598,9 @@ public: \
         if (BOOST_PP_TUPLE_ELEM(1, elem) < rhs.BOOST_PP_TUPLE_ELEM(1, elem)) return true; \
         if (! (BOOST_PP_TUPLE_ELEM(1, elem) == rhs.BOOST_PP_TUPLE_ELEM(1, elem))) return false;
 
-#define PRINT_CONFIG_CLASS_DEFINE(CLASS_NAME, PARAMETER_DEFINITION_SEQ) \
-class CLASS_NAME : public StaticPrintConfig { \
-    STATIC_PRINT_CONFIG_CACHE(CLASS_NAME) \
+#define PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(CLASS_NAME, DYNAMIC_OPTION_SCOPE, PARAMETER_DEFINITION_SEQ) \
+class CLASS_NAME : public virtual StaticPrintConfig { \
+    STATIC_PRINT_CONFIG_CACHE(CLASS_NAME, DYNAMIC_OPTION_SCOPE) \
 public: \
     BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_DEFINITION, _, PARAMETER_DEFINITION_SEQ) \
     size_t hash() const throw() \
@@ -461,6 +627,9 @@ protected: \
     } \
 };
 
+#define PRINT_CONFIG_CLASS_DEFINE(CLASS_NAME, PARAMETER_DEFINITION_SEQ) \
+    PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(CLASS_NAME, StaticPrintConfig::DynamicOptionScope::None, PARAMETER_DEFINITION_SEQ)
+
 #define PRINT_CONFIG_CLASS_DERIVED_CLASS_LIST_ITEM(r, data, i, elem) BOOST_PP_COMMA_IF(i) public elem
 #define PRINT_CONFIG_CLASS_DERIVED_CLASS_LIST(CLASSES_PARENTS_TUPLE) BOOST_PP_SEQ_FOR_EACH_I(PRINT_CONFIG_CLASS_DERIVED_CLASS_LIST_ITEM, _, BOOST_PP_TUPLE_TO_SEQ(CLASSES_PARENTS_TUPLE))
 #define PRINT_CONFIG_CLASS_DERIVED_INITIALIZER_ITEM(r, VALUE, i, elem) BOOST_PP_COMMA_IF(i) elem(VALUE)
@@ -472,9 +641,9 @@ protected: \
     if (! (*static_cast<const elem*>(this) == static_cast<const elem&>(rhs))) return false;
 
 // Generic version, with or without new parameters. Don't use this directly.
-#define PRINT_CONFIG_CLASS_DERIVED_DEFINE1(CLASS_NAME, CLASSES_PARENTS_TUPLE, PARAMETER_DEFINITION, PARAMETER_REGISTRATION, PARAMETER_HASHES, PARAMETER_EQUALS) \
+#define PRINT_CONFIG_CLASS_DERIVED_DEFINE1_WITH_SCOPE(CLASS_NAME, CLASSES_PARENTS_TUPLE, DYNAMIC_OPTION_SCOPE, PARAMETER_DEFINITION, PARAMETER_REGISTRATION, PARAMETER_HASHES, PARAMETER_EQUALS) \
 class CLASS_NAME : PRINT_CONFIG_CLASS_DERIVED_CLASS_LIST(CLASSES_PARENTS_TUPLE) { \
-    STATIC_PRINT_CONFIG_CACHE_DERIVED(CLASS_NAME) \
+    STATIC_PRINT_CONFIG_CACHE_DERIVED(CLASS_NAME, DYNAMIC_OPTION_SCOPE) \
     CLASS_NAME() : PRINT_CONFIG_CLASS_DERIVED_INITIALIZER(CLASSES_PARENTS_TUPLE, 0) { assert(s_cache_##CLASS_NAME.initialized()); *this = s_cache_##CLASS_NAME.defaults(); } \
 public: \
     PARAMETER_DEFINITION \
@@ -499,12 +668,23 @@ protected: \
         PARAMETER_REGISTRATION \
     } \
 };
+
+#define PRINT_CONFIG_CLASS_DERIVED_DEFINE1(CLASS_NAME, CLASSES_PARENTS_TUPLE, PARAMETER_DEFINITION, PARAMETER_REGISTRATION, PARAMETER_HASHES, PARAMETER_EQUALS) \
+    PRINT_CONFIG_CLASS_DERIVED_DEFINE1_WITH_SCOPE(CLASS_NAME, CLASSES_PARENTS_TUPLE, StaticPrintConfig::DynamicOptionScope::None, PARAMETER_DEFINITION, PARAMETER_REGISTRATION, PARAMETER_HASHES, PARAMETER_EQUALS)
 // Variant without adding new parameters.
 #define PRINT_CONFIG_CLASS_DERIVED_DEFINE0(CLASS_NAME, CLASSES_PARENTS_TUPLE) \
     PRINT_CONFIG_CLASS_DERIVED_DEFINE1(CLASS_NAME, CLASSES_PARENTS_TUPLE, BOOST_PP_EMPTY(), BOOST_PP_EMPTY(), BOOST_PP_EMPTY(), BOOST_PP_EMPTY())
+#define PRINT_CONFIG_CLASS_DERIVED_DEFINE0_WITH_SCOPE(CLASS_NAME, CLASSES_PARENTS_TUPLE, DYNAMIC_OPTION_SCOPE) \
+    PRINT_CONFIG_CLASS_DERIVED_DEFINE1_WITH_SCOPE(CLASS_NAME, CLASSES_PARENTS_TUPLE, DYNAMIC_OPTION_SCOPE, BOOST_PP_EMPTY(), BOOST_PP_EMPTY(), BOOST_PP_EMPTY(), BOOST_PP_EMPTY())
 // Variant with adding new parameters.
 #define PRINT_CONFIG_CLASS_DERIVED_DEFINE(CLASS_NAME, CLASSES_PARENTS_TUPLE, PARAMETER_DEFINITION_SEQ) \
     PRINT_CONFIG_CLASS_DERIVED_DEFINE1(CLASS_NAME, CLASSES_PARENTS_TUPLE, \
+        BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_DEFINITION, _, PARAMETER_DEFINITION_SEQ), \
+        BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_INITIALIZATION, _, PARAMETER_DEFINITION_SEQ), \
+        BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_HASH, _, PARAMETER_DEFINITION_SEQ), \
+        BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_EQUAL, _, PARAMETER_DEFINITION_SEQ))
+#define PRINT_CONFIG_CLASS_DERIVED_DEFINE_WITH_SCOPE(CLASS_NAME, CLASSES_PARENTS_TUPLE, DYNAMIC_OPTION_SCOPE, PARAMETER_DEFINITION_SEQ) \
+    PRINT_CONFIG_CLASS_DERIVED_DEFINE1_WITH_SCOPE(CLASS_NAME, CLASSES_PARENTS_TUPLE, DYNAMIC_OPTION_SCOPE, \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_DEFINITION, _, PARAMETER_DEFINITION_SEQ), \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_INITIALIZATION, _, PARAMETER_DEFINITION_SEQ), \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_HASH, _, PARAMETER_DEFINITION_SEQ), \
@@ -606,7 +786,7 @@ public:
     DynamicPrintAndCLIConfig(const DynamicPrintAndCLIConfig &other) : DynamicPrintConfig(other) {}
 
     // Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here.
-    const ConfigDef*        def() const override { return &s_def; }
+    const ConfigDef*        def() const override { return &s_def(); }
 
 #ifdef _DEBUGINFO
     // Verify whether the opt_key has not been obsoleted or renamed.
@@ -630,7 +810,7 @@ private:
         // Do not release the default values, they are handled by print_config_def & cli_actions_config_def / cli_transform_config_def / cli_misc_config_def.
         ~PrintAndCLIConfigDef() { this->options.clear(); }
     };
-    static PrintAndCLIConfigDef s_def;
+    static const PrintAndCLIConfigDef& s_def();
 };
 
 bool is_XL_printer(const DynamicPrintConfig &cfg);
@@ -763,6 +943,7 @@ void deserialize_maybe_from_prusa(std::map<t_config_option_key, std::string> set
                                   bool                                       with_phony,
                                   bool                                       check_prusa);
 
+void add_to_prusa_export_to_remove_keys(std::string &opt_key);
 
 } // namespace Slic3r
 
@@ -799,5 +980,6 @@ namespace cereal {
         }
     }
 }
+
 
 #endif

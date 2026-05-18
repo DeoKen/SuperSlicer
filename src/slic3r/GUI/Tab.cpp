@@ -4153,7 +4153,7 @@ void TabPrinter::toggle_options()
         bool enabled = machine_limits_usage->value != MachineLimitsUsage::Ignore;
         bool silent_mode = (m_last_gcode_flavor == gcfMarlinLegacy || m_last_gcode_flavor == gcfMarlinFirmware) && m_config->opt_bool("silent_mode");
         int  max_field = silent_mode ? 2 : 1;
-        for (const std::string &opt : Preset::machine_limits_options())
+        for (const std::string &opt : PrintConfigDef::instance().option_keys(RAW_PRESET_TYPE_FFF_PRINTER_MACHINE_LIMITS))
             for (int i = 0; i < max_field; ++i)
                 toggle_option(opt, enabled, i);
 

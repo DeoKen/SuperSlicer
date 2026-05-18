@@ -24,6 +24,7 @@
 #ifndef slic3r_ConfigDef_hpp_
 #define slic3r_ConfigDef_hpp_
 
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <map>
@@ -54,6 +55,15 @@ enum ForwardCompatibilitySubstitutionRule {
     // Enable silent substitution of an unknown option value with default when loading user profiles. Throw on an
     // unknown option value in a system profile.
     EnableSilentDisableSystem,
+};
+
+enum class ConfigOptionContainerType : uint8_t {
+    None = 0,
+    Project,
+    Plater,
+    Object,
+    Layer,
+    Region,
 };
 
 class ConfigOptionDef;
@@ -320,6 +330,10 @@ public:
     std::string                         get_full_label() const { return !full_label.empty() ? full_label : label; }
     // With which printer technology is this configuration valid?
     PrinterTechnology                   printer_technology = ptUnknown;
+    // Where plugin-created static options shall store their actual value.
+    ConfigOptionContainerType           container_type = ConfigOptionContainerType::None;
+    // Preset/UI bucket for plugin-created options. Stored as an ABI-neutral integer.
+    uint32_t                            option_preset_type = 0;
     // Category of a configuration field, from the GUI perspective.
     OptionCategory                      category        = OptionCategory::none;
     // A tooltip text shown in the GUI.
@@ -498,10 +512,14 @@ public:
         std::ostream& out, bool show_defaults, 
         std::function<bool(const ConfigOptionDef &)> filter = [](const ConfigOptionDef &){ return true; }) const;
 
-protected:
-    ConfigOptionDef*        add(const t_config_option_key &opt_key, ConfigOptionType type);
+    bool is_finalized() const { return m_is_finalized; }
+
+    // public for orchestrator
+    ConfigOptionDef*        add(const t_config_option_key &opt_key, ConfigOptionType type, PrinterTechnology pt = ptUnknown);
     // Finalize open / close enums, validate everything.
     void                    finalize();
+protected:
+    bool                    m_is_finalized = false;
 };
 
 // A pure interface to resolving ConfigOptions.
@@ -644,6 +662,7 @@ public:
     // An UnknownOptionException is thrown in case some option keys are not defined by this->def(),
     // or this ConfigBase is of a StaticConfig type and it does not support some of the keys, and ignore_nonexistent is not set.
     void apply_only(const ConfigBase &other, const t_config_option_keys &keys, bool ignore_nonexistent = false);
+    void apply_only(const ConfigBase &other, const std::set<t_config_option_key> &keys, bool ignore_nonexistent = false);
     // Are the two configs equal? Ignoring options not present in both configs.
     bool equals(const ConfigBase &other) const;
     // Returns options differing in the two configs, ignoring options not present in both configs.
@@ -771,6 +790,7 @@ public:
 #endif
 
 private:
+    void apply_only(const ConfigBase &other, const t_config_option_key &key, bool ignore_nonexistent = false);
     // Set a configuration value from a string.
     bool set_deserialize_raw(const t_config_option_key& opt_key_src, const std::string& value, ConfigSubstitutionContext& substitutions, bool append);
 };
