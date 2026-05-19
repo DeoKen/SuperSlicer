@@ -6,11 +6,14 @@
 #ifndef slic3r_ExtrusionProperty_hpp_
 #define slic3r_ExtrusionProperty_hpp_
 
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <new>
 #include <string>
 #include <type_traits>
-#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -28,15 +31,32 @@ class ExtrusionPropertyCustomGcode;
 class ExtrusionPropertySpecialCommand;
 class ExtrusionPropertyOverhang;
 class ExtrusionPropertyZOffset;
+class ExtrusionPropertyZProfile;
 class ExtrusionPropertyLoopRole;
 
 using ExtrusionPropertyUPtr = std::unique_ptr<ExtrusionProperty>;
 using ExtrusionPropertyUPtrs = std::vector<ExtrusionPropertyUPtr>;
 
+using extrusion_property_type = uint32_t;
+
+enum : extrusion_property_type {
+    extrusion_property_type_invalid         = uint32_t(-1),
+    extrusion_property_type_attributes      = 1,
+    extrusion_property_type_speed           = 2,
+    extrusion_property_type_modifier        = 3,
+    extrusion_property_type_custom_gcode    = 4,
+    extrusion_property_type_special_command = 5,
+    extrusion_property_type_overhang        = 6,
+    extrusion_property_type_z_offset        = 7,
+    extrusion_property_type_z_profile       = 8,
+    extrusion_property_type_loop_role       = 9,
+};
+
 class ExtrusionProperty
 {
 public:
     virtual ~ExtrusionProperty() = default;
+    virtual extrusion_property_type type() const = 0;
     virtual ExtrusionPropertyUPtr clone() const = 0;
 };
 
@@ -66,11 +86,14 @@ inline bool operator==(const ExtrusionFlow &lhs, const ExtrusionFlow &rhs)
 
 struct ExtrusionAttributes : ExtrusionProperty, ExtrusionFlow
 {
+    static constexpr extrusion_property_type property_type = extrusion_property_type_attributes;
+
     ExtrusionAttributes() = default;
     ExtrusionAttributes(ExtrusionRole role) : role{ role } {}
     ExtrusionAttributes(ExtrusionRole role, const Flow &flow);
     ExtrusionAttributes(ExtrusionRole role, const ExtrusionFlow &flow) : ExtrusionFlow{ flow }, role{ role } {}
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionAttributes>(*this); }
 
     // What is the role / purpose of this extrusion?
@@ -90,6 +113,8 @@ inline bool operator==(const ExtrusionAttributes &lhs, const ExtrusionAttributes
 class ExtrusionPropertySpeed : public ExtrusionProperty
 {
 public:
+    static constexpr extrusion_property_type property_type = extrusion_property_type_speed;
+
     float speed_mm_per_s = -1.f;
     float accel_mm_per_s2 = -1.f;
     float pressure_adv = -1.f;
@@ -109,6 +134,7 @@ public:
     ExtrusionPropertySpeed& fan_speed(float fspeed) { assert(fspeed >= -1 && fspeed <= 100); fan_speed_percent = fspeed; return *this; }
     ExtrusionPropertySpeed& temperature(float temp) { temperature_C = temp; return *this; }
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionPropertySpeed>(*this); }
 };
 
@@ -116,6 +142,8 @@ public:
 class ExtrusionPropertyModifier : public ExtrusionProperty
 {
 public:
+    static constexpr extrusion_property_type property_type = extrusion_property_type_modifier;
+
     bool enforce_travel = false;
     bool enforce_retraction = false;
     bool enforce_unlift = false;
@@ -130,12 +158,15 @@ public:
     ExtrusionPropertyModifier& set_disable_lift(bool disable = true) { disable_lift = disable; return *this; }
     ExtrusionPropertyModifier& set_toolchange_retraction(bool is = true) { toolchange_retraction = is; return *this; }
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionPropertyModifier>(*this); }
 };
 
 class ExtrusionPropertyCustomGcode : public ExtrusionProperty
 {
 public:
+    static constexpr extrusion_property_type property_type = extrusion_property_type_custom_gcode;
+
     enum class Code {
         GCODE,
         COMMENT,
@@ -147,12 +178,15 @@ public:
     ExtrusionPropertyCustomGcode(const std::string &str);
     ExtrusionPropertyCustomGcode(Code c, const std::string &str) : code(c), gcode(str) {}
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionPropertyCustomGcode>(*this); }
 };
 
 class ExtrusionPropertySpecialCommand : public ExtrusionProperty
 {
 public:
+    static constexpr extrusion_property_type property_type = extrusion_property_type_special_command;
+
     enum class Code {
         TOOLCHANGE,
         SAVE_AND_RESET_SPEED_RATIO,
@@ -173,12 +207,15 @@ public:
     ExtrusionPropertySpecialCommand(Code c) : code(c), extra_data(0) {}
     ExtrusionPropertySpecialCommand(Code c, double data) : code(c), extra_data(data) {}
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionPropertySpecialCommand>(*this); }
 };
 
 class ExtrusionPropertyOverhang : public ExtrusionProperty
 {
 public:
+    static constexpr extrusion_property_type property_type = extrusion_property_type_overhang;
+
     float start_distance_from_prev_layer = -1.f;
     float end_distance_from_prev_layer = -1.f;
     float proximity_to_curled_lines = 0.f;
@@ -203,23 +240,29 @@ public:
         , has_dynamic_overhangs_flow(dynamic_flow)
         , has_dynamic_overhangs_speed(dynamic_speed) {}
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionPropertyOverhang>(*this); }
 };
 
 class ExtrusionPropertyZOffset : public ExtrusionProperty
 {
 public:
+    static constexpr extrusion_property_type property_type = extrusion_property_type_z_offset;
+
     coord_t z_offset = 0;
 
     ExtrusionPropertyZOffset() = default;
     explicit ExtrusionPropertyZOffset(coord_t offset) : z_offset(offset) {}
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionPropertyZOffset>(*this); }
 };
 
 class ExtrusionPropertyLoopRole : public ExtrusionProperty
 {
 public:
+    static constexpr extrusion_property_type property_type = extrusion_property_type_loop_role;
+
     // if perimeter, this is the perimeter count. 0 = external, negative = not a perimeter.
     int16_t perimeter_idx;
     // Set of tags to identify the loop.
@@ -229,12 +272,157 @@ public:
     ExtrusionPropertyLoopRole() = default;
     explicit ExtrusionPropertyLoopRole(ExtrusionLoopRole role) : loop_role(role) {}
 
+    extrusion_property_type type() const override { return property_type; }
     ExtrusionPropertyUPtr clone() const override { return std::make_unique<ExtrusionPropertyLoopRole>(*this); }
+};
+
+template<typename PropertyType>
+struct ExtrusionPropertyTraits
+{
+    static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
+    static constexpr extrusion_property_type type = PropertyType::property_type;
+};
+
+class RawBuffer
+{
+public:
+    RawBuffer() = default;
+    RawBuffer(const RawBuffer&) = delete;
+    RawBuffer(RawBuffer &&rhs) noexcept;
+    RawBuffer& operator=(const RawBuffer&) = delete;
+    RawBuffer& operator=(RawBuffer &&rhs) noexcept;
+    ~RawBuffer();
+
+    void allocate(size_t byte_count, size_t alignment);
+    void reset();
+
+    void* data() { return m_data; }
+    const void* data() const { return m_data; }
+    size_t size() const { return m_size; }
+    size_t alignment() const { return m_alignment; }
+
+    template<typename T> T& as()
+    {
+        assert(m_data != nullptr);
+        assert(m_size == sizeof(T));
+        assert(m_alignment >= alignof(T));
+        return *reinterpret_cast<T*>(m_data);
+    }
+
+    template<typename T> const T& as() const
+    {
+        assert(m_data != nullptr);
+        assert(m_size == sizeof(T));
+        assert(m_alignment >= alignof(T));
+        return *reinterpret_cast<const T*>(m_data);
+    }
+
+private:
+    // The buffer owns raw storage only. PropertySlot is responsible for
+    // constructing and destroying the property object stored in this memory.
+    void  *m_data = nullptr;
+    size_t m_size = 0;
+    size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+};
+
+// Type-tagged raw storage for one extrusion property.
+// Call as<T>() / get_if<T>() when the slot type is known by the caller.
+class PropertySlot;
+
+struct PropertySlotOps
+{
+    using DestroyFn = void (*)(void*);
+    using CloneFn = void (*)(PropertySlot&, const void*);
+    using PropertyFn = ExtrusionProperty* (*)(void*);
+    using ConstPropertyFn = const ExtrusionProperty* (*)(const void*);
+
+    extrusion_property_type type;
+    DestroyFn destroy;
+    CloneFn clone;
+    PropertyFn property;
+    ConstPropertyFn const_property;
+};
+
+class PropertySlot
+{
+public:
+    PropertySlot() = default;
+    PropertySlot(const PropertySlot &rhs);
+    PropertySlot(PropertySlot &&rhs) noexcept;
+    PropertySlot& operator=(const PropertySlot &rhs);
+    PropertySlot& operator=(PropertySlot &&rhs) noexcept;
+    ~PropertySlot();
+
+    extrusion_property_type type() const { return m_ops != nullptr ? m_ops->type : extrusion_property_type_invalid; }
+    bool empty() const { return m_ops == nullptr; }
+
+    template<typename PropertyType, typename... Args> PropertyType& emplace(Args&&... args)
+    {
+        static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
+        this->reset();
+        m_data.allocate(sizeof(PropertyType), alignof(PropertyType));
+        PropertyType *property = new (m_data.data()) PropertyType(std::forward<Args>(args)...);
+        m_ops = &PropertySlot::ops<PropertyType>();
+        return *property;
+    }
+
+    template<typename PropertyType> PropertyType* get_if()
+    {
+        static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
+        return this->type() == ExtrusionPropertyTraits<PropertyType>::type ? &m_data.as<PropertyType>() : nullptr;
+    }
+
+    template<typename PropertyType> const PropertyType* get_if() const
+    {
+        static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
+        return this->type() == ExtrusionPropertyTraits<PropertyType>::type ? &m_data.as<PropertyType>() : nullptr;
+    }
+
+    template<typename PropertyType> PropertyType& as()
+    {
+        assert(this->type() == ExtrusionPropertyTraits<PropertyType>::type);
+        return m_data.as<PropertyType>();
+    }
+
+    template<typename PropertyType> const PropertyType& as() const
+    {
+        assert(this->type() == ExtrusionPropertyTraits<PropertyType>::type);
+        return m_data.as<PropertyType>();
+    }
+
+    ExtrusionProperty& property() { assert(m_ops != nullptr); return *m_ops->property(m_data.data()); }
+    const ExtrusionProperty& property() const { assert(m_ops != nullptr); return *m_ops->const_property(m_data.data()); }
+
+    void reset();
+
+private:
+    template<typename PropertyType> static const PropertySlotOps& ops()
+    {
+        static const PropertySlotOps slot_ops = {
+            ExtrusionPropertyTraits<PropertyType>::type,
+            &PropertySlot::destroy_property<PropertyType>,
+            &PropertySlot::clone_property<PropertyType>,
+            &PropertySlot::property<PropertyType>,
+            &PropertySlot::const_property<PropertyType>
+        };
+        return slot_ops;
+    }
+
+    template<typename PropertyType> static void destroy_property(void *data) { m_data_as<PropertyType>(data).~PropertyType(); }
+    template<typename PropertyType> static void clone_property(PropertySlot &dst, const void *src) { dst.emplace<PropertyType>(m_const_data_as<PropertyType>(src)); }
+    template<typename PropertyType> static ExtrusionProperty* property(void *data) { return &m_data_as<PropertyType>(data); }
+    template<typename PropertyType> static const ExtrusionProperty* const_property(const void *data) { return &m_const_data_as<PropertyType>(data); }
+    template<typename PropertyType> static PropertyType& m_data_as(void *data) { return *reinterpret_cast<PropertyType*>(data); }
+    template<typename PropertyType> static const PropertyType& m_const_data_as(const void *data) { return *reinterpret_cast<const PropertyType*>(data); }
+
+    RawBuffer m_data;
+    const PropertySlotOps *m_ops = nullptr;
 };
 
 // Small typed property bag for extrusion interpretation modifiers.
 // Most entities have no property, and the few that do usually carry one or two;
-// a linear scan keeps the storage compact while making typed access explicit.
+// the vector keeps storage compact while PropertySlot makes the "one property per
+// type" rule explicit and avoids dynamic casts on typed lookups.
 class ExtrusionPropertyContainer
 {
 public:
@@ -256,18 +444,18 @@ public:
     template<typename PropertyType> PropertyType* get_property()
     {
         static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
-        for (ExtrusionPropertyUPtr &property : m_properties)
-            if (PropertyType *out = dynamic_cast<PropertyType*>(property.get()))
-                return out;
+        PropertySlot *slot = this->find_slot(ExtrusionPropertyTraits<PropertyType>::type);
+        if (slot != nullptr)
+            return slot->get_if<PropertyType>();
         return nullptr;
     }
 
     template<typename PropertyType> const PropertyType* get_property() const
     {
         static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
-        for (const ExtrusionPropertyUPtr &property : m_properties)
-            if (const PropertyType *out = dynamic_cast<const PropertyType*>(property.get()))
-                return out;
+        const PropertySlot *slot = this->find_slot(ExtrusionPropertyTraits<PropertyType>::type);
+        if (slot != nullptr)
+            return slot->get_if<PropertyType>();
         return nullptr;
     }
 
@@ -276,17 +464,17 @@ public:
         static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
         if (PropertyType *property = this->get_property<PropertyType>())
             return *property;
-        ExtrusionPropertyUPtr property = std::make_unique<PropertyType>(std::forward<Args>(args)...);
-        PropertyType *out = static_cast<PropertyType*>(property.get());
-        m_properties.emplace_back(std::move(property));
-        return *out;
+        PropertySlot slot;
+        PropertyType &out = slot.emplace<PropertyType>(std::forward<Args>(args)...);
+        m_properties.emplace_back(std::move(slot));
+        return out;
     }
 
     template<typename PropertyType> bool remove_property()
     {
         static_assert(std::is_base_of<ExtrusionProperty, PropertyType>::value, "PropertyType must inherit ExtrusionProperty");
-        for (ExtrusionPropertyUPtrs::iterator it = m_properties.begin(); it != m_properties.end(); ++ it)
-            if (dynamic_cast<PropertyType*>(it->get()) != nullptr) {
+        for (std::vector<PropertySlot>::iterator it = m_properties.begin(); it != m_properties.end(); ++ it)
+            if (it->type() == ExtrusionPropertyTraits<PropertyType>::type) {
                 m_properties.erase(it);
                 return true;
             }
@@ -294,7 +482,11 @@ public:
     }
 
 protected:
-    ExtrusionPropertyUPtrs m_properties;
+
+    PropertySlot* find_slot(extrusion_property_type type);
+    const PropertySlot* find_slot(extrusion_property_type type) const;
+
+    std::vector<PropertySlot> m_properties;
 };
 
 template<typename PropertyType>
