@@ -688,10 +688,10 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
 				if (i + 1 == j && first_path.size() > 3 && first_path.front().x() == first_path.back().x() && first_path.front().y() == first_path.back().y()) {
 					auto *loop = new ExtrusionLoop();
                     brim.entities.emplace_back(loop);
-                    loop->paths.emplace_back(ExtrusionAttributes{
+                    loop->paths().emplace_back(ExtrusionAttributes{
                         ExtrusionRole::Skirt, 
                         ExtrusionFlow{ float(flow.mm3_per_mm()), float(flow.width()), float(print.skirt_first_layer_height()) } });
-		            Points &points = loop->paths.front().polyline().points;
+		            Points &points = loop->paths().front().polyline().points;
 		            points.reserve(first_path.size());
 		            for (const ClipperLib_Z::IntPoint &pt : first_path)
 		            	points.emplace_back(coord_t(pt.x()), coord_t(pt.y()));

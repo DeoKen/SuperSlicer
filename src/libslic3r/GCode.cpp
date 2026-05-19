@@ -1592,11 +1592,11 @@ namespace DoExport {
             }
         }
         virtual void use(const ExtrusionMultiPath& multipath) override {
-            for (const ExtrusionPath& path : multipath.paths)
+            for (const ExtrusionPath& path : multipath.paths())
                 use(path);
         }
         virtual void use(const ExtrusionLoop& loop) override {
-            for (const ExtrusionPath& path : loop.paths)
+            for (const ExtrusionPath& path : loop.paths())
                 use(path);
         }
         virtual void use(const ExtrusionEntityCollection& collection) override {
@@ -5608,7 +5608,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
     std::vector<ExtrusionPath> orig_p1;
     std::vector<ExtrusionPath> orig_p2;
     bool found_point = false;
-    for (const ExtrusionPath &path : original_loop.paths) {
+    for (const ExtrusionPath &path : original_loop.paths()) {
         int index = path.polyline().find_point(pt_to_search_for, SCALED_EPSILON);
         if (index < 0) {
             if (!found_point) {
@@ -5920,15 +5920,15 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
 
 void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
 {
-    if (loop.paths.empty())
+    if (loop.paths().empty())
         return;
 
 #if _DEBUG
     ExtrusionLoop old_loop = loop;
-    for (const ExtrusionPath &path : loop.paths)
+    for (const ExtrusionPath &path : loop.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
-    for (auto it = std::next(loop.paths.begin()); it != loop.paths.end(); ++it) {
+    for (auto it = std::next(loop.paths().begin()); it != loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
@@ -5940,10 +5940,10 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
 //        seam_position = spNearest;
     
 #if _DEBUG
-    for (const ExtrusionPath &path : loop.paths)
+    for (const ExtrusionPath &path : loop.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
-    for (auto it = std::next(loop.paths.begin()); it != loop.paths.end(); ++it) {
+    for (auto it = std::next(loop.paths().begin()); it != loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
@@ -5976,10 +5976,10 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
         if (!loop.split_at_vertex(seam_point, scale_d(0.0015))) {
             
 #if _DEBUG
-    for (const ExtrusionPath &path : loop.paths)
+    for (const ExtrusionPath &path : loop.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
-    for (auto it = std::next(loop.paths.begin()); it != loop.paths.end(); ++it) {
+    for (auto it = std::next(loop.paths().begin()); it != loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
@@ -5991,10 +5991,10 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
             loop.split_at(seam_point, true, scale_i(precision));
             
 #if _DEBUG
-    for (const ExtrusionPath &path : loop.paths)
+    for (const ExtrusionPath &path : loop.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
-    for (auto it = std::next(loop.paths.begin()); it != loop.paths.end(); ++it) {
+    for (auto it = std::next(loop.paths().begin()); it != loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
@@ -6005,10 +6005,10 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
         }
         
 #if _DEBUG
-    for (const ExtrusionPath &path : loop.paths)
+    for (const ExtrusionPath &path : loop.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
-    for (auto it = std::next(loop.paths.begin()); it != loop.paths.end(); ++it) {
+    for (auto it = std::next(loop.paths().begin()); it != loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
@@ -6016,10 +6016,10 @@ void GCodeGenerator::split_at_seam_pos(ExtrusionLoop& loop, bool was_clockwise)
 #endif
     }
 #if _DEBUG
-    for (const ExtrusionPath &path : loop.paths)
+    for (const ExtrusionPath &path : loop.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
-    for (auto it = std::next(loop.paths.begin()); it != loop.paths.end(); ++it) {
+    for (auto it = std::next(loop.paths().begin()); it != loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
@@ -6378,15 +6378,15 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
 {
     DEBUG_VISIT(original_loop, LoopAssertVisitor())
 #ifdef _DEBUG
-    for (auto it = std::next(original_loop.paths.begin()); it != original_loop.paths.end(); ++it) {
+    for (auto it = std::next(original_loop.paths().begin()); it != original_loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
-    assert(original_loop.paths.front().first_point() == original_loop.paths.back().last_point());
+    assert(original_loop.paths().front().first_point() == original_loop.paths().back().last_point());
 #endif
 #if DEBUG_EXTRUSION_OUTPUT
     std::cout << "extrude loop_" << (original_loop.polygon().is_counter_clockwise() ? "ccw" : "clw") << ": ";
-    for (const ExtrusionPath &path : original_loop.paths) {
+    for (const ExtrusionPath &path : original_loop.paths()) {
         std::cout << ", path{ ";
         for (const Point &pt : path.polyline().get_points()) {
             std::cout << ", " << floor(100 * unscaled(pt.x())) / 100.0 << ":" << floor(100 * unscaled(pt.y())) / 100.0;
@@ -6402,7 +6402,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     bool has_spiral_vase = m_spiral_vase_layer > 0;
 
     ExtrusionLoop loop_to_seam = original_loop;
-    for (const ExtrusionPath &path : loop_to_seam.paths)
+    for (const ExtrusionPath &path : loop_to_seam.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
     
@@ -6434,7 +6434,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
         }
         is_hole_loop = false;
     }
-    for (const ExtrusionPath &path : loop_to_seam.paths)
+    for (const ExtrusionPath &path : loop_to_seam.paths())
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
 
@@ -6444,16 +6444,16 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     const bool is_full_loop_ccw = loop_to_seam.polygon().is_counter_clockwise();
     //after that point, loop_to_seam can be modified by 'paths', so don't use it anymore
 #ifdef _DEBUG
-    for (auto it = std::next(loop_to_seam.paths.begin()); it != loop_to_seam.paths.end(); ++it) {
+    for (auto it = std::next(loop_to_seam.paths().begin()); it != loop_to_seam.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
-    assert(loop_to_seam.paths.front().first_point() == loop_to_seam.paths.back().last_point());
+    assert(loop_to_seam.paths().front().first_point() == loop_to_seam.paths().back().last_point());
 #endif
     // clip the path to avoid the extruder to get exactly on the first point of the loop;
     // if polyline was shorter than the clipping distance we'd get a null polyline, so
     // we discard it in that case
-    ExtrusionPaths& building_paths = loop_to_seam.paths;
+    ExtrusionPaths& building_paths = loop_to_seam.paths();
     for (const ExtrusionPath &path : building_paths)
         DEBUG_VISIT(path, LoopAssertVisitor())
     //direction is now set, make the path unreversable
@@ -6582,7 +6582,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
             bool has_retraction = !this->last_pos_defined();
             if (!has_retraction) {
                 Polyline travel = Polyline(this->last_pos(), pt);
-                has_retraction = this->needs_retraction(travel, original_loop.paths.front().role(), scale_d(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0.4)) * 3);
+                has_retraction = this->needs_retraction(travel, original_loop.paths().front().role(), scale_d(EXTRUDER_CONFIG_WITH_DEFAULT(nozzle_diameter, 0.4)) * 3);
             }
             if (has_retraction) {
                 this->m_throw_if_canceled();
@@ -6697,7 +6697,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     }
 
     // print seam tag with seam position (only for external perimeter & overhangs)
-    if (original_loop.paths.front().role().is_external_perimeter()) {
+    if (original_loop.paths().front().role().is_external_perimeter()) {
         Vec2d seam_gcode_point = point_to_gcode(seam_pos);
         gcode += ";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Seam) + ":" +
             to_string_nozero(seam_gcode_point.x(), 3) + ":" + to_string_nozero(seam_gcode_point.y(), 3) + "\n";
@@ -7078,8 +7078,8 @@ void GCodeGenerator::add_wipe_points(const std::vector<THING>& paths, bool rever
 std::string GCodeGenerator::extrude_multi_path(const ExtrusionMultiPath &multipath, const std::string_view description, double speed) {
 #ifndef NDEBUG
     assert(!multipath.empty());
-    assert(!multipath.paths.front().polyline().empty());
-    for (auto it = std::next(multipath.paths.begin()); it != multipath.paths.end(); ++it) {
+    assert(!multipath.paths().front().polyline().empty());
+    for (auto it = std::next(multipath.paths().begin()); it != multipath.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
         assert(std::prev(it)->polyline().back() == it->polyline().front());
     }
@@ -7102,21 +7102,21 @@ std::string GCodeGenerator::extrude_multi_path(const ExtrusionMultiPath &multipa
         // but it's not possible to reverse individual paths inside a multipath anyway.
         this->visitor_flipped = true;
         // extrude along the  reversedpath
-        for (size_t idx_path = multipath.paths.size() - 1; idx_path < multipath.paths.size(); --idx_path) {
+        for (size_t idx_path = multipath.paths().size() - 1; idx_path < multipath.paths().size(); --idx_path) {
             // extrude_path will reverse the path by itself, no need to copy it do to it here.
-            const ExtrusionPath &path = multipath.paths[idx_path];
+            const ExtrusionPath &path = multipath.paths()[idx_path];
             gcode += path.polyline().has_z_offset() ? extrude_path_3D(path, description, speed) : extrude_path(path, description, speed);
         }
-        if (std::none_of(multipath.paths.begin(), multipath.paths.end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); }))
-            add_wipe_points(multipath.paths, false, false);
+        if (std::none_of(multipath.paths().begin(), multipath.paths().end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); }))
+            add_wipe_points(multipath.paths(), false, false);
     } else {
         this->visitor_flipped = false;
         // extrude along the path
-        for (const ExtrusionPath& path : multipath.paths) {
+        for (const ExtrusionPath& path : multipath.paths()) {
             gcode += path.polyline().has_z_offset() ? extrude_path_3D(path, description, speed) : extrude_path(path, description, speed);
         }
-        if (std::none_of(multipath.paths.begin(), multipath.paths.end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); }))
-            add_wipe_points(multipath.paths, true, false);
+        if (std::none_of(multipath.paths().begin(), multipath.paths().end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); }))
+            add_wipe_points(multipath.paths(), true, false);
     };
     this->visitor_flipped = saved_flipped;
     // reset acceleration
@@ -7900,10 +7900,10 @@ void GCodeGenerator::extrude_skirt(
     ExtrusionLoop &loop_src, const ExtrusionFlow &extrusion_flow_override, std::string &gcode, const std::string_view description)
 {
 
-    if (loop_src.paths.empty())
+    if (loop_src.paths().empty())
         return;
 
-    for (ExtrusionPath &path : loop_src.paths) {
+    for (ExtrusionPath &path : loop_src.paths()) {
         // Override extrusion parameters.
         assert(!std::isnan(extrusion_flow_override.mm3_per_mm));
         assert(!std::isnan(extrusion_flow_override.height));
@@ -7916,7 +7916,7 @@ void GCodeGenerator::extrude_skirt(
 
     if (m_wipe->is_enabled())
         // Wipe will hide the seam.
-        m_wipe->set_path(loop_src.paths, false, true);
+        m_wipe->set_path(loop_src.paths(), false, true);
 
 }
 

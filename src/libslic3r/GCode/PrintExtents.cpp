@@ -53,7 +53,7 @@ static inline BoundingBoxf extrusionentity_extents(const ExtrusionPath &extrusio
 static inline BoundingBoxf extrusionentity_extents(const ExtrusionLoop &extrusion_loop)
 {
     BoundingBox bbox;
-    for (const ExtrusionPath &extrusion_path : extrusion_loop.paths)
+    for (const ExtrusionPath &extrusion_path : extrusion_loop.paths())
         bbox.merge(extrusion_polyline_extents(extrusion_path.polyline().to_polyline(), scale_i(0.5 * extrusion_path.width())));
     BoundingBoxf bboxf;
     if (! empty(bbox)) {
@@ -67,7 +67,7 @@ static inline BoundingBoxf extrusionentity_extents(const ExtrusionLoop &extrusio
 static inline BoundingBoxf extrusionentity_extents(const ExtrusionMultiPath &extrusion_multi_path)
 {
     BoundingBox bbox;
-    for (const ExtrusionPath &extrusion_path : extrusion_multi_path.paths)
+    for (const ExtrusionPath &extrusion_path : extrusion_multi_path.paths())
         bbox.merge(extrusion_polyline_extents(extrusion_path.polyline().to_polyline(), scale_i(0.5 * extrusion_path.width())));
     BoundingBoxf bboxf;
     if (! empty(bbox)) {

@@ -65,14 +65,14 @@ public:
     }
     void use(const ExtrusionMultiPath &multipath) override {
         root_extrusion = &multipath;
-        for (const ExtrusionPath &path : multipath.paths) {
+        for (const ExtrusionPath &path : multipath.paths()) {
             path.visit(*this);
         }
         root_extrusion = nullptr;
     }
     void use(const ExtrusionLoop &loop) override {
         root_extrusion = &loop;
-        for (const ExtrusionPath &path : loop.paths) {
+        for (const ExtrusionPath &path : loop.paths()) {
             path.visit(*this);
         }
         root_extrusion = nullptr;
@@ -174,7 +174,7 @@ public:
     }
     void use(const ExtrusionMultiPath &multipath) override {
         bool has_external_peri = false;
-        for (const ExtrusionPath &path : multipath.paths) {
+        for (const ExtrusionPath &path : multipath.paths()) {
             has_external_peri = path.role().is_external_perimeter();
             if(has_external_peri) break;
         }
@@ -187,7 +187,7 @@ public:
     }
     void use(const ExtrusionLoop &loop) override {
         bool has_external_peri = false;
-        for (const ExtrusionPath &path : loop.paths) {
+        for (const ExtrusionPath &path : loop.paths()) {
             has_external_peri = path.role().is_external_perimeter();
             if(has_external_peri) break;
         }

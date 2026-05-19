@@ -494,7 +494,7 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
         }
         virtual void use(const ExtrusionLoop& loop) override {
             bool is_ccw = loop.polygon().is_counter_clockwise();
-            if ((configured_seam_preference == spAllRandom && !loop.paths.empty() && loop.paths.front().role().is_perimeter())
+            if ((configured_seam_preference == spAllRandom && !loop.paths().empty() && loop.paths().front().role().is_perimeter())
                     || (also_thin_walls && loop.role() == ExtrusionRole::ThinWall)) {
                 Points pts;
                 loop.collect_points(pts);
@@ -509,7 +509,7 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                 size_t count_paths_collected = 0;
                 bool previous_collected = false;
                 bool current_collected = false;
-                for (const ExtrusionPath &path : loop.paths) {
+                for (const ExtrusionPath &path : loop.paths()) {
                     current_collected = false;
                     if (path.role().is_external_perimeter()) {
                         if (!path.role().is_overhang() || also_overhangs) {
@@ -539,7 +539,7 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                 }
 
                 if (!polys.empty()) { // for random seam alignment, extract all perimeters
-                    if (count_paths_collected == loop.paths.size()) {
+                    if (count_paths_collected == loop.paths().size()) {
                         assert(polys.size() == 1);
                         assert(polys.front().first_point() ==  polys.front().last_point());
                     }
@@ -555,7 +555,7 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
             
             if (perimeter_type == PerimeterGeneratorType::Arachne) {
                 for (size_t idx = 0; idx < collection.size(); idx++) {
-                    const ExtrusionPath &path = collection.paths[idx];
+                    const ExtrusionPath &path = collection.paths()[idx];
                     assert(m_corresponding_regions_out.size() == polylines->size());
                     polylines->emplace_back(path.polyline().to_polyline().points,
                                             idx == 0 ? true : false,
@@ -1928,7 +1928,7 @@ std::tuple<bool,std::optional<Vec3f>> get_seam_from_modifier(const Layer& layer,
                         center_pos.y() = unscaled(pt.y());
                         sphere_radius = std::min(unscaled(seam_mesh->layers_bb[lidx].size().x()) / 2, unscaled(seam_mesh->layers_bb[lidx].size().y()) / 2);
                     }
-                } else if(model_volume->type() == ModelVolumeType::SEAM_POSITION_INSIDE && !loop.paths.empty()) {
+                } else if(model_volume->type() == ModelVolumeType::SEAM_POSITION_INSIDE && !loop.paths().empty()) {
                     double min_z = seam_mesh->bb_volume.min.z();
                     double max_z = seam_mesh->bb_volume.max.z();
                     if (layer.unscaled_print_z() + EPSILON < min_z || layer.unscaled_print_z() > max_z + EPSILON || seam_mesh->layers_contour.empty()) {
@@ -1939,7 +1939,7 @@ std::tuple<bool,std::optional<Vec3f>> get_seam_from_modifier(const Layer& layer,
                     size_t lidx = 0;
                     for (; lidx < seam_mesh->layers_contour.size() && seam_mesh->zs[lidx] + EPSILON < layer.unscaled_print_z() ; ++lidx) {}
                     // TODO Grid optimisation
-                    Polyline loop_polyline = loop.as_polyline().to_polyline(scale_i(loop.paths.front().width()));
+                    Polyline loop_polyline = loop.as_polyline().to_polyline(scale_i(loop.paths().front().width()));
                     //move the object's polyline to its plater position.
                     loop_polyline.translate(po->instances()[print_object_instance_idx].shift);
                     //first, check if cross bb
@@ -2022,11 +2022,11 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
     //FIXME?: not working on arcs
     auto get_next_loop_point = [&loop](ExtrusionLoop::ClosestPathPoint current) {
         current.segment_idx += 1;
-        if (current.segment_idx >= loop.paths[current.path_idx].polyline().size()) {
-            current.path_idx = next_idx_modulo(current.path_idx, loop.paths.size());
+        if (current.segment_idx >= loop.paths()[current.path_idx].polyline().size()) {
+            current.path_idx = next_idx_modulo(current.path_idx, loop.paths().size());
             current.segment_idx = 0;
         }
-        current.foot_pt = loop.paths[current.path_idx].polyline().get_point(current.segment_idx);
+        current.foot_pt = loop.paths()[current.path_idx].polyline().get_point(current.segment_idx);
         return current;
     };
 
@@ -2039,8 +2039,8 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
     size_t closest_perimeter_point_index = 0;
     { // local space for the closest_perimeter_point_index
         Perimeter *closest_perimeter = nullptr;
-        ExtrusionLoop::ClosestPathPoint closest_point{0,0,loop.paths[0].polyline().front()};
-        size_t points_count = std::accumulate(loop.paths.begin(), loop.paths.end(), 0, [](size_t acc,const ExtrusionPath& p) {
+        ExtrusionLoop::ClosestPathPoint closest_point{0,0,loop.paths()[0].polyline().front()};
+        size_t points_count = std::accumulate(loop.paths().begin(), loop.paths().end(), 0, [](size_t acc,const ExtrusionPath& p) {
            return acc + p.polyline().size();
         });
         for (size_t i = 0; i < points_count; ++i) {
@@ -2105,9 +2105,9 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
                                 * 0.5;
                 depth = 1.4142 * depth / beta_angle;
                 //fix depth, it is sometimes strongly overestimated (if the angle is shallow)
-                if (std::abs(depth) > loop.paths[projected_point.path_idx].width() * 5) {
+                if (std::abs(depth) > loop.paths()[projected_point.path_idx].width() * 5) {
                     // FIXME HACKFIX
-                    depth = loop.paths[projected_point.path_idx].width() * 5;
+                    depth = loop.paths()[projected_point.path_idx].width() * 5;
                     if(depth < 0) depth = (-depth);
                 }
                 // There are some nice geometric identities in determination of the correct depth of new seam point.
@@ -2126,7 +2126,7 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
             //lastly, for internal perimeters, do the staggering if requested
             if (po->config().staggered_inner_seams && loop.length() > 0.0) {
                 //fix depth, it is sometimes strongly underestimated
-                depth = std::max(loop.paths[projected_point.path_idx].width(), depth);
+                depth = std::max(loop.paths()[projected_point.path_idx].width(), depth);
 
                 while (depth > 0.0f) {
                     auto next_point = get_next_loop_point(projected_point);
@@ -2147,7 +2147,7 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
                 std::stringstream stri;
                 stri << layer->id() << "_split_seam_" << isaqsdsdfsdfqzfn++ << ".svg";
                 SVG svg(stri.str());
-                for(auto& path : loop.paths)
+                for(auto& path : loop.paths())
                     svg.draw(path.polyline(), "blue");
                 svg.draw(seam_point, "red");
                 svg.Close();

@@ -1059,7 +1059,7 @@ private:
 namespace SupportMaterialInternal {
     static inline bool has_bridging_perimeters(const ExtrusionLoop &loop)
     {
-        for (const ExtrusionPath &ep : loop.paths)
+        for (const ExtrusionPath &ep : loop.paths())
             if (ep.role().has(ExtrusionRole::OverhangPerimeter) && ! ep.polyline().empty())
                 return int(ep.size()) >= (ep.is_closed() ? 3 : 2);
         return false;
@@ -1123,7 +1123,7 @@ namespace SupportMaterialInternal {
     static inline void collect_bridging_perimeter_areas(const ExtrusionLoop &loop, const float expansion_scaled, bool only_flow, ExPolygons &out)
     {
         assert(expansion_scaled >= 0.f);
-        for (const ExtrusionPath &ep : loop.paths)
+        for (const ExtrusionPath &ep : loop.paths())
             if (ep.role().has(ExtrusionRole::OverhangPerimeter) && ! ep.polyline().empty() &&
                 // bridging flow => width == height
                 (!only_flow || is_approx(ep.height(), ep.width(), ep.height()/100))) {

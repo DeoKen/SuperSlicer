@@ -35,8 +35,8 @@ ExtrusionEntityCollection* createEC(std::initializer_list<ExtrusionEntity*> vec,
 ExtrusionLoop* createEL(std::vector<std::initializer_list<Point>> vec) {
     ExtrusionLoop *el = new ExtrusionLoop{};
     for (std::initializer_list<Point> &path : vec) {
-        el->paths.emplace_back(ExtrusionRole::erNone);
-        el->paths.back().polyline() = path;
+        el->paths().emplace_back(ExtrusionRole::erNone);
+        el->paths().back().polyline() = path;
     }
     return el;
 }

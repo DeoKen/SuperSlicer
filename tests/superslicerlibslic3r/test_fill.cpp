@@ -861,8 +861,8 @@ public:
     void use(ExtrusionPath &path) override {
         polygons_append(grown_paths, offset(path.as_polyline().as_polyline(), scale_t(path.width)));
     }
-    void use(ExtrusionMultiPath &multipath) override { for (ExtrusionPath path : multipath.paths) path.visit(*this);    }
-    void use(ExtrusionLoop &loop) override { for (ExtrusionPath path : loop.paths) path.visit(*this); }
+    void use(ExtrusionMultiPath &multipath) override { for (ExtrusionPath path : multipath.paths()) path.visit(*this);    }
+    void use(ExtrusionLoop &loop) override { for (ExtrusionPath path : loop.paths()) path.visit(*this); }
     void use(ExtrusionEntityCollection &collection) override { for (ExtrusionEntity *entity : collection.entities()) entity->visit(*this); }
     Polygons get(ExtrusionEntityCollection &coll) {
         for (ExtrusionEntity *entity : coll.entities()) entity->visit(*this);

@@ -600,10 +600,10 @@ ExtrusionEntityCollection WipeTower2::prime(
         assert(path_around_bed.length() > dist_load);
         // create loading path
         Polyline priming_start = path_around_bed.split_at(dist_load);
-        multipaths.paths.emplace_back(ArcPolyline(path_around_bed),
+        multipaths.paths().emplace_back(ArcPolyline(path_around_bed),
                                       ExtrusionAttributes{ExtrusionRole::WipeTower, tool_2_flow[tool_id]}, nullptr,
                                       false);
-        multipaths.paths.back().add_property(
+        multipaths.paths().back().add_property(
             ExtrusionPropertySpeed(this->get_loading_speed(tool_id), this->get_first_layer_acceleration(tool_id),
                                    this->get_first_layer_pa(tool_id), this->get_first_layer_fan_speed(tool_id)));
 
@@ -611,10 +611,10 @@ ExtrusionEntityCollection WipeTower2::prime(
         Polyline unloading_start;
         if (dist_prime > SCALED_EPSILON) {
             unloading_start = priming_start.split_at(dist_prime);
-            multipaths.paths.emplace_back(ArcPolyline(priming_start),
+            multipaths.paths().emplace_back(ArcPolyline(priming_start),
                                           ExtrusionAttributes{ExtrusionRole::WipeTower, tool_2_flow[tool_id]},
                                           nullptr, false);
-            multipaths.paths.back().add_property(
+            multipaths.paths().back().add_property(
                 ExtrusionPropertySpeed(this->get_prime_speed(tool_id), this->get_first_layer_acceleration(tool_id),
                                        this->get_first_layer_pa(tool_id), this->get_first_layer_fan_speed(tool_id)));
         } else {
@@ -625,10 +625,10 @@ ExtrusionEntityCollection WipeTower2::prime(
         // create unloading path
         // (give unsued part to next tool -> path_around_bed)
         path_around_bed = unloading_start.split_at(dist_unload);
-        multipaths.paths.emplace_back(ArcPolyline(unloading_start),
+        multipaths.paths().emplace_back(ArcPolyline(unloading_start),
                                       ExtrusionAttributes{ExtrusionRole::WipeTower, tool_2_flow[tool_id]}, nullptr,
                                       false);
-        multipaths.paths.back().add_property(
+        multipaths.paths().back().add_property(
             ExtrusionPropertySpeed(this->get_unloading_speed(tool_id), this->get_first_layer_acceleration(tool_id),
                                    this->get_first_layer_pa(tool_id), this->get_first_layer_fan_speed(tool_id)));
         tool_extrusions.append(std::move(multipaths));
@@ -1543,7 +1543,7 @@ bool WipeTowerLayer::print_perimeter(ExtrusionEntityCollection &collection, bool
         for (size_t i = 1; i < brim.size(); i++) {
             if (brim[i].front() == brim[i].back()) {
                 ExtrusionLoop loop;
-                loop.paths.emplace_back(ArcPolyline(brim[i]), extr_flow_attr, nullptr, true);
+                loop.paths().emplace_back(ArcPolyline(brim[i]), extr_flow_attr, nullptr, true);
                 brim_coll.append(std::move(loop));
             } else {
                 brim_coll.append(ExtrusionPath(ArcPolyline(brim[i]), extr_flow_attr, nullptr, true));
@@ -1562,7 +1562,7 @@ bool WipeTowerLayer::print_perimeter(ExtrusionEntityCollection &collection, bool
     for (size_t i = 0; i < tower_perimeters.size(); i++) {
         if (tower_perimeters[i].front() == tower_perimeters[i].back()) {
             ExtrusionLoop loop;
-            loop.paths.emplace_back(ArcPolyline(tower_perimeters[i]), extr_flow_attr, nullptr, true);
+            loop.paths().emplace_back(ArcPolyline(tower_perimeters[i]), extr_flow_attr, nullptr, true);
             collection.append(std::move(loop));
         } else {
             collection.append(ExtrusionPath(ArcPolyline(tower_perimeters[i]), extr_flow_attr, nullptr, true));

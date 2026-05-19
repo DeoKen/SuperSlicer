@@ -2799,43 +2799,43 @@ ExtrusionEntitiesPtr
         // Append paths to collection.
         if (!multi_paths.empty()) {
 #if _DEBUG
-            for (auto it = std::next(multi_paths.paths.begin()); it != multi_paths.paths.end(); ++it) {
+            for (auto it = std::next(multi_paths.paths().begin()); it != multi_paths.paths().end(); ++it) {
                 assert(it->polyline().size() >= 2);
                 assert(std::prev(it)->polyline().back() == it->polyline().front());
             }
-            for (auto it = multi_paths.paths.begin(); it != multi_paths.paths.end(); ++it) 
+            for (auto it = multi_paths.paths().begin(); it != multi_paths.paths().end(); ++it)
                 for (size_t idx_pt = 1; idx_pt < it->size(); ++idx_pt)
                     assert(!it->polyline().get_point(idx_pt - 1).coincides_with_epsilon(it->polyline().get_point(idx_pt)));
 #endif
-            if (multi_paths.paths.front().first_point().coincides_with_epsilon(multi_paths.paths.back().last_point())) {
+            if (multi_paths.paths().front().first_point().coincides_with_epsilon(multi_paths.paths().back().last_point())) {
                 // check if real loop or fluke
                 int nb_points = 0;
-                for (ExtrusionPath &path : multi_paths.paths) {
+                for (ExtrusionPath &path : multi_paths.paths()) {
                     nb_points += path.size() -1;
                 }
                 if (nb_points > 2) {
                     // good enough
-                    coll.push_back(new ExtrusionLoop(std::move(multi_paths.paths)));
+                    coll.push_back(new ExtrusionLoop(std::move(multi_paths.paths())));
                 } else {
                     // fluke, not big enough
-                    assert(multi_paths.paths.size() <= 2);
-                    assert(multi_paths.paths.front().size() > 1);
-                    if (multi_paths.paths.front().size() > 2) {
-                        multi_paths.paths.front().polyline().pop_back();
+                    assert(multi_paths.paths().size() <= 2);
+                    assert(multi_paths.paths().front().size() > 1);
+                    if (multi_paths.paths().front().size() > 2) {
+                        multi_paths.paths().front().polyline().pop_back();
                     }
-                    coll.push_back(multi_paths.paths.front().clone_move());
+                    coll.push_back(multi_paths.paths().front().clone_move());
                 }
             } else {
                 if (role == ExtrusionRole::ThinWall) {
                     //thin walls : avoid to cut them, please.
                     //also, keep the start, as the start should be already in a frontier where possible.
-                    ExtrusionEntityCollection* unsortable_coll = new ExtrusionEntityCollection(std::move(multi_paths.paths));
+                    ExtrusionEntityCollection* unsortable_coll = new ExtrusionEntityCollection(std::move(multi_paths.paths()));
                     unsortable_coll->set_can_sort_reverse(false, false);
                     //TODO un-reversable multipath ?
                     coll.push_back(unsortable_coll);
                 } else if (role == ExtrusionRole::GapFill) {
                     if (multi_paths.size() == 1) {
-                        coll.push_back(multi_paths.paths.front().clone_move());
+                        coll.push_back(multi_paths.paths().front().clone_move());
                     } else {
                         //can reverse but not sort/cut: it's a multipath!
                         coll.push_back(multi_paths.clone_move());

@@ -124,7 +124,7 @@ void ExtrusionPath::polygons_covered_by_spacing(Polygons &out, const float spaci
 double ExtrusionLoop::area() const
 {
     double a = 0;
-    for (const ExtrusionPath &path : this->paths) {
+    for (const ExtrusionPath &path : this->paths()) {
         assert(path.size() >= 2);
         if (path.size() >= 2) {
             if (path.polyline().has_arc()) {
@@ -157,15 +157,15 @@ bool ExtrusionLoop::is_clockwise() const { return !is_counter_clockwise(); }
 
 void ExtrusionLoop::reverse()
 {
-    for (ExtrusionPath &path : this->paths)
+    for (ExtrusionPath &path : this->paths())
         path.reverse();
-    std::reverse(this->paths.begin(), this->paths.end());
+    std::reverse(this->paths().begin(), this->paths().end());
 }
 
 Polygon ExtrusionLoop::polygon() const
 {
     Polygon polygon;
-    for (const ExtrusionPath &path : this->paths) {
+    for (const ExtrusionPath &path : this->paths()) {
         // for each polyline, append all points except the last one (because it coincides with the first one of the next polyline)
         Polyline poly = path.polyline().to_polyline();
         polygon.points.insert(polygon.points.end(), poly.begin(), poly.end() - 1);
@@ -176,7 +176,7 @@ Polygon ExtrusionLoop::polygon() const
 ArcPolyline ExtrusionLoop::as_polyline() const
 {
     ArcPolyline polyline;
-    for (const ExtrusionPath &path : this->paths) {
+    for (const ExtrusionPath &path : this->paths()) {
         polyline.append(path.as_polyline());
     }
     return polyline;
@@ -185,17 +185,17 @@ ArcPolyline ExtrusionLoop::as_polyline() const
 double ExtrusionLoop::length() const
 {
     double len = 0;
-    for (const ExtrusionPath &path : this->paths)
+    for (const ExtrusionPath &path : this->paths())
         len += path.polyline().length();
     return len;
 }
 
 ExtrusionRole ExtrusionLoop::role() const
 {
-    if (this->paths.empty())
+    if (this->paths().empty())
         return ExtrusionRole::None;
-    ExtrusionRole role = this->paths.front().role();
-    for (const ExtrusionPath &path : this->paths)
+    ExtrusionRole role = this->paths().front().role();
+    for (const ExtrusionPath &path : this->paths())
         if (role != path.role()) {
             // ignore travel role
             if (role == ExtrusionRole::Travel) {
@@ -208,9 +208,9 @@ ExtrusionRole ExtrusionLoop::role() const
 }
 bool ExtrusionLoop::has_role(ExtrusionRole test_role) const
 {
-    if (this->paths.empty())
+    if (this->paths().empty())
         return false;
-    for (const ExtrusionPath &path : this->paths)
+    for (const ExtrusionPath &path : this->paths())
         if (path.has_role(test_role)) {
             return true;
         }
@@ -219,9 +219,9 @@ bool ExtrusionLoop::has_role(ExtrusionRole test_role) const
 
 bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsilon)
 {
-    for (ExtrusionPaths::iterator path = this->paths.begin(); path != this->paths.end(); ++path) {
+    for (ExtrusionPaths::iterator path = this->paths().begin(); path != this->paths().end(); ++path) {
         if (int idx = path->polyline().find_point(point, scaled_epsilon); idx != -1) {
-            if (this->paths.size() == 1) {
+            if (this->paths().size() == 1) {
                 // just change the order of points
                 ArcPolyline p1, p2;
                 path->polyline().split_at_index(idx, p1, p2);
@@ -235,7 +235,7 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                     ExtrusionPaths new_paths;
                     ArcPolyline p1, p2;
                     path->polyline().split_at_index(idx, p1, p2);
-                    new_paths.reserve(this->paths.size() + 1);
+                    new_paths.reserve(this->paths().size() + 1);
                     {
                         ExtrusionPath p = *path;
                         p.polyline().swap(p2);
@@ -244,10 +244,10 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                     }
 
                     // then we add all paths until the end of current path list
-                    new_paths.insert(new_paths.end(), path + 1, this->paths.end()); // not including this path
+                    new_paths.insert(new_paths.end(), path + 1, this->paths().end()); // not including this path
 
                     // then we add all paths since the beginning of current list up to the previous one
-                    new_paths.insert(new_paths.end(), this->paths.begin(), path); // not including this path
+                    new_paths.insert(new_paths.end(), this->paths().begin(), path); // not including this path
 
                     // finally we add the first half of current path
                     {
@@ -257,25 +257,25 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                             new_paths.push_back(p);
                     }
                     // we can now override the old path list with the new one and stop looping
-                    this->paths = std::move(new_paths);
+                    this->paths() = std::move(new_paths);
                 } else {
                     // last point
                     assert((path)->last_point().distance_to(point) <= scaled_epsilon);
                     assert((path + 1)->first_point().distance_to(point) <= scaled_epsilon);
                     ExtrusionPaths new_paths;
-                    new_paths.reserve(this->paths.size());
+                    new_paths.reserve(this->paths().size());
                     // then we add all paths until the end of current path list
-                    new_paths.insert(new_paths.end(), path + 1, this->paths.end()); // not including this path
+                    new_paths.insert(new_paths.end(), path + 1, this->paths().end()); // not including this path
                     // then we add all paths since the beginning of current list up to the previous one
-                    new_paths.insert(new_paths.end(), this->paths.begin(), path + 1); // including this path
+                    new_paths.insert(new_paths.end(), this->paths().begin(), path + 1); // including this path
                     // we can now override the old path list with the new one and stop looping
-                    this->paths = std::move(new_paths);
+                    this->paths() = std::move(new_paths);
                 }
             } else {
                 // else first point ->
                 // if first path - nothign to change.
                 // else, then impossible as it's also the last point of the previous path.
-                assert(path == this->paths.begin());
+                assert(path == this->paths().begin());
                 assert(path->first_point().distance_to(point) <= scaled_epsilon);
             }
             assert(this->first_point().distance_to(point) <= scaled_epsilon);
@@ -293,18 +293,18 @@ ExtrusionLoop::ClosestPathPoint ExtrusionLoop::get_closest_path_and_point(const 
     double           min2 = std::numeric_limits<double>::max();
     ClosestPathPoint best_non_overhang{0, 0};
     double           min2_non_overhang = std::numeric_limits<double>::max();
-    for (const ExtrusionPath &path : this->paths) {
+    for (const ExtrusionPath &path : this->paths()) {
         std::pair<int, Point> foot_pt_ = path.polyline().foot_pt(point);
         double                d2       = (foot_pt_.second - point).cast<double>().squaredNorm();
         if (d2 < min2) {
             out.foot_pt     = foot_pt_.second;
-            out.path_idx    = &path - &this->paths.front();
+            out.path_idx    = &path - &this->paths().front();
             out.segment_idx = foot_pt_.first;
             min2            = d2;
         }
         if (prefer_non_overhang && !path.role().is_bridge() && d2 < min2_non_overhang) {
             best_non_overhang.foot_pt     = foot_pt_.second;
-            best_non_overhang.path_idx    = &path - &this->paths.front();
+            best_non_overhang.path_idx    = &path - &this->paths().front();
             best_non_overhang.segment_idx = foot_pt_.first;
             min2_non_overhang             = d2;
         }
@@ -319,13 +319,13 @@ ExtrusionLoop::ClosestPathPoint ExtrusionLoop::get_closest_path_and_point(const 
 // Splitting an extrusion loop, possibly made of multiple segments, some of the segments may be bridging.
 void ExtrusionLoop::split_at(const Point &point, bool prefer_non_overhang, const double scaled_epsilon)
 {
-    if (this->paths.empty())
+    if (this->paths().empty())
         return;
     ExtrusionLoop::ClosestPathPoint close_p = get_closest_path_and_point(point, prefer_non_overhang);
     // Snap p to start or end of segment_idx if closer than scaled_epsilon.
     //{
-        const Point pt1 = this->paths[close_p.path_idx].polyline().get_point(close_p.segment_idx);
-        const Point  pt2   = this->paths[close_p.path_idx].polyline().get_point(close_p.segment_idx + 1);
+        const Point pt1 = this->paths()[close_p.path_idx].polyline().get_point(close_p.segment_idx);
+        const Point  pt2   = this->paths()[close_p.path_idx].polyline().get_point(close_p.segment_idx + 1);
         // Use close_p.foot_pt instead of point for the comparison, as it's the one that will be used.
         double       d2_1 = (close_p.foot_pt - pt1).cast<double>().squaredNorm();
         double       d2_2 = (close_p.foot_pt - pt2).cast<double>().squaredNorm();
@@ -340,35 +340,35 @@ void ExtrusionLoop::split_at(const Point &point, bool prefer_non_overhang, const
     //}
 
     // now split path_idx in two parts
-    const ExtrusionPath &path = this->paths[close_p.path_idx];
+    const ExtrusionPath &path = this->paths()[close_p.path_idx];
     assert(path.polyline().is_valid());
     ExtrusionPath        p1(path.attributes(), path.clone_properties(), can_reverse());
     ExtrusionPath        p2(path.attributes(), path.clone_properties(), can_reverse());
     path.polyline().split_at(close_p.foot_pt, p1.polyline(), p2.polyline());
 
-    if (this->paths.size() == 1) {
+    if (this->paths().size() == 1) {
         if (p1.polyline().size() < 2) {
-            this->paths.front().polyline() = std::move(p2.polyline());
+            this->paths().front().polyline() = std::move(p2.polyline());
         } else if (p2.polyline().size() < 2) {
-            this->paths.front().polyline() = std::move(p1.polyline());
+            this->paths().front().polyline() = std::move(p1.polyline());
         } else {
             p2.polyline().append(std::move(p1.polyline()));
-            this->paths.front().polyline() = std::move(p2.polyline());
+            this->paths().front().polyline() = std::move(p2.polyline());
         }
     } else {
         // install the begining of the new paths
         if (p2.polyline().size() >= 2) {
-            this->paths[close_p.path_idx].polyline() = std::move(p2.polyline());
+            this->paths()[close_p.path_idx].polyline() = std::move(p2.polyline());
         } else {
-            this->paths.erase(this->paths.begin() + close_p.path_idx);
+            this->paths().erase(this->paths().begin() + close_p.path_idx);
         }
         //rotate
         if (close_p.path_idx > 0) {
-            std::rotate(this->paths.begin(), this->paths.begin() + close_p.path_idx, this->paths.end());
+            std::rotate(this->paths().begin(), this->paths().begin() + close_p.path_idx, this->paths().end());
         }
         // install the end
         if (p1.polyline().size() >= 2) {
-            this->paths.push_back(std::move(p1));
+            this->paths().push_back(std::move(p1));
         }
     }
     // check if it's doing its job.
@@ -410,7 +410,7 @@ ExtrusionPaths clip_end(ExtrusionPaths &paths, coordf_t distance)
 
 //bool ExtrusionLoop::has_overhang_point(const Point &point) const
 //{
-//    for (const ExtrusionPath &path : this->paths) {
+//    for (const ExtrusionPath &path : this->paths()) {
 //        int pos = path.polyline().find_point(point);
 //        if (pos != -1) {
 //            // point belongs to this path
@@ -423,13 +423,13 @@ ExtrusionPaths clip_end(ExtrusionPaths &paths, coordf_t distance)
 
 void ExtrusionLoop::polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const
 {
-    for (const ExtrusionPath &path : this->paths)
+    for (const ExtrusionPath &path : this->paths())
         path.polygons_covered_by_width(out, scaled_epsilon);
 }
 
 void ExtrusionLoop::polygons_covered_by_spacing(Polygons &out, const float spacing_ratio, const float scaled_epsilon) const
 {
-    for (const ExtrusionPath &path : this->paths)
+    for (const ExtrusionPath &path : this->paths())
         path.polygons_covered_by_spacing(out, spacing_ratio, scaled_epsilon);
 }
 
@@ -437,7 +437,7 @@ void ExtrusionLoop::polygons_covered_by_spacing(Polygons &out, const float spaci
 //double ExtrusionLoop::min_mm3_per_mm() const
 //{
 //    double min_mm3_per_mm = std::numeric_limits<double>::max();
-//    for (const ExtrusionPath &path : this->paths)
+//    for (const ExtrusionPath &path : this->paths())
 //        min_mm3_per_mm = std::min(min_mm3_per_mm, path.min_mm3_per_mm());
 //    return min_mm3_per_mm;
 //}
@@ -463,10 +463,10 @@ void ExtrusionPrinter::use(const ExtrusionPath &path)
 void ExtrusionPrinter::use(const ExtrusionMultiPath &multipath)
 {
     ss << (json?"\"":"") << "ExtrusionMultiPath" << (multipath.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(multipath.role()) << (json?"\":":"") << "{";
-    for (int i = 0; i < multipath.paths.size(); i++) {
+    for (int i = 0; i < multipath.paths().size(); i++) {
         if (i != 0)
             ss << ",";
-        multipath.paths[i].visit(*this);
+        multipath.paths()[i].visit(*this);
     }
     ss << "}";
 }
@@ -474,10 +474,10 @@ void ExtrusionPrinter::use(const ExtrusionLoop &loop)
 { 
     ss << (json?"\"":"") << "ExtrusionLoop" << (json?"_":":") << role_to_code(loop.role())<<"_" << looprole_to_code(loop.loop_role()) << (json?"\":":"") << "{";
     if(!loop.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
-    for (int i = 0; i < loop.paths.size(); i++) {
+    for (int i = 0; i < loop.paths().size(); i++) {
         if (i != 0)
             ss << ",";
-        loop.paths[i].visit(*this);
+        loop.paths()[i].visit(*this);
     }
     ss << "}";
 }
@@ -512,13 +512,13 @@ void ExtrusionModifyFlow::set(ExtrusionEntityCollection &coll) {
 }
 
 void ExtrusionVisitorRecursiveConst::use(const ExtrusionMultiPath& multipath) {
-    for (const ExtrusionPath &path : multipath.paths) {
+    for (const ExtrusionPath &path : multipath.paths()) {
         path.visit(*this);
     }
 }
 void ExtrusionVisitorRecursiveConst::use(const ExtrusionLoop &loop)
 {
-    for (const ExtrusionPath &path : loop.paths) {
+    for (const ExtrusionPath &path : loop.paths()) {
         path.visit(*this);
     }
 }
@@ -530,13 +530,13 @@ void ExtrusionVisitorRecursiveConst::use(const ExtrusionEntityCollection &collec
 }
 void ExtrusionVisitorRecursive::use(ExtrusionMultiPath &multipath)
 {
-    for (ExtrusionPath &path : multipath.paths) {
+    for (ExtrusionPath &path : multipath.paths()) {
         path.visit(*this);
     }
 }
 void ExtrusionVisitorRecursive::use(ExtrusionLoop &loop)
 {
-    for (ExtrusionPath &path : loop.paths) {
+    for (ExtrusionPath &path : loop.paths()) {
         path.visit(*this);
     }
 }
@@ -548,13 +548,13 @@ void ExtrusionVisitorRecursive::use(ExtrusionEntityCollection &collection)
 }
 
 void HasRoleVisitor::use(const ExtrusionMultiPath& multipath) {
-    for (const ExtrusionPath& path : multipath.paths) {
+    for (const ExtrusionPath& path : multipath.paths()) {
         path.visit(*this);
         if(found) return;
     }
 }
 void HasRoleVisitor::use(const ExtrusionLoop& loop) {
-    for (const ExtrusionPath& path : loop.paths) {
+    for (const ExtrusionPath& path : loop.paths()) {
         path.visit(*this);
         if(found) return;
     }
@@ -600,31 +600,31 @@ void SimplifyVisitor::use(ExtrusionPath& path) {
 }
 void SimplifyVisitor::use(ExtrusionMultiPath &multipath)
 {
-    for (size_t i = 0; i < multipath.paths.size(); ++i) {
-        ExtrusionPath *path = &multipath.paths[i];
+    for (size_t i = 0; i < multipath.paths().size(); ++i) {
+        ExtrusionPath *path = &multipath.paths()[i];
         //if (min_path_size > 0 && path.length() < min_path_size) {
         assert(!m_last_deleted);
         path->visit(*this);
         while (m_last_deleted) {
             ExtrusionPath *path_merged = nullptr;
             if (i > 0) {
-                ExtrusionPath &path_previous = multipath.paths[i - 1];
+                ExtrusionPath &path_previous = multipath.paths()[i - 1];
                 path_previous.polyline().append(path->polyline());
                 // erase us, move to previous
-                multipath.paths.erase(multipath.paths.begin() + i);
+                multipath.paths().erase(multipath.paths().begin() + i);
                 --i;
             } else if (i + 1 < multipath.size()) {
-                ExtrusionPath &path_next = multipath.paths[i + 1];
+                ExtrusionPath &path_next = multipath.paths()[i + 1];
                 path->polyline().append(path_next.polyline());
                 // erase next
-                multipath.paths.erase(multipath.paths.begin() + i + 1);
+                multipath.paths().erase(multipath.paths().begin() + i + 1);
             } else {
                 //return, the caller need to delete me.
                 return;
             }
             m_last_deleted = false;
-            // refresh pointer, as multipath.paths was modified 
-            path = &multipath.paths[i];
+            // refresh pointer, as multipath.paths() was modified
+            path = &multipath.paths()[i];
             //visit again to remove small segments
             path->visit(*this);
         }
@@ -637,30 +637,30 @@ void SimplifyVisitor::use(ExtrusionLoop &loop)
         return;
     }
     // simplify
-    for (size_t i = 0;i<loop.paths.size() ;++i) {
-        ExtrusionPath *path = &loop.paths[i];
+    for (size_t i = 0;i<loop.paths().size() ;++i) {
+        ExtrusionPath *path = &loop.paths()[i];
         //if (min_path_size > 0 && path.length() < min_path_size) {
         path->visit(*this);
         while (m_last_deleted) {
             ExtrusionPath *path_merged = nullptr;
             if (i > 0) {
-                ExtrusionPath &path_previous = loop.paths[i - 1];
+                ExtrusionPath &path_previous = loop.paths()[i - 1];
                 path_previous.polyline().append(path->polyline());
                 // erase us, move to previous
-                loop.paths.erase(loop.paths.begin() + i);
+                loop.paths().erase(loop.paths().begin() + i);
                 --i;
-            } else if (i + 1 < loop.paths.size()) {
-                ExtrusionPath &path_next = loop.paths[i + 1];
+            } else if (i + 1 < loop.paths().size()) {
+                ExtrusionPath &path_next = loop.paths()[i + 1];
                 path->polyline().append(path_next.polyline());
                 // erase next
-                loop.paths.erase(loop.paths.begin() + i + 1);
+                loop.paths().erase(loop.paths().begin() + i + 1);
             } else {
                 //return, the caller need to delete me.
                 return;
             }
             m_last_deleted = false;
-            // refresh pointer, as multipath.paths was modified 
-            path = &loop.paths[i];
+            // refresh pointer, as loop.paths() was modified
+            path = &loop.paths()[i];
             //visit again to remove small segments
             path->visit(*this);
         }
@@ -694,11 +694,11 @@ void LoopAssertVisitor::use(const ExtrusionPath &path) {
 }
 void LoopAssertVisitor::use(const ExtrusionLoop& loop) {
     release_assert(!loop.empty());
-    for (size_t idx_path = 1; idx_path < loop.paths.size(); ++idx_path) {
-        release_assert(loop.paths[idx_path-1].polyline().back() == loop.paths[idx_path].polyline().front());
+    for (size_t idx_path = 1; idx_path < loop.paths().size(); ++idx_path) {
+        release_assert(loop.paths()[idx_path-1].polyline().back() == loop.paths()[idx_path].polyline().front());
     }
     Point last_pt = loop.last_point();
-    for (const ExtrusionPath &path : loop.paths) {
+    for (const ExtrusionPath &path : loop.paths()) {
         release_assert (!path.role().is_overhang() || path.overhang_attributes());
         release_assert(path.polyline().size() >= 2);
         release_assert(path.length() >= m_check_length);
@@ -706,7 +706,7 @@ void LoopAssertVisitor::use(const ExtrusionLoop& loop) {
         use(path);
         last_pt = path.last_point();
     }
-    release_assert(loop.paths.front().first_point() == loop.paths.back().last_point());
+    release_assert(loop.paths().front().first_point() == loop.paths().back().last_point());
 }
 #endif
 

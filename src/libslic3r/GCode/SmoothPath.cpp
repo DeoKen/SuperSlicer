@@ -156,13 +156,13 @@ void SmoothPathCache::interpolate_add(const ExtrusionPath &path, const Interpola
 
 void SmoothPathCache::interpolate_add(const ExtrusionMultiPath &multi_path, const InterpolationParameters &params)
 {
-    for (const ExtrusionPath &path : multi_path.paths)
+    for (const ExtrusionPath &path : multi_path.paths())
         this->interpolate_add(path, params);
 }
 
 void SmoothPathCache::interpolate_add(const ExtrusionLoop &loop, const InterpolationParameters &params)
 {
-    for (const ExtrusionPath &path : loop.paths)
+    for (const ExtrusionPath &path : loop.paths())
         this->interpolate_add(path, params);
 }
 
@@ -221,14 +221,14 @@ SmoothPath SmoothPathCache::resolve_or_fit(const ExtrusionPaths &paths, bool rev
 
 SmoothPath SmoothPathCache::resolve_or_fit(const ExtrusionMultiPath &multipath, bool reverse, double resolution) const
 {
-    return this->resolve_or_fit(multipath.paths, reverse, resolution);
+    return this->resolve_or_fit(multipath.paths(), reverse, resolution);
 }
 
 SmoothPath SmoothPathCache::resolve_or_fit_split_with_seam(
     const ExtrusionLoop &loop, const bool reverse, const double resolution,
     const Point &seam_point, const double seam_point_merge_distance_threshold) const
 {
-    SmoothPath out = this->resolve_or_fit(loop.paths, reverse, resolution);
+    SmoothPath out = this->resolve_or_fit(loop.paths(), reverse, resolution);
     assert(! out.empty());
     if (! out.empty()) {
         // Find a closest point on a vector of smooth paths.

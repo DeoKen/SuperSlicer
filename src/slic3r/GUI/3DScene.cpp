@@ -1502,7 +1502,7 @@ void _3DScene::extrusionentity_to_verts(const ExtrusionLoop& extrusion_loop, flo
     Lines               lines;
     std::vector<double> widths;
     std::vector<double> heights;
-    for (const ExtrusionPath& extrusion_path : extrusion_loop.paths) {
+    for (const ExtrusionPath& extrusion_path : extrusion_loop.paths()) {
         Polyline            polyline = extrusion_path.polyline().to_polyline();
         polyline.remove_duplicate_points();
         polyline.translate(copy);
@@ -1520,7 +1520,7 @@ void _3DScene::extrusionentity_to_verts(const ExtrusionMultiPath& extrusion_mult
     Lines               lines;
     std::vector<double> widths;
     std::vector<double> heights;
-    for (const ExtrusionPath& extrusion_path : extrusion_multi_path.paths) {
+    for (const ExtrusionPath& extrusion_path : extrusion_multi_path.paths()) {
         Polyline            polyline = extrusion_path.polyline().to_polyline();
         polyline.remove_duplicate_points();
         polyline.translate(copy);
@@ -1554,9 +1554,9 @@ void ExtrusionToVert::use(const ExtrusionEntityCollection &collection) {
 
 void ExtrusionToVertMap::use(const ExtrusionPath& path) { _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path)); }
 void ExtrusionToVertMap::use(const ExtrusionMultiPath& multipath) {
-    for (const ExtrusionPath &path : multipath.paths) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path));
+    for (const ExtrusionPath &path : multipath.paths()) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path));
     /*_3DScene::extrusionentity_to_verts(multipath, print_z, copy, get_geometry(multipath)); */}
-void ExtrusionToVertMap::use(const ExtrusionLoop& loop) { for (const ExtrusionPath &path : loop.paths) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path)); }//_3DScene::extrusionentity_to_verts(loop, print_z, copy, get_geometry(loop)); }
+void ExtrusionToVertMap::use(const ExtrusionLoop& loop) { for (const ExtrusionPath &path : loop.paths()) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path)); }//_3DScene::extrusionentity_to_verts(loop, print_z, copy, get_geometry(loop)); }
 void ExtrusionToVertMap::use(const ExtrusionEntityCollection& collection) { for (const ExtrusionEntity* extrusion_entity : collection.entities()) extrusion_entity->visit(*this); }
 GUI::GLModel::Geometry& ExtrusionToVertMap::get_geometry(const ExtrusionEntity& e) {
     auto it = geometries.find(extrusion_role_to_gcode_extrusion_role(e.role()));

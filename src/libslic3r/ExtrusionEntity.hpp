@@ -357,50 +357,54 @@ ExtrusionPaths clip_end(ExtrusionPaths& paths, coordf_t distance);
 // note: the ExtrusionProperty of a multipath is applied to each path, properties of a path is not transfered to the next one.
 template <typename THING = ExtrusionEntity>
 class ExtrusionMultiEntity : public ExtrusionEntity {
-public:
-    std::vector<THING> paths;
+protected:
+    std::vector<THING> m_paths;
 
+public:
     ExtrusionMultiEntity(): ExtrusionEntity(false) {};
-    ExtrusionMultiEntity(const ExtrusionMultiEntity &rhs) : paths(rhs.paths), ExtrusionEntity(rhs) {}
-    ExtrusionMultiEntity(ExtrusionMultiEntity &&rhs) : paths(std::move(rhs.paths)), ExtrusionEntity(rhs) {}
-    ExtrusionMultiEntity(const std::vector<THING> &paths) : paths(paths), ExtrusionEntity(false) {};
-    ExtrusionMultiEntity(const THING &path): ExtrusionEntity(false) { this->paths.push_back(path); }
+    ExtrusionMultiEntity(const ExtrusionMultiEntity &rhs) : m_paths(rhs.m_paths), ExtrusionEntity(rhs) {}
+    ExtrusionMultiEntity(ExtrusionMultiEntity &&rhs) : m_paths(std::move(rhs.m_paths)), ExtrusionEntity(rhs) {}
+    ExtrusionMultiEntity(const std::vector<THING> &paths) : m_paths(paths), ExtrusionEntity(false) {};
+    ExtrusionMultiEntity(const THING &path): ExtrusionEntity(false) { this->m_paths.push_back(path); }
 
     ExtrusionMultiEntity &operator=(const ExtrusionMultiEntity &rhs) {
         ExtrusionEntity::operator=(rhs);
-        this->paths = rhs.paths;
+        this->m_paths = rhs.m_paths;
         return *this;
     }
     ExtrusionMultiEntity &operator=(ExtrusionMultiEntity &&rhs) {
         ExtrusionEntity::operator=(rhs);
-        this->paths = std::move(rhs.paths);
+        this->m_paths = std::move(rhs.m_paths);
         return *this;
     }
 
+    std::vector<THING>& paths() { return m_paths; }
+    const std::vector<THING>& paths() const { return m_paths; }
+
     bool is_loop() const override { return false; }
-    virtual const Point& first_point() const override { return this->paths.front().polyline().front(); }
-    virtual const Point& last_point() const override { return this->paths.back().polyline().back(); }
+    virtual const Point& first_point() const override { return this->paths().front().polyline().front(); }
+    virtual const Point& last_point() const override { return this->paths().back().polyline().back(); }
 
     virtual void reverse() override {
-        for (THING &entity : this->paths)
+        for (THING &entity : this->paths())
             entity.reverse();
-        std::reverse(this->paths.begin(), this->paths.end());
+        std::reverse(this->paths().begin(), this->paths().end());
     }
     ExtrusionRole role() const override
     {
-        if (this->paths.empty())
+        if (this->paths().empty())
             return ExtrusionRole::None;
-        ExtrusionRole role = this->paths.front().role();
-        for (const ExtrusionPath &path : this->paths)
+        ExtrusionRole role = this->paths().front().role();
+        for (const ExtrusionPath &path : this->paths())
             if (role != path.role()) {
                 return ExtrusionRole::Mixed;
             }
         return role;
     }
     bool has_role(ExtrusionRole test_role) const override {
-        if (this->paths.empty())
+        if (this->paths().empty())
             return false;
-        for (const ExtrusionPath &path : this->paths)
+        for (const ExtrusionPath &path : this->paths())
             if (path.has_role(test_role)) {
                 return true;
             }
@@ -409,16 +413,16 @@ public:
 
 
     // Is it really what you can call a middle point?:
-    const Point& middle_point() const override { auto &path = this->paths[this->paths.size() / 2]; return path.polyline().middle(); }
-    size_t size() const { return this->paths.size(); }
+    const Point& middle_point() const override { const THING &path = this->paths()[this->paths().size() / 2]; return path.polyline().middle(); }
+    size_t size() const { return this->paths().size(); }
     coordf_t length() const override {
         coordf_t len = 0;
-        for (const THING &entity : this->paths)
+        for (const THING &entity : this->paths())
             len += entity.length();
         return len;
     }
     bool empty() const override {
-        for (const THING &entity : this->paths)
+        for (const THING &entity : this->paths())
             if (!entity.empty())
                 return false;
         return true;
@@ -427,7 +431,7 @@ public:
     // Produce a list of 2D polygons covered by the extruded paths, offsetted by the extrusion width.
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
     void polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const override {
-        for (const THING &entity : this->paths)
+        for (const THING &entity : this->paths())
             entity.polygons_covered_by_width(out, scaled_epsilon);
     }
 
@@ -435,16 +439,16 @@ public:
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
     // Useful to calculate area of an infill, which has been really filled in by a 100% rectilinear infill.
     void polygons_covered_by_spacing(Polygons &out, const float spacing_ratio, const float scaled_epsilon) const override {
-        for (const THING &entity : this->paths)
+        for (const THING &entity : this->paths())
             entity.polygons_covered_by_spacing(out, spacing_ratio, scaled_epsilon);
     }
 
     ArcPolyline as_polyline() const override {
         ArcPolyline out;
-        if (!paths.empty()) {
-            out = paths.front().as_polyline();
-            for (size_t i = 1; i < paths.size(); ++i) {
-                out.append(paths[i].as_polyline());
+        if (!paths().empty()) {
+            out = paths().front().as_polyline();
+            for (size_t i = 1; i < paths().size(); ++i) {
+                out.append(paths()[i].as_polyline());
             }
         }
         return out;
@@ -453,12 +457,12 @@ public:
     Polygons polygons_covered_by_spacing(const float spacing_ratio, const float scaled_epsilon) const override { Polygons out; this->polygons_covered_by_spacing(out, spacing_ratio,  scaled_epsilon); return out; }
     void collect_polylines(ArcPolylines &dst) const override { ArcPolyline pl = this->as_polyline(); if (!pl.empty()) dst.emplace_back(std::move(pl)); }
     void collect_points(Points &dst) const override { 
-        size_t n = std::accumulate(paths.begin(), paths.end(), 0, [](const size_t n, const ExtrusionPath &p){ return n + p.polyline().size(); });
+        size_t n = std::accumulate(paths().begin(), paths().end(), 0, [](const size_t n, const ExtrusionPath &p){ return n + p.polyline().size(); });
         dst.reserve(dst.size() + n);
-        for (const ExtrusionPath &p : this->paths)
+        for (const ExtrusionPath &p : this->paths())
             append(dst, p.polyline().to_polyline().points);
     }
-    double total_volume() const override { double volume = 0.; for (const auto& path : paths) volume += path.total_volume(); return volume; }
+    double total_volume() const override { double volume = 0.; for (const auto& path : paths()) volume += path.total_volume(); return volume; }
 };
 
 // Single continuous extrusion path, possibly with varying extrusion thickness, extrusion height or bridging / non bridging.
@@ -474,12 +478,12 @@ public:
 
     ExtrusionMultiPath &operator=(const ExtrusionMultiPath &rhs) {
         ExtrusionEntity::operator=(rhs);
-        this->paths = rhs.paths;
+        this->m_paths = rhs.m_paths;
         return *this;
     }
     ExtrusionMultiPath &operator=(ExtrusionMultiPath &&rhs) {
         ExtrusionEntity::operator=(rhs);
-        this->paths = std::move(rhs.paths);
+        this->m_paths = std::move(rhs.m_paths);
         return *this;
     }
 
@@ -496,33 +500,36 @@ public:
 // note: the ExtrusionProperty of a multipath is applied to each path, properties of a path is not transfered to the next one.
 class ExtrusionLoop : public ExtrusionEntity
 {
-public:
-    ExtrusionPaths paths;
+private:
+    ExtrusionPaths m_paths;
 
-    //ExtrusionLoop(const ExtrusionLoop& rhs) : ExtrusionEntity(rhs), paths(rhs.paths), m_loop_role(rhs.m_loop_role) {}
+public:
+    //ExtrusionLoop(const ExtrusionLoop& rhs) : ExtrusionEntity(rhs), m_paths(rhs.m_paths), m_loop_role(rhs.m_loop_role) {}
     ExtrusionLoop(ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) { this->set_loop_role(role); }
-    ExtrusionLoop(const ExtrusionPaths &paths, ExtrusionLoopRole role = elrDefault) : paths(paths), ExtrusionEntity(false) {
+    ExtrusionLoop(const ExtrusionPaths &paths, ExtrusionLoopRole role = elrDefault) : m_paths(paths), ExtrusionEntity(false) {
         this->set_loop_role(role);
-        assert(!this->paths.empty());
-        assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline().back()));
+        assert(!this->paths().empty());
+        assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
-    ExtrusionLoop(ExtrusionPaths &&paths, ExtrusionLoopRole role = elrDefault) : paths(std::move(paths)), ExtrusionEntity(false) {
+    ExtrusionLoop(ExtrusionPaths &&paths, ExtrusionLoopRole role = elrDefault) : m_paths(std::move(paths)), ExtrusionEntity(false) {
         this->set_loop_role(role);
-        assert(!this->paths.empty());
-        assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline().back()));
+        assert(!this->paths().empty());
+        assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
     ExtrusionLoop(const ExtrusionPath &path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) {
         this->set_loop_role(role);
-        this->paths.push_back(path);
-        assert(!this->paths.empty());
-        assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline().back()));
+        this->paths().push_back(path);
+        assert(!this->paths().empty());
+        assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
     ExtrusionLoop(ExtrusionPath &&path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) {
         this->set_loop_role(role);
-        this->paths.emplace_back(std::move(path));
-        assert(!this->paths.empty());
-        assert(this->first_point().coincides_with_epsilon(this->paths.back().polyline().back()));
+        this->paths().emplace_back(std::move(path));
+        assert(!this->paths().empty());
+        assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
+    ExtrusionPaths& paths() { return m_paths; }
+    const ExtrusionPaths& paths() const { return m_paths; }
     virtual bool is_loop() const override{ return true; }
     virtual ExtrusionEntity* clone() const override{ return new ExtrusionLoop (*this); }
     // Create a new object, initialize it with this object using the move semantics.
@@ -532,14 +539,14 @@ public:
     bool            is_clockwise() const;
     // Used by PerimeterGenerator to reorient extrusion loops. (old make_clockwise() and make_counter_clockwise())
     void            reverse() override;
-    const Point&    first_point() const override { return this->paths.front().polyline().front(); }
-    const Point&    last_point() const override { assert(this->first_point() == this->paths.back().polyline().back()); return this->first_point(); }
+    const Point&    first_point() const override { return this->paths().front().polyline().front(); }
+    const Point&    last_point() const override { assert(this->first_point() == this->paths().back().polyline().back()); return this->first_point(); }
     // Is it really what you can call a middle point?: 
-    const Point&    middle_point() const override { auto& path = this->paths[this->paths.size() / 2]; return path.polyline().middle(); }
+    const Point&    middle_point() const override { const ExtrusionPath &path = this->paths()[this->paths().size() / 2]; return path.polyline().middle(); }
     Polygon polygon() const;
     coordf_t length() const override;
     bool empty() const override {
-        for (const ExtrusionPath &path : paths)
+        for (const ExtrusionPath &path : paths())
             if (!path.empty())
                 return false;
         return true;
@@ -576,12 +583,12 @@ public:
     ArcPolyline as_polyline() const override;
     void   collect_polylines(ArcPolylines &dst) const override { ArcPolyline pl = this->as_polyline(); if (! pl.empty()) dst.emplace_back(std::move(pl)); }
     void   collect_points(Points &dst) const override { 
-        size_t n = std::accumulate(paths.begin(), paths.end(), 0, [](const size_t n, const ExtrusionPath &p){ return n + p.polyline().size(); });
+        size_t n = std::accumulate(paths().begin(), paths().end(), 0, [](const size_t n, const ExtrusionPath &p){ return n + p.polyline().size(); });
         dst.reserve(dst.size() + n);
-        for (const ExtrusionPath &p : this->paths)
+        for (const ExtrusionPath &p : this->paths())
             append(dst, p.as_polyline().to_polyline().points);
     }
-    double total_volume() const override { double volume =0.; for (const auto& path : paths) volume += path.total_volume(); return volume; }
+    double total_volume() const override { double volume =0.; for (const auto& path : paths()) volume += path.total_volume(); return volume; }
 
     using ExtrusionEntity::visit;
     virtual void visit(ExtrusionVisitor &visitor) override { visitor.use(*this); };
@@ -589,9 +596,9 @@ public:
 
 #ifndef NDEBUG
 	bool validate() const {
-		assert(this->first_point() == this->paths.back().polyline().back());
-		for (size_t i = 1; i < paths.size(); ++ i)
-			assert(this->paths[i - 1].polyline().back() == this->paths[i].polyline().front());
+		assert(this->first_point() == this->paths().back().polyline().back());
+		for (size_t i = 1; i < paths().size(); ++ i)
+			assert(this->paths()[i - 1].polyline().back() == this->paths()[i].polyline().front());
 		return true;
 	}
 #endif /* NDEBUG */

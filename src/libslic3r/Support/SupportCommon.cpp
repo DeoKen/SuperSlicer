@@ -1283,13 +1283,13 @@ public:
     virtual void         use(const ExtrusionPath &path) override { extrusion_path_template = &path; }
     virtual void         use(const ExtrusionMultiPath &multipath) override
     {
-        if (!multipath.paths.empty())
-            extrusion_path_template = &multipath.paths.front();
+        if (!multipath.paths().empty())
+            extrusion_path_template = &multipath.paths().front();
     }
     virtual void use(const ExtrusionLoop &loop) override
     {
-        if (!loop.paths.empty())
-            extrusion_path_template = &loop.paths.front();
+        if (!loop.paths().empty())
+            extrusion_path_template = &loop.paths().front();
     }
     virtual void use(const ExtrusionEntityCollection &collection) override
     {
@@ -1512,7 +1512,7 @@ static void modulate_extrusion_by_overlapping_layers(
             Polyline              &frag_polyline = frag.polylines[fragment_end_min.polyline_idx];
             frag_polyline.assert_valid();
             // Path to append the fragment to.
-            ExtrusionPath         *path = multipath.paths.empty() ? nullptr : &multipath.paths.back();
+            ExtrusionPath         *path = multipath.paths().empty() ? nullptr : &multipath.paths().back();
             if (path != nullptr) {
                 // Verify whether the path is compatible with the current fragment.
                 assert(this_layer.layer_type == SupporLayerType::BottomContact || path->height() != frag.flow.height || path->mm3_per_mm() != frag.flow.mm3_per_mm);
@@ -1522,8 +1522,8 @@ static void modulate_extrusion_by_overlapping_layers(
             }
             if (path == nullptr) {
                 // Allocate a new path.
-                multipath.paths.emplace_back(ExtrusionAttributes{extrusion_role, frag.flow}, nullptr, multipath.can_reverse());
-                path = &multipath.paths.back();
+                multipath.paths().emplace_back(ExtrusionAttributes{extrusion_role, frag.flow}, nullptr, multipath.can_reverse());
+                path = &multipath.paths().back();
             }
             // The Clipper library may flip the order of the clipped polylines arbitrarily.
             // Reverse the source polyline, if connecting to the end.
@@ -1547,10 +1547,10 @@ static void modulate_extrusion_by_overlapping_layers(
                 break;
             }
         }
-        if (!multipath.paths.empty()) {
-            if (multipath.paths.size() == 1) {
+        if (!multipath.paths().empty()) {
+            if (multipath.paths().size() == 1) {
                 // This path was not fragmented.
-                extrusions_in_out.append(ExtrusionEntitiesPtr{ new ExtrusionPath(std::move(multipath.paths.front())) });
+                extrusions_in_out.append(ExtrusionEntitiesPtr{ new ExtrusionPath(std::move(multipath.paths().front())) });
             } else {
                 // This path was fragmented. Copy the collection as a whole object, so the order inside the collection will not be changed
                 // during the chaining of extrusions_in_out.
@@ -1669,7 +1669,7 @@ public:
     virtual void use(const ExtrusionLoop &truc) override
     {
         ExtrusionVisitorRecursiveConst::use(truc);
-        assert(!truc.paths.empty());
+        assert(!truc.paths().empty());
     }
     virtual void use(const ExtrusionEntityCollection &truc) override
     {

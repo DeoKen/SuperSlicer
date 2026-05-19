@@ -257,9 +257,9 @@ void getExtrusionPathsFromEntity(const ExtrusionEntityCollection *entity, Extrus
             } else if (const ExtrusionPath *path = dynamic_cast<ExtrusionPath *>(entityPtr)) {
                 paths.push_back(*path);
             } else if (const ExtrusionMultiPath *multipath = dynamic_cast<ExtrusionMultiPath *>(entityPtr)) {
-                for (const ExtrusionPath &path : multipath->paths) { paths.push_back(path); }
+                for (const ExtrusionPath &path : multipath->paths()) { paths.push_back(path); }
             } else if (const ExtrusionLoop *loop = dynamic_cast<ExtrusionLoop *>(entityPtr)) {
-                for (const ExtrusionPath &path : loop->paths) { paths.push_back(path); }
+                for (const ExtrusionPath &path : loop->paths()) { paths.push_back(path); }
             }
         }
     };

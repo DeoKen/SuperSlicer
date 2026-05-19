@@ -19,10 +19,10 @@ public:
         for (int i = 0; i < path.polyline().size() - 1; i++) volume += unscaled(path.polyline().get_point(i).distance_to(path.polyline().get_point(i + 1))) * path.mm3_per_mm();
     };
     virtual void use(const ExtrusionMultiPath &multipath) override {
-        for (const ExtrusionPath &path : multipath.paths) use(path);
+        for (const ExtrusionPath &path : multipath.paths()) use(path);
     }
     virtual void use(const ExtrusionLoop &loop) override {
-        for (const ExtrusionEntity &path : loop.paths) path.visit(*this);
+        for (const ExtrusionEntity &path : loop.paths()) path.visit(*this);
     }
     virtual void use(const ExtrusionEntityCollection &collection) override {
         for (const ExtrusionEntity *path : collection.entities()) path->visit(*this);

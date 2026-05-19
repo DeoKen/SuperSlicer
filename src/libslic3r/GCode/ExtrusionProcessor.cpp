@@ -210,7 +210,7 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
         } else if (auto *loop = dynamic_cast<const ExtrusionLoop *>(e)) {
 #ifdef _DEBUG
     Point last_pt = loop->last_point();
-    for (const ExtrusionPath &path : loop->paths) {
+    for (const ExtrusionPath &path : loop->paths()) {
         assert(path.polyline().size() >= 2);
         assert(path.first_point() == last_pt);
         for (size_t idx = 1; idx < path.size(); ++idx)
@@ -219,22 +219,22 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
     }
 #endif
             ExtrusionLoop new_loop = *loop;
-            new_loop.paths.clear();
-            for (const ExtrusionPath &p : loop->paths) {
+            new_loop.paths().clear();
+            for (const ExtrusionPath &p : loop->paths()) {
                 auto paths = calculate_and_split_overhanging_extrusions(p, unscaled_prev_layer, prev_layer_curled_lines, nozzle_diameter);
                 assert(p.first_point() == paths.front().first_point());
                 assert(p.last_point() == paths.back().last_point());
-                new_loop.paths.insert(new_loop.paths.end(), paths.begin(), paths.end());
+                new_loop.paths().insert(new_loop.paths().end(), paths.begin(), paths.end());
             }
             result.append(std::move(new_loop));
         } else if (auto *mp = dynamic_cast<const ExtrusionMultiPath *>(e)) {
             ExtrusionMultiPath new_mp = *mp;
-            new_mp.paths.clear();
-            for (const ExtrusionPath &p : mp->paths) {
+            new_mp.paths().clear();
+            for (const ExtrusionPath &p : mp->paths()) {
                 auto paths = calculate_and_split_overhanging_extrusions(p, unscaled_prev_layer, prev_layer_curled_lines, nozzle_diameter);
                 assert(p.first_point() == paths.front().first_point());
                 assert(p.last_point() == paths.back().last_point());
-                new_mp.paths.insert(new_mp.paths.end(), paths.begin(), paths.end());
+                new_mp.paths().insert(new_mp.paths().end(), paths.begin(), paths.end());
             }
             result.append(std::move(new_mp));
         } else if (auto *p = dynamic_cast<const ExtrusionPath *>(e)) {

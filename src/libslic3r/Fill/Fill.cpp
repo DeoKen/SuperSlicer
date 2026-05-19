@@ -47,65 +47,65 @@ struct NormalizeVisitor : public ExtrusionVisitor {
     }
     virtual void use(ExtrusionLoop &loop) override {
 #ifdef _DEBUG
-        for (size_t idx = 0; idx < loop.paths.size(); idx++) {
+        for (size_t idx = 0; idx < loop.paths().size(); idx++) {
             if (idx > 0)
-                assert(loop.paths[idx - 1].last_point() == loop.paths[idx].first_point());
+                assert(loop.paths()[idx - 1].last_point() == loop.paths()[idx].first_point());
         }
 #endif
-        for (size_t idx_p = 0; idx_p < loop.paths.size(); idx_p++) {
-            ExtrusionPath &path = loop.paths[idx_p];
+        for (size_t idx_p = 0; idx_p < loop.paths().size(); idx_p++) {
+            ExtrusionPath &path = loop.paths()[idx_p];
             if (!path.polyline().normalize()) {
                 // ensure continuity
-                if (idx_p + 1 < loop.paths.size()) {
-                    loop.paths[idx_p + 1].polyline().append_before(path.first_point());
+                if (idx_p + 1 < loop.paths().size()) {
+                    loop.paths()[idx_p + 1].polyline().append_before(path.first_point());
                 } else if (idx_p > 0) {
-                    if (loop.paths[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
-                        loop.paths[idx_p - 1].polyline().set_back(path.last_point());
+                    if (loop.paths()[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
+                        loop.paths()[idx_p - 1].polyline().set_back(path.last_point());
                     } else {
-                        loop.paths[idx_p - 1].polyline().append(path.last_point());
+                        loop.paths()[idx_p - 1].polyline().append(path.last_point());
                     }
                 }
                 // remove
-                loop.paths.erase(loop.paths.begin() + idx_p);
+                loop.paths().erase(loop.paths().begin() + idx_p);
                 --idx_p;
             }
         }
 #ifdef _DEBUG
-        for (size_t idx = 0; idx < loop.paths.size(); idx++) {
+        for (size_t idx = 0; idx < loop.paths().size(); idx++) {
             if (idx > 0)
-                assert(loop.paths[idx - 1].last_point() == loop.paths[idx].first_point());
+                assert(loop.paths()[idx - 1].last_point() == loop.paths()[idx].first_point());
         }
 #endif
     }
     virtual void use(ExtrusionMultiPath &multipath) override {
 #ifdef _DEBUG
-        for (size_t idx = 0; idx < multipath.paths.size(); idx++) {
+        for (size_t idx = 0; idx < multipath.paths().size(); idx++) {
             if (idx > 0)
-                assert(multipath.paths[idx - 1].last_point() == multipath.paths[idx].first_point());
+                assert(multipath.paths()[idx - 1].last_point() == multipath.paths()[idx].first_point());
         }
 #endif
-        for (size_t idx_p = 0; idx_p < multipath.paths.size(); idx_p++) {
-            ExtrusionPath &path = multipath.paths[idx_p];
+        for (size_t idx_p = 0; idx_p < multipath.paths().size(); idx_p++) {
+            ExtrusionPath &path = multipath.paths()[idx_p];
             if (!path.polyline().normalize()) {
                 // ensure continuity
-                if (idx_p + 1 < multipath.paths.size()) {
-                    multipath.paths[idx_p + 1].polyline().append_before(path.first_point());
+                if (idx_p + 1 < multipath.paths().size()) {
+                    multipath.paths()[idx_p + 1].polyline().append_before(path.first_point());
                 } else if (idx_p > 0) {
-                    if (multipath.paths[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
-                        multipath.paths[idx_p - 1].polyline().set_back(path.last_point());
+                    if (multipath.paths()[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
+                        multipath.paths()[idx_p - 1].polyline().set_back(path.last_point());
                     } else {
-                        multipath.paths[idx_p - 1].polyline().append(path.last_point());
+                        multipath.paths()[idx_p - 1].polyline().append(path.last_point());
                     }
                 }
                 // remove
-                multipath.paths.erase(multipath.paths.begin() + idx_p);
+                multipath.paths().erase(multipath.paths().begin() + idx_p);
                 --idx_p;
             }
         }
 #ifdef _DEBUG
-        for (size_t idx = 0; idx < multipath.paths.size(); idx++) {
+        for (size_t idx = 0; idx < multipath.paths().size(); idx++) {
             if (idx > 0)
-                assert(multipath.paths[idx - 1].last_point() == multipath.paths[idx].first_point());
+                assert(multipath.paths()[idx - 1].last_point() == multipath.paths()[idx].first_point());
         }
 #endif
     }

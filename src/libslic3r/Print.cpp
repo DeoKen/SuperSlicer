@@ -1531,14 +1531,14 @@ public:
         }
         virtual void use(const ExtrusionLoop& loop) override {
             Point last_pt = loop.last_point();
-            for (const ExtrusionPath &path : loop.paths) {
+            for (const ExtrusionPath &path : loop.paths()) {
                 assert(path.polyline().size() >= 2);
                 assert(path.first_point() == last_pt);
                 for (size_t idx = 1; idx < path.size(); ++idx)
                     assert(!path.polyline().get_point(idx - 1).coincides_with_epsilon(path.polyline().get_point(idx)));
                 last_pt = path.last_point();
             }
-            assert(loop.paths.front().first_point() == loop.paths.back().last_point());
+            assert(loop.paths().front().first_point() == loop.paths().back().last_point());
         }
     } ptvisitor;
 #endif
@@ -2252,7 +2252,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
         distance += float(scale_d(spacing / 2));
         // Extrude the skirt loop.
         ExtrusionLoop eloop(elrSkirt);
-        eloop.paths.emplace_back(
+        eloop.paths().emplace_back(
             ExtrusionAttributes{
                 ExtrusionRole::Skirt,
                 ExtrusionFlow{
@@ -2263,7 +2263,7 @@ void Print::_make_skirt(const PrintObjectPtrs &objects, ExtrusionEntityCollectio
             }, nullptr,
             false
         );
-        eloop.paths.back().polyline() = loop.split_at_first_point();
+        eloop.paths().back().polyline() = loop.split_at_first_point();
         //we make it counter-clowkwise, as loop aren't reversed
         //eloop.make_clockwise();
         if(eloop.is_clockwise())
