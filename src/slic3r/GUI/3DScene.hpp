@@ -511,10 +511,7 @@ class ExtrusionToVert : public ExtrusionVisitorConst {
     GUI::GLModel::Geometry &geometry;
 public:
     ExtrusionToVert(float print_z, const Point& copy, GUI::GLModel::Geometry& geometry) : print_z(print_z), copy(copy), geometry(geometry) {}
-    virtual void use(const ExtrusionPath &path) override;
-    virtual void use(const ExtrusionMultiPath &multipath) override;
-    virtual void use(const ExtrusionLoop &loop) override;
-    virtual void use(const ExtrusionEntityCollection &collection) override;
+    virtual void default_use(const ExtrusionEntity &entity) override;
 };
 
 class ExtrusionToVertMap : public ExtrusionVisitorConst {
@@ -527,10 +524,7 @@ public:
         : print_z(print_z), copy(copy), geometries(geometries), default_geometry(default_geometry) {
         assert(!geometries.empty());
     }
-    virtual void            use(const ExtrusionPath &path) override;
-    virtual void            use(const ExtrusionMultiPath &multipath) override;
-    virtual void            use(const ExtrusionLoop &loop) override;
-    virtual void            use(const ExtrusionEntityCollection &collection) override;
+    virtual void            default_use(const ExtrusionEntity &entity) override;
     GUI::GLModel::Geometry &get_geometry(const ExtrusionEntity &e);
 };
 

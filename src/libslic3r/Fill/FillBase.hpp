@@ -280,10 +280,15 @@ class ExtrusionSetRole : public ExtrusionVisitor {
     ExtrusionRole new_role;
 public:
     ExtrusionSetRole(ExtrusionRole role) : new_role(role) {}
-    void use(ExtrusionPath &path) override { path.set_role(new_role); }
-    void use(ExtrusionMultiPath &multipath) override { for (ExtrusionPath &path : multipath.paths()) path.set_role(new_role); }
-    void use(ExtrusionLoop &loop) override { for (ExtrusionPath &path : loop.paths()) path.set_role(new_role); }
-    void use(ExtrusionEntityCollection &collection) override { for (ExtrusionEntity *entity : collection.entities()) entity->visit(*this); }
+    void default_use(ExtrusionEntity &entity) override {
+        if (!entity.is_leaf()) {
+            for (ExtrusionEntityUPtr &child : entity.children())
+                if (child)
+                    child->visit(*this);
+        } else {
+            entity.get_or_add_property<ExtrusionAttributes>().role = new_role;
+        }
+    }
 };
 
 } // namespace Slic3r

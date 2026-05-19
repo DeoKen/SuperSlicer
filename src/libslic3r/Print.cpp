@@ -1516,29 +1516,40 @@ class CheckOrientation : public ExtrusionVisitorRecursiveConst
 public:
     bool ccw;
     CheckOrientation(bool is_ccw) : ExtrusionVisitorRecursiveConst() {ccw = (is_ccw);}
-    void use(const ExtrusionLoop &loop) override {
-        assert(loop.is_counter_clockwise() == ccw);
+    void default_use(const ExtrusionEntity &entity) override {
+        if (!entity.is_leaf()) {
+            ExtrusionVisitorRecursiveConst::default_use(entity);
+            if (entity.is_loop()) {
+                Polygon polygon(entity.as_polyline().to_polyline().points);
+                assert(polygon.is_counter_clockwise() == ccw);
+            }
+        }
     }
 };
 #endif
 
 #ifdef _DEBUG
     struct PointAssertVisitor : public ExtrusionVisitorRecursiveConst {
-        virtual void default_use(const ExtrusionEntity& entity) override {};
-        virtual void use(const ExtrusionPath &path) override {
-            for (size_t idx = 1; idx < path.size(); ++idx)
-                assert(!path.polyline().get_point(idx - 1).coincides_with_epsilon(path.polyline().get_point(idx)));
-        }
-        virtual void use(const ExtrusionLoop& loop) override {
-            Point last_pt = loop.last_point();
-            for (const ExtrusionPath &path : loop.paths()) {
-                assert(path.polyline().size() >= 2);
-                assert(path.first_point() == last_pt);
-                for (size_t idx = 1; idx < path.size(); ++idx)
-                    assert(!path.polyline().get_point(idx - 1).coincides_with_epsilon(path.polyline().get_point(idx)));
-                last_pt = path.last_point();
+        virtual void default_use(const ExtrusionEntity& entity) override {
+            if (!entity.is_leaf()) {
+                Point last_pt = entity.last_point();
+                for (const ExtrusionEntityUPtr &child : entity.children()) {
+                    if (!child)
+                        continue;
+                    if (entity.is_loop() || entity.is_continuous())
+                        assert(child->first_point() == last_pt);
+                    child->visit(*this);
+                    last_pt = child->last_point();
+                }
+                if (entity.is_loop())
+                    assert(entity.first_point() == entity.last_point());
+                return;
             }
-            assert(loop.paths().front().first_point() == loop.paths().back().last_point());
+            const ArcPolyline *polyline = entity.polyline_or_null();
+            if (polyline == nullptr)
+                return;
+            for (size_t idx = 1; idx < polyline->size(); ++idx)
+                assert(!polyline->get_point(idx - 1).coincides_with_epsilon(polyline->get_point(idx)));
         }
     } ptvisitor;
 #endif
@@ -1733,8 +1744,11 @@ void Print::process()
         public:
             using ExtrusionVisitorRecursive::use;
             std::vector<ExtrusionLoop*> loops;
-            virtual void use(ExtrusionLoop& loop) override {
-                loops.push_back(&loop);
+            virtual void default_use(ExtrusionEntity& entity) override {
+                if (ExtrusionLoop *loop = dynamic_cast<ExtrusionLoop*>(&entity))
+                    loops.push_back(loop);
+                else
+                    ExtrusionVisitorRecursive::default_use(entity);
             }
         } get_loops;
 #endif
@@ -1863,11 +1877,15 @@ struct ExtrusionDirectionSetter : public ExtrusionVisitorRecursive {
     bool m_set_cw;
     ExtrusionDirectionSetter() : m_set_cw(true) {}
     ExtrusionDirectionSetter(bool set_cw) : m_set_cw(set_cw) {}
-    virtual void default_use(ExtrusionEntity& entity) override {};
-    virtual void use(ExtrusionLoop& loop) override {
-        if (loop.is_counter_clockwise() == m_set_cw ) {
-            loop.reverse();
+    virtual void default_use(ExtrusionEntity& entity) override {
+        if (entity.is_loop()) {
+            Polygon polygon(entity.as_polyline().to_polyline().points);
+            if (polygon.is_counter_clockwise() == m_set_cw ) {
+                entity.reverse();
+            }
+            return;
         }
+        ExtrusionVisitorRecursive::default_use(entity);
     }
 };
 

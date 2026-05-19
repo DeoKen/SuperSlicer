@@ -331,11 +331,7 @@ private:
     std::string      visitor_root_state = ""; // to know what kind of thing we're doing.
     std::string_view visitor_comment;
     double           visitor_speed;
-    virtual void use(const ExtrusionPath &path) override;
-    virtual void use(const ExtrusionMultiPath &multipath) override;
-    virtual void use(const ExtrusionLoop &loop) override;
-    virtual void use(const ExtrusionEntityCollection &collection) override;
-    virtual void use(const ExtrusionNop &command) override;
+    virtual void default_use(const ExtrusionEntity &entity) override;
     void start_using_extrusion(const ExtrusionEntity &entity);
     void end_using_extrusion(const ExtrusionEntity &entity);
 

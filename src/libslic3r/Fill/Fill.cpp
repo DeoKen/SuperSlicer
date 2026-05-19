@@ -36,90 +36,61 @@ namespace Slic3r {
 struct NormalizeVisitor : public ExtrusionVisitor {
     bool need_remove = false;
     //TODO path3D normalize
-    virtual void default_use(ExtrusionEntity& entity) override { need_remove = false; };
-    virtual void use(ExtrusionPath &path) override {
-        need_remove = !path.polyline().normalize();
+    virtual void default_use(ExtrusionEntity& entity) override {
+        if (ArcPolyline *polyline = entity.polyline_or_null()) {
+            need_remove = !polyline->normalize();
 #ifdef _DEBUG
-        ArcPolyline &poly = path.polyline();
-        for (size_t i = 1; i < poly.size(); i++)
-            assert(!poly.get_point(i - 1).coincides_with_epsilon(poly.get_point(i)));
+            for (size_t i = 1; i < polyline->size(); i++)
+                assert(!polyline->get_point(i - 1).coincides_with_epsilon(polyline->get_point(i)));
 #endif
-    }
-    virtual void use(ExtrusionLoop &loop) override {
-#ifdef _DEBUG
-        for (size_t idx = 0; idx < loop.paths().size(); idx++) {
-            if (idx > 0)
-                assert(loop.paths()[idx - 1].last_point() == loop.paths()[idx].first_point());
+            return;
         }
-#endif
-        for (size_t idx_p = 0; idx_p < loop.paths().size(); idx_p++) {
-            ExtrusionPath &path = loop.paths()[idx_p];
-            if (!path.polyline().normalize()) {
-                // ensure continuity
-                if (idx_p + 1 < loop.paths().size()) {
-                    loop.paths()[idx_p + 1].polyline().append_before(path.first_point());
-                } else if (idx_p > 0) {
-                    if (loop.paths()[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
-                        loop.paths()[idx_p - 1].polyline().set_back(path.last_point());
-                    } else {
-                        loop.paths()[idx_p - 1].polyline().append(path.last_point());
-                    }
-                }
-                // remove
-                loop.paths().erase(loop.paths().begin() + idx_p);
-                --idx_p;
-            }
-        }
-#ifdef _DEBUG
-        for (size_t idx = 0; idx < loop.paths().size(); idx++) {
-            if (idx > 0)
-                assert(loop.paths()[idx - 1].last_point() == loop.paths()[idx].first_point());
-        }
-#endif
-    }
-    virtual void use(ExtrusionMultiPath &multipath) override {
-#ifdef _DEBUG
-        for (size_t idx = 0; idx < multipath.paths().size(); idx++) {
-            if (idx > 0)
-                assert(multipath.paths()[idx - 1].last_point() == multipath.paths()[idx].first_point());
-        }
-#endif
-        for (size_t idx_p = 0; idx_p < multipath.paths().size(); idx_p++) {
-            ExtrusionPath &path = multipath.paths()[idx_p];
-            if (!path.polyline().normalize()) {
-                // ensure continuity
-                if (idx_p + 1 < multipath.paths().size()) {
-                    multipath.paths()[idx_p + 1].polyline().append_before(path.first_point());
-                } else if (idx_p > 0) {
-                    if (multipath.paths()[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
-                        multipath.paths()[idx_p - 1].polyline().set_back(path.last_point());
-                    } else {
-                        multipath.paths()[idx_p - 1].polyline().append(path.last_point());
-                    }
-                }
-                // remove
-                multipath.paths().erase(multipath.paths().begin() + idx_p);
-                --idx_p;
-            }
-        }
-#ifdef _DEBUG
-        for (size_t idx = 0; idx < multipath.paths().size(); idx++) {
-            if (idx > 0)
-                assert(multipath.paths()[idx - 1].last_point() == multipath.paths()[idx].first_point());
-        }
-#endif
-    }
-    virtual void use(ExtrusionEntityCollection &coll) override {
-        for (size_t idx = 0; idx < coll.entities().size(); idx++) {
+
+        if (entity.is_leaf()) {
             need_remove = false;
-            coll.entities()[idx]->visit(*this);
-            if (need_remove || coll.entities()[idx]->empty()) {
+            return;
+        }
+#ifdef _DEBUG
+        if (entity.is_continuous()) {
+        for (size_t idx = 0; idx < entity.children().size(); idx++) {
+            if (idx > 0)
+                assert(entity.child(idx - 1).last_point() == entity.child(idx).first_point());
+        }
+        }
+#endif
+        for (size_t idx_p = 0; idx_p < entity.children().size(); idx_p++) {
+            ExtrusionEntity &child = entity.child(idx_p);
+            child.visit(*this);
+            if (need_remove || child.empty()) {
+                // ensure continuity
+                if (entity.is_continuous() && idx_p + 1 < entity.children().size()) {
+                    ArcPolyline *next_polyline = entity.child(idx_p + 1).polyline_or_null();
+                    assert(next_polyline != nullptr);
+                    if (next_polyline != nullptr)
+                        next_polyline->append_before(child.first_point());
+                } else if (entity.is_continuous() && idx_p > 0) {
+                    ArcPolyline *previous_polyline = entity.child(idx_p - 1).polyline_or_null();
+                    assert(previous_polyline != nullptr);
+                    if (previous_polyline != nullptr && entity.child(idx_p - 1).last_point().coincides_with_epsilon(child.last_point())) {
+                        previous_polyline->set_back(child.last_point());
+                    } else if (previous_polyline != nullptr) {
+                        previous_polyline->append(child.last_point());
+                    }
+                }
                 // remove
-                coll.remove(idx);
-                --idx;
+                entity.remove_child(idx_p);
+                --idx_p;
                 need_remove = false;
             }
         }
+#ifdef _DEBUG
+        if (entity.is_continuous()) {
+        for (size_t idx = 0; idx < entity.children().size(); idx++) {
+            if (idx > 0)
+                assert(entity.child(idx - 1).last_point() == entity.child(idx).first_point());
+        }
+        }
+#endif
     }
 } normalize_visitor;
 

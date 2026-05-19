@@ -34,9 +34,18 @@ inline ExtrusionEntitiesPtr filter_by_extrusion_role(const ExtrusionEntitiesPtr 
 class ExtrusionEntityCollection : public ExtrusionEntity
 {
 private:
-    // set to tru to forbit to reorder and reverse all entities indie us.
-    bool m_no_sort;
-    ExtrusionEntitiesPtr m_entities;     // we own these entities : TODO: use unique_ptr
+    // Compatibility bridge for legacy APIs still filling a raw pointer vector.
+    // Real ownership is moved back into ExtrusionEntity::children() before the
+    // collection is read or mutated through the modern API.
+    ExtrusionEntitiesPtr m_entities_compat;
+    mutable ExtrusionEntitiesPtr m_entities_cache;
+
+    static const ExtrusionEntityCollection& synced(const ExtrusionEntityCollection &collection);
+    static ExtrusionEntityCollection& synced(ExtrusionEntityCollection &collection);
+    void sync_compat_entities();
+    void materialize_compat_entities();
+    void rebuild_entities_cache() const;
+
 public:
     virtual ExtrusionEntityCollection* clone() const override { return new ExtrusionEntityCollection(*this); }
     // Create a new object, initialize it with this object using the move semantics.
@@ -46,28 +55,18 @@ public:
     /// Owned ExtrusionEntities and descendent ExtrusionEntityCollections.
     /// Iterating over this needs to check each child to see if it, too is a collection.
     /// FIXME Warning: not a true const, the entities inside can be modified, and if the entities are deleted -> crash
-    const ExtrusionEntitiesPtr& entities() const { return m_entities; }
-    ExtrusionEntitiesPtr& set_entities() { return m_entities; }
-    ExtrusionEntityCollection() : m_no_sort(false), ExtrusionEntity(true) {}
-    ExtrusionEntityCollection(bool can_sort, bool can_reverse) : m_no_sort(!can_sort), ExtrusionEntity(can_reverse) {}
-    ExtrusionEntityCollection(const ExtrusionEntityCollection &other) : m_no_sort(other.m_no_sort), ExtrusionEntity(other) { this->append(other.entities()); }
-    ExtrusionEntityCollection(ExtrusionEntityCollection &&other) : m_entities(std::move(other.m_entities)), m_no_sort(other.m_no_sort), ExtrusionEntity(other) {}
+    const ExtrusionEntitiesPtr& entities() const { const_cast<ExtrusionEntityCollection*>(this)->sync_compat_entities(); this->rebuild_entities_cache(); return m_entities_cache; }
+    ExtrusionEntitiesPtr& set_entities() { this->materialize_compat_entities(); return m_entities_compat; }
+    ExtrusionEntityCollection() : ExtrusionEntity(ExtrusionEntity::Children(), true, true, false) {}
+    ExtrusionEntityCollection(bool can_sort, bool can_reverse) : ExtrusionEntity(ExtrusionEntity::Children(), can_sort, can_reverse, false) {}
+    ExtrusionEntityCollection(const ExtrusionEntityCollection &other) : ExtrusionEntity(synced(other)) {}
+    ExtrusionEntityCollection(ExtrusionEntityCollection &&other) : ExtrusionEntity(std::move(synced(other))) {}
     explicit ExtrusionEntityCollection(const ExtrusionPaths &paths);
     ExtrusionEntityCollection& operator=(const ExtrusionEntityCollection &other);
-    ExtrusionEntityCollection& operator=(ExtrusionEntityCollection &&other) {
-        this->clear();
-        this->m_entities = std::move(other.m_entities);
-        this->m_no_sort  = other.m_no_sort;
-        this->m_can_reverse = other.m_can_reverse;
-        this->m_id = other.m_id;
-        return *this;
-    }
+    ExtrusionEntityCollection& operator=(ExtrusionEntityCollection &&other);
     ~ExtrusionEntityCollection() override { clear(); }
     // move all entitites from src into this
-    void append_move_from(ExtrusionEntityCollection &src) {
-        this->append(std::move(src.m_entities));
-        src.m_entities = {};
-    }
+    void append_move_from(ExtrusionEntityCollection &src);
 
     /// Operator to convert and flatten this collection to a single vector of ExtrusionPaths.
     explicit operator ExtrusionPaths() const;
@@ -82,46 +81,45 @@ public:
     bool is_collection() const override { return true; }
     ExtrusionRole role() const override;
     bool has_role(ExtrusionRole test_role) const override;
-    void set_can_sort_reverse(bool can_sort, bool can_reverse) { this->m_no_sort = !can_sort; this->m_can_reverse = can_reverse; }
-    bool can_sort() const { return !this->m_no_sort; }
+    void set_can_sort_reverse(bool can_sort, bool can_reverse) { ExtrusionEntity::set_can_sort_reverse(can_sort, can_reverse); }
+    bool can_sort() const { return ExtrusionEntity::can_sort(); }
     bool can_reverse() const override { return can_sort() || this->m_can_reverse; }
     void clear();
     void swap (ExtrusionEntityCollection &c);
-    void append(const ExtrusionEntity &entity) { this->m_entities.push_back(entity.clone()); }
-    void append(ExtrusionEntity &&entity) { this->m_entities.push_back(entity.clone_move()); }
+    void append(const ExtrusionEntity &entity) { this->sync_compat_entities(); this->append_child(ExtrusionEntityUPtr(entity.clone())); }
+    void append(ExtrusionEntity &&entity) { this->sync_compat_entities(); this->append_child(ExtrusionEntityUPtr(entity.clone_move())); }
     // take ownership, empty the container.
     template<typename ENTITY> void append(std::unique_ptr<ENTITY> &entity)
     {
         static_assert(std::is_base_of<ExtrusionEntity, ENTITY>::value, "ENTITY not derived from ExtrusionEntity in ExtrusionCollection::append(unique_ptr<ENTITY>)");
-        this->m_entities.push_back(entity.release());
+        this->sync_compat_entities();
+        this->append_child(std::move(entity));
     }
-    void append_at(ExtrusionEntity &&entity, size_t position) { assert(position <= m_entities.size()); this->m_entities.insert(this->m_entities.begin() + position, entity.clone_move()); }
+    void append_at(ExtrusionEntity &&entity, size_t position) { this->sync_compat_entities(); assert(position <= this->child_count()); this->insert_child(position, ExtrusionEntityUPtr(entity.clone_move())); }
     void append(const ExtrusionEntitiesPtr &entities) { 
-        this->m_entities.reserve(this->m_entities.size() + entities.size());
+        this->sync_compat_entities();
+        this->children().reserve(this->children().size() + entities.size());
         for (const ExtrusionEntity *ptr : entities)
-            this->m_entities.push_back(ptr->clone());
+            this->append_child(ExtrusionEntityUPtr(ptr->clone()));
     }
     void append(ExtrusionEntitiesPtr &&src) {
-        if (m_entities.empty())
-            m_entities = std::move(src);
-        else {
-            m_entities.insert(m_entities.end(),
-                std::make_move_iterator(src.begin()),
-                std::make_move_iterator(src.end()));
-            // Removing pointers to polymorphic extrusions from the donor object
-            // so that they will not be deleted twice.
-            src.clear();
-        }
+        this->sync_compat_entities();
+        this->children().reserve(this->children().size() + src.size());
+        for (ExtrusionEntity *ptr : src)
+            this->append_child(ExtrusionEntityUPtr(ptr));
+        src.clear();
     }
     void append(const ExtrusionPaths &paths) {
-        this->m_entities.reserve(this->m_entities.size() + paths.size());
+        this->sync_compat_entities();
+        this->children().reserve(this->children().size() + paths.size());
         for (const ExtrusionPath &path : paths)
-            this->m_entities.push_back(path.clone());
+            this->append_child(ExtrusionEntityUPtr(path.clone()));
     }
     void append(ExtrusionPaths &&paths) {
-        this->m_entities.reserve(this->m_entities.size() + paths.size());
+        this->sync_compat_entities();
+        this->children().reserve(this->children().size() + paths.size());
         for (ExtrusionPath &path : paths)
-            this->m_entities.push_back(new ExtrusionPath(std::move(path)));
+            this->append_child(std::make_unique<ExtrusionPath>(std::move(path)));
     }
     void replace(size_t i, const ExtrusionEntity &entity);
     void remove(size_t i);
@@ -181,8 +179,8 @@ public:
         return true;
     }
     using ExtrusionEntity::visit;
-    virtual void visit(ExtrusionVisitor &visitor) override { visitor.use(*this); };
-    virtual void visit(ExtrusionVisitorConst &visitor) const override{ visitor.use(*this); };
+    virtual void visit(ExtrusionVisitor &visitor) override { this->sync_compat_entities(); visitor.use(*this); };
+    virtual void visit(ExtrusionVisitorConst &visitor) const override{ const_cast<ExtrusionEntityCollection*>(this)->sync_compat_entities(); visitor.use(*this); };
 };
 
 //// visitors /////
@@ -191,8 +189,7 @@ class CountEntities : public ExtrusionVisitorConst {
 public:
     size_t count(const ExtrusionEntity &coll) { coll.visit(*this); return leaf_number; }
     size_t leaf_number = 0;
-    virtual void default_use(const ExtrusionEntity &entity) override { ++leaf_number; }
-    virtual void use(const ExtrusionEntityCollection &coll) override;
+    virtual void default_use(const ExtrusionEntity &entity) override;
 };
 
 class FlatenEntities : public ExtrusionVisitorConst {
@@ -204,6 +201,9 @@ public:
     FlatenEntities(ExtrusionEntityCollection pattern, bool preserve_ordering) : preserve_ordering(preserve_ordering) {
         to_fill.set_can_sort_reverse(pattern.can_sort(), pattern.can_reverse());
     }
+    FlatenEntities(const ExtrusionEntity &pattern, bool preserve_ordering) : preserve_ordering(preserve_ordering) {
+        to_fill.set_can_sort_reverse(pattern.can_sort(), pattern.can_reverse());
+    }
     const ExtrusionEntityCollection& get() {
         return to_fill;
     };
@@ -211,8 +211,7 @@ public:
         return to_fill;
     };
     ExtrusionEntityCollection&& flatten(const ExtrusionEntityCollection &to_flatten) &&;
-    void default_use(const ExtrusionEntity &entity) override { to_fill.append(entity); }
-    void use(const ExtrusionEntityCollection &coll) override;
+    void default_use(const ExtrusionEntity &entity) override;
 };
 
 inline void extrusion_entities_append_paths(ExtrusionEntityCollection &dst, Polylines &polylines, ExtrusionRole role, double mm3_per_mm, float width, float height, bool can_reverse = true)
@@ -302,15 +301,15 @@ inline void extrusion_entities_append_loops_and_paths(ExtrusionEntityCollection 
 class TestCollection : public ExtrusionVisitorRecursiveConst {
 public:
     virtual void default_use(const ExtrusionEntity& entity) override {
-        assert(entity.as_polyline().size() > 0);
-    }
-    virtual void use(const ExtrusionEntityCollection& coll) override {
-        for (const ExtrusionEntity* entity : coll.entities()) {
-            assert(entity);
-            std::cout << "entity at " << ((uint64_t)(void*)entity) << "\n";
-            entity->visit(*this);
+        if (!entity.is_leaf()) {
+            for (const ExtrusionEntityUPtr &child : entity.children()) {
+                assert(child);
+                std::cout << "entity at " << ((uint64_t)(void*)child.get()) << "\n";
+                child->visit(*this);
+            }
+        } else {
+            assert(entity.as_polyline().size() > 0);
         }
-
     }
 };
 #endif

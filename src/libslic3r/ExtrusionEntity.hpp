@@ -9,11 +9,17 @@
 #ifndef slic3r_ExtrusionEntity_hpp_
 #define slic3r_ExtrusionEntity_hpp_
 
+#include <atomic>
 #include <cassert>
+#include <iterator>
 #include <limits>
+#include <memory>
 #include <numeric>
 #include <optional>
 #include <string_view>
+#include <type_traits>
+#include <variant>
+#include <vector>
 
 #include "ExtrusionRole.hpp"
 #include "ExtrusionProperty.hpp"
@@ -35,6 +41,8 @@ class ExtrusionMultiPath;
 class ExtrusionLoop;
 class ExtrusionNop;
 
+using ExtrusionEntityUPtr = std::unique_ptr<ExtrusionEntity>;
+using ExtrusionEntityUPtrs = std::vector<ExtrusionEntityUPtr>;
 
 class ExtrusionVisitor {
 public:
@@ -57,71 +65,136 @@ public:
 
 class ExtrusionEntity : public ExtrusionPropertyContainer
 {
+public:
+    using Children = ExtrusionEntityUPtrs;
+    using Content = std::variant<std::monostate, ArcPolyline, Children>;
+
 protected:
     static inline std::atomic_int32_t id_generator;
+    static Point NOT_A_POINT;
+
     uint32_t m_id; // for travel map
     // even if no_sort, allow to reverse() us (and our entities if they allow it, but they should) 
     bool m_can_reverse; //TODO: use (int64_t) m_id sign to embed this property, currently not an issue as 32+8 <= 64
+    Content m_content;
+    bool    m_can_sort = false;
+    bool    m_continuous = false;
 
-    ExtrusionEntity(bool can_reverse) : m_can_reverse(can_reverse) , m_id(++id_generator) {}
+public:
+    ExtrusionEntity(bool can_reverse)
+        : m_id(++id_generator), m_can_reverse(can_reverse), m_content(std::monostate{}) {}
+    ExtrusionEntity(bool can_reverse, const ArcPolyline &polyline)
+        : m_id(++id_generator), m_can_reverse(can_reverse), m_content(polyline) {}
+    ExtrusionEntity(bool can_reverse, ArcPolyline &&polyline)
+        : m_id(++id_generator), m_can_reverse(can_reverse), m_content(std::move(polyline)) {}
+    ExtrusionEntity(Children &&children, bool can_sort, bool can_reverse, bool continuous)
+        : m_id(++id_generator), m_can_reverse(can_reverse), m_content(std::move(children)), m_can_sort(can_sort), m_continuous(continuous) {}
     ExtrusionEntity(ExtrusionPropertyUPtr &&eprop, bool can_reverse)
-        : ExtrusionPropertyContainer(std::move(eprop)), m_can_reverse(can_reverse), m_id(++id_generator) {}
+        : ExtrusionPropertyContainer(std::move(eprop)), m_id(++id_generator), m_can_reverse(can_reverse) {}
     ExtrusionEntity(ExtrusionPropertyUPtrs &&eprops, bool can_reverse)
-        : ExtrusionPropertyContainer(std::move(eprops)), m_can_reverse(can_reverse), m_id(++id_generator) {}
+        : ExtrusionPropertyContainer(std::move(eprops)), m_id(++id_generator), m_can_reverse(can_reverse) {}
     ExtrusionEntity(const ExtrusionEntity &rhs)
-        : ExtrusionPropertyContainer(rhs), m_can_reverse(rhs.m_can_reverse), m_id(rhs.m_id) {}
+        : ExtrusionPropertyContainer(rhs)
+        , m_id(rhs.m_id)
+        , m_can_reverse(rhs.m_can_reverse)
+        , m_content(clone_content(rhs.m_content))
+        , m_can_sort(rhs.m_can_sort)
+        , m_continuous(rhs.m_continuous) {}
     ExtrusionEntity(ExtrusionEntity &&rhs)
-        : ExtrusionPropertyContainer(std::move(rhs)), m_can_reverse(rhs.m_can_reverse), m_id(rhs.m_id) {}
+        : ExtrusionPropertyContainer(std::move(rhs))
+        , m_id(rhs.m_id)
+        , m_can_reverse(rhs.m_can_reverse)
+        , m_content(std::move(rhs.m_content))
+        , m_can_sort(rhs.m_can_sort)
+        , m_continuous(rhs.m_continuous) {}
     
     ExtrusionEntity &operator=(const ExtrusionEntity &rhs) {
         this->m_id = rhs.m_id;
         this->m_can_reverse = rhs.m_can_reverse;
+        this->m_content = clone_content(rhs.m_content);
+        this->m_can_sort = rhs.m_can_sort;
+        this->m_continuous = rhs.m_continuous;
         ExtrusionPropertyContainer::operator=(rhs);
         return *this;
     }
     ExtrusionEntity &operator=(ExtrusionEntity &&rhs) {
         this->m_id = rhs.m_id;
         this->m_can_reverse = rhs.m_can_reverse;
+        this->m_content = std::move(rhs.m_content);
+        this->m_can_sort = rhs.m_can_sort;
+        this->m_continuous = rhs.m_continuous;
         ExtrusionPropertyContainer::operator=(std::move(rhs));
         return *this;
     }
+
+protected:
+    static Content clone_content(const Content &content);
+    Children& ensure_children();
+
 public:
     uint64_t get_id() const { return m_id; }
-    virtual ExtrusionRole role() const = 0;
-    virtual bool has_role(ExtrusionRole) const = 0;
-    virtual bool is_collection() const { return false; }
-    virtual bool is_loop() const { return false; }
-    virtual bool can_reverse() const { return m_can_reverse; }
-    virtual ExtrusionEntity* clone() const = 0;
+    bool has_polyline() const;
+    bool is_leaf() const;
+    bool is_nop() const;
+    bool is_continuous() const { return m_continuous; }
+    void set_continuous(bool continuous) { m_continuous = continuous; if (continuous) m_can_sort = false; }
+
+    const ArcPolyline* polyline_or_null() const;
+    ArcPolyline* polyline_or_null();
+    const ArcPolyline& polyline_ref() const;
+    ArcPolyline& polyline_ref();
+    void set_polyline(const ArcPolyline &polyline);
+    void set_polyline(ArcPolyline &&polyline);
+
+    const Children& children() const;
+    Children& children();
+    size_t child_count() const;
+    const ExtrusionEntity& child(size_t idx) const;
+    ExtrusionEntity& child(size_t idx);
+    ExtrusionEntity& append_child(ExtrusionEntityUPtr &&child);
+    ExtrusionEntity& append_child(const ExtrusionEntity &child);
+    ExtrusionEntity& append_child(ExtrusionEntity &&child);
+    void insert_child(size_t idx, ExtrusionEntityUPtr &&child);
+    void remove_child(size_t idx);
+    void clear_content();
+
+    virtual ExtrusionRole role() const;
+    virtual bool has_role(ExtrusionRole test_role) const;
+    virtual bool is_collection() const;
+    virtual bool is_loop() const;
+    bool can_sort() const { return m_can_sort && this->is_collection(); }
+    virtual bool can_reverse() const { return this->can_sort() || m_can_reverse; }
+    void set_can_sort_reverse(bool can_sort, bool can_reverse);
+    virtual ExtrusionEntity* clone() const { return new ExtrusionEntity(*this); }
     // Create a new object, initialize it with this object using the move semantics.
-    virtual ExtrusionEntity* clone_move() = 0;
+    virtual ExtrusionEntity* clone_move() { return new ExtrusionEntity(std::move(*this)); }
     virtual ~ExtrusionEntity() = default;
-    virtual void reverse() = 0;
-    virtual const Point& first_point() const = 0;
-    virtual const Point& last_point() const = 0;
+    virtual void reverse();
+    virtual const Point& first_point() const;
+    virtual const Point& last_point() const;
     // Returns an approximately middle point of a path, loop or an extrusion collection.
     // Used to get a sample point of an extrusion or extrusion collection, which is possibly deep inside its island.
-    virtual const Point& middle_point() const = 0;
+    virtual const Point& middle_point() const;
     // Produce a list of 2D polygons covered by the extruded paths, offsetted by the extrusion width.
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
-    virtual void polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const = 0;
+    virtual void polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const;
     // Produce a list of 2D polygons covered by the extruded paths, offsetted by the extrusion spacing.
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
     // Useful to calculate area of an infill, which has been really filled in by a 100% rectilinear infill.
-    virtual void polygons_covered_by_spacing(Polygons &out, const float spacing_ratio, const float scaled_epsilon) const = 0;
+    virtual void polygons_covered_by_spacing(Polygons &out, const float spacing_ratio, const float scaled_epsilon) const;
     virtual Polygons polygons_covered_by_width(const float scaled_epsilon = 0.f) const
         { Polygons out; this->polygons_covered_by_width(out, scaled_epsilon); return out; }
     virtual Polygons polygons_covered_by_spacing(const float spacing_ratio, const float scaled_epsilon) const
         { Polygons out; this->polygons_covered_by_spacing(out, spacing_ratio, scaled_epsilon); return out; }
-    virtual ArcPolyline as_polyline() const = 0;
-    virtual void   collect_polylines(ArcPolylines &dst) const = 0;
-    virtual void   collect_points(Points &dst) const = 0;
+    virtual ArcPolyline as_polyline() const;
+    virtual void   collect_polylines(ArcPolylines &dst) const;
+    virtual void   collect_points(Points &dst) const;
     virtual ArcPolylines as_polylines() const { ArcPolylines dst; this->collect_polylines(dst); return dst; }
-    virtual coordf_t length() const = 0;
-    virtual bool empty() const = 0;
-    virtual double total_volume() const = 0;
-    virtual void visit(ExtrusionVisitor &visitor) = 0;
-    virtual void visit(ExtrusionVisitorConst &visitor) const = 0;
+    virtual coordf_t length() const;
+    virtual bool empty() const;
+    virtual double total_volume() const;
+    virtual void visit(ExtrusionVisitor &visitor);
+    virtual void visit(ExtrusionVisitorConst &visitor) const;
     void visit(ExtrusionVisitor &&visitor); // note: need 'using ExtrusionEntity::visit;' to be called from children classes
     void visit(ExtrusionVisitorConst &&visitor) const;
 
@@ -204,9 +277,6 @@ using ExtrusionEntityReferences = std::vector<ExtrusionEntityReference>;
 
 class ExtrusionPath : public ExtrusionEntity
 {
-private:
-    ArcPolyline m_polyline;
-
 public:
     // force to set the ExtrusionProperty (to nullptr) to be sure you didn't forget it
     //ExtrusionPath(ExtrusionRole role) : ExtrusionEntity(true), m_attributes{role} {}
@@ -214,56 +284,52 @@ public:
     ExtrusionPath(const ExtrusionAttributes &attributes,
                   ExtrusionPropertyUPtr &&eprop,
                   bool can_reverse = true)
-        : ExtrusionEntity(can_reverse) { this->set_attributes(attributes); if (eprop) this->add_property(std::move(eprop)); }
+        : ExtrusionEntity(can_reverse, ArcPolyline()) { this->set_attributes(attributes); if (eprop) this->add_property(std::move(eprop)); }
     ExtrusionPath(const ExtrusionAttributes &attributes,
                   ExtrusionPropertyUPtrs &&eprops,
                   bool can_reverse = true)
-        : ExtrusionEntity(can_reverse) { this->set_attributes(attributes); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
+        : ExtrusionEntity(can_reverse, ArcPolyline()) { this->set_attributes(attributes); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
     ExtrusionPath(const ExtrusionAttributes &attributes,
                   bool can_reverse = true)
-        : ExtrusionEntity(can_reverse) { this->set_attributes(attributes); }
-    ExtrusionPath(const ExtrusionPath &rhs) : ExtrusionEntity(rhs), m_polyline(rhs.m_polyline) {}
-    ExtrusionPath(ExtrusionPath &&rhs) : ExtrusionEntity(rhs), m_polyline(std::move(rhs.m_polyline)) {}
+        : ExtrusionEntity(can_reverse, ArcPolyline()) { this->set_attributes(attributes); }
+    ExtrusionPath(const ExtrusionPath &rhs) : ExtrusionEntity(rhs) {}
+    ExtrusionPath(ExtrusionPath &&rhs) : ExtrusionEntity(std::move(rhs)) {}
     //ExtrusionPath(const ArcPolyline &polyline, const ExtrusionAttributes &attribs, bool can_reverse = true)
-        //: ExtrusionEntity(can_reverse), m_polyline(polyline), m_attributes(attribs) {}
+        //: ExtrusionEntity(can_reverse, polyline), m_attributes(attribs) {}
     //ExtrusionPath(ArcPolyline &&polyline, const ExtrusionAttributes &attribs, bool can_reverse = true)
-        //: ExtrusionEntity(can_reverse), m_polyline(std::move(polyline)), m_attributes(attribs) {}
+        //: ExtrusionEntity(can_reverse, std::move(polyline)), m_attributes(attribs) {}
     ExtrusionPath(const ArcPolyline &polyline,
                   const ExtrusionAttributes &attribs,
                   ExtrusionPropertyUPtr &&eprop,
                   bool can_reverse = true)
-        : ExtrusionEntity(can_reverse), m_polyline(polyline) { this->set_attributes(attribs); if (eprop) this->add_property(std::move(eprop)); }
+        : ExtrusionEntity(can_reverse, polyline) { this->set_attributes(attribs); if (eprop) this->add_property(std::move(eprop)); }
     ExtrusionPath(const ArcPolyline &polyline,
                   const ExtrusionAttributes &attribs,
                   ExtrusionPropertyUPtrs &&eprops,
                   bool can_reverse = true)
-        : ExtrusionEntity(can_reverse), m_polyline(polyline) { this->set_attributes(attribs); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
+        : ExtrusionEntity(can_reverse, polyline) { this->set_attributes(attribs); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
     ExtrusionPath(ArcPolyline &&polyline,
                   const ExtrusionAttributes &attribs,
                   ExtrusionPropertyUPtr &&eprop,
                   bool can_reverse = true)
-        : ExtrusionEntity(can_reverse)
-        , m_polyline(std::move(polyline)) { this->set_attributes(attribs); if (eprop) this->add_property(std::move(eprop)); }
+        : ExtrusionEntity(can_reverse, std::move(polyline)) { this->set_attributes(attribs); if (eprop) this->add_property(std::move(eprop)); }
     ExtrusionPath(ArcPolyline &&polyline,
                   const ExtrusionAttributes &attribs,
                   ExtrusionPropertyUPtrs &&eprops,
                   bool can_reverse = true)
-        : ExtrusionEntity(can_reverse)
-        , m_polyline(std::move(polyline)) { this->set_attributes(attribs); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
+        : ExtrusionEntity(can_reverse, std::move(polyline)) { this->set_attributes(attribs); for (ExtrusionPropertyUPtr &property : eprops) this->add_property(std::move(property)); }
 
     ExtrusionPath &operator=(const ExtrusionPath &rhs) {
         ExtrusionEntity::operator=(rhs);
-        this->m_polyline = rhs.m_polyline;
         return *this;
     }
     ExtrusionPath &operator=(ExtrusionPath &&rhs) {
-        ExtrusionEntity::operator=(rhs);
-        this->m_polyline = std::move(rhs.m_polyline);
+        ExtrusionEntity::operator=(std::move(rhs));
         return *this;
     }
 
-    ArcPolyline& polyline() { return m_polyline; }
-    const ArcPolyline& polyline() const { return m_polyline; }
+    ArcPolyline& polyline() { return this->polyline_ref(); }
+    const ArcPolyline& polyline() const { return this->polyline_ref(); }
 
 	ExtrusionEntity* clone() const override { return new ExtrusionPath(*this); }
     // Create a new object, initialize it with this object using the move semantics.
@@ -316,14 +382,14 @@ public:
     void          collect_points(Points &dst) const override { append(dst, this->polyline().to_polyline().points); }
     double      total_volume() const override { return attributes().mm3_per_mm * unscaled(length()); }
     void push_back(Point point, coord_t z_offset) {
-        assert(!m_polyline.has_arc());
-        m_polyline.append(point);
-        m_polyline.set_z_offset(m_polyline.size() - 1, z_offset);
+        assert(!this->polyline().has_arc());
+        this->polyline().append(point);
+        this->polyline().set_z_offset(this->polyline().size() - 1, z_offset);
     }
     void push_back(const Geometry::ArcWelder::Segment &segment, coord_t z_offset) {
-        assert(!m_polyline.has_arc() || segment.orientation == Geometry::ArcWelder::Orientation::Unknown);
-        m_polyline.append(segment);
-        m_polyline.set_z_offset(m_polyline.size() - 1, z_offset);
+        assert(!this->polyline().has_arc() || segment.orientation == Geometry::ArcWelder::Orientation::Unknown);
+        this->polyline().append(segment);
+        this->polyline().set_z_offset(this->polyline().size() - 1, z_offset);
     }
     using ExtrusionEntity::visit;
     virtual void visit(ExtrusionVisitor &visitor) override { visitor.use(*this); };
@@ -352,34 +418,198 @@ public:
 typedef std::vector<ExtrusionPath> ExtrusionPaths;
 ExtrusionPaths clip_end(ExtrusionPaths& paths, coordf_t distance);
 
+template<bool IsConst>
+class ExtrusionPathIterator
+{
+    using ChildrenPtr = std::conditional_t<IsConst, const ExtrusionEntityUPtrs*, ExtrusionEntityUPtrs*>;
+    using EntityPtr = std::conditional_t<IsConst, const ExtrusionEntity*, ExtrusionEntity*>;
+
+    ChildrenPtr m_children = nullptr;
+    size_t      m_index = 0;
+
+public:
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type        = ExtrusionPath;
+    using difference_type   = std::ptrdiff_t;
+    using reference         = std::conditional_t<IsConst, const ExtrusionPath&, ExtrusionPath&>;
+    using pointer           = std::conditional_t<IsConst, const ExtrusionPath*, ExtrusionPath*>;
+
+    ExtrusionPathIterator() = default;
+    ExtrusionPathIterator(ChildrenPtr children, size_t index) : m_children(children), m_index(index) {}
+    template<bool OtherConst, typename = std::enable_if_t<IsConst && !OtherConst>>
+    ExtrusionPathIterator(const ExtrusionPathIterator<OtherConst> &other) : m_children(other.children()), m_index(other.index()) {}
+
+    ChildrenPtr children() const { return m_children; }
+    size_t index() const { return m_index; }
+
+    reference operator*() const
+    {
+        EntityPtr entity = (*m_children)[m_index].get();
+        assert(dynamic_cast<pointer>(entity) != nullptr);
+        return *static_cast<pointer>(entity);
+    }
+    pointer operator->() const { return &**this; }
+    reference operator[](difference_type offset) const { return *(*this + offset); }
+
+    ExtrusionPathIterator& operator++() { ++m_index; return *this; }
+    ExtrusionPathIterator operator++(int) { ExtrusionPathIterator out = *this; ++*this; return out; }
+    ExtrusionPathIterator& operator--() { --m_index; return *this; }
+    ExtrusionPathIterator operator--(int) { ExtrusionPathIterator out = *this; --*this; return out; }
+    ExtrusionPathIterator& operator+=(difference_type offset) { m_index = size_t(difference_type(m_index) + offset); return *this; }
+    ExtrusionPathIterator& operator-=(difference_type offset) { return *this += -offset; }
+    ExtrusionPathIterator operator+(difference_type offset) const { ExtrusionPathIterator out = *this; out += offset; return out; }
+    ExtrusionPathIterator operator-(difference_type offset) const { ExtrusionPathIterator out = *this; out -= offset; return out; }
+    difference_type operator-(const ExtrusionPathIterator &rhs) const { assert(m_children == rhs.m_children); return difference_type(m_index) - difference_type(rhs.m_index); }
+
+    bool operator==(const ExtrusionPathIterator &rhs) const { return m_children == rhs.m_children && m_index == rhs.m_index; }
+    bool operator!=(const ExtrusionPathIterator &rhs) const { return !(*this == rhs); }
+    bool operator<(const ExtrusionPathIterator &rhs) const { assert(m_children == rhs.m_children); return m_index < rhs.m_index; }
+    bool operator>(const ExtrusionPathIterator &rhs) const { return rhs < *this; }
+    bool operator<=(const ExtrusionPathIterator &rhs) const { return !(*this > rhs); }
+    bool operator>=(const ExtrusionPathIterator &rhs) const { return !(*this < rhs); }
+};
+
+class ExtrusionPathCView
+{
+protected:
+    const ExtrusionEntityUPtrs *m_children = nullptr;
+
+public:
+    using const_iterator = ExtrusionPathIterator<true>;
+
+    explicit ExtrusionPathCView(const ExtrusionEntityUPtrs &children) : m_children(&children) {}
+
+    size_t size() const { return m_children->size(); }
+    bool empty() const { return m_children->empty(); }
+    const_iterator begin() const { return const_iterator(m_children, 0); }
+    const_iterator end() const { return const_iterator(m_children, m_children->size()); }
+    const ExtrusionPath& operator[](size_t idx) const { return *(this->begin() + std::ptrdiff_t(idx)); }
+    const ExtrusionPath& front() const { return (*this)[0]; }
+    const ExtrusionPath& back() const { return (*this)[this->size() - 1]; }
+    ExtrusionPaths to_vector() const
+    {
+        ExtrusionPaths out;
+        out.reserve(this->size());
+        for (const ExtrusionPath &path : *this)
+            out.emplace_back(path);
+        return out;
+    }
+    operator ExtrusionPaths() const { return this->to_vector(); }
+};
+
+class ExtrusionPathView : public ExtrusionPathCView
+{
+    ExtrusionEntityUPtrs *mutable_children() { return const_cast<ExtrusionEntityUPtrs*>(m_children); }
+
+public:
+    using iterator = ExtrusionPathIterator<false>;
+    using const_iterator = ExtrusionPathIterator<true>;
+
+    explicit ExtrusionPathView(ExtrusionEntityUPtrs &children) : ExtrusionPathCView(children) {}
+
+    iterator begin() { return iterator(this->mutable_children(), 0); }
+    iterator end() { return iterator(this->mutable_children(), this->size()); }
+    const_iterator begin() const { return ExtrusionPathCView::begin(); }
+    const_iterator end() const { return ExtrusionPathCView::end(); }
+    ExtrusionPath& operator[](size_t idx) { return *(this->begin() + std::ptrdiff_t(idx)); }
+    const ExtrusionPath& operator[](size_t idx) const { return ExtrusionPathCView::operator[](idx); }
+    ExtrusionPath& front() { return (*this)[0]; }
+    const ExtrusionPath& front() const { return ExtrusionPathCView::front(); }
+    ExtrusionPath& back() { return (*this)[this->size() - 1]; }
+    const ExtrusionPath& back() const { return ExtrusionPathCView::back(); }
+
+    void reserve(size_t size) { this->mutable_children()->reserve(size); }
+    void clear() { this->mutable_children()->clear(); }
+
+    template<typename... Args> ExtrusionPath& emplace_back(Args&&... args)
+    {
+        ExtrusionEntityUPtrs &children = *this->mutable_children();
+        children.emplace_back(std::make_unique<ExtrusionPath>(std::forward<Args>(args)...));
+        return *static_cast<ExtrusionPath*>(children.back().get());
+    }
+    void push_back(const ExtrusionPath &path) { this->emplace_back(path); }
+    void push_back(ExtrusionPath &&path) { this->emplace_back(std::move(path)); }
+    void pop_back() { this->mutable_children()->pop_back(); }
+
+    iterator insert(iterator pos, const ExtrusionPath &path)
+    {
+        ExtrusionEntityUPtrs &children = *this->mutable_children();
+        size_t idx = pos.index();
+        children.insert(children.begin() + idx, std::make_unique<ExtrusionPath>(path));
+        return iterator(&children, idx);
+    }
+    iterator insert(iterator pos, ExtrusionPath &&path)
+    {
+        ExtrusionEntityUPtrs &children = *this->mutable_children();
+        size_t idx = pos.index();
+        children.insert(children.begin() + idx, std::make_unique<ExtrusionPath>(std::move(path)));
+        return iterator(&children, idx);
+    }
+    template<typename InputIt> iterator insert(iterator pos, InputIt first, InputIt last)
+    {
+        ExtrusionEntityUPtrs &children = *this->mutable_children();
+        size_t insert_idx = pos.index();
+        size_t first_idx = insert_idx;
+        for (InputIt it = first; it != last; ++it, ++insert_idx)
+            children.insert(children.begin() + insert_idx, std::make_unique<ExtrusionPath>(*it));
+        return iterator(&children, first_idx);
+    }
+    iterator erase(iterator pos)
+    {
+        ExtrusionEntityUPtrs &children = *this->mutable_children();
+        size_t idx = pos.index();
+        children.erase(children.begin() + idx);
+        return iterator(&children, idx);
+    }
+    iterator erase(iterator first, iterator last)
+    {
+        ExtrusionEntityUPtrs &children = *this->mutable_children();
+        size_t idx = first.index();
+        children.erase(children.begin() + idx, children.begin() + last.index());
+        return iterator(&children, idx);
+    }
+    ExtrusionPathView& operator=(const ExtrusionPaths &paths)
+    {
+        this->clear();
+        this->reserve(paths.size());
+        for (const ExtrusionPath &path : paths)
+            this->push_back(path);
+        return *this;
+    }
+    ExtrusionPathView& operator=(ExtrusionPaths &&paths)
+    {
+        this->clear();
+        this->reserve(paths.size());
+        for (ExtrusionPath &path : paths)
+            this->push_back(std::move(path));
+        paths.clear();
+        return *this;
+    }
+};
+
 // Single continuous extrusion path, possibly with varying extrusion thickness, extrusion height or bridging / non bridging.
 // it's like an unsortable collection of only unreversable THING
 // note: the ExtrusionProperty of a multipath is applied to each path, properties of a path is not transfered to the next one.
 template <typename THING = ExtrusionEntity>
 class ExtrusionMultiEntity : public ExtrusionEntity {
-protected:
-    std::vector<THING> m_paths;
-
 public:
-    ExtrusionMultiEntity(): ExtrusionEntity(false) {};
-    ExtrusionMultiEntity(const ExtrusionMultiEntity &rhs) : m_paths(rhs.m_paths), ExtrusionEntity(rhs) {}
-    ExtrusionMultiEntity(ExtrusionMultiEntity &&rhs) : m_paths(std::move(rhs.m_paths)), ExtrusionEntity(rhs) {}
-    ExtrusionMultiEntity(const std::vector<THING> &paths) : m_paths(paths), ExtrusionEntity(false) {};
-    ExtrusionMultiEntity(const THING &path): ExtrusionEntity(false) { this->m_paths.push_back(path); }
+    ExtrusionMultiEntity(): ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) {};
+    ExtrusionMultiEntity(const ExtrusionMultiEntity &rhs) : ExtrusionEntity(rhs) {}
+    ExtrusionMultiEntity(ExtrusionMultiEntity &&rhs) : ExtrusionEntity(std::move(rhs)) {}
+    ExtrusionMultiEntity(const std::vector<THING> &paths) : ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) { this->paths() = paths; };
+    ExtrusionMultiEntity(const THING &path): ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) { this->paths().push_back(path); }
 
     ExtrusionMultiEntity &operator=(const ExtrusionMultiEntity &rhs) {
         ExtrusionEntity::operator=(rhs);
-        this->m_paths = rhs.m_paths;
         return *this;
     }
     ExtrusionMultiEntity &operator=(ExtrusionMultiEntity &&rhs) {
-        ExtrusionEntity::operator=(rhs);
-        this->m_paths = std::move(rhs.m_paths);
+        ExtrusionEntity::operator=(std::move(rhs));
         return *this;
     }
 
-    std::vector<THING>& paths() { return m_paths; }
-    const std::vector<THING>& paths() const { return m_paths; }
+    ExtrusionPathView paths() { return ExtrusionPathView(this->children()); }
+    ExtrusionPathCView paths() const { assert(!this->is_leaf()); return ExtrusionPathCView(this->children()); }
 
     bool is_loop() const override { return false; }
     virtual const Point& first_point() const override { return this->paths().front().polyline().front(); }
@@ -472,18 +702,16 @@ public:
 
     ExtrusionMultiPath() {};
     ExtrusionMultiPath(const ExtrusionMultiPath &rhs) : ExtrusionMultiEntity(rhs) {}
-    ExtrusionMultiPath(ExtrusionMultiPath &&rhs) : ExtrusionMultiEntity(rhs) {}
+    ExtrusionMultiPath(ExtrusionMultiPath &&rhs) : ExtrusionMultiEntity(std::move(rhs)) {}
     ExtrusionMultiPath(const ExtrusionPaths &paths) : ExtrusionMultiEntity(paths) {};
     ExtrusionMultiPath(const ExtrusionPath &path) :ExtrusionMultiEntity(path) {}
 
     ExtrusionMultiPath &operator=(const ExtrusionMultiPath &rhs) {
         ExtrusionEntity::operator=(rhs);
-        this->m_paths = rhs.m_paths;
         return *this;
     }
     ExtrusionMultiPath &operator=(ExtrusionMultiPath &&rhs) {
-        ExtrusionEntity::operator=(rhs);
-        this->m_paths = std::move(rhs.m_paths);
+        ExtrusionEntity::operator=(std::move(rhs));
         return *this;
     }
 
@@ -500,36 +728,35 @@ public:
 // note: the ExtrusionProperty of a multipath is applied to each path, properties of a path is not transfered to the next one.
 class ExtrusionLoop : public ExtrusionEntity
 {
-private:
-    ExtrusionPaths m_paths;
-
 public:
-    //ExtrusionLoop(const ExtrusionLoop& rhs) : ExtrusionEntity(rhs), m_paths(rhs.m_paths), m_loop_role(rhs.m_loop_role) {}
-    ExtrusionLoop(ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) { this->set_loop_role(role); }
-    ExtrusionLoop(const ExtrusionPaths &paths, ExtrusionLoopRole role = elrDefault) : m_paths(paths), ExtrusionEntity(false) {
+    //ExtrusionLoop(const ExtrusionLoop& rhs) : ExtrusionEntity(rhs), m_loop_role(rhs.m_loop_role) {}
+    ExtrusionLoop(ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) { this->set_loop_role(role); }
+    ExtrusionLoop(const ExtrusionPaths &paths, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) {
         this->set_loop_role(role);
+        this->paths() = paths;
         assert(!this->paths().empty());
         assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
-    ExtrusionLoop(ExtrusionPaths &&paths, ExtrusionLoopRole role = elrDefault) : m_paths(std::move(paths)), ExtrusionEntity(false) {
+    ExtrusionLoop(ExtrusionPaths &&paths, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) {
         this->set_loop_role(role);
+        this->paths() = std::move(paths);
         assert(!this->paths().empty());
         assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
-    ExtrusionLoop(const ExtrusionPath &path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) {
+    ExtrusionLoop(const ExtrusionPath &path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) {
         this->set_loop_role(role);
         this->paths().push_back(path);
         assert(!this->paths().empty());
         assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
-    ExtrusionLoop(ExtrusionPath &&path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(false) {
+    ExtrusionLoop(ExtrusionPath &&path, ExtrusionLoopRole role = elrDefault) : ExtrusionEntity(ExtrusionEntity::Children(), false, false, true) {
         this->set_loop_role(role);
         this->paths().emplace_back(std::move(path));
         assert(!this->paths().empty());
         assert(this->first_point().coincides_with_epsilon(this->paths().back().polyline().back()));
     }
-    ExtrusionPaths& paths() { return m_paths; }
-    const ExtrusionPaths& paths() const { return m_paths; }
+    ExtrusionPathView paths() { return ExtrusionPathView(this->children()); }
+    ExtrusionPathCView paths() const { assert(!this->is_leaf()); return ExtrusionPathCView(this->children()); }
     virtual bool is_loop() const override{ return true; }
     virtual ExtrusionEntity* clone() const override{ return new ExtrusionLoop (*this); }
     // Create a new object, initialize it with this object using the move semantics.
@@ -667,10 +894,7 @@ class ExtrusionPrinter : public ExtrusionVisitorConst {
     bool json;
 public:
     ExtrusionPrinter(double mult = 0.000001, int trunc = 0, bool json = false) : mult(mult), trunc(trunc), json(json) { }
-    virtual void use(const ExtrusionPath& path) override;
-    virtual void use(const ExtrusionMultiPath& multipath) override;
-    virtual void use(const ExtrusionLoop& loop) override;
-    virtual void use(const ExtrusionEntityCollection& collection) override;
+    virtual void default_use(const ExtrusionEntity& entity) override;
     std::string str() { return ss.str(); }
     std::string print(const ExtrusionEntity& entity)&& {
         entity.visit(*this);
@@ -683,7 +907,6 @@ class ExtrusionLength : public ExtrusionVisitorConst {
 public:
     ExtrusionLength() : dist(0){ }
     virtual void default_use(const ExtrusionEntity& path) override;
-    virtual void use(const ExtrusionEntityCollection& collection) override;
     double get() { return dist; }
     double length(const ExtrusionEntity& entity)&& {
         entity.visit(*this);
@@ -693,37 +916,33 @@ public:
 
 class ExtrusionVisitorRecursiveConst : public ExtrusionVisitorConst {
 public:
-    virtual void use(const ExtrusionMultiPath& multipath) override;
-    virtual void use(const ExtrusionLoop& loop) override;
-    virtual void use(const ExtrusionEntityCollection& collection) override;
+    virtual void default_use(const ExtrusionEntity& entity) override;
 };
 
 class ExtrusionVisitorRecursive : public ExtrusionVisitor {
 public:
-    virtual void use(ExtrusionMultiPath& multipath) override;
-    virtual void use(ExtrusionLoop& loop) override;
-    virtual void use(ExtrusionEntityCollection& collection) override;
+    virtual void default_use(ExtrusionEntity& entity) override;
 };
 
 class HasRoleVisitor : public ExtrusionVisitorConst{
+protected:
+    virtual bool matches(const ExtrusionEntity &entity) const = 0;
 public:
     bool found = false;
-    void use(const ExtrusionMultiPath& multipath) override;
-    void use(const ExtrusionLoop& loop) override;
-    void use(const ExtrusionEntityCollection& collection) override;
+    void default_use(const ExtrusionEntity& entity) override;
     static bool search(const ExtrusionEntity &entity, HasRoleVisitor&& visitor);
     static bool search(const ExtrusionEntitiesPtr &entities, HasRoleVisitor&& visitor);
 };
 struct HasInfillVisitor : public HasRoleVisitor{
-    void default_use(const ExtrusionEntity &entity) override { found = entity.role().is_infill(); };
+    bool matches(const ExtrusionEntity &entity) const override { return entity.role().is_infill(); }
 };
 struct HasSolidInfillVisitor : public HasRoleVisitor{
-    void default_use(const ExtrusionEntity &entity) override { found = entity.role().is_solid_infill(); };
+    bool matches(const ExtrusionEntity &entity) const override { return entity.role().is_solid_infill(); }
 };
 struct HasThisRoleVisitor : public HasRoleVisitor{
     ExtrusionRole role_to_find;
     HasThisRoleVisitor(ExtrusionRole role) : role_to_find(role) {}
-    void default_use(const ExtrusionEntity &entity) override { found = entity.role() == role_to_find; };
+    bool matches(const ExtrusionEntity &entity) const override { return entity.role() == role_to_find; }
 };
 
 
@@ -734,6 +953,7 @@ class SimplifyVisitor : public ExtrusionVisitor{
     bool                              m_ignore_holes;
     coordf_t                          m_scaled_resolution;
     const ConfigOptionFloatOrPercent* m_arc_fitting_tolearance;
+    const ExtrusionAttributes*         m_current_attributes = nullptr;
     // when an entity is too small, this is set to true do the collection that is higher in the stack can merge & delete.
     coord_t                           m_min_path_size = 0;
     bool                              m_last_deleted = false;
@@ -746,23 +966,15 @@ public:
         : m_scaled_resolution(scaled_resolution), m_ignore_holes(ignore_holes), m_use_arc_fitting(use_arc_fitting), m_arc_fitting_tolearance(arc_fitting_tolearance), m_min_path_size(min_path_size)
     {}
     
-    virtual void use(ExtrusionPath& path) override;
-    virtual void use(ExtrusionMultiPath& path) override;
-    virtual void use(ExtrusionLoop& loop) override;
-    virtual void use(ExtrusionEntityCollection& coll) override;
-    void start(ExtrusionEntityCollection &coll) {
-        m_last_deleted = false;
-        use(coll);
-    }
+    virtual void default_use(ExtrusionEntity& entity) override;
+    void start(ExtrusionEntityCollection &coll);
     bool is_valid() { return !m_last_deleted; }
 };
 class GetPathsVisitor : public ExtrusionVisitorRecursive {
 public:
     using ExtrusionVisitorRecursive::use;
     std::vector<ExtrusionPath*> paths;
-    virtual void use(ExtrusionPath& path) override {
-        paths.push_back(&path);
-    }
+    virtual void default_use(ExtrusionEntity& entity) override;
 };
 
 class ExtrusionVolume : public ExtrusionVisitorRecursiveConst {
@@ -774,10 +986,7 @@ public:
     ExtrusionVolume() {}
     void set_use_gap_fill(bool with_gap_fill = true) { _with_gap_fill = (with_gap_fill); }
     void set_flow_mult(double mult) { _flow_ratio = (mult); }
-    void use(const ExtrusionPath &path) override {
-        if(path.role() == ExtrusionRole::GapFill && !_with_gap_fill) return;
-        volume += unscaled(path.length()) * path.mm3_per_mm() * _flow_ratio;
-    }
+    void default_use(const ExtrusionEntity &entity) override;
     double get(const ExtrusionEntityCollection &coll);
 };
 
@@ -786,10 +995,7 @@ class ExtrusionModifyFlow : public ExtrusionVisitorRecursive {
 public:
     using ExtrusionVisitorRecursive::use;
     ExtrusionModifyFlow(double flow_mult) : _flow_mult(flow_mult) {}
-    void use(ExtrusionPath &path) override {
-        path.attributes_mutable().mm3_per_mm *= _flow_mult;
-        path.attributes_mutable().width *= _flow_mult;
-    }
+    void default_use(ExtrusionEntity &entity) override;
     void set(ExtrusionEntityCollection &coll);
 };
 
@@ -799,11 +1005,7 @@ class CreateBoundingBoxVisitor : public ExtrusionVisitorRecursive {
 public:
     using ExtrusionVisitorRecursive::use;
     CreateBoundingBoxVisitor() {}
-    void use(ExtrusionPath &path) override {
-        for (const Geometry::ArcWelder::Segment & pt: path.polyline().get_arc()) {
-            bb.merge(pt.point);
-        }
-    }
+    void default_use(ExtrusionEntity &entity) override;
     static inline BoundingBox create(ExtrusionEntity &ee) {
         CreateBoundingBoxVisitor visitor;
         ee.visit(visitor);
@@ -817,9 +1019,7 @@ struct LoopAssertVisitor : public ExtrusionVisitorRecursiveConst {
     coord_t m_check_length;
     LoopAssertVisitor() : m_check_length(SCALED_EPSILON) {}
     LoopAssertVisitor(coord_t check_length) : m_check_length(check_length) {}
-    virtual void default_use(const ExtrusionEntity& entity) override {};
-    virtual void use(const ExtrusionPath &path) override;
-    virtual void use(const ExtrusionLoop& loop) override;
+    virtual void default_use(const ExtrusionEntity& entity) override;
 };
 #define DEBUGINFO_VISIT(ENTITY,VISITOR) (ENTITY).visit(VISITOR);
 #endif

@@ -1544,20 +1544,33 @@ void _3DScene::extrusionentity_to_verts(const ExtrusionEntity &extrusion_entity,
     }
 }
 
-void ExtrusionToVert::use(const ExtrusionPath &path) { _3DScene::extrusionentity_to_verts(path, print_z, copy, geometry); }
-void ExtrusionToVert::use(const ExtrusionMultiPath &multipath) { _3DScene::extrusionentity_to_verts(multipath, print_z, copy, geometry); }
-void ExtrusionToVert::use(const ExtrusionLoop &loop) { _3DScene::extrusionentity_to_verts(loop, print_z, copy, geometry); }
-void ExtrusionToVert::use(const ExtrusionEntityCollection &collection) {
-    for (const ExtrusionEntity *extrusion_entity : collection.entities())
-        extrusion_entity->visit(*this);
+void ExtrusionToVert::default_use(const ExtrusionEntity &entity)
+{
+    if (const ExtrusionPath *path = dynamic_cast<const ExtrusionPath*>(&entity)) {
+        _3DScene::extrusionentity_to_verts(*path, print_z, copy, geometry);
+    } else if (const ExtrusionMultiPath *multipath = dynamic_cast<const ExtrusionMultiPath*>(&entity)) {
+        _3DScene::extrusionentity_to_verts(*multipath, print_z, copy, geometry);
+    } else if (const ExtrusionLoop *loop = dynamic_cast<const ExtrusionLoop*>(&entity)) {
+        _3DScene::extrusionentity_to_verts(*loop, print_z, copy, geometry);
+    } else {
+        if (!entity.is_leaf())
+            for (const ExtrusionEntityUPtr &child : entity.children())
+                if (child)
+                    child->visit(*this);
+    }
 }
 
-void ExtrusionToVertMap::use(const ExtrusionPath& path) { _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path)); }
-void ExtrusionToVertMap::use(const ExtrusionMultiPath& multipath) {
-    for (const ExtrusionPath &path : multipath.paths()) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path));
-    /*_3DScene::extrusionentity_to_verts(multipath, print_z, copy, get_geometry(multipath)); */}
-void ExtrusionToVertMap::use(const ExtrusionLoop& loop) { for (const ExtrusionPath &path : loop.paths()) _3DScene::extrusionentity_to_verts(path, print_z, copy, get_geometry(path)); }//_3DScene::extrusionentity_to_verts(loop, print_z, copy, get_geometry(loop)); }
-void ExtrusionToVertMap::use(const ExtrusionEntityCollection& collection) { for (const ExtrusionEntity* extrusion_entity : collection.entities()) extrusion_entity->visit(*this); }
+void ExtrusionToVertMap::default_use(const ExtrusionEntity& entity)
+{
+    if (const ExtrusionPath *path = dynamic_cast<const ExtrusionPath*>(&entity)) {
+        _3DScene::extrusionentity_to_verts(*path, print_z, copy, get_geometry(*path));
+    } else {
+        if (!entity.is_leaf())
+            for (const ExtrusionEntityUPtr &child : entity.children())
+                if (child)
+                    child->visit(*this);
+    }
+}
 GUI::GLModel::Geometry& ExtrusionToVertMap::get_geometry(const ExtrusionEntity& e) {
     auto it = geometries.find(extrusion_role_to_gcode_extrusion_role(e.role()));
     if (it == geometries.end())

@@ -44,7 +44,6 @@
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/cstdio.hpp>
 #include <boost/nowide/cstdlib.hpp>
-#include <boost/nowide/iostream.hpp>
 #include <fast_float/fast_float.h>
 #include <oneapi/tbb/parallel_for.h>
 
@@ -1586,24 +1585,19 @@ namespace DoExport {
             if (config->option("brim_speed") != nullptr && config->get_computed_value("brim_speed") != 0)
                 excluded.insert(ExtrusionRole::Skirt);
         }
-        virtual void use(const ExtrusionPath& path) override {
-            if (excluded.find(path.role()) == excluded.end() && path.attributes().force_e_per_mm()) {
-                min = std::min(min, path.mm3_per_mm());
+        virtual void default_use(const ExtrusionEntity& entity) override {
+            if (!entity.is_leaf()) {
+                for (const ExtrusionEntityUPtr &child : entity.children())
+                    if (child)
+                        child->visit(*this);
+                return;
+            }
+            const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+            if (attributes != nullptr && excluded.find(attributes->role) == excluded.end() && attributes->force_e_per_mm()) {
+                min = std::min(min, attributes->mm3_per_mm);
             }
         }
-        virtual void use(const ExtrusionMultiPath& multipath) override {
-            for (const ExtrusionPath& path : multipath.paths())
-                use(path);
-        }
-        virtual void use(const ExtrusionLoop& loop) override {
-            for (const ExtrusionPath& path : loop.paths())
-                use(path);
-        }
-        virtual void use(const ExtrusionEntityCollection& collection) override {
-            for (const ExtrusionEntity* entity : collection.entities())
-                entity->visit(*this);
-        }
-        double reset_use_get(const ExtrusionEntityCollection entity) { reset(); use(entity); return get(); }
+        double reset_use_get(const ExtrusionEntityCollection entity) { reset(); entity.visit(*this); return get(); }
         double get() { return min; }
         void reset() { min = std::numeric_limits<double>::max(); }
         //test if at least a ExtrusionRole from tests is used for min computation
@@ -2318,8 +2312,15 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
         public:
             Point offset;
             Points hull;
-            virtual void use(const ExtrusionPath& path) override {
-                for (Point pt : path.polyline().to_polyline()) {
+            virtual void default_use(const ExtrusionEntity& entity) override {
+                if (!entity.is_leaf()) {
+                    ExtrusionVisitorRecursiveConst::default_use(entity);
+                    return;
+                }
+                const ArcPolyline *polyline = entity.polyline_or_null();
+                if (polyline == nullptr)
+                    return;
+                for (Point pt : polyline->to_polyline()) {
                     pt += offset;
                     hull.emplace_back(std::move(pt));
                 }
@@ -5904,7 +5905,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionPaths &normal_loop_
     gcode += m_writer.travel_to_z(saved_z_mm + unscaled(first_section.front().polyline().z_offset(0)));
     for (const ExtrusionPath &path3D : first_section) {
         assert (path3D.polyline().size() > 1);
-        assert (path3D.has_z_profile());
+        assert (path3D.polyline().has_z_offset());
         gcode += extrude_path_3D(path3D, description, speed);
         }
     gcode += m_writer.travel_to_z(saved_z_mm, description);
@@ -6453,7 +6454,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     // clip the path to avoid the extruder to get exactly on the first point of the loop;
     // if polyline was shorter than the clipping distance we'd get a null polyline, so
     // we discard it in that case
-    ExtrusionPaths& building_paths = loop_to_seam.paths();
+    ExtrusionPaths building_paths = loop_to_seam.paths();
     for (const ExtrusionPath &path : building_paths)
         DEBUG_VISIT(path, LoopAssertVisitor())
     //direction is now set, make the path unreversable
@@ -7107,16 +7108,20 @@ std::string GCodeGenerator::extrude_multi_path(const ExtrusionMultiPath &multipa
             const ExtrusionPath &path = multipath.paths()[idx_path];
             gcode += path.polyline().has_z_offset() ? extrude_path_3D(path, description, speed) : extrude_path(path, description, speed);
         }
-        if (std::none_of(multipath.paths().begin(), multipath.paths().end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); }))
-            add_wipe_points(multipath.paths(), false, false);
+        if (std::none_of(multipath.paths().begin(), multipath.paths().end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); })) {
+            ExtrusionPaths wipe_paths = multipath.paths();
+            add_wipe_points(wipe_paths, false, false);
+        }
     } else {
         this->visitor_flipped = false;
         // extrude along the path
         for (const ExtrusionPath& path : multipath.paths()) {
             gcode += path.polyline().has_z_offset() ? extrude_path_3D(path, description, speed) : extrude_path(path, description, speed);
         }
-        if (std::none_of(multipath.paths().begin(), multipath.paths().end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); }))
-            add_wipe_points(multipath.paths(), true, false);
+        if (std::none_of(multipath.paths().begin(), multipath.paths().end(), [](const ExtrusionPath &path) { return path.polyline().has_z_offset(); })) {
+            ExtrusionPaths wipe_paths = multipath.paths();
+            add_wipe_points(wipe_paths, true, false);
+        }
     };
     this->visitor_flipped = saved_flipped;
     // reset acceleration
@@ -7142,80 +7147,191 @@ std::string GCodeGenerator::extrude_entity(const ExtrusionEntityReference &entit
     assert(m_modifier_override.empty());
     return this->visitor_gcode;
 }
-void GCodeGenerator::use(const ExtrusionPath &path) {
-    start_using_extrusion(path);
-    apply_properties(path);
-    visitor_gcode += path.polyline().has_z_offset() ? extrude_path_3D(path, visitor_comment, visitor_speed) :
-                                                    extrude_path(path, visitor_comment, visitor_speed);
-    end_using_extrusion(path);
-};
-void GCodeGenerator::use(const ExtrusionMultiPath &multipath) {
-    start_using_extrusion(multipath);
-    apply_properties(multipath);
-    visitor_gcode += extrude_multi_path(multipath, visitor_comment, visitor_speed);
-    end_using_extrusion(multipath);
-};
-void GCodeGenerator::use(const ExtrusionLoop &loop) {
-    start_using_extrusion(loop);
-    apply_properties(loop);
-    visitor_gcode += extrude_loop(loop, visitor_comment, visitor_speed);
-    end_using_extrusion(loop);
-};
 
-void GCodeGenerator::use(const ExtrusionEntityCollection &collection) {
-    start_using_extrusion(collection);
-    apply_properties(collection);
-    if (!visitor_comment.empty() && m_config.gcode_comments) {
-        // use the comment
-        visitor_gcode += "; ";
-        visitor_gcode += visitor_comment;
-        if (visitor_gcode.back() != '\n') {
-            visitor_gcode += "\n";
-        }
-        visitor_comment = ""sv;
-    }
-    if (!collection.can_sort() /*|| collection.role() == ExtrusionRole::Mixed*/ || collection.entities().size() <= 1) {
-        if (this->visitor_flipped && collection.can_reverse()) {
-            for (size_t idx = collection.entities().size() - 1; idx <collection.entities().size(); --idx) {
-                collection.entities()[idx]->visit(*this);
-            }
-        } else {
-            bool was_flipped = this->visitor_flipped;
-            this->visitor_flipped = false;
-            for (const ExtrusionEntity *next_entity : collection.entities()) {
-                next_entity->visit(*this);
-            }
-            this->visitor_flipped = was_flipped;
-        }
-    } else {
-        bool reversed = this->visitor_flipped;
-        Point start_pos = last_pos_defined() ? last_pos() : collection.first_point();
-        ExtrusionEntityReferences chained = chain_extrusion_references(collection, &start_pos);
-        for (const ExtrusionEntityReference &next_entity : chained) {
-            this->visitor_flipped = reversed != next_entity.flipped();
-            next_entity.extrusion_entity().visit(*this);
-        }
-        this->visitor_flipped = reversed;
-    }
-    end_using_extrusion(collection);
+static void copy_gcode_properties(const ExtrusionEntity &src, ExtrusionEntity &dst)
+{
+    ExtrusionPropertyUPtrs properties = src.clone_properties();
+    for (ExtrusionPropertyUPtr &property : properties)
+        dst.add_property(std::move(property));
 }
 
-void GCodeGenerator::use(const ExtrusionNop &command) {
+static ExtrusionPath make_gcode_path(const ExtrusionEntity &entity, const ExtrusionAttributes *default_attributes = nullptr)
+{
+    if (const ExtrusionPath *path = dynamic_cast<const ExtrusionPath*>(&entity))
+        return *path;
+
+    const ArcPolyline *polyline = entity.polyline_or_null();
+    assert(polyline != nullptr);
+    const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+    if (attributes == nullptr)
+        attributes = default_attributes;
+    assert(attributes != nullptr);
+    ExtrusionAttributes fallback_attributes{ ExtrusionRole::None };
+    if (attributes == nullptr)
+        attributes = &fallback_attributes;
+    return ExtrusionPath(*polyline, *attributes, entity.clone_properties(), entity.can_reverse());
+}
+
+static void append_gcode_paths(const ExtrusionEntity &entity, ExtrusionPaths &paths, const ExtrusionAttributes *default_attributes = nullptr)
+{
+    if (const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>())
+        default_attributes = attributes;
+
+    if (entity.polyline_or_null() != nullptr || dynamic_cast<const ExtrusionPath*>(&entity) != nullptr) {
+        paths.emplace_back(make_gcode_path(entity, default_attributes));
+        return;
+    }
+
+    assert(!entity.is_leaf());
+    for (const ExtrusionEntityUPtr &child : entity.children()) {
+        assert(child);
+        if (child != nullptr)
+            append_gcode_paths(*child, paths, default_attributes);
+    }
+}
+
+void GCodeGenerator::default_use(const ExtrusionEntity &entity) {
     assert(visitor_in_use);
-    start_using_extrusion(command);
+    if (const ExtrusionPath *path = dynamic_cast<const ExtrusionPath*>(&entity)) {
+        start_using_extrusion(*path);
+        apply_properties(*path);
+        visitor_gcode += path->polyline().has_z_offset() ? extrude_path_3D(*path, visitor_comment, visitor_speed) :
+                                                           extrude_path(*path, visitor_comment, visitor_speed);
+        end_using_extrusion(*path);
+        return;
+    }
+    if (const ExtrusionMultiPath *multipath = dynamic_cast<const ExtrusionMultiPath*>(&entity)) {
+        start_using_extrusion(*multipath);
+        apply_properties(*multipath);
+        visitor_gcode += extrude_multi_path(*multipath, visitor_comment, visitor_speed);
+        end_using_extrusion(*multipath);
+        return;
+    }
+    if (const ExtrusionLoop *loop = dynamic_cast<const ExtrusionLoop*>(&entity)) {
+        start_using_extrusion(*loop);
+        apply_properties(*loop);
+        visitor_gcode += extrude_loop(*loop, visitor_comment, visitor_speed);
+        end_using_extrusion(*loop);
+        return;
+    }
+    if (!entity.is_leaf() && entity.is_loop()) {
+        ExtrusionPaths paths;
+        append_gcode_paths(entity, paths);
+        if (paths.empty())
+            return;
+
+        const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
+        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+        ExtrusionLoop loop(std::move(paths), loop_role);
+        copy_gcode_properties(entity, loop);
+
+        start_using_extrusion(entity);
+        apply_properties(entity);
+        visitor_gcode += extrude_loop(loop, visitor_comment, visitor_speed);
+        end_using_extrusion(entity);
+        return;
+    }
+    if (!entity.is_leaf() && entity.is_continuous()) {
+        ExtrusionPaths paths;
+        append_gcode_paths(entity, paths);
+        if (paths.empty())
+            return;
+        ExtrusionMultiPath multipath(std::move(paths));
+        copy_gcode_properties(entity, multipath);
+        multipath.set_can_reverse(entity.can_reverse());
+
+        start_using_extrusion(entity);
+        apply_properties(entity);
+        visitor_gcode += extrude_multi_path(multipath, visitor_comment, visitor_speed);
+        end_using_extrusion(entity);
+        return;
+    }
+    if (!entity.is_leaf()) {
+        const ExtrusionEntity::Children &children = entity.children();
+        start_using_extrusion(entity);
+        apply_properties(entity);
+        if (!visitor_comment.empty() && m_config.gcode_comments) {
+            // use the comment
+            visitor_gcode += "; ";
+            visitor_gcode += visitor_comment;
+            if (visitor_gcode.back() != '\n') {
+                visitor_gcode += "\n";
+            }
+            visitor_comment = ""sv;
+        }
+        if (!entity.can_sort() /*|| collection.role() == ExtrusionRole::Mixed*/ || children.size() <= 1) {
+            if (this->visitor_flipped && entity.can_reverse()) {
+                for (size_t idx = children.size() - 1; idx < children.size(); --idx) {
+                    children[idx]->visit(*this);
+                }
+            } else {
+                bool was_flipped = this->visitor_flipped;
+                this->visitor_flipped = false;
+                for (const ExtrusionEntityUPtr &next_entity : children) {
+                    next_entity->visit(*this);
+                }
+                this->visitor_flipped = was_flipped;
+            }
+        } else {
+            bool reversed = this->visitor_flipped;
+            Point start_pos = last_pos_defined() ? last_pos() : entity.first_point();
+            ExtrusionEntitiesPtr entities;
+            entities.reserve(children.size());
+            for (const ExtrusionEntityUPtr &child : children)
+                entities.emplace_back(child.get());
+            ExtrusionEntityReferences chained = chain_extrusion_references(entities, &start_pos);
+            for (const ExtrusionEntityReference &next_entity : chained) {
+                this->visitor_flipped = reversed != next_entity.flipped();
+                next_entity.extrusion_entity().visit(*this);
+            }
+            this->visitor_flipped = reversed;
+        }
+        end_using_extrusion(entity);
+        return;
+    }
+
+    const ExtrusionNop *command = dynamic_cast<const ExtrusionNop*>(&entity);
+    if (command == nullptr && entity.polyline_or_null() != nullptr) {
+        const ArcPolyline &polyline = entity.polyline_ref();
+        if (polyline.size() > 1 && polyline.front() == polyline.back()) {
+            ExtrusionPath path = make_gcode_path(entity);
+            const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
+            ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+            ExtrusionLoop loop(std::move(path), loop_role);
+            copy_gcode_properties(entity, loop);
+
+            start_using_extrusion(entity);
+            apply_properties(entity);
+            visitor_gcode += extrude_loop(loop, visitor_comment, visitor_speed);
+            end_using_extrusion(entity);
+            return;
+        }
+
+        const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+        assert(attributes != nullptr);
+        if (attributes == nullptr)
+            return;
+        ExtrusionPath path(entity.polyline_ref(), *attributes, entity.clone_properties(), entity.can_reverse());
+        this->default_use(path);
+        return;
+    }
+    if (command == nullptr)
+        return;
+
+    start_using_extrusion(*command);
     std::string save_gcode = std::move(visitor_gcode);
     visitor_gcode.clear();
     //create gcode from the command properties
-    apply_properties(command);
+    apply_properties(*command);
     // need travel?
-    if (command.position != ExtrusionNop::NOT_A_POINT) {
+    if (command->position != ExtrusionNop::NOT_A_POINT) {
         // prepend retraction on the current extruder
         std::string travel_gcode ;
         if (m_modifier_override.empty() || !m_modifier_override.back().second->disable_retraction) {
             travel_gcode += this->retract_and_wipe(
                 m_modifier_override.empty() ? false : m_modifier_override.back().second->toolchange_retraction);
         }
-        Polyline polyline = this->travel_to(travel_gcode, command.first_point(), command.role());
+        Polyline polyline = this->travel_to(travel_gcode, command->first_point(), command->role());
         std::string comment = "move to first ";
         if (!visitor_comment.empty()) {
             comment += visitor_comment;
@@ -7248,8 +7364,8 @@ void GCodeGenerator::use(const ExtrusionNop &command) {
         }
     }
     // has a type?
-    if (command.role() != ExtrusionRole::None) {
-        GCodeExtrusionRole grole = extrusion_role_to_gcode_extrusion_role(command.role());
+    if (command->role() != ExtrusionRole::None) {
+        GCodeExtrusionRole grole = extrusion_role_to_gcode_extrusion_role(command->role());
         std::string temp_gcode = ";_EXTRUDETYPE_";
         temp_gcode += char('A' + uint8_t(grole));
         temp_gcode += "\n";
@@ -7258,7 +7374,7 @@ void GCodeGenerator::use(const ExtrusionNop &command) {
         visitor_gcode = std::move(temp_gcode);
     }
     visitor_gcode = save_gcode + visitor_gcode;
-    end_using_extrusion(command);
+    end_using_extrusion(*command);
 }
 
 
@@ -7648,7 +7764,9 @@ std::string GCodeGenerator::extrude_path_3D(const ExtrusionPath &path, const std
     // ensure the first position is at the right z
     //FIXME: go to the first z offset of simplifed_path
     if (!is_approx(m_writer.get_position().z(), start_gcode_pos.z(), EPSILON)) {
-        gcode += m_writer.travel_to_xyz(start_gcode_pos, false);
+        //gcode += m_writer.travel_to_xyz(start_gcode_pos, false);
+        //currently, Cooling buffer doesn't support a travel inside an extrusion, as it mess with speed ovveride.
+        gcode += m_writer.extrude_to_xyz(start_gcode_pos, 0);
     }
 
     // calculate extrusion length per distance unit

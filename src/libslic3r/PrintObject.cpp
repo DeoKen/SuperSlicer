@@ -1228,13 +1228,22 @@ void _calculate_overhanging_perimeters(
             const LayerRegion *layer_region;
             const Layer* layer;
             using ExtrusionVisitorRecursive::use;
-            void use(ExtrusionPath &path) override {
-                size_t extruder_id = layer_region->region().extruder(path.role().is_external() ?
+            void default_use(ExtrusionEntity &entity) override {
+                if (!entity.is_leaf()) {
+                    ExtrusionVisitorRecursive::default_use(entity);
+                    return;
+                }
+                ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+                if (attributes == nullptr)
+                    return;
+                size_t extruder_id = layer_region->region().extruder(attributes->role.is_external() ?
                                                                         FlowRole::frExternalPerimeter :
                                                                         FlowRole::frPerimeter,
                                                                     *layer->object()) -
                     1;
-                ExtrusionProcessor::apply_overhang_flow(path, *print_config, *layer_region, extruder_id);
+                ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(&entity);
+                if (path != nullptr)
+                    ExtrusionProcessor::apply_overhang_flow(*path, *print_config, *layer_region, extruder_id);
             }
         } overhangs_flow_visitor;
         overhangs_flow_visitor.layer_region = *regions.begin();
@@ -1280,12 +1289,16 @@ void PrintObject::calculate_overhanging_perimeters()
                     {
                         struct OverhangAssertVisitor : public ExtrusionVisitorRecursiveConst
                         {
-                            virtual void default_use(const ExtrusionEntity &entity) override{};
-                            virtual void use(const ExtrusionPath &path) override {
-                                if (path.role().is_overhang())
-                                    assert(path.overhang_attributes());
-                                assert(path.overhang_attributes() == nullptr || path.overhang_attributes()->has_full_overhangs_speed ||
-                                       path.overhang_attributes()->has_dynamic_overhangs_speed);
+                            virtual void default_use(const ExtrusionEntity &entity) override{
+                                if (!entity.is_leaf()) {
+                                    ExtrusionVisitorRecursiveConst::default_use(entity);
+                                    return;
+                                }
+                                const ExtrusionPropertyOverhang *overhang = entity.get_property<ExtrusionPropertyOverhang>();
+                                if (entity.role().is_overhang())
+                                    assert(overhang);
+                                assert(overhang == nullptr || overhang->has_full_overhangs_speed ||
+                                       overhang->has_dynamic_overhangs_speed);
                             }
                         };
                         OverhangAssertVisitor ov_visitor;

@@ -46,40 +46,31 @@ public:
     size_t instance_idx;
     const PrintInstance *instance;
     const ExtrusionEntity* root_extrusion;
-    void use(const ExtrusionPath &path) override {
-        if (path.role().is_external_perimeter()) {
-            for (const Line &line : to_lines(path.as_polyline().to_polyline())) {
+    void default_use(const ExtrusionEntity &entity) override {
+        if (!entity.is_leaf()) {
+            const ExtrusionEntity *saved_root = root_extrusion;
+            if (entity.is_continuous())
+                root_extrusion = &entity;
+            for (const ExtrusionEntityUPtr &child : entity.children())
+                if (child)
+                    child->visit(*this);
+            root_extrusion = saved_root;
+            return;
+        }
+        if (entity.role().is_external_perimeter()) {
+            for (const Line &line : to_lines(entity.as_polyline().to_polyline())) {
                 lines.emplace_back(unscale_p(Point{line.a + instance->shift}), unscale_p(Point{line.b + instance->shift}),
-                                   object_layer_idx, instance_idx, root_extrusion ? root_extrusion : &path);
+                                   object_layer_idx, instance_idx, root_extrusion ? root_extrusion : &entity);
 #ifdef _DEBUG
-                if (all_ee_id_per_instance[instance_idx].find(root_extrusion ? root_extrusion->get_id() : path.get_id()) ==
+                if (all_ee_id_per_instance[instance_idx].find(root_extrusion ? root_extrusion->get_id() : entity.get_id()) ==
                     all_ee_id_per_instance[instance_idx].end()) {
-                    ExtrudedExtrusionEntity eee = {int(object_layer_idx), int(instance_idx), root_extrusion ? root_extrusion->get_id() : path.get_id()};
+                    ExtrudedExtrusionEntity eee = {int(object_layer_idx), int(instance_idx), root_extrusion ? root_extrusion->get_id() : entity.get_id()};
                     this->registered_extrusion->insert(eee);
                     all_ee_id_per_instance[instance_idx].insert(root_extrusion ? root_extrusion->get_id() :
-                                                                                 path.get_id());
+                                                                                 entity.get_id());
                 }
 #endif
             }
-        }
-    }
-    void use(const ExtrusionMultiPath &multipath) override {
-        root_extrusion = &multipath;
-        for (const ExtrusionPath &path : multipath.paths()) {
-            path.visit(*this);
-        }
-        root_extrusion = nullptr;
-    }
-    void use(const ExtrusionLoop &loop) override {
-        root_extrusion = &loop;
-        for (const ExtrusionPath &path : loop.paths()) {
-            path.visit(*this);
-        }
-        root_extrusion = nullptr;
-    }
-    void use(const ExtrusionEntityCollection &collection) override {
-        for (const ExtrusionEntity *entity : collection.entities()) {
-            entity->visit(*this);
         }
     }
     void process(const ExtrusionEntity *root) {
@@ -164,43 +155,27 @@ public:
                                size_t object_layer_idx,
                                size_t instance_idx)
         : extruded_extrusion(extr_extr), object_layer_idx(object_layer_idx), instance_idx(instance_idx) {}
-    void use(const ExtrusionPath &path) override {
-        if (path.role().is_external_perimeter()) {
+    void default_use(const ExtrusionEntity &entity) override {
+        if (!entity.is_leaf()) {
+            if (entity.is_continuous()) {
+                if (entity.has_role(ExtrusionRole::ExternalPerimeter)) {
 #ifdef _DEBUG
-            assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), path.get_id()}) != registered_extrusion->end());
+                    assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), entity.get_id()}) != registered_extrusion->end());
 #endif
-            this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), path.get_id()});
+                    this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), entity.get_id()});
+                }
+                return;
+            }
+            for (const ExtrusionEntityUPtr &child : entity.children())
+                if (child)
+                    child->visit(*this);
+            return;
         }
-    }
-    void use(const ExtrusionMultiPath &multipath) override {
-        bool has_external_peri = false;
-        for (const ExtrusionPath &path : multipath.paths()) {
-            has_external_peri = path.role().is_external_perimeter();
-            if(has_external_peri) break;
-        }
-        if (has_external_peri) {
+        if (entity.role().is_external_perimeter()) {
 #ifdef _DEBUG
-            assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), multipath.get_id()}) != registered_extrusion->end());
+            assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), entity.get_id()}) != registered_extrusion->end());
 #endif
-            this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), multipath.get_id()});
-        }
-    }
-    void use(const ExtrusionLoop &loop) override {
-        bool has_external_peri = false;
-        for (const ExtrusionPath &path : loop.paths()) {
-            has_external_peri = path.role().is_external_perimeter();
-            if(has_external_peri) break;
-        }
-        if (has_external_peri) {
-#ifdef _DEBUG
-            assert(registered_extrusion->find({int(object_layer_idx), int(instance_idx), loop.get_id()}) != registered_extrusion->end());
-#endif
-            this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), loop.get_id()});
-        }
-    }
-    void use(const ExtrusionEntityCollection &collection) override {
-        for (const ExtrusionEntity *entity : collection.entities()) {
-            entity->visit(*this);
+            this->extruded_extrusion.insert({int(object_layer_idx), int(instance_idx), entity.get_id()});
         }
     }
     void process(const ExtrusionEntity *root) {

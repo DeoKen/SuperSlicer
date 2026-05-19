@@ -1280,24 +1280,19 @@ class GetFirstPath : public ExtrusionVisitorConst
 {
 public:
     const ExtrusionPath *extrusion_path_template = nullptr;
-    virtual void         use(const ExtrusionPath &path) override { extrusion_path_template = &path; }
-    virtual void         use(const ExtrusionMultiPath &multipath) override
+    virtual void default_use(const ExtrusionEntity &entity) override
     {
-        if (!multipath.paths().empty())
-            extrusion_path_template = &multipath.paths().front();
-    }
-    virtual void use(const ExtrusionLoop &loop) override
-    {
-        if (!loop.paths().empty())
-            extrusion_path_template = &loop.paths().front();
-    }
-    virtual void use(const ExtrusionEntityCollection &collection) override
-    {
-        auto it = collection.entities().begin();
-        while (extrusion_path_template == nullptr && it != collection.entities().end()) {
-            (*it)->visit(*this);
-            ++it;
+        if (const ExtrusionPath *path = dynamic_cast<const ExtrusionPath*>(&entity)) {
+            extrusion_path_template = path;
+            return;
         }
+        if (!entity.is_leaf())
+            for (const ExtrusionEntityUPtr &child : entity.children()) {
+                if (extrusion_path_template != nullptr)
+                    return;
+                if (child)
+                    child->visit(*this);
+            }
     }
 };
 
@@ -1660,21 +1655,10 @@ SupportGeneratorLayersPtr generate_support_layers(
 class verify_nonempty : public ExtrusionVisitorRecursiveConst
 {
 public:
-    virtual void use(const ExtrusionPath &path) override { assert(!path.empty()); }
-    virtual void use(const ExtrusionMultiPath &truc) override
+    virtual void default_use(const ExtrusionEntity &entity) override
     {
-        ExtrusionVisitorRecursiveConst::use(truc);
-        assert(!truc.empty());
-    }
-    virtual void use(const ExtrusionLoop &truc) override
-    {
-        ExtrusionVisitorRecursiveConst::use(truc);
-        assert(!truc.paths().empty());
-    }
-    virtual void use(const ExtrusionEntityCollection &truc) override
-    {
-        ExtrusionVisitorRecursiveConst::use(truc);
-        assert(!truc.empty());
+        ExtrusionVisitorRecursiveConst::default_use(entity);
+        assert(!entity.empty());
     }
 } verifier;
 #endif

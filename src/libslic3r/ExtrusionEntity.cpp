@@ -35,10 +35,414 @@ void ExtrusionVisitorConst::use(const ExtrusionLoop &loop) { default_use(loop); 
 void ExtrusionVisitorConst::use(const ExtrusionEntityCollection &collection) { default_use(collection); }
 void ExtrusionVisitorConst::use(const ExtrusionNop &nop) { default_use(nop); }
 
+void ExtrusionEntity::visit(ExtrusionVisitor &visitor) { visitor.default_use(*this); }
+void ExtrusionEntity::visit(ExtrusionVisitorConst &visitor) const { visitor.default_use(*this); }
 void ExtrusionEntity::visit(ExtrusionVisitor &&visitor) { this->visit(visitor); }
 void ExtrusionEntity::visit(ExtrusionVisitorConst &&visitor) const { this->visit(visitor); }
 
 Point ExtrusionNop::NOT_A_POINT = Point((std::numeric_limits<coord_t>::max)(), (std::numeric_limits<coord_t>::max)());
+
+Point ExtrusionEntity::NOT_A_POINT = Point((std::numeric_limits<coord_t>::max)(), (std::numeric_limits<coord_t>::max)());
+
+ExtrusionEntity::Content ExtrusionEntity::clone_content(const Content &content)
+{
+    if (const ArcPolyline *polyline = std::get_if<ArcPolyline>(&content))
+        return *polyline;
+    if (const Children *children = std::get_if<Children>(&content)) {
+        Children cloned;
+        cloned.reserve(children->size());
+        for (const ExtrusionEntityUPtr &child : *children) {
+            assert(child);
+            cloned.emplace_back(child ? ExtrusionEntityUPtr(child->clone()) : nullptr);
+        }
+        return cloned;
+    }
+    return std::monostate();
+}
+
+bool ExtrusionEntity::has_polyline() const
+{
+    return std::holds_alternative<ArcPolyline>(m_content);
+}
+
+bool ExtrusionEntity::is_leaf() const
+{
+    return !std::holds_alternative<Children>(m_content);
+}
+
+bool ExtrusionEntity::is_nop() const
+{
+    return std::holds_alternative<std::monostate>(m_content);
+}
+
+const ArcPolyline* ExtrusionEntity::polyline_or_null() const
+{
+    return std::get_if<ArcPolyline>(&m_content);
+}
+
+ArcPolyline* ExtrusionEntity::polyline_or_null()
+{
+    return std::get_if<ArcPolyline>(&m_content);
+}
+
+const ArcPolyline& ExtrusionEntity::polyline_ref() const
+{
+    const ArcPolyline *polyline = this->polyline_or_null();
+    assert(polyline != nullptr);
+    return *polyline;
+}
+
+ArcPolyline& ExtrusionEntity::polyline_ref()
+{
+    ArcPolyline *polyline = this->polyline_or_null();
+    assert(polyline != nullptr);
+    return *polyline;
+}
+
+void ExtrusionEntity::set_polyline(const ArcPolyline &polyline)
+{
+    if (Children *children = std::get_if<Children>(&m_content)) {
+        assert(false);
+        children->insert(children->begin(), std::make_unique<ExtrusionEntity>(m_can_reverse, polyline));
+        return;
+    }
+
+    m_content = polyline;
+    m_can_sort = false;
+    m_continuous = false;
+}
+
+void ExtrusionEntity::set_polyline(ArcPolyline &&polyline)
+{
+    if (Children *children = std::get_if<Children>(&m_content)) {
+        assert(false);
+        children->insert(children->begin(), std::make_unique<ExtrusionEntity>(m_can_reverse, std::move(polyline)));
+        return;
+    }
+
+    m_content = std::move(polyline);
+    m_can_sort = false;
+    m_continuous = false;
+}
+
+const ExtrusionEntity::Children& ExtrusionEntity::children() const
+{
+    static const Children no_children;
+    const Children *children = std::get_if<Children>(&m_content);
+    return children != nullptr ? *children : no_children;
+}
+
+ExtrusionEntity::Children& ExtrusionEntity::children()
+{
+    return this->ensure_children();
+}
+
+size_t ExtrusionEntity::child_count() const
+{
+    return this->children().size();
+}
+
+const ExtrusionEntity& ExtrusionEntity::child(size_t idx) const
+{
+    assert(!this->is_leaf());
+    const Children &children = this->children();
+    assert(idx < children.size());
+    assert(children[idx]);
+    return *children[idx];
+}
+
+ExtrusionEntity& ExtrusionEntity::child(size_t idx)
+{
+    Children &children = this->children();
+    assert(idx < children.size());
+    assert(children[idx]);
+    return *children[idx];
+}
+
+ExtrusionEntity::Children& ExtrusionEntity::ensure_children()
+{
+    if (Children *children = std::get_if<Children>(&m_content))
+        return *children;
+
+    Children children;
+    if (ArcPolyline *polyline = std::get_if<ArcPolyline>(&m_content)) {
+        if (!polyline->empty()) {
+            std::unique_ptr<ExtrusionEntity> polyline_child = std::make_unique<ExtrusionEntity>(m_can_reverse, std::move(*polyline));
+            polyline_child->m_properties = m_properties;
+            children.emplace_back(std::move(polyline_child));
+        }
+    }
+
+    m_content = std::move(children);
+    m_can_sort = true;
+    m_continuous = false;
+    return std::get<Children>(m_content);
+}
+
+ExtrusionEntity& ExtrusionEntity::append_child(ExtrusionEntityUPtr &&child)
+{
+    assert(child);
+    Children &children = this->ensure_children();
+    children.emplace_back(std::move(child));
+    return *children.back();
+}
+
+ExtrusionEntity& ExtrusionEntity::append_child(const ExtrusionEntity &child)
+{
+    return this->append_child(ExtrusionEntityUPtr(child.clone()));
+}
+
+ExtrusionEntity& ExtrusionEntity::append_child(ExtrusionEntity &&child)
+{
+    return this->append_child(ExtrusionEntityUPtr(child.clone_move()));
+}
+
+void ExtrusionEntity::insert_child(size_t idx, ExtrusionEntityUPtr &&child)
+{
+    assert(child);
+    Children &children = this->ensure_children();
+    if (idx > children.size())
+        idx = children.size();
+    children.insert(children.begin() + idx, std::move(child));
+}
+
+void ExtrusionEntity::remove_child(size_t idx)
+{
+    Children &children = this->ensure_children();
+    assert(idx < children.size());
+    children.erase(children.begin() + idx);
+}
+
+void ExtrusionEntity::clear_content()
+{
+    m_content = std::monostate();
+    m_can_sort = false;
+    m_continuous = false;
+}
+
+bool ExtrusionEntity::is_collection() const
+{
+    return !this->is_leaf() && !m_continuous && !this->is_loop();
+}
+
+bool ExtrusionEntity::is_loop() const
+{
+    if (this->empty())
+        return false;
+    return m_continuous && this->first_point() == this->last_point();
+}
+
+void ExtrusionEntity::set_can_sort_reverse(bool can_sort, bool can_reverse)
+{
+    m_can_sort = can_sort;
+    m_can_reverse = can_reverse;
+}
+
+ExtrusionRole ExtrusionEntity::role() const
+{
+    if (const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>())
+        return attributes->role;
+
+    ExtrusionRole out{ ExtrusionRole::None };
+    if (!this->is_leaf()) {
+        for (const ExtrusionEntityUPtr &child : this->children()) {
+            if (!child)
+                continue;
+            ExtrusionRole child_role = child->role();
+            if (out == ExtrusionRole::None)
+                out = child_role;
+            else if (out != child_role)
+                return ExtrusionRole::Mixed;
+        }
+    }
+    return out;
+}
+
+bool ExtrusionEntity::has_role(ExtrusionRole test_role) const
+{
+    if (const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>())
+        return (attributes->role & test_role) == test_role;
+
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child && child->has_role(test_role))
+                return true;
+    return false;
+}
+
+void ExtrusionEntity::reverse()
+{
+    if (ArcPolyline *polyline = this->polyline_or_null()) {
+        polyline->reverse();
+        return;
+    }
+
+    Children *children = std::get_if<Children>(&m_content);
+    if (children == nullptr)
+        return;
+    for (ExtrusionEntityUPtr &child : *children)
+        if (child && child->can_reverse() && !child->is_loop())
+            child->reverse();
+    std::reverse(children->begin(), children->end());
+}
+
+const Point& ExtrusionEntity::first_point() const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null())
+        return polyline->empty() ? NOT_A_POINT : polyline->front();
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child && !child->empty())
+                return child->first_point();
+    return NOT_A_POINT;
+}
+
+const Point& ExtrusionEntity::last_point() const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null())
+        return polyline->empty() ? NOT_A_POINT : polyline->back();
+    if (!this->is_leaf())
+        for (Children::const_reverse_iterator it = this->children().rbegin(); it != this->children().rend(); ++it)
+            if (*it && !(*it)->empty())
+                return (*it)->last_point();
+    return NOT_A_POINT;
+}
+
+const Point& ExtrusionEntity::middle_point() const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null())
+        return polyline->empty() ? NOT_A_POINT : polyline->middle();
+    if (!this->is_leaf()) {
+        const Children &children = this->children();
+        if (children.empty())
+            return NOT_A_POINT;
+        const ExtrusionEntityUPtr &child = children[children.size() / 2];
+        if (child && !child->empty())
+            return child->middle_point();
+    }
+    return NOT_A_POINT;
+}
+
+void ExtrusionEntity::polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null()) {
+        const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>();
+        if (attributes != nullptr)
+            out = union_(out, offset(polyline->to_polyline(), scale_d(attributes->width / 2) + scaled_epsilon));
+        return;
+    }
+
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child)
+                child->polygons_covered_by_width(out, scaled_epsilon);
+}
+
+void ExtrusionEntity::polygons_covered_by_spacing(Polygons &out, const float spacing_ratio, const float scaled_epsilon) const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null()) {
+        const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>();
+        if (attributes == nullptr)
+            return;
+        const bool bridge = attributes->role.is_bridge() || (attributes->width * 4 < attributes->height);
+        Flow flow = bridge ? Flow::bridging_flow(attributes->width, 0.f) :
+                             Flow::new_from_width(attributes->width, 0.f, attributes->height, spacing_ratio);
+        if (out.empty()) {
+            out = offset(polyline->to_polyline(), 0.5f * float(flow.scaled_spacing()) + scaled_epsilon,
+                         Slic3r::ClipperLib::jtMiter, 10);
+        } else {
+            out = union_(out,
+                         offset(polyline->to_polyline(), 0.5f * float(flow.scaled_spacing()) + scaled_epsilon,
+                                Slic3r::ClipperLib::jtMiter, 10));
+        }
+        return;
+    }
+
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child)
+                child->polygons_covered_by_spacing(out, spacing_ratio, scaled_epsilon);
+}
+
+ArcPolyline ExtrusionEntity::as_polyline() const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null())
+        return *polyline;
+
+    ArcPolyline out;
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child)
+                out.append(child->as_polyline());
+    return out;
+}
+
+void ExtrusionEntity::collect_polylines(ArcPolylines &dst) const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null()) {
+        if (!polyline->empty())
+            dst.emplace_back(*polyline);
+        return;
+    }
+
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child)
+                child->collect_polylines(dst);
+}
+
+void ExtrusionEntity::collect_points(Points &dst) const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null()) {
+        append(dst, polyline->to_polyline().points);
+        return;
+    }
+
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child)
+                child->collect_points(dst);
+}
+
+coordf_t ExtrusionEntity::length() const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null())
+        return polyline->length();
+
+    coordf_t len = 0;
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child)
+                len += child->length();
+    return len;
+}
+
+bool ExtrusionEntity::empty() const
+{
+    if (const ArcPolyline *polyline = this->polyline_or_null())
+        return polyline->empty();
+
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child && !child->empty())
+                return false;
+    return true;
+}
+
+double ExtrusionEntity::total_volume() const
+{
+    if (this->has_polyline()) {
+        const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>();
+        return attributes != nullptr ? attributes->mm3_per_mm * unscaled(this->length()) : 0.;
+    }
+
+    double volume = 0.;
+    if (!this->is_leaf())
+        for (const ExtrusionEntityUPtr &child : this->children())
+            if (child)
+                volume += child->total_volume();
+    return volume;
+}
 
 ExtrusionPropertyOverhang &ExtrusionPath::overhang_attributes_mutable() {
     return this->get_or_add_property<ExtrusionPropertyOverhang>();
@@ -219,9 +623,14 @@ bool ExtrusionLoop::has_role(ExtrusionRole test_role) const
 
 bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsilon)
 {
-    for (ExtrusionPaths::iterator path = this->paths().begin(); path != this->paths().end(); ++path) {
+    ExtrusionPathView paths = this->paths();
+    for (ExtrusionPathView::iterator path = paths.begin(); path != paths.end(); ++path) {
         if (int idx = path->polyline().find_point(point, scaled_epsilon); idx != -1) {
-            if (this->paths().size() == 1) {
+            if (paths.size() == 1) {
+                if (idx == 0 || idx == path->size() - 1) {
+                    assert(this->first_point().distance_to(point) <= scaled_epsilon);
+                    return true;
+                }
                 // just change the order of points
                 ArcPolyline p1, p2;
                 path->polyline().split_at_index(idx, p1, p2);
@@ -235,7 +644,7 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                     ExtrusionPaths new_paths;
                     ArcPolyline p1, p2;
                     path->polyline().split_at_index(idx, p1, p2);
-                    new_paths.reserve(this->paths().size() + 1);
+                    new_paths.reserve(paths.size() + 1);
                     {
                         ExtrusionPath p = *path;
                         p.polyline().swap(p2);
@@ -244,10 +653,10 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                     }
 
                     // then we add all paths until the end of current path list
-                    new_paths.insert(new_paths.end(), path + 1, this->paths().end()); // not including this path
+                    new_paths.insert(new_paths.end(), path + 1, paths.end()); // not including this path
 
                     // then we add all paths since the beginning of current list up to the previous one
-                    new_paths.insert(new_paths.end(), this->paths().begin(), path); // not including this path
+                    new_paths.insert(new_paths.end(), paths.begin(), path); // not including this path
 
                     // finally we add the first half of current path
                     {
@@ -263,11 +672,11 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                     assert((path)->last_point().distance_to(point) <= scaled_epsilon);
                     assert((path + 1)->first_point().distance_to(point) <= scaled_epsilon);
                     ExtrusionPaths new_paths;
-                    new_paths.reserve(this->paths().size());
+                    new_paths.reserve(paths.size());
                     // then we add all paths until the end of current path list
-                    new_paths.insert(new_paths.end(), path + 1, this->paths().end()); // not including this path
+                    new_paths.insert(new_paths.end(), path + 1, paths.end()); // not including this path
                     // then we add all paths since the beginning of current list up to the previous one
-                    new_paths.insert(new_paths.end(), this->paths().begin(), path + 1); // including this path
+                    new_paths.insert(new_paths.end(), paths.begin(), path + 1); // including this path
                     // we can now override the old path list with the new one and stop looping
                     this->paths() = std::move(new_paths);
                 }
@@ -275,7 +684,7 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                 // else first point ->
                 // if first path - nothign to change.
                 // else, then impossible as it's also the last point of the previous path.
-                assert(path == this->paths().begin());
+                assert(path == paths.begin());
                 assert(path->first_point().distance_to(point) <= scaled_epsilon);
             }
             assert(this->first_point().distance_to(point) <= scaled_epsilon);
@@ -293,21 +702,23 @@ ExtrusionLoop::ClosestPathPoint ExtrusionLoop::get_closest_path_and_point(const 
     double           min2 = std::numeric_limits<double>::max();
     ClosestPathPoint best_non_overhang{0, 0};
     double           min2_non_overhang = std::numeric_limits<double>::max();
+    size_t path_idx = 0;
     for (const ExtrusionPath &path : this->paths()) {
         std::pair<int, Point> foot_pt_ = path.polyline().foot_pt(point);
         double                d2       = (foot_pt_.second - point).cast<double>().squaredNorm();
         if (d2 < min2) {
             out.foot_pt     = foot_pt_.second;
-            out.path_idx    = &path - &this->paths().front();
+            out.path_idx    = path_idx;
             out.segment_idx = foot_pt_.first;
             min2            = d2;
         }
         if (prefer_non_overhang && !path.role().is_bridge() && d2 < min2_non_overhang) {
             best_non_overhang.foot_pt     = foot_pt_.second;
-            best_non_overhang.path_idx    = &path - &this->paths().front();
+            best_non_overhang.path_idx    = path_idx;
             best_non_overhang.segment_idx = foot_pt_.first;
             min2_non_overhang             = d2;
         }
+        ++path_idx;
     }
     if (prefer_non_overhang && min2_non_overhang != std::numeric_limits<double>::max()) {
         // Only apply the non-overhang point if there is one.
@@ -374,7 +785,7 @@ void ExtrusionLoop::split_at(const Point &point, bool prefer_non_overhang, const
     // check if it's doing its job.
 #ifdef _DEBUG
     Point last_pt = this->last_point();
-    for (const ExtrusionPath &path : paths) {
+    for (const ExtrusionPath &path : paths()) {
         assert(last_pt == path.first_point());
         for (int i = 1; i < path.polyline().size(); ++i)
             assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
@@ -442,127 +853,96 @@ void ExtrusionLoop::polygons_covered_by_spacing(Polygons &out, const float spaci
 //    return min_mm3_per_mm;
 //}
 
-void ExtrusionPrinter::use(const ExtrusionPath &path)
+void ExtrusionPrinter::default_use(const ExtrusionEntity &entity)
 {
-    const bool has_z_profile = path.polyline().has_z_offset();
-    ss << (json?"\"":"") << "ExtrusionPath" << (has_z_profile ? "3D" : "") << (path.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(path.role()) << (json?"\":":"") << "[";
-    for (int i = 0; i < path.polyline().size(); i++) {
-        if (i != 0)
-            ss << ",";
-        double x = (mult * (path.polyline().get_point(i).x()));
-        double y = (mult * (path.polyline().get_point(i).y()));
-        if (has_z_profile) {
-            double z = mult * path.polyline().z_offset(size_t(i));
-            ss << std::fixed << "[" << (trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) << "," << (trunc>0?(int(z*trunc))/double(trunc):z) << "]";
-        } else {
-            ss << std::fixed << "["<<(trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) <<"]";
+    if (const ArcPolyline *polyline = entity.polyline_or_null()) {
+        const bool has_z_profile = polyline->has_z_offset();
+        ss << (json?"\"":"") << "ExtrusionPath" << (has_z_profile ? "3D" : "") << (entity.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "[";
+        for (int i = 0; i < polyline->size(); i++) {
+            if (i != 0)
+                ss << ",";
+            double x = (mult * (polyline->get_point(i).x()));
+            double y = (mult * (polyline->get_point(i).y()));
+            if (has_z_profile) {
+                double z = mult * polyline->z_offset(size_t(i));
+                ss << std::fixed << "[" << (trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) << "," << (trunc>0?(int(z*trunc))/double(trunc):z) << "]";
+            } else {
+                ss << std::fixed << "["<<(trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) <<"]";
+            }
         }
+        ss << "]";
+        return;
     }
-    ss << "]";
-}
-void ExtrusionPrinter::use(const ExtrusionMultiPath &multipath)
-{
-    ss << (json?"\"":"") << "ExtrusionMultiPath" << (multipath.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(multipath.role()) << (json?"\":":"") << "{";
-    for (int i = 0; i < multipath.paths().size(); i++) {
-        if (i != 0)
-            ss << ",";
-        multipath.paths()[i].visit(*this);
+
+    if (!entity.is_leaf()) {
+        if (entity.is_loop()) {
+            const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
+            ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+            ss << (json?"\"":"") << "ExtrusionLoop" << (json?"_":":") << role_to_code(entity.role())<<"_" << looprole_to_code(loop_role) << (json?"\":":"") << "{";
+            if(!entity.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
+        } else if (entity.is_continuous()) {
+            ss << (json?"\"":"") << "ExtrusionMultiPath" << (entity.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "{";
+        } else {
+            ss << (json?"\"":"") << "ExtrusionEntityCollection" << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "{";
+            if(!entity.can_sort()) ss << (json?"\"":"") << "no_sort" << (json?"\":":"=") << "true,";
+            if(!entity.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
+        }
+        const ExtrusionEntity::Children &children = entity.children();
+        for (int i = 0; i < children.size(); i++) {
+            if (i != 0)
+                ss << ",";
+            children[i]->visit(*this);
+        }
+        ss << "}";
     }
-    ss << "}";
-}
-void ExtrusionPrinter::use(const ExtrusionLoop &loop)
-{ 
-    ss << (json?"\"":"") << "ExtrusionLoop" << (json?"_":":") << role_to_code(loop.role())<<"_" << looprole_to_code(loop.loop_role()) << (json?"\":":"") << "{";
-    if(!loop.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
-    for (int i = 0; i < loop.paths().size(); i++) {
-        if (i != 0)
-            ss << ",";
-        loop.paths()[i].visit(*this);
-    }
-    ss << "}";
-}
-void ExtrusionPrinter::use(const ExtrusionEntityCollection &collection)
-{
-    ss << (json?"\"":"") << "ExtrusionEntityCollection" << (json?"_":":") << role_to_code(collection.role()) << (json?"\":":"") << "{";
-    if(!collection.can_sort()) ss << (json?"\"":"") << "no_sort" << (json?"\":":"=") << "true,";
-    if(!collection.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
-    for (int i = 0; i < collection.entities().size(); i++) {
-        if (i != 0)
-            ss << ",";
-        collection.entities()[i]->visit(*this);
-    }
-    ss << "}";
 }
 
-void ExtrusionLength::default_use(const ExtrusionEntity &entity) { dist += entity.length(); };
-void ExtrusionLength::use(const ExtrusionEntityCollection &collection)
+void ExtrusionLength::default_use(const ExtrusionEntity &entity)
 {
-    for (int i = 0; i < collection.entities().size(); i++) {
-        collection.entities()[i]->visit(*this);
+    if (!entity.is_leaf()) {
+        for (const ExtrusionEntityUPtr &child : entity.children())
+            if (child)
+                child->visit(*this);
+    } else {
+        dist += entity.length();
     }
 }
 
 double ExtrusionVolume::get(const ExtrusionEntityCollection &coll) {
-    for (const ExtrusionEntity *entity : coll.entities()) entity->visit(*this);
+    coll.visit(*this);
     return volume;
 }
 
 void ExtrusionModifyFlow::set(ExtrusionEntityCollection &coll) {
-    for (ExtrusionEntity *entity : coll.entities()) entity->visit(*this);
+    coll.visit(*this);
 }
 
-void ExtrusionVisitorRecursiveConst::use(const ExtrusionMultiPath& multipath) {
-    for (const ExtrusionPath &path : multipath.paths()) {
-        path.visit(*this);
-    }
-}
-void ExtrusionVisitorRecursiveConst::use(const ExtrusionLoop &loop)
+void ExtrusionVisitorRecursiveConst::default_use(const ExtrusionEntity &entity)
 {
-    for (const ExtrusionPath &path : loop.paths()) {
-        path.visit(*this);
-    }
+    if (!entity.is_leaf())
+        for (const ExtrusionEntityUPtr &child : entity.children())
+            if (child)
+                child->visit(*this);
 }
-void ExtrusionVisitorRecursiveConst::use(const ExtrusionEntityCollection &collection)
+void ExtrusionVisitorRecursive::default_use(ExtrusionEntity &entity)
 {
-    for (const ExtrusionEntity *entity : collection.entities()) {
-        entity->visit(*this);
-    }
-}
-void ExtrusionVisitorRecursive::use(ExtrusionMultiPath &multipath)
-{
-    for (ExtrusionPath &path : multipath.paths()) {
-        path.visit(*this);
-    }
-}
-void ExtrusionVisitorRecursive::use(ExtrusionLoop &loop)
-{
-    for (ExtrusionPath &path : loop.paths()) {
-        path.visit(*this);
-    }
-}
-void ExtrusionVisitorRecursive::use(ExtrusionEntityCollection &collection)
-{
-    for (ExtrusionEntity *entity : collection.entities()) {
-        entity->visit(*this);
-    }
+    if (entity.is_leaf())
+        return;
+    for (ExtrusionEntityUPtr &child : entity.children())
+        if (child)
+            child->visit(*this);
 }
 
-void HasRoleVisitor::use(const ExtrusionMultiPath& multipath) {
-    for (const ExtrusionPath& path : multipath.paths()) {
-        path.visit(*this);
-        if(found) return;
-    }
-}
-void HasRoleVisitor::use(const ExtrusionLoop& loop) {
-    for (const ExtrusionPath& path : loop.paths()) {
-        path.visit(*this);
-        if(found) return;
-    }
-}
-void HasRoleVisitor::use(const ExtrusionEntityCollection& collection) {
-    for (const ExtrusionEntity* entity : collection.entities()) {
-        entity->visit(*this);
-        if(found) return;
+void HasRoleVisitor::default_use(const ExtrusionEntity& entity) {
+    if (!entity.is_leaf()) {
+        for (const ExtrusionEntityUPtr &child : entity.children()) {
+            if (child)
+                child->visit(*this);
+            if (found)
+                return;
+        }
+    } else {
+        found = this->matches(entity);
     }
 }
 bool HasRoleVisitor::search(const ExtrusionEntity &entity, HasRoleVisitor&& visitor) {
@@ -577,136 +957,215 @@ bool HasRoleVisitor::search(const ExtrusionEntitiesPtr &entities, HasRoleVisitor
     return visitor.found;
 }
 
-void SimplifyVisitor::use(ExtrusionPath& path) {
-    if (m_min_path_size > 0 && path.length() < m_min_path_size) {
-        m_last_deleted = true;
+void SimplifyVisitor::start(ExtrusionEntityCollection &coll)
+{
+    m_last_deleted = false;
+    coll.visit(*this);
+}
+
+void SimplifyVisitor::default_use(ExtrusionEntity& entity) {
+    const ExtrusionAttributes *entity_attributes = entity.get_property<ExtrusionAttributes>();
+    const ExtrusionAttributes *attributes        = entity_attributes != nullptr ? entity_attributes : m_current_attributes;
+    if (ArcPolyline *polyline = entity.polyline_or_null()) {
+        assert(entity_attributes != nullptr);
+        if (attributes == nullptr)
+            return;
+
+        if (m_min_path_size > 0 && entity.length() < m_min_path_size) {
+            m_last_deleted = true;
+            return;
+        }
+        assert(m_scaled_resolution >= SCALED_EPSILON);
+        coordf_t tolerance = m_scaled_resolution;
+        if (m_use_arc_fitting != ArcFittingType::Disabled) {
+            if (attributes->role.is_sparse_infill())
+                // Use 3x lower resolution than the object fine detail for sparse infill.
+                tolerance *= 3.;
+            else if (attributes->role.is_support())
+                // Use 4x lower resolution than the object fine detail for support.
+                tolerance *= 4.;
+            else if (attributes->role.is_skirt())
+                // Brim is currently marked as skirt.
+                // Use 4x lower resolution than the object fine detail for skirt & brim.
+                tolerance *= 4.;
+        }
+        coordf_t fitting_tolerance = scale_d(m_arc_fitting_tolearance->get_effective_value(attributes->width));
+        if (polyline->has_z_offset()) {
+            // TODO: simplify but only for sub-path with same zheight.
+            //polyline->make_arc(ArcFittingType::Disabled, tolerance, fitting_tolerance);
+        } else {
+            polyline->make_arc(m_use_arc_fitting, tolerance, fitting_tolerance);
+        }
+        // extra simplify if points are too close (unless z-profile, as they can have same position but different z)
+        if (!polyline->has_z_offset()) {
+            for (int i = 1; i < polyline->size(); ++i) {
+                if (polyline->get_point(i - 1).coincides_with_epsilon(polyline->get_point(i))) {
+                    polyline->make_arc(m_use_arc_fitting, tolerance, fitting_tolerance);
+                    break;
+                }
+            }
+            for (int i = 1; i < polyline->size(); ++i) {
+                assert(!polyline->get_point(i - 1).coincides_with_epsilon(polyline->get_point(i)));
+            }
+        }
         return;
     }
-    assert(m_scaled_resolution >= SCALED_EPSILON);
-    path.simplify(m_scaled_resolution, m_use_arc_fitting, scale_d(m_arc_fitting_tolearance->get_effective_value(path.width())));
-    // extra simplify if points are too close (unless z-profile, as they can have same position but different z)
-    if (!path.polyline().has_z_offset()) {
-        for (int i = 1; i < path.polyline().size(); ++i) {
-            if (path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i))) {
-                path.simplify(m_scaled_resolution, m_use_arc_fitting,
-                              scale_d(m_arc_fitting_tolearance->get_effective_value(path.width())));
+
+    if (entity.is_leaf())
+        return;
+    if (m_ignore_holes && entity.is_loop()) {
+        const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
+        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+        if ((loop_role & elrHole) != 0)
+            return;
+    }
+
+    const ExtrusionAttributes *old_current_attributes = m_current_attributes;
+    if (entity_attributes != nullptr)
+        m_current_attributes = entity_attributes;
+
+    ExtrusionEntity::Children &children = entity.children();
+    for (size_t i = 0; i < children.size(); ++i) {
+        ExtrusionEntity *child = children[i].get();
+        child->visit(*this);
+        while (m_last_deleted) {
+            if (!entity.is_continuous()) {
+                children.erase(children.begin() + i);
+                --i;
+                m_last_deleted = false;
                 break;
             }
-        }
-        for (int i = 1; i < path.polyline().size(); ++i) {
-            assert(!path.polyline().get_point(i - 1).coincides_with_epsilon(path.polyline().get_point(i)));
-        }
-    }
-}
-void SimplifyVisitor::use(ExtrusionMultiPath &multipath)
-{
-    for (size_t i = 0; i < multipath.paths().size(); ++i) {
-        ExtrusionPath *path = &multipath.paths()[i];
-        //if (min_path_size > 0 && path.length() < min_path_size) {
-        assert(!m_last_deleted);
-        path->visit(*this);
-        while (m_last_deleted) {
-            ExtrusionPath *path_merged = nullptr;
             if (i > 0) {
-                ExtrusionPath &path_previous = multipath.paths()[i - 1];
-                path_previous.polyline().append(path->polyline());
-                // erase us, move to previous
-                multipath.paths().erase(multipath.paths().begin() + i);
+                ArcPolyline *path = child->polyline_or_null();
+                ArcPolyline *path_previous = children[i - 1]->polyline_or_null();
+                assert(path != nullptr);
+                assert(path_previous != nullptr);
+                if (path == nullptr || path_previous == nullptr) {
+                    m_current_attributes = old_current_attributes;
+                    return;
+                }
+                path_previous->append(*path);
+                children.erase(children.begin() + i);
                 --i;
-            } else if (i + 1 < multipath.size()) {
-                ExtrusionPath &path_next = multipath.paths()[i + 1];
-                path->polyline().append(path_next.polyline());
-                // erase next
-                multipath.paths().erase(multipath.paths().begin() + i + 1);
+            } else if (i + 1 < children.size()) {
+                ArcPolyline *path = child->polyline_or_null();
+                ArcPolyline *path_next = children[i + 1]->polyline_or_null();
+                assert(path != nullptr);
+                assert(path_next != nullptr);
+                if (path == nullptr || path_next == nullptr) {
+                    m_current_attributes = old_current_attributes;
+                    return;
+                }
+                path->append(*path_next);
+                children.erase(children.begin() + i + 1);
             } else {
-                //return, the caller need to delete me.
+                // return, the caller need to delete me.
+                m_current_attributes = old_current_attributes;
                 return;
             }
             m_last_deleted = false;
-            // refresh pointer, as multipath.paths() was modified
-            path = &multipath.paths()[i];
-            //visit again to remove small segments
-            path->visit(*this);
+            child = children[i].get();
+            child->visit(*this);
         }
     }
+    m_current_attributes = old_current_attributes;
 }
-void SimplifyVisitor::use(ExtrusionLoop &loop)
+
+void GetPathsVisitor::default_use(ExtrusionEntity& entity)
 {
-    // ignore holes?
-    if (m_ignore_holes && (loop.loop_role() & elrHole) != 0) {
+    if (ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(&entity)) {
+        paths.push_back(path);
         return;
     }
-    // simplify
-    for (size_t i = 0;i<loop.paths().size() ;++i) {
-        ExtrusionPath *path = &loop.paths()[i];
-        //if (min_path_size > 0 && path.length() < min_path_size) {
-        path->visit(*this);
-        while (m_last_deleted) {
-            ExtrusionPath *path_merged = nullptr;
-            if (i > 0) {
-                ExtrusionPath &path_previous = loop.paths()[i - 1];
-                path_previous.polyline().append(path->polyline());
-                // erase us, move to previous
-                loop.paths().erase(loop.paths().begin() + i);
-                --i;
-            } else if (i + 1 < loop.paths().size()) {
-                ExtrusionPath &path_next = loop.paths()[i + 1];
-                path->polyline().append(path_next.polyline());
-                // erase next
-                loop.paths().erase(loop.paths().begin() + i + 1);
-            } else {
-                //return, the caller need to delete me.
-                return;
-            }
-            m_last_deleted = false;
-            // refresh pointer, as loop.paths() was modified
-            path = &loop.paths()[i];
-            //visit again to remove small segments
-            path->visit(*this);
-        }
-    }
+    ExtrusionVisitorRecursive::default_use(entity);
 }
-void SimplifyVisitor::use(ExtrusionEntityCollection &collection)
+
+void ExtrusionVolume::default_use(const ExtrusionEntity &entity)
 {
-    for (size_t i = 0; i < collection.size(); ++i) {
-        ExtrusionEntity *entity = collection.entities()[i];
-        // if (min_path_size > 0 && path.length() < min_path_size) {
-        entity->visit(*this);
-        if (m_last_deleted) {
-            // erase it, without any merge.
-            collection.remove(i);
-            --i;
-            m_last_deleted = false;
-        }
+    if (!entity.is_leaf()) {
+        ExtrusionVisitorRecursiveConst::default_use(entity);
+        return;
     }
+    const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+    if (attributes == nullptr)
+        return;
+    if (entity.role() == ExtrusionRole::GapFill && !_with_gap_fill)
+        return;
+    volume += unscaled(entity.length()) * attributes->mm3_per_mm * _flow_ratio;
+}
+
+void ExtrusionModifyFlow::default_use(ExtrusionEntity &entity)
+{
+    if (!entity.is_leaf()) {
+        ExtrusionVisitorRecursive::default_use(entity);
+        return;
+    }
+    ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+    if (attributes == nullptr)
+        return;
+    attributes->mm3_per_mm *= _flow_mult;
+    attributes->width *= _flow_mult;
+}
+
+void CreateBoundingBoxVisitor::default_use(ExtrusionEntity &entity)
+{
+    if (!entity.is_leaf()) {
+        ExtrusionVisitorRecursive::default_use(entity);
+        return;
+    }
+    const ArcPolyline *polyline = entity.polyline_or_null();
+    if (polyline == nullptr)
+        return;
+    for (const Geometry::ArcWelder::Segment &pt : polyline->get_arc())
+        bb.merge(pt.point);
 }
 
 #ifdef _DEBUGINFO
-void LoopAssertVisitor::use(const ExtrusionPath &path) {
-    release_assert (!path.role().is_overhang() || path.overhang_attributes());
-    if (m_check_length <= 0)
+void LoopAssertVisitor::default_use(const ExtrusionEntity& entity) {
+    if (!entity.is_leaf()) {
+        release_assert(!entity.empty());
+        Point last_pt = entity.is_loop() ? entity.last_point() : entity.first_point();
+        const ExtrusionEntity::Children &children = entity.children();
+        for (const ExtrusionEntityUPtr &child : children) {
+            if (!child)
+                continue;
+            if (entity.is_loop() || entity.is_continuous())
+                release_assert(child->first_point() == last_pt);
+            child->visit(*this);
+            last_pt = child->last_point();
+        }
+        if (entity.is_loop())
+            release_assert(entity.first_point() == entity.last_point());
         return;
-    release_assert(!path.empty());
-    release_assert(path.mm3_per_mm() > 0.000001 || path.role() == ExtrusionRole::Travel);
-    release_assert(path.length() > m_check_length);
-    for (size_t idx = 1; idx < path.size(); ++idx)
-        release_assert(!path.polyline().get_point(idx - 1).coincides_with_epsilon(path.polyline().get_point(idx)));
-}
-void LoopAssertVisitor::use(const ExtrusionLoop& loop) {
-    release_assert(!loop.empty());
-    for (size_t idx_path = 1; idx_path < loop.paths().size(); ++idx_path) {
-        release_assert(loop.paths()[idx_path-1].polyline().back() == loop.paths()[idx_path].polyline().front());
     }
-    Point last_pt = loop.last_point();
-    for (const ExtrusionPath &path : loop.paths()) {
-        release_assert (!path.role().is_overhang() || path.overhang_attributes());
-        release_assert(path.polyline().size() >= 2);
-        release_assert(path.length() >= m_check_length);
-        release_assert(path.first_point() == last_pt);
-        use(path);
-        last_pt = path.last_point();
+    const ArcPolyline *polyline = entity.polyline_or_null();
+    const ExtrusionPropertyOverhang *overhang = entity.get_property<ExtrusionPropertyOverhang>();
+    release_assert (!entity.role().is_overhang() || overhang != nullptr);
+    if (m_check_length <= 0 || polyline == nullptr)
+        return;
+    release_assert(!entity.empty());
+    const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+    const bool has_z_offset = polyline->has_z_offset();
+    // Sawtooth support may use z-profile paths as non-extruding 3D moves.
+    release_assert(attributes == nullptr || attributes->mm3_per_mm > 0.000001 || entity.role() == ExtrusionRole::Travel || has_z_offset);
+    if (has_z_offset) {
+        double length_3d = 0.;
+        for (size_t idx = 1; idx < polyline->size(); ++idx) {
+            const Point &previous_point = polyline->get_point(idx - 1);
+            const Point &point          = polyline->get_point(idx);
+            coord_t previous_z = polyline->z_offset(idx - 1);
+            coord_t z          = polyline->z_offset(idx);
+            coord_t dz         = previous_z < z ? z - previous_z : previous_z - z;
+            release_assert(!previous_point.coincides_with_epsilon(point) || dz > 0);
+            double xy_length = previous_point.distance_to(point);
+            length_3d += std::sqrt(xy_length * xy_length + double(dz) * double(dz));
+        }
+        release_assert(length_3d > m_check_length);
+    } else {
+        release_assert(entity.length() > m_check_length);
+        for (size_t idx = 1; idx < polyline->size(); ++idx)
+            release_assert(!polyline->get_point(idx - 1).coincides_with_epsilon(polyline->get_point(idx)));
     }
-    release_assert(loop.paths().front().first_point() == loop.paths().back().last_point());
 }
 #endif
 

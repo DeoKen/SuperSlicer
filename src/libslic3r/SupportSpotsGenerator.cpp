@@ -567,15 +567,23 @@ ObjectPart::ObjectPart(
                 to_fill->sticking_second_moment_of_area_covariance_accumulator += integrals.xy;
             }
         }
-        void use(const ExtrusionPath &path) override {
-            if (path.polyline().has_z_offset()) {
+        void default_use(const ExtrusionEntity &entity) override {
+            if (!entity.is_leaf()) {
+                ExtrusionVisitorRecursiveConst::default_use(entity);
+                return;
+            }
+            const ArcPolyline *polyline = entity.polyline_or_null();
+            const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+            if (polyline == nullptr || attributes == nullptr)
+                return;
+            if (polyline->has_z_offset()) {
                 //if 3D path, then two points can be on top of each other. as it's not a legal polyline in 2D, i need to project it into a 2D place by removing illegal points.
-                Polyline poly = path.as_polyline().to_polyline(path.width()/10);
+                Polyline poly = entity.as_polyline().to_polyline(attributes->width / 10);
                 poly.douglas_peucker(SCALED_EPSILON * 2);
                 if(poly.length() > SCALED_EPSILON)
-                    use_polyline(std::move(poly), path.width());
+                    use_polyline(std::move(poly), attributes->width);
             } else {
-                use_polyline(path.as_polyline().to_polyline(path.width() / 10), path.width());
+                use_polyline(entity.as_polyline().to_polyline(attributes->width / 10), attributes->width);
             }
         }
     };

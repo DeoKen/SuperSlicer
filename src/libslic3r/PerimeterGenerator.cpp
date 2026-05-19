@@ -695,7 +695,9 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
             ExtrusionLoop *eloop = static_cast<ExtrusionLoop *>(coll[idx.first]);
 
             //set to overhang speed if any chunk is overhang
-            bool has_overhang = this->_enforce_speed_overhangs(eloop->paths(), count_since_overhang);
+            ExtrusionPaths loop_paths = eloop->paths();
+            bool has_overhang = this->_enforce_speed_overhangs(loop_paths, count_since_overhang);
+            eloop->paths() = std::move(loop_paths);
 #if _DEBUG
             for(auto ee : coll) if(ee) ee->visit(LoopAssertVisitor());
 #endif
@@ -4459,25 +4461,26 @@ void PerimeterGenerator::process(// Input:
         class ExtrusionTransformPathIntoLoop : public ExtrusionVisitorRecursive {
             std::vector<ExtrusionEntity*> current_entity;
             using ExtrusionVisitorRecursive::use;
-            void use(ExtrusionPath &path) override {
-                if (path.first_point().coincides_with_epsilon(path.last_point())) {
-                    assert(false);
-                    assert(&path == current_entity.back());
-                    current_entity.back() = new ExtrusionLoop(ExtrusionPaths{path}, ExtrusionLoopRole::elrDefault);
-                }
-            }
-            void use(ExtrusionLoop &loop) override {}
-            void use(ExtrusionMultiPath &loop) override {}
-            void use(ExtrusionEntityCollection &coll) override {
-                for (auto it = coll.set_entities().begin(); it != coll.set_entities().end(); ++it) {
-                    current_entity.push_back(*it);
-                    (*it)->visit(*this);
-                    if (*it != current_entity.back()) {
-                        //changed! need to update
-                        delete *it;
-                        *it  = current_entity.back();
+            void default_use(ExtrusionEntity &entity) override {
+                if (!entity.is_leaf()) {
+                    if (entity.is_loop() || entity.is_continuous())
+                        return;
+                    for (ExtrusionEntityUPtr &child : entity.children()) {
+                        current_entity.push_back(child.get());
+                        child->visit(*this);
+                        if (child.get() != current_entity.back())
+                            child.reset(current_entity.back());
+                        current_entity.pop_back();
                     }
-                    current_entity.pop_back();
+                    return;
+                }
+                ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(&entity);
+                if (path == nullptr)
+                    return;
+                if (path->first_point().coincides_with_epsilon(path->last_point())) {
+                    assert(false);
+                    assert(path == current_entity.back());
+                    current_entity.back() = new ExtrusionLoop(ExtrusionPaths{*path}, ExtrusionLoopRole::elrDefault);
                 }
             }
         } transformer;
@@ -6429,7 +6432,22 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
                 }
             }
         }
-        virtual void use(ExtrusionPath &path) override {
+        virtual void default_use(ExtrusionEntity &entity) override {
+            if (!entity.is_leaf()) {
+                for (ExtrusionEntityUPtr &child : entity.children())
+                    if (child)
+                        child->visit(*this);
+                return;
+            }
+            ExtrusionPath *path_ptr = dynamic_cast<ExtrusionPath*>(&entity);
+            ExtrusionPath tmp_path(ExtrusionAttributes(ExtrusionRole::None), nullptr);
+            ExtrusionPath &path = path_ptr != nullptr ? *path_ptr : tmp_path;
+            if (path_ptr == nullptr) {
+                const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+                if (attributes == nullptr || entity.polyline_or_null() == nullptr)
+                    return;
+                path = ExtrusionPath(entity.polyline_ref(), *attributes, entity.clone_properties(), entity.can_reverse());
+            }
             //ensure the loop is continue.
             if (first_point != nullptr) {
                 if (*first_point != path.first_point()) {
@@ -6451,15 +6469,6 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
             path.attributes_mutable().no_seam = no_seam;
             paths.push_back(path);
         }
-        virtual void use(ExtrusionMultiPath &multipath) override { assert(false); /*shouldn't happen*/ }
-        virtual void use(ExtrusionLoop &loop) override {
-            for (ExtrusionPath &path : loop.paths())
-                this->use(path);
-        }
-        virtual void use(ExtrusionEntityCollection &collection) override {
-            for (ExtrusionEntity *entity : collection.entities())
-                entity->visit(*this);
-        }
     };
     struct BestPoint {
         //Point p;
@@ -6478,7 +6487,24 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
         BestPoint search_result;
         size_t idx_path;
         ExtrusionLoop *current_loop = nullptr;
-        virtual void use(ExtrusionPath &path) override {
+        virtual void default_use(ExtrusionEntity &entity) override {
+            if (!entity.is_leaf()) {
+                ExtrusionLoop *last_loop = current_loop;
+                if (ExtrusionLoop *loop = dynamic_cast<ExtrusionLoop*>(&entity))
+                    current_loop = loop;
+                idx_path = 0;
+                for (ExtrusionEntityUPtr &child : entity.children()) {
+                    if (child)
+                        child->visit(*this);
+                    idx_path++;
+                }
+                current_loop = last_loop;
+                return;
+            }
+            ExtrusionPath *path_ptr = dynamic_cast<ExtrusionPath*>(&entity);
+            if (path_ptr == nullptr)
+                return;
+            ExtrusionPath &path = *path_ptr;
             //don't consider other thin walls.
             if (path.role() == ExtrusionRole::ThinWall) return;
             //for each segment
@@ -6511,23 +6537,6 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
                     search_result.loop = current_loop;
                 }
             }
-        }
-        virtual void use(ExtrusionMultiPath &multipath) override { /*shouldn't happen*/ }
-        virtual void use(ExtrusionLoop &loop) override {
-            ExtrusionLoop * last_loop = current_loop;
-            current_loop = &loop;
-            //for each extrusion path
-            idx_path = 0;
-            for (ExtrusionPath &path : loop.paths()) {
-                this->use(path);
-                idx_path++;
-            }
-            current_loop = last_loop;
-        }
-        virtual void use(ExtrusionEntityCollection &collection) override {
-            //for each loop? (or other collections)
-            for (ExtrusionEntity *entity : collection.entities())
-                entity->visit(*this);
         }
     };
     //max dist to branch: ~half external perimeter width

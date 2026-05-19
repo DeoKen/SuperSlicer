@@ -473,103 +473,115 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
         PerimeterCopy(std::vector<const LayerRegion*>& regions_out, PolylineWithEnds* polys, SeamPosition configured_seam)
             : m_corresponding_regions_out(regions_out), configured_seam_preference(configured_seam), polylines(polys) {
         }
-        virtual void default_use(const ExtrusionEntity& entity) {};
-        virtual void use(const ExtrusionPath &path) override {
-            if(path.attributes().no_seam) return;
+        virtual void default_use(const ExtrusionEntity& entity) override {
+            if (entity.is_loop()) {
+                Polygon polygon(entity.as_polyline().to_polyline().points);
+                bool is_ccw = polygon.is_counter_clockwise();
+                if ((configured_seam_preference == spAllRandom && entity.has_role(ExtrusionRole::Perimeter))
+                        || (also_thin_walls && entity.role() == ExtrusionRole::ThinWall)) {
+                    Points pts;
+                    entity.collect_points(pts);
+                    pts.push_back(pts.front()); //polygon
+                    assert(m_corresponding_regions_out.size() == polylines->size());
+                    assert(pts.size() > 1);
+                    polylines->emplace_back(std::move(pts), true, false, is_ccw ? PolylineWithEnd::PolyDir::CCW : PolylineWithEnd::PolyDir::CW);
+                    m_corresponding_regions_out.push_back(current_layer_region);
+                    return;
+                }else {
+                    PolylineWithEnds polys;
+                    size_t count_paths_collected = 0;
+                    bool previous_collected = false;
+                    bool current_collected = false;
+                    assert(!entity.is_leaf());
+                    const ExtrusionEntity::Children &children = entity.children();
+                    for (const ExtrusionEntityUPtr &child : children) {
+                        if (!child)
+                            continue;
+                        current_collected = false;
+                        const ExtrusionAttributes *attributes = child->get_property<ExtrusionAttributes>();
+                        if (attributes != nullptr && attributes->role.is_external_perimeter()) {
+                            if (!attributes->role.is_overhang() || also_overhangs) {
+                                if (!attributes->no_seam) {
+                                    const ArcPolyline *polyline = child->polyline_or_null();
+                                    if (polyline == nullptr)
+                                        continue;
+                                    if (!previous_collected) {
+                                        polys.emplace_back(false, false,
+                                                           is_ccw ? PolylineWithEnd::PolyDir::CCW :
+                                                                    PolylineWithEnd::PolyDir::CW);
+                                    } else if (!polys.back().empty() &&
+                                               polys.back().points.back() == polyline->front()) {
+                                        polys.back().points.pop_back();
+                                    }
+                                    child->collect_points(polys.back().points);
+                                    assert(polys.back().size() > 1);
+                                    current_collected = true;
+                                    count_paths_collected++;
+                                } else {
+                                    current_collected = previous_collected; // don't break the polyline, just skip the points.
+                                }
+                            }
+                        }
+                        previous_collected = current_collected;
+                    }
+
+                    if (!polys.empty()) { // for random seam alignment, extract all perimeters
+                        if (count_paths_collected == children.size()) {
+                            assert(polys.size() == 1);
+                            assert(polys.front().first_point() ==  polys.front().last_point());
+                        }
+                        assert(m_corresponding_regions_out.size() == polylines->size());
+                        append(*polylines, std::move(polys));
+                        while (m_corresponding_regions_out.size() < polylines->size()) {
+                            m_corresponding_regions_out.push_back(current_layer_region);
+                        }
+                    }
+                }
+                return;
+            }
+            if (!entity.is_leaf()) {
+                const ExtrusionEntity::Children &children = entity.children();
+                if (entity.is_continuous() && perimeter_type == PerimeterGeneratorType::Arachne) {
+                    for (size_t idx = 0; idx < children.size(); idx++) {
+                        const ExtrusionEntity &child = entity.child(idx);
+                        const ArcPolyline *polyline = child.polyline_or_null();
+                        if (polyline == nullptr)
+                            continue;
+                        assert(m_corresponding_regions_out.size() == polylines->size());
+                        polylines->emplace_back(polyline->to_polyline().points,
+                                                idx == 0 ? true : false,
+                                                idx + 1 < children.size() ? false : true,
+                                                PolylineWithEnd::PolyDir::BOTH); // TODO: more points for arcs
+                        assert(polyline->front() != polyline->back());
+                        assert(polyline->size() > 1);
+                        m_corresponding_regions_out.push_back(current_layer_region);
+                    }
+                } else {
+                    for (const ExtrusionEntityUPtr &child : children)
+                        if (child)
+                            child->visit(*this);
+                }
+                return;
+            }
+
+            const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+            const ArcPolyline *polyline = entity.polyline_or_null();
+            if (attributes == nullptr || polyline == nullptr || attributes->no_seam)
+                return;
             if (
                 // path: first case: Arachne, second case: ThinWall/gapfill, third case: extra overhangs
-                (perimeter_type == PerimeterGeneratorType::Arachne && path.role() != ExtrusionRole::ThinWall && !path.role().is_overhang()) ||
-                (also_thin_walls && path.role().has(ERM_Thin)) ||
-                (also_overhangs && path.role().is_overhang())) {
+                (perimeter_type == PerimeterGeneratorType::Arachne && attributes->role != ExtrusionRole::ThinWall && !attributes->role.is_overhang()) ||
+                (also_thin_walls && attributes->role.has(ERM_Thin)) ||
+                (also_overhangs && attributes->role.is_overhang())) {
                 //path.polygons_covered_by_width(*polygons, SCALED_EPSILON);
                 assert(m_corresponding_regions_out.size() == polylines->size());
                 //if path, start at one end. so only two points allowed.
-                polylines->emplace_back(path.polyline().to_polyline().points, true, true, PolylineWithEnd::PolyDir::BOTH);
-                assert(path.polyline().front() != path.polyline().back());
-                assert(path.polyline().size() > 1);
+                polylines->emplace_back(polyline->to_polyline().points, true, true, PolylineWithEnd::PolyDir::BOTH);
+                assert(polyline->front() != polyline->back());
+                assert(polyline->size() > 1);
                 //while (m_corresponding_regions_out->size() < polylines->size()) {
                     m_corresponding_regions_out.push_back(current_layer_region);
                 //}
-            }
-        }
-        virtual void use(const ExtrusionLoop& loop) override {
-            bool is_ccw = loop.polygon().is_counter_clockwise();
-            if ((configured_seam_preference == spAllRandom && !loop.paths().empty() && loop.paths().front().role().is_perimeter())
-                    || (also_thin_walls && loop.role() == ExtrusionRole::ThinWall)) {
-                Points pts;
-                loop.collect_points(pts);
-                pts.push_back(pts.front()); //polygon
-                assert(m_corresponding_regions_out.size() == polylines->size());
-                assert(pts.size() > 1);
-                polylines->emplace_back(std::move(pts), true, false, is_ccw ? PolylineWithEnd::PolyDir::CCW : PolylineWithEnd::PolyDir::CW);
-                m_corresponding_regions_out.push_back(current_layer_region);
-                return;
-            }else {
-                PolylineWithEnds polys;
-                size_t count_paths_collected = 0;
-                bool previous_collected = false;
-                bool current_collected = false;
-                for (const ExtrusionPath &path : loop.paths()) {
-                    current_collected = false;
-                    if (path.role().is_external_perimeter()) {
-                        if (!path.role().is_overhang() || also_overhangs) {
-                            if (!path.attributes().no_seam) {
-                                if (!previous_collected) {
-                                    polys.emplace_back(false, false,
-                                                       is_ccw ? PolylineWithEnd::PolyDir::CCW :
-                                                                PolylineWithEnd::PolyDir::CW);
-                                } else if (!polys.back().empty() &&
-                                           polys.back().points.back() == path.polyline().front()) {
-                                    polys.back().points.pop_back();
-                                }
-                                path.collect_points(polys.back().points);
-                                assert(polys.back().size() > 1);
-                                current_collected = true;
-                                count_paths_collected++;
-                            } else {
-                                current_collected = previous_collected; // don't break the polyline, just skip the points.
-                            }
-                        }
-                    }
-                    //if (path.role() == ExtrusionRole::erThinWall && also_thin_walls) {
-                    //    path.collect_points(p); // TODO: 2.7: reactivate when it's possible to distinguish between thinwalltravel & thinextrusions
-                    // // currently, only looking for thinwall-only loop
-                    //}
-                    previous_collected = current_collected;
-                }
-
-                if (!polys.empty()) { // for random seam alignment, extract all perimeters
-                    if (count_paths_collected == loop.paths().size()) {
-                        assert(polys.size() == 1);
-                        assert(polys.front().first_point() ==  polys.front().last_point());
-                    }
-                    assert(m_corresponding_regions_out.size() == polylines->size());
-                    append(*polylines, std::move(polys));
-                    while (m_corresponding_regions_out.size() < polylines->size()) {
-                        m_corresponding_regions_out.push_back(current_layer_region);
-                    }
-                }
-            }
-        }
-        virtual void use(const ExtrusionMultiPath& collection) override {
-            
-            if (perimeter_type == PerimeterGeneratorType::Arachne) {
-                for (size_t idx = 0; idx < collection.size(); idx++) {
-                    const ExtrusionPath &path = collection.paths()[idx];
-                    assert(m_corresponding_regions_out.size() == polylines->size());
-                    polylines->emplace_back(path.polyline().to_polyline().points,
-                                            idx == 0 ? true : false,
-                                            idx + 1 < collection.size() ? false : true,
-                                            PolylineWithEnd::PolyDir::BOTH); // TODO: more points for arcs
-                    assert(path.polyline().front() != path.polyline().back());
-                    assert(path.polyline().size() > 1);
-                    m_corresponding_regions_out.push_back(current_layer_region);
-                }
-            }
-        }
-        virtual void use(const ExtrusionEntityCollection& collection) override {
-            for (const ExtrusionEntity* entity : collection.entities()) {
-                entity->visit(*this);
             }
         }
         void set_current_layer_region(const LayerRegion *set) {
