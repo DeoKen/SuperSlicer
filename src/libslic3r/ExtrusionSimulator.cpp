@@ -972,10 +972,10 @@ void ExtrusionSimulator::reset_accumulator()
 //not used
 void ExtrusionSimulator::extrude_to_accumulator(const ExtrusionPath &path, const Point &shift, ExtrusionSimulationType simulationType)
 {
-	// printf("Extruding a path. Nr points: %d, width: %f, height: %f\r\n", path.polyline.points.size(), path.width, path.height);
+	// printf("Extruding a path. Nr points: %d, width: %f, height: %f\r\n", path.polyline().points.size(), path.width, path.height);
 	// Convert the path to V2f points, shift and scale them to the viewport.
 	std::vector<V2f> polyline;
-	polyline.reserve(path.polyline.size());
+	polyline.reserve(path.polyline().size());
 	float scalex  = float(viewport.size().x()) / float(bbox.size().x());
 	float scaley  = float(viewport.size().y()) / float(bbox.size().y());
 	float w = (float)scale_d(path.width()) * scalex;
@@ -983,8 +983,8 @@ void ExtrusionSimulator::extrude_to_accumulator(const ExtrusionPath &path, const
 	w = (float)scale_d(path.mm3_per_mm() / path.height()) * scalex;
 	// printf("scalex: %f, scaley: %f\n", scalex, scaley);
 	// printf("bbox: %d,%d %d,%d\n", bbox.min.x(), bbox.min.y, bbox.max.x(), bbox.max.y);
-	//for (Points::const_iterator it = path.polyline.get_points().begin(); it != path.polyline.get_points().end(); ++ it) {
-	for (Point &p : path.polyline.to_polyline()) {
+	//for (Points::const_iterator it = path.polyline().get_points().begin(); it != path.polyline().get_points().end(); ++ it) {
+	for (Point &p : path.polyline().to_polyline()) {
 		// printf("point %d,%d\n", it->x+shift.x(), it->y+shift.y);
 		ExtrusionPoint ept;
 		ept.center = V2f(float(p.x()+shift.x()-bbox.min.x()) * scalex, float(p.y()+shift.y()-bbox.min.y()) * scaley);

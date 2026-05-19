@@ -100,8 +100,8 @@ void append_loop_into_collection(ExtrusionEntityCollection& storage, ExtrusionRo
         //default to ccw
         polygon.make_counter_clockwise();
         ExtrusionPath path(ExtrusionAttributes{good_role, ExtrusionFlow{flow, float(width), float(height)}}, nullptr, false);
-        path.polyline.append(std::move(polygon.points));
-        path.polyline.append(path.polyline.front());
+        path.polyline().append(std::move(polygon.points));
+        path.polyline().append(path.polyline().front());
         storage.append(ExtrusionLoop{ std::move(path) });
     }
 }

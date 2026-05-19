@@ -1060,7 +1060,7 @@ namespace SupportMaterialInternal {
     static inline bool has_bridging_perimeters(const ExtrusionLoop &loop)
     {
         for (const ExtrusionPath &ep : loop.paths)
-            if (ep.role().has(ExtrusionRole::OverhangPerimeter) && ! ep.polyline.empty())
+            if (ep.role().has(ExtrusionRole::OverhangPerimeter) && ! ep.polyline().empty())
                 return int(ep.size()) >= (ep.is_closed() ? 3 : 2);
         return false;
     }
@@ -1124,15 +1124,15 @@ namespace SupportMaterialInternal {
     {
         assert(expansion_scaled >= 0.f);
         for (const ExtrusionPath &ep : loop.paths)
-            if (ep.role().has(ExtrusionRole::OverhangPerimeter) && ! ep.polyline.empty() &&
+            if (ep.role().has(ExtrusionRole::OverhangPerimeter) && ! ep.polyline().empty() &&
                 // bridging flow => width == height
                 (!only_flow || is_approx(ep.height(), ep.width(), ep.height()/100))) {
                 float exp = 0.5f * (float)scale_d(ep.width()) + expansion_scaled;
                 if (ep.is_closed() && ep.size() >= 3) {
                     // This is a complete loop.
                     // Add the outer contour first.
-                    assert(ep.polyline.front() == ep.polyline.back());
-                    Polygon polygon(ep.polyline.to_polyline().points);
+                    assert(ep.polyline().front() == ep.polyline().back());
+                    Polygon polygon(ep.polyline().to_polyline().points);
                     assert(polygon.front() != polygon.back());
                     if (polygon.area() < 0) {
                         polygon.reverse();
@@ -1145,9 +1145,9 @@ namespace SupportMaterialInternal {
                     //append(out, to_expolygons(contours));
                     append(out, diff_ex(contours, holes));
                 } else if (ep.size() >= 2) {
-                    assert(ep.polyline.front() != ep.polyline.back());
+                    assert(ep.polyline().front() != ep.polyline().back());
                     // Offset the polyline.
-                    append(out, offset_ex(ep.polyline.to_polyline(), scale_d(ep.width() / 2) + exp,
+                    append(out, offset_ex(ep.polyline().to_polyline(), scale_d(ep.width() / 2) + exp,
                                                 SUPPORT_SURFACES_OFFSET_PARAMETERS));
                 }
             }

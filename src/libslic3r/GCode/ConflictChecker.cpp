@@ -141,39 +141,39 @@ static std::vector<ExtrusionPaths> getFakeExtrusionPathsFromWipeTower(const Wipe
         // We added the border, now add several parallel lines so we can detect an object that is fully inside the tower.
         // For now, simply use fixed spacing of 3mm.
         for (coord_t y = minCorner.y() + scale_i(3.); y < maxCorner.y(); y += scale_i(3.)) {
-            path.polyline = ArcPolyline(Points{ {minCorner.x(), y}, {maxCorner.x(), y} });
-            assert(path.polyline.is_valid());
+            path.polyline() = ArcPolyline(Points{ {minCorner.x(), y}, {maxCorner.x(), y} });
+            assert(path.polyline().is_valid());
             paths.back().emplace_back(path);
         }
 
         // And of course the stabilization cone and its base...
         if (cone_base_R > 0.) {
-            path.polyline.clear();
+            path.polyline().clear();
             double r = cone_base_R * (1 - hh / height);
             for (double alpha = 0; alpha < 2.01 * M_PI; alpha += 2 * M_PI / 20.) {
                 Point point = Point::new_scale(width / 2. + r * std::cos(alpha) / cone_scale_x,
                                                depth / 2. + r * std::sin(alpha));
-                if (path.polyline.empty() || !point.coincides_with_epsilon(path.polyline.front())) {
-                    path.polyline.append(std::move(point));
+                if (path.polyline().empty() || !point.coincides_with_epsilon(path.polyline().front())) {
+                    path.polyline().append(std::move(point));
                 }
             }
             if (path.size() > 1) {
-                assert(path.polyline.is_valid());
+                assert(path.polyline().is_valid());
                 paths.back().emplace_back(path);
             }
             if (hh == 0.f) { // Cone brim.
                 for (float bw = wtd.brim_width; bw > 0.f; bw -= 3.f) {
-                    path.polyline.clear();
+                    path.polyline().clear();
                     for (double alpha = 0; alpha < 2.01 * M_PI; alpha += 2 * M_PI / 20.) {
                         // see load_wipe_tower_preview, where the same is a bit clearer
                         Point point = Point::new_scale(width / 2. + cone_base_R * std::cos(alpha) / cone_scale_x * (1. + cone_scale_x * bw / cone_base_R),
                                                        depth / 2. + cone_base_R * std::sin(alpha) * (1. + bw / cone_base_R));
-                        if (path.polyline.empty() || !point.coincides_with_epsilon(path.polyline.front())) {
-                            path.polyline.append(std::move(point));
+                        if (path.polyline().empty() || !point.coincides_with_epsilon(path.polyline().front())) {
+                            path.polyline().append(std::move(point));
                         }
                     }
                     if (path.size() > 1) {
-                        assert(path.polyline.is_valid());
+                        assert(path.polyline().is_valid());
                         paths.back().emplace_back(path);
                     }
                 }
@@ -190,8 +190,8 @@ static std::vector<ExtrusionPaths> getFakeExtrusionPathsFromWipeTower(const Wipe
     // Rotate and translate the tower into the final position.
     for (ExtrusionPaths& ps : paths) {
         for (ExtrusionPath& p : ps) {
-            p.polyline.rotate(Geometry::deg2rad(wtd.rotation_angle));
-            p.polyline.translate(Vector(scale_i(wtd.position.x()), scale_i(wtd.position.y())));
+            p.polyline().rotate(Geometry::deg2rad(wtd.rotation_angle));
+            p.polyline().translate(Vector(scale_i(wtd.position.x()), scale_i(wtd.position.y())));
         }
     }
 

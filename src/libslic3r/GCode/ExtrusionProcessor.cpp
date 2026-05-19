@@ -37,7 +37,7 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
     }
     //TODO: 'split' lines if the dist of each point is between 0 and max_width, with a max length of path.width/2
 
-    std::vector<ExtendedPoint>           extended_points = estimate_points_properties<true, true, true, true>(path.polyline.to_polyline().points,
+    std::vector<ExtendedPoint>           extended_points = estimate_points_properties<true, true, true, true>(path.polyline().to_polyline().points,
                                                                                                     unscaled_prev_layer, path.width(), (float)nozzle_diameter);
     std::vector<std::pair<float, float>> calculated_distances(extended_points.size());
 
@@ -109,11 +109,11 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
     overhang_attributes.has_dynamic_overhangs_flow = path.overhang_attributes()->has_dynamic_overhangs_flow;
     overhang_attributes.has_dynamic_overhangs_speed = path.overhang_attributes()->has_dynamic_overhangs_speed;
     result.back().overhang_attributes_mutable() = overhang_attributes;
-    result.back().polyline.append(Point::new_scale(extended_points[0].position));
+    result.back().polyline().append(Point::new_scale(extended_points[0].position));
     size_t sequence_start_index = 0;
     for (size_t i = 1; i < extended_points.size(); i++) {
-        if (!result.back().polyline.back().coincides_with_epsilon(Point::new_scale(extended_points[i].position))) {
-            result.back().polyline.append(Point::new_scale(extended_points[i].position));
+        if (!result.back().polyline().back().coincides_with_epsilon(Point::new_scale(extended_points[i].position))) {
+            result.back().polyline().append(Point::new_scale(extended_points[i].position));
             result.back().overhang_attributes_mutable().end_distance_from_prev_layer =  extended_points[i].distance;
         }
         if (std::abs(calculated_distances[sequence_start_index].first - calculated_distances[i].first) < 0.01 * nozzle_diameter &&
@@ -132,10 +132,10 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
             if (result.back().size() > 1) {
                 result.emplace_back(path.attributes(), path.clone_properties(), path.can_reverse());
                 result.back().overhang_attributes_mutable() = overhang_attributes;
-                result.back().polyline.append(Point::new_scale(extended_points[i].position));
+                result.back().polyline().append(Point::new_scale(extended_points[i].position));
             } else {
                 assert(result.back().size() == 1);
-                assert(result.back().polyline.back().coincides_with_epsilon(Point::new_scale(extended_points[i].position)));
+                assert(result.back().polyline().back().coincides_with_epsilon(Point::new_scale(extended_points[i].position)));
             }
         }
     }
@@ -160,19 +160,19 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
     Point last_pt = result.front().last_point();
     for (size_t idx_path = 1; idx_path < result.size() ; ++idx_path) {
         ExtrusionPath &path = result[idx_path];
-        assert(path.polyline.size() >= 2);
+        assert(path.polyline().size() >= 2);
         assert(path.first_point().coincides_with_epsilon(last_pt));
-        if (!path.polyline.get_point(1).coincides_with_epsilon(last_pt)) {
-            path.polyline.set_front(last_pt);
+        if (!path.polyline().get_point(1).coincides_with_epsilon(last_pt)) {
+            path.polyline().set_front(last_pt);
         }
         for (size_t idx_pt = 1; idx_pt < path.size(); ++idx_pt)
-            assert(!path.polyline.get_point(idx_pt - 1).coincides_with_epsilon(path.polyline.get_point(idx_pt)));
+            assert(!path.polyline().get_point(idx_pt - 1).coincides_with_epsilon(path.polyline().get_point(idx_pt)));
         last_pt = path.last_point();
     }
 #endif
     // avoid precision loss
-    result.front().polyline.set_front(path.first_point());
-    result.back().polyline.set_back(path.last_point());
+    result.front().polyline().set_front(path.first_point());
+    result.back().polyline().set_back(path.last_point());
     for (const ExtrusionPath &res_path : result) {
         assert(res_path.overhang_attributes() == nullptr ||
                res_path.overhang_attributes()->has_full_overhangs_speed ||
@@ -211,10 +211,10 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
 #ifdef _DEBUG
     Point last_pt = loop->last_point();
     for (const ExtrusionPath &path : loop->paths) {
-        assert(path.polyline.size() >= 2);
+        assert(path.polyline().size() >= 2);
         assert(path.first_point() == last_pt);
         for (size_t idx = 1; idx < path.size(); ++idx)
-            assert(!path.polyline.get_point(idx - 1).coincides_with_epsilon(path.polyline.get_point(idx)));
+            assert(!path.polyline().get_point(idx - 1).coincides_with_epsilon(path.polyline().get_point(idx)));
         last_pt = path.last_point();
     }
 #endif
@@ -239,7 +239,7 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
             result.append(std::move(new_mp));
         } else if (auto *p = dynamic_cast<const ExtrusionPath *>(e)) {
             // bypass splitting if the extrusion is in 3D 
-            if (!p->polyline.has_z_offset()) {
+            if (!p->polyline().has_z_offset()) {
                     result.append(calculate_and_split_overhanging_extrusions(*p, unscaled_prev_layer, prev_layer_curled_lines, nozzle_diameter));
             } else {
                 ExtrusionPath new_p = *p;

@@ -23,7 +23,7 @@ using namespace Slic3r;
 
 ExtrusionPath* createEP(std::initializer_list<Point> vec) {
     ExtrusionPath *ep = new ExtrusionPath{ ExtrusionRole::erNone };
-    ep->polyline = vec;
+    ep->polyline() = vec;
     return ep;
 }
 ExtrusionEntityCollection* createEC(std::initializer_list<ExtrusionEntity*> vec, bool no_sort = false) {
@@ -36,7 +36,7 @@ ExtrusionLoop* createEL(std::vector<std::initializer_list<Point>> vec) {
     ExtrusionLoop *el = new ExtrusionLoop{};
     for (std::initializer_list<Point> &path : vec) {
         el->paths.emplace_back(ExtrusionRole::erNone);
-        el->paths.back().polyline = path;
+        el->paths.back().polyline() = path;
     }
     return el;
 }

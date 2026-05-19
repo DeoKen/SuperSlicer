@@ -25,7 +25,7 @@ Slic3r::Point random_point(float LO=-50, float HI=50) {
 Slic3r::ExtrusionPath random_path(size_t length = 20, float LO=-50, float HI=50) {
     Slic3r::ExtrusionPath t(Slic3r::ExtrusionRole::erPerimeter, 1.0, 1.0f, 1.0f, true);
     for (size_t j = 0; j < length; j++) {
-        t.polyline.append(random_point(LO, HI));
+        t.polyline().append(random_point(LO, HI));
     }
     return t;
 }
@@ -107,14 +107,14 @@ SCENARIO("ExtrusionEntityCollection: no sort") {
     LayerRegion* custom_region = customL_layer->add_region(&print.get_print_region(0));
 
     ExtrusionPath path_peri(ExtrusionRole::erPerimeter);
-    path_peri.polyline.append(Point{ 0,0 });
-    path_peri.polyline.append(Point{ scale_(1),scale_(0) });
+    path_peri.polyline().append(Point{ 0,0 });
+    path_peri.polyline().append(Point{ scale_(1),scale_(0) });
     ExtrusionPath path_fill1(ExtrusionRole::erInternalInfill);
-    path_fill1.polyline.append(Point{ scale_(1),scale_(0) });
-    path_fill1.polyline.append(Point{ scale_(2),scale_(0) });
+    path_fill1.polyline().append(Point{ scale_(1),scale_(0) });
+    path_fill1.polyline().append(Point{ scale_(2),scale_(0) });
     ExtrusionPath path_fill2(ExtrusionRole::erInternalInfill);
-    path_fill2.polyline.append(Point{ scale_(2),scale_(0) });
-    path_fill2.polyline.append(Point{ scale_(3),scale_(0) });
+    path_fill2.polyline().append(Point{ scale_(2),scale_(0) });
+    path_fill2.polyline().append(Point{ scale_(3),scale_(0) });
     ExtrusionEntityCollection coll_fill;
     coll_fill.append(path_fill2);
     coll_fill.append(path_fill1);

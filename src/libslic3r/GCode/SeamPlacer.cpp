@@ -484,9 +484,9 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                 //path.polygons_covered_by_width(*polygons, SCALED_EPSILON);
                 assert(m_corresponding_regions_out.size() == polylines->size());
                 //if path, start at one end. so only two points allowed.
-                polylines->emplace_back(path.polyline.to_polyline().points, true, true, PolylineWithEnd::PolyDir::BOTH);
-                assert(path.polyline.front() != path.polyline.back());
-                assert(path.polyline.size() > 1);
+                polylines->emplace_back(path.polyline().to_polyline().points, true, true, PolylineWithEnd::PolyDir::BOTH);
+                assert(path.polyline().front() != path.polyline().back());
+                assert(path.polyline().size() > 1);
                 //while (m_corresponding_regions_out->size() < polylines->size()) {
                     m_corresponding_regions_out.push_back(current_layer_region);
                 //}
@@ -519,7 +519,7 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                                                        is_ccw ? PolylineWithEnd::PolyDir::CCW :
                                                                 PolylineWithEnd::PolyDir::CW);
                                 } else if (!polys.back().empty() &&
-                                           polys.back().points.back() == path.polyline.front()) {
+                                           polys.back().points.back() == path.polyline().front()) {
                                     polys.back().points.pop_back();
                                 }
                                 path.collect_points(polys.back().points);
@@ -557,12 +557,12 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                 for (size_t idx = 0; idx < collection.size(); idx++) {
                     const ExtrusionPath &path = collection.paths[idx];
                     assert(m_corresponding_regions_out.size() == polylines->size());
-                    polylines->emplace_back(path.polyline.to_polyline().points,
+                    polylines->emplace_back(path.polyline().to_polyline().points,
                                             idx == 0 ? true : false,
                                             idx + 1 < collection.size() ? false : true,
                                             PolylineWithEnd::PolyDir::BOTH); // TODO: more points for arcs
-                    assert(path.polyline.front() != path.polyline.back());
-                    assert(path.polyline.size() > 1);
+                    assert(path.polyline().front() != path.polyline().back());
+                    assert(path.polyline().size() > 1);
                     m_corresponding_regions_out.push_back(current_layer_region);
                 }
             }
@@ -2022,11 +2022,11 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
     //FIXME?: not working on arcs
     auto get_next_loop_point = [&loop](ExtrusionLoop::ClosestPathPoint current) {
         current.segment_idx += 1;
-        if (current.segment_idx >= loop.paths[current.path_idx].polyline.size()) {
+        if (current.segment_idx >= loop.paths[current.path_idx].polyline().size()) {
             current.path_idx = next_idx_modulo(current.path_idx, loop.paths.size());
             current.segment_idx = 0;
         }
-        current.foot_pt = loop.paths[current.path_idx].polyline.get_point(current.segment_idx);
+        current.foot_pt = loop.paths[current.path_idx].polyline().get_point(current.segment_idx);
         return current;
     };
 
@@ -2039,9 +2039,9 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
     size_t closest_perimeter_point_index = 0;
     { // local space for the closest_perimeter_point_index
         Perimeter *closest_perimeter = nullptr;
-        ExtrusionLoop::ClosestPathPoint closest_point{0,0,loop.paths[0].polyline.front()};
+        ExtrusionLoop::ClosestPathPoint closest_point{0,0,loop.paths[0].polyline().front()};
         size_t points_count = std::accumulate(loop.paths.begin(), loop.paths.end(), 0, [](size_t acc,const ExtrusionPath& p) {
-           return acc + p.polyline.size();
+           return acc + p.polyline().size();
         });
         for (size_t i = 0; i < points_count; ++i) {
             Vec2f unscaled_p = unscale_p(closest_point.foot_pt).cast<float>();
@@ -2148,7 +2148,7 @@ Point SeamPlacer::place_seam(const Layer *layer, const ExtrusionLoop &loop, cons
                 stri << layer->id() << "_split_seam_" << isaqsdsdfsdfqzfn++ << ".svg";
                 SVG svg(stri.str());
                 for(auto& path : loop.paths)
-                    svg.draw(path.polyline, "blue");
+                    svg.draw(path.polyline(), "blue");
                 svg.draw(seam_point, "red");
                 svg.Close();
             }*/

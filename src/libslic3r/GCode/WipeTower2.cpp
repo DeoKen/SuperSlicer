@@ -1103,7 +1103,7 @@ bool WipeTowerLayer::toolchange_Unload(ExtrusionEntityCollection &collection,
         ExtrusionPath ramming_path(ExtrusionAttributes(ExtrusionRole(ExtrusionRole::WipeTowerRamming), ramming_flow),
                                    nullptr);
         // the ramming distance should be exactly cleaning_lines length
-        ramming_path.polyline = ramming_lines;
+        ramming_path.polyline() = ramming_lines;
         unload_collection.append(std::move(ramming_path));
         lines_for_wipe = reverse_polyline(ramming_lines);
         has_moved_into_wipetower = true;

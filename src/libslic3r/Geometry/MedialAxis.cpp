@@ -2724,7 +2724,7 @@ unsafe_variable_width(const ThickPolyline& polyline, const ExtrusionRole role, c
             wanted_width = wanted_width * 0.35 + 1.3 * Flow::rounded_rectangle_extrusion_width_from_spacing(0.f, flow.height(), 1.f);
         }
 
-        if (path.polyline.empty()) {
+        if (path.polyline().empty()) {
             if (wanted_width != current_flow.width()) {
                 if (current_flow.bridge()) {
                     current_flow = Flow::bridging_flow(current_flow.height(), (float) wanted_width);
@@ -2736,17 +2736,17 @@ unsafe_variable_width(const ThickPolyline& polyline, const ExtrusionRole role, c
             assert(!std::isnan(current_flow.width()));
             assert(!std::isnan(current_flow.height()));
             path = ExtrusionPath( ExtrusionAttributes{ role, current_flow }, nullptr, false );
-            path.polyline.append(line.a);
-            path.polyline.append(line.b);
-            assert(path.polyline.is_valid());
+            path.polyline().append(line.a);
+            path.polyline().append(line.b);
+            assert(path.polyline().is_valid());
         } else {
-            assert(path.polyline.is_valid());
+            assert(path.polyline().is_valid());
             coord_t thickness_delta = scale_i(fabs(current_flow.width() - wanted_width));
             if (thickness_delta <= tolerance / 2) {
                 // the width difference between this line and the current flow width is 
                 // within the accepted tolerance
-                path.polyline.append(line.b);
-                assert(path.polyline.is_valid());
+                path.polyline().append(line.b);
+                assert(path.polyline().is_valid());
             } else {
                 // we need to initialize a new line
                 paths.push_back(path);
@@ -2761,16 +2761,16 @@ unsafe_variable_width(const ThickPolyline& polyline, const ExtrusionRole role, c
                 assert(!std::isnan(current_flow.width()));
                 assert(!std::isnan(current_flow.height()));
                 path = ExtrusionPath( ExtrusionAttributes{ role, current_flow }, nullptr, false );
-                path.polyline.append(line.a);
-                path.polyline.append(line.b);
-                assert(path.polyline.is_valid());
+                path.polyline().append(line.a);
+                path.polyline().append(line.b);
+                assert(path.polyline().is_valid());
             }
         }
-        assert(path.polyline.size() > 2 || path.first_point() != path.last_point());
+        assert(path.polyline().size() > 2 || path.first_point() != path.last_point());
     }
-    if (path.polyline.is_valid()) {
+    if (path.polyline().is_valid()) {
         for (size_t idx = 1; idx < path.size(); ++idx)
-            assert(!path.polyline.get_point(idx - 1).coincides_with_epsilon(path.polyline.get_point(idx)));
+            assert(!path.polyline().get_point(idx - 1).coincides_with_epsilon(path.polyline().get_point(idx)));
         paths.push_back(path);
     }
 
@@ -2800,12 +2800,12 @@ ExtrusionEntitiesPtr
         if (!multi_paths.empty()) {
 #if _DEBUG
             for (auto it = std::next(multi_paths.paths.begin()); it != multi_paths.paths.end(); ++it) {
-                assert(it->polyline.size() >= 2);
-                assert(std::prev(it)->polyline.back() == it->polyline.front());
+                assert(it->polyline().size() >= 2);
+                assert(std::prev(it)->polyline().back() == it->polyline().front());
             }
             for (auto it = multi_paths.paths.begin(); it != multi_paths.paths.end(); ++it) 
                 for (size_t idx_pt = 1; idx_pt < it->size(); ++idx_pt)
-                    assert(!it->polyline.get_point(idx_pt - 1).coincides_with_epsilon(it->polyline.get_point(idx_pt)));
+                    assert(!it->polyline().get_point(idx_pt - 1).coincides_with_epsilon(it->polyline().get_point(idx_pt)));
 #endif
             if (multi_paths.paths.front().first_point().coincides_with_epsilon(multi_paths.paths.back().last_point())) {
                 // check if real loop or fluke
@@ -2821,7 +2821,7 @@ ExtrusionEntitiesPtr
                     assert(multi_paths.paths.size() <= 2);
                     assert(multi_paths.paths.front().size() > 1);
                     if (multi_paths.paths.front().size() > 2) {
-                        multi_paths.paths.front().polyline.pop_back();
+                        multi_paths.paths.front().polyline().pop_back();
                     }
                     coll.push_back(multi_paths.paths.front().clone_move());
                 }

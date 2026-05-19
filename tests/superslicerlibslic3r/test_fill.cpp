@@ -645,7 +645,7 @@ TEST_CASE("Fill: extrude gcode and check it")
             Slic3r::Polyline->new([0,10], [0,8], [0,5]),
             );
     is_deeply
-        [ map $_->[Y], map @{$_->polyline}, @{$collection->chained_path_from(Slic3r::Point->new(0,30), 0)} ],
+        [ map $_->[Y], map @{$_->polyline()}, @{$collection->chained_path_from(Slic3r::Point->new(0,30), 0)} ],
         [20, 18, 15, 10, 8, 5],
         'chained path';
 }
@@ -657,7 +657,7 @@ TEST_CASE("Fill: extrude gcode and check it")
             Slic3r::Polyline->new([10,5], [15,5], [20,5]),
             );
     is_deeply
-        [ map $_->[X], map @{$_->polyline}, @{$collection->chained_path_from(Slic3r::Point->new(30,0), 0)} ],
+        [ map $_->[X], map @{$_->polyline()}, @{$collection->chained_path_from(Slic3r::Point->new(30,0), 0)} ],
         [reverse 4, 10, 15, 10, 15, 20],
         'chained path';
 }

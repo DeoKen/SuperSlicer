@@ -38,9 +38,9 @@ struct NormalizeVisitor : public ExtrusionVisitor {
     //TODO path3D normalize
     virtual void default_use(ExtrusionEntity& entity) override { need_remove = false; };
     virtual void use(ExtrusionPath &path) override {
-        need_remove = !path.polyline.normalize();
+        need_remove = !path.polyline().normalize();
 #ifdef _DEBUG
-        ArcPolyline &poly = path.polyline;
+        ArcPolyline &poly = path.polyline();
         for (size_t i = 1; i < poly.size(); i++)
             assert(!poly.get_point(i - 1).coincides_with_epsilon(poly.get_point(i)));
 #endif
@@ -54,15 +54,15 @@ struct NormalizeVisitor : public ExtrusionVisitor {
 #endif
         for (size_t idx_p = 0; idx_p < loop.paths.size(); idx_p++) {
             ExtrusionPath &path = loop.paths[idx_p];
-            if (!path.polyline.normalize()) {
+            if (!path.polyline().normalize()) {
                 // ensure continuity
                 if (idx_p + 1 < loop.paths.size()) {
-                    loop.paths[idx_p + 1].polyline.append_before(path.first_point());
+                    loop.paths[idx_p + 1].polyline().append_before(path.first_point());
                 } else if (idx_p > 0) {
                     if (loop.paths[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
-                        loop.paths[idx_p - 1].polyline.set_back(path.last_point());
+                        loop.paths[idx_p - 1].polyline().set_back(path.last_point());
                     } else {
-                        loop.paths[idx_p - 1].polyline.append(path.last_point());
+                        loop.paths[idx_p - 1].polyline().append(path.last_point());
                     }
                 }
                 // remove
@@ -86,15 +86,15 @@ struct NormalizeVisitor : public ExtrusionVisitor {
 #endif
         for (size_t idx_p = 0; idx_p < multipath.paths.size(); idx_p++) {
             ExtrusionPath &path = multipath.paths[idx_p];
-            if (!path.polyline.normalize()) {
+            if (!path.polyline().normalize()) {
                 // ensure continuity
                 if (idx_p + 1 < multipath.paths.size()) {
-                    multipath.paths[idx_p + 1].polyline.append_before(path.first_point());
+                    multipath.paths[idx_p + 1].polyline().append_before(path.first_point());
                 } else if (idx_p > 0) {
                     if (multipath.paths[idx_p - 1].last_point().coincides_with_epsilon(path.last_point())) {
-                        multipath.paths[idx_p - 1].polyline.set_back(path.last_point());
+                        multipath.paths[idx_p - 1].polyline().set_back(path.last_point());
                     } else {
-                        multipath.paths[idx_p - 1].polyline.append(path.last_point());
+                        multipath.paths[idx_p - 1].polyline().append(path.last_point());
                     }
                 }
                 // remove

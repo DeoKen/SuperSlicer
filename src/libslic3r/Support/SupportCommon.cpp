@@ -1359,7 +1359,7 @@ static void modulate_extrusion_by_overlapping_layers(
     for (ExtrusionEntitiesPtr::const_iterator it = extrusions_in_out.set_entities().begin(); it != extrusions_in_out.set_entities().end(); ++ it) {
         ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(*it);
         assert(path != nullptr);
-        bbox.merge(get_extents(path->polyline.as_polyline()));
+        bbox.merge(get_extents(path->polyline().as_polyline()));
     }
     SVG svg(debug_out_path("support-fragments-%d-%lf.svg", iRun, this_layer.unscaled_print_z()).c_str(), bbox);
     const float transparency = 0.5f;
@@ -1390,7 +1390,7 @@ static void modulate_extrusion_by_overlapping_layers(
             case 7: color_name = "brown"; break;
             default: color_name = "orchid"; break;
         }
-        svg.draw(path->polyline.as_polyline(), color_name, scale_(0.2));
+        svg.draw(path->polyline().as_polyline(), color_name, scale_(0.2));
     }
 #endif /* SLIC3R_DEBUG */
 
@@ -1534,14 +1534,14 @@ static void modulate_extrusion_by_overlapping_layers(
             assert(frag_polyline.front().coincides_with_epsilon(pt_current));
             frag_polyline.points.front() = pt_current;
             // Don't repeat the first point.
-            if (! path->polyline.empty())
-                path->polyline.pop_back();
+            if (! path->polyline().empty())
+                path->polyline().pop_back();
             // Consume the fragment's polyline, remove it from the input fragments, so it will be ignored the next time.
             frag_polyline.assert_valid();
-            path->polyline.append(std::move(frag_polyline));
-            assert(path->polyline.is_valid());
+            path->polyline().append(std::move(frag_polyline));
+            assert(path->polyline().is_valid());
             frag_polyline.points.clear();
-            pt_current = path->polyline.back();
+            pt_current = path->polyline().back();
             if (pt_current == pt_end) {
                 // End of the path.
                 break;

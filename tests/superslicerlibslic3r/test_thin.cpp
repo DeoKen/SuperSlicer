@@ -16,7 +16,7 @@ class ExtrusionVolumeVisitor : public ExtrusionVisitorConst {
     double volume = 0;
 public:
     virtual void use(const ExtrusionPath &path) override { 
-        for (int i = 0; i < path.polyline.size() - 1; i++) volume += unscaled(path.polyline.get_point(i).distance_to(path.polyline.get_point(i + 1))) * path.mm3_per_mm();
+        for (int i = 0; i < path.polyline().size() - 1; i++) volume += unscaled(path.polyline().get_point(i).distance_to(path.polyline().get_point(i + 1))) * path.mm3_per_mm();
     };
     virtual void use(const ExtrusionMultiPath &multipath) override {
         for (const ExtrusionPath &path : multipath.paths) use(path);

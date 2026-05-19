@@ -151,7 +151,7 @@ void SmoothPathCache::interpolate_add(const ExtrusionPath &path, const Interpola
         // Brim is currently marked as skirt.
         // Use 4x lower resolution than the object fine detail for skirt & brim.
         tolerance *= 4.;
-    m_cache[&path.polyline] = Slic3r::Geometry::ArcWelder::fit_path(path.polyline.points, tolerance, params.fit_circle_tolerance);
+    m_cache[&path.polyline()] = Slic3r::Geometry::ArcWelder::fit_path(path.polyline().points, tolerance, params.fit_circle_tolerance);
 }
 
 void SmoothPathCache::interpolate_add(const ExtrusionMultiPath &multi_path, const InterpolationParameters &params)
@@ -190,7 +190,7 @@ const Geometry::ArcWelder::Path* SmoothPathCache::resolve(const Polyline *pl) co
 
 const Geometry::ArcWelder::Path* SmoothPathCache::resolve(const ExtrusionPath &path) const
 {
-    return this->resolve(&path.polyline);
+    return this->resolve(&path.polyline());
 }
 
 Geometry::ArcWelder::Path SmoothPathCache::resolve_or_fit(const ExtrusionPath &path, bool reverse, double tolerance) const
@@ -199,7 +199,7 @@ Geometry::ArcWelder::Path SmoothPathCache::resolve_or_fit(const ExtrusionPath &p
     if (const Geometry::ArcWelder::Path *cached = this->resolve(path); cached)
         out = *cached;
     else
-        out = Geometry::ArcWelder::fit_polyline(path.polyline.points, tolerance);
+        out = Geometry::ArcWelder::fit_polyline(path.polyline().points, tolerance);
     if (reverse)
         Geometry::ArcWelder::reverse(out);
     return out;

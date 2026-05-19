@@ -3495,8 +3495,8 @@ FillRectilinearSawtooth::fill_surface_extrusion(const Surface *surface, const Fi
             if (current_extrusion->size() < 2) extrusions->paths.pop_back();
 #ifdef _DEBUG
             for (ExtrusionPath &b : extrusions->paths) {
-                assert(b.polyline.has_z_offset());
-                assert(b.polyline.is_valid());
+                assert(b.polyline().has_z_offset());
+                assert(b.polyline().is_valid());
             }
 #endif
             if (!extrusions->paths.empty()) eec->append(ExtrusionEntitiesPtr{ extrusions });

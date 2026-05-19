@@ -23,7 +23,7 @@ static Slic3r::ExtrusionPath random_path(size_t length = 20, float LO = -50, flo
 {
     ExtrusionPath t{ ExtrusionAttributes{ ExtrusionRole::Perimeter, ExtrusionFlow{ 1.0, 1.0, 1.0 } } };
     for (size_t j = 0; j < length; ++ j)
-        t.polyline.append(random_point(LO, HI));
+        t.polyline().append(random_point(LO, HI));
     return t;
 }
 
@@ -40,7 +40,7 @@ SCENARIO("ExtrusionPath", "[ExtrusionEntity]") {
         Slic3r::ExtrusionPath path{ { { 100, 100 }, { 200, 100 }, { 200, 200 } },
             ExtrusionAttributes{ ExtrusionRole::ExternalPerimeter, ExtrusionFlow{ 1., -1.f, -1.f } } };
         THEN("first point") {
-            REQUIRE(path.first_point() == path.polyline.front());
+            REQUIRE(path.first_point() == path.polyline().front());
         }
         THEN("cloned") {
             auto cloned = std::unique_ptr<ExtrusionEntity>(path.clone());
@@ -91,11 +91,11 @@ SCENARIO("ExtrusionLoop", "[ExtrusionEntity]")
                 REQUIRE(loop2->paths.front().size() == 5);
             }
             THEN("expected point order") {
-                REQUIRE(loop2->paths.front().polyline[0] == square.points[2]);
-                REQUIRE(loop2->paths.front().polyline[1] == square.points[3]);
-                REQUIRE(loop2->paths.front().polyline[2] == square.points[0]);
-                REQUIRE(loop2->paths.front().polyline[3] == square.points[1]);
-                REQUIRE(loop2->paths.front().polyline[4] == square.points[2]);
+                REQUIRE(loop2->paths.front().polyline()[0] == square.points[2]);
+                REQUIRE(loop2->paths.front().polyline()[1] == square.points[3]);
+                REQUIRE(loop2->paths.front().polyline()[2] == square.points[0]);
+                REQUIRE(loop2->paths.front().polyline()[3] == square.points[1]);
+                REQUIRE(loop2->paths.front().polyline()[4] == square.points[2]);
             }
         }
     }
@@ -125,14 +125,14 @@ SCENARIO("ExtrusionLoop", "[ExtrusionEntity]")
                 REQUIRE(loop2->paths.size() == 3);
             }
             THEN("expected starting point") {
-                REQUIRE(loop2->paths.front().polyline.front() == polyline1.points[1]);
+                REQUIRE(loop2->paths.front().polyline().front() == polyline1.points[1]);
             }
             THEN("expected ending point") {
-                REQUIRE(loop2->paths.back().polyline.back() == polyline1.points[1]);
+                REQUIRE(loop2->paths.back().polyline().back() == polyline1.points[1]);
             }
             THEN("paths have common point") {
-                REQUIRE(loop2->paths.front().polyline.back() == loop2->paths[1].polyline.front());
-                REQUIRE(loop2->paths[1].polyline.back() == loop2->paths[2].polyline.front());
+                REQUIRE(loop2->paths.front().polyline().back() == loop2->paths[1].polyline().front());
+                REQUIRE(loop2->paths[1].polyline().back() == loop2->paths[2].polyline().front());
             }
             THEN("expected order after splitting") {
                 REQUIRE(loop2->paths.front().role() == ExtrusionRole::ExternalPerimeter);
@@ -140,9 +140,9 @@ SCENARIO("ExtrusionLoop", "[ExtrusionEntity]")
                 REQUIRE(loop2->paths[2].role() == ExtrusionRole::ExternalPerimeter);
             }
             THEN("path has correct number of points") {
-                REQUIRE(loop2->paths.front().polyline.size() == 2);
-                REQUIRE(loop2->paths[1].polyline.size() == 3);
-                REQUIRE(loop2->paths[2].polyline.size() == 2);
+                REQUIRE(loop2->paths.front().polyline().size() == 2);
+                REQUIRE(loop2->paths[1].polyline().size() == 3);
+                REQUIRE(loop2->paths[2].polyline().size() == 2);
             }
             THEN("clipped path has expected length") {
                 double l = loop2->length();
@@ -165,22 +165,22 @@ SCENARIO("ExtrusionLoop", "[ExtrusionEntity]")
                 REQUIRE(loop2->paths.size() == 2);
             }
             THEN("expected starting point") {
-                REQUIRE(loop2->paths.front().polyline.front() == polyline2.points.front());
+                REQUIRE(loop2->paths.front().polyline().front() == polyline2.points.front());
             }
             THEN("expected ending point") {
-                REQUIRE(loop2->paths.back().polyline.back() == polyline2.points.front());
+                REQUIRE(loop2->paths.back().polyline().back() == polyline2.points.front());
             }
             THEN("paths have common point") {
-                REQUIRE(loop2->paths.front().polyline.back() == loop2->paths[1].polyline.front());
-                REQUIRE(loop2->paths[1].polyline.back() == loop2->paths.front().polyline.front());
+                REQUIRE(loop2->paths.front().polyline().back() == loop2->paths[1].polyline().front());
+                REQUIRE(loop2->paths[1].polyline().back() == loop2->paths.front().polyline().front());
             }
             THEN("expected order after splitting") {
                 REQUIRE(loop2->paths.front().role() == ExtrusionRole::OverhangPerimeter);
                 REQUIRE(loop2->paths[1].role() == ExtrusionRole::ExternalPerimeter);
             }
             THEN("path has correct number of points") {
-                REQUIRE(loop2->paths.front().polyline.size() == 3);
-                REQUIRE(loop2->paths[1].polyline.size() == 3);
+                REQUIRE(loop2->paths.front().polyline().size() == 3);
+                REQUIRE(loop2->paths[1].polyline().size() == 3);
             }
         }
         
@@ -193,10 +193,10 @@ SCENARIO("ExtrusionLoop", "[ExtrusionEntity]")
             }
             Point expected_start_point(200, 150);
             THEN("expected starting point") {
-                REQUIRE(loop2->paths.front().polyline.front() == expected_start_point);
+                REQUIRE(loop2->paths.front().polyline().front() == expected_start_point);
             }
             THEN("expected ending point") {
-                REQUIRE(loop2->paths.back().polyline.back() == expected_start_point);
+                REQUIRE(loop2->paths.back().polyline().back() == expected_start_point);
             }
         }
     }
@@ -390,7 +390,7 @@ TEST_CASE("ExtrusionEntityCollection: Chained path", "[ExtrusionEntity]") {
             REQUIRE(chained_extrusions.size() == test.chained.size());
             for (size_t i = 0; i < chained_extrusions.size(); ++ i) {
                 const Points &p1 = test.chained[i].points;
-                Points        p2 = chained_extrusions[i].cast<ExtrusionPath>()->polyline.points;
+                Points        p2 = chained_extrusions[i].cast<ExtrusionPath>()->polyline().points;
                 if (chained_extrusions[i].flipped())
                     std::reverse(p2.begin(), p2.end());
                 REQUIRE(p1 == p2);
@@ -402,7 +402,7 @@ TEST_CASE("ExtrusionEntityCollection: Chained path", "[ExtrusionEntity]") {
             REQUIRE(chained_extrusions.size() == test.unchained.size());
             for (size_t i = 0; i < chained_extrusions.size(); ++ i) {
                 const Points &p1 = test.unchained[i].points;
-                Points        p2 = chained_extrusions[i].cast<ExtrusionPath>()->polyline.points;
+                Points        p2 = chained_extrusions[i].cast<ExtrusionPath>()->polyline().points;
                 if (chained_extrusions[i].flipped())
                     std::reverse(p2.begin(), p2.end());
                 REQUIRE(p1 == p2);
