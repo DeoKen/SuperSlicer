@@ -1423,8 +1423,8 @@ void ArcPolyline::split_at(distf_t distance, ArcPolyline &p1, ArcPolyline &p2) c
             assert(is_approx(Geometry::ArcWelder::segment_length<coordf_t>(p2.m_path[i-1], p2.m_path[i]), p2.m_path[i].length, EPSILON));
     }
 #endif
-    assert(p1.is_valid());
-    assert(p2.is_valid());
+    assert(p1.size() == 1 || p1.is_valid());
+    assert(p2.size() == 1 || p2.is_valid());
     assert(is_approx(this->length(), p1.length() + p2.length(), coordf_t(SCALED_EPSILON)));
     assert(!m_z_offset || p1.m_z_offset->back() == p2.m_z_offset->front());
 }
@@ -1437,6 +1437,9 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
     if (this->size() < 2 || this->m_path.back().point.coincides_with_epsilon(point)) {
         p1 = *this;
         p2.clear();
+        p2.append(point);
+        if (m_z_offset)
+            p2.z_offsets_raw_mutable().push_back(m_z_offset->back());
         return;
     }
     assert(this->is_valid());
@@ -1597,8 +1600,8 @@ void ArcPolyline::split_at(Point &point, ArcPolyline &p1, ArcPolyline &p2) const
         }
     }
 
-    assert(p1.is_valid());
-    assert(p2.is_valid());
+    assert(p1.size() == 1 || p1.is_valid());
+    assert(p2.size() == 1 || p2.is_valid());
     assert(p1.front() == this->front());
     assert(p2.back() == this->back());
     assert(!m_z_offset || p1.m_z_offset->back() == p2.m_z_offset->front());
@@ -1643,8 +1646,8 @@ bool ArcPolyline::split_at_index(const size_t index, ArcPolyline &p1, ArcPolylin
             p2_z_offsets.insert(p2_z_offsets.begin(), m_z_offset->begin() + index, m_z_offset->end());
         }
     }
-    assert(p1.is_valid());
-    assert(p2.is_valid());
+    assert(p1.size() == 1 || p1.is_valid());
+    assert(p2.size() == 1 || p2.is_valid());
     assert(p1.front() == this->front());
     assert(p2.back() == this->back());
     assert(!m_z_offset || p1.m_z_offset->back() == p2.m_z_offset->front());
