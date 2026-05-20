@@ -3454,6 +3454,11 @@ CLIMiscConfigDef::CLIMiscConfigDef()
     def->tooltip = L("Sets the maximum number of threads the slicing process will use. If not defined, it will be decided automatically.");
     def->min = 1;
 
+    def = this->add("random_seed", coInt);
+    def->label = L("Random seed");
+    def->tooltip = L("Sets the random seed used by command line slicing. This is useful for deterministic regression tests.");
+    def->min = 0;
+
     def = this->add("loglevel", coInt);
     def->label = L("Logging level");
     def->tooltip = L("Sets logging sensitivity. 0:fatal, 1:error, 2:warning, 3:info, 4:debug, 5:trace\n"

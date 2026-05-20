@@ -881,6 +881,14 @@ bool CLI::setup(int argc, char **argv)
             thread_count = opt_threads->value;
     }
 
+    {
+        const ConfigOptionInt *opt_random_seed = m_config.opt<ConfigOptionInt>("random_seed");
+        if (opt_random_seed != nullptr && opt_random_seed->value >= 0) {
+            set_random_seed(static_cast<uint32_t>(opt_random_seed->value));
+            std::srand(static_cast<unsigned int>(opt_random_seed->value));
+        }
+    }
+
     //FIXME Validating at this stage most likely does not make sense, as the config is not fully initialized yet.
     std::string validity = m_config.validate();
 

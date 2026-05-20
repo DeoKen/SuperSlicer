@@ -8,6 +8,7 @@
 #define GUI_THREAD_HPP
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <functional>
 #include <optional>
@@ -95,6 +96,7 @@ using tbb::parallel_for;
 class ThreadData {
 public:
     std::mt19937&   random_generator();
+    void            seed_random_generator(uint32_t seed);
 
     void            tbb_worker_thread_set_c_locales();
 
@@ -105,6 +107,10 @@ private:
 };
 
 ThreadData& thread_data();
+
+// Sets the seed used by safe_rand(). Call this before worker threads start if deterministic
+// command line slicing is required. The current thread generator is reset immediately.
+void set_random_seed(uint32_t seed);
 
 // Thread-safe function that returns a random number between 0 and max (inclusive, like rand() with RAND_MAX).
 int safe_rand(int max = RAND_MAX);

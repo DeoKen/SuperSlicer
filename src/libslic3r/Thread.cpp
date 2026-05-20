@@ -268,6 +268,8 @@ void not_parallel_for(size_t begin, size_t size, std::function<void(size_t)> pro
 #endif
 
 static thread_local ThreadData s_thread_data;
+static std::optional<uint32_t> s_random_seed;
+
 ThreadData& thread_data()
 {
 	return s_thread_data;
@@ -275,11 +277,27 @@ ThreadData& thread_data()
 
 std::mt19937&   ThreadData::random_generator() {
     if (! m_random_generator_initialized) {
-        std::random_device rd;
-        m_random_generator.seed(rd()); //can also be initialized by clock() + std::this_thread::get_id().hash()
+        if (s_random_seed) {
+            m_random_generator.seed(*s_random_seed);
+        } else {
+            std::random_device rd;
+            m_random_generator.seed(rd()); //can also be initialized by clock() + std::this_thread::get_id().hash()
+        }
         m_random_generator_initialized = true;
     }
     return m_random_generator;
+}
+
+void ThreadData::seed_random_generator(uint32_t seed)
+{
+    m_random_generator.seed(seed);
+    m_random_generator_initialized = true;
+}
+
+void set_random_seed(uint32_t seed)
+{
+    s_random_seed = seed;
+    thread_data().seed_random_generator(seed);
 }
 
 // Thread-safe function that returns a random number between 0 and max (inclusive, like rand()).
