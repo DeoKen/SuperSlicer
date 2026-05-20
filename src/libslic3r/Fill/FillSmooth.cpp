@@ -174,7 +174,7 @@ namespace Slic3r {
         
         if (!eecroot->entities().empty()) {
 #ifdef _DEBUGINFO
-            eecroot->visit(LoopAssertVisitor());
+            LoopAssertVisitor().traverse(*eecroot);
 #endif
             out.push_back(eecroot);
         } else {

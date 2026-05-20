@@ -574,7 +574,7 @@ static inline void fill_expolygon_generate_paths(
     double                   spacing)
 {
 #ifdef _DEBUGINFO
-    for(auto entity : dst) entity->visit(LoopAssertVisitor());
+    for(auto entity : dst) LoopAssertVisitor().traverse(*entity);
     expolygon.assert_valid();
 #endif
     assert(!fill_params.use_arachne);
@@ -589,7 +589,7 @@ static inline void fill_expolygon_generate_paths(
         filler->fill_surface_extrusion(&surface, new_params, dst);
     }
 #ifdef _DEBUGINFO
-    for(auto entity : dst) entity->visit(LoopAssertVisitor());
+    for(auto entity : dst) LoopAssertVisitor().traverse(*entity);
 #endif
 }
 
@@ -653,7 +653,7 @@ static inline void tree_supports_generate_paths(
     const SupportParameters   &support_params)
 {
 #ifdef _DEBUGINFO
-    for (const auto extr : dst.entities()) extr->visit(LoopAssertVisitor());
+    for (const auto extr : dst.entities()) LoopAssertVisitor().traverse(*extr);
     assert_valid(polygons);
 #endif
     // Offset expolygon inside, returns number of expolygons collected (0 or 1).
@@ -876,25 +876,25 @@ static inline void tree_supports_generate_paths(
 
         ExtrusionEntityCollection &out = eec ? *eec : dst;
 #ifdef _DEBUGINFO
-        out.visit(LoopAssertVisitor());
+        LoopAssertVisitor().traverse(out);
         assert_valid(polylines);
 #endif
         extrusion_entities_append_paths(out, std::move(polylines), { ExtrusionRole::SupportMaterial, flow },
             // Disable reversal of the path, always start with the anchor, always print CCW.
             false);
 #ifdef _DEBUGINFO
-        out.visit(LoopAssertVisitor());
+        LoopAssertVisitor().traverse(out);
 #endif
         if (eec) {
             std::reverse(eec->set_entities().begin(), eec->set_entities().end());
 #ifdef _DEBUGINFO
-            eec->visit(LoopAssertVisitor());
+            LoopAssertVisitor().traverse(*eec);
 #endif
             dst.append(ExtrusionEntitiesPtr{eec.release()});
         }
     }
 #ifdef _DEBUGINFO
-    for (const auto extr : dst.entities()) extr->visit(LoopAssertVisitor());
+    for (const auto extr : dst.entities()) LoopAssertVisitor().traverse(*extr);
 #endif
 }
 // now use FillWithPerimeter
@@ -997,7 +997,7 @@ struct SupportGeneratorLayerExtruded
         // 2) Merge the extrusions.
         this->extrusions.append_move_from(other.extrusions);
 #ifdef _DEBUGINFO
-        this->extrusions.visit(LoopAssertVisitor());
+        LoopAssertVisitor().traverse(this->extrusions);
 #endif
         // 3) Merge the infill polygons.
         Slic3r::polygons_append(this->layer->polygons, std::move(other.layer->polygons));
@@ -1258,7 +1258,7 @@ void LoopInterfaceProcessor::generate(SupportGeneratorLayerExtruded &top_contact
         std::move(loop_lines),
         { ExtrusionRole::SupportMaterialInterface, flow });
 #ifdef _DEBUGINFO
-        top_contact_layer.extrusions.visit(LoopAssertVisitor());
+        LoopAssertVisitor().traverse(top_contact_layer.extrusions);
 #endif
 }
 
@@ -2047,8 +2047,8 @@ void generate_support_toolpaths(
                 if (top_contact_layer.could_merge(interface_layer) && !raft_layer) {
                     if(interface_layer.layer)       assert_valid(interface_layer.polygons_to_extrude());
 #ifdef _DEBUGINFO
-                    top_contact_layer.extrusions.visit(LoopAssertVisitor());
-                    interface_layer.extrusions.visit(LoopAssertVisitor());
+                    LoopAssertVisitor().traverse(top_contact_layer.extrusions);
+                    LoopAssertVisitor().traverse(interface_layer.extrusions);
                     if(top_contact_layer.layer)     assert_valid(top_contact_layer.polygons_to_extrude());
                     if(interface_layer.layer)     assert_valid(interface_layer.polygons_to_extrude());
 #endif
@@ -2092,7 +2092,7 @@ void generate_support_toolpaths(
             enum class InterfaceLayerType { TopContact, BottomContact, RaftContact, Interface, InterfaceAsBase };
             auto extrude_interface = [&](SupportGeneratorLayerExtruded &layer_ex, InterfaceLayerType interface_layer_type) {
 #ifdef _DEBUGINFO
-                for (const auto extr : layer_ex.extrusions.entities()) extr->visit(LoopAssertVisitor());
+                for (const auto extr : layer_ex.extrusions.entities()) LoopAssertVisitor().traverse(*extr);
 #endif
                 if (! layer_ex.empty() && ! layer_ex.polygons_to_extrude().empty()) {
                     assert_valid(layer_ex.polygons_to_extrude());
@@ -2242,7 +2242,7 @@ void generate_support_toolpaths(
                         // Extrusion parameters
                         ExtrusionRole::SupportMaterial, flow, filler_spacing, support_params.default_region_config);
 #ifdef _DEBUGINFO
-                    for(auto entity : base_layer.extrusions) entity->visit(LoopAssertVisitor());
+                    for(auto entity : base_layer.extrusions) LoopAssertVisitor().traverse(*entity);
 #endif
                 }
             }
@@ -2326,7 +2326,7 @@ void generate_support_toolpaths(
                 if (layer_cache_item.layer_extruded->extrusions.empty())
                     continue;
 #ifdef _DEBUGINFO
-                for(auto entity : layer_cache_item.layer_extruded->extrusions) entity->visit(LoopAssertVisitor());
+                for(auto entity : layer_cache_item.layer_extruded->extrusions) LoopAssertVisitor().traverse(*entity);
 #endif
                 // Trim the extrusion height from the bottom by the overlapping layers.
                 modulate_extrusion_by_overlapping_layers(layer_cache_item.layer_extruded->extrusions, *layer_cache_item.layer_extruded->layer, layer_cache_item.overlapping);

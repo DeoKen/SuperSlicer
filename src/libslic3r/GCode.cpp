@@ -6377,7 +6377,7 @@ void GCodeGenerator::seam_notch(const ExtrusionLoop& original_loop,
 
 std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, const std::string_view description, double speed)
 {
-    DEBUG_VISIT(original_loop, LoopAssertVisitor())
+    DEBUG_TREE_VISIT(original_loop, LoopAssertVisitor())
 #ifdef _DEBUG
     for (auto it = std::next(original_loop.paths().begin()); it != original_loop.paths().end(); ++it) {
         assert(it->polyline().size() >= 2);
@@ -6456,7 +6456,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     // we discard it in that case
     ExtrusionPaths building_paths = loop_to_seam.paths();
     for (const ExtrusionPath &path : building_paths)
-        DEBUG_VISIT(path, LoopAssertVisitor())
+        DEBUG_TREE_VISIT(path, LoopAssertVisitor())
     //direction is now set, make the path unreversable
     for (ExtrusionPath& path : building_paths) {
         //assert(!path.can_reverse() || !is_perimeter(path.role())); //just ensure the perimeter have their direction enforced.

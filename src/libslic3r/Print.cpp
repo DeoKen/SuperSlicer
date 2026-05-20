@@ -1805,8 +1805,7 @@ void Print::process()
             for (const LayerSliceIsland &layer_island_ptr : l->islands())
                 for (const LayerRegionIsland &lri : layer_island_ptr.regions_islands())
                     if (lri.has_extrusion(LayerRegionIsland::PERIMETERS)) {
-                        LoopAssertVisitor lav;
-                        lri.extrusion(LayerRegionIsland::PERIMETERS).visit(lav);
+                        LoopAssertVisitor().traverse(lri.extrusion(LayerRegionIsland::PERIMETERS));
                     }
         }
     }
@@ -1915,7 +1914,7 @@ void Print::_make_skirt_brim() {
                     this->_make_skirt({ obj.get() }, obj->m_skirt, obj->m_skirt_first_layer);
                     obj->m_instances = copies;
                     DEBUG_VISIT(obj->m_skirt, CheckOrientation(true))
-                    DEBUG_VISIT(obj->m_skirt, LoopAssertVisitor())
+                    DEBUG_TREE_VISIT(obj->m_skirt, LoopAssertVisitor())
                 }
             } else {
                 PrintObjectPtrs objects;
@@ -1924,7 +1923,7 @@ void Print::_make_skirt_brim() {
                     objects.emplace_back(object.get());
                 this->_make_skirt(objects, m_skirt, m_skirt_first_layer);
                 DEBUG_VISIT(m_skirt, CheckOrientation(true))
-                DEBUG_VISIT(m_skirt, LoopAssertVisitor())
+                DEBUG_TREE_VISIT(m_skirt, LoopAssertVisitor())
             }
         }
 
@@ -2050,7 +2049,7 @@ void Print::_make_skirt_brim() {
                         make_brim_ears(*this, flow, obj_group, brim_area, m_brim);
                     else
                         make_brim(*this, flow, obj_group, brim_area, m_brim);
-                    DEBUG_VISIT(m_brim, LoopAssertVisitor())
+                    DEBUG_TREE_VISIT(m_brim, LoopAssertVisitor())
                     if (brim_config.brim_width_interior > 0)
                         make_brim_interior(*this, flow, obj_group, brim_area, m_brim);
                     // create patch brim per instance
@@ -2062,7 +2061,7 @@ void Print::_make_skirt_brim() {
                             obj->m_brim.append(std::move(entity_brim));
                         }
                     }
-                    DEBUG_VISIT(m_brim, LoopAssertVisitor())
+                    DEBUG_TREE_VISIT(m_brim, LoopAssertVisitor())
                 }
             }
         }

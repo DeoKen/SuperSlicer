@@ -814,7 +814,7 @@ ExtrusionPaths clip_end(ExtrusionPaths &paths, coordf_t distance)
         }
     }
     for(auto& path : paths)
-        DEBUG_VISIT(path, LoopAssertVisitor())
+        DEBUG_TREE_VISIT(path, LoopAssertVisitor())
     std::reverse(removed.begin(), removed.end());
     return removed;
 }
@@ -933,25 +933,24 @@ void ExtrusionVisitorRecursive::default_use(ExtrusionEntity &entity)
             child->visit(*this);
 }
 
-void HasRoleVisitor::default_use(const ExtrusionEntity& entity) {
-    if (!entity.is_leaf()) {
-        for (const ExtrusionEntityUPtr &child : entity.children()) {
-            if (child)
-                child->visit(*this);
-            if (found)
-                return;
-        }
-    } else {
-        found = this->matches(entity);
-    }
+void HasRoleVisitor::visit_leaf(const ExtrusionEntity& entity)
+{
+    if (found)
+        return;
+    const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+    found = attributes ? this->matches(entity, attributes->role) : false;
 }
-bool HasRoleVisitor::search(const ExtrusionEntity &entity, HasRoleVisitor&& visitor) {
-    entity.visit(visitor);
+
+bool HasRoleVisitor::search(const ExtrusionEntity &entity, HasRoleVisitor&& visitor)
+{
+    visitor.traverse(entity);
     return visitor.found;
 }
-bool HasRoleVisitor::search(const ExtrusionEntitiesPtr &entities, HasRoleVisitor&& visitor) {
+
+bool HasRoleVisitor::search(const ExtrusionEntitiesPtr &entities, HasRoleVisitor&& visitor)
+{
     for (ExtrusionEntity *ptr : entities) {
-        ptr->visit(visitor);
+        visitor.traverse(*ptr);
         if (visitor.found) return true;
     }
     return visitor.found;
@@ -1121,7 +1120,8 @@ void CreateBoundingBoxVisitor::default_use(ExtrusionEntity &entity)
 }
 
 #ifdef _DEBUGINFO
-void LoopAssertVisitor::default_use(const ExtrusionEntity& entity) {
+void LoopAssertVisitor::enter_node(const ExtrusionEntity& entity)
+{
     if (!entity.is_leaf()) {
         release_assert(!entity.empty());
         Point last_pt = entity.is_loop() ? entity.last_point() : entity.first_point();
@@ -1131,23 +1131,27 @@ void LoopAssertVisitor::default_use(const ExtrusionEntity& entity) {
                 continue;
             if (entity.is_loop() || entity.is_continuous())
                 release_assert(child->first_point() == last_pt);
-            child->visit(*this);
             last_pt = child->last_point();
         }
         if (entity.is_loop())
             release_assert(entity.first_point() == entity.last_point());
         return;
     }
+}
+
+void LoopAssertVisitor::visit_leaf(const ExtrusionEntity& entity)
+{
     const ArcPolyline *polyline = entity.polyline_or_null();
-    const ExtrusionPropertyOverhang *overhang = entity.get_property<ExtrusionPropertyOverhang>();
-    release_assert (!entity.role().is_overhang() || overhang != nullptr);
+    const ExtrusionPropertyOverhang *overhang = this->current_property<ExtrusionPropertyOverhang>();
+    const ExtrusionAttributes *attributes = this->current_property<ExtrusionAttributes>();
+    const ExtrusionRole role = attributes != nullptr ? attributes->role : entity.role();
+    release_assert (!role.is_overhang() || overhang != nullptr);
     if (m_check_length <= 0 || polyline == nullptr)
         return;
     release_assert(!entity.empty());
-    const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
     const bool has_z_offset = polyline->has_z_offset();
     // Sawtooth support may use z-profile paths as non-extruding 3D moves.
-    release_assert(attributes == nullptr || attributes->mm3_per_mm > 0.000001 || entity.role() == ExtrusionRole::Travel || has_z_offset);
+    release_assert(attributes == nullptr || attributes->mm3_per_mm > 0.000001 || role == ExtrusionRole::Travel || has_z_offset);
     if (has_z_offset) {
         double length_3d = 0.;
         for (size_t idx = 1; idx < polyline->size(); ++idx) {

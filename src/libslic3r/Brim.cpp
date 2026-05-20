@@ -834,7 +834,7 @@ void extrude_brim_from_tree(const Print& print, std::vector<std::vector<BrimLoop
     int nextIdx = 0;
     std::function<void(BrimLoop&, ExtrusionEntityCollection*)>* extrude_ptr;
     std::function<void(BrimLoop&, ExtrusionEntityCollection*) > extrude = [&mm3_per_mm, &width, &height, &extrude_ptr, &nextIdx, extrude_cw](BrimLoop& to_cut, ExtrusionEntityCollection* parent) {
-        DEBUG_VISIT(*parent, LoopAssertVisitor())
+        DEBUG_TREE_VISIT(*parent, LoopAssertVisitor())
         int idx = nextIdx++;
         //bool i_have_line = !to_cut.line.points.empty() && to_cut.line.is_valid();
         bool i_have_line = to_cut.lines.size() > 0 && to_cut.lines.front().size() > 0 && to_cut.lines.front().is_valid();
@@ -857,7 +857,7 @@ void extrude_brim_from_tree(const Print& print, std::vector<std::vector<BrimLoop
                     extrusion_path->polyline() = pline;
                     to_add.push_back(extrusion_path);
                 }
-                DEBUG_VISIT(*to_add.back(), LoopAssertVisitor())
+                DEBUG_TREE_VISIT(*to_add.back(), LoopAssertVisitor())
             }
             parent->append(std::move(to_add));
         } else if (!i_have_line && !to_cut.children.empty()) {
@@ -871,13 +871,13 @@ void extrude_brim_from_tree(const Print& print, std::vector<std::vector<BrimLoop
                 //remove un-needed collection if possible
                 if (mycoll->entities().size() == 1) {
                     parent->append(*mycoll->entities().front()); //add clone
-                    DEBUG_VISIT(*parent->entities().back(), LoopAssertVisitor())
+                    DEBUG_TREE_VISIT(*parent->entities().back(), LoopAssertVisitor())
                     delete mycoll; // remove coll & content
                 } else if (mycoll->entities().size() == 0) {
                     delete mycoll;// remove coll & content
                 } else {
                     parent->append(ExtrusionEntitiesPtr{ mycoll });
-                    DEBUG_VISIT(*parent->entities().back(), LoopAssertVisitor())
+                    DEBUG_TREE_VISIT(*parent->entities().back(), LoopAssertVisitor())
                 }
             }
         } else {
@@ -900,7 +900,7 @@ void extrude_brim_from_tree(const Print& print, std::vector<std::vector<BrimLoop
                     extrusion_path->polyline() = pline;
                     to_add.push_back(extrusion_path);
                 }
-                DEBUG_VISIT(*to_add.back(), LoopAssertVisitor())
+                DEBUG_TREE_VISIT(*to_add.back(), LoopAssertVisitor())
             }
             print_me_first->append(std::move(to_add));
             if (to_cut.children.size() == 1) {
@@ -910,7 +910,7 @@ void extrude_brim_from_tree(const Print& print, std::vector<std::vector<BrimLoop
                 //children->no_sort = true;
                 for (BrimLoop& child : to_cut.children)
                     (*extrude_ptr)(child, children);
-                DEBUG_VISIT(*children, LoopAssertVisitor())
+                DEBUG_TREE_VISIT(*children, LoopAssertVisitor())
                 //remove un-needed collection if possible
                 if (children->entities().size() == 1) {
                     print_me_first->append(*children->entities().front());
@@ -923,7 +923,7 @@ void extrude_brim_from_tree(const Print& print, std::vector<std::vector<BrimLoop
             }
             assert(print_me_first->entities().size() > 0);
         }
-        DEBUG_VISIT(*parent, LoopAssertVisitor())
+        DEBUG_TREE_VISIT(*parent, LoopAssertVisitor())
     };
     extrude_ptr = &extrude;
 
@@ -1196,7 +1196,7 @@ void make_brim(const Print& print, const Flow& flow, const PrintObjectPtrs& obje
     frontiers.insert(frontiers.begin(), unbrimmable_polygons.begin(), unbrimmable_polygons.end());
 
     extrude_brim_from_tree(print, loops, frontiers, flow, out, false);
-    DEBUG_VISIT(out, LoopAssertVisitor())
+    DEBUG_TREE_VISIT(out, LoopAssertVisitor())
 
     unbrimmable.insert(unbrimmable.end(), brimmable_areas.begin(), brimmable_areas.end());
 }

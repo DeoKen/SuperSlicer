@@ -1212,7 +1212,7 @@ void _calculate_overhanging_perimeters(
             if (max_width < 0) {
                 max_width = nozzle_diameter_overhangs;
             }
-            DEBUG_VISIT(lri.extrusion(LayerRegionIsland::PERIMETERS), LoopAssertVisitor());
+            DEBUG_TREE_VISIT(lri.extrusion(LayerRegionIsland::PERIMETERS), LoopAssertVisitor());
             lri.mutable_extrusion(LayerRegionIsland::PERIMETERS) =
                 ExtrusionProcessor::calculate_and_split_overhanging_extrusions(&lri.extrusion(LayerRegionIsland::PERIMETERS),
                                                                                unscaled_polygons_lines[prev_layer_id],

@@ -480,7 +480,7 @@ void Fill::fill_surface_extrusion(const Surface *surface, const FillParams &para
                                                                               (float) params.flow.height()}},
                                             !params.monotonic);
 #ifdef _DEBUGINFO
-            eec->visit(LoopAssertVisitor());
+            LoopAssertVisitor().traverse(*eec);
 #endif
         }
     } catch (InfillFailedException&) {
@@ -3937,7 +3937,7 @@ void FillWithPerimeter::fill_surface_extrusion(const Surface *surface,
                                                                                       params.flow.height()}},
                                                     !params.monotonic);
 #ifdef _DEBUGINFO
-                    eec_infill->visit(LoopAssertVisitor());
+                    LoopAssertVisitor().traverse(*eec_infill);
 #endif
                 }
             }

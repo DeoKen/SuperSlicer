@@ -666,7 +666,7 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
     const bool CCW_hole = params.config.perimeter_direction.value == PerimeterDirection::pdCW_CCW ||  params.config.perimeter_direction.value == PerimeterDirection::pdCCW_CCW;
 
 #if _DEBUG
-    for(auto ee : coll) DEBUG_VISIT(*ee, LoopAssertVisitor())
+    for(auto ee : coll) DEBUG_TREE_VISIT(*ee, LoopAssertVisitor())
 #endif
     //move from coll to coll_out and getting children of each in the same time. (deep first)
     for (const std::pair<size_t, bool> &idx : better_chain) {
@@ -689,7 +689,7 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
             const PerimeterGeneratorLoop &loop = loops[idx.first];
 
 #if _DEBUG
-            for(auto ee : coll) if(ee) ee->visit(LoopAssertVisitor());
+            for(auto ee : coll) if(ee) LoopAssertVisitor().traverse(*ee);
             loop.polygon.assert_valid();
 #endif
             ExtrusionLoop *eloop = static_cast<ExtrusionLoop *>(coll[idx.first]);
@@ -699,7 +699,7 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
             bool has_overhang = this->_enforce_speed_overhangs(loop_paths, count_since_overhang);
             eloop->paths() = std::move(loop_paths);
 #if _DEBUG
-            for(auto ee : coll) if(ee) ee->visit(LoopAssertVisitor());
+            for(auto ee : coll) if(ee) LoopAssertVisitor().traverse(*ee);
 #endif
             assert(thin_walls.empty());
             // special case: external all first
@@ -801,7 +801,7 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
         }
     }
 #if _DEBUG
-    coll_out.visit(LoopAssertVisitor());
+    LoopAssertVisitor().traverse(coll_out);
 #endif
     return coll_out;
 }
@@ -1324,7 +1324,7 @@ void PerimeterGenerator::_sort_overhangs(const Parameters &params,
     if (overhang_params.is_loop) {
         ExtrusionLoop loop_test;
         loop_test.paths() = paths;
-        loop_test.visit(LoopAssertVisitor(SCALED_EPSILON / 2)); // there can't have some very small paths
+        LoopAssertVisitor(SCALED_EPSILON / 2).traverse(loop_test); // there can't have some very small paths
         assert(!paths.empty());
     }
 #endif
@@ -4699,7 +4699,7 @@ void PerimeterGenerator::process(// Input:
         append(fill_no_overlap, ensure_valid(std::move(polyWithoutOverlap), scaled_resolution));
         
 #ifdef _DEBUGINFO
-            loops->visit(LoopAssertVisitor());
+            LoopAssertVisitor().traverse(*loops);
 #endif
     }
 
@@ -6176,8 +6176,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
                     ThickPolylines no_thin_walls;
                     peri_entities = this->_traverse_loops_classic(params, contours.front(), no_thin_walls);
 #if _DEBUG
-                    LoopAssertVisitor visitor;
-                    peri_entities.visit(visitor);
+                    LoopAssertVisitor().traverse(peri_entities);
 #endif
                     _merge_thin_walls(params, peri_entities, thin_walls_thickpolys);
                 } else {
@@ -6189,8 +6188,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
             peri_entities = this->_traverse_loops_classic(params, {}, thin_walls_thickpolys);
         }
 #if _DEBUG
-        LoopAssertVisitor visitor;
-        peri_entities.visit(visitor);
+        LoopAssertVisitor().traverse(peri_entities);
 #endif
         // remove the un-needed top collection if only one child.
         //peri_entities.visit(CollectionSimplifyVisitor{});
@@ -6226,8 +6224,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
         }
     } // if contour & hole
 #ifdef _DEBUGINFO
-    LoopAssertVisitor visitor;
-    loops.visit(visitor);
+    LoopAssertVisitor().traverse(loops);
 #endif
 
     // fill gaps
@@ -6392,7 +6389,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
     append(results.inner_perimeter, saved_infill);
 
 #ifdef _DEBUGINFO
-    loops.visit(LoopAssertVisitor());
+    LoopAssertVisitor().traverse(loops);
 #endif
     return results;
 }
@@ -6400,8 +6397,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
 void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEntityCollection &extrusions, ThickPolylines &thin_walls) const
 {
 #if _DEBUG
-    LoopAssertVisitor visitor;
-    extrusions.visit(visitor);
+    LoopAssertVisitor().traverse(extrusions);
 #endif
     //TODO: find a way to avoid double copy (from EntityCollection to ChangeFlow to searcher.search_result.loop
     class ChangeFlow : public ExtrusionVisitor {
@@ -6557,8 +6553,7 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
         //it found a segment
         if (searcher.search_result.path != nullptr) {
 #if _DEBUG
-            LoopAssertVisitor loop_assert_visitor;
-            searcher.search_result.loop->visit(loop_assert_visitor);
+            LoopAssertVisitor().traverse(*searcher.search_result.loop);
             const ExtrusionLoop orig_loop = *searcher.search_result.loop;
 #endif
             if (!searcher.search_result.from_start)
@@ -6641,7 +6636,7 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
             assert(idx_path_before > searcher.search_result.loop->paths().size() || searcher.search_result.loop->paths()[idx_path_before].polyline().size() > 1);
             assert(poly_after.size() > 0);
 #if _DEBUG
-            searcher.search_result.loop->visit(loop_assert_visitor);
+            LoopAssertVisitor().traverse(*searcher.search_result.loop);
 #endif
             
             //create thin wall path extrusion
@@ -6652,8 +6647,8 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
                                                      false));
             assert(!tws.entities().empty());
 #if _DEBUG
-            searcher.search_result.loop->visit(loop_assert_visitor);
-            tws.visit(loop_assert_visitor);
+            LoopAssertVisitor().traverse(*searcher.search_result.loop);
+            LoopAssertVisitor().traverse(tws);
 #endif
             ChangeFlow change_flow(std::max(scale_i(params.print_config.resolution.value), SCALED_EPSILON));
             if (tws.entities().size() == 1 && tws.entities()[0]->is_loop()) {
@@ -6676,7 +6671,7 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
                 //}
 
 #if _DEBUG
-                searcher.search_result.loop->visit(loop_assert_visitor);
+                LoopAssertVisitor().traverse(*searcher.search_result.loop);
 #endif
             } else {
                 //make these thin wall un-seamable
@@ -6705,7 +6700,7 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
                 change_flow.use(tws);
 #if _DEBUG
                 for (ExtrusionPath &path : change_flow.paths)
-                    path.visit(loop_assert_visitor);
+                    LoopAssertVisitor().traverse(path);
 #endif
                 size_t idx_path_to_add_before = (idx_path_to_add - 1) < searcher.search_result.loop->paths().size() ?
                     (idx_path_to_add - 1) :
@@ -6714,7 +6709,7 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
                 searcher.search_result.loop->paths().insert(searcher.search_result.loop->paths().begin() + idx_path_to_add,
                     change_flow.paths.begin(), change_flow.paths.end());
 #if _DEBUG
-                searcher.search_result.loop->visit(loop_assert_visitor);
+                LoopAssertVisitor().traverse(*searcher.search_result.loop);
 #endif
             }
         } else {
@@ -6722,12 +6717,12 @@ void PerimeterGenerator::_merge_thin_walls(const Parameters &params, ExtrusionEn
         }
     }
 #if _DEBUG
-    extrusions.visit(visitor);
+    LoopAssertVisitor().traverse(extrusions);
 #endif
     //now add thinwalls that have no anchor (make them reversable)
     extrusions.append(Geometry::thin_variable_width(not_added, ExtrusionRole::ThinWall, params.ext_perimeter_flow, std::max(params.ext_perimeter_flow.scaled_width() / 4, scale_i(params.print_config.resolution)), true));
 #if _DEBUG
-    extrusions.visit(visitor);
+    LoopAssertVisitor().traverse(extrusions);
 #endif
 }
 

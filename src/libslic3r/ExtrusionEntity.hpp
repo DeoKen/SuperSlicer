@@ -1047,25 +1047,25 @@ public:
     virtual void default_use(ExtrusionEntity& entity) override;
 };
 
-class HasRoleVisitor : public ExtrusionVisitorConst{
+class HasRoleVisitor : public ExtrusionTreeConstVisitor<false> {
 protected:
-    virtual bool matches(const ExtrusionEntity &entity) const = 0;
+    virtual bool matches(const ExtrusionEntity &entity, ExtrusionRole role) const = 0;
 public:
     bool found = false;
-    void default_use(const ExtrusionEntity& entity) override;
+    void visit_leaf(const ExtrusionEntity& entity) override;
     static bool search(const ExtrusionEntity &entity, HasRoleVisitor&& visitor);
     static bool search(const ExtrusionEntitiesPtr &entities, HasRoleVisitor&& visitor);
 };
 struct HasInfillVisitor : public HasRoleVisitor{
-    bool matches(const ExtrusionEntity &entity) const override { return entity.role().is_infill(); }
+    bool matches(const ExtrusionEntity&, ExtrusionRole role) const override { return role.is_infill(); }
 };
 struct HasSolidInfillVisitor : public HasRoleVisitor{
-    bool matches(const ExtrusionEntity &entity) const override { return entity.role().is_solid_infill(); }
+    bool matches(const ExtrusionEntity&, ExtrusionRole role) const override { return role.is_solid_infill(); }
 };
 struct HasThisRoleVisitor : public HasRoleVisitor{
     ExtrusionRole role_to_find;
     HasThisRoleVisitor(ExtrusionRole role) : role_to_find(role) {}
-    bool matches(const ExtrusionEntity &entity) const override { return entity.role() == role_to_find; }
+    bool matches(const ExtrusionEntity&, ExtrusionRole role) const override { return role == role_to_find; }
 };
 
 
@@ -1137,20 +1137,23 @@ public:
 };
 
 #ifdef _DEBUGINFO
-struct LoopAssertVisitor : public ExtrusionVisitorRecursiveConst {
-    using ExtrusionVisitorRecursiveConst::use;
+struct LoopAssertVisitor : public ExtrusionTreeConstVisitor<true> {
     coord_t m_check_length;
     LoopAssertVisitor() : m_check_length(SCALED_EPSILON) {}
     LoopAssertVisitor(coord_t check_length) : m_check_length(check_length) {}
-    virtual void default_use(const ExtrusionEntity& entity) override;
+protected:
+    virtual void enter_node(const ExtrusionEntity& entity) override;
+    virtual void visit_leaf(const ExtrusionEntity& entity) override;
 };
 #define DEBUGINFO_VISIT(ENTITY,VISITOR) (ENTITY).visit(VISITOR);
 #endif
 
 #ifdef _DEBUG
 #define DEBUG_VISIT(ENTITY,VISITOR) (ENTITY).visit(VISITOR);
+#define DEBUG_TREE_VISIT(ENTITY,VISITOR) (VISITOR).traverse(ENTITY);
 #else
 #define DEBUG_VISIT(ENTITY,VISITOR)
+#define DEBUG_TREE_VISIT(ENTITY,VISITOR)
 #endif
 
 }
