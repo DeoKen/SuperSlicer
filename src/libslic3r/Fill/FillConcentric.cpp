@@ -470,7 +470,7 @@ FillConcentric::fill_surface_extrusion(
             // apply to extrusions
             ExtrusionModifyFlow visitor(mult_flow);
             for (ExtrusionEntity *ee : out_to_check) {
-                ee->visit(visitor);
+                visitor.traverse(*ee);
             }
         }
     }

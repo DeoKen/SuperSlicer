@@ -914,7 +914,7 @@ double ExtrusionVolume::get(const ExtrusionEntityCollection &coll) {
 }
 
 void ExtrusionModifyFlow::set(ExtrusionEntityCollection &coll) {
-    coll.visit(*this);
+    this->traverse(coll);
 }
 
 void ExtrusionVisitorRecursiveConst::default_use(const ExtrusionEntity &entity)
@@ -1093,12 +1093,8 @@ void ExtrusionVolume::default_use(const ExtrusionEntity &entity)
     volume += unscaled(entity.length()) * attributes->mm3_per_mm * _flow_ratio;
 }
 
-void ExtrusionModifyFlow::default_use(ExtrusionEntity &entity)
+void ExtrusionModifyFlow::visit_leaf(ExtrusionEntity &entity)
 {
-    if (!entity.is_leaf()) {
-        ExtrusionVisitorRecursive::default_use(entity);
-        return;
-    }
     ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
     if (attributes == nullptr)
         return;
@@ -1106,12 +1102,8 @@ void ExtrusionModifyFlow::default_use(ExtrusionEntity &entity)
     attributes->width *= _flow_mult;
 }
 
-void CreateBoundingBoxVisitor::default_use(ExtrusionEntity &entity)
+void CreateBoundingBoxVisitor::visit_leaf(const ExtrusionEntity &entity)
 {
-    if (!entity.is_leaf()) {
-        ExtrusionVisitorRecursive::default_use(entity);
-        return;
-    }
     const ArcPolyline *polyline = entity.polyline_or_null();
     if (polyline == nullptr)
         return;

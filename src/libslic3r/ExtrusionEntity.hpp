@@ -1113,25 +1113,23 @@ public:
     double get(const ExtrusionEntityCollection &coll);
 };
 
-class ExtrusionModifyFlow : public ExtrusionVisitorRecursive {
+class ExtrusionModifyFlow : public ExtrusionTreeVisitor<false> {
     double _flow_mult = 1.;
 public:
-    using ExtrusionVisitorRecursive::use;
     ExtrusionModifyFlow(double flow_mult) : _flow_mult(flow_mult) {}
-    void default_use(ExtrusionEntity &entity) override;
+    void visit_leaf(ExtrusionEntity &entity) override;
     void set(ExtrusionEntityCollection &coll);
 };
 
 
-class CreateBoundingBoxVisitor : public ExtrusionVisitorRecursive {
+class CreateBoundingBoxVisitor : public ExtrusionTreeConstVisitor<false> {
     BoundingBox bb;
 public:
-    using ExtrusionVisitorRecursive::use;
     CreateBoundingBoxVisitor() {}
-    void default_use(ExtrusionEntity &entity) override;
-    static inline BoundingBox create(ExtrusionEntity &ee) {
+    void visit_leaf(const ExtrusionEntity &entity) override;
+    static inline BoundingBox create(const ExtrusionEntity &ee) {
         CreateBoundingBoxVisitor visitor;
-        ee.visit(visitor);
+        visitor.traverse(ee);
         return visitor.bb;
     }
 };
