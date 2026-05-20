@@ -1786,7 +1786,7 @@ void Print::process()
                         const ExtrusionAttributes *attributes = visitor.paths[path_idx]->get_property<ExtrusionAttributes>();
                         assert(attributes != nullptr);
                         if (attributes != nullptr)
-                            visitor.paths[path_idx]->simplify(scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_effective_value(attributes->width)));
+                            SimplifyVisitor::simplify(*visitor.paths[path_idx], scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_effective_value(attributes->width)));
                         int nb_items_done = (++atomic_count);
                         this->set_status(int((nb_items_done * 100) / (visitor.paths.size())), L("Optimizing skirt & brim %s%%"), { std::to_string(int(100*nb_items_done / double(visitor.paths.size()))) }, PrintBase::SlicingStatus::SECONDARY_STATE);
                     }

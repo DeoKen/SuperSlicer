@@ -1077,7 +1077,7 @@ void PrintObject::simplify_extrusion_path()
                         const ExtrusionAttributes *attributes = visitor.paths[path_idx]->get_property<ExtrusionAttributes>();
                         assert(attributes != nullptr);
                         if (attributes != nullptr)
-                            visitor.paths[path_idx]->simplify(scaled_resolution, print_config.arc_fitting, arc_fitting_tolerance.get_effective_value(attributes->width));
+                            SimplifyVisitor::simplify(*visitor.paths[path_idx], scaled_resolution, print_config.arc_fitting, arc_fitting_tolerance.get_effective_value(attributes->width));
                     }
                 }
             );

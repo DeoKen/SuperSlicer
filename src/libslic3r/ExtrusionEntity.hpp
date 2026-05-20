@@ -186,7 +186,6 @@ public:
         { Polygons out; this->polygons_covered_by_width(out, scaled_epsilon); return out; }
     virtual Polygons polygons_covered_by_spacing(const float spacing_ratio, const float scaled_epsilon) const
         { Polygons out; this->polygons_covered_by_spacing(out, spacing_ratio, scaled_epsilon); return out; }
-    virtual void simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance);
     virtual ArcPolyline as_polyline() const;
     virtual void   collect_polylines(ArcPolylines &dst) const;
     virtual void   collect_points(Points &dst) const;
@@ -351,7 +350,6 @@ public:
     // Currently not used.
     void subtract_expolygons(const ExPolygons &collection, ExtrusionEntityCollection* retval) const;
     void clip_end(coordf_t distance);
-    virtual void simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance);
     coordf_t length() const override;
 
     const ExtrusionAttributes&  attributes() const { const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>(); assert(attributes != nullptr); return *attributes; }
@@ -888,33 +886,6 @@ inline void extrusion_paths_append(ExtrusionPaths &dst,
     polylines.clear();
 }
 
-class ExtrusionPrinter : public ExtrusionVisitorConst {
-    std::stringstream ss;
-    double mult;
-    int trunc;
-    bool json;
-public:
-    ExtrusionPrinter(double mult = 0.000001, int trunc = 0, bool json = false) : mult(mult), trunc(trunc), json(json) { }
-    virtual void default_use(const ExtrusionEntity& entity) override;
-    std::string str() { return ss.str(); }
-    std::string print(const ExtrusionEntity& entity)&& {
-        entity.visit(*this);
-        return ss.str();
-    }
-};
-
-class ExtrusionLength : public ExtrusionVisitorConst {
-    coordf_t dist;
-public:
-    ExtrusionLength() : dist(0){ }
-    virtual void default_use(const ExtrusionEntity& path) override;
-    double get() { return dist; }
-    double length(const ExtrusionEntity& entity)&& {
-        entity.visit(*this);
-        return get();
-    }
-};
-
 /// Depth-first helper for walking an ExtrusionEntity tree while keeping the
 /// inherited property context easy to query.
 ///
@@ -1038,6 +1009,38 @@ template<bool LeafIsNode = true>
 class ExtrusionTreeConstVisitor : public ExtrusionTreeVisitorBase<const ExtrusionEntity, LeafIsNode>
 {};
 
+class ExtrusionPrinter : public ExtrusionTreeConstVisitor<false> {
+    std::stringstream ss;
+    std::vector<bool> m_first_child_stack;
+    double mult;
+    int trunc;
+    bool json;
+    void begin_entity();
+    void print_leaf(const ExtrusionEntity& entity);
+public:
+    ExtrusionPrinter(double mult = 0.000001, int trunc = 0, bool json = false) : mult(mult), trunc(trunc), json(json) { }
+    void enter_node(const ExtrusionEntity& entity) override;
+    void visit_leaf(const ExtrusionEntity& entity) override;
+    void leave_node(const ExtrusionEntity& entity) override;
+    std::string str() { return ss.str(); }
+    std::string print(const ExtrusionEntity& entity)&& {
+        this->traverse(entity);
+        return ss.str();
+    }
+};
+
+class ExtrusionLength : public ExtrusionTreeConstVisitor<false> {
+    coordf_t dist;
+public:
+    ExtrusionLength() : dist(0){ }
+    void visit_leaf(const ExtrusionEntity& entity) override;
+    double get() { return dist; }
+    double length(const ExtrusionEntity& entity)&& {
+        this->traverse(entity);
+        return get();
+    }
+};
+
 class ExtrusionVisitorRecursiveConst : public ExtrusionVisitorConst {
 public:
     virtual void default_use(const ExtrusionEntity& entity) override;
@@ -1072,7 +1075,7 @@ struct HasThisRoleVisitor : public HasRoleVisitor{
 
 //call simplify for all paths.
 class ConfigOptionFloatOrPercent;
-class SimplifyVisitor : public ExtrusionVisitor{
+class SimplifyVisitor {
     ArcFittingType                    m_use_arc_fitting;
     bool                              m_ignore_holes;
     coordf_t                          m_scaled_resolution;
@@ -1081,8 +1084,8 @@ class SimplifyVisitor : public ExtrusionVisitor{
     // when an entity is too small, this is set to true do the collection that is higher in the stack can merge & delete.
     coord_t                           m_min_path_size = 0;
     bool                              m_last_deleted = false;
+    void simplify_entity(ExtrusionEntity &entity);
 public:
-    using ExtrusionVisitor::use;
     SimplifyVisitor(coordf_t scaled_resolution, ArcFittingType use_arc_fitting, bool ignore_holes, const ConfigOptionFloatOrPercent *arc_fitting_tolearance)
         : m_scaled_resolution(scaled_resolution), m_ignore_holes(ignore_holes), m_use_arc_fitting(use_arc_fitting), m_arc_fitting_tolearance(arc_fitting_tolearance)
     {}
@@ -1090,8 +1093,8 @@ public:
         : m_scaled_resolution(scaled_resolution), m_ignore_holes(ignore_holes), m_use_arc_fitting(use_arc_fitting), m_arc_fitting_tolearance(arc_fitting_tolearance), m_min_path_size(min_path_size)
     {}
 
-    virtual void default_use(ExtrusionEntity& entity) override;
-    void start(ExtrusionEntityCollection &coll);
+    static void simplify(ExtrusionEntity &entity, coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance);
+    void traverse(ExtrusionEntity &entity);
     bool is_valid() { return !m_last_deleted; }
 };
 class GetPathsVisitor : public ExtrusionTreeVisitor<false> {

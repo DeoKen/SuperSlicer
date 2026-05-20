@@ -1300,10 +1300,10 @@ void SupportLayer::simplify_support_extrusion_path() {
     for (LayerSliceIslandUPtr &island : m_islands) {
         for (LayerRegionIsland &region_island : island->regions_islands()) {
             if (region_island.has_extrusion(LayerRegionIsland::SUPPORT)) {
-                region_island.mutable_extrusion(LayerRegionIsland::SUPPORT).visit(visitor);
+                visitor.traverse(region_island.mutable_extrusion(LayerRegionIsland::SUPPORT));
             }
             if (region_island.has_extrusion(LayerRegionIsland::SUPPORT_INTERFACE)) {
-                region_island.mutable_extrusion(LayerRegionIsland::SUPPORT_INTERFACE).visit(visitor);
+                visitor.traverse(region_island.mutable_extrusion(LayerRegionIsland::SUPPORT_INTERFACE));
             }
         }
     }

@@ -83,19 +83,19 @@ void LayerRegionIsland::simplify_extrusion_entity(const Layer& layer)
                                     enable_arc_fitting != ArcFittingType::Disabled ? SCALED_EPSILON * 2 :
                                                                                      SCALED_EPSILON};
     if (this->has_extrusion(LayerRegionIsland::PERIMETERS)) {
-        this->mutable_extrusion(LayerRegionIsland::PERIMETERS).visit(visitor);
+        visitor.traverse(this->mutable_extrusion(LayerRegionIsland::PERIMETERS));
     }
     if (this->has_extrusion(LayerRegionIsland::GAP_FILLS)) {
-        this->mutable_extrusion(LayerRegionIsland::GAP_FILLS).visit(visitor);
+        visitor.traverse(this->mutable_extrusion(LayerRegionIsland::GAP_FILLS));
     }
     if (this->has_extrusion(LayerRegionIsland::INFILLS)) {
-        this->mutable_extrusion(LayerRegionIsland::INFILLS).visit(visitor);
+        visitor.traverse(this->mutable_extrusion(LayerRegionIsland::INFILLS));
     }
     if (this->has_extrusion(LayerRegionIsland::IRONINGS)) {
-        this->mutable_extrusion(LayerRegionIsland::IRONINGS).visit(visitor);
+        visitor.traverse(this->mutable_extrusion(LayerRegionIsland::IRONINGS));
     }
     if (this->has_extrusion(LayerRegionIsland::MILLS)) {
-        this->mutable_extrusion(LayerRegionIsland::MILLS).visit(visitor);
+        visitor.traverse(this->mutable_extrusion(LayerRegionIsland::MILLS));
     }
 }
 

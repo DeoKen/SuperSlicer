@@ -377,33 +377,6 @@ ArcPolyline ExtrusionEntity::as_polyline() const
     return out;
 }
 
-void ExtrusionEntity::simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance)
-{
-    ArcPolyline *polyline = this->polyline_or_null();
-    const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>();
-    if (polyline == nullptr || attributes == nullptr)
-        return;
-
-    if (polyline->has_z_offset()) {
-        polyline->make_arc(ArcFittingType::Disabled, tolerance, fitting_arc_tolerance);
-        // TODO: simplify but only for sub-path with same zheight.
-        return;
-    }
-    if (with_fitting_arc != ArcFittingType::Disabled) {
-        if (attributes->role.is_sparse_infill())
-            // Use 3x lower resolution than the object fine detail for sparse infill.
-            tolerance *= 3.;
-        else if (attributes->role.is_support())
-            // Use 4x lower resolution than the object fine detail for support.
-            tolerance *= 4.;
-        else if (attributes->role.is_skirt())
-            // Brim is currently marked as skirt.
-            // Use 4x lower resolution than the object fine detail for skirt & brim.
-            tolerance *= 4.;
-    }
-    polyline->make_arc(with_fitting_arc, tolerance, fitting_arc_tolerance);
-}
-
 void ExtrusionEntity::collect_polylines(ArcPolylines &dst) const
 {
     if (const ArcPolyline *polyline = this->polyline_or_null()) {
@@ -490,11 +463,6 @@ void ExtrusionPath::subtract_expolygons(const ExPolygons &collection, ExtrusionE
 }
 
 void ExtrusionPath::clip_end(coordf_t distance) { this->polyline().clip_end(distance); }
-
-void ExtrusionPath::simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance)
-{
-    ExtrusionEntity::simplify(tolerance, with_fitting_arc, fitting_arc_tolerance);
-}
 
 coordf_t ExtrusionPath::length() const { return this->polyline().length(); }
 
@@ -860,59 +828,72 @@ void ExtrusionLoop::polygons_covered_by_spacing(Polygons &out, const float spaci
 //    return min_mm3_per_mm;
 //}
 
-void ExtrusionPrinter::default_use(const ExtrusionEntity &entity)
+void ExtrusionPrinter::begin_entity()
 {
-    if (const ArcPolyline *polyline = entity.polyline_or_null()) {
-        const bool has_z_profile = polyline->has_z_offset();
-        ss << (json?"\"":"") << "ExtrusionPath" << (has_z_profile ? "3D" : "") << (entity.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "[";
-        for (int i = 0; i < polyline->size(); i++) {
-            if (i != 0)
-                ss << ",";
-            double x = (mult * (polyline->get_point(i).x()));
-            double y = (mult * (polyline->get_point(i).y()));
-            if (has_z_profile) {
-                double z = mult * polyline->z_offset(size_t(i));
-                ss << std::fixed << "[" << (trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) << "," << (trunc>0?(int(z*trunc))/double(trunc):z) << "]";
-            } else {
-                ss << std::fixed << "["<<(trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) <<"]";
-            }
-        }
-        ss << "]";
-        return;
-    }
-
-    if (!entity.is_leaf()) {
-        if (entity.is_loop()) {
-            const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
-            ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
-            ss << (json?"\"":"") << "ExtrusionLoop" << (json?"_":":") << role_to_code(entity.role())<<"_" << looprole_to_code(loop_role) << (json?"\":":"") << "{";
-            if(!entity.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
-        } else if (entity.is_continuous()) {
-            ss << (json?"\"":"") << "ExtrusionMultiPath" << (entity.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "{";
-        } else {
-            ss << (json?"\"":"") << "ExtrusionEntityCollection" << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "{";
-            if(!entity.can_sort()) ss << (json?"\"":"") << "no_sort" << (json?"\":":"=") << "true,";
-            if(!entity.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
-        }
-        const ExtrusionEntity::Children &children = entity.children();
-        for (int i = 0; i < children.size(); i++) {
-            if (i != 0)
-                ss << ",";
-            children[i]->visit(*this);
-        }
-        ss << "}";
+    if (!m_first_child_stack.empty()) {
+        if (!m_first_child_stack.back())
+            ss << ",";
+        m_first_child_stack.back() = false;
     }
 }
 
-void ExtrusionLength::default_use(const ExtrusionEntity &entity)
+void ExtrusionPrinter::print_leaf(const ExtrusionEntity &entity)
 {
-    if (!entity.is_leaf()) {
-        for (const ExtrusionEntityUPtr &child : entity.children())
-            if (child)
-                child->visit(*this);
-    } else {
-        dist += entity.length();
+    const ArcPolyline *polyline = entity.polyline_or_null();
+    if (polyline == nullptr)
+        return;
+
+    this->begin_entity();
+    const bool has_z_profile = polyline->has_z_offset();
+    ss << (json?"\"":"") << "ExtrusionPath" << (has_z_profile ? "3D" : "") << (entity.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "[";
+    for (int i = 0; i < polyline->size(); i++) {
+        if (i != 0)
+            ss << ",";
+        double x = (mult * (polyline->get_point(i).x()));
+        double y = (mult * (polyline->get_point(i).y()));
+        if (has_z_profile) {
+            double z = mult * polyline->z_offset(size_t(i));
+            ss << std::fixed << "[" << (trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) << "," << (trunc>0?(int(z*trunc))/double(trunc):z) << "]";
+        } else {
+            ss << std::fixed << "["<<(trunc>0?(int(x*trunc))/double(trunc):x) << "," << (trunc>0?(int(y*trunc))/double(trunc):y) <<"]";
+        }
     }
+    ss << "]";
+}
+
+void ExtrusionPrinter::enter_node(const ExtrusionEntity &entity)
+{
+    this->begin_entity();
+    if (entity.is_loop()) {
+        const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
+        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+        ss << (json?"\"":"") << "ExtrusionLoop" << (json?"_":":") << role_to_code(entity.role())<<"_" << looprole_to_code(loop_role) << (json?"\":":"") << "{";
+        if(!entity.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
+    } else if (entity.is_continuous()) {
+        ss << (json?"\"":"") << "ExtrusionMultiPath" << (entity.can_reverse()?"":"Oriented") << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "{";
+    } else {
+        ss << (json?"\"":"") << "ExtrusionEntityCollection" << (json?"_":":") << role_to_code(entity.role()) << (json?"\":":"") << "{";
+        if(!entity.can_sort()) ss << (json?"\"":"") << "no_sort" << (json?"\":":"=") << "true,";
+        if(!entity.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
+    }
+    m_first_child_stack.push_back(true);
+}
+
+void ExtrusionPrinter::visit_leaf(const ExtrusionEntity &entity)
+{
+    this->print_leaf(entity);
+}
+
+void ExtrusionPrinter::leave_node(const ExtrusionEntity&)
+{
+    ss << "}";
+    assert(!m_first_child_stack.empty());
+    m_first_child_stack.pop_back();
+}
+
+void ExtrusionLength::visit_leaf(const ExtrusionEntity &entity)
+{
+    dist += entity.length();
 }
 
 double ExtrusionVolume::get(const ExtrusionEntityCollection &coll) {
@@ -963,13 +944,40 @@ bool HasRoleVisitor::search(const ExtrusionEntitiesPtr &entities, HasRoleVisitor
     return visitor.found;
 }
 
-void SimplifyVisitor::start(ExtrusionEntityCollection &coll)
+void SimplifyVisitor::simplify(ExtrusionEntity &entity, coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance)
 {
-    m_last_deleted = false;
-    coll.visit(*this);
+    ArcPolyline *polyline = entity.polyline_or_null();
+    const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+    if (polyline == nullptr || attributes == nullptr)
+        return;
+
+    if (polyline->has_z_offset()) {
+        polyline->make_arc(ArcFittingType::Disabled, tolerance, fitting_arc_tolerance);
+        // TODO: simplify but only for sub-path with same zheight.
+        return;
+    }
+    if (with_fitting_arc != ArcFittingType::Disabled) {
+        if (attributes->role.is_sparse_infill())
+            // Use 3x lower resolution than the object fine detail for sparse infill.
+            tolerance *= 3.;
+        else if (attributes->role.is_support())
+            // Use 4x lower resolution than the object fine detail for support.
+            tolerance *= 4.;
+        else if (attributes->role.is_skirt())
+            // Brim is currently marked as skirt.
+            // Use 4x lower resolution than the object fine detail for skirt & brim.
+            tolerance *= 4.;
+    }
+    polyline->make_arc(with_fitting_arc, tolerance, fitting_arc_tolerance);
 }
 
-void SimplifyVisitor::default_use(ExtrusionEntity& entity) {
+void SimplifyVisitor::traverse(ExtrusionEntity &entity)
+{
+    m_last_deleted = false;
+    this->simplify_entity(entity);
+}
+
+void SimplifyVisitor::simplify_entity(ExtrusionEntity& entity) {
     const ExtrusionAttributes *entity_attributes = entity.get_property<ExtrusionAttributes>();
     const ExtrusionAttributes *attributes        = entity_attributes != nullptr ? entity_attributes : m_current_attributes;
     if (ArcPolyline *polyline = entity.polyline_or_null()) {
@@ -1033,7 +1041,7 @@ void SimplifyVisitor::default_use(ExtrusionEntity& entity) {
     ExtrusionEntity::Children &children = entity.children();
     for (size_t i = 0; i < children.size(); ++i) {
         ExtrusionEntity *child = children[i].get();
-        child->visit(*this);
+        this->simplify_entity(*child);
         while (m_last_deleted) {
             if (!entity.is_continuous()) {
                 children.erase(children.begin() + i);
@@ -1071,7 +1079,7 @@ void SimplifyVisitor::default_use(ExtrusionEntity& entity) {
             }
             m_last_deleted = false;
             child = children[i].get();
-            child->visit(*this);
+            this->simplify_entity(*child);
         }
     }
     m_current_attributes = old_current_attributes;
