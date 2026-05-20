@@ -914,6 +914,129 @@ public:
     }
 };
 
+/// Depth-first helper for walking an ExtrusionEntity tree while keeping the
+/// inherited property context easy to query.
+///
+/// Traversal order is:
+///   enter_node(entity)
+///   children, from index 0 to child_count() - 1
+///   visit_leaf(entity) if the entity has no child
+///   leave_node(entity)
+///
+/// LeafIsNode controls whether leaves also receive enter_node()/leave_node():
+///   - LeafIsNode == true:
+///       leaves are treated like regular nodes:
+///       enter_node(leaf), visit_leaf(leaf), leave_node(leaf)
+///   - LeafIsNode == false:
+///       leaves receive only visit_leaf(leaf)
+///
+/// current_property<PropertyType>() returns the nearest active property of this
+/// type, starting from the current entity and walking back to the root. This is
+/// useful for inherited extrusion state such as speed, flow, modifiers, etc.
+/// The returned pointer is const on purpose: inherited parent properties should
+/// not be mutated accidentally by a child visitor.
+///
+/// Structural mutation rules:
+///   - Children added in enter_node() are visited, because child iteration starts
+///     after enter_node() returns.
+///   - Children added/removed/reordered in visit_leaf() or leave_node() are not
+///     visited by the current traversal.
+///   - If an algorithm needs heavy tree restructuring, prefer a dedicated pass
+///     with explicit index management.
+template<class Entity, bool LeafIsNode = true>
+class ExtrusionTreeVisitorBase {
+public:
+    /// Traverse root and all its descendants in depth-first order.
+    /// The visitor object keeps traversal state, so do not call traverse()
+    /// recursively from one of the callbacks.
+    void traverse(Entity &root) {
+        m_stack.clear();
+
+        m_stack.push_back({ &root });
+        while (!m_stack.empty()) {
+            Frame &frame = m_stack.back();
+            Entity &entity = *frame.entity;
+
+            if (!frame.entered) {
+                //enter node
+                if constexpr (LeafIsNode) {
+                    this->enter_node(entity);
+                } else if (entity.child_count() > 0) {
+                    this->enter_node(entity);
+                }
+                frame.entered = true;
+            }
+
+            if (frame.next_child < entity.child_count()) {
+                m_stack.push_back({ &entity.child(frame.next_child++) });
+                continue;
+            }
+
+            if (entity.child_count() == 0) {
+                this->visit_leaf(entity);
+                if constexpr (LeafIsNode) {
+                    this->leave_node(entity);
+                }
+            } else {
+                this->leave_node(entity);
+            }
+            // unstack
+            m_stack.pop_back();
+        }
+    }
+protected:
+    /// Called before visiting children.
+    /// Use this to push/assign state for the current subtree, or to create
+    /// children that should be visited by this traversal.
+    virtual void enter_node(Entity &entity) {};
+
+    /// Called for entities with no child.
+    /// Use this for operations that apply to actual extrusion leaves, typically
+    /// entities carrying a polyline or a terminal command/property.
+    virtual void visit_leaf(Entity& entity) {};
+
+    /// Called after all children have been visited.
+    /// Use this for post-order aggregation, cleanup, or validation.
+    virtual void leave_node(Entity& entity) {};
+
+    /// Return the active property of PropertyType for the current traversal
+    /// position, or nullptr if no such property is active.
+    ///
+    /// Lookup starts at the current entity, then climbs toward the root. This
+    /// means a child property overrides a parent property of the same type.
+    template<class PropertyType>
+    const PropertyType* current_property() const
+    {
+        for (auto it = m_stack.rbegin(); it != m_stack.rend(); ++it) {
+            if (const PropertyType *property = it->entity->template get_property<PropertyType>())
+                return property;
+        }
+        return nullptr;
+    }
+
+private:
+    struct Frame {
+        Entity *entity;
+        size_t next_child = 0;
+        bool entered = false;
+    };
+    std::vector<Frame> m_stack;
+};
+
+/// Mutable extrusion tree visitor.
+/// Use this when the pass needs to edit entities, properties, polylines,
+/// or children according to the structural mutation rules above.
+template<bool LeafIsNode = true>
+class ExtrusionTreeVisitor : public ExtrusionTreeVisitorBase<ExtrusionEntity, LeafIsNode>
+{};
+
+/// Read-only extrusion tree visitor.
+/// Use this for analysis, validation, measurement, logging, or any pass that
+/// must not modify the extrusion tree.
+template<bool LeafIsNode = true>
+class ExtrusionTreeConstVisitor : public ExtrusionTreeVisitorBase<const ExtrusionEntity, LeafIsNode>
+{};
+
 class ExtrusionVisitorRecursiveConst : public ExtrusionVisitorConst {
 public:
     virtual void default_use(const ExtrusionEntity& entity) override;
