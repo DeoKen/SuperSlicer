@@ -35,47 +35,8 @@ ExtrusionEntityCollection::ExtrusionEntityCollection(const ExtrusionPaths &paths
     this->append(paths);
 }
 
-const ExtrusionEntityCollection& ExtrusionEntityCollection::synced(const ExtrusionEntityCollection &collection)
-{
-    const_cast<ExtrusionEntityCollection&>(collection).sync_compat_entities();
-    return collection;
-}
-
-ExtrusionEntityCollection& ExtrusionEntityCollection::synced(ExtrusionEntityCollection &collection)
-{
-    collection.sync_compat_entities();
-    return collection;
-}
-
-void ExtrusionEntityCollection::sync_compat_entities()
-{
-    if (m_entities_compat.empty())
-        return;
-
-    Children &children = this->children();
-    children.reserve(children.size() + m_entities_compat.size());
-    for (ExtrusionEntity *entity : m_entities_compat)
-        children.emplace_back(ExtrusionEntityUPtr(entity));
-    m_entities_compat.clear();
-    m_entities_cache.clear();
-}
-
-void ExtrusionEntityCollection::materialize_compat_entities()
-{
-    if (!m_entities_compat.empty())
-        return;
-
-    Children &children = this->children();
-    m_entities_compat.reserve(children.size());
-    for (ExtrusionEntityUPtr &entity : children)
-        m_entities_compat.emplace_back(entity.release());
-    children.clear();
-    m_entities_cache.clear();
-}
-
 void ExtrusionEntityCollection::rebuild_entities_cache() const
 {
-    assert(!this->is_leaf());
     const Children &children = ExtrusionEntity::children();
     if (m_entities_cache.size() == children.size()) {
         bool valid = true;
@@ -99,7 +60,7 @@ ExtrusionEntityCollection& ExtrusionEntityCollection::operator= (const Extrusion
 {
     if (this != &other) {
         this->clear();
-        ExtrusionEntity::operator=(synced(other));
+        ExtrusionEntity::operator=(other);
     }
     return *this;
 }
@@ -108,15 +69,13 @@ ExtrusionEntityCollection& ExtrusionEntityCollection::operator=(ExtrusionEntityC
 {
     if (this != &other) {
         this->clear();
-        ExtrusionEntity::operator=(std::move(synced(other)));
+        ExtrusionEntity::operator=(std::move(other));
     }
     return *this;
 }
 
 void ExtrusionEntityCollection::append_move_from(ExtrusionEntityCollection &src)
 {
-    this->sync_compat_entities();
-    src.sync_compat_entities();
     Children &dst = this->children();
     Children &src_children = src.children();
     dst.reserve(dst.size() + src_children.size());
@@ -126,8 +85,6 @@ void ExtrusionEntityCollection::append_move_from(ExtrusionEntityCollection &src)
 
 void ExtrusionEntityCollection::swap(ExtrusionEntityCollection &c)
 {
-    this->sync_compat_entities();
-    c.sync_compat_entities();
     std::swap(this->m_content, c.m_content);
     std::swap(this->m_can_sort, c.m_can_sort);
     std::swap(this->m_can_reverse, c.m_can_reverse);
@@ -163,11 +120,8 @@ bool ExtrusionEntityCollection::has_role(ExtrusionRole test_role) const
 
 void ExtrusionEntityCollection::clear()
 {
-    for (ExtrusionEntity *entity : m_entities_compat)
-        delete entity;
-    m_entities_compat.clear();
     m_entities_cache.clear();
-    this->children().clear();
+    ExtrusionEntity::children().clear();
 }
 
 ExtrusionEntityCollection::operator ExtrusionPaths() const
@@ -182,7 +136,6 @@ ExtrusionEntityCollection::operator ExtrusionPaths() const
 
 void ExtrusionEntityCollection::reverse()
 {
-    this->sync_compat_entities();
     for (ExtrusionEntityUPtr &ptr : this->children())
     {
         // Don't reverse it if it's a loop, as it doesn't change anything in terms of elements ordering
@@ -196,22 +149,48 @@ void ExtrusionEntityCollection::reverse()
 
 void ExtrusionEntityCollection::replace(size_t i, const ExtrusionEntity &entity)
 {
-    this->sync_compat_entities();
     this->children()[i] = ExtrusionEntityUPtr(entity.clone());
     this->m_entities_cache.clear();
 }
 
 void ExtrusionEntityCollection::remove(size_t i)
 {
-    this->sync_compat_entities();
     this->children().erase(this->children().begin() + i);
+    this->m_entities_cache.clear();
+}
+
+ExtrusionEntityUPtr ExtrusionEntityCollection::release(size_t i)
+{
+    Children &children = this->children();
+    assert(i < children.size());
+    ExtrusionEntityUPtr out = std::move(children[i]);
+    children.erase(children.begin() + i);
+    this->m_entities_cache.clear();
+    return out;
+}
+
+ExtrusionEntityUPtr ExtrusionEntityCollection::release_back()
+{
+    Children &children = this->children();
+    assert(!children.empty());
+    ExtrusionEntityUPtr out = std::move(children.back());
+    children.pop_back();
+    this->m_entities_cache.clear();
+    return out;
+}
+
+void ExtrusionEntityCollection::erase(size_t begin, size_t end)
+{
+    Children &children = this->children();
+    assert(begin <= end);
+    assert(end <= children.size());
+    children.erase(children.begin() + begin, children.begin() + end);
     this->m_entities_cache.clear();
 }
 
 // note: chained_path_from only this collection. You still need to chained_path_from the child collections.
 ExtrusionEntityReferences ExtrusionEntityCollection::chained_path_from(const Point &start_near)
 {
-    this->sync_compat_entities();
     if (!this->can_sort()) {
         ExtrusionEntityReferences result{};
         bool need_reverse = false;
@@ -322,8 +301,6 @@ void ExtrusionEntityCollection::flatten(bool preserve_ordering, ExtrusionEntityC
         this->visit(flattener);
         //tranfert owner of entities.
         ExtrusionEntityCollection &flat = flattener.set();
-        flat.sync_compat_entities();
-        out.sync_compat_entities();
         Children &out_children = out.children();
         Children &flat_children = flat.children();
         out_children.insert(out_children.begin(), std::make_move_iterator(flat_children.begin()), std::make_move_iterator(flat_children.end()));

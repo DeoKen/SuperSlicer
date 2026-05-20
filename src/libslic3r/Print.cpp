@@ -1772,8 +1772,8 @@ void Print::process()
             this->set_status(0, L("Optimizing skirt & brim %s%%"), { std::to_string(0) }, PrintBase::SlicingStatus::SECONDARY_STATE);
             std::atomic<int> atomic_count{ 0 };
             GetPathsVisitor visitor;
-            this->m_skirt.visit(visitor);
-            this->m_brim.visit(visitor);
+            visitor.traverse(this->m_skirt);
+            visitor.traverse(this->m_brim);
 #if _DEBUG
             this->m_skirt.visit(get_loops);
             for (auto loop : get_loops.loops) assert(loop->is_counter_clockwise());
@@ -1783,7 +1783,10 @@ void Print::process()
                 [this, &visitor, scaled_resolution, &arc_fitting_tolerance, &atomic_count](const tbb::blocked_range<size_t>& range) {
                     assert(range.end() <= visitor.paths.size());
                     for (size_t path_idx = range.begin(); path_idx < range.end(); ++path_idx) {
-                        visitor.paths[path_idx]->simplify(scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_effective_value(visitor.paths[path_idx]->width())));
+                        const ExtrusionAttributes *attributes = visitor.paths[path_idx]->get_property<ExtrusionAttributes>();
+                        assert(attributes != nullptr);
+                        if (attributes != nullptr)
+                            visitor.paths[path_idx]->simplify(scaled_resolution, config().arc_fitting.value, scale_d(arc_fitting_tolerance.get_effective_value(attributes->width)));
                         int nb_items_done = (++atomic_count);
                         this->set_status(int((nb_items_done * 100) / (visitor.paths.size())), L("Optimizing skirt & brim %s%%"), { std::to_string(int(100*nb_items_done / double(visitor.paths.size()))) }, PrintBase::SlicingStatus::SECONDARY_STATE);
                     }

@@ -250,7 +250,7 @@ void Fill::fill_surface_extrusion_with_gap_fill(const Surface *surface,
     Surface srf_no_gapfill(*surface, ExPolygon{});
     for (ExPolygon &expoly_tofill : solid_infill_areas) {
         srf_no_gapfill.expolygon = expoly_tofill;
-        this->fill_surface_extrusion(&srf_no_gapfill, params_no_gap_fill, coll_nosort->set_entities());
+        this->fill_surface_extrusion(&srf_no_gapfill, params_no_gap_fill, *coll_nosort);
     }
     ExPolygons unextruded_areas;
     if (!coll_nosort->entities().empty()) {
@@ -276,7 +276,9 @@ void Fill::fill_surface_extrusion_with_gap_fill(const Surface *surface,
         FillParams params2{ params };
         params2.role = good_role;
 
-        do_gap_fill(intersection_ex(gapfill_areas, no_overlap_expolygons), params2, coll_nosort->set_entities());
+        ExtrusionEntitiesPtr gapfill_entities;
+        do_gap_fill(intersection_ex(gapfill_areas, no_overlap_expolygons), params2, gapfill_entities);
+        coll_nosort->append(std::move(gapfill_entities));
     }
     const int nb_gapfill = coll_nosort->entities().size() - nb_infill;
     assert(nb_gapfill <= 1); //do_gap_fill already put evrythgin in a sortable collection
@@ -287,18 +289,16 @@ void Fill::fill_surface_extrusion_with_gap_fill(const Surface *surface,
         coll_nosort->set_can_sort_reverse(true, true);
     } else if (nb_infill > 1) {
         // first extract the gapfill
-        ExtrusionEntity *gapfill = coll_nosort->set_entities().back();
-        coll_nosort->set_entities().pop_back();
+        ExtrusionEntityUPtr gapfill = coll_nosort->release_back();
         // now squash the infill
         assert(coll_nosort->size() == nb_infill);
-        ExtrusionEntityCollection *coll_infill = new ExtrusionEntityCollection();
+        std::unique_ptr<ExtrusionEntityCollection> coll_infill = std::make_unique<ExtrusionEntityCollection>();
         coll_infill->set_can_sort_reverse(true, true);
-        // dangerous copy
-        coll_infill->set_entities().insert(coll_infill->set_entities().end(), coll_nosort->set_entities().begin(), coll_nosort->set_entities().end());
-        coll_nosort->set_entities().clear();
-        coll_nosort->set_entities().push_back(coll_infill);
+        while (!coll_nosort->children().empty())
+            coll_infill->append(coll_nosort->release(0));
+        coll_nosort->append(std::move(coll_infill));
         // add the gap fill after the infill
-        coll_nosort->set_entities().push_back(gapfill);
+        coll_nosort->append(std::move(gapfill));
         assert(coll_nosort->entities().size() == 2);
     } else {
         assert(coll_nosort->entities().size() == 2);
@@ -486,6 +486,13 @@ void Fill::fill_surface_extrusion(const Surface *surface, const FillParams &para
     } catch (InfillFailedException&) {
     }
 
+}
+
+void Fill::fill_surface_extrusion(const Surface *surface, const FillParams &params, ExtrusionEntityCollection &out) const
+{
+    ExtrusionEntitiesPtr entities;
+    this->fill_surface_extrusion(surface, params, entities);
+    out.append(std::move(entities));
 }
 
 

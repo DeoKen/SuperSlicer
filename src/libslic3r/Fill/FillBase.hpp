@@ -174,6 +174,7 @@ public:
 
     // This method have to fill the ExtrusionEntityCollection. It call fill_surface by default
     virtual void fill_surface_extrusion(const Surface *surface, const FillParams &params, ExtrusionEntitiesPtr &out) const;
+    void fill_surface_extrusion(const Surface *surface, const FillParams &params, ExtrusionEntityCollection &out) const;
     // called & use fill_surface_extrusion and put gap fill after in empty spaces.
     void fill_surface_extrusion_with_gap_fill(const Surface *surface, const FillParams &params, ExtrusionEntitiesPtr &out) const;
     // Perform the fill.

@@ -34,16 +34,8 @@ inline ExtrusionEntitiesPtr filter_by_extrusion_role(const ExtrusionEntitiesPtr 
 class ExtrusionEntityCollection : public ExtrusionEntity
 {
 private:
-    // Compatibility bridge for legacy APIs still filling a raw pointer vector.
-    // Real ownership is moved back into ExtrusionEntity::children() before the
-    // collection is read or mutated through the modern API.
-    ExtrusionEntitiesPtr m_entities_compat;
     mutable ExtrusionEntitiesPtr m_entities_cache;
 
-    static const ExtrusionEntityCollection& synced(const ExtrusionEntityCollection &collection);
-    static ExtrusionEntityCollection& synced(ExtrusionEntityCollection &collection);
-    void sync_compat_entities();
-    void materialize_compat_entities();
     void rebuild_entities_cache() const;
 
 public:
@@ -55,12 +47,11 @@ public:
     /// Owned ExtrusionEntities and descendent ExtrusionEntityCollections.
     /// Iterating over this needs to check each child to see if it, too is a collection.
     /// FIXME Warning: not a true const, the entities inside can be modified, and if the entities are deleted -> crash
-    const ExtrusionEntitiesPtr& entities() const { const_cast<ExtrusionEntityCollection*>(this)->sync_compat_entities(); this->rebuild_entities_cache(); return m_entities_cache; }
-    ExtrusionEntitiesPtr& set_entities() { this->materialize_compat_entities(); return m_entities_compat; }
+    const ExtrusionEntitiesPtr& entities() const { this->rebuild_entities_cache(); return m_entities_cache; }
     ExtrusionEntityCollection() : ExtrusionEntity(ExtrusionEntity::Children(), true, true, false) {}
     ExtrusionEntityCollection(bool can_sort, bool can_reverse) : ExtrusionEntity(ExtrusionEntity::Children(), can_sort, can_reverse, false) {}
-    ExtrusionEntityCollection(const ExtrusionEntityCollection &other) : ExtrusionEntity(synced(other)) {}
-    ExtrusionEntityCollection(ExtrusionEntityCollection &&other) : ExtrusionEntity(std::move(synced(other))) {}
+    ExtrusionEntityCollection(const ExtrusionEntityCollection &other) : ExtrusionEntity(other) {}
+    ExtrusionEntityCollection(ExtrusionEntityCollection &&other) : ExtrusionEntity(std::move(other)) {}
     explicit ExtrusionEntityCollection(const ExtrusionPaths &paths);
     ExtrusionEntityCollection& operator=(const ExtrusionEntityCollection &other);
     ExtrusionEntityCollection& operator=(ExtrusionEntityCollection &&other);
@@ -86,41 +77,51 @@ public:
     bool can_reverse() const override { return can_sort() || this->m_can_reverse; }
     void clear();
     void swap (ExtrusionEntityCollection &c);
-    void append(const ExtrusionEntity &entity) { this->sync_compat_entities(); this->append_child(ExtrusionEntityUPtr(entity.clone())); }
-    void append(ExtrusionEntity &&entity) { this->sync_compat_entities(); this->append_child(ExtrusionEntityUPtr(entity.clone_move())); }
+    void append(const ExtrusionEntity &entity) { this->append_child(ExtrusionEntityUPtr(entity.clone())); m_entities_cache.clear(); }
+    void append(ExtrusionEntity &&entity) { this->append_child(ExtrusionEntityUPtr(entity.clone_move())); m_entities_cache.clear(); }
+    void append(ExtrusionEntityUPtr &&entity) { this->append_child(std::move(entity)); m_entities_cache.clear(); }
     // take ownership, empty the container.
     template<typename ENTITY> void append(std::unique_ptr<ENTITY> &entity)
     {
         static_assert(std::is_base_of<ExtrusionEntity, ENTITY>::value, "ENTITY not derived from ExtrusionEntity in ExtrusionCollection::append(unique_ptr<ENTITY>)");
-        this->sync_compat_entities();
         this->append_child(std::move(entity));
+        m_entities_cache.clear();
     }
-    void append_at(ExtrusionEntity &&entity, size_t position) { this->sync_compat_entities(); assert(position <= this->child_count()); this->insert_child(position, ExtrusionEntityUPtr(entity.clone_move())); }
+    template<typename ENTITY> void append(std::unique_ptr<ENTITY> &&entity)
+    {
+        static_assert(std::is_base_of<ExtrusionEntity, ENTITY>::value, "ENTITY not derived from ExtrusionCollection::append(unique_ptr<ENTITY>)");
+        this->append_child(std::move(entity));
+        m_entities_cache.clear();
+    }
+    void append_at(ExtrusionEntity &&entity, size_t position) { assert(position <= this->child_count()); this->insert_child(position, ExtrusionEntityUPtr(entity.clone_move())); m_entities_cache.clear(); }
     void append(const ExtrusionEntitiesPtr &entities) { 
-        this->sync_compat_entities();
         this->children().reserve(this->children().size() + entities.size());
         for (const ExtrusionEntity *ptr : entities)
             this->append_child(ExtrusionEntityUPtr(ptr->clone()));
+        m_entities_cache.clear();
     }
     void append(ExtrusionEntitiesPtr &&src) {
-        this->sync_compat_entities();
         this->children().reserve(this->children().size() + src.size());
         for (ExtrusionEntity *ptr : src)
             this->append_child(ExtrusionEntityUPtr(ptr));
         src.clear();
+        m_entities_cache.clear();
     }
     void append(const ExtrusionPaths &paths) {
-        this->sync_compat_entities();
         this->children().reserve(this->children().size() + paths.size());
         for (const ExtrusionPath &path : paths)
             this->append_child(ExtrusionEntityUPtr(path.clone()));
+        m_entities_cache.clear();
     }
     void append(ExtrusionPaths &&paths) {
-        this->sync_compat_entities();
         this->children().reserve(this->children().size() + paths.size());
         for (ExtrusionPath &path : paths)
             this->append_child(std::make_unique<ExtrusionPath>(std::move(path)));
+        m_entities_cache.clear();
     }
+    ExtrusionEntityUPtr release(size_t i);
+    ExtrusionEntityUPtr release_back();
+    void erase(size_t begin, size_t end);
     void replace(size_t i, const ExtrusionEntity &entity);
     void remove(size_t i);
     ExtrusionEntityReferences chained_path_from(const Point &start_near);
@@ -179,8 +180,8 @@ public:
         return true;
     }
     using ExtrusionEntity::visit;
-    virtual void visit(ExtrusionVisitor &visitor) override { this->sync_compat_entities(); visitor.use(*this); };
-    virtual void visit(ExtrusionVisitorConst &visitor) const override{ const_cast<ExtrusionEntityCollection*>(this)->sync_compat_entities(); visitor.use(*this); };
+    virtual void visit(ExtrusionVisitor &visitor) override { visitor.use(*this); };
+    virtual void visit(ExtrusionVisitorConst &visitor) const override{ visitor.use(*this); };
 };
 
 //// visitors /////

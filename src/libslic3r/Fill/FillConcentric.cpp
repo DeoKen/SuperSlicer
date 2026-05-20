@@ -233,7 +233,7 @@ FillConcentric::fill_surface_extrusion(
 
             //initialisation with first shell
             root_collection_nosort->append(ExtrusionEntityCollection{});
-            ExtrusionEntityCollection* root_sortable = static_cast<ExtrusionEntityCollection*>(root_collection_nosort->set_entities().back());
+            ExtrusionEntityCollection* root_sortable = static_cast<ExtrusionEntityCollection*>(root_collection_nosort->entities().back());
 
             struct Leaf {
                 size_t count;
@@ -279,13 +279,12 @@ FillConcentric::fill_surface_extrusion(
                             append_loop_into_collection(*leaf_coll, good_role, params, islands[idx_island]);
                         } else if (leaf_count.count == 1) {
                             //remove last entity (from the count==0) to put it into a new collection
-                            ExtrusionEntity* elt = leaf_coll->set_entities().back();
-                            leaf_coll->set_entities().pop_back();
+                            ExtrusionEntityUPtr elt = leaf_coll->release_back();
                             //add sortbale collection inside
                             leaf_coll->append(ExtrusionEntityCollection{});
-                            leaf_count.sortable = static_cast<ExtrusionEntityCollection*>(leaf_coll->set_entities().back());
+                            leaf_count.sortable = static_cast<ExtrusionEntityCollection*>(leaf_coll->entities().back());
                             ExtrusionEntityCollection new_coll_nosort{ false, false };
-                            new_coll_nosort.append(ExtrusionEntitiesPtr{elt});
+                            new_coll_nosort.append(std::move(elt));
                             leaf_count.sortable->append(std::move(new_coll_nosort));
                         }
                         if (leaf_count.sortable) {
@@ -299,7 +298,7 @@ FillConcentric::fill_surface_extrusion(
                     } else {
                         //create new root (should only happen on the first shell 'initialisation')
                         root_sortable->append(eec_pattern_no_sort);
-                        leafs.push_back(static_cast<ExtrusionEntityCollection*>(root_sortable->set_entities().back()));
+                        leafs.push_back(static_cast<ExtrusionEntityCollection*>(root_sortable->entities().back()));
                         append_loop_into_collection(*leafs.back(), good_role, params, islands[idx_island]);
                     }
                 }
@@ -447,7 +446,7 @@ FillConcentric::fill_surface_extrusion(
             double length_tot = 0;
             int    nb_lines   = 0;
             ExtrusionVolume get_volume;
-            for (ExtrusionEntity *ee : out_to_check) ee->visit(get_volume);
+            for (ExtrusionEntity *ee : out_to_check) get_volume.traverse(*ee);
             // compute flow to remove spacing_ratio from the equation
             // compute real volume to fill
             double polyline_volume = compute_unscaled_volume_to_fill(surface, params);

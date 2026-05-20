@@ -377,6 +377,33 @@ ArcPolyline ExtrusionEntity::as_polyline() const
     return out;
 }
 
+void ExtrusionEntity::simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance)
+{
+    ArcPolyline *polyline = this->polyline_or_null();
+    const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>();
+    if (polyline == nullptr || attributes == nullptr)
+        return;
+
+    if (polyline->has_z_offset()) {
+        polyline->make_arc(ArcFittingType::Disabled, tolerance, fitting_arc_tolerance);
+        // TODO: simplify but only for sub-path with same zheight.
+        return;
+    }
+    if (with_fitting_arc != ArcFittingType::Disabled) {
+        if (attributes->role.is_sparse_infill())
+            // Use 3x lower resolution than the object fine detail for sparse infill.
+            tolerance *= 3.;
+        else if (attributes->role.is_support())
+            // Use 4x lower resolution than the object fine detail for support.
+            tolerance *= 4.;
+        else if (attributes->role.is_skirt())
+            // Brim is currently marked as skirt.
+            // Use 4x lower resolution than the object fine detail for skirt & brim.
+            tolerance *= 4.;
+    }
+    polyline->make_arc(with_fitting_arc, tolerance, fitting_arc_tolerance);
+}
+
 void ExtrusionEntity::collect_polylines(ArcPolylines &dst) const
 {
     if (const ArcPolyline *polyline = this->polyline_or_null()) {
@@ -466,27 +493,7 @@ void ExtrusionPath::clip_end(coordf_t distance) { this->polyline().clip_end(dist
 
 void ExtrusionPath::simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance)
 {
-    if (this->polyline().has_z_offset()){
-        this->polyline().make_arc(ArcFittingType::Disabled, tolerance, fitting_arc_tolerance);
-        // TODO: simplify but only for sub-path with same zheight.
-        // if (with_fitting_arc) {
-        //    this->polyline().simplify(tolerance, with_fitting_arc, fitting_arc_tolerance);
-        //}
-        return;
-    }
-    if (with_fitting_arc != ArcFittingType::Disabled) {
-        if (role().is_sparse_infill())
-            // Use 3x lower resolution than the object fine detail for sparse infill.
-            tolerance *= 3.;
-        else if (role().is_support())
-            // Use 4x lower resolution than the object fine detail for support.
-            tolerance *= 4.;
-        else if (role().is_skirt())
-            // Brim is currently marked as skirt.
-            // Use 4x lower resolution than the object fine detail for skirt & brim.
-            tolerance *= 4.;
-    }
-    this->polyline().make_arc(with_fitting_arc, tolerance, fitting_arc_tolerance);
+    ExtrusionEntity::simplify(tolerance, with_fitting_arc, fitting_arc_tolerance);
 }
 
 coordf_t ExtrusionPath::length() const { return this->polyline().length(); }
@@ -909,7 +916,7 @@ void ExtrusionLength::default_use(const ExtrusionEntity &entity)
 }
 
 double ExtrusionVolume::get(const ExtrusionEntityCollection &coll) {
-    coll.visit(*this);
+    this->traverse(coll);
     return volume;
 }
 
@@ -1070,21 +1077,14 @@ void SimplifyVisitor::default_use(ExtrusionEntity& entity) {
     m_current_attributes = old_current_attributes;
 }
 
-void GetPathsVisitor::default_use(ExtrusionEntity& entity)
+void GetPathsVisitor::visit_leaf(ExtrusionEntity& entity)
 {
-    if (ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(&entity)) {
-        paths.push_back(path);
-        return;
-    }
-    ExtrusionVisitorRecursive::default_use(entity);
+    if (entity.polyline_or_null() != nullptr)
+        paths.push_back(&entity);
 }
 
-void ExtrusionVolume::default_use(const ExtrusionEntity &entity)
+void ExtrusionVolume::visit_leaf(const ExtrusionEntity &entity)
 {
-    if (!entity.is_leaf()) {
-        ExtrusionVisitorRecursiveConst::default_use(entity);
-        return;
-    }
     const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
     if (attributes == nullptr)
         return;

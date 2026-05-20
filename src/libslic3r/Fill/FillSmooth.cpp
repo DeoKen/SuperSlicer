@@ -83,7 +83,7 @@ namespace Slic3r {
         // Used by the concentric infill pattern to clip the loops to create extrusion paths.
         f2->loop_clipping = this->loop_clipping;
 
-        f2->fill_surface_extrusion(&srf_to_fill, params, eec.set_entities());
+        f2->fill_surface_extrusion(&srf_to_fill, params, eec);
 
 
 //        Polylines polylines_layer = f2->fill_surface(&srf_to_fill, params);

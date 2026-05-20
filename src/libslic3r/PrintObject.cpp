@@ -1067,14 +1067,17 @@ void PrintObject::simplify_extrusion_path()
             const ConfigOptionFloatOrPercent& arc_fitting_tolerance = print_config.arc_fitting_tolerance;
 
             GetPathsVisitor visitor;
-            this->m_skirt.visit(visitor);
-            this->m_brim.visit(visitor);
+            visitor.traverse(this->m_skirt);
+            visitor.traverse(this->m_brim);
             tbb::parallel_for(
                 tbb::blocked_range<size_t>(0, visitor.paths.size()),
                 [this, &visitor, scaled_resolution, &arc_fitting_tolerance, &print_config](const tbb::blocked_range<size_t>& range) {
                     assert(range.end() <= visitor.paths.size());
                     for (size_t path_idx = range.begin(); path_idx < range.end() ; ++path_idx) {
-                        visitor.paths[path_idx]->simplify(scaled_resolution, print_config.arc_fitting, arc_fitting_tolerance.get_effective_value(visitor.paths[path_idx]->width()));
+                        const ExtrusionAttributes *attributes = visitor.paths[path_idx]->get_property<ExtrusionAttributes>();
+                        assert(attributes != nullptr);
+                        if (attributes != nullptr)
+                            visitor.paths[path_idx]->simplify(scaled_resolution, print_config.arc_fitting, arc_fitting_tolerance.get_effective_value(attributes->width));
                     }
                 }
             );

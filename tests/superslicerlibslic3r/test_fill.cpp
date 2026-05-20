@@ -891,7 +891,7 @@ bool test_if_solid_surface_filled(const ExPolygon& expolygon, double flow_width,
     // concentricgapfill can't output only Polylines, as it's a composed thing with gapfill
     //Polylines paths {filler->fill_surface(&surface, params)};
     ExtrusionEntityCollection coll;
-    filler->fill_surface_extrusion(&surface, params, coll.set_entities());
+    filler->fill_surface_extrusion(&surface, params, coll);
 
     // check whether any part was left uncovered
 

@@ -1068,7 +1068,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
                 // note: fills_by_priority[idx] is a vector that store all the entities of this priority, but that can be in multiple islands
                 //       the collection in fills_by_priority[idx][idx2) can be reordered, so put evrythgin in a new unorderable collection if it'ts needed
                 fills_by_priority[(size_t)surface_fill.params.priority].emplace_back(&surface_fill, new ExtrusionEntityCollection());
-                f->fill_surface_extrusion(&surface_fill.surface, surface_fill.params, fills_by_priority[(size_t)surface_fill.params.priority].back().second->set_entities());
+                f->fill_surface_extrusion(&surface_fill.surface, surface_fill.params, *fills_by_priority[(size_t)surface_fill.params.priority].back().second);
                 // normalize result, just in case the filling algorihtm is messing things up (some are).
                 fills_by_priority[(size_t)surface_fill.params.priority].back().second->visit(normalize_visitor);
 #if _DEBUG
@@ -1086,8 +1086,8 @@ void Layer::_make_fills(LayerSliceIsland& island,
                     }
                     //check that it doesn't overextrude
                     for(size_t idx = 0; idx < fills_by_priority[(size_t)surface_fill.params.priority].back().second->size(); ++idx){
-                        fills_by_priority[(size_t)surface_fill.params.priority].back().second->entities()[idx]->visit(compute_volume);
-                        fills_by_priority[(size_t)surface_fill.params.priority].back().second->entities()[idx]->visit(compute_volume_no_gap_fill);
+                        compute_volume.traverse(*fills_by_priority[(size_t)surface_fill.params.priority].back().second->entities()[idx]);
+                        compute_volume_no_gap_fill.traverse(*fills_by_priority[(size_t)surface_fill.params.priority].back().second->entities()[idx]);
                     }
                     ExPolygons temp = f->no_overlap_expolygons.empty() ?
                                         ExPolygons{surface_fill.surface.expolygon} :
@@ -1250,11 +1250,11 @@ Polylines Layer::_generate_sparse_infill_polylines_for_anchoring(const LayerSlic
                     polylines = f->fill_surface(&surface_fill.surface, params);
                 } else {
                     ExtrusionEntityCollection coll;
-                    f->fill_surface_extrusion(&surface_fill.surface, params, coll.set_entities());
+                    f->fill_surface_extrusion(&surface_fill.surface, params, coll);
                     //extract polylines from paths
                     GetPathsVisitor visitor;
-                    coll.visit(visitor);
-                    for (ExtrusionPath *path : visitor.paths) {
+                    visitor.traverse(coll);
+                    for (ExtrusionEntity *path : visitor.paths) {
                         polylines.push_back(path->as_polyline().to_polyline());
                     }
                 }
@@ -1515,7 +1515,7 @@ void Layer::_make_ironing(LayerSliceIsland &island)
                 ExtrusionEntityCollection *eec = &eec_root;
                 if (ironing_areas.size() > 1) {
                     eec = new ExtrusionEntityCollection();
-                    eec_root.set_entities().push_back(eec);
+                    eec_root.append(ExtrusionEntityUPtr(eec));
                 }
                 // Don't sort the ironing infill lines as they are monotonicly ordered.
                 eec->set_can_sort_reverse(false, false);

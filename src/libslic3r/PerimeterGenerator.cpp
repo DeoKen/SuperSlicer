@@ -674,7 +674,7 @@ ExtrusionEntityCollection PerimeterGenerator::_traverse_loops_classic(const Para
         if (idx.first >= loops.size()) {
             // this is a thin wall
             // let's get it from the sorted collection as it might have been reversed
-            coll_out.set_entities().emplace_back(coll[idx.first]);
+            coll_out.append(ExtrusionEntityUPtr(coll[idx.first]));
             coll[idx.first] = nullptr;
             if (idx.second) {
                 coll_out.entities().back()->reverse();
@@ -4636,13 +4636,10 @@ void PerimeterGenerator::process(// Input:
                 if (!this_islands_perimeters.empty()) {
                     for (auto *peri : loops->entities()) assert(!peri->empty());
                     // move the perimeters of the island in the unsortable collection, so the ordering is preserved
-                    for (size_t loop_idx = first_loop_coll_index; loop_idx < loops->size(); ++loop_idx) {
-                        assert(!loops->entities()[loop_idx]->empty());
-                        // !!! dangerous!! here the pointer ownership is transfered to this_islands_perimeters !!!
-                        this_islands_perimeters.append(ExtrusionEntitiesPtr{loops->set_entities()[loop_idx]});
+                    while (loops->size() > first_loop_coll_index) {
+                        assert(!loops->entities()[first_loop_coll_index]->empty());
+                        this_islands_perimeters.append(loops->release(first_loop_coll_index));
                     }
-                    // remove pointers transfered to this_islands_perimeters !!! to complete the transfert of ownership !!!
-                    loops->set_entities().erase(loops->set_entities().begin() + first_loop_coll_index, loops->set_entities().end());
                     assert(loops->size() == first_loop_coll_index);
                     // add this_islands_perimeters (back) into loops.
                     loops->append(std::move(this_islands_perimeters));
@@ -6194,7 +6191,7 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
         //peri_entities.visit(CollectionSimplifyVisitor{});
         if (peri_entities.entities().size() == 1) {
             if (ExtrusionEntityCollection *coll_child = dynamic_cast<ExtrusionEntityCollection *>(
-                    peri_entities.set_entities().front());
+                    peri_entities.entities().front());
                 coll_child != nullptr) {
                 peri_entities.set_can_sort_reverse(coll_child->can_sort(), coll_child->can_reverse());
                 peri_entities.append_move_from(*coll_child);

@@ -1401,7 +1401,7 @@ void make_brim_ears(const Print& print, const Flow& flow, const PrintObjectPtrs&
         filler->init_spacing(flow.spacing(), fill_params);
         for (const ExPolygon& expoly : new_brim_area) {
             Surface surface(stPosInternal | stDensSparse, expoly);
-            filler->fill_surface_extrusion(&surface, fill_params, out.set_entities());
+            filler->fill_surface_extrusion(&surface, fill_params, out);
         }
 
         unbrimmable.insert(unbrimmable.end(), new_brim_area.begin(), new_brim_area.end());

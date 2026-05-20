@@ -186,6 +186,7 @@ public:
         { Polygons out; this->polygons_covered_by_width(out, scaled_epsilon); return out; }
     virtual Polygons polygons_covered_by_spacing(const float spacing_ratio, const float scaled_epsilon) const
         { Polygons out; this->polygons_covered_by_spacing(out, spacing_ratio, scaled_epsilon); return out; }
+    virtual void simplify(coordf_t tolerance, ArcFittingType with_fitting_arc, double fitting_arc_tolerance);
     virtual ArcPolyline as_polyline() const;
     virtual void   collect_polylines(ArcPolylines &dst) const;
     virtual void   collect_points(Points &dst) const;
@@ -1088,28 +1089,26 @@ public:
     SimplifyVisitor(coordf_t scaled_resolution, ArcFittingType use_arc_fitting, bool ignore_holes, const ConfigOptionFloatOrPercent *arc_fitting_tolearance, coord_t min_path_size)
         : m_scaled_resolution(scaled_resolution), m_ignore_holes(ignore_holes), m_use_arc_fitting(use_arc_fitting), m_arc_fitting_tolearance(arc_fitting_tolearance), m_min_path_size(min_path_size)
     {}
-    
+
     virtual void default_use(ExtrusionEntity& entity) override;
     void start(ExtrusionEntityCollection &coll);
     bool is_valid() { return !m_last_deleted; }
 };
-class GetPathsVisitor : public ExtrusionVisitorRecursive {
+class GetPathsVisitor : public ExtrusionTreeVisitor<false> {
 public:
-    using ExtrusionVisitorRecursive::use;
-    std::vector<ExtrusionPath*> paths;
-    virtual void default_use(ExtrusionEntity& entity) override;
+    std::vector<ExtrusionEntity*> paths;
+    virtual void visit_leaf(ExtrusionEntity& entity) override;
 };
 
-class ExtrusionVolume : public ExtrusionVisitorRecursiveConst {
+class ExtrusionVolume : public ExtrusionTreeConstVisitor<false> {
     bool _with_gap_fill = true;
     double _flow_ratio = 1.;
 public:
-    using ExtrusionVisitorRecursiveConst::use;
     double volume = 0; //unscaled
     ExtrusionVolume() {}
     void set_use_gap_fill(bool with_gap_fill = true) { _with_gap_fill = (with_gap_fill); }
     void set_flow_mult(double mult) { _flow_ratio = (mult); }
-    void default_use(const ExtrusionEntity &entity) override;
+    void visit_leaf(const ExtrusionEntity &entity) override;
     double get(const ExtrusionEntityCollection &coll);
 };
 

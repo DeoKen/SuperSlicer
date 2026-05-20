@@ -1684,7 +1684,7 @@ bool WipeTowerLayer::finish_layer(ExtrusionEntityCollection &collection, uint16_
         }
         filler->bounding_box = get_extents(surface.expolygon);
         filler->init_spacing(infill_flow.spacing(), params);
-        filler->fill_surface_extrusion(&surface, params, collection.set_entities());
+        filler->fill_surface_extrusion(&surface, params, collection);
     }
     return true;
 }

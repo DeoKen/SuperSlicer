@@ -625,6 +625,21 @@ static inline void fill_expolygons_generate_paths(
     fill_expolygons_generate_paths(dst, std::move(expolygons), filler, fill_params, density, role, flow, spacing);
 }
 
+static inline void fill_expolygons_generate_paths(
+    ExtrusionEntityCollection &dst,
+    ExPolygons               &&expolygons,
+    Fill                      *filler,
+    float                      density,
+    ExtrusionRole              role,
+    const Flow                &flow,
+    double                     spacing,
+    const PrintRegionConfig   &region_config)
+{
+    ExtrusionEntitiesPtr entities;
+    fill_expolygons_generate_paths(entities, std::move(expolygons), filler, density, role, flow, spacing, region_config);
+    dst.append(std::move(entities));
+}
+
 static Polylines draw_perimeters(const ExPolygon &expoly, double clip_length)
 {
     // Draw the perimeters.
@@ -886,7 +901,7 @@ static inline void tree_supports_generate_paths(
         LoopAssertVisitor().traverse(out);
 #endif
         if (eec) {
-            std::reverse(eec->set_entities().begin(), eec->set_entities().end());
+            std::reverse(eec->children().begin(), eec->children().end());
 #ifdef _DEBUGINFO
             LoopAssertVisitor().traverse(*eec);
 #endif
@@ -1351,7 +1366,7 @@ static void modulate_extrusion_by_overlapping_layers(
         const SupportGeneratorLayer &overlapping_layer = *overlapping_layers[i_overlapping_layer];
         bbox.merge(get_extents(overlapping_layer.polygons));
     }
-    for (ExtrusionEntitiesPtr::const_iterator it = extrusions_in_out.set_entities().begin(); it != extrusions_in_out.set_entities().end(); ++ it) {
+    for (ExtrusionEntitiesPtr::const_iterator it = extrusions_in_out.entities().begin(); it != extrusions_in_out.entities().end(); ++ it) {
         ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(*it);
         assert(path != nullptr);
         bbox.merge(get_extents(path->polyline().as_polyline()));
@@ -1371,10 +1386,10 @@ static void modulate_extrusion_by_overlapping_layers(
         svg.draw(to_polylines(overlapping_layer.polygons), dbg_index_to_color(int(i_overlapping_layer)), scale_(0.1));
     }
     // Fill extrusion, the source.
-    for (ExtrusionEntitiesPtr::const_iterator it = extrusions_in_out.set_entities().begin(); it != extrusions_in_out.set_entities().end(); ++ it) {
+    for (ExtrusionEntitiesPtr::const_iterator it = extrusions_in_out.entities().begin(); it != extrusions_in_out.entities().end(); ++ it) {
         ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(*it);
         std::string color_name;
-        switch ((it - extrusions_in_out.set_entities().begin()) % 9) {
+        switch ((it - extrusions_in_out.entities().begin()) % 9) {
             case 0: color_name = "magenta"; break;
             case 1: color_name = "deepskyblue"; break;
             case 2: color_name = "coral"; break;
@@ -1758,7 +1773,7 @@ void generate_support_toolpaths(
                                                       support_params.support_density);
                     fill_expolygons_generate_paths(
                         // Destination
-                        raft_cache[&support_layer].first.set_entities(),
+                        raft_cache[&support_layer].first,
                         // Regions to fill
                         closing_ex(tree_polygons.empty() ? to_infill_polygons : diff(to_infill_polygons, tree_polygons),
                                    float(SCALED_EPSILON), float(SCALED_EPSILON + 0.5 * flow.scaled_width())),
@@ -1807,7 +1822,7 @@ void generate_support_toolpaths(
                                                                            raft_cache[&support_layer].second;
             fill_expolygons_generate_paths(
                 // Destination
-                support_storage.set_entities(), 
+                support_storage,
                 // Regions to fill
                 closing_ex(tree_polygons.empty() ? raft_layer.polygons : diff(raft_layer.polygons, tree_polygons), float(SCALED_EPSILON),
                            float(SCALED_EPSILON + 0.5 * flow.scaled_width())),
@@ -2157,7 +2172,7 @@ void generate_support_toolpaths(
                     assert_valid(fused_layer_polys);
                     fill_expolygons_generate_paths(
                         // Destination
-                        layer_ex.extrusions.set_entities(), 
+                        layer_ex.extrusions,
                         // Regions to fill
                         std::move(fused_layer_polys),
                         // Filler and its parameters
@@ -2188,7 +2203,7 @@ void generate_support_toolpaths(
                 filler->link_max_length = scale_i(filler->get_spacing() * link_max_length_factor / support_params.interface_density);
                 fill_expolygons_generate_paths(
                     // Destination
-                    base_interface_layer.extrusions.set_entities(), 
+                    base_interface_layer.extrusions,
                     //base_layer_interface.extrusions,
                     // Regions to fill
                     union_safety_offset_ex(base_interface_layer.polygons_to_extrude()),
@@ -2234,7 +2249,7 @@ void generate_support_toolpaths(
                     //fill_expolygons_with_sheath_generate_paths(
                     fill_expolygons_generate_paths( //TODO: 2.7 test if pattern has the sheath
                         // Destination
-                        base_layer.extrusions.set_entities(),
+                        base_layer.extrusions,
                         // Regions to fill
                         std::move(base_expolys),
                         // Filler and its parameters
