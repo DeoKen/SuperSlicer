@@ -785,7 +785,7 @@ void PrintObject::_max_overhang_threshold() {
         max_nz_diam = scale_i(0.4);
     
     for (size_t region_idx = 0; region_idx < this->num_printing_regions(); ++region_idx) {
-        coord_t enlargement = scale_i(this->printing_region(region_idx).config().overhangs_max_slope.get_effective_value(unscaled(max_nz_diam)));
+        coord_t enlargement = scale_i(this->printing_region(region_idx).config().option_throw("overhangs_max_slope")->get_effective_value(unscaled(max_nz_diam)));
         if (enlargement > 0) {
             has_enlargment = true;
             break;
@@ -805,7 +805,7 @@ void PrintObject::_max_overhang_threshold() {
         // check if it's activated somewhere for this layer
         bool has_modifications = false;
         for (size_t region_idx = 0; region_idx < my_layer.m_regions.size(); ++region_idx) {
-            if (my_layer.region(region_idx).region().config().overhangs_max_slope.get_effective_value(1.) > 0) {
+            if (my_layer.region(region_idx).region().config().option_throw("overhangs_max_slope")->get_effective_value(1.) > 0) {
                 has_modifications = true;
                 break;
             }
@@ -826,8 +826,8 @@ void PrintObject::_max_overhang_threshold() {
 
             // do we check for our bridge (and maybe the one above?)
             // yes if overhangs_bridge_threshold isn't enabled to 0
-            if (lregion.region().config().overhangs_bridge_threshold.value != 0 ||
-                    !lregion.region().config().overhangs_bridge_threshold.is_enabled()) {
+            if (lregion.region().config().option_throw("overhangs_bridge_threshold")->get_float() != 0 ||
+                    !lregion.region().config().option_throw("overhangs_bridge_threshold")->is_enabled()) {
                 ExPolygons unsupported = lregion.get_raw_slices();
                 unsupported            = diff_ex(unsupported, lower_layer.lslices(), ApplySafetyOffset::Yes);
 
@@ -842,8 +842,8 @@ void PrintObject::_max_overhang_threshold() {
                                                 bridge_flow.scaled_spacing(),
                                                 scale_i(this->print()->config().bridge_precision.get_effective_value(bridge_flow.spacing())),
                                                 layer_idx);
-                        if (lregion.region().config().overhangs_bridge_threshold.is_enabled()) {
-                            detector.max_bridge_length = scale_d(std::max(0., lregion.region().config().overhangs_bridge_threshold.value));
+                        if (lregion.region().config().option_throw("overhangs_bridge_threshold")->is_enabled()) {
+                            detector.max_bridge_length = scale_d(std::max(0., lregion.region().config().option_throw("overhangs_bridge_threshold")->get_float()));
                         } else {
                             detector.max_bridge_length = -1;
                         }
@@ -852,8 +852,8 @@ void PrintObject::_max_overhang_threshold() {
                         }
                     }
                     // then, check other layers
-                    if (lregion.region().config().overhangs_bridge_upper_layers.is_enabled()) { // disabled -> don't check other layers
-                        size_t max_layer_idx = lregion.region().config().overhangs_bridge_upper_layers.value;
+                    if (lregion.region().config().option_throw("overhangs_bridge_upper_layers")->is_enabled()) { // disabled -> don't check other layers
+                        size_t max_layer_idx = lregion.region().config().option_throw("overhangs_bridge_upper_layers")->get_int();
                         if (max_layer_idx == 0) // 0 -> all layers
                             max_layer_idx = this->layers().size();
                         max_layer_idx += layer_idx;
@@ -872,10 +872,10 @@ void PrintObject::_max_overhang_threshold() {
                             ExPolygons new_bridged_area;
                             for (size_t other_region_idx = 0; other_region_idx < my_layer.m_regions.size(); ++other_region_idx) {
                                 const LayerRegion &other_lregion = my_layer.region(other_region_idx);
-                                if ( (other_lregion.region().config().overhangs_bridge_threshold.value != 0 ||
-                                        !lregion.region().config().overhangs_bridge_threshold.is_enabled())
-                                    && other_lregion.region().config().overhangs_max_slope > 0) {
-                                    coord_t enlargement = scale_i(lregion.region().config().overhangs_max_slope.get_effective_value(unscaled(max_nz_diam))); // me or other?
+                                if ( (other_lregion.region().config().option_throw("overhangs_bridge_threshold")->get_float() != 0 ||
+                                        !lregion.region().config().option_throw("overhangs_bridge_threshold")->is_enabled())
+                                    && other_lregion.region().config().option_throw("overhangs_max_slope")->get_effective_value(1.) > 0) {
+                                    coord_t enlargement = scale_i(lregion.region().config().option_throw("overhangs_max_slope")->get_effective_value(unscaled(max_nz_diam))); // me or other?
                                     enlargement = std::max(enlargement, max_nz_diam);
                                     for (const ExPolygon &other_to_bridge : intersection_ex(still_unsupported, other_lregion.get_raw_slices())) {
                                         //collapse too small area
@@ -885,8 +885,8 @@ void PrintObject::_max_overhang_threshold() {
                                                      scale_i(this->print()->config().bridge_precision.get_effective_value(bridge_flow.spacing())),
                                                      other_layer_bridge_idx);
                                         detector.layer_id = other_layer_bridge_idx;
-                                        if (lregion.region().config().overhangs_bridge_threshold.is_enabled()) {
-                                            detector.max_bridge_length = scale_d(std::max(0., other_lregion.region().config().overhangs_bridge_threshold.value));
+                                        if (lregion.region().config().option_throw("overhangs_bridge_threshold")->is_enabled()) {
+                                            detector.max_bridge_length = scale_d(std::max(0., other_lregion.region().config().option_throw("overhangs_bridge_threshold")->get_float()));
                                         } else {
                                             detector.max_bridge_length = -1;
                                         }
@@ -919,7 +919,7 @@ void PrintObject::_max_overhang_threshold() {
             //also modify region surfaces
             //std::map<coord_t, ExPolygons> enlargement_2_support_area;
             // TODO: fuse region with same enlargement
-            coord_t enlargement = scale_i(lregion.region().config().overhangs_max_slope.get_effective_value(unscaled(max_nz_diam)));
+            coord_t enlargement = scale_i(lregion.region().config().option_throw("overhangs_max_slope")->get_effective_value(unscaled(max_nz_diam)));
             if (enlargement > 0) {
                 ExPolygons enlarged_support = offset_ex(supported_area, double(enlargement));
                 if (!bridged_other_layers_areas.empty()) {

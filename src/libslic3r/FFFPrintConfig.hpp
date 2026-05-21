@@ -506,13 +506,10 @@ PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     // Detect bridging perimeters
     ((ConfigOptionBool,                 overhangs))
     ((ConfigOptionFloatOrPercent,       overhangs_acceleration))
-    ((ConfigOptionFloat,                overhangs_bridge_threshold))
-    ((ConfigOptionInt,                  overhangs_bridge_upper_layers))
     ((ConfigOptionGraph,                overhangs_dynamic_flow))
     ((ConfigOptionGraph,                overhangs_dynamic_speed))
     ((ConfigOptionFloatOrPercent,       overhangs_extrusion_spacing))
     ((ConfigOptionPercent,              overhangs_flow_ratio))
-    ((ConfigOptionFloatOrPercent,       overhangs_max_slope))
     ((ConfigOptionBool,                 overhangs_reverse))
     ((ConfigOptionFloatOrPercent,       overhangs_reverse_threshold))
     ((ConfigOptionFloatOrPercent,       overhangs_speed))

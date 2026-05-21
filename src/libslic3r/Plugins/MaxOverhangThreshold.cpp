@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <set>
 
+#include "libslic3r/Api/plugin/c/slic3r_config_def.h"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/cpp/PrintHelpers.hpp"
 #include "libslic3r/Api/plugin/cpp/Views.hpp"
@@ -324,7 +325,7 @@ void MaxOverhangThreshold::run_impl(const plugin_run_context *run_ctx) const {
                                 Config other_region_config = other_lregion.print_region().config();
                                 if ((other_region_config.get("overhangs_bridge_threshold").get_float() != 0 ||
                                      !other_region_config.get("overhangs_bridge_threshold").is_enabled()) &&
-                                    other_region_config.get("overhangs_max_slope ").get_float() > 0) {
+                                    other_region_config.get("overhangs_max_slope").get_float() > 0) {
                                     coord_t enlargement = scale_i(
                                         region_config.get("overhangs_max_slope")
                                             .get_effective_value(unscaled(max_nz_diam))); // me or other?
@@ -502,6 +503,68 @@ int32_t MaxOverhangThreshold::priority_impl() const noexcept { return 0; }
 const char *MaxOverhangThreshold::progress_message_format_impl() const noexcept
 {
     return "Max overhang threshold: %u / %u layers";
+}
+
+void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
+{
+    raw_config_option_def def{};
+    def.opt_key = "overhangs_bridge_threshold";
+    def.type = RAW_CO_FLOAT;
+    def.container_type = RAW_CONTAINER_TYPE_REGION;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = "Bridge max length";
+    def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.tooltip = ("Maximum distance for bridges. If the distance is over that, it will be considered as overhangs for 'overhangs_max_slope'."
+                   "\nIf disabled, accept all distances."
+                   "\nSet to 0 to ignore bridges.");
+    def.sidetext = "mm";
+    def.has_min = true;
+    def.min_value = 0;
+    def.can_be_disabled = true;
+    def.mode = RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI;
+    def.default_serialized_value = "!0";
+    orchestrator_create_option_def(m_orchestrator, &def);
+
+    def = raw_config_option_def();
+    def.opt_key = "overhangs_bridge_upper_layers";
+    def.type = RAW_CO_INT;
+    def.container_type = RAW_CONTAINER_TYPE_REGION;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = "Consider upper bridges";
+    def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.tooltip = ("Don't put overhangs in the area if it will be filled in next layer(s) by bridges."
+                   "\nIf set to 0, it will look all layers."
+                   "\nIf disabled, the current layer will still add overhangs, even if there's a bridge on top, reducing the bridge length.");
+    def.sidetext = "layers";
+    def.has_min = true;
+    def.min_value = 0;
+    def.can_be_disabled = true;
+    def.mode = RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI;
+    def.default_serialized_value = "2";
+    orchestrator_create_option_def(m_orchestrator, &def);
+
+    def = raw_config_option_def();
+    def.opt_key = "overhangs_max_slope";
+    def.type = RAW_CO_FLOAT_OR_PERCENT;
+    def.container_type = RAW_CONTAINER_TYPE_REGION;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = "Overhangs max slope";
+    def.full_label = "Overhangs max slope";
+    def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.tooltip = ("Maximum slope for overhangs. if at each layer, the overhangs hangs by more than this value, then the geometry will be cut."
+                   " It doesn't cut into detected bridgeable areas if 'overhangs_bridge_threshold' allow it."
+                   "\nCan be a % of the highest nozzle diameter."
+                   "\nSet to 0 to disable.");
+    def.sidetext = "mm or %";
+    def.ratio_over = "nozzle_diameter";
+    def.has_min = true;
+    def.min_value = 0;
+    def.mode = RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI;
+    def.default_serialized_value = "0";
+    orchestrator_create_option_def(m_orchestrator, &def);
 }
 
 void MaxOverhangThreshold::setup_run_impl(const plugin_run_context *run_ctx) const

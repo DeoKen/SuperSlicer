@@ -793,10 +793,7 @@ void init_categories(PrintConfigDef &definition)
         "overhangs_type",
         "overhangs_speed",
         "overhangs_speed_enforce",
-        "overhangs_max_slope",
         "overhangs_flow_ratio",
-        "overhangs_bridge_threshold",
-        "overhangs_bridge_upper_layers",
         "overhangs_width",
         "overhangs_width_speed", 
         "overhangs_reverse",
@@ -5380,30 +5377,6 @@ void init_fff_params(PrintConfigDef &definition)
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionFloatOrPercent(0,false));
 
-    def = definition.add("overhangs_bridge_threshold", coFloat, ptFFF);
-    def->label = L("Bridge max length");
-    def->category = OptionCategory::slicing;
-    def->tooltip = L("Maximum distance for bridges. If the distance is over that, it will be considered as overhangs for 'overhangs_max_slope'."
-                    "\nIf disabled, accept all distances."
-                    "\nSet to 0 to ignore bridges.");
-    def->sidetext = L("mm");
-    def->min = 0;
-    def->can_be_disabled = true;
-    def->mode = comExpert | comSuSi;
-    def->set_default_value(disable_default_option(new ConfigOptionFloat(0)));
-
-    def = definition.add("overhangs_bridge_upper_layers", coInt, ptFFF);
-    def->label = L("Consider upper bridges");
-    def->category = OptionCategory::slicing;
-    def->tooltip = L("Don't put overhangs in the area if it will be filled in next layer(s) by bridges."
-                    "\nIf set to 0, it will look all layers."
-                    "\nIf disabled, the current layer will still add overhangs, even if there's a bridge on top, reducing the bridge length.");
-    def->sidetext = L("layers");
-    def->min = 0;
-    def->can_be_disabled = true;
-    def->mode = comExpert | comSuSi;
-    def->set_default_value(enable_default_option(new ConfigOptionInt(2)));
-
     def             = definition.add("overhangs_dynamic_fan_speed", coGraphs, ptFFF);
     def->label      = L("Dynamic overhang speeds");
     def->category   = OptionCategory::speed;
@@ -5565,20 +5538,6 @@ void init_fff_params(PrintConfigDef &definition)
     def->can_be_disabled = true;
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(enable_default_option(new ConfigOptionPercent(100)));
-
-    def = definition.add("overhangs_max_slope", coFloatOrPercent, ptFFF);
-    def->label = L("Overhangs max slope");
-    def->full_label = L("Overhangs max slope");
-    def->category = OptionCategory::slicing;
-    def->tooltip = L("Maximum slope for overhangs. if at each layer, the overhangs hangs by more than this value, then the geometry will be cut."
-                    " It doesn't cut into detected bridgeable areas if 'overhangs_bridge_threshold' allow it."
-                    "\nCan be a % of the highest nozzle diameter."
-                    "\nSet to 0 to disable.");
-    def->sidetext = L("mm or %");
-    def->ratio_over = "nozzle_diameter";
-    def->min = 0;
-    def->mode = comExpert | comSuSi;
-    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
     def = definition.add("overhangs_speed", coFloatOrPercent, ptFFF);
     def->label = L("Overhangs");
