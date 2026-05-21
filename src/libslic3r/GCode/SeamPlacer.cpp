@@ -500,8 +500,8 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                             continue;
                         current_collected = false;
                         const ExtrusionAttributes *attributes = child->get_property<ExtrusionAttributes>();
-                        if (attributes != nullptr && attributes->role.is_external_perimeter()) {
-                            if (!attributes->role.is_overhang() || also_overhangs) {
+                        if (attributes != nullptr && attributes->extrusion_role().is_external_perimeter()) {
+                            if (!attributes->extrusion_role().is_overhang() || also_overhangs) {
                                 if (!attributes->no_seam) {
                                     const ArcPolyline *polyline = child->polyline_or_null();
                                     if (polyline == nullptr)
@@ -571,9 +571,9 @@ PolylineWithEnds extract_perimeter_polylines(const Layer *layer, const SeamPosit
                 return;
             if (
                 // path: first case: Arachne, second case: ThinWall/gapfill, third case: extra overhangs
-                (perimeter_type == PerimeterGeneratorType::Arachne && attributes->role != ExtrusionRole::ThinWall && !attributes->role.is_overhang()) ||
-                (also_thin_walls && attributes->role.has(ERM_Thin)) ||
-                (also_overhangs && attributes->role.is_overhang())) {
+                (perimeter_type == PerimeterGeneratorType::Arachne && attributes->extrusion_role() != ExtrusionRole::ThinWall && !attributes->extrusion_role().is_overhang()) ||
+                (also_thin_walls && attributes->extrusion_role().has(ERM_Thin)) ||
+                (also_overhangs && attributes->extrusion_role().is_overhang())) {
                 //path.polygons_covered_by_width(*polygons, SCALED_EPSILON);
                 assert(m_corresponding_regions_out.size() == polylines->size());
                 //if path, start at one end. so only two points allowed.

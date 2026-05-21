@@ -194,7 +194,8 @@ public:
     ExtrusionNop() : ExtrusionEntity(true) {}
     ExtrusionNop(const ExtrusionNop& other) : ExtrusionEntity(other), m_role(other.m_role), position(other.position) {}
     ExtrusionNop(ExtrusionNop&& other) : ExtrusionEntity(std::move(other)), m_role(other.m_role), position(std::move(other.position)) {}
-    ExtrusionNop(const ExtrusionProperty &attr) : ExtrusionEntity(true) { this->add_property(attr); }
+    template<typename PropertyType>
+    explicit ExtrusionNop(const PropertyType &attr) : ExtrusionEntity(true) { this->add_property(attr); }
     ExtrusionNop &operator=(const ExtrusionNop &rhs) {
         ExtrusionEntity::operator=(rhs);
         this->m_role = rhs.m_role;
@@ -336,8 +337,8 @@ public:
     coordf_t length() const override;
 
     const ExtrusionAttributes&  attributes() const { const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>(); assert(attributes != nullptr); return *attributes; }
-    ExtrusionRole               role() const override { return attributes().role; }
-    bool has_role(ExtrusionRole test_role) const override { return (attributes().role & test_role) == test_role; }
+    ExtrusionRole               role() const override { return attributes().extrusion_role(); }
+    bool has_role(ExtrusionRole test_role) const override { return (attributes().extrusion_role() & test_role) == test_role; }
     float                       width() const { return attributes().width; }
     float                       height() const { return attributes().height; }
     double                      mm3_per_mm() const { return attributes().mm3_per_mm; }
@@ -347,7 +348,7 @@ public:
     const ExtrusionPropertyOverhang *overhang_attributes() const; // can be null if not present
     ExtrusionAttributes& attributes_mutable() { return this->get_or_add_property<ExtrusionAttributes>(); }
 
-    void set_role(ExtrusionRole new_role) { attributes_mutable().role = new_role; }
+    void set_role(ExtrusionRole new_role) { attributes_mutable().set_role(new_role); }
     // Produce a list of 2D polygons covered by the extruded paths, offsetted by the extrusion width.
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
     void polygons_covered_by_width(Polygons &out, const float scaled_epsilon) const override;
@@ -776,7 +777,7 @@ public:
     ExtrusionLoopRole loop_role() const
     {
         const ExtrusionPropertyLoopRole *property = this->get_property<ExtrusionPropertyLoopRole>();
-        return property == nullptr ? elrDefault : property->loop_role;
+        return property == nullptr ? elrDefault : property->perimeter_role();
     }
     // Produce a list of 2D polygons covered by the extruded paths, offsetted by the extrusion width.
     // Increase the offset by scaled_epsilon to achieve an overlap, so a union will produce no gaps.
@@ -818,7 +819,7 @@ private:
         if (role == elrDefault)
             this->remove_property<ExtrusionPropertyLoopRole>();
         else
-            this->get_or_add_property<ExtrusionPropertyLoopRole>().loop_role = role;
+            this->get_or_add_property<ExtrusionPropertyLoopRole>().set_perimeter_role(role);
     }
 };
 

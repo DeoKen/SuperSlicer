@@ -216,6 +216,20 @@ extrusion_data_id extrusion_store_data_aligned(extrusion_entity *entity,
         *Slic3r::to_extrusion(entity), data, byte_size, alignment);
 }
 
+extrusion_data_id extrusion_property_store_data_aligned(extrusion_entity *entity,
+                                                        extrusion_property_type owner_type,
+                                                        extrusion_data_id *field,
+                                                        const void *data,
+                                                        uint32_t byte_size,
+                                                        uint32_t alignment)
+{
+    if (entity == nullptr || owner_type == EXTRUSION_PROPERTY_TYPE_INVALID ||
+        field == nullptr || !Slic3r::is_power_of_two(alignment) || (byte_size > 0 && data == nullptr))
+        return EXTRUSION_DATA_ID_INVALID;
+    return Slic3r::ApiInternal::ExtrusionPropertyAccess::store_property_data_aligned(
+        *Slic3r::to_extrusion(entity), owner_type, field, data, byte_size, alignment);
+}
+
 const void *extrusion_data(const extrusion_entity *entity,
                            extrusion_data_id data_id,
                            uint32_t *byte_size_out)

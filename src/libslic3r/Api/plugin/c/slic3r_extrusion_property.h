@@ -24,7 +24,8 @@ Property payloads are plain C byte records. The built-in property structures
 below are stable ABI records. Custom properties registered by plugins follow the
 same rule: they must be trivially copyable raw data. If a property needs text or
 larger binary data, store that data on the extrusion entity with
-extrusion_store_data_aligned(), then keep the returned data id in the property.
+extrusion_property_store_data_aligned(), passing the address of the
+extrusion_data_id field that will reference the data.
 */
 
 typedef struct extrusion_entity extrusion_entity;
@@ -140,8 +141,9 @@ void *extrusion_property_get_or_add_data_mutable(orchestrator_handle *orch,
 /*
 Remove one property from this entity. Returns non-zero if a property was removed.
 
-This only removes the property payload. If the property contains an
-extrusion_data_id, the referenced stored data is not automatically freed.
+Stored data created with extrusion_property_store_data_aligned() for fields in
+this property type is released at the same time. Stored data created with
+extrusion_store_data_aligned() is independent and is not released here.
 */
 int32_t extrusion_property_remove(extrusion_entity *entity, extrusion_property_type type);
 
@@ -152,9 +154,9 @@ The host copies byte_size bytes from data immediately. The caller may reuse,
 modify, or release its source buffer after this function returns. data must point
 to byte_size readable bytes unless byte_size is 0.
 
-The returned id can be placed inside a property payload. The host owns the stored
-memory, clones it with the extrusion entity, and releases it when the entity or
-data id is destroyed.
+The returned id can be placed inside a property payload, but it is not owned by
+that property. The host owns the stored memory, clones it with the extrusion
+entity, and releases it when the entity or data id is destroyed.
 
 alignment must be a power of two and at least 1. Passing sizeof(T) bytes with
 alignment alignof(T) allows the returned data pointer to be safely cast to T*.
@@ -163,6 +165,27 @@ extrusion_data_id extrusion_store_data_aligned(extrusion_entity *entity,
                                                const void *data,
                                                uint32_t byte_size,
                                                uint32_t alignment);
+
+/*
+Store arbitrary byte data owned by one extrusion_data_id field inside a property.
+
+Use this for text or binary data whose lifetime should follow a property field.
+The host copies the bytes immediately, releases the old data referenced by this
+same field, writes the new id into *field, and returns that id.
+
+field must point inside the mutable payload of owner_type, usually obtained from
+extrusion_property_get_or_add_data_mutable(). This lets the host verify that the
+data id field really belongs to the selected property.
+
+When extrusion_property_remove() removes owner_type, or when owner_type is
+replaced, all data stored for fields in owner_type is released automatically.
+*/
+extrusion_data_id extrusion_property_store_data_aligned(extrusion_entity *entity,
+                                                        extrusion_property_type owner_type,
+                                                        extrusion_data_id *field,
+                                                        const void *data,
+                                                        uint32_t byte_size,
+                                                        uint32_t alignment);
 
 /*
 Return a direct read-only pointer to one stored data buffer.
@@ -186,8 +209,8 @@ const void *extrusion_data(const extrusion_entity *entity,
 Free one stored data buffer. Properties referencing this id are not modified.
 
 This is different from extrusion_property_remove(): removing a property removes
-the typed payload from the entity; freeing stored data releases an auxiliary
-buffer referenced by id.
+the typed payload and the stored data owned by that property type; freeing
+stored data releases exactly one auxiliary buffer referenced by id.
 */
 int32_t extrusion_free_data(extrusion_entity *entity, extrusion_data_id data_id);
 
@@ -201,8 +224,10 @@ typedef struct c_extrusion_flow {
 
 /* Property type: EXTRUSION_PROPERTY_TYPE_ATTRIBUTES. */
 typedef struct c_extrusion_property_attributes {
-    c_extrusion_flow flow;
-    int32_t role;
+    double mm3_per_mm;
+    float width;
+    float height;
+    uint16_t role;
     uint8_t no_seam;
 } c_extrusion_property_attributes;
 
@@ -252,7 +277,7 @@ typedef enum c_extrusion_special_command {
 
 /* Property type: EXTRUSION_PROPERTY_TYPE_SPECIAL_COMMAND. */
 typedef struct c_extrusion_property_special_command {
-    c_extrusion_special_command command;
+    c_extrusion_special_command code;
     double extra_data;
 } c_extrusion_property_special_command;
 
@@ -276,7 +301,7 @@ typedef struct c_extrusion_property_z_offset {
 typedef struct c_extrusion_property_perimeter {
     int16_t perimeter_idx;
     int16_t reserved;
-    int32_t loop_role;
+    uint16_t loop_role;
 } c_extrusion_property_perimeter;
 
 #ifdef __cplusplus

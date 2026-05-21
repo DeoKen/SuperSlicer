@@ -1593,7 +1593,7 @@ namespace DoExport {
                 return;
             }
             const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
-            if (attributes != nullptr && excluded.find(attributes->role) == excluded.end() && attributes->force_e_per_mm()) {
+            if (attributes != nullptr && excluded.find(attributes->extrusion_role()) == excluded.end() && attributes->force_e_per_mm()) {
                 min = std::min(min, attributes->mm3_per_mm);
             }
         }
@@ -7137,6 +7137,7 @@ std::string GCodeGenerator::extrude_entity(const ExtrusionEntityReference &entit
     assert(!visitor_in_use);
     this->visitor_in_use = true;
     this->visitor_gcode.clear();
+    this->visitor_comment_storage.clear();
     this->visitor_comment = description;
     this->visitor_speed = speed;
     this->visitor_flipped = entity.flipped();
@@ -7221,7 +7222,7 @@ void GCodeGenerator::default_use(const ExtrusionEntity &entity) {
             return;
 
         const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
-        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->perimeter_role();
         ExtrusionLoop loop(std::move(paths), loop_role);
         copy_gcode_properties(entity, loop);
 
@@ -7296,7 +7297,7 @@ void GCodeGenerator::default_use(const ExtrusionEntity &entity) {
         if (polyline.size() > 1 && polyline.front() == polyline.back()) {
             ExtrusionPath path = make_gcode_path(entity);
             const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
-            ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+            ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->perimeter_role();
             ExtrusionLoop loop(std::move(path), loop_role);
             copy_gcode_properties(entity, loop);
 
@@ -7422,7 +7423,7 @@ void GCodeGenerator::apply_properties(const ExtrusionEntity &entity)
     if (const ExtrusionPropertyZOffset *zmove = entity.get_property<ExtrusionPropertyZOffset>())
         apply_property(*zmove);
     if (const ExtrusionPropertyCustomGcode *custom_gcode = entity.get_property<ExtrusionPropertyCustomGcode>())
-        apply_property(*custom_gcode);
+        apply_property(entity, *custom_gcode);
     if (const ExtrusionPropertySpecialCommand *command = entity.get_property<ExtrusionPropertySpecialCommand>())
         apply_property(*command);
 }
@@ -7443,23 +7444,25 @@ void GCodeGenerator::apply_property(const ExtrusionPropertyModifier& modifier_ov
     m_modifier_override.push_back(std::pair<const ExtrusionEntity*, const ExtrusionPropertyModifier*>(m_current_entity.back(), &modifier_override));
 }
 
-void GCodeGenerator::apply_property(const ExtrusionPropertyCustomGcode& custom_gcode) {
-    if (custom_gcode.gcode.empty()) {
+void GCodeGenerator::apply_property(const ExtrusionEntity &entity, const ExtrusionPropertyCustomGcode& custom_gcode) {
+    const std::string gcode = entity.custom_gcode_string(custom_gcode);
+    if (gcode.empty()) {
         return;
     }
     assert(visitor_in_use);
-    if (custom_gcode.code == ExtrusionPropertyCustomGcode::Code::COMMENT) {
+    if (custom_gcode.code() == ExtrusionPropertyCustomGcode::Code::COMMENT) {
         if (visitor_comment.empty()) {
-            visitor_comment = custom_gcode.gcode;
+            visitor_comment_storage = gcode;
+            visitor_comment = visitor_comment_storage;
         } else if (m_config.gcode_comments) {
             visitor_gcode += "; ";
-            visitor_gcode += custom_gcode.gcode;
+            visitor_gcode += gcode;
             if (visitor_gcode.back() != '\n') {
                 visitor_gcode += "\n";
             }
         }
     } else {
-        visitor_gcode += custom_gcode.gcode;
+        visitor_gcode += gcode;
         if (visitor_gcode.back() != '\n') {
             visitor_gcode += "\n";
         }
@@ -7469,7 +7472,7 @@ void GCodeGenerator::apply_property(const ExtrusionPropertyCustomGcode& custom_g
 void GCodeGenerator::apply_property(const ExtrusionPropertySpecialCommand& command) {
     //TODO move into new firware-specific gcode writer
     assert(visitor_in_use);
-    switch (command.code) {
+    switch (command.command_code()) {
     case ExtrusionPropertySpecialCommand::Code::TOOLCHANGE: // to tool 'extra_data' (uint16_t)
         visitor_gcode += this->set_extruder(uint16_t(command.extra_data), m_layer->scaled_print_z());
         break;

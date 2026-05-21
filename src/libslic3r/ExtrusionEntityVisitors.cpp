@@ -86,7 +86,7 @@ void ExtrusionPrinter::enter_node(const ExtrusionEntity &entity)
     this->begin_entity();
     if (entity.is_loop()) {
         const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
-        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->perimeter_role();
         ss << (json?"\"":"") << "ExtrusionLoop" << (json?"_":":") << role_to_code(entity.role())<<"_" << looprole_to_code(loop_role) << (json?"\":":"") << "{";
         if(!entity.can_reverse()) ss << (json?"\"":"") << "oriented" << (json?"\":":"=") << "true,";
     } else if (entity.is_continuous()) {
@@ -146,7 +146,7 @@ void HasRoleVisitor::visit_leaf(const ExtrusionEntity& entity)
     if (found)
         return;
     const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
-    found = attributes ? this->matches(entity, attributes->role) : false;
+    found = attributes ? this->matches(entity, attributes->extrusion_role()) : false;
 }
 
 bool HasRoleVisitor::search(const ExtrusionEntity &entity, HasRoleVisitor&& visitor)
@@ -177,13 +177,13 @@ void SimplifyVisitor::simplify(ExtrusionEntity &entity, coordf_t tolerance, ArcF
         return;
     }
     if (with_fitting_arc != ArcFittingType::Disabled) {
-        if (attributes->role.is_sparse_infill())
+        if (attributes->extrusion_role().is_sparse_infill())
             // Use 3x lower resolution than the object fine detail for sparse infill.
             tolerance *= 3.;
-        else if (attributes->role.is_support())
+        else if (attributes->extrusion_role().is_support())
             // Use 4x lower resolution than the object fine detail for support.
             tolerance *= 4.;
-        else if (attributes->role.is_skirt())
+        else if (attributes->extrusion_role().is_skirt())
             // Brim is currently marked as skirt.
             // Use 4x lower resolution than the object fine detail for skirt & brim.
             tolerance *= 4.;
@@ -212,13 +212,13 @@ void SimplifyVisitor::simplify_entity(ExtrusionEntity& entity) {
         assert(m_scaled_resolution >= SCALED_EPSILON);
         coordf_t tolerance = m_scaled_resolution;
         if (m_use_arc_fitting != ArcFittingType::Disabled) {
-            if (attributes->role.is_sparse_infill())
+            if (attributes->extrusion_role().is_sparse_infill())
                 // Use 3x lower resolution than the object fine detail for sparse infill.
                 tolerance *= 3.;
-            else if (attributes->role.is_support())
+            else if (attributes->extrusion_role().is_support())
                 // Use 4x lower resolution than the object fine detail for support.
                 tolerance *= 4.;
-            else if (attributes->role.is_skirt())
+            else if (attributes->extrusion_role().is_skirt())
                 // Brim is currently marked as skirt.
                 // Use 4x lower resolution than the object fine detail for skirt & brim.
                 tolerance *= 4.;
@@ -249,7 +249,7 @@ void SimplifyVisitor::simplify_entity(ExtrusionEntity& entity) {
         return;
     if (m_ignore_holes && entity.is_loop()) {
         const ExtrusionPropertyLoopRole *loop_role_property = entity.get_property<ExtrusionPropertyLoopRole>();
-        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->loop_role;
+        ExtrusionLoopRole loop_role = loop_role_property == nullptr ? elrDefault : loop_role_property->perimeter_role();
         if ((loop_role & elrHole) != 0)
             return;
     }
@@ -419,7 +419,7 @@ void LoopAssertVisitor::visit_leaf(const ExtrusionEntity& entity)
     const ArcPolyline *polyline = entity.polyline_or_null();
     const ExtrusionPropertyOverhang *overhang = this->current_property<ExtrusionPropertyOverhang>();
     const ExtrusionAttributes *attributes = this->current_property<ExtrusionAttributes>();
-    const ExtrusionRole role = attributes != nullptr ? attributes->role : entity.role();
+    const ExtrusionRole role = attributes != nullptr ? attributes->extrusion_role() : entity.role();
     release_assert (!role.is_overhang() || overhang != nullptr);
     if (m_check_length <= 0 || polyline == nullptr)
         return;

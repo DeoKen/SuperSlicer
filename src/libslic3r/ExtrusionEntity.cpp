@@ -222,7 +222,7 @@ void ExtrusionEntity::set_can_sort_reverse(bool can_sort, bool can_reverse)
 ExtrusionRole ExtrusionEntity::role() const
 {
     if (const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>())
-        return attributes->role;
+        return attributes->extrusion_role();
 
     ExtrusionRole out{ ExtrusionRole::None };
     if (!this->is_leaf()) {
@@ -242,7 +242,7 @@ ExtrusionRole ExtrusionEntity::role() const
 bool ExtrusionEntity::has_role(ExtrusionRole test_role) const
 {
     if (const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>())
-        return (attributes->role & test_role) == test_role;
+        return (attributes->extrusion_role() & test_role) == test_role;
 
     if (!this->is_leaf())
         for (const ExtrusionEntityUPtr &child : this->children())
@@ -325,7 +325,7 @@ void ExtrusionEntity::polygons_covered_by_spacing(Polygons &out, const float spa
         const ExtrusionAttributes *attributes = this->get_property<ExtrusionAttributes>();
         if (attributes == nullptr)
             return;
-        const bool bridge = attributes->role.is_bridge() || (attributes->width * 4 < attributes->height);
+        const bool bridge = attributes->extrusion_role().is_bridge() || (attributes->width * 4 < attributes->height);
         Flow flow = bridge ? Flow::bridging_flow(attributes->width, 0.f) :
                              Flow::new_from_width(attributes->width, 0.f, attributes->height, spacing_ratio);
         if (out.empty()) {

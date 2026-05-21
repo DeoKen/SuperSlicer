@@ -288,7 +288,7 @@ public:
                 if (child)
                     child->visit(*this);
         } else {
-            entity.get_or_add_property<ExtrusionAttributes>().role = new_role;
+            entity.get_or_add_property<ExtrusionAttributes>().set_role(new_role);
         }
     }
 };

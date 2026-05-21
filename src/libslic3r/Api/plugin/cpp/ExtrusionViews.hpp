@@ -70,9 +70,9 @@ struct EPropertyAttributes :
     int32_t extrusion_role() const { return role; }
     EPropertyAttributes &no_seam_enabled(bool enabled = true) { no_seam = enabled ? 1 : 0; return *this; }
     bool no_seam_enabled() const { return no_seam != 0; }
-    EPropertyAttributes &mm3_per_mm(double value) { flow.mm3_per_mm = value; return *this; }
-    EPropertyAttributes &width(float value) { flow.width = value; return *this; }
-    EPropertyAttributes &height(float value) { flow.height = value; return *this; }
+    EPropertyAttributes &mm3_per_mm(double value) { c_extrusion_property_attributes::mm3_per_mm = value; return *this; }
+    EPropertyAttributes &width(float value) { c_extrusion_property_attributes::width = value; return *this; }
+    EPropertyAttributes &height(float value) { c_extrusion_property_attributes::height = value; return *this; }
 };
 
 struct EPropertySpeed :
@@ -107,7 +107,7 @@ struct EPropertySpecialCommand :
     EPropertyPayload<c_extrusion_property_special_command, EXTRUSION_PROPERTY_TYPE_SPECIAL_COMMAND>
 {
     EPropertySpecialCommand &set(c_extrusion_special_command value, double data = 0.) {
-        command = value;
+        code = value;
         extra_data = data;
         return *this;
     }
@@ -250,14 +250,36 @@ public:
         return extrusion_store_data_aligned(self().mutable_handle(), data, byte_size, alignment);
     }
 
+    extrusion_data_id store_property_data(extrusion_property_type owner_type,
+                                          extrusion_data_id *field,
+                                          const void *data,
+                                          uint32_t byte_size,
+                                          uint32_t alignment) {
+        return extrusion_property_store_data_aligned(self().mutable_handle(), owner_type, field, data, byte_size, alignment);
+    }
+
     template<class Payload> extrusion_data_id store_value(const Payload &payload) {
         static_assert(std::is_trivially_copyable<Payload>::value, "Stored data payloads must be trivially copyable");
         return store_data(&payload, sizeof(Payload), alignof(Payload));
     }
 
+    template<class Payload> extrusion_data_id store_property_value(extrusion_property_type owner_type,
+                                                                   extrusion_data_id *field,
+                                                                   const Payload &payload) {
+        static_assert(std::is_trivially_copyable<Payload>::value, "Stored data payloads must be trivially copyable");
+        return store_property_data(owner_type, field, &payload, sizeof(Payload), alignof(Payload));
+    }
+
     extrusion_data_id store_string(std::string_view text) {
         const std::string text_copy(text);
         return store_data(text_copy.c_str(), static_cast<uint32_t>(text_copy.size() + 1), alignof(char));
+    }
+
+    extrusion_data_id store_property_string(extrusion_property_type owner_type,
+                                            extrusion_data_id *field,
+                                            std::string_view text) {
+        const std::string text_copy(text);
+        return store_property_data(owner_type, field, text_copy.c_str(), static_cast<uint32_t>(text_copy.size() + 1), alignof(char));
     }
 
     bool free_data(extrusion_data_id id) {
@@ -269,7 +291,7 @@ public:
     {
         EPropertyCustomGcode &payload = property<EPropertyCustomGcode>();
         payload.kind = kind;
-        payload.text_id = store_string(text);
+        store_property_string(EPropertyCustomGcode::property_type, &payload.text_id, text);
         return payload;
     }
 

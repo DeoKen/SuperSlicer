@@ -33,6 +33,12 @@ struct ExtrusionPropertyAccess
                                        const void *data,
                                        size_t byte_count,
                                        size_t alignment);
+    static uint32_t store_property_data_aligned(ExtrusionPropertyContainer &container,
+                                                extrusion_property_type owner_type,
+                                                extrusion_data_id *field,
+                                                const void *data,
+                                                size_t byte_count,
+                                                size_t alignment);
     static const void *stored_data(const ExtrusionPropertyContainer &container,
                                    uint32_t data_id,
                                    uint32_t *byte_size_out);

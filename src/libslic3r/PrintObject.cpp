@@ -1240,7 +1240,7 @@ void _calculate_overhanging_perimeters(
                 ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
                 if (attributes == nullptr)
                     return;
-                size_t extruder_id = layer_region->region().extruder(attributes->role.is_external() ?
+                size_t extruder_id = layer_region->region().extruder(attributes->extrusion_role().is_external() ?
                                                                         FlowRole::frExternalPerimeter :
                                                                         FlowRole::frPerimeter,
                                                                     *layer->object()) -

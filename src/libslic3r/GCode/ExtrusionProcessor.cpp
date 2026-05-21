@@ -147,7 +147,7 @@ ExtrusionPaths calculate_and_split_overhanging_extrusions(const ExtrusionPath   
     //remove overhang role, as it prevents placing seams on it.
     for (ExtrusionPath &res_path : result) {
         assert(res_path.overhang_attributes());
-        res_path.attributes_mutable().role = (res_path.role() & ExtrusionRoleModifier(~ExtrusionRoleModifier::ERM_Bridge));
+        res_path.attributes_mutable().set_role(res_path.role() & ExtrusionRoleModifier(~ExtrusionRoleModifier::ERM_Bridge));
         //assert(res_path.role() == ExtrusionRole::Perimeter || res_path.role() == ExtrusionRole::ExternalPerimeter);
     }
 #ifdef _DEBUG
@@ -358,7 +358,7 @@ void apply_overhang_flow(ExtrusionPath &path,
                     std::max(overhang_attributes->start_distance_from_prev_layer,
                         overhang_attributes->end_distance_from_prev_layer);
 
-    Flow overhang_flow = layer_region.bridging_flow(attributes.role.is_external() ? FlowRole::frExternalPerimeter :
+    Flow overhang_flow = layer_region.bridging_flow(attributes.extrusion_role().is_external() ? FlowRole::frExternalPerimeter :
                                                                                     FlowRole::frPerimeter);
     if (max_overhang_mm > attributes.width) {
         // create round flow

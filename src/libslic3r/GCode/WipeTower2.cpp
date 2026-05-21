@@ -563,7 +563,7 @@ ExtrusionEntityCollection WipeTower2::prime(
     // 1.)));
     tool_extrusions.set_can_sort_reverse(false, false);
     tool_extrusions.append(
-        ExtrusionNop(ExtrusionPropertyCustomGcode(ExtrusionPropertyCustomGcode::Code::COMMENT, "CP PRIMING START")));
+        ExtrusionNop(ExtrusionPropertyCustomGcodeText(ExtrusionPropertyCustomGcodeText::Code::COMMENT, "CP PRIMING START")));
     Point start_point = path_around_bed.front();
     size_t next_point_idx = 1;
     for (uint16_t tool_id : tools) {
@@ -638,7 +638,7 @@ ExtrusionEntityCollection WipeTower2::prime(
     tool_extrusions.append(
         ExtrusionNop(ExtrusionPropertySpecialCommand(ExtrusionPropertySpecialCommand::Code::FLUSH_PLANNER_QUEUE)));
     tool_extrusions.append(
-        ExtrusionNop(ExtrusionPropertyCustomGcode(ExtrusionPropertyCustomGcode::Code::COMMENT, "CP PRIMING END")));
+        ExtrusionNop(ExtrusionPropertyCustomGcodeText(ExtrusionPropertyCustomGcodeText::Code::COMMENT, "CP PRIMING END")));
 
     return tool_extrusions;
 }
@@ -944,7 +944,7 @@ ExtrusionEntityCollection WipeTowerLayer::tool_change(const Layer *layer,
                 travel.position = center_pos;
                 travel.set_role(ExtrusionRole::Travel);
                 travel.add_property(ExtrusionPropertyModifier().set_toolchange_retraction().set_disable_lift());
-                travel.add_property(ExtrusionPropertyCustomGcode("; inside wipe tower before toolchange"));
+                travel.add_property(ExtrusionPropertyCustomGcodeText("; inside wipe tower before toolchange"));
                 collection.append(std::move(travel));
             } else {
                 // travel a bit outside so the ooze won't do a mess in our wipetower.
@@ -955,7 +955,7 @@ ExtrusionEntityCollection WipeTowerLayer::tool_change(const Layer *layer,
                 travel.position = center_pos;
                 travel.set_role(ExtrusionRole::Travel);
                 travel.add_property(ExtrusionPropertyModifier().set_toolchange_retraction().set_disable_lift());
-                travel.add_property(ExtrusionPropertyCustomGcode("; inside wipe tower before toolchange"));
+                travel.add_property(ExtrusionPropertyCustomGcodeText("; inside wipe tower before toolchange"));
                 collection.append(std::move(travel));
             }
             toolchange_Change(collection, new_tool);
@@ -1032,7 +1032,7 @@ void WipeTowerLayer::toolchange_load(ExtrusionEntityCollection &collection,
     ExtrusionEntityCollection load_collection(false, false);
     Polyline unused = loading_lines;
     const distf_t load_dist = loading_lines.length();
-    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcode(";CP TOOLCHANGE LOAD")));
+    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcodeText(";CP TOOLCHANGE LOAD")));
     if (m_config->single_extruder_multi_material.value &&
         (m_config->parking_pos_retraction.value != 0 || m_config->extra_loading_move.value != 0)) {
         // Increase the extruder driver current to allow fast ramming.
@@ -1044,8 +1044,8 @@ void WipeTowerLayer::toolchange_load(ExtrusionEntityCollection &collection,
 
         // Load the filament while moving left / right, so the excess material will not create a blob at a single position.
         float edist = m_config->parking_pos_retraction + m_config->extra_loading_move;
-        ExtrusionNop disable_preview = (ExtrusionPropertySpecialCommand(
-            ExtrusionPropertySpecialCommand::Code::DISABLE_PREVIEW));
+        ExtrusionNop disable_preview{ExtrusionPropertySpecialCommand(
+            ExtrusionPropertySpecialCommand::Code::DISABLE_PREVIEW)};
         load_collection.append(std::move(disable_preview));
 
         ExtrusionNop extrusion = ExtrusionNop();
@@ -1074,7 +1074,7 @@ void WipeTowerLayer::toolchange_load(ExtrusionEntityCollection &collection,
     collection.append(std::move(load_collection));
     collection.append(
         ExtrusionNop(ExtrusionPropertySpecialCommand(ExtrusionPropertySpecialCommand::Code::RESTORE_SPEED_RATIO)));
-    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcode("; CP TOOLCHANGE LOAD END\n")));
+    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcodeText("; CP TOOLCHANGE LOAD END\n")));
 }
 
 // Ram the hot material out of the melt zone, retract the filament into the cooling tubes and let it cool.
@@ -1093,7 +1093,7 @@ bool WipeTowerLayer::toolchange_Unload(ExtrusionEntityCollection &collection,
         ExtrusionPropertySpeed());
     prop_unload.presure_advance(0);
 
-    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcode("; CP TOOLCHANGE UNLOAD\n")));
+    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcodeText("; CP TOOLCHANGE UNLOAD\n")));
     collection.append(ExtrusionNop(
         ExtrusionPropertySpecialCommand(ExtrusionPropertySpecialCommand::Code::SAVE_AND_RESET_SPEED_RATIO, 1.)));
     Polyline lines_for_wipe = ramming_lines;
@@ -1260,7 +1260,7 @@ bool WipeTowerLayer::toolchange_Unload(ExtrusionEntityCollection &collection,
                 ExtrusionPropertySpecialCommand(ExtrusionPropertySpecialCommand::Code::EXTRUSION,
                                                 m_config->filament_skinnydip_distance.get_at(tool_id)));
             extrusion.add_property(
-                ExtrusionPropertyCustomGcode(ExtrusionPropertyCustomGcode::Code::COMMENT, "SKINNYDIP START"));
+                ExtrusionPropertyCustomGcodeText(ExtrusionPropertyCustomGcodeText::Code::COMMENT, "SKINNYDIP START"));
             cooling_moves.append(extrusion);
 
             ExtrusionNop pause = ExtrusionNop();
@@ -1277,7 +1277,7 @@ bool WipeTowerLayer::toolchange_Unload(ExtrusionEntityCollection &collection,
 
             pause = ExtrusionNop();
             extrusion.add_property(
-                ExtrusionPropertyCustomGcode(ExtrusionPropertyCustomGcode::Code::COMMENT, "SKINNYDIP END"));
+                ExtrusionPropertyCustomGcodeText(ExtrusionPropertyCustomGcodeText::Code::COMMENT, "SKINNYDIP END"));
             pause.add_property(ExtrusionPropertySpecialCommand(ExtrusionPropertySpecialCommand::Code::PAUSE,
                                                                m_config->filament_cooling_zone_pause.get_at(tool_id)));
             cooling_moves.append(pause);
@@ -1310,7 +1310,7 @@ bool WipeTowerLayer::toolchange_Unload(ExtrusionEntityCollection &collection,
         ExtrusionNop(ExtrusionPropertySpecialCommand(ExtrusionPropertySpecialCommand::Code::FLUSH_PLANNER_QUEUE)));
 
     collection.append(std::move(unload_collection));
-    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcode("; CP TOOLCHANGE UNLOAD END\n")));
+    collection.append(ExtrusionNop(ExtrusionPropertyCustomGcodeText("; CP TOOLCHANGE UNLOAD END\n")));
     return has_moved_into_wipetower;
 }
 
@@ -1419,7 +1419,7 @@ void WipeTowerLayer::toolchange_Wipe(ExtrusionEntityCollection &collection,
         ExtrusionPath path_unretract(unretract_lines, extr_flow_attr, nullptr, false);
         //path_unretract.add_property(ExtrusionPropertySpeed(dist_xy_mm));
         path_unretract.add_property(ExtrusionPropertyModifier().set_disable_retraction().set_disable_lift());
-        path_unretract.add_property(ExtrusionPropertyCustomGcode("; unretract new tool via wipe"));
+        path_unretract.add_property(ExtrusionPropertyCustomGcodeText("; unretract new tool via wipe"));
         if (m_config->retract_restart_wipe_toolchange.get_effective_value(1., tool_id) < 1.) {
             const double pre_uwipe_unretract_e = de_retraction_new_tool *
                 (1. - m_config->retract_restart_wipe_toolchange.get_effective_value(1., tool_id));
@@ -1427,7 +1427,7 @@ void WipeTowerLayer::toolchange_Wipe(ExtrusionEntityCollection &collection,
             //ExtrusionAttributes travel_flow_attr(ExtrusionRole::Travel, ExtrusionFlow(0,0,0));
             //ExtrusionPath path_travel(Polyline{Points{unretract_lines.front()}}, travel_flow_attr, nullptr, false);
             //path_travel.add_property(ExtrusionPropertyModifier().set_disable_retraction());
-            //path_travel.add_property(ExtrusionPropertyCustomGcode("; unretraction spot"));
+            //path_travel.add_property(ExtrusionPropertyCustomGcodeText("; unretraction spot"));
             //collection.append(std::move(path_travel));
             int speed = int(floor(m_config->deretract_speed.get_at(tool_id) + 0.5));
             if (speed <= 0) {
@@ -1471,7 +1471,7 @@ void WipeTowerLayer::toolchange_Wipe(ExtrusionEntityCollection &collection,
             } else {
                 path_pre_unretract.add_property(ExtrusionPropertyModifier().set_enforce_unlift());
             }
-            path_pre_unretract.add_property(ExtrusionPropertyCustomGcode("; unretract new tool (static part)"));
+            path_pre_unretract.add_property(ExtrusionPropertyCustomGcodeText("; unretract new tool (static part)"));
             path_pre_unretract.add_property(
                 ExtrusionPropertySpecialCommand(ExtrusionPropertySpecialCommand::Code::RETRACT,pre_uwipe_unretract_e));
             collection.append(std::move(path_pre_unretract));
