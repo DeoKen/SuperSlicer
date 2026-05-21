@@ -23,6 +23,7 @@
 #include "ClipperUtils.hpp"
 #include "ClipperZUtils.hpp"
 #include "ExtrusionEntity.hpp"
+#include "ExtrusionEntityVisitors.hpp"
 #include "Milling/MillingPostProcess.hpp"
 #include "PerimeterGenerator.hpp"
 #include "Point.hpp"

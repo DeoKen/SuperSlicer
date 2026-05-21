@@ -6,6 +6,7 @@
 #include <libslic3r/Fill/Fill.hpp>
 #include <libslic3r/Print.hpp>
 #include <libslic3r/ExtrusionEntity.hpp>
+#include <libslic3r/ExtrusionEntityVisitors.hpp>
 #include <libslic3r/Layer.hpp>
 #include <libslic3r/Geometry.hpp>
 #include <libslic3r/Flow.hpp>

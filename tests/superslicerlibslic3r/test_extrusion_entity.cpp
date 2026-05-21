@@ -7,6 +7,7 @@
 #include <libslic3r/libslic3r.h>
 #include <libslic3r/ExtrusionEntityCollection.hpp>
 #include <libslic3r/ExtrusionEntity.hpp>
+#include <libslic3r/ExtrusionEntityVisitors.hpp>
 #include <libslic3r/Point.hpp>
 #include <libslic3r/Print.hpp>
 #include <libslic3r/Layer.hpp>

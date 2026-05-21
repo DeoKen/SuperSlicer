@@ -19,6 +19,7 @@
 #include "ClipperUtils.hpp"
 #include "EdgeGrid.hpp"
 #include "ExtrusionEntityCollection.hpp"
+#include "ExtrusionEntityVisitors.hpp"
 #include "Flow.hpp"
 #include "Layer.hpp"
 #include "libslic3r.h"

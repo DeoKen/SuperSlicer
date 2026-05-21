@@ -11,6 +11,7 @@
 
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/ExtrusionEntityVisitors.hpp"
 #include "libslic3r/Surface.hpp"
 
 namespace Slic3r {

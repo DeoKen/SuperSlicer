@@ -11,6 +11,7 @@
 
 #include <algorithm>
 
+#include "ExtrusionEntityVisitors.hpp"
 #include "ShortestPath.hpp"
 
 namespace Slic3r {
@@ -37,6 +38,7 @@ ExtrusionEntityCollection::ExtrusionEntityCollection(const ExtrusionPaths &paths
 
 void ExtrusionEntityCollection::rebuild_entities_cache() const
 {
+    assert(!this->is_leaf());
     const Children &children = ExtrusionEntity::children();
     if (m_entities_cache.size() == children.size()) {
         bool valid = true;
@@ -271,17 +273,6 @@ size_t ExtrusionEntityCollection::items_count() const
     return CountEntities().count(*this);
 }
 
-void CountEntities::default_use(const ExtrusionEntity &entity)
-{
-    if (!entity.is_leaf()) {
-        for (const ExtrusionEntityUPtr &child : entity.children())
-            if (child)
-                child->visit(*this);
-    } else {
-        ++leaf_number;
-    }
-}
-
 // Returns a single vector of pointers to all non-collection items contained in this one.
 ExtrusionEntityCollection ExtrusionEntityCollection::flatten(bool preserve_ordering) const
 {
@@ -307,35 +298,6 @@ void ExtrusionEntityCollection::flatten(bool preserve_ordering, ExtrusionEntityC
         flat_children.clear();
         out.m_entities_cache.clear();
     }
-}
-
-void FlatenEntities::default_use(const ExtrusionEntity &entity) {
-    if (!entity.is_collection()) {
-        to_fill.append(entity);
-        return;
-    }
-
-    assert(!entity.is_leaf());
-    const ExtrusionEntity::Children &children = entity.children();
-    if (children.size() == 1) {
-        // only one element, sort or reverse are meaningless.
-        children.front()->visit(*this);
-    } else if ((!entity.can_sort() || !this->to_fill.can_sort()) && preserve_ordering) {
-        FlatenEntities unsortable(entity, preserve_ordering);
-        for (const ExtrusionEntityUPtr &child : children)
-            if (child)
-                child->visit(unsortable);
-        to_fill.append(std::move(unsortable.to_fill));
-    } else {
-        for (const ExtrusionEntityUPtr &child : children)
-            if (child)
-                child->visit(*this);
-    }
-}
-
-ExtrusionEntityCollection&& FlatenEntities::flatten(const ExtrusionEntityCollection &to_flatten) && {
-    to_flatten.visit(*this);
-    return std::move(to_fill);
 }
 
 }

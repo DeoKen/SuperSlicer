@@ -4,6 +4,7 @@
 
 #include "test_data.hpp"
 #include <libslic3r/libslic3r.h>
+#include <libslic3r/ExtrusionEntityVisitors.hpp>
 #include <libslic3r/Layer.hpp>
 #include <libslic3r/SVG.hpp>
 #include <libslic3r/Format/3mf.hpp>

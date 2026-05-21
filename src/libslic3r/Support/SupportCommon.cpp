@@ -18,6 +18,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/ClipperZUtils.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/ExtrusionEntityVisitors.hpp"
 #include "libslic3r/Fill/FillBase.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Layer.hpp"

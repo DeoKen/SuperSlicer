@@ -22,6 +22,7 @@
 #include "BridgeDetector.hpp"
 #include "ClipperUtils.hpp"
 #include "ExPolygon.hpp"
+#include "ExtrusionEntityVisitors.hpp"
 #include "Flow.hpp"
 #include "Geometry.hpp"
 #include "Layer.hpp"

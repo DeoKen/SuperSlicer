@@ -42,6 +42,7 @@
 #include "ElephantFootCompensation.hpp"
 #include "Exception.hpp"
 #include "ExPolygon.hpp"
+#include "ExtrusionEntityVisitors.hpp"
 #include "Fill/FillAdaptive.hpp"
 #include "Fill/FillLightning.hpp"
 #include "Flow.hpp"

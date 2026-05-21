@@ -19,6 +19,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/EdgeGrid.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "libslic3r/ExtrusionEntityVisitors.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Geometry/Circle.hpp"
 #include "libslic3r/Geometry/MedialAxis.hpp"

@@ -14,6 +14,7 @@
 #include <memory>
 
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ExtrusionEntityVisitors.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Layer.hpp"
 // for Arachne based infills

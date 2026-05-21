@@ -25,6 +25,7 @@
 #include "libslic3r/Color.hpp"
 #include "libslic3r/ContainerUtils.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionEntityVisitors.hpp"
 #include "libslic3r/Geometry/Curves.hpp"
 #include "libslic3r/KDTreeIndirect.hpp"
 #include "libslic3r/Layer.hpp"

@@ -44,6 +44,7 @@
 #include "ClipperUtils.hpp"
 #include "Exception.hpp"
 #include "Extruder.hpp"
+#include "ExtrusionEntityVisitors.hpp"
 #include "Fill/FillBase.hpp"
 #include "Flow.hpp"
 #include "format.hpp"

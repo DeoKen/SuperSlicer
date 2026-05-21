@@ -34,6 +34,7 @@
 #include "EdgeGrid.hpp"
 #include "ExPolygon.hpp"
 #include "ExtrusionEntity.hpp"
+#include "ExtrusionEntityVisitors.hpp"
 #include "FFFPrintConfig.hpp"
 #include "GCode/GCodeWriter.hpp"
 #include "GCode/ThumbnailData.hpp"

@@ -7,6 +7,7 @@
 #include <libslic3r/SVG.hpp>
 #include <libslic3r/GCode.hpp>
 #include <libslic3r/Format/3mf.hpp>
+#include <libslic3r/ExtrusionEntityVisitors.hpp>
 
 using namespace Slic3r;
 using namespace Slic3r::Geometry;

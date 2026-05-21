@@ -180,39 +180,8 @@ public:
         return true;
     }
     using ExtrusionEntity::visit;
-    virtual void visit(ExtrusionVisitor &visitor) override { visitor.use(*this); };
-    virtual void visit(ExtrusionVisitorConst &visitor) const override{ visitor.use(*this); };
-};
-
-//// visitors /////
-
-class CountEntities : public ExtrusionVisitorConst {
-public:
-    size_t count(const ExtrusionEntity &coll) { coll.visit(*this); return leaf_number; }
-    size_t leaf_number = 0;
-    virtual void default_use(const ExtrusionEntity &entity) override;
-};
-
-class FlatenEntities : public ExtrusionVisitorConst {
-    ExtrusionEntityCollection to_fill;
-    bool preserve_ordering;
-public:
-    using ExtrusionVisitorConst::use;
-    FlatenEntities(bool preserve_ordering) : preserve_ordering(preserve_ordering) {}
-    FlatenEntities(ExtrusionEntityCollection pattern, bool preserve_ordering) : preserve_ordering(preserve_ordering) {
-        to_fill.set_can_sort_reverse(pattern.can_sort(), pattern.can_reverse());
-    }
-    FlatenEntities(const ExtrusionEntity &pattern, bool preserve_ordering) : preserve_ordering(preserve_ordering) {
-        to_fill.set_can_sort_reverse(pattern.can_sort(), pattern.can_reverse());
-    }
-    const ExtrusionEntityCollection& get() {
-        return to_fill;
-    };
-    ExtrusionEntityCollection& set() {
-        return to_fill;
-    };
-    ExtrusionEntityCollection&& flatten(const ExtrusionEntityCollection &to_flatten) &&;
-    void default_use(const ExtrusionEntity &entity) override;
+    virtual void visit(ExtrusionVisitor &visitor) override;
+    virtual void visit(ExtrusionVisitorConst &visitor) const override;
 };
 
 inline void extrusion_entities_append_paths(ExtrusionEntityCollection &dst, Polylines &polylines, ExtrusionRole role, double mm3_per_mm, float width, float height, bool can_reverse = true)
@@ -297,23 +266,6 @@ inline void extrusion_entities_append_loops_and_paths(ExtrusionEntityCollection 
     }
     polylines.clear();
 }
-
-#ifdef _DEBUG
-class TestCollection : public ExtrusionVisitorRecursiveConst {
-public:
-    virtual void default_use(const ExtrusionEntity& entity) override {
-        if (!entity.is_leaf()) {
-            for (const ExtrusionEntityUPtr &child : entity.children()) {
-                assert(child);
-                std::cout << "entity at " << ((uint64_t)(void*)child.get()) << "\n";
-                child->visit(*this);
-            }
-        } else {
-            assert(entity.as_polyline().size() > 0);
-        }
-    }
-};
-#endif
 
 } // namespace Slic3r
 

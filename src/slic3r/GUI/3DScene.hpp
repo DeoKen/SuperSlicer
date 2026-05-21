@@ -20,6 +20,7 @@
 
 #include "libslic3r/Color.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
+#include "libslic3r/ExtrusionEntityVisitors.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Line.hpp"

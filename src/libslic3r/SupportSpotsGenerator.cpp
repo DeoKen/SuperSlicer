@@ -33,6 +33,7 @@
 #include "ExPolygon.hpp"
 #include "ExtrusionEntity.hpp"
 #include "ExtrusionEntityCollection.hpp"
+#include "ExtrusionEntityVisitors.hpp"
 #include "GCode/ExtrusionProcessor.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "KDTreeIndirect.hpp"
