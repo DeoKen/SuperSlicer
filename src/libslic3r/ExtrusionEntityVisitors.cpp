@@ -397,7 +397,7 @@ void TestCollection::default_use(const ExtrusionEntity& entity)
 #ifdef _DEBUGINFO
 void LoopAssertVisitor::enter_node(const ExtrusionEntity& entity)
 {
-    if (!entity.is_leaf()) {
+    if (entity.child_count() > 0) {
         release_assert(!entity.empty());
         Point last_pt = entity.is_loop() ? entity.last_point() : entity.first_point();
         const ExtrusionEntity::Children &children = entity.children();
