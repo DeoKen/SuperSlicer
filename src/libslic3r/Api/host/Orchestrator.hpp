@@ -63,6 +63,15 @@ public:
         uint32_t alignment;
     };
 
+    struct PluginUiFragment
+    {
+        std::string target_file;
+        std::string fragment_id;
+        std::string content;
+        int32_t priority = 0;
+        uint64_t order = 0;
+    };
+
     static Orchestrator &instance();
 
     std::vector<Plugin *> get_all_plugins_for_step(slicing_step_t step) const;
@@ -75,6 +84,12 @@ public:
     void create_new_print_config(const raw_config_option_def *def);
 
     bool register_plugin(plugin_instance plugin);
+    bool add_ui_fragment(const char *target_file,
+                         const char *fragment_id,
+                         const char *content,
+                         int32_t priority);
+    std::vector<PluginUiFragment> ui_fragments_for_file(const std::string &target_file) const;
+    std::string merged_ui_layout(const std::string &target_file, const std::string &base_content) const;
 
     bridge_detector_instance create_bridge_detector(const bridge_detector_create_input &input);
     void slice(Print &print_to_slice);
@@ -108,6 +123,8 @@ private:
     std::vector<std::unique_ptr<Plugin>> m_registered_plugins;
     std::map<slicing_step_t, std::vector<Plugin *>> m_plugins_by_step;
     std::map<Plugin *, PluginStorage> m_plugin_storage;
+    std::vector<PluginUiFragment> m_ui_fragments;
+    uint64_t m_next_ui_fragment_order { 0 };
     std::vector<CustomExtrusionPropertyInfo> m_custom_extrusion_property_infos;
     extrusion_property_type m_next_custom_extrusion_property_type { extrusion_property_type(0x80000000u) };
     std::atomic_bool m_plugin_cancel_requested { false };

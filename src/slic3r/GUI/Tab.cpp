@@ -26,15 +26,16 @@
 #include "slic3r/GUI/BedShapeDialog.hpp"
 #include "slic3r/Utils/Serial.hpp"
 
+#include "libslic3r/Api/host/Orchestrator.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/GCode/GCodeWriter.hpp"
+#include "libslic3r/GCode/Thumbnails.hpp"
 #include "libslic3r/Log.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/SLA/SLAPrintConfig.hpp"
-#include "libslic3r/Utils.hpp"
-#include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/Slicing.hpp"
-#include "libslic3r/GCode/GCodeWriter.hpp"
-#include "libslic3r/GCode/Thumbnails.hpp"
+#include "libslic3r/Utils.hpp"
 
 #include "BonjourDialog.hpp"
 #include "ButtonsDescription.hpp"
@@ -61,6 +62,7 @@
 #include "Widgets/CheckBox.hpp"
 #include "WipeTowerDialog.hpp"
 
+#include <sstream>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -1965,7 +1967,11 @@ std::vector<Slic3r::GUI::PageShp> Tab::create_pages(std::string setting_type_nam
 
     //read file
     //std::ifstream filestream(ui_layout_file.c_str());
-    boost::nowide::ifstream filestream(ui_layout_file.string());
+    boost::nowide::ifstream ui_layout_stream(ui_layout_file.string());
+    std::ostringstream ui_layout_content;
+    ui_layout_content << ui_layout_stream.rdbuf();
+
+    std::istringstream filestream(Orchestrator::instance().merged_ui_layout(setting_type_name, ui_layout_content.str()));
     std::string full_line;
     while (std::getline(filestream, full_line)) {
         //remove spaces

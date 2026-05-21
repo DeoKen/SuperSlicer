@@ -262,9 +262,9 @@ void init_print(std::vector<TriangleMesh> &&meshes, Slic3r::Print &print, Slic3r
 
     arrange_objects(model, bed, arrange_settings);
     model.center_instances_around_point({100, 100});
-	for (ModelObject *mo : model.objects) {
-        mo->ensure_on_bed();
-		print.auto_assign_extruders(mo);
+	for (ModelObject &mo : model.objects()) {
+        mo.ensure_on_bed();
+		print.auto_assign_extruders(&mo);
     }
 
 	print.apply(model, config);

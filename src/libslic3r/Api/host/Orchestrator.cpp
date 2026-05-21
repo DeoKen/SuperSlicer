@@ -18,6 +18,7 @@
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Steps/StepPipeline.hpp"
+#include "libslic3r/UiLayoutMerger.hpp"
 
 #include "ClipperShapes.hpp"
 #include "Plugin.hpp"
@@ -118,6 +119,61 @@ bool Orchestrator::register_plugin(plugin_instance plugin) {
     }
     m_registered_plugins.emplace_back(new Plugin(plugin));
     return true;
+}
+
+bool Orchestrator::add_ui_fragment(const char *target_file,
+                                   const char *fragment_id,
+                                   const char *content,
+                                   int32_t priority)
+{
+    if (target_file == nullptr || target_file[0] == '\0' ||
+        fragment_id == nullptr || fragment_id[0] == '\0' ||
+        content == nullptr || content[0] == '\0')
+        return false;
+
+    for (const PluginUiFragment &fragment : m_ui_fragments)
+        if (fragment.target_file == target_file && fragment.fragment_id == fragment_id)
+            return false;
+
+    PluginUiFragment fragment;
+    fragment.target_file = target_file;
+    fragment.fragment_id = fragment_id;
+    fragment.content = content;
+    fragment.priority = priority;
+    fragment.order = m_next_ui_fragment_order++;
+    m_ui_fragments.emplace_back(std::move(fragment));
+    return true;
+}
+
+std::vector<Orchestrator::PluginUiFragment>
+Orchestrator::ui_fragments_for_file(const std::string &target_file) const
+{
+    std::vector<PluginUiFragment> out;
+    for (const PluginUiFragment &fragment : m_ui_fragments)
+        if (fragment.target_file == target_file)
+            out.emplace_back(fragment);
+
+    std::sort(out.begin(), out.end(), [](const PluginUiFragment &lhs, const PluginUiFragment &rhs) {
+        if (lhs.priority != rhs.priority)
+            return lhs.priority < rhs.priority;
+        if (lhs.order != rhs.order)
+            return lhs.order < rhs.order;
+        return lhs.fragment_id < rhs.fragment_id;
+    });
+    return out;
+}
+
+std::string Orchestrator::merged_ui_layout(const std::string &target_file, const std::string &base_content) const
+{
+    const std::vector<PluginUiFragment> fragments = this->ui_fragments_for_file(target_file);
+    if (fragments.empty())
+        return base_content;
+
+    UiLayoutMerger merger(target_file);
+    merger.set_base(base_content);
+    for (const PluginUiFragment &fragment : fragments)
+        merger.add_fragment(fragment.fragment_id, fragment.content, fragment.priority, fragment.order);
+    return merger.merged();
 }
 
 extrusion_property_type Orchestrator::register_custom_extrusion_property(const char *namespaced_name,

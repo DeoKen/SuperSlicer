@@ -505,6 +505,17 @@ const char *MaxOverhangThreshold::progress_message_format_impl() const noexcept
     return "Max overhang threshold: %u / %u layers";
 }
 
+const char *MaxOverhangThreshold::print_ui_fragment() noexcept
+{
+    return "page:Slicing\n"
+           "group:Modifying slices\n"
+           "line:insert$afterline$Convert round vertical holes to polyholes:Overhangs cut\n"
+           "setting:overhangs_max_slope\n"
+           "setting:overhangs_bridge_threshold\n"
+           "setting:overhangs_bridge_upper_layers\n"
+           "end_line\n";
+}
+
 void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
 {
     raw_config_option_def def = raw_config_option_def_init();
@@ -568,6 +579,12 @@ void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
     def.mode = RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI;
     def.default_serialized_value = "0";
     orchestrator_create_option_def(m_orchestrator, &def);
+
+    orchestrator_add_ui_fragment(m_orchestrator,
+                                 "print.ui",
+                                 k_max_overhang_threshold_id,
+                                 MaxOverhangThreshold::print_ui_fragment(),
+                                 0);
 }
 
 void MaxOverhangThreshold::setup_run_impl(const plugin_run_context *run_ctx) const

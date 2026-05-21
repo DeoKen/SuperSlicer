@@ -489,6 +489,8 @@ set(SLIC3R_SOURCES
     PrincipalComponents2D.cpp
     AppConfig.cpp
     AppConfig.hpp
+    UiLayoutMerger.cpp
+    UiLayoutMerger.hpp
     Print.cpp
     Print.hpp
     PrintApply.cpp

@@ -18,6 +18,7 @@ class MaxOverhangThreshold : public PluginBase
 {
 public:
     static MaxOverhangThreshold &instance(orchestrator_handle *orch);
+    static const char *print_ui_fragment() noexcept;
 
 private:
     MaxOverhangThreshold(orchestrator_handle *orch) : PluginBase(orch) {}

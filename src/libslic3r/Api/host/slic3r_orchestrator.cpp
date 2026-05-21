@@ -34,6 +34,26 @@ bridge_detector_instance orchestrator_create_bridge_detector(orchestrator_handle
     return orchestrator == nullptr ? out : orchestrator->create_bridge_detector(*input);
 }
 
+int32_t orchestrator_add_ui_fragment(orchestrator_handle *orch,
+                                     const char *target_file,
+                                     const char *fragment_id,
+                                     const char *ui_fragment,
+                                     int32_t priority)
+{
+    if (target_file == nullptr || fragment_id == nullptr || ui_fragment == nullptr)
+        return -1;
+
+    try {
+        Slic3r::Orchestrator *orchestrator = orch == nullptr ? &Slic3r::Orchestrator::instance() :
+                                                               reinterpret_cast<Slic3r::Orchestrator *>(orch);
+        if (orchestrator == nullptr)
+            return -1;
+        return orchestrator->add_ui_fragment(target_file, fragment_id, ui_fragment, priority) ? 1 : 0;
+    } catch (...) {
+        return -2;
+    }
+}
+
 int orchestrator_plugin_is_cancelled(plugin_host_context *host_context)
 {
     return host_context != nullptr && host_context->orchestrator != nullptr &&
