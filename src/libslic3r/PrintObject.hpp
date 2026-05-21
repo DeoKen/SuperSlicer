@@ -233,6 +233,8 @@ private:
     void make_perimeters();
     void prepare_infill();
     void clear_fills();
+    bool has_typed_slices() const;
+    void restore_untyped_slices();
     void infill();
     void ironing();
     void generate_support_spots();

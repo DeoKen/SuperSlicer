@@ -827,6 +827,7 @@ void Layer::build_up_down_graph(Layer& below, Layer& above)
 
 void Layer::restore_untyped_slices() {
     for (LayerRegionUPtr &layerm : m_regions) {
+        layerm->clear();
         layerm->m_slices.set(layerm->get_raw_slices(), stPosInternal | stDensSparse);
         for (auto &srf : layerm->m_slices)
             srf.expolygon.assert_valid();

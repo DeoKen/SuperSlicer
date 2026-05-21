@@ -236,14 +236,8 @@ void PrintObject::make_perimeters() {
     BOOST_LOG_TRIVIAL(info) << "Generating perimeters..." << log_memory_info();
     
     // Revert the typed slices into untyped slices.
-    if (m_typed_slices) {
-        for (std::unique_ptr<Layer> &layer : m_layers) {
-            layer->clear_fills();
-            layer->restore_untyped_slices();
-            m_print->throw_if_canceled();
-        }
-        m_typed_slices = false;
-    }
+    if (this->has_typed_slices())
+        this->restore_untyped_slices();
 
     // compare each layer to the one below, and mark those slices needing
     // one additional inner perimeter, like the top of domed objects-
@@ -371,18 +365,12 @@ void PrintObject::prepare_infill()
         m_print->secondary_status_counter_add_max(100);
     }
 
-    if (m_typed_slices) {
+    if (this->has_typed_slices()) {
         // To improve robustness of detect_surfaces_type() when reslicing (working with typed slices), see GH issue #7442.
         // The preceding step (perimeter generator) only modifies extra_perimeters and the extra perimeters are only used by discover_vertical_shells()
         // with more than a single region. If this step does not use Surface::extra_perimeters or Surface::extra_perimeters is always zero, it is safe
         // to reset to the untyped slices before re-runnning detect_surfaces_type().
-        for (std::unique_ptr<Layer> &layer_ptr : m_layers) {
-            Layer *layer = layer_ptr.get();
-            layer->clear_fills();
-            layer->restore_untyped_slices();
-            m_print->throw_if_canceled();
-        }
-        m_typed_slices = false;
+        this->restore_untyped_slices();
     }
 #ifdef _DEBUG
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
@@ -885,6 +873,36 @@ void PrintObject::clear_fills()
     for (std::unique_ptr<Layer> &layer : m_layers)
         layer->clear_fills();
 }
+
+bool PrintObject::has_typed_slices() const
+{
+    if (m_typed_slices)
+        return true;
+
+    for (const std::unique_ptr<Layer> &layer : m_layers)
+        for (const LayerRegion &region : layer->regions()) {
+            for (const Surface &surface : region.slices().surfaces)
+                if (surface.surface_type != (stPosInternal | stDensSparse))
+                    return true;
+            for (const Surface &surface : region.fill_surfaces().surfaces)
+                if (surface.surface_type != (stPosInternal | stDensSparse))
+                    return true;
+        }
+
+    return false;
+}
+
+void PrintObject::restore_untyped_slices()
+{
+    for (std::unique_ptr<Layer> &layer_ptr : m_layers) {
+        Layer *layer = layer_ptr.get();
+        layer->clear_fills();
+        layer->restore_untyped_slices();
+        m_print->throw_if_canceled();
+    }
+    m_typed_slices = false;
+}
+
 void PrintObject::infill()
 {
     // prerequisites
