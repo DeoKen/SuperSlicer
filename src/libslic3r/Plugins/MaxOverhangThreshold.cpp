@@ -515,6 +515,7 @@ void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
     def.printer_technology = RAW_PT_FFF;
     def.label = "Bridge max length";
     def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.invalidates_step = STEP_SLICING;
     def.tooltip = ("Maximum distance for bridges. If the distance is over that, it will be considered as overhangs for 'overhangs_max_slope'."
                    "\nIf disabled, accept all distances."
                    "\nSet to 0 to ignore bridges.");
@@ -534,6 +535,7 @@ void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
     def.printer_technology = RAW_PT_FFF;
     def.label = "Consider upper bridges";
     def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.invalidates_step = STEP_SLICING;
     def.tooltip = ("Don't put overhangs in the area if it will be filled in next layer(s) by bridges."
                    "\nIf set to 0, it will look all layers."
                    "\nIf disabled, the current layer will still add overhangs, even if there's a bridge on top, reducing the bridge length.");
@@ -554,6 +556,7 @@ void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
     def.label = "Overhangs max slope";
     def.full_label = "Overhangs max slope";
     def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.invalidates_step = STEP_SLICING;
     def.tooltip = ("Maximum slope for overhangs. if at each layer, the overhangs hangs by more than this value, then the geometry will be cut."
                    " It doesn't cut into detected bridgeable areas if 'overhangs_bridge_threshold' allow it."
                    "\nCan be a % of the highest nozzle diameter."

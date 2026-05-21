@@ -17,6 +17,18 @@ extensions without renumbering the existing API values.
 */
 typedef enum slicing_step_t : uint16_t
 {
+    /*
+    Explicitly no slicing invalidation.
+    This is only for options consumed outside the slicing state.
+    */
+    STEP_NONE                      = 0,
+
+    /*
+    No known earliest invalidation step.
+    The host treats this conservatively and invalidates the full slicing state.
+    */
+    STEP_ANY                       = 1,
+
     STEP_LAYER_HEIGHT              = 100,
     STEP_SLICING                   = 200,
     STEP_POST_SLICING              = 300,

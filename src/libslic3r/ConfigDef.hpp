@@ -37,6 +37,7 @@
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
+#include "Api/plugin/c/slic3r_slicing_step.h"
 #include "ConfigOption.hpp"
 #include "clonable_ptr.hpp"
 
@@ -334,6 +335,9 @@ public:
     ConfigOptionContainerType           container_type = ConfigOptionContainerType::None;
     // Preset/UI bucket for plugin-created options. Stored as an ABI-neutral integer.
     uint32_t                            option_preset_type = 0;
+    // Earliest slicing step invalidated by this option when it changes.
+    // STEP_ANY means unknown; invalidate the full slicing state.
+    slicing_step_t                      invalidates_step = STEP_ANY;
     // Category of a configuration field, from the GUI perspective.
     OptionCategory                      category        = OptionCategory::none;
     // A tooltip text shown in the GUI.

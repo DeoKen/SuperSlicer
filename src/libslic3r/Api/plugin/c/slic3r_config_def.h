@@ -217,6 +217,14 @@ typedef struct raw_config_option_def {
     /* Which printer technology this applies to */
     raw_printer_technology printer_technology;
 
+    /*
+    Earliest slicing step invalidated when this option changes.
+    Use STEP_ANY when the option does not declare a more precise step; the
+    host will conservatively invalidate the full slicing state. Use STEP_NONE
+    only when changing this option must not invalidate slicing.
+    */
+    slicing_step_t invalidates_step;
+
     /* If optional and enabled, may not be serialized */
     int32_t is_optional;
 
@@ -357,8 +365,17 @@ typedef enum option_def_error_code {
     OPTION_DEF_ERROR_INTERNAL
 } option_def_error_code;
 
-/* Initialization method to default values */
-raw_config_option_def raw_config_option_def_init();
+/*
+Initialize a config option definition with safe defaults.
+Notably, invalidates_step defaults to STEP_ANY: unless the plugin declares a
+more precise step, changing the option will invalidate the full slicing state.
+*/
+static inline raw_config_option_def raw_config_option_def_init()
+{
+    raw_config_option_def def = {0};
+    def.invalidates_step = STEP_ANY;
+    return def;
+}
 
 /*
 Create a new config option definition.

@@ -296,348 +296,20 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
     if (opt_keys.empty())
         return false;
 
-
-    // Cache the plenty of parameters, which influence the G-code generator only,
-    // or they are only notes not influencing the generated G-code.
-    static std::unordered_set<std::string> steps_gcode = {
-        "allow_empty_layers",
-        "autoemit_temperature_commands",
-        "autospeed_min_thin_flow",
-        "avoid_crossing_perimeters",
-        "avoid_crossing_perimeters_max_detour",
-        "avoid_crossing_not_first_layer",
-        "bed_shape",
-        "bed_temperature",
-        "before_layer_gcode",
-        "between_objects_gcode",
-        "between_objects_gcode_before_move",
-        "binary_gcode",
-        "bridge_fan_speed",
-        "chamber_temperature",
-        "color_change_gcode",
-        "colorprint_heights",
-        "complete_objects_sort",
-        "complete_objects_one_brim",
-        //"cooling",
-        "default_fan_speed",
-        "deretract_speed",
-        "disable_fan_first_layers",
-        "duplicate_distance",
-        "overhangs_dynamic_fan_speed",
-        "filament_pressure_advance",
-        "enforce_retract_first_layer",
-        "end_gcode",
-        "end_filament_gcode",
-        "external_perimeter_fan_speed",
-        "extrusion_axis",
-        "extruder_clearance",
-        "extruder_clearance_height",
-        "extruder_clearance_radius",
-        "extruder_colour",
-        "extruder_extrusion_multiplier_speed",
-        "extruder_offset",
-        "extruder_fan_offset"
-        "extruder_pressure_factor"
-        "extruder_temperature_offset",
-        "extrusion_multiplier",
-        "fan_below_layer_time",
-        "fan_kickstart",
-        "fan_speedup_overhangs",
-        "fan_speedup_time",
-        "feature_gcode",
-        "fan_percentage",
-        "fan_printer_min_speed",
-        "filament_colour",
-        "filament_compressibility_factor",
-        "filament_custom_variables",
-        "filament_diameter",
-        "filament_density",
-        "filament_fill_top_flow_ratio",
-        "filament_first_layer_flow_ratio",
-        "filament_load_time",
-        "filament_notes",
-        "filament_cost",
-        "filament_spool_weight",
-        "filament_unload_time",
-        "filament_wipe_advanced_pigment",
-        "first_layer_bed_temperature",
-        "full_fan_speed_layer",
-        "gap_fill_fan_speed",
-        "gcode_ascii",
-        "gcode_command_buffer",
-        "gcode_comments",
-        "gcode_filename_illegal_char",
-        "gcode_label_objects",
-        "gcode_line_number",
-        "gcode_min_length",
-        "gcode_no_comment",
-        "gcode_precision_xyz",
-        "gcode_precision_e",
-        "gcode_substitutions",
-        "infill_fan_speed",
-        "internal_bridge_fan_speed",
-        "layer_gcode",
-        "lift_min",
-        "max_fan_speed",
-        "max_gcode_per_second",
-        "max_print_height",
-        "max_print_speed",
-        "max_speed_reduction",
-        "max_volumetric_speed",
-        "min_print_speed",
-        "milling_diameter",
-        "milling_toolchange_end_gcode",
-        "milling_toolchange_start_gcode",
-        "max_volumetric_extrusion_rate_slope_positive",
-        "max_volumetric_extrusion_rate_slope_negative",
-        "notes",
-        "only_retract_when_crossing_perimeters",
-        "output_filename_format",
-        "overhangs_fan_speed",
-        "parallel_islands",
-        "parallel_objects_step",
-        "parallel_objects_step_max_z",
-        "pause_print_gcode",
-        "post_process",
-        "print_custom_variables",
-        "print_bed_temperature",
-        "print_first_layer_bed_temperature",
-        "printer_custom_variables",
-        "perimeter_fan_speed",
-        "printer_notes",
-        "remaining_times",
-        "remaining_times_type",
-        "split_extrusion_acceleration",
-        "travel_ramping_lift",
-        "travel_initial_part_length",
-        "travel_slope",
-        // "travel_max_lift",
-        "travel_lift_before_obstacle",
-        "retract_before_travel",
-        "retract_before_wipe",
-        "retract_layer_change",
-        "retract_length",
-        "retract_length_toolchange",
-        "retract_lift",
-        "retract_lift_above",
-        "retract_lift_below",
-        "retract_lift_first_layer",
-        "retract_lift_top",
-        "retract_lift_before_travel",
-        "retract_restart_extra",
-        "retract_restart_extra_toolchange",
-        "retract_restart_toolchange_on_perimeter",
-        "retract_restart_wipe_toolchange",
-        "retract_speed",
-        "second_layer_flow_ratio",
-        "silent_mode",
-        "single_extruder_multi_material_priming",
-        "slowdown_below_layer_time",
-        "solid_infill_fan_speed",
-        "support_material_acceleration",
-        "support_material_fan_speed",
-        "support_material_interface_acceleration",
-        "support_material_interface_fan_speed",
-        "standby_temperature_delta",
-        "start_gcode",
-        "start_gcode_manual",
-        "start_filament_gcode",
-        "temperature_heat_speed",
-        "template_custom_gcode",
-        "thumbnails",
-        "thumbnails_color",
-        "thumbnails_custom_color",
-        "thumbnails_end_file",
-        "thumbnails_format",
-        "thumbnails_tag_format",
-        "thumbnails_with_bed",
-        "time_estimation_compensation",
-        "time_cost",
-        "time_start_gcode",
-        "time_toolchange",
-        "tool_name",
-        "toolchange_gcode",
-        "top_fan_speed",
-        "threads",
-        "use_firmware_retraction",
-        "use_relative_e_distances",
-        "use_volumetric_e",
-        "variable_layer_height",
-        "wipe",
-        "wipe_advanced",
-        "wipe_advanced_algo",
-        "wipe_advanced_multiplier",
-        "wipe_advanced_nozzle_melted_volume",
-        "wipe_extra_perimeter",
-        "wipe_inside_depth",
-        "wipe_inside_end",
-        "wipe_inside_start",
-        "wipe_lift",
-        "wipe_lift_length",
-        "wipe_min",
-        "wipe_only_crossing",
-        "wipe_return",
-        "wipe_speed",
-    };
-
-    static std::unordered_set<std::string> steps_ignore;
-
-    std::vector<PrintStep> steps;
-    std::vector<PrintObjectStep> osteps;
     bool invalidated = false;
-
     for (const t_config_option_key &opt_key : opt_keys) {
-        //this one isn't even use in slicing, only for import.
-        if (opt_key == "init_z_rotate")
-            continue;
-        if (steps_gcode.find(opt_key) != steps_gcode.end()) {
-            // These options only affect G-code export or they are just notes without influence on the generated G-code,
-            // so there is nothing to invalidate.
-            steps.emplace_back(psGCodeExport);
-        } else if (steps_ignore.find(opt_key) != steps_ignore.end()) {
-            // These steps have no influence on the G-code whatsoever. Just ignore them.
-        } else if (
-            opt_key == "complete_objects_one_skirt"
-            || opt_key == "draft_shield"
-            || opt_key == "min_skirt_length"
-            || opt_key == "ooze_prevention"
-            || opt_key == "skirts"
-            || opt_key == "skirt_brim"
-            || opt_key == "skirt_distance"
-            || opt_key == "skirt_distance_from_brim"
-            || opt_key == "skirt_extrusion_width"
-            || opt_key == "skirt_height"
-            || opt_key == "wipe_tower_x"
-            || opt_key == "wipe_tower_y"
-            || opt_key == "wipe_tower_rotation_angle"
-            ) {
-            steps.emplace_back(psSkirtBrim);
-        } else if (
-               opt_key == "bridge_precision"
-            || opt_key == "filament_shrink"
-            || opt_key == "nozzle_diameter"
-            || opt_key == "resolution"
-            || opt_key == "resolution_internal"
-            // Spiral Vase forces different kind of slicing than the normal model:
-            // In Spiral Vase mode, holes are closed and only the largest area contour is kept at each layer.
-            // Therefore toggling the Spiral Vase on / off requires complete reslicing.
-            || opt_key == "spiral_vase"
-            || opt_key == "z_step") {
-            osteps.emplace_back(posSlice);
-        } else if (
-               opt_key == "complete_objects"
-            || opt_key == "filament_type"
-            || opt_key == "filament_loading_speed"
-            || opt_key == "filament_loading_speed_start"
-            || opt_key == "filament_unloading_speed"
-            || opt_key == "filament_unloading_speed_start"
-            || opt_key == "filament_toolchange_delay"
-            || opt_key == "filament_cooling_moves"
-            || opt_key == "filament_max_wipe_tower_speed"
-            || opt_key == "filament_minimal_purge_on_wipe_tower"
-            || opt_key == "filament_cooling_initial_speed"
-            || opt_key == "filament_cooling_final_speed"
-            || opt_key == "filament_ramming_parameters"
-            || opt_key == "filament_max_speed"
-            || opt_key == "filament_max_volumetric_speed"
-            || opt_key == "filament_multitool_ramming"
-            || opt_key == "filament_multitool_ramming_volume"
-            || opt_key == "filament_multitool_ramming_flow"
-            || opt_key == "filament_use_skinnydip"        // skinnydip params start
-            || opt_key == "filament_use_fast_skinnydip"
-            || opt_key == "filament_skinnydip_distance"
-            || opt_key == "filament_melt_zone_pause"
-            || opt_key == "filament_cooling_zone_pause"
-            || opt_key == "filament_toolchange_temp"
-            || opt_key == "filament_enable_toolchange_temp"
-            || opt_key == "filament_enable_toolchange_part_fan"
-            || opt_key == "filament_toolchange_part_fan_speed"
-            || opt_key == "filament_dip_insertion_speed"
-            || opt_key == "filament_dip_extraction_speed"    //skinnydip params end	
-            || opt_key == "first_layer_temperature"
-            || opt_key == "gcode_flavor"
-            || opt_key == "high_current_on_filament_swap"
-            || opt_key == "priming_position"
-            || opt_key == "single_extruder_multi_material"
-            || opt_key == "temperature"
-            || opt_key == "idle_temperature"
-            || opt_key == "wipe_tower"
-            || opt_key == "wipe_tower_width"
-            || opt_key == "wipe_tower_brim_width"
-            || opt_key == "wipe_tower_cone_angle"
-            || opt_key == "wipe_tower_bridging"
-            || opt_key == "wipe_tower_extra_spacing"
-            || opt_key == "wipe_tower_extrusion_width"
-            || opt_key == "wipe_tower_no_sparse_layers"
-            || opt_key == "wipe_tower_extruder"
-            || opt_key == "wipe_tower_per_color_wipe"
-            || opt_key == "wipe_tower_rest_in_middle"
-            || opt_key == "wipe_tower_speed"
-            || opt_key == "wipe_tower_wipe_starting_speed"
-            || opt_key == "wiping_volumes_extruders"
-            || opt_key == "wiping_volumes_matrix"
-            || opt_key == "parking_pos_retraction"
-            || opt_key == "cooling_tube_retraction"
-            || opt_key == "cooling_tube_length"
-            || opt_key == "extra_loading_move"
-            || opt_key == "travel_speed"
-            || opt_key == "travel_speed_z"
-            || opt_key == "z_offset") {
-            steps.emplace_back(psWipeTower);
-            steps.emplace_back(psSkirtBrim);
-        } else if (opt_key == "filament_soluble") {
-            steps.emplace_back(psWipeTower);
-            // Soluble support interface / non-soluble base interface produces non-soluble interface layers below soluble interface layers.
-            // Thus switching between soluble / non-soluble interface layer material may require recalculation of supports.
-            //FIXME Killing supports on any change of "filament_soluble" is rough. We should check for each object whether that is necessary.
-            osteps.emplace_back(posSupportMaterial);
-        } else if (
-            opt_key == "arc_fitting"
-            || opt_key == "arc_fitting_ignore_holes"
-            || opt_key == "arc_fitting_resolution"
-            || opt_key == "arc_fitting_tolerance"
-            || opt_key == "min_layer_height"
-            || opt_key == "max_layer_height"
-            || opt_key == "filament_max_overlap"
-            || opt_key == "gcode_min_resolution") {
-            osteps.emplace_back(posPerimeters);
-            osteps.emplace_back(posInfill);
-            osteps.emplace_back(posSimplifyPath);
-            osteps.emplace_back(posSupportMaterial);
-            steps.emplace_back(psSkirtBrim);
-        } else if (opt_key == "seam_gap" || opt_key == "seam_gap_external") {
-            osteps.emplace_back(posInfill);
-        }
-        else if (opt_key == "avoid_crossing_curled_overhangs")
-            osteps.emplace_back(posEstimateCurledExtrusions);
-        else if (opt_key == "posSlice")
-            osteps.emplace_back(posSlice);
-        else if (opt_key == "posPerimeters")
-            osteps.emplace_back(posPerimeters);
-        else if (opt_key == "posPrepareInfill")
-            osteps.emplace_back(posPrepareInfill);
-        else if (opt_key == "posInfill")
-            osteps.emplace_back(posInfill);
-        else if (opt_key == "posSupportMaterial")
-            osteps.emplace_back(posSupportMaterial);
-        else if (opt_key == "posCount")
-            osteps.emplace_back(posCount);
-        else {
-            // for legacy, if we can't handle this option let's invalidate all steps
-            //FIXME invalidate all steps of all objects as well?
+        const ConfigOptionDef *def = PrintConfigDef::instance().get(opt_key);
+        if (def == nullptr) {
             invalidated |= this->invalidate_all_steps();
-            // Continue with the other opt_keys to possibly invalidate any object specific steps.
+            continue;
         }
+        if (def->invalidates_step == STEP_NONE)
+            continue;
+        invalidated |= def->invalidates_step == STEP_ANY ? this->invalidate_all_steps() :
+                                                           this->invalidate_step(def->invalidates_step);
     }
 
-    sort_remove_duplicates(steps);
-    for (PrintStep step : steps)
-        invalidated |= this->invalidate_step(step);
-    sort_remove_duplicates(osteps);
-    for (PrintObjectStep ostep : osteps)
-        for (PrintObjectUPtr &object : m_objects)
-            invalidated |= object->invalidate_step(ostep);
-    if(invalidated)
+    if (invalidated)
         m_timestamp_last_change = std::time(0);
     return invalidated;
 }
@@ -645,9 +317,19 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
 bool Print::invalidate_step(slicing_step_t step)
 {
     bool invalidated = false;
+    if (is_print_object_step(step)) {
+        for (PrintObjectUPtr &object : m_objects)
+            invalidated |= object->invalidate_step(step);
+        return invalidated;
+    }
+
     for (PrintObjectUPtr &object : m_objects)
         invalidated |= object->invalidate_step_direct(step);
-    // Propagate to dependent steps.
+    // Propagate print-level steps downstream in the slicing pipeline.
+    for (slicing_step_t print_step : ordered_print_steps())
+        if (print_step > step)
+            for (PrintObjectUPtr &object : m_objects)
+                invalidated |= object->invalidate_step_direct(print_step);
     if (step != psGCodeExport)
         for (PrintObjectUPtr &object : m_objects)
             invalidated |= object->invalidate_step_direct(psGCodeExport);

@@ -333,6 +333,7 @@ void Polyholes::inilialize_impl(storage_handle *storage) const {
     def.label = "Convert round holes to polyholes";
     def.full_label = "Convert round holes to polyholes";
     def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.invalidates_step = STEP_SLICING;
     def.tooltip = ("Search for almost-circular holes that span more than one layer and convert the geometry to polyholes."
         " Use the nozzle size and the (biggest) diameter to compute the polyhole."
         "\nSee http://hydraraptor.blogspot.com/2011/02/polyholes.html");
@@ -349,6 +350,7 @@ void Polyholes::inilialize_impl(storage_handle *storage) const {
     def.label = ("Roundness margin");
     def.full_label = ("Polyhole detection margin");
     def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.invalidates_step = STEP_SLICING;
     def.tooltip = ("Maximum deflection of a point to the estimated radius of the circle."
         "\nAs cylinders are often exported as triangles of varying size, points may not be on the circle circumference."
         " This setting allows you some leeway to broaden the detection."
@@ -370,6 +372,7 @@ void Polyholes::inilialize_impl(storage_handle *storage) const {
     def.label = ("Twisting");
     def.full_label = ("Polyhole twist");
     def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.invalidates_step = STEP_SLICING;
     def.tooltip = ("Rotate the polyhole every layer.");
     def.mode = RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI;
     def.default_serialized_value = "1";

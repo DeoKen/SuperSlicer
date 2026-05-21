@@ -183,6 +183,7 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     out.printer_technology = static_cast<PrinterTechnology>(def->printer_technology);
     out.container_type = config_option_container_type(def->container_type);
     out.option_preset_type = static_cast<uint32_t>(def->option_preset_type);
+    out.invalidates_step = def->invalidates_step;
 
     out.can_be_disabled = def->can_be_disabled != 0;
     out.is_optional = def->is_optional != 0;
