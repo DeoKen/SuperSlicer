@@ -45,6 +45,30 @@ static ConfigOptionContainerType config_option_container_type(raw_container_type
     }
 }
 
+static ConfigOptionType config_option_type(raw_config_option_type type)
+{
+    switch (type) {
+    case RAW_CO_NONE:                    return coNone;
+    case RAW_CO_BOOL:                    return coBool;
+    case RAW_CO_INT:                     return coInt;
+    case RAW_CO_FLOAT:                   return coFloat;
+    case RAW_CO_FLOAT_OR_PERCENT:        return coFloatOrPercent;
+    case RAW_CO_STRING:                  return coString;
+    case RAW_CO_POINT:                   return coPoint;
+    case RAW_CO_ENUM:                    return coEnum;
+    case RAW_CO_GRAPH:                   return coGraph;
+    case RAW_CO_VECTOR_BOOL:             return coBools;
+    case RAW_CO_VECTOR_INT:              return coInts;
+    case RAW_CO_VECTOR_FLOAT:            return coFloats;
+    case RAW_CO_VECTOR_FLOAT_OR_PERCENT: return coFloatsOrPercents;
+    case RAW_CO_VECTOR_STRING:           return coStrings;
+    case RAW_CO_VECTOR_POINT:            return coPoints;
+    case RAW_CO_VECTOR_GRAPH:            return coGraphs;
+    case RAW_CO_VECTOR_ENUM:
+    default:                             return coNone;
+    }
+}
+
 } // namespace Slic3r
 
 extern "C" {
@@ -173,11 +197,13 @@ void Orchestrator::reset_plugin_cancel() { m_plugin_cancel_requested.store(false
 void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     //PrintOptionPresetType preset_type = static_cast<PrintOptionPresetType>(def->option_preset_type);
     //PrintOptionContainer container = static_cast<PrintOptionContainer>(def->container_type);
+    const ConfigOptionType type = config_option_type(def->type);
+    assert(type != coNone);
 
-    ConfigOptionDef &out = *PrintConfigDef::instance_mutable().add(def->opt_key, static_cast<ConfigOptionType>(def->type));
+    ConfigOptionDef &out = *PrintConfigDef::instance_mutable().add(def->opt_key, type);
 
     out.opt_key = def->opt_key;
-    out.type = static_cast<ConfigOptionType>(def->type);
+    out.type = type;
     out.category = static_cast<OptionCategory>(def->category);
     out.gui_type = static_cast<ConfigOptionDef::GUIType>(def->gui_type);
     out.printer_technology = static_cast<PrinterTechnology>(def->printer_technology);
@@ -254,7 +280,7 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     case RAW_CO_INT: temp_default_option = new ConfigOptionInt(); break;
     case RAW_CO_FLOAT: temp_default_option = new ConfigOptionFloat(); break;
     case RAW_CO_FLOAT_OR_PERCENT: temp_default_option = new ConfigOptionFloatOrPercent(); break;
-    case RAW_CO_STRING: temp_default_option = new ConfigOptionString();
+    case RAW_CO_STRING: temp_default_option = new ConfigOptionString(); break;
     case RAW_CO_POINT: temp_default_option = new ConfigOptionPoint(); break;
     case RAW_CO_ENUM: temp_default_option = new ConfigOptionEnumGeneric(); break;
     case RAW_CO_GRAPH: temp_default_option = new ConfigOptionGraph(); break;
