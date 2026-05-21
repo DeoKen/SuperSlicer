@@ -57,11 +57,16 @@ set(SLIC3R_SOURCES
 	Api/host/slic3r_config_def.cpp
 	Api/host/slic3r_config_option.cpp
 	Api/host/slic3r_data_tree.cpp
+	Api/host/slic3r_extrusion_entity.cpp
+	Api/host/slic3r_extrusion_polyline.cpp
+	Api/host/slic3r_extrusion_property.cpp
 	Api/host/slic3r_geometry.cpp
 	Api/host/slic3r_orchestrator.cpp
 	Api/host/slic3r_plugin.cpp
 	Api/host/slic3r_utils.cpp
 	Api/host/slic3r_volume.cpp
+	Api/internal/ArcPolylineAccess.hpp
+	Api/internal/ExtrusionPropertyAccess.hpp
 	Api/internal/LayerAccess.hpp
 	Api/internal/LayerIslandAccess.hpp
 	Api/internal/LayerRegionAccess.hpp
@@ -73,6 +78,9 @@ set(SLIC3R_SOURCES
 	Api/plugin/c/slic3r_config_option_type.h
 	Api/plugin/c/slic3r_data_tree.h
 	Api/plugin/c/slic3r_def.h
+	Api/plugin/c/slic3r_extrusion_entity.h
+	Api/plugin/c/slic3r_extrusion_polyline.h
+	Api/plugin/c/slic3r_extrusion_property.h
 	Api/plugin/c/slic3r_extrusions.h
 	Api/plugin/c/slic3r_geometry.h
 	Api/plugin/c/slic3r_orchestrator.h
@@ -84,6 +92,7 @@ set(SLIC3R_SOURCES
 	Api/plugin/cpp/BridgeDetectorViews.hpp
 	Api/plugin/cpp/ClipperViews.hpp
 	Api/plugin/cpp/DataTreeViews.hpp
+	Api/plugin/cpp/ExtrusionViews.hpp
 	Api/plugin/cpp/GeometryViews.hpp
 	Api/plugin/cpp/PluginBase.hpp
 	Api/plugin/cpp/PluginContext.hpp

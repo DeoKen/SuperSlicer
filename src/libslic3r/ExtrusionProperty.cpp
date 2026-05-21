@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "Api/internal/ExtrusionPropertyAccess.hpp"
 #include "Flow.hpp"
 
 namespace Slic3r {
@@ -151,6 +152,13 @@ void RawBuffer::allocate(size_t byte_count, size_t alignment)
     m_alignment = alignment;
 }
 
+void RawBuffer::copy_from(const void *data, size_t byte_count, size_t alignment)
+{
+    this->allocate(byte_count, alignment);
+    if (byte_count > 0 && data != nullptr)
+        std::memcpy(m_data, data, byte_count);
+}
+
 void RawBuffer::reset()
 {
     if (m_data != nullptr) {
@@ -164,16 +172,22 @@ void RawBuffer::reset()
 PropertySlot::PropertySlot(const PropertySlot &rhs)
 {
     if (!rhs.empty()) {
-        assert(rhs.m_ops != nullptr);
-        rhs.m_ops->clone(*this, rhs.m_data.data());
+        if (rhs.m_ops != nullptr) {
+            rhs.m_ops->clone(*this, rhs.m_data.data());
+        } else {
+            m_data.copy_from(rhs.m_data.data(), rhs.m_data.size(), rhs.m_data.alignment());
+            m_raw_type = rhs.m_raw_type;
+        }
     }
 }
 
 PropertySlot::PropertySlot(PropertySlot &&rhs) noexcept
     : m_data(std::move(rhs.m_data))
     , m_ops(rhs.m_ops)
+    , m_raw_type(rhs.m_raw_type)
 {
     rhs.m_ops = nullptr;
+    rhs.m_raw_type = extrusion_property_type_invalid;
 }
 
 PropertySlot& PropertySlot::operator=(const PropertySlot &rhs)
@@ -181,8 +195,12 @@ PropertySlot& PropertySlot::operator=(const PropertySlot &rhs)
     if (this != &rhs) {
         this->reset();
         if (!rhs.empty()) {
-            assert(rhs.m_ops != nullptr);
-            rhs.m_ops->clone(*this, rhs.m_data.data());
+            if (rhs.m_ops != nullptr) {
+                rhs.m_ops->clone(*this, rhs.m_data.data());
+            } else {
+                m_data.copy_from(rhs.m_data.data(), rhs.m_data.size(), rhs.m_data.alignment());
+                m_raw_type = rhs.m_raw_type;
+            }
         }
     }
     return *this;
@@ -194,7 +212,9 @@ PropertySlot& PropertySlot::operator=(PropertySlot &&rhs) noexcept
         this->reset();
         m_data = std::move(rhs.m_data);
         m_ops = rhs.m_ops;
+        m_raw_type = rhs.m_raw_type;
         rhs.m_ops = nullptr;
+        rhs.m_raw_type = extrusion_property_type_invalid;
     }
     return *this;
 }
@@ -210,6 +230,54 @@ void PropertySlot::reset()
         m_ops->destroy(m_data.data());
     m_data.reset();
     m_ops = nullptr;
+    m_raw_type = extrusion_property_type_invalid;
+}
+
+void PropertySlot::emplace_raw(extrusion_property_type type, const void *data, size_t byte_count, size_t alignment)
+{
+    this->reset();
+    m_data.copy_from(data, byte_count, alignment);
+    m_raw_type = type;
+}
+
+void PropertySlot::emplace_zeroed(extrusion_property_type type, size_t byte_count, size_t alignment)
+{
+    this->reset();
+    m_data.allocate(byte_count, alignment);
+    if (byte_count > 0)
+        std::memset(m_data.data(), 0, byte_count);
+    m_raw_type = type;
+}
+
+void* PropertySlot::data()
+{
+    if (m_ops == nullptr)
+        return m_data.data();
+
+    switch (m_ops->type) {
+    case ExtrusionAttributes::property_type:
+        return static_cast<ExtrusionFlow*>(this->get_if<ExtrusionAttributes>());
+    case ExtrusionPropertySpeed::property_type:
+        return &this->as<ExtrusionPropertySpeed>().speed_mm_per_s;
+    case ExtrusionPropertyModifier::property_type:
+        return &this->as<ExtrusionPropertyModifier>().enforce_travel;
+    case ExtrusionPropertySpecialCommand::property_type:
+        return &this->as<ExtrusionPropertySpecialCommand>().code;
+    case ExtrusionPropertyOverhang::property_type:
+        return &this->as<ExtrusionPropertyOverhang>().start_distance_from_prev_layer;
+    case ExtrusionPropertyZOffset::property_type:
+        return &this->as<ExtrusionPropertyZOffset>().z_offset;
+    case ExtrusionPropertyLoopRole::property_type:
+        return &this->as<ExtrusionPropertyLoopRole>().perimeter_idx;
+    case ExtrusionPropertyCustomGcode::property_type:
+    default:
+        return nullptr;
+    }
+}
+
+const void* PropertySlot::data() const
+{
+    return const_cast<PropertySlot*>(this)->data();
 }
 
 ExtrusionPropertyContainer::ExtrusionPropertyContainer(ExtrusionPropertyUPtr &&property)
@@ -229,6 +297,8 @@ ExtrusionPropertyContainer::ExtrusionPropertyContainer(ExtrusionPropertyUPtrs &&
 
 ExtrusionPropertyContainer::ExtrusionPropertyContainer(const ExtrusionPropertyContainer &rhs)
     : m_properties(rhs.m_properties)
+    , m_data_resources(rhs.m_data_resources)
+    , m_next_data_resource_id(rhs.m_next_data_resource_id)
 {
 }
 
@@ -236,6 +306,8 @@ ExtrusionPropertyContainer& ExtrusionPropertyContainer::operator=(const Extrusio
 {
     if (this != &rhs) {
         m_properties = rhs.m_properties;
+        m_data_resources = rhs.m_data_resources;
+        m_next_data_resource_id = rhs.m_next_data_resource_id;
     }
     return *this;
 }
@@ -245,7 +317,8 @@ ExtrusionPropertyUPtrs ExtrusionPropertyContainer::clone_properties() const
     ExtrusionPropertyUPtrs out;
     out.reserve(m_properties.size());
     for (const PropertySlot &property : m_properties)
-        out.emplace_back(property.property().clone());
+        if (const ExtrusionProperty *cpp_property = property.property_or_null())
+            out.emplace_back(cpp_property->clone());
     return out;
 }
 
@@ -289,5 +362,182 @@ const PropertySlot* ExtrusionPropertyContainer::find_slot(extrusion_property_typ
             return &slot;
     return nullptr;
 }
+
+ExtrusionPropertyContainer::DataResource::DataResource(const DataResource &rhs)
+    : id(rhs.id)
+{
+    data.copy_from(rhs.data.data(), rhs.data.size(), rhs.data.alignment());
+}
+
+ExtrusionPropertyContainer::DataResource&
+ExtrusionPropertyContainer::DataResource::operator=(const DataResource &rhs)
+{
+    if (this != &rhs) {
+        id = rhs.id;
+        data.copy_from(rhs.data.data(), rhs.data.size(), rhs.data.alignment());
+    }
+    return *this;
+}
+
+extrusion_property_type ExtrusionPropertyContainer::property_type_at(size_t idx) const
+{
+    return idx < m_properties.size() ? m_properties[idx].type() : extrusion_property_type_invalid;
+}
+
+const void* ExtrusionPropertyContainer::property_data(extrusion_property_type type) const
+{
+    const PropertySlot *slot = this->find_slot(type);
+    return slot != nullptr ? slot->data() : nullptr;
+}
+
+void* ExtrusionPropertyContainer::property_data_mutable(extrusion_property_type type)
+{
+    PropertySlot *slot = this->find_slot(type);
+    return slot != nullptr ? slot->data() : nullptr;
+}
+
+void* ExtrusionPropertyContainer::get_or_add_property_data_mutable(extrusion_property_type type, size_t byte_count, size_t alignment)
+{
+    if (PropertySlot *slot = this->find_slot(type))
+        return slot->data();
+
+    switch (type) {
+    case ExtrusionAttributes::property_type:
+        return static_cast<ExtrusionFlow*>(&this->get_or_add_property<ExtrusionAttributes>());
+    case ExtrusionPropertySpeed::property_type:
+        return &this->get_or_add_property<ExtrusionPropertySpeed>().speed_mm_per_s;
+    case ExtrusionPropertyModifier::property_type:
+        return &this->get_or_add_property<ExtrusionPropertyModifier>().enforce_travel;
+    case ExtrusionPropertySpecialCommand::property_type:
+        return &this->get_or_add_property<ExtrusionPropertySpecialCommand>(ExtrusionPropertySpecialCommand::Code::TOOLCHANGE).code;
+    case ExtrusionPropertyOverhang::property_type:
+        return &this->get_or_add_property<ExtrusionPropertyOverhang>().start_distance_from_prev_layer;
+    case ExtrusionPropertyZOffset::property_type:
+        return &this->get_or_add_property<ExtrusionPropertyZOffset>().z_offset;
+    case ExtrusionPropertyLoopRole::property_type:
+        return &this->get_or_add_property<ExtrusionPropertyLoopRole>().perimeter_idx;
+    case ExtrusionPropertyCustomGcode::property_type:
+        return nullptr;
+    default:
+        if (type == extrusion_property_type_invalid || byte_count == 0 || alignment == 0)
+            return nullptr;
+        PropertySlot raw_slot;
+        raw_slot.emplace_zeroed(type, byte_count, alignment);
+        m_properties.emplace_back(std::move(raw_slot));
+        return m_properties.back().data();
+    }
+}
+
+bool ExtrusionPropertyContainer::remove_property(extrusion_property_type type)
+{
+    for (std::vector<PropertySlot>::iterator it = m_properties.begin(); it != m_properties.end(); ++it)
+        if (it->type() == type) {
+            m_properties.erase(it);
+            return true;
+        }
+    return false;
+}
+
+uint32_t ExtrusionPropertyContainer::store_data_aligned(const void *data, size_t byte_count, size_t alignment)
+{
+    if (alignment == 0 || (byte_count > 0 && data == nullptr))
+        return uint32_t(-1);
+
+    DataResource resource;
+    resource.id = m_next_data_resource_id++;
+    if (resource.id == uint32_t(-1))
+        resource.id = m_next_data_resource_id++;
+    resource.data.copy_from(data, byte_count, alignment);
+    m_data_resources.emplace_back(std::move(resource));
+    return m_data_resources.back().id;
+}
+
+const void* ExtrusionPropertyContainer::stored_data(uint32_t data_id, uint32_t *byte_size_out) const
+{
+    if (byte_size_out != nullptr)
+        *byte_size_out = 0;
+    for (const DataResource &resource : m_data_resources)
+        if (resource.id == data_id) {
+            if (byte_size_out != nullptr)
+                *byte_size_out = uint32_t(resource.data.size());
+            return resource.data.data();
+        }
+    return nullptr;
+}
+
+bool ExtrusionPropertyContainer::free_data(uint32_t data_id)
+{
+    for (std::vector<DataResource>::iterator it = m_data_resources.begin(); it != m_data_resources.end(); ++it)
+        if (it->id == data_id) {
+            m_data_resources.erase(it);
+            return true;
+        }
+    return false;
+}
+
+namespace ApiInternal {
+
+size_t ExtrusionPropertyAccess::property_count(const ExtrusionPropertyContainer &container)
+{
+    return container.property_count();
+}
+
+extrusion_property_type ExtrusionPropertyAccess::property_type_at(const ExtrusionPropertyContainer &container,
+                                                                  size_t idx)
+{
+    return container.property_type_at(idx);
+}
+
+bool ExtrusionPropertyAccess::has_property(const ExtrusionPropertyContainer &container, extrusion_property_type type)
+{
+    return container.has_property(type);
+}
+
+const void *ExtrusionPropertyAccess::property_data(const ExtrusionPropertyContainer &container,
+                                                   extrusion_property_type type)
+{
+    return container.property_data(type);
+}
+
+void *ExtrusionPropertyAccess::property_data_mutable(ExtrusionPropertyContainer &container,
+                                                     extrusion_property_type type)
+{
+    return container.property_data_mutable(type);
+}
+
+void *ExtrusionPropertyAccess::get_or_add_property_data_mutable(ExtrusionPropertyContainer &container,
+                                                                extrusion_property_type type,
+                                                                size_t byte_count,
+                                                                size_t alignment)
+{
+    return container.get_or_add_property_data_mutable(type, byte_count, alignment);
+}
+
+bool ExtrusionPropertyAccess::remove_property(ExtrusionPropertyContainer &container, extrusion_property_type type)
+{
+    return container.remove_property(type);
+}
+
+uint32_t ExtrusionPropertyAccess::store_data_aligned(ExtrusionPropertyContainer &container,
+                                                     const void *data,
+                                                     size_t byte_count,
+                                                     size_t alignment)
+{
+    return container.store_data_aligned(data, byte_count, alignment);
+}
+
+const void *ExtrusionPropertyAccess::stored_data(const ExtrusionPropertyContainer &container,
+                                                 uint32_t data_id,
+                                                 uint32_t *byte_size_out)
+{
+    return container.stored_data(data_id, byte_size_out);
+}
+
+bool ExtrusionPropertyAccess::free_data(ExtrusionPropertyContainer &container, uint32_t data_id)
+{
+    return container.free_data(data_id);
+}
+
+} // namespace ApiInternal
 
 } // namespace Slic3r

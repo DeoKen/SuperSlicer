@@ -13,6 +13,7 @@
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 #include "libslic3r/ExPolygon.hpp"
+#include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Plugins/BridgeDetector.hpp"
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Print.hpp"
@@ -93,6 +94,48 @@ bool Orchestrator::register_plugin(plugin_instance plugin) {
     }
     m_registered_plugins.emplace_back(new Plugin(plugin));
     return true;
+}
+
+extrusion_property_type Orchestrator::register_custom_extrusion_property(const char *namespaced_name,
+                                                                         uint32_t byte_count,
+                                                                         uint32_t alignment)
+{
+    if (const CustomExtrusionPropertyInfo *existing = this->custom_extrusion_property_info(namespaced_name)) {
+        return existing->byte_count == byte_count && existing->alignment == alignment ?
+            existing->type :
+            EXTRUSION_PROPERTY_TYPE_INVALID;
+    }
+
+    CustomExtrusionPropertyInfo info;
+    info.type = m_next_custom_extrusion_property_type++;
+    if (info.type == EXTRUSION_PROPERTY_TYPE_INVALID)
+        info.type = m_next_custom_extrusion_property_type++;
+    info.name = namespaced_name;
+    info.byte_count = byte_count;
+    info.alignment = alignment;
+    m_custom_extrusion_property_infos.emplace_back(std::move(info));
+    return m_custom_extrusion_property_infos.back().type;
+}
+
+const Orchestrator::CustomExtrusionPropertyInfo*
+Orchestrator::custom_extrusion_property_info(extrusion_property_type type) const
+{
+    for (const CustomExtrusionPropertyInfo &info : m_custom_extrusion_property_infos)
+        if (info.type == type)
+            return &info;
+    return nullptr;
+}
+
+const Orchestrator::CustomExtrusionPropertyInfo*
+Orchestrator::custom_extrusion_property_info(const char *namespaced_name) const
+{
+    if (namespaced_name == nullptr)
+        return nullptr;
+
+    for (const CustomExtrusionPropertyInfo &info : m_custom_extrusion_property_infos)
+        if (info.name == namespaced_name)
+            return &info;
+    return nullptr;
 }
 
 plugin_host_context Orchestrator::prepare_plugin_host_context(slicing_step_t step,
@@ -397,6 +440,7 @@ void PluginStorage::clear() {
     polyline_collections.clear();
     polygon_collections.clear();
     expolygon_collections.clear();
+    extrusions.clear();
     clipper_shapes.clear();
     generic_storage.clear();
 }
@@ -456,6 +500,14 @@ bool PluginStorage::free(void *ptr) {
     for (auto it = expolygon_collections.begin(); it != expolygon_collections.end(); ++it) {
         if (ptr == static_cast<void *>(it->get())) {
             expolygon_collections.erase(it);
+            generic_storage.erase(ptr);
+            return true;
+        }
+    }
+
+    for (auto it = extrusions.begin(); it != extrusions.end(); ++it) {
+        if (ptr == static_cast<void *>(it->get())) {
+            extrusions.erase(it);
             generic_storage.erase(ptr);
             return true;
         }

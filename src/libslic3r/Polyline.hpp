@@ -31,6 +31,7 @@ class Polyline;
 class ThickPolyline;
 //class PolylineOrArc;
 class ArcPolyline;
+namespace ApiInternal { struct ArcPolylineAccess; }
 typedef std::vector<Polyline> Polylines;
 typedef std::vector<ThickPolyline> ThickPolylines;
 //typedef std::vector<PolylineOrArc> PolylinesOrArcs;
@@ -232,6 +233,7 @@ typedef std::vector<Polyline3> Polylines3;
 
 class ArcPolyline
 {
+    friend struct ApiInternal::ArcPolylineAccess;
 protected:
     // each segment is strait if it's radius ==0 (orientation should be unknown in this case)
     // radius is negative if the arc betweent he two point is the longest of the two. it's positive if it's the shortest.

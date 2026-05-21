@@ -10,6 +10,7 @@
 #include "libslic3r/Api/plugin/cpp/BridgeDetectorViews.hpp"
 #include "libslic3r/Api/plugin/cpp/ClipperViews.hpp"
 #include "libslic3r/Api/plugin/cpp/DataTreeViews.hpp"
+#include "libslic3r/Api/plugin/cpp/ExtrusionViews.hpp"
 #include "libslic3r/Api/plugin/cpp/GeometryViews.hpp"
 #include "libslic3r/Api/plugin/cpp/PluginBase.hpp"
 #include "libslic3r/Api/plugin/cpp/PluginContext.hpp"

@@ -11,12 +11,14 @@
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>
+#include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_bridge_detector.h"
 #include "libslic3r/Api/plugin/c/slic3r_config_def.h"
+#include "libslic3r/Api/plugin/c/slic3r_extrusion_property.h"
 #include "libslic3r/MultiPoint.hpp"
 
 #include "Plugin.hpp"
@@ -29,6 +31,7 @@ class MultiPoint;
 class Polyline;
 class Polygon;
 class ExPolygon;
+class ExtrusionEntity;
 class PluginStorage;
 namespace ApiClipper { class ClipperShapes; }
 
@@ -52,6 +55,14 @@ namespace Slic3r {
 class Orchestrator
 {
 public:
+    struct CustomExtrusionPropertyInfo
+    {
+        extrusion_property_type type;
+        std::string name;
+        uint32_t byte_count;
+        uint32_t alignment;
+    };
+
     static Orchestrator &instance();
 
     std::vector<Plugin *> get_all_plugins_for_step(slicing_step_t step) const;
@@ -85,6 +96,11 @@ public:
     void request_plugin_cancel();
     void reset_plugin_cancel();
     void initialize_plugins();
+    extrusion_property_type register_custom_extrusion_property(const char *namespaced_name,
+                                                               uint32_t byte_count,
+                                                               uint32_t alignment);
+    const CustomExtrusionPropertyInfo *custom_extrusion_property_info(extrusion_property_type type) const;
+    const CustomExtrusionPropertyInfo *custom_extrusion_property_info(const char *namespaced_name) const;
 
 private:
     Orchestrator() = default;
@@ -92,6 +108,8 @@ private:
     std::vector<std::unique_ptr<Plugin>> m_registered_plugins;
     std::map<slicing_step_t, std::vector<Plugin *>> m_plugins_by_step;
     std::map<Plugin *, PluginStorage> m_plugin_storage;
+    std::vector<CustomExtrusionPropertyInfo> m_custom_extrusion_property_infos;
+    extrusion_property_type m_next_custom_extrusion_property_type { extrusion_property_type(0x80000000u) };
     std::atomic_bool m_plugin_cancel_requested { false };
 };
 
@@ -141,6 +159,7 @@ public:
     StableOwnedVector<std::vector<Polyline>> polyline_collections;
     StableOwnedVector<std::vector<Polygon>> polygon_collections;
     StableOwnedVector<std::vector<ExPolygon>> expolygon_collections;
+    StableOwnedVector<ExtrusionEntity> extrusions;
     std::vector<std::unique_ptr<ApiClipper::ClipperShapes>> clipper_shapes;
     std::unordered_set<void *> generic_storage;
 

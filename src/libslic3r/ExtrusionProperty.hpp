@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "Api/plugin/c/slic3r_extrusion_property.h"
 #include "ExtrusionRole.hpp"
 #include "libslic3r.h"
 
@@ -33,23 +34,24 @@ class ExtrusionPropertyOverhang;
 class ExtrusionPropertyZOffset;
 class ExtrusionPropertyZProfile;
 class ExtrusionPropertyLoopRole;
+namespace ApiInternal { struct ExtrusionPropertyAccess; }
 
 using ExtrusionPropertyUPtr = std::unique_ptr<ExtrusionProperty>;
 using ExtrusionPropertyUPtrs = std::vector<ExtrusionPropertyUPtr>;
 
-using extrusion_property_type = uint32_t;
+using extrusion_property_type = ::extrusion_property_type;
 
 enum : extrusion_property_type {
-    extrusion_property_type_invalid         = uint32_t(-1),
-    extrusion_property_type_attributes      = 1,
-    extrusion_property_type_speed           = 2,
-    extrusion_property_type_modifier        = 3,
-    extrusion_property_type_custom_gcode    = 4,
-    extrusion_property_type_special_command = 5,
-    extrusion_property_type_overhang        = 6,
-    extrusion_property_type_z_offset        = 7,
+    extrusion_property_type_invalid         = EXTRUSION_PROPERTY_TYPE_INVALID,
+    extrusion_property_type_attributes      = EXTRUSION_PROPERTY_TYPE_ATTRIBUTES,
+    extrusion_property_type_speed           = EXTRUSION_PROPERTY_TYPE_SPEED,
+    extrusion_property_type_modifier        = EXTRUSION_PROPERTY_TYPE_MODIFIER,
+    extrusion_property_type_custom_gcode    = EXTRUSION_PROPERTY_TYPE_CUSTOM_GCODE,
+    extrusion_property_type_special_command = EXTRUSION_PROPERTY_TYPE_SPECIAL_COMMAND,
+    extrusion_property_type_overhang        = EXTRUSION_PROPERTY_TYPE_OVERHANG,
+    extrusion_property_type_z_offset        = EXTRUSION_PROPERTY_TYPE_Z_OFFSET,
     extrusion_property_type_z_profile       = 8,
-    extrusion_property_type_loop_role       = 9,
+    extrusion_property_type_loop_role       = EXTRUSION_PROPERTY_TYPE_PERIMETER,
 };
 
 class ExtrusionProperty
@@ -294,6 +296,7 @@ public:
     ~RawBuffer();
 
     void allocate(size_t byte_count, size_t alignment);
+    void copy_from(const void *data, size_t byte_count, size_t alignment);
     void reset();
 
     void* data() { return m_data; }
@@ -345,6 +348,9 @@ struct PropertySlotOps
 
 class PropertySlot
 {
+    friend class ExtrusionPropertyContainer;
+    friend struct ApiInternal::ExtrusionPropertyAccess;
+
 public:
     PropertySlot() = default;
     PropertySlot(const PropertySlot &rhs);
@@ -353,8 +359,8 @@ public:
     PropertySlot& operator=(PropertySlot &&rhs) noexcept;
     ~PropertySlot();
 
-    extrusion_property_type type() const { return m_ops != nullptr ? m_ops->type : extrusion_property_type_invalid; }
-    bool empty() const { return m_ops == nullptr; }
+    extrusion_property_type type() const { return m_ops != nullptr ? m_ops->type : m_raw_type; }
+    bool empty() const { return m_ops == nullptr && m_raw_type == extrusion_property_type_invalid; }
 
     template<typename PropertyType, typename... Args> PropertyType& emplace(Args&&... args)
     {
@@ -392,10 +398,19 @@ public:
 
     ExtrusionProperty& property() { assert(m_ops != nullptr); return *m_ops->property(m_data.data()); }
     const ExtrusionProperty& property() const { assert(m_ops != nullptr); return *m_ops->const_property(m_data.data()); }
+    ExtrusionProperty* property_or_null() { return m_ops != nullptr ? m_ops->property(m_data.data()) : nullptr; }
+    const ExtrusionProperty* property_or_null() const { return m_ops != nullptr ? m_ops->const_property(m_data.data()) : nullptr; }
 
     void reset();
 
 private:
+    void emplace_raw(extrusion_property_type type, const void *data, size_t byte_count, size_t alignment);
+    void emplace_zeroed(extrusion_property_type type, size_t byte_count, size_t alignment);
+    void* data();
+    const void* data() const;
+    size_t byte_count() const { return m_data.size(); }
+    size_t alignment() const { return m_data.alignment(); }
+
     template<typename PropertyType> static const PropertySlotOps& ops()
     {
         static const PropertySlotOps slot_ops = {
@@ -417,6 +432,7 @@ private:
 
     RawBuffer m_data;
     const PropertySlotOps *m_ops = nullptr;
+    extrusion_property_type m_raw_type = extrusion_property_type_invalid;
 };
 
 // Small typed property bag for extrusion interpretation modifiers.
@@ -425,6 +441,8 @@ private:
 // type" rule explicit and avoids dynamic casts on typed lookups.
 class ExtrusionPropertyContainer
 {
+    friend struct ApiInternal::ExtrusionPropertyAccess;
+
 public:
     ExtrusionPropertyContainer() = default;
     explicit ExtrusionPropertyContainer(ExtrusionPropertyUPtr &&property);
@@ -483,10 +501,36 @@ public:
 
 protected:
 
+    size_t property_count() const { return m_properties.size(); }
+    extrusion_property_type property_type_at(size_t idx) const;
+    bool has_property(extrusion_property_type type) const { return this->find_slot(type) != nullptr; }
+    const void* property_data(extrusion_property_type type) const;
+    void* property_data_mutable(extrusion_property_type type);
+    void* get_or_add_property_data_mutable(extrusion_property_type type, size_t byte_count, size_t alignment);
+    bool remove_property(extrusion_property_type type);
+
+    uint32_t store_data_aligned(const void *data, size_t byte_count, size_t alignment);
+    const void* stored_data(uint32_t data_id, uint32_t *byte_size_out) const;
+    bool free_data(uint32_t data_id);
+
     PropertySlot* find_slot(extrusion_property_type type);
     const PropertySlot* find_slot(extrusion_property_type type) const;
 
+    struct DataResource
+    {
+        uint32_t id = 0;
+        RawBuffer data;
+
+        DataResource() = default;
+        DataResource(const DataResource &rhs);
+        DataResource(DataResource &&rhs) noexcept = default;
+        DataResource& operator=(const DataResource &rhs);
+        DataResource& operator=(DataResource &&rhs) noexcept = default;
+    };
+
     std::vector<PropertySlot> m_properties;
+    std::vector<DataResource> m_data_resources;
+    uint32_t m_next_data_resource_id = 1;
 };
 
 template<typename PropertyType>

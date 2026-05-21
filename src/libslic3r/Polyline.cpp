@@ -19,6 +19,7 @@
 #include <iostream>
 #include <utility>
 
+#include "Api/internal/ArcPolylineAccess.hpp"
 #include "BoundingBox.hpp"
 #include "Exception.hpp"
 #include "ExPolygon.hpp"
@@ -1120,6 +1121,124 @@ void ArcPolyline::set_z_offset(size_t idx, coord_t z_offset) {
     is_3D = true;
 #endif
 }
+
+namespace ApiInternal {
+
+namespace {
+
+void make_linear(Geometry::ArcWelder::Segment &segment)
+{
+    segment.radius = 0.f;
+    segment.orientation = Geometry::ArcWelder::Orientation::Unknown;
+#ifdef _DEBUG
+    segment.length = 0;
+    segment.center = Point(0, 0);
+#endif
+}
+
+void refresh_segment_debug(Geometry::ArcWelder::Path &path, size_t idx)
+{
+#ifdef _DEBUG
+    if (idx > 0 && idx < path.size()) {
+        path[idx].length = Geometry::ArcWelder::segment_length<coordf_t>(path[idx - 1], path[idx]);
+        path[idx].center = path[idx].linear() ?
+            Point(0, 0) :
+            Geometry::ArcWelder::arc_center_scalar(path[idx - 1].point, path[idx].point,
+                                                   path[idx].radius, path[idx].ccw());
+    }
+#else
+    (void) path;
+    (void) idx;
+#endif
+}
+
+} // namespace
+
+void ArcPolylineAccess::refresh_after_edit(ArcPolyline &polyline)
+{
+    polyline.m_only_strait = not_arc(polyline);
+#ifdef _DEBUG
+    for (size_t idx = 1; idx < polyline.m_path.size(); ++idx)
+        refresh_segment_debug(polyline.m_path, idx);
+#endif
+    assert(polyline.m_path.size() < 2 || polyline.is_valid());
+}
+
+bool ArcPolylineAccess::set_point(ArcPolyline &polyline, size_t idx, const Point &point)
+{
+    if (idx >= polyline.m_path.size())
+        return false;
+
+    polyline.m_path[idx].point = point;
+    if (idx > 0)
+        make_linear(polyline.m_path[idx]);
+    if (idx + 1 < polyline.m_path.size())
+        make_linear(polyline.m_path[idx + 1]);
+    ArcPolylineAccess::refresh_after_edit(polyline);
+    return true;
+}
+
+bool ArcPolylineAccess::insert_point(ArcPolyline &polyline, size_t idx, const Point &point)
+{
+    if (idx > polyline.m_path.size())
+        return false;
+
+    polyline.m_path.insert(polyline.m_path.begin() + idx,
+                           Geometry::ArcWelder::Segment{point, 0.f, Geometry::ArcWelder::Orientation::Unknown});
+    if (idx + 1 < polyline.m_path.size())
+        make_linear(polyline.m_path[idx + 1]);
+    if (polyline.m_z_offset)
+        polyline.m_z_offset->insert(polyline.m_z_offset->begin() + idx, coord_t(0));
+    ArcPolylineAccess::refresh_after_edit(polyline);
+    return true;
+}
+
+bool ArcPolylineAccess::remove_point(ArcPolyline &polyline, size_t idx)
+{
+    if (idx >= polyline.m_path.size())
+        return false;
+
+    polyline.m_path.erase(polyline.m_path.begin() + idx);
+    if (idx < polyline.m_path.size())
+        make_linear(polyline.m_path[idx]);
+    if (polyline.m_z_offset)
+        polyline.m_z_offset->erase(polyline.m_z_offset->begin() + idx);
+    ArcPolylineAccess::refresh_after_edit(polyline);
+    return true;
+}
+
+bool ArcPolylineAccess::set_segment(ArcPolyline &polyline,
+                                    size_t segment_idx,
+                                    const Point &point_a,
+                                    const Point &point_b,
+                                    float radius,
+                                    Geometry::ArcWelder::Orientation orientation)
+{
+    if (segment_idx + 1 >= polyline.m_path.size())
+        return false;
+    if ((radius == 0.f && orientation != Geometry::ArcWelder::Orientation::Unknown) ||
+        (radius != 0.f && orientation == Geometry::ArcWelder::Orientation::Unknown))
+        return false;
+
+    polyline.m_path[segment_idx].point = point_a;
+    polyline.m_path[segment_idx + 1].point = point_b;
+    if (segment_idx > 0)
+        make_linear(polyline.m_path[segment_idx]);
+    polyline.m_path[segment_idx + 1].radius = radius;
+    polyline.m_path[segment_idx + 1].orientation = orientation;
+    if (segment_idx + 2 < polyline.m_path.size())
+        make_linear(polyline.m_path[segment_idx + 2]);
+
+    ArcPolylineAccess::refresh_after_edit(polyline);
+    return true;
+}
+
+void ArcPolylineAccess::clear_z_offsets(ArcPolyline &polyline)
+{
+    polyline.m_z_offset.reset();
+}
+
+} // namespace ApiInternal
 
 bool ArcPolyline::at_least_length(distf_t length) const
 {
