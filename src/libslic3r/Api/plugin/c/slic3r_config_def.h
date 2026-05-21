@@ -373,6 +373,10 @@ more precise step, changing the option will invalidate the full slicing state.
 static inline raw_config_option_def raw_config_option_def_init()
 {
     raw_config_option_def def = {0};
+    def.height = -1;
+    def.width = -1;
+    def.label_width = -1;
+    def.sidetext_width = -1;
     def.invalidates_step = STEP_ANY;
     return def;
 }

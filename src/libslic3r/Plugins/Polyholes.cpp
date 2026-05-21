@@ -324,7 +324,7 @@ const char *Polyholes::progress_message_format_impl() const noexcept
 
 void Polyholes::inilialize_impl(storage_handle *storage) const {
 
-    raw_config_option_def def{};
+    raw_config_option_def def = raw_config_option_def_init();
     def.opt_key = "hole_to_polyhole";
     def.type = RAW_CO_BOOL;
     def.container_type = RAW_CONTAINER_TYPE_REGION;
@@ -341,7 +341,7 @@ void Polyholes::inilialize_impl(storage_handle *storage) const {
     def.default_serialized_value = "0";
     orchestrator_create_option_def(m_orchestrator, &def);
 
-    def = raw_config_option_def();
+    def = raw_config_option_def_init();
     def.opt_key = "hole_to_polyhole_threshold";
     def.type = RAW_CO_FLOAT_OR_PERCENT;
     def.container_type = RAW_CONTAINER_TYPE_REGION;
@@ -363,7 +363,7 @@ void Polyholes::inilialize_impl(storage_handle *storage) const {
     def.default_serialized_value = "0.01";
     orchestrator_create_option_def(m_orchestrator, &def);
 
-    def = raw_config_option_def();
+    def = raw_config_option_def_init();
     def.opt_key = "hole_to_polyhole_twisted";
     def.type = RAW_CO_BOOL;
     def.container_type = RAW_CONTAINER_TYPE_REGION;
