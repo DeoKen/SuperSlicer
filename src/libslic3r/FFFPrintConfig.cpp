@@ -3754,7 +3754,7 @@ void init_fff_params(PrintConfigDef &definition)
     def = definition.add("fill_density", coPercent, ptFFF);
     def->label = L("Fill density");
     def->category = OptionCategory::infill;
-    def->invalidates_step = posPerimeters;
+    def->invalidates_step = posPrepareInfill;
     def->tooltip = L("Density of internal infill, expressed in the range 0% - 100%."
         "\nSet 0 to remove any sparse infill."
         "\nNote that using a value of 100% won't change the type of infill from sparse to solid."

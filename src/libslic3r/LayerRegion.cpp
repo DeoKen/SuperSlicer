@@ -713,73 +713,90 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
 //#define EXTERNAL_SURFACES_OFFSET_PARAMETERS ClipperLib::jtMiter, 1.5
 #define EXTERNAL_SURFACES_OFFSET_PARAMETERS ClipperLib::jtSquare, 0.
 
+static void filter_island_candidates_by_boundary_point(std::vector<size_t> &candidates, const ExPolygons &fill_boundaries, const Point &point)
+{
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (!fill_boundaries[candidates[i]].contains(point)) {
+            candidates.erase(candidates.begin() + i);
+            --i;
+        }
+    }
+}
+
+static void filter_island_candidates_by_bbox(std::vector<size_t> &candidates, const std::vector<BoundingBox> &bboxes, const Points &points)
+{
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (!bboxes[candidates[i]].contains(points)) {
+            candidates.erase(candidates.begin() + i);
+            --i;
+        }
+    }
+}
+
+static void collect_island_candidates_by_point(std::vector<size_t> &candidates,
+                                               const std::vector<BoundingBox> &bboxes,
+                                               const ExPolygons &fill_boundaries,
+                                               const Point &point)
+{
+    std::vector<size_t> point_candidates;
+    for (size_t idx = 0; idx < bboxes.size(); ++idx) {
+        if (bboxes[idx].contains(point) && fill_boundaries[idx].contains(point))
+            point_candidates.push_back(idx);
+    }
+    if (!point_candidates.empty())
+        candidates.swap(point_candidates);
+}
+
+static size_t select_island_candidate_by_overlap(const Polygon &contour, const ExPolygons &fill_boundaries, const std::vector<size_t> &candidates)
+{
+    const ExPolygon contour_expolygon(contour);
+    size_t best_idx = size_t(-1);
+    double best_area = 0.;
+    for (const size_t candidate : candidates) {
+        const double candidate_area = area(intersection_ex(fill_boundaries[candidate], contour_expolygon));
+        if (candidate_area > best_area) {
+            best_area = candidate_area;
+            best_idx = candidate;
+        }
+    }
+    return best_idx;
+}
+
 size_t get_island_idx(const Polygon &contour,
                       const std::vector<BoundingBox> &bboxes,
                       const ExPolygons &fill_boundaries) {
     assert(bboxes.size() == fill_boundaries.size());
+    if (contour.points.empty())
+        return size_t(-1);
+
     std::vector<size_t> candidates;
     for (size_t idx = 0; idx < bboxes.size(); ++idx) {
         if (bboxes[idx].contains(contour.front()) && bboxes[idx].contains(contour.points[contour.size() / 2])) {
             candidates.push_back(idx);
         }
     }
-    assert(!candidates.empty());
     if (candidates.size() > 1) {
-        for (size_t i = 0; i < candidates.size(); ++i) {
-            if (!bboxes[candidates[i]].contains(contour.points)) {
-                candidates.erase(candidates.begin() + i);
-                --i;
-            }
-        }
+        filter_island_candidates_by_bbox(candidates, bboxes, contour.points);
     }
-    assert(!candidates.empty());
     // note: fill_boundaries don't overlap, you only need to test one point.
     if (candidates.size() > 1) {
-        for (size_t i = 0; i < candidates.size(); ++i) {
-            if (!fill_boundaries[candidates[i]].contains(contour.front())) {
-                candidates.erase(candidates.begin() + i);
-                --i;
-            }
-        }
+        filter_island_candidates_by_boundary_point(candidates, fill_boundaries, contour.front());
     }
-    if (candidates.size() < 0) {
+    if (candidates.size() != 1 && contour.size() > 1) {
         //failed becasue of some epsilon, try with another point
-        for (size_t idx = 0; idx < bboxes.size(); ++idx) {
-            if (bboxes[idx].contains(contour.points[1])) {
-                candidates.push_back(idx);
-            }
-        }
-        if (candidates.size() > 1) {
-            for (size_t i = 0; i < candidates.size(); ++i) {
-                if (!fill_boundaries[candidates[i]].contains(contour.points[1])) {
-                    candidates.erase(candidates.begin() + i);
-                    --i;
-                }
-            }
-        }
+        collect_island_candidates_by_point(candidates, bboxes, fill_boundaries, contour.points[1]);
     }
-    if (candidates.size() < 0) {
+    if (candidates.size() != 1) {
         //failed because of some margins, try with shrunk polygon
         const Polygons contours_shrunk = offset(contour, -scale_i(0.05));
         if (!contours_shrunk.empty()) {
             const Polygon &contour_shrunk = contours_shrunk.front();
-            for (size_t idx = 0; idx < bboxes.size(); ++idx) {
-                if (bboxes[idx].contains(contour_shrunk.front())) {
-                    candidates.push_back(idx);
-                }
-            }
-            if (candidates.size() > 1) {
-                for (size_t i = 0; i < candidates.size(); ++i) {
-                    if (!fill_boundaries[candidates[i]].contains(contour_shrunk.front())) {
-                        candidates.erase(candidates.begin() + i);
-                        --i;
-                    }
-                }
-            }
+            collect_island_candidates_by_point(candidates, bboxes, fill_boundaries, contour_shrunk.front());
         }
     }
-    assert(candidates.size() == 1);
-    return candidates.size() == 1 ? candidates.front() : -1;
+    if (candidates.size() > 1)
+        return select_island_candidate_by_overlap(contour, fill_boundaries, candidates);
+    return candidates.size() == 1 ? candidates.front() : size_t(-1);
 }
 
 void LayerRegion::process_external_surfaces_old(const Layer *lower_layer, const Polygons *lower_layer_covered)
