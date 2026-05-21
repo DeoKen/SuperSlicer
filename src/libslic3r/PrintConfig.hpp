@@ -415,6 +415,69 @@ protected:
         return m_keys_with_dynamic;
     }
 
+    size_t dynamic_options_hash() const
+    {
+        size_t seed = 0;
+        t_config_option_keys keys;
+        keys.reserve(m_dynamic_options.size());
+        for (const std::pair<const t_config_option_key, std::unique_ptr<ConfigOption>> &option : m_dynamic_options)
+            keys.emplace_back(option.first);
+        std::sort(keys.begin(), keys.end());
+        for (const t_config_option_key &key : keys) {
+            const ConfigOption *option = m_dynamic_options.at(key).get();
+            config_hash_combine(seed, key);
+            config_hash_combine_value(seed, option == nullptr ? 0 : option->hash());
+        }
+        return seed;
+    }
+
+    bool dynamic_options_equal(const StaticPrintConfig &rhs) const
+    {
+        if (m_dynamic_options.size() != rhs.m_dynamic_options.size())
+            return false;
+        for (const std::pair<const t_config_option_key, std::unique_ptr<ConfigOption>> &option : m_dynamic_options) {
+            auto rhs_it = rhs.m_dynamic_options.find(option.first);
+            if (rhs_it == rhs.m_dynamic_options.end())
+                return false;
+            if (option.second == nullptr || rhs_it->second == nullptr) {
+                if (option.second != rhs_it->second)
+                    return false;
+            } else if (*option.second != *rhs_it->second)
+                return false;
+        }
+        return true;
+    }
+
+    bool dynamic_options_less(const StaticPrintConfig &rhs) const
+    {
+        t_config_option_keys this_keys;
+        t_config_option_keys rhs_keys;
+        this_keys.reserve(m_dynamic_options.size());
+        rhs_keys.reserve(rhs.m_dynamic_options.size());
+        for (const std::pair<const t_config_option_key, std::unique_ptr<ConfigOption>> &option : m_dynamic_options)
+            this_keys.emplace_back(option.first);
+        for (const std::pair<const t_config_option_key, std::unique_ptr<ConfigOption>> &option : rhs.m_dynamic_options)
+            rhs_keys.emplace_back(option.first);
+        std::sort(this_keys.begin(), this_keys.end());
+        std::sort(rhs_keys.begin(), rhs_keys.end());
+        if (this_keys != rhs_keys)
+            return this_keys < rhs_keys;
+        for (const t_config_option_key &key : this_keys) {
+            const ConfigOption *this_option = m_dynamic_options.at(key).get();
+            const ConfigOption *rhs_option  = rhs.m_dynamic_options.at(key).get();
+            if (this_option == nullptr || rhs_option == nullptr) {
+                if (this_option != rhs_option)
+                    return this_option < rhs_option;
+            } else {
+                if (*this_option < *rhs_option)
+                    return true;
+                if (*rhs_option < *this_option)
+                    return false;
+            }
+        }
+        return false;
+    }
+
     // Internal class for keeping a dynamic map to static options.
     class StaticCacheBase
     {
@@ -607,18 +670,19 @@ public: \
     { \
         size_t seed = 0; \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_HASH, _, PARAMETER_DEFINITION_SEQ) \
+        config_hash_combine_value(seed, this->dynamic_options_hash()); \
         return seed; \
     } \
     bool operator==(const CLASS_NAME &rhs) const throw() \
     { \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_EQUAL, _, PARAMETER_DEFINITION_SEQ) \
-        return true; \
+        return this->dynamic_options_equal(rhs); \
     } \
     bool operator!=(const CLASS_NAME &rhs) const throw() { return ! (*this == rhs); } \
     bool operator<(const CLASS_NAME &rhs) const throw() \
     { \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_LOWER, _, PARAMETER_DEFINITION_SEQ) \
-        return false; \
+        return this->dynamic_options_less(rhs); \
     } \
 protected: \
     void initialize(StaticCacheBase &cache, const char *base_ptr) \
@@ -652,13 +716,14 @@ public: \
         size_t seed = 0; \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_DERIVED_HASH, _, BOOST_PP_TUPLE_TO_SEQ(CLASSES_PARENTS_TUPLE)) \
         PARAMETER_HASHES \
+        config_hash_combine_value(seed, this->dynamic_options_hash()); \
         return seed; \
     } \
     bool operator==(const CLASS_NAME &rhs) const throw() \
     { \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_DERIVED_EQUAL, _, BOOST_PP_TUPLE_TO_SEQ(CLASSES_PARENTS_TUPLE)) \
         PARAMETER_EQUALS \
-        return true; \
+        return this->dynamic_options_equal(rhs); \
     } \
     bool operator!=(const CLASS_NAME &rhs) const throw() { return ! (*this == rhs); } \
 protected: \
