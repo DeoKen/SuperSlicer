@@ -268,6 +268,8 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     case RAW_CO_VECTOR_GRAPH: temp_default_option = new ConfigOptionGraphs(); break;
     default: assert(false);
     }
+    if (def->can_be_disabled)
+        temp_default_option->set_can_be_disabled();
     temp_default_option->deserialize(def->default_serialized_value);
     out.set_default_value(temp_default_option);
 
