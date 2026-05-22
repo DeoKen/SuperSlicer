@@ -65,6 +65,13 @@ set(SLIC3R_SOURCES
 	Api/host/slic3r_plugin.cpp
 	Api/host/slic3r_utils.cpp
 	Api/host/slic3r_volume.cpp
+	Api/host/steps/BridgeDetectorStep.cpp
+	Api/host/steps/LayerHeightStep.cpp
+	Api/host/steps/LayerHeightStep.hpp
+	Api/host/steps/PostSlicingStep.cpp
+	Api/host/steps/PostSlicingStep.hpp
+	Api/host/steps/SlicingStep.cpp
+	Api/host/steps/SlicingStep.hpp
 	Api/internal/ArcPolylineAccess.hpp
 	Api/internal/ExtrusionPropertyAccess.hpp
 	Api/internal/LayerAccess.hpp
@@ -110,6 +117,7 @@ set(SLIC3R_SOURCES
 	Api/plugin/c/steps/slic3r_step_pre_perimeter.h
 	Api/plugin/c/steps/slic3r_step_slicing.h
 	Api/plugin/c/steps/slic3r_step_support.h
+	Api/plugin/c/steps/slic3r_step_support_demand.h
 	Api/plugin/c/steps/slic3r_step_support_spot.h
 	Api/plugin/c/steps/slic3r_step_surface_generation.h
 	Api/plugin/c/steps/slic3r_step_surface_type.h

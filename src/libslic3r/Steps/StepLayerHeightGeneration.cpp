@@ -8,11 +8,9 @@
 #include <cmath>
 #include <memory>
 #include <sstream>
-#include <utility>
 #include <vector>
 
-#include "libslic3r/Api/host/ApiHostUtils.hpp"
-#include "libslic3r/Api/internal/PrintObjectAccess.hpp"
+#include "libslic3r/Api/host/steps/LayerHeightStep.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
@@ -75,58 +73,6 @@ bool validate_pre(const Print &print, std::string &out_error)
 
 bool validate_post(const Print &, std::string &) { return true; }
 
-void set_layer_height_profile(object_handle *object_handler, coord_t *layer_zs, uint32_t layer_zs_size);
-
-struct LayerHeightRunContext
-{
-    std::vector<coord_t> layer_z_profile;
-    std::vector<c_layer_config_range> layer_config_ranges;
-    run_ctx_layer_height_generation context_step = {};
-};
-
-std::unique_ptr<LayerHeightRunContext> make_layer_height_run_context(Print &print, size_t object_idx)
-{
-    auto out = std::make_unique<LayerHeightRunContext>();
-
-    PrintObject &print_object = print.object(object_idx);
-    ModelObject &model_object = *print_object.model_object();
-    const double object_print_z_max = check_z_step(model_object.max_z(), print.config().z_step.value);
-
-    for (coordf_t layer_z : model_object.layer_height_profile.get())
-        out->layer_z_profile.push_back(coord_t(layer_z + 0.5));
-
-    out->layer_config_ranges.reserve(model_object.layer_config_ranges.size());
-    for (const auto &range : model_object.layer_config_ranges) {
-        c_layer_config_range c_range = {};
-        c_range.z_min = scale_i(range.first.first);
-        c_range.z_max = scale_i(range.first.second);
-        c_range.config = ApiHost::to_config_handle(&range.second.get());
-        out->layer_config_ranges.push_back(c_range);
-    }
-
-    out->context_step.print = reinterpret_cast<print_handle *>(&print);
-    out->context_step.object = reinterpret_cast<object_handle *>(&print_object);
-    out->context_step.enforce_layer_zs = out->layer_z_profile.data();
-    out->context_step.enforce_layer_zs_size = out->layer_z_profile.size();
-    out->context_step.layer_config_ranges = out->layer_config_ranges.data();
-    out->context_step.layer_config_ranges_size = out->layer_config_ranges.size();
-    out->context_step.set_layer_height_profile = set_layer_height_profile;
-    out->context_step.max_z = scale_i(object_print_z_max);
-    return out;
-}
-
-void set_layer_height_profile(object_handle *object_handler, coord_t *layer_zs, uint32_t layer_zs_size) {
-    if (object_handler == nullptr || (layer_zs == nullptr && layer_zs_size != 0))
-        return;
-
-    PrintObject *object = reinterpret_cast<PrintObject *>(object_handler);
-    std::vector<coord_t> new_layer_profile;
-    new_layer_profile.reserve(layer_zs_size);
-    for (uint32_t i = 0; i < layer_zs_size; ++i)
-        new_layer_profile.push_back(layer_zs[i]);
-    ApiInternal::PrintObjectAccess::set_layer_profile(*object, std::move(new_layer_profile));
-}
-
 void run_step(Orchestrator &orchestrator, Print &print) {
     Detail::validate_or_report(validate_pre, print, "Layer-height pre-step validation");
 
@@ -139,10 +85,10 @@ void run_step(Orchestrator &orchestrator, Print &print) {
                                                                                    &host_context);
         plugin->setup(run_context, uint32_t(run_count));
 
-        std::vector<std::unique_ptr<LayerHeightRunContext>> layer_contexts;
+        std::vector<std::unique_ptr<ApiHost::Steps::LayerHeightRunContext>> layer_contexts;
         layer_contexts.reserve(run_count);
         for (size_t object_idx = 0; object_idx < run_count; ++object_idx)
-            layer_contexts.push_back(make_layer_height_run_context(print, object_idx));
+            layer_contexts.push_back(ApiHost::Steps::make_layer_height_run_context(print, object_idx));
 
         parallel_for(size_t(0), run_count, [plugin, &run_context, &layer_contexts](const size_t object_idx) {
             plugin_run_context context_copy = run_context;
