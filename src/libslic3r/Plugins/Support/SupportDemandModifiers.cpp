@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
@@ -61,56 +62,62 @@ c_mesh_slicing_params support_modifier_slicing_params(const Print &print, const 
     return params;
 }
 
-void merge_slices(std::vector<StoredExPolygonCollection> &dst,
-                  std::vector<StoredExPolygonCollection> &&src,
-                  storage_handle *storage,
-                  coord_t resolution)
+struct SlicedSupportModifier
 {
-    if (src.empty())
-        return;
+    raw_volume_type type = RAW_VOLUME_TYPE_INVALID;
+    std::vector<StoredExPolygonCollection> slices;
+};
 
-    if (dst.empty()) {
-        dst = std::move(src);
-        return;
-    }
-
-    ClipperContext clip(storage);
-    const size_t count = std::min(dst.size(), src.size());
-    for (size_t layer_idx = 0; layer_idx < count; ++layer_idx) {
-        if (src[layer_idx].empty())
-            continue;
-        if (dst[layer_idx].empty()) {
-            dst[layer_idx].move_from(src[layer_idx]);
-            dst[layer_idx].ensure_valid(resolution);
-            continue;
-        }
-
-        ClipperOperand merged = clipper_union2(clip(dst[layer_idx]), clip(src[layer_idx]));
-        merged.write_expolygons_to(dst[layer_idx]);
-        dst[layer_idx].ensure_valid(resolution);
-    }
+bool has_any_layer_slices(const std::vector<StoredExPolygonCollection> &by_layer)
+{
+    for (const StoredExPolygonCollection &layer_slices : by_layer)
+        if (!layer_slices.empty())
+            return true;
+    return false;
 }
 
-std::vector<StoredExPolygonCollection> slice_support_modifier_volumes(const Object &object,
-                                                                      raw_volume_type type,
-                                                                      const std::vector<float> &slice_zs,
-                                                                      const c_mesh_slicing_params &base_params,
-                                                                      storage_handle *storage)
+std::vector<StoredExPolygonCollection> slice_support_modifier_volume(const Volume &volume,
+                                                                     const std::vector<float> &slice_zs,
+                                                                     const c_mesh_slicing_params &base_params,
+                                                                     storage_handle *storage)
 {
     std::vector<StoredExPolygonCollection> out;
     const coord_t resolution = scale_i(base_params.resolution);
 
+    if (volume.mesh().empty())
+        return out;
+
+    c_mesh_slicing_params params = base_params;
+    params.transform = matrix4d_mul(base_params.transform, volume.matrix());
+    out = volume.mesh().slice_to_expolygons(storage, params, slice_zs);
+    for (StoredExPolygonCollection &layer_polygons : out)
+        layer_polygons.ensure_valid(resolution);
+
+    return out;
+}
+
+std::vector<SlicedSupportModifier> slice_support_modifier_volumes_in_order(const Object &object,
+                                                                           const std::vector<float> &slice_zs,
+                                                                           const c_mesh_slicing_params &base_params,
+                                                                           storage_handle *storage)
+{
+    std::vector<SlicedSupportModifier> out;
+
     for (uint32_t volume_idx = 0; volume_idx < object.volume_count(); ++volume_idx) {
         const Volume volume = object.volume(volume_idx);
-        if (volume.type() != type || volume.mesh().empty())
+        const raw_volume_type type = volume.type();
+        if (!is_support_modifier_type(type))
             continue;
 
-        c_mesh_slicing_params params = base_params;
-        params.transform = matrix4d_mul(base_params.transform, volume.matrix());
-        std::vector<StoredExPolygonCollection> sliced = volume.mesh().slice_to_expolygons(storage, params, slice_zs);
-        for (StoredExPolygonCollection &layer_polygons : sliced)
-            layer_polygons.ensure_valid(resolution);
-        merge_slices(out, std::move(sliced), storage, resolution);
+        std::vector<StoredExPolygonCollection> slices =
+            slice_support_modifier_volume(volume, slice_zs, base_params, storage);
+        if (!has_any_layer_slices(slices))
+            continue;
+
+        SlicedSupportModifier modifier;
+        modifier.type = type;
+        modifier.slices = std::move(slices);
+        out.emplace_back(std::move(modifier));
     }
 
     return out;
@@ -239,12 +246,10 @@ void SupportDemandModifiers::run_impl(const plugin_run_context *run_ctx) const
     const Print print(ctx->print);
     const std::vector<float> slice_zs = layer_slice_zs(object);
     const c_mesh_slicing_params params = support_modifier_slicing_params(print, object);
-    std::vector<StoredExPolygonCollection> enforcers =
-        slice_support_modifier_volumes(object, RAW_VOLUME_TYPE_SUPPORT_ENFORCER, slice_zs, params, storage);
-    std::vector<StoredExPolygonCollection> blockers =
-        slice_support_modifier_volumes(object, RAW_VOLUME_TYPE_SUPPORT_BLOCKER, slice_zs, params, storage);
+    const std::vector<SlicedSupportModifier> modifiers =
+        slice_support_modifier_volumes_in_order(object, slice_zs, params, storage);
 
-    if (enforcers.empty() && blockers.empty()) {
+    if (modifiers.empty()) {
         progress().finish_run();
         return;
     }
@@ -258,8 +263,12 @@ void SupportDemandModifiers::run_impl(const plugin_run_context *run_ctx) const
             throw_if_cancelled(run_ctx);
 
             const LayerIsland island = layer.island(island_idx);
-            add_enforcers_to_island(*ctx, island, clip, enforcers, layer_idx);
-            remove_blockers_from_island(*ctx, island, clip, blockers, layer_idx);
+            for (const SlicedSupportModifier &modifier : modifiers) {
+                if (modifier.type == RAW_VOLUME_TYPE_SUPPORT_ENFORCER)
+                    add_enforcers_to_island(*ctx, island, clip, modifier.slices, layer_idx);
+                else if (modifier.type == RAW_VOLUME_TYPE_SUPPORT_BLOCKER)
+                    remove_blockers_from_island(*ctx, island, clip, modifier.slices, layer_idx);
+            }
             progress().increment();
         }
     }
