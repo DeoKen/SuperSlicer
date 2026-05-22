@@ -85,10 +85,35 @@ set(SLIC3R_SOURCES
 	Api/plugin/c/slic3r_geometry.h
 	Api/plugin/c/slic3r_orchestrator.h
 	Api/plugin/c/slic3r_plugin.h
+	Api/plugin/c/slic3r_plugin_run_context.h
 	Api/plugin/c/slic3r_plugin_types.h
 	Api/plugin/c/slic3r_slicing_step.h
 	Api/plugin/c/slic3r_utils.h
 	Api/plugin/c/slic3r_volume.h
+	Api/plugin/c/steps/slic3r_step_bridge_detector.h
+	Api/plugin/c/steps/slic3r_step_common.h
+	Api/plugin/c/steps/slic3r_step_extrusion_edit.h
+	Api/plugin/c/steps/slic3r_step_extrusion_simplification.h
+	Api/plugin/c/steps/slic3r_step_gcode.h
+	Api/plugin/c/steps/slic3r_step_infill.h
+	Api/plugin/c/steps/slic3r_step_infill_group.h
+	Api/plugin/c/steps/slic3r_step_layer_extrusion_edit.h
+	Api/plugin/c/steps/slic3r_step_layer_height.h
+	Api/plugin/c/steps/slic3r_step_layer_stiching.h
+	Api/plugin/c/steps/slic3r_step_ordering.h
+	Api/plugin/c/steps/slic3r_step_perimeter.h
+	Api/plugin/c/steps/slic3r_step_post_infill.h
+	Api/plugin/c/steps/slic3r_step_post_perimeter.h
+	Api/plugin/c/steps/slic3r_step_post_slicing.h
+	Api/plugin/c/steps/slic3r_step_pre_gcode.h
+	Api/plugin/c/steps/slic3r_step_pre_infill.h
+	Api/plugin/c/steps/slic3r_step_pre_perimeter.h
+	Api/plugin/c/steps/slic3r_step_slicing.h
+	Api/plugin/c/steps/slic3r_step_support.h
+	Api/plugin/c/steps/slic3r_step_support_spot.h
+	Api/plugin/c/steps/slic3r_step_surface_generation.h
+	Api/plugin/c/steps/slic3r_step_surface_type.h
+	Api/plugin/c/steps/slic3r_step_wipetower.h
 	Api/plugin/cpp/BridgeDetectorViews.hpp
 	Api/plugin/cpp/ClipperViews.hpp
 	Api/plugin/cpp/DataTreeViews.hpp
