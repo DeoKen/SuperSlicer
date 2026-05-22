@@ -1,0 +1,119 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
+#include "StepSupportDemand.hpp"
+
+#include <memory>
+#include <vector>
+
+#include "libslic3r/Api/host/Orchestrator.hpp"
+#include "libslic3r/Api/host/Plugin.hpp"
+#include "libslic3r/Api/host/steps/SupportDemandStep.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/Thread.hpp"
+
+#include "StepRunner.hpp"
+
+namespace Slic3r::Steps::StepSupportDemand {
+
+State::State() = default;
+State::~State() = default;
+State::State(State &&) noexcept = default;
+State &State::operator=(State &&) noexcept = default;
+
+void State::reset()
+{
+    m_demands.clear();
+}
+
+size_t State::object_count() const
+{
+    return m_demands.size();
+}
+
+ApiHost::Steps::SupportDemandSet &State::demand_for(PrintObject &object)
+{
+    std::unique_ptr<ApiHost::Steps::SupportDemandSet> &demand = m_demands[&object];
+    if (demand == nullptr)
+        demand = std::make_unique<ApiHost::Steps::SupportDemandSet>();
+    return *demand;
+}
+
+const ApiHost::Steps::SupportDemandSet *State::demand_for(const PrintObject &object) const
+{
+    std::map<const PrintObject *, std::unique_ptr<ApiHost::Steps::SupportDemandSet>>::const_iterator it =
+        m_demands.find(&object);
+    return it == m_demands.end() ? nullptr : it->second.get();
+}
+
+void clean_and_prepare(Print &) {}
+
+bool validate_pre(const Print &, std::string &)
+{
+    return true;
+}
+
+bool validate_post(const Print &, std::string &)
+{
+    return true;
+}
+
+State run_step(Orchestrator &orchestrator, Print &print)
+{
+    State state;
+    run_step(orchestrator, print, state);
+    return state;
+}
+
+void run_step(Orchestrator &orchestrator, Print &print, State &state)
+{
+    Detail::validate_or_report(validate_pre, print, "Support-demand pre-step validation");
+
+    const size_t run_count = print.objects().size();
+    state.reset();
+
+    std::vector<Plugin *> plugins = orchestrator.get_all_plugins_for_step(STEP_SUPPORT_DEMAND);
+    if (plugins.empty())
+        return;
+
+    for (Plugin *plugin : plugins) {
+        plugin_host_context host_context =
+            orchestrator.prepare_plugin_host_context(STEP_SUPPORT_DEMAND, plugin, &print);
+        plugin_run_context run_context =
+            orchestrator.prepare_plugin_run_context(STEP_SUPPORT_DEMAND, plugin, &host_context);
+        plugin->setup(run_context, uint32_t(run_count));
+
+        std::vector<std::unique_ptr<ApiHost::Steps::SupportDemandRunContext>> run_contexts;
+        run_contexts.reserve(run_count);
+        for (size_t object_idx = 0; object_idx < run_count; ++object_idx) {
+            run_contexts.push_back(
+                ApiHost::Steps::make_support_demand_run_context(print,
+                                                                object_idx,
+                                                                state.demand_for(print.object(object_idx))));
+        }
+
+        parallel_for(size_t(0), run_count, [plugin, &run_context, &run_contexts](const size_t object_idx) {
+            plugin_run_context context_copy = run_context;
+            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+                return;
+
+            context_copy.data = &run_contexts[object_idx]->context_step;
+            plugin->setup_run(context_copy);
+        });
+
+        parallel_for(size_t(0), run_count, [plugin, &run_context, &run_contexts](const size_t object_idx) {
+            plugin_run_context context_copy = run_context;
+            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+                return;
+
+            context_copy.data = &run_contexts[object_idx]->context_step;
+            plugin->run(context_copy);
+        });
+
+        Detail::validate_or_report(validate_post, print, "Support-demand post-plugin validation");
+    }
+}
+
+} // namespace Slic3r::Steps::StepSupportDemand

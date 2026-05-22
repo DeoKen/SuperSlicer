@@ -72,6 +72,8 @@ set(SLIC3R_SOURCES
 	Api/host/steps/PostSlicingStep.hpp
 	Api/host/steps/SlicingStep.cpp
 	Api/host/steps/SlicingStep.hpp
+	Api/host/steps/SupportDemandStep.cpp
+	Api/host/steps/SupportDemandStep.hpp
 	Api/internal/ArcPolylineAccess.hpp
 	Api/internal/ExtrusionPropertyAccess.hpp
 	Api/internal/LayerAccess.hpp
@@ -146,6 +148,8 @@ set(SLIC3R_SOURCES
 	Plugins/SliceVolume.hpp
 	Plugins/StandardLayerHeightGenerator.cpp
 	Plugins/StandardLayerHeightGenerator.hpp
+	Plugins/Support/SupportDemandOverhangsAndBridges.cpp
+	Plugins/Support/SupportDemandOverhangsAndBridges.hpp
 	Steps/DebugPrintProcessComparator.cpp
 	Steps/DebugPrintProcessComparator.hpp
 	Steps/StepDetectSupportSpots.cpp
@@ -193,6 +197,8 @@ set(SLIC3R_SOURCES
 	Steps/StepSlicing.cpp
 	Steps/StepSlicing.hpp
 	Steps/StepRunner.hpp
+	Steps/StepSupportDemand.cpp
+	Steps/StepSupportDemand.hpp
 	Steps/StepSurfaceGeneration.cpp
 	Steps/StepSurfaceGeneration.hpp
     BoundingBox.cpp

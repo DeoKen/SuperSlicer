@@ -34,6 +34,7 @@
 #include "libslic3r/Steps/StepPrepareGcode.hpp"
 #include "libslic3r/Steps/StepPrepareInfill.hpp"
 #include "libslic3r/Steps/StepSlicing.hpp"
+#include "libslic3r/Steps/StepSupportDemand.hpp"
 #include "libslic3r/Steps/StepSurfaceGeneration.hpp"
 #include "libslic3r/SurfaceCollection.hpp"
 #include "libslic3r/Thread.hpp"
@@ -70,11 +71,12 @@ inline std::map<slicing_step_t, int> slicingstep_2_percent = {
     {STEP_INFILL_GROUP, 45},
     {STEP_INFILL, 50},
     {STEP_POST_INFILL, 55},
-    {STEP_SUPPORT_SPOT, 60},
+    {STEP_SUPPORT_DEMAND, 60},
     {STEP_SUPPORT, 65},
     {STEP_PRE_GCODE, 70},
     {STEP_ORDERING, 75},
     {STEP_WIPETOWER, 80},
+    {STEP_SUPPORT_SPOT, 81},
     {STEP_LAYER_EXTRUSION_EDIT, 82},
     {STEP_LAYER_STICHING, 85},
     {STEP_EXTRUSION_EDIT, 90},
@@ -116,6 +118,7 @@ void run_post_slicing(Orchestrator &orchestrator, Print &print, const std::strin
 void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::string &path, slicing_step_t until = STEP_GCODE)
 {
 // not yet implemented
+    StepSupportDemand::State support_demand;
 
     begin_step(print, STEP_PRE_PERIMETER, L("Preparing perimeters"), path);
     StepPrepareForPeriemters::clean_and_prepare(print);
@@ -162,14 +165,14 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     StepPostInfillGeneration::run_step(orchestrator, print);
     if (stop_after(STEP_POST_INFILL, until)) return;
 
-    begin_step(print, STEP_SUPPORT_SPOT, L("Detecting support spots"), path);
-    StepDetectSupportSpots::clean_and_prepare(print);
-    StepDetectSupportSpots::run_step(orchestrator, print);
-    if (stop_after(STEP_SUPPORT_SPOT, until)) return;
+    begin_step(print, STEP_SUPPORT_DEMAND, L("Detecting support demand"), path);
+    StepSupportDemand::clean_and_prepare(print);
+    StepSupportDemand::run_step(orchestrator, print, support_demand);
+    if (stop_after(STEP_SUPPORT_DEMAND, until)) return;
 
     begin_step(print, STEP_SUPPORT, L("Generating support material"), path);
     StepGenerateSupport::clean_and_prepare(print);
-    StepGenerateSupport::run_step(orchestrator, print);
+    StepGenerateSupport::run_step(orchestrator, print, support_demand);
     if (stop_after(STEP_SUPPORT, until)) return;
 
     begin_step(print, STEP_PRE_GCODE, L("Preparing G-code"), path);
@@ -186,6 +189,11 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     StepGenerateWipeTower::clean_and_prepare(print);
     StepGenerateWipeTower::run_step(orchestrator, print);
     if (stop_after(STEP_WIPETOWER, until)) return;
+
+    begin_step(print, STEP_SUPPORT_SPOT, L("Detecting support spots"), path);
+    StepDetectSupportSpots::clean_and_prepare(print);
+    StepDetectSupportSpots::run_step(orchestrator, print);
+    if (stop_after(STEP_SUPPORT_SPOT, until)) return;
 
     begin_step(print, STEP_LAYER_EXTRUSION_EDIT, L("Editing layers extrusions"), path);
     StepLayerExtrusionEdition::clean_and_prepare(print);
