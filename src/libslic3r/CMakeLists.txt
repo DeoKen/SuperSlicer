@@ -148,8 +148,8 @@ set(SLIC3R_SOURCES
 	Plugins/SliceVolume.hpp
 	Plugins/StandardLayerHeightGenerator.cpp
 	Plugins/StandardLayerHeightGenerator.hpp
-	Plugins/Support/SupportDemandOverhangsAndBridges.cpp
-	Plugins/Support/SupportDemandOverhangsAndBridges.hpp
+	Plugins/Support/SupportDemandOverhangs.cpp
+	Plugins/Support/SupportDemandOverhangs.hpp
 	Steps/DebugPrintProcessComparator.cpp
 	Steps/DebugPrintProcessComparator.hpp
 	Steps/StepDetectSupportSpots.cpp
