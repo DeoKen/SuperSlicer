@@ -322,6 +322,17 @@ const char *Polyholes::progress_message_format_impl() const noexcept
     return "Searching holes: %u / %u layers";
 }
 
+const char *Polyholes::print_ui_fragment() noexcept
+{
+    return "page:Slicing\n"
+           "group:Modifying slices\n"
+           "line:insert$afterline$Vertical Hole shrinking compensation:Convert round vertical holes to polyholes\n"
+           "setting:label$_:hole_to_polyhole\n"
+           "setting:sidetext_width$5:hole_to_polyhole_threshold\n"
+           "setting:hole_to_polyhole_twisted\n"
+           "end_line\n";
+}
+
 void Polyholes::inilialize_impl(storage_handle *storage) const {
 
     raw_config_option_def def = raw_config_option_def_init();
@@ -378,6 +389,11 @@ void Polyholes::inilialize_impl(storage_handle *storage) const {
     def.default_serialized_value = "1";
     orchestrator_create_option_def(m_orchestrator, &def);
 
+    orchestrator_add_ui_fragment(m_orchestrator,
+                                 "print.ui",
+                                 k_polyholes_id,
+                                 Polyholes::print_ui_fragment(),
+                                 0);
 }
 
 void Polyholes::setup_impl(const plugin_run_context *, uint32_t) const

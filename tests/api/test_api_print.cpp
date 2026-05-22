@@ -41,6 +41,7 @@ void register_step_pipeline_plugins()
     (void)registered;
 }
 
+
 std::string read_text_file(const std::string &path)
 {
     std::ifstream file(path, std::ios::binary);
@@ -83,12 +84,18 @@ TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayo
 {
     Orchestrator &orchestrator = Orchestrator::instance();
     orchestrator_handle *orch_handle = reinterpret_cast<orchestrator_handle *>(&orchestrator);
-    const int32_t added = orchestrator_add_ui_fragment(orch_handle,
-                                                       "print.ui",
-                                                       "max_overhang_threshold",
-                                                       slic3r_api::MaxOverhangThresholdPlugin::MaxOverhangThreshold::print_ui_fragment(),
-                                                       0);
-    REQUIRE((added == 0 || added == 1));
+    const int32_t polyholes_added = orchestrator_add_ui_fragment(orch_handle,
+                                                                 "print.ui",
+                                                                 "polyholes",
+                                                                 slic3r_api::PolyholesPlugin::Polyholes::print_ui_fragment(),
+                                                                 0);
+    REQUIRE((polyholes_added == 0 || polyholes_added == 1));
+    const int32_t overhang_added = orchestrator_add_ui_fragment(orch_handle,
+                                                               "print.ui",
+                                                               "max_overhang_threshold",
+                                                               slic3r_api::MaxOverhangThresholdPlugin::MaxOverhangThreshold::print_ui_fragment(),
+                                                               0);
+    REQUIRE((overhang_added == 0 || overhang_added == 1));
 
     const std::string base = read_text_file(std::string(TEST_DATA_DIR) + "/../../resources/ui_layout/default/print.ui");
     const std::string expected = read_text_file(std::string(TEST_DATA_DIR) + "/ui_layout/print_with_builtin_overhang_threshold.ui");
