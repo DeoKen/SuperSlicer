@@ -19,6 +19,7 @@
 #include "libslic3r/Api/plugin/c/slic3r_bridge_detector.h"
 #include "libslic3r/Api/plugin/c/slic3r_config_def.h"
 #include "libslic3r/Api/plugin/c/slic3r_extrusion_property.h"
+#include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/MultiPoint.hpp"
 
 #include "Plugin.hpp"
@@ -72,6 +73,17 @@ public:
         uint64_t order = 0;
     };
 
+    struct PluginGuiRule
+    {
+        raw_gui_rule_action action = RAW_GUI_RULE_ACTION_NONE;
+        raw_gui_rule_condition condition = RAW_GUI_RULE_CONDITION_NONE;
+        std::string target_key;
+        std::string condition_key;
+        int32_t target_index = RAW_GUI_RULE_INDEX_ALL;
+        int32_t condition_index = RAW_GUI_RULE_INDEX_ALL;
+        int32_t condition_int_value = 0;
+    };
+
     static Orchestrator &instance();
 
     std::vector<Plugin *> get_all_plugins_for_step(slicing_step_t step) const;
@@ -90,6 +102,8 @@ public:
                          int32_t priority);
     std::vector<PluginUiFragment> ui_fragments_for_file(const std::string &target_file) const;
     std::string merged_ui_layout(const std::string &target_file, const std::string &base_content) const;
+    bool add_gui_rule(const raw_gui_rule *rule);
+    const std::vector<PluginGuiRule> &gui_rules() const { return m_gui_rules; }
 
     bridge_detector_instance create_bridge_detector(const bridge_detector_create_input &input);
     void slice(Print &print_to_slice);
@@ -125,6 +139,7 @@ private:
     std::map<Plugin *, PluginStorage> m_plugin_storage;
     std::vector<PluginUiFragment> m_ui_fragments;
     uint64_t m_next_ui_fragment_order { 0 };
+    std::vector<PluginGuiRule> m_gui_rules;
     std::vector<CustomExtrusionPropertyInfo> m_custom_extrusion_property_infos;
     extrusion_property_type m_next_custom_extrusion_property_type { extrusion_property_type(0x80000000u) };
     std::atomic_bool m_plugin_cancel_requested { false };

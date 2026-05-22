@@ -394,6 +394,15 @@ void Polyholes::inilialize_impl(storage_handle *storage) const {
                                  k_polyholes_id,
                                  Polyholes::print_ui_fragment(),
                                  0);
+
+    raw_gui_rule rule = raw_gui_rule_init();
+    rule.action = RAW_GUI_RULE_ACTION_ENABLE;
+    rule.condition = RAW_GUI_RULE_CONDITION_BOOL_TRUE;
+    rule.condition_key = "hole_to_polyhole";
+    rule.target_key = "hole_to_polyhole_threshold";
+    orchestrator_add_gui_rule(m_orchestrator, &rule);
+    rule.target_key = "hole_to_polyhole_twisted";
+    orchestrator_add_gui_rule(m_orchestrator, &rule);
 }
 
 void Polyholes::setup_impl(const plugin_run_context *, uint32_t) const

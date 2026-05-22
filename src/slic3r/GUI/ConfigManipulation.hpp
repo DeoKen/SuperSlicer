@@ -46,6 +46,8 @@ class ConfigManipulation
     ModelConfig* local_config = nullptr;
     wxWindow*    m_msg_dlg_parent {nullptr};
 
+    void    apply_plugin_gui_rules(DynamicPrintConfig* config, int current_index = -1);
+
 public:
     ConfigManipulation(std::function<void()> load_config,
         std::function<void(const std::string&, bool toggle, int opt_index)> cb_toggle_field,

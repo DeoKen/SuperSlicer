@@ -7,13 +7,16 @@
 
 #include "ConfigManipulation.hpp"
 
+#include <map>
 #include <string>
+#include <utility>
 
 #include <wx/msgdlg.h>
 
+#include "libslic3r/Api/host/Orchestrator.hpp"
+#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
-#include "libslic3r/FFFPrintConfig.hpp"
 #include "libslic3r/SLA/SupportTreeStrategies.hpp"
 
 #include "format.hpp"
@@ -23,6 +26,192 @@
 
 namespace Slic3r {
 namespace GUI {
+
+namespace {
+
+using PluginGuiRuleTarget = std::pair<std::string, int>;
+
+// Plugin GUI rules are evaluated from two places:
+// 1. A global pass: apply_plugin_gui_rules(config)
+//    This pass handles scalar targets, whole-field vector targets and
+//    explicitly indexed targets.
+// 2. A per-extruder pass: apply_plugin_gui_rules(config, extruder_idx)
+//    This pass only handles targets that explicitly ask for
+//    RAW_GUI_RULE_INDEX_CURRENT.
+//
+// This split avoids applying scalar rules once per extruder. Otherwise a scalar
+// target controlled by an extruder-sized condition would effectively use the
+// last extruder value instead of the intended "any extruder enables it" logic.
+static const ConfigOptionVectorBase* extruder_sized_vector(const ConfigOption *option)
+{
+    if (option == nullptr || !option->is_vector())
+        return nullptr;
+
+    const ConfigOptionVectorBase *vector_option = dynamic_cast<const ConfigOptionVectorBase*>(option);
+    return vector_option != nullptr && vector_option->is_extruder_size() ? vector_option : nullptr;
+}
+
+static bool gui_rule_condition_value_at_index(const ConfigOption &condition_option, const Orchestrator::PluginGuiRule &rule, int32_t condition_index)
+{
+    // Scalar get_bool() ignores the index. Vector get_bool() needs a real item
+    // index, so "-1 / unspecified" falls back to 0 only for this low-level read.
+    // Higher-level code decides when using index 0 is acceptable.
+    const size_t value_index = condition_index < 0 ? 0 : size_t(condition_index);
+
+    switch (rule.condition) {
+    case RAW_GUI_RULE_CONDITION_BOOL_TRUE:
+        return condition_option.get_bool(value_index);
+    case RAW_GUI_RULE_CONDITION_BOOL_FALSE:
+        return !condition_option.get_bool(value_index);
+    case RAW_GUI_RULE_CONDITION_OPTION_ENABLED:
+        return condition_option.is_enabled(condition_index);
+    case RAW_GUI_RULE_CONDITION_OPTION_DISABLED:
+        return !condition_option.is_enabled(condition_index);
+    case RAW_GUI_RULE_CONDITION_VALUE_NON_ZERO:
+        return condition_option.get_bool(value_index);
+    case RAW_GUI_RULE_CONDITION_INT_EQUALS:
+        return condition_option.get_int(value_index) == rule.condition_int_value;
+    case RAW_GUI_RULE_CONDITION_INT_NOT_EQUALS:
+        return condition_option.get_int(value_index) != rule.condition_int_value;
+    case RAW_GUI_RULE_CONDITION_NONE:
+    default:
+        return false;
+    }
+}
+
+static bool gui_rule_condition_value(const ConfigOption &condition_option, const Orchestrator::PluginGuiRule &rule, int current_index)
+{
+    // Rule-provided index is always explicit and therefore wins.
+    if (rule.condition_index >= 0)
+        return gui_rule_condition_value_at_index(condition_option, rule, rule.condition_index);
+
+    if (rule.condition_index == RAW_GUI_RULE_INDEX_CURRENT) {
+        if (current_index < 0 || extruder_sized_vector(&condition_option) == nullptr)
+            return false;
+        return gui_rule_condition_value_at_index(condition_option, rule, current_index);
+    }
+
+    // If the caller is currently processing extruder i, and the condition is an
+    // extruder-sized vector, evaluate the same i-th item.
+    if (current_index >= 0 && extruder_sized_vector(&condition_option) != nullptr)
+        return gui_rule_condition_value_at_index(condition_option, rule, current_index);
+
+    // No explicit index and no usable current index: for a vector condition,
+    // enable the target if at least one vector item satisfies the rule. This is
+    // safer than silently reading item 0 and disabling controls that should stay
+    // available for another extruder.
+    if (condition_option.is_vector()) {
+        for (size_t condition_index = 0; condition_index < condition_option.size(); ++condition_index)
+            if (gui_rule_condition_value_at_index(condition_option, rule, int32_t(condition_index)))
+                return true;
+        return false;
+    }
+
+    // Scalar condition, no index needed.
+    return gui_rule_condition_value_at_index(condition_option, rule, -1);
+}
+
+static bool gui_rule_target_index_for_context(const ConfigOption &target_option, const Orchestrator::PluginGuiRule &rule, int current_index, int &target_index)
+{
+    // Rule-provided target index is explicit and is handled once by the global
+    // pass. Running it again in the per-extruder pass would only duplicate the
+    // same toggle call.
+    target_index = rule.target_index;
+    if (target_index >= 0)
+        return current_index < 0;
+
+    // RAW_GUI_RULE_INDEX_CURRENT is the only case that belongs to the indexed
+    // pass. It means "toggle the item currently processed by the extruder loop".
+    if (rule.target_index == RAW_GUI_RULE_INDEX_CURRENT) {
+        if (current_index < 0 || extruder_sized_vector(&target_option) == nullptr)
+            return false;
+
+        target_index = current_index;
+        return true;
+    }
+
+    // RAW_GUI_RULE_INDEX_ALL / default: apply the whole GUI field once during
+    // the global pass. This is the form used for "enable this setting if at
+    // least one extruder satisfies the condition".
+    if (current_index >= 0)
+        return false;
+
+    target_index = RAW_GUI_RULE_INDEX_ALL;
+    return true;
+}
+
+} // namespace
+
+void ConfigManipulation::apply_plugin_gui_rules(DynamicPrintConfig *config, int current_index)
+{
+    if (config == nullptr)
+        return;
+
+    // Rules with the same action, target key and resolved target index are
+    // combined with AND. This lets plugins express "enable this field only if
+    // condition A and condition B are true" by registering two ENABLE rules for
+    // the same target.
+    std::map<PluginGuiRuleTarget, bool> enabled_by_target;
+
+    // current_index == -1 means "global pass".
+    // current_index >= 0 means "per-extruder pass for that vector item".
+    for (const Orchestrator::PluginGuiRule &rule : Orchestrator::instance().gui_rules()) {
+        // This function currently only knows how to apply enable/disable rules.
+        // Other actions may be added to the C API later, but they must not be
+        // interpreted as enable rules by accident.
+        if (rule.action != RAW_GUI_RULE_ACTION_ENABLE)
+            continue;
+
+        // A plugin may register a rule before the corresponding option exists
+        // in this config kind, or the same rule list may be evaluated for FFF,
+        // SLA and printer configs. Missing keys simply mean "not applicable to
+        // this config".
+        if (!config->has(rule.target_key) || !config->has(rule.condition_key))
+            continue;
+
+        const ConfigOption *target_option = config->optptr(rule.target_key);
+        const ConfigOption *condition_option = config->optptr(rule.condition_key);
+
+        // has() and optptr() should agree, but keep this defensive check because
+        // plugin-provided keys cross the C API boundary and we do not want GUI
+        // refresh code to crash on malformed input.
+        if (target_option == nullptr || condition_option == nullptr)
+            continue;
+
+        int target_index = -1;
+        // This decides whether the rule belongs to this pass and, if so, which
+        // target index should be toggled.
+        //
+        // Examples:
+        // - scalar target, global pass: applied with target_index == -1.
+        // - scalar target, per-extruder pass: skipped here, applied later by the
+        //   global pass.
+        // - target_index == RAW_GUI_RULE_INDEX_ALL on an extruder-sized target:
+        //   applied once to the whole field during the global pass.
+        // - target_index == RAW_GUI_RULE_INDEX_CURRENT on an extruder-sized
+        //   target: applied item by item during the per-extruder pass.
+        if (!gui_rule_target_index_for_context(*target_option, rule, current_index, target_index))
+            continue;
+
+        // The condition may use the same current_index, an explicit rule index,
+        // or "any vector item" depending on what is available.
+        const bool condition_enabled = gui_rule_condition_value(*condition_option, rule, current_index);
+        const PluginGuiRuleTarget target(rule.target_key, target_index);
+        std::map<PluginGuiRuleTarget, bool>::iterator target_state = enabled_by_target.find(target);
+        if (target_state == enabled_by_target.end())
+            enabled_by_target.emplace(target, condition_enabled);
+        else
+            target_state->second = target_state->second && condition_enabled;
+    }
+
+    for (const std::pair<const PluginGuiRuleTarget, bool> &target_state : enabled_by_target) {
+        try {
+            this->toggle_field(target_state.first.first, target_state.second, target_state.first.second);
+        } catch (...) {
+            assert(false);
+        }
+    }
+}
 
 void ConfigManipulation::apply(DynamicPrintConfig* config, DynamicPrintConfig* new_config)
 {
@@ -514,12 +703,6 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     for (auto el : { "solid_fill_pattern", "infill_connection_solid", "bridge_fill_pattern", "infill_connection_bridge" })
         toggle_field(el, has_solid_infill); // should be top_solid_layers") > 1 || bottom_solid_layers") > 1
 
-    for (auto el : { "hole_to_polyhole_threshold", "hole_to_polyhole_twisted" })
-        toggle_field(el, config->opt_bool("hole_to_polyhole"));
-
-    for (auto el : { "overhangs_bridge_threshold", "overhangs_bridge_upper_layers" })
-        toggle_field(el, config->get_float("overhangs_max_slope") > 0);
-
     bool have_skirt = config->opt_int("skirts") > 0;
     toggle_field("skirt_height", have_skirt && config->opt_enum<DraftShield>("draft_shield") != dsEnabled);
     toggle_field("skirt_width", have_skirt);
@@ -697,6 +880,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
         config->option<ConfigOptionFloatOrPercent>("support_material_speed")->percent);
     toggle_field("max_print_speed", config->opt_float("max_volumetric_speed") != 0);
     toggle_field("autospeed_min_thin_flow", config->opt_float("max_volumetric_speed") != 0);
+
+    this->apply_plugin_gui_rules(config);
 }
 
 
@@ -858,6 +1043,8 @@ void ConfigManipulation::toggle_printer_fff_options(DynamicPrintConfig *config, 
         toggle_field("retract_restart_extra_toolchange", extruder_count > 1 && toolchange_retraction, i);
         toggle_field("retract_restart_toolchange_on_perimeter", extruder_count > 1 && toolchange_retraction, i);
         toggle_field("retract_restart_wipe_toolchange", extruder_count > 1 && toolchange_retraction, i);
+
+        this->apply_plugin_gui_rules(config, int(i));
     }
 
     if (config->opt_bool("single_extruder_multi_material") && extruder_count > 1) {
@@ -866,6 +1053,8 @@ void ConfigManipulation::toggle_printer_fff_options(DynamicPrintConfig *config, 
             toggle_field(el, have_advanced_wipe_volume);
         }
     }
+
+    this->apply_plugin_gui_rules(config);
 }
 
 void ConfigManipulation::toggle_print_sla_options(DynamicPrintConfig* config)
@@ -935,6 +1124,8 @@ void ConfigManipulation::toggle_print_sla_options(DynamicPrintConfig* config)
     toggle_field("pad_object_connector_stride", zero_elev);
     toggle_field("pad_object_connector_width", zero_elev);
     toggle_field("pad_object_connector_penetration", zero_elev);
+
+    this->apply_plugin_gui_rules(config);
 }
 
 

@@ -585,6 +585,15 @@ void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
                                  k_max_overhang_threshold_id,
                                  MaxOverhangThreshold::print_ui_fragment(),
                                  0);
+
+    raw_gui_rule rule = raw_gui_rule_init();
+    rule.action = RAW_GUI_RULE_ACTION_ENABLE;
+    rule.condition = RAW_GUI_RULE_CONDITION_VALUE_NON_ZERO;
+    rule.condition_key = "overhangs_max_slope";
+    rule.target_key = "overhangs_bridge_threshold";
+    orchestrator_add_gui_rule(m_orchestrator, &rule);
+    rule.target_key = "overhangs_bridge_upper_layers";
+    orchestrator_add_gui_rule(m_orchestrator, &rule);
 }
 
 void MaxOverhangThreshold::setup_run_impl(const plugin_run_context *run_ctx) const

@@ -54,6 +54,22 @@ int32_t orchestrator_add_ui_fragment(orchestrator_handle *orch,
     }
 }
 
+int32_t orchestrator_add_gui_rule(orchestrator_handle *orch, const raw_gui_rule *rule)
+{
+    if (rule == nullptr)
+        return -1;
+
+    try {
+        Slic3r::Orchestrator *orchestrator = orch == nullptr ? &Slic3r::Orchestrator::instance() :
+                                                               reinterpret_cast<Slic3r::Orchestrator *>(orch);
+        if (orchestrator == nullptr)
+            return -1;
+        return orchestrator->add_gui_rule(rule) ? 1 : 0;
+    } catch (...) {
+        return -2;
+    }
+}
+
 int orchestrator_plugin_is_cancelled(plugin_host_context *host_context)
 {
     return host_context != nullptr && host_context->orchestrator != nullptr &&

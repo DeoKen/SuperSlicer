@@ -176,6 +176,38 @@ std::string Orchestrator::merged_ui_layout(const std::string &target_file, const
     return merger.merged();
 }
 
+bool Orchestrator::add_gui_rule(const raw_gui_rule *rule)
+{
+    if (rule == nullptr ||
+        rule->action == RAW_GUI_RULE_ACTION_NONE ||
+        rule->condition == RAW_GUI_RULE_CONDITION_NONE ||
+        rule->target_key == nullptr || rule->target_key[0] == '\0' ||
+        rule->condition_key == nullptr || rule->condition_key[0] == '\0')
+        return false;
+
+    PluginGuiRule gui_rule;
+    gui_rule.action = rule->action;
+    gui_rule.condition = rule->condition;
+    gui_rule.target_key = rule->target_key;
+    gui_rule.condition_key = rule->condition_key;
+    gui_rule.target_index = rule->target_index;
+    gui_rule.condition_index = rule->condition_index;
+    gui_rule.condition_int_value = rule->condition_int_value;
+
+    for (const PluginGuiRule &existing : m_gui_rules)
+        if (existing.action == gui_rule.action &&
+            existing.condition == gui_rule.condition &&
+            existing.target_key == gui_rule.target_key &&
+            existing.condition_key == gui_rule.condition_key &&
+            existing.target_index == gui_rule.target_index &&
+            existing.condition_index == gui_rule.condition_index &&
+            existing.condition_int_value == gui_rule.condition_int_value)
+            return false;
+
+    m_gui_rules.emplace_back(std::move(gui_rule));
+    return true;
+}
+
 extrusion_property_type Orchestrator::register_custom_extrusion_property(const char *namespaced_name,
                                                                          uint32_t byte_count,
                                                                          uint32_t alignment)

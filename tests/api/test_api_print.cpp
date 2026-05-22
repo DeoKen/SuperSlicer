@@ -11,6 +11,7 @@
 #include <libslic3r/Format/3mf.hpp>
 #include <libslic3r/Api/host/Orchestrator.hpp>
 #include <libslic3r/Api/plugin/c/slic3r_orchestrator.h>
+#include <libslic3r/Plugins/GuiRulesExample.hpp>
 #include <libslic3r/Plugins/MaxOverhangThreshold.hpp>
 #include <libslic3r/Plugins/Polyholes.hpp>
 #include <libslic3r/Plugins/SliceVolume.hpp>
@@ -90,6 +91,12 @@ TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayo
                                                                  slic3r_api::PolyholesPlugin::Polyholes::print_ui_fragment(),
                                                                  0);
     REQUIRE((polyholes_added == 0 || polyholes_added == 1));
+    const int32_t gui_rules_example_added = orchestrator_add_ui_fragment(orch_handle,
+                                                                        "print.ui",
+                                                                        "gui_rules_example",
+                                                                        slic3r_api::GuiRulesExamplePlugin::GuiRulesExample::print_ui_fragment(),
+                                                                        0);
+    REQUIRE((gui_rules_example_added == 0 || gui_rules_example_added == 1));
     const int32_t overhang_added = orchestrator_add_ui_fragment(orch_handle,
                                                                "print.ui",
                                                                "max_overhang_threshold",

@@ -103,6 +103,8 @@ set(SLIC3R_SOURCES
 	Api/plugin/cpp/Views.hpp
 	Plugins/BridgeDetector.cpp
 	Plugins/BridgeDetector.hpp
+	Plugins/GuiRulesExample.cpp
+	Plugins/GuiRulesExample.hpp
 	Plugins/MaxOverhangThreshold.cpp
 	Plugins/MaxOverhangThreshold.hpp
 	Plugins/Polyholes.cpp

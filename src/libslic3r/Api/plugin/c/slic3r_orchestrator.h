@@ -61,6 +61,80 @@ int32_t orchestrator_add_ui_fragment(
     int32_t priority
 );
 
+typedef enum raw_gui_rule_condition {
+    RAW_GUI_RULE_CONDITION_NONE = 0,
+    RAW_GUI_RULE_CONDITION_BOOL_TRUE,
+    RAW_GUI_RULE_CONDITION_BOOL_FALSE,
+    RAW_GUI_RULE_CONDITION_OPTION_ENABLED,
+    RAW_GUI_RULE_CONDITION_OPTION_DISABLED,
+    RAW_GUI_RULE_CONDITION_VALUE_NON_ZERO,
+    RAW_GUI_RULE_CONDITION_INT_EQUALS,
+    RAW_GUI_RULE_CONDITION_INT_NOT_EQUALS
+} raw_gui_rule_condition;
+
+typedef enum raw_gui_rule_action {
+    RAW_GUI_RULE_ACTION_NONE = 0,
+    RAW_GUI_RULE_ACTION_ENABLE
+} raw_gui_rule_action;
+
+/*
+Index values shared by target_index and condition_index.
+
+RAW_GUI_RULE_INDEX_ALL means "no specific item":
+- for target_index, apply the rule to the whole GUI field;
+- for condition_index, automatically choose the safest condition read:
+  use the current extruder item when such an item exists, otherwise enable if
+  any vector item satisfies the condition.
+
+RAW_GUI_RULE_INDEX_CURRENT is mainly useful for target_index. It means "apply
+this rule to the vector item currently processed by the GUI refresh loop".
+Use it only for options whose value is sized like the extruder count.
+*/
+#define RAW_GUI_RULE_INDEX_ALL     (-1)
+#define RAW_GUI_RULE_INDEX_CURRENT (-2)
+
+typedef struct raw_gui_rule {
+    raw_gui_rule_action action;
+    raw_gui_rule_condition condition;
+    const char *target_key;
+    const char *condition_key;
+    int32_t target_index;
+    int32_t condition_index;
+    int32_t condition_int_value;
+} raw_gui_rule;
+
+static inline raw_gui_rule raw_gui_rule_init()
+{
+    raw_gui_rule rule = {0};
+    rule.target_index = RAW_GUI_RULE_INDEX_ALL;
+    rule.condition_index = RAW_GUI_RULE_INDEX_ALL;
+    return rule;
+}
+
+/*
+Register a GUI state rule.
+
+Rules are evaluated by ConfigManipulation when a tab refreshes its enabled
+state. The first supported action is RAW_GUI_RULE_ACTION_ENABLE, which enables
+or disables target_key according to condition_key.
+
+condition_index and target_index are used for vector/extruder options.
+Use RAW_GUI_RULE_INDEX_ALL for scalar options or when the whole field should be
+affected. Use RAW_GUI_RULE_INDEX_CURRENT for a target that must be applied item
+by item in the current extruder loop.
+
+condition_int_value is used by RAW_GUI_RULE_CONDITION_INT_EQUALS and
+RAW_GUI_RULE_CONDITION_INT_NOT_EQUALS. This is the intended way to express enum
+conditions, because enum config options are read as integer values.
+
+Returns 1 when the rule was added, 0 when an identical rule was already
+registered, and a negative value on invalid arguments or internal failure.
+*/
+int32_t orchestrator_add_gui_rule(
+    orchestrator_handle *orch,
+    const raw_gui_rule *rule
+);
+
 /*
 Default host callbacks used to populate plugin_run_context.
 Plugins normally call these through the function pointers stored in the run
