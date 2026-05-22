@@ -455,6 +455,9 @@ std::vector<Plugin *> Orchestrator::get_all_plugins_for_step(slicing_step_t step
         if (plugin->get_step() == step)
             list.push_back(plugin.get());
     }
+    std::stable_sort(list.begin(), list.end(), [](const Plugin *lhs, const Plugin *rhs) {
+        return lhs->get_priority() < rhs->get_priority();
+    });
     return list;
 }
 
