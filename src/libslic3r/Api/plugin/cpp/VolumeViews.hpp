@@ -144,12 +144,33 @@ public:
     }
     bool is_brim() const { return type() == RAW_VOLUME_TYPE_BRIM_PATCH || type() == RAW_VOLUME_TYPE_BRIM_NEGATIVE; }
 
-    bool is_fdm_support_painted() const { return volume_has_fdm_support_painting(handle()) != 0; }
-    bool is_seam_painted() const { return volume_has_seam_painting(handle()) != 0; }
-    bool is_mm_painted() const { return volume_has_mm_painting(handle()) != 0; }
+    bool has_painting(raw_facet_painting_type paint_type) const { return volume_has_painting(handle(), paint_type) != 0; }
+    bool is_fdm_support_painted() const { return has_painting(RAW_FACET_PAINTING_FDM_SUPPORT); }
+    bool is_seam_painted() const { return has_painting(RAW_FACET_PAINTING_SEAM); }
+    bool is_mm_painted() const { return has_painting(RAW_FACET_PAINTING_MMU_SEGMENTATION); }
 
     TriangleMesh mesh() const { return TriangleMesh(volume_get_mesh(handle())); }
 };
+
+inline std::vector<StoredPolygonCollection> project_painting_to_polygons(storage_handle *storage,
+                                                                         const Object &object,
+                                                                         raw_facet_painting_type paint_type,
+                                                                         int32_t painting_value)
+{
+    std::vector<StoredPolygonCollection> out;
+    out.reserve(object.layer_count());
+    for (uint32_t idx = 0; idx < object.layer_count(); ++idx)
+        out.emplace_back(storage);
+
+    std::vector<polygon_collection_handle *> out_handles;
+    out_handles.reserve(out.size());
+    for (StoredPolygonCollection &polygons : out)
+        out_handles.push_back(polygons.mutable_handle());
+
+    object_project_painting_to_polygons(object.handle(), paint_type, painting_value, out_handles.data(),
+                                        static_cast<uint32_t>(out_handles.size()));
+    return out;
+}
 
 inline uint32_t Object::volume_count() const
 {

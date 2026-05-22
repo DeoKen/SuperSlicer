@@ -5,6 +5,7 @@
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_volume.h"
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Layer.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
@@ -69,6 +70,85 @@ static Transform3d to_transform3d(const c_matrix4d &matrix)
 static raw_volume_type to_raw_volume_type(ModelVolumeType type)
 {
     return static_cast<raw_volume_type>(static_cast<int>(type));
+}
+
+static EnforcerBlockerType to_enforcer_blocker_type(int32_t value)
+{
+    return static_cast<EnforcerBlockerType>(value);
+}
+
+static bool volume_has_painting(const ModelVolume *volume, raw_facet_painting_type paint_type)
+{
+    if (volume == nullptr)
+        return false;
+
+    switch (paint_type) {
+    case RAW_FACET_PAINTING_FDM_SUPPORT:
+        return volume->is_fdm_support_painted();
+    case RAW_FACET_PAINTING_SEAM:
+        return volume->is_seam_painted();
+    case RAW_FACET_PAINTING_MMU_SEGMENTATION:
+        return volume->is_mm_painted();
+    default:
+        return false;
+    }
+}
+
+static void append_projected_by_layer(std::vector<Polygons> &&src, std::vector<Polygons> &dst)
+{
+    if (src.empty())
+        return;
+
+    if (dst.empty()) {
+        dst = std::move(src);
+        return;
+    }
+
+    if (dst.size() < src.size())
+        dst.resize(src.size());
+
+    for (size_t layer_idx = 0; layer_idx < src.size(); ++layer_idx)
+        for (Polygon &polygon : src[layer_idx])
+            dst[layer_idx].emplace_back(std::move(polygon));
+}
+
+static std::vector<Polygons> project_mmu_painting_to_polygons(const PrintObject &object, EnforcerBlockerType type)
+{
+    std::vector<Polygons> out;
+    const std::vector<float> zs = slice_z_from_layers(object.layers());
+    const Transform3d object_trafo = object.trafo_centered();
+
+    for (const ModelVolume *volume : object.model_object()->volumes) {
+        if (!volume->is_model_part() || !volume->is_mm_painted())
+            continue;
+
+        const indexed_triangle_set painted = volume->mm_segmentation_facets.get_facets_strict(*volume, type);
+        if (painted.indices.empty())
+            continue;
+
+        std::vector<Polygons> top;
+        std::vector<Polygons> bottom;
+        slice_mesh_slabs(painted, zs, object_trafo * volume->get_matrix(), &top, &bottom, [](){});
+        append_projected_by_layer(std::move(top), out);
+        append_projected_by_layer(std::move(bottom), out);
+    }
+
+    return out;
+}
+
+static void write_projected_polygons_to_c_handles(std::vector<Polygons> &&projected,
+                                                  polygon_collection_handle **out_by_layer,
+                                                  uint32_t layer_count)
+{
+    if (out_by_layer == nullptr)
+        return;
+
+    for (uint32_t layer_idx = 0; layer_idx < layer_count; ++layer_idx) {
+        if (out_by_layer[layer_idx] == nullptr)
+            continue;
+        Polygons &dst = *to_polygons(out_by_layer[layer_idx]);
+        dst = layer_idx < projected.size() ? std::move(projected[layer_idx]) : Polygons{};
+    }
 }
 
 static MeshSlicingParams::SlicingMode to_mesh_slicing_mode(raw_mesh_slicing_mode mode)
@@ -157,22 +237,34 @@ c_matrix4d volume_get_matrix_no_offset(const volume_handle *volume)
     return native == nullptr ? c_matrix4d{} : to_c_matrix4d(native->get_matrix_no_offset());
 }
 
-int volume_has_fdm_support_painting(const volume_handle *volume)
+int volume_has_painting(const volume_handle *volume, raw_facet_painting_type paint_type)
 {
     const ModelVolume *native = to_volume(volume);
-    return native != nullptr && native->is_fdm_support_painted();
+    return Slic3r::volume_has_painting(native, paint_type);
 }
 
-int volume_has_seam_painting(const volume_handle *volume)
+void object_project_painting_to_polygons(const object_handle *object,
+                                         raw_facet_painting_type paint_type,
+                                         int32_t painting_value,
+                                         polygon_collection_handle **out_by_layer,
+                                         uint32_t layer_count)
 {
-    const ModelVolume *native = to_volume(volume);
-    return native != nullptr && native->is_seam_painted();
-}
+    const PrintObject *native = to_object(object);
+    if (native == nullptr || native->model_object() == nullptr || out_by_layer == nullptr) {
+        write_projected_polygons_to_c_handles({}, out_by_layer, layer_count);
+        return;
+    }
 
-int volume_has_mm_painting(const volume_handle *volume)
-{
-    const ModelVolume *native = to_volume(volume);
-    return native != nullptr && native->is_mm_painted();
+    std::vector<Polygons> projected;
+    if (paint_type == RAW_FACET_PAINTING_FDM_SUPPORT) {
+        projected = native->project_and_append_custom_facets(false, to_enforcer_blocker_type(painting_value));
+    } else if (paint_type == RAW_FACET_PAINTING_SEAM) {
+        projected = native->project_and_append_custom_facets(true, to_enforcer_blocker_type(painting_value));
+    } else if (paint_type == RAW_FACET_PAINTING_MMU_SEGMENTATION) {
+        projected = project_mmu_painting_to_polygons(*native, to_enforcer_blocker_type(painting_value));
+    }
+
+    write_projected_polygons_to_c_handles(std::move(projected), out_by_layer, layer_count);
 }
 
 const triangle_mesh_handle *volume_get_mesh(const volume_handle *volume)
@@ -258,19 +350,18 @@ c_matrix4d volume_get_matrix_no_offset(const volume_handle *volume)
     return Slic3r::volume_get_matrix_no_offset(volume);
 }
 
-int volume_has_fdm_support_painting(const volume_handle *volume)
+int volume_has_painting(const volume_handle *volume, raw_facet_painting_type paint_type)
 {
-    return Slic3r::volume_has_fdm_support_painting(volume);
+    return Slic3r::volume_has_painting(volume, paint_type);
 }
 
-int volume_has_seam_painting(const volume_handle *volume)
+void object_project_painting_to_polygons(const object_handle *object,
+                                         raw_facet_painting_type paint_type,
+                                         int32_t painting_value,
+                                         polygon_collection_handle **out_by_layer,
+                                         uint32_t layer_count)
 {
-    return Slic3r::volume_has_seam_painting(volume);
-}
-
-int volume_has_mm_painting(const volume_handle *volume)
-{
-    return Slic3r::volume_has_mm_painting(volume);
+    Slic3r::object_project_painting_to_polygons(object, paint_type, painting_value, out_by_layer, layer_count);
 }
 
 const triangle_mesh_handle *volume_get_mesh(const volume_handle *volume)
