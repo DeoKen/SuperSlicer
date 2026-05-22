@@ -4,6 +4,7 @@
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/steps/SupportDemandStep.hpp"
+#include "libslic3r/Api/internal/PrintObjectAccess.hpp"
 #include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/Layer.hpp"
@@ -105,7 +106,8 @@ TriangleMesh make_sloped_cube(const double top_x_expansion)
 DynamicPrintConfig support_demand_config(const bool support_material,
                                          const bool support_material_auto,
                                          const int support_material_threshold,
-                                         const int support_material_enforce_layers)
+                                         const int support_material_enforce_layers,
+                                         const bool dont_support_bridges = false)
 {
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
 
@@ -114,6 +116,7 @@ DynamicPrintConfig support_demand_config(const bool support_material,
         {"layer_height", "1"},
         {"first_layer_height", "1"},
         {"nozzle_diameter", "0.4"},
+        {"dont_support_bridges", dont_support_bridges ? "1" : "0"},
         {"support_material", support_material ? "1" : "0"},
         {"support_material_auto", support_material_auto ? "1" : "0"},
         {"support_material_threshold", std::to_string(support_material_threshold)},
@@ -151,6 +154,37 @@ Model make_model(TriangleMesh &&model_part, std::initializer_list<ModifierBox> m
     return model;
 }
 
+Model make_bridge_model()
+{
+    // Two pillars carry a one-layer roof. The roof layer spans a central gap,
+    // so automatic support demand sees unsupported material, while generated
+    // perimeter extrusions have straight anchored spans crossing that gap.
+    Model model;
+    ModelObject *object = model.add_object();
+    object->name = "support_bridge_removal_test.stl";
+    TriangleMesh mesh = make_box({-12., -4., 0., -5., 4., 4.});
+    mesh.merge(make_box({  5., -4., 0., 12., 4., 4.}));
+    mesh.merge(make_box({-12., -4., 4., 12., 4., 5.}));
+    add_volume(*object, std::move(mesh), ModelVolumeType::MODEL_PART);
+    object->add_instance();
+    return model;
+}
+
+Model make_cantilever_model()
+{
+    // One pillar carries only the left side of the roof. The unsupported roof
+    // edge has a free end, so it should not be classified as a real bridge by
+    // the endpoint-support test.
+    Model model;
+    ModelObject *object = model.add_object();
+    object->name = "support_cantilever_keep_test.stl";
+    TriangleMesh mesh = make_box({-12., -4., 0., -5., 4., 4.});
+    mesh.merge(make_box({-12., -4., 4., 12., 4., 5.}));
+    add_volume(*object, std::move(mesh), ModelVolumeType::MODEL_PART);
+    object->add_instance();
+    return model;
+}
+
 void init_print_from_model(Model &model, Print &print, const DynamicPrintConfig &config)
 {
     model.center_instances_around_point({100, 100});
@@ -170,6 +204,19 @@ void run_until_support_demand_input(Orchestrator &orchestrator, Print &print)
     Steps::StepPostSlicing::run_step(orchestrator, print);
 }
 
+#ifdef _DEBUG
+void run_until_support_demand_input_with_extrusions(Orchestrator &orchestrator, Print &print)
+{
+    run_until_support_demand_input(orchestrator, print);
+
+    // The pluginized perimeter steps are still placeholders in this branch.
+    // Bridge-removal tests need real LayerRegionIsland extrusion entities, so
+    // they deliberately call the existing production implementation directly.
+    for (size_t object_idx = 0; object_idx < print.objects().size(); ++object_idx)
+        ApiInternal::PrintObjectAccess::make_perimeters(print.object(object_idx));
+}
+#endif
+
 DemandSummary summarize_support_demand(ApiHost::Steps::SupportDemandSet &demand)
 {
     DemandSummary summary;
@@ -185,7 +232,7 @@ DemandSummary summarize_support_demand(ApiHost::Steps::SupportDemandSet &demand)
     return summary;
 }
 
-DemandSummary run_support_demand(Model &&model, const DynamicPrintConfig &config)
+DemandSummary run_support_demand(Model &&model, const DynamicPrintConfig &config, const bool prepare_extrusions = false)
 {
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
 
@@ -193,7 +240,14 @@ DemandSummary run_support_demand(Model &&model, const DynamicPrintConfig &config
     init_print_from_model(model, print, config);
 
     Orchestrator &orchestrator = Orchestrator::instance();
-    run_until_support_demand_input(orchestrator, print);
+    if (prepare_extrusions) {
+#ifdef _DEBUG
+        run_until_support_demand_input_with_extrusions(orchestrator, print);
+#else
+        FAIL("prepare_extrusions requires debug-only PrintObjectAccess::make_perimeters()");
+#endif
+    } else
+        run_until_support_demand_input(orchestrator, print);
 
     Steps::StepSupportDemand::State state;
     Steps::StepSupportDemand::run_step(orchestrator, print, state);
@@ -374,3 +428,36 @@ TEST_CASE("SupportDemandPainting can reject automatic overhang demand", "[plugin
     REQUIRE(has_meaningful_demand(baseline));
     REQUIRE(painted_blocked.area_mm2 < baseline.area_mm2);
 }
+
+#ifdef _DEBUG
+TEST_CASE("SupportDemandBridgeRemoval removes demand below real bridges", "[plugins][support-demand]")
+{
+    // The model is a roof between two pillars. Automatic support demand marks
+    // the central gap as unsupported, then SupportDemandBridgeRemoval inspects
+    // generated perimeters. The long straight perimeter spans are anchored on
+    // both pillars, so enabling dont_support_bridges should reduce demand.
+    const DynamicPrintConfig keep_bridges_supported = support_demand_config(true, true, 0, 0, false);
+    const DynamicPrintConfig remove_bridges = support_demand_config(true, true, 0, 0, true);
+
+    const DemandSummary baseline = run_support_demand(make_bridge_model(), keep_bridges_supported, true);
+    const DemandSummary bridge_removed = run_support_demand(make_bridge_model(), remove_bridges, true);
+
+    REQUIRE(has_meaningful_demand(baseline));
+    REQUIRE(bridge_removed.area_mm2 < baseline.area_mm2);
+}
+
+TEST_CASE("SupportDemandBridgeRemoval keeps cantilever demand", "[plugins][support-demand]")
+{
+    // This roof has only one supporting pillar. The straight perimeter over the
+    // gap has a free end, so it is a cantilever rather than a bridge. Enabling
+    // dont_support_bridges must not remove that support demand.
+    const DynamicPrintConfig keep_bridges_supported = support_demand_config(true, true, 0, 0, false);
+    const DynamicPrintConfig remove_bridges = support_demand_config(true, true, 0, 0, true);
+
+    const DemandSummary baseline = run_support_demand(make_cantilever_model(), keep_bridges_supported, true);
+    const DemandSummary with_bridge_removal = run_support_demand(make_cantilever_model(), remove_bridges, true);
+
+    REQUIRE(has_meaningful_demand(baseline));
+    REQUIRE(with_bridge_removal.area_mm2 == Approx(baseline.area_mm2).epsilon(0.01));
+}
+#endif

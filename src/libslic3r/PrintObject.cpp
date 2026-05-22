@@ -128,6 +128,13 @@ void ApiInternal::PrintObjectAccess::replace_layers_by_moving_contents(PrintObje
     object.m_layers = std::move(new_layers);
 }
 
+#ifdef _DEBUG
+void ApiInternal::PrintObjectAccess::make_perimeters(PrintObject &object)
+{
+    object.make_perimeters();
+}
+#endif
+
 // Constructor is called from the main thread, therefore all Model / ModelObject / ModelIntance data are valid.
 PrintObject::PrintObject(Print* print, ModelObject* model_object, const Transform3d& trafo, PrintInstances&& instances) :
     PrintObjectBaseWithState(print, model_object),

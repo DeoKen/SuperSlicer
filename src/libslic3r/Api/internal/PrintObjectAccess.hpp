@@ -21,6 +21,9 @@ struct PrintObjectAccess
 {
     static void set_layer_profile(PrintObject &object, std::vector<coord_t> &&layer_profile);
     static void replace_layers_by_moving_contents(PrintObject &object, LayerUPtrs &&new_layers);
+#ifdef _DEBUG
+    static void make_perimeters(PrintObject &object);
+#endif
 };
 
 } // namespace ApiInternal

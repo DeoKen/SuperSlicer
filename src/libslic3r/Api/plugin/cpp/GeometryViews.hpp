@@ -1006,6 +1006,7 @@ public:
     holes_range holes() const { return holes_range(&self()); }
 
     double area() const { return expolygon_area(self().handle()); }
+    bool contains(c_point point) const { return expolygon_contains(self().handle(), point) != 0; }
     bool is_valid() const { return expolygon_valid(self().handle()) == EXPOLYGON_STATUS_OK; }
     template<class Other> bool overlaps(const Other &other) const {
         return expolygon_overlaps(self().handle(), other.handle()) != 0;
