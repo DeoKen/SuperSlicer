@@ -447,6 +447,8 @@ and the source is cleared. If dst and src are the same handle, nothing changes.
 void expolygon_move(expolygon_handle *dst, expolygon_handle *src);
 
 double expolygon_area(const expolygon_handle *me);
+/* Return non-zero when point is inside the ExPolygon or on its boundary. */
+int32_t expolygon_contains(const expolygon_handle *me, c_point point);
 /*
 Returns non-zero if this expolygon overlaps another expolygon.
 

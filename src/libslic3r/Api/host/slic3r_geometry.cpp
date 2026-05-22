@@ -961,6 +961,10 @@ double expolygon_area(const expolygon_handle *me) {
     return me == nullptr ? 0.0 : Slic3r::to_expolygon(me)->area();
 }
 
+int32_t expolygon_contains(const expolygon_handle *me, c_point point) {
+    return me == nullptr ? 0 : Slic3r::to_expolygon(me)->contains(Slic3r::to_point(point));
+}
+
 int32_t expolygon_overlaps(const expolygon_handle *me, const expolygon_handle *other) {
     return (me == nullptr || other == nullptr) ? 0 : Slic3r::to_expolygon(me)->overlaps(*Slic3r::to_expolygon(other));
 }
