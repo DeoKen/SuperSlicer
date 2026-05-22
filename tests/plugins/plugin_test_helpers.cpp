@@ -7,6 +7,7 @@
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandModifiers.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandOverhangs.hpp"
+#include "libslic3r/Plugins/Support/SupportDemandPainting.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLA/SLAPrintConfig.hpp"
 
@@ -26,6 +27,8 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator_handle_value);
         slic3r_api::Support::SupportDemandOverhangsPlugin::register_support_demand_overhangs_plugin(
+            orchestrator_handle_value);
+        slic3r_api::Support::SupportDemandPaintingPlugin::register_support_demand_painting_plugin(
             orchestrator_handle_value);
         slic3r_api::Support::SupportDemandModifiersPlugin::register_support_demand_modifiers_plugin(
             orchestrator_handle_value);

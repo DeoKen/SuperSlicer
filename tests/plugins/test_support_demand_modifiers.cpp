@@ -122,10 +122,21 @@ DynamicPrintConfig support_demand_config(const bool support_material,
     return config;
 }
 
-void add_volume(ModelObject &object, TriangleMesh &&mesh, const ModelVolumeType type)
+ModelVolume *add_volume(ModelObject &object, TriangleMesh &&mesh, const ModelVolumeType type)
 {
     ModelVolume *volume = object.add_volume(std::move(mesh), type, false);
     volume->set_type(type);
+    return volume;
+}
+
+void paint_support_facets(ModelVolume &volume, EnforcerBlockerType type, std::initializer_list<int> facets)
+{
+    const char *encoded_state = type == EnforcerBlockerType::ENFORCER ? "4" :
+                                type == EnforcerBlockerType::BLOCKER  ? "8" : "0";
+    volume.supported_facets.reserve(int(facets.size()));
+    for (int facet_idx : facets)
+        volume.supported_facets.set_triangle_from_string(facet_idx, encoded_state);
+    volume.supported_facets.shrink_to_fit();
 }
 
 Model make_model(TriangleMesh &&model_part, std::initializer_list<ModifierBox> modifiers)
@@ -307,4 +318,59 @@ TEST_CASE("SupportDemandModifiers runs after overhang demand and can reject it",
 
     REQUIRE(has_meaningful_demand(overhang_only));
     REQUIRE_FALSE(has_meaningful_demand(blocked_overhang));
+}
+
+TEST_CASE("SupportDemandPainting adds painted support enforcers", "[plugins][support-demand]")
+{
+    // A vertical cube has no automatic overhang demand. Painting the two bottom
+    // triangles as support enforcers should create demand from the projected
+    // custom facets alone.
+    Model model = make_model(make_box({-10., -10., 0., 10., 10., 10.}), {});
+    ModelObject &object = *model.objects().begin();
+    paint_support_facets(*object.volumes.front(), EnforcerBlockerType::ENFORCER, {0, 1});
+
+    const DemandSummary summary = run_support_demand(
+        std::move(model),
+        support_demand_config(true, false, 0, 0));
+    REQUIRE(has_meaningful_demand(summary));
+}
+
+TEST_CASE("SupportDemandPainting applies painted enforcers before painted blockers", "[plugins][support-demand]")
+{
+    // Two overlapping model volumes project the same bottom facets. The first
+    // paints that area as an enforcer, the second paints it as a blocker. If the
+    // plugin applies blockers before enforcers, demand would remain; the
+    // expected fixed order is enforcer first, blocker second, leaving no demand.
+    Model model;
+    ModelObject *object = model.add_object();
+    object->name = "support_painting_order_test.stl";
+    ModelVolume *enforcer_volume = add_volume(*object, make_box({-10., -10., 0., 10., 10., 10.}), ModelVolumeType::MODEL_PART);
+    ModelVolume *blocker_volume = add_volume(*object, make_box({-10., -10., 0., 10., 10., 10.}), ModelVolumeType::MODEL_PART);
+    paint_support_facets(*enforcer_volume, EnforcerBlockerType::ENFORCER, {0, 1});
+    paint_support_facets(*blocker_volume, EnforcerBlockerType::BLOCKER, {0, 1});
+    object->add_instance();
+
+    const DemandSummary summary = run_support_demand(
+        std::move(model),
+        support_demand_config(true, false, 0, 0));
+    REQUIRE_FALSE(has_meaningful_demand(summary));
+}
+
+TEST_CASE("SupportDemandPainting can reject automatic overhang demand", "[plugins][support-demand]")
+{
+    // The sloped cube creates automatic overhang demand on the +X side. Painting
+    // the two sloped right-side facets as blockers should subtract from that
+    // existing demand, proving that painting runs after SupportDemandOverhangs.
+    const DynamicPrintConfig config = support_demand_config(true, true, 0, 0);
+
+    Model baseline_model = make_model(make_sloped_cube(5.), {});
+    Model painted_model = make_model(make_sloped_cube(5.), {});
+    ModelObject &painted_object = *painted_model.objects().begin();
+    paint_support_facets(*painted_object.volumes.front(), EnforcerBlockerType::BLOCKER, {6, 7});
+
+    const DemandSummary baseline = run_support_demand(std::move(baseline_model), config);
+    const DemandSummary painted_blocked = run_support_demand(std::move(painted_model), config);
+
+    REQUIRE(has_meaningful_demand(baseline));
+    REQUIRE(painted_blocked.area_mm2 < baseline.area_mm2);
 }

@@ -21,6 +21,7 @@
 #include "libslic3r/Api/plugin/c/slic3r_extrusion_property.h"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/MultiPoint.hpp"
+#include "libslic3r/Polygon.hpp"
 
 #include "Plugin.hpp"
 
@@ -189,7 +190,7 @@ public:
     StableOwnedVector<Polygon> polygons;
     StableOwnedVector<ExPolygon> expolygons;
     StableOwnedVector<std::vector<Polyline>> polyline_collections;
-    StableOwnedVector<std::vector<Polygon>> polygon_collections;
+    StableOwnedVector<Polygons> polygon_collections;
     StableOwnedVector<std::vector<ExPolygon>> expolygon_collections;
     StableOwnedVector<ExtrusionEntity> extrusions;
     std::vector<std::unique_ptr<ApiClipper::ClipperShapes>> clipper_shapes;
