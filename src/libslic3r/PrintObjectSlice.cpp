@@ -783,7 +783,11 @@ void PrintObject::_max_overhang_threshold() {
     }
     if (max_nz_diam == 0)
         max_nz_diam = scale_i(0.4);
-    
+
+    //test for rejection, it's a plugin now
+    if(!this->printing_region(0).config().option("overhangs_max_slope"))
+        return;
+
     for (size_t region_idx = 0; region_idx < this->num_printing_regions(); ++region_idx) {
         coord_t enlargement = scale_i(this->printing_region(region_idx).config().option_throw("overhangs_max_slope")->get_effective_value(unscaled(max_nz_diam)));
         if (enlargement > 0) {
@@ -1080,7 +1084,7 @@ void PrintObject::_transform_hole_to_polyholes()
             for (size_t region_idx = 0; region_idx < layer.m_regions.size(); ++region_idx)
             {
                 LayerRegion &layer_region = layer.region(region_idx);
-                if (layer_region.region().config().option("hole_to_polyhole")->get_bool()) {
+                if (layer_region.region().config().option("hole_to_polyhole") && layer_region.region().config().option("hole_to_polyhole")->get_bool()) {
                     for (ExPolygon& surf_expoly : ApiInternal::LayerRegionAccess::slices_mutable(layer_region)) {
                         for (Polygon& hole : surf_expoly.holes) {
                             //test if convex (as it's clockwise bc it's a hole, we have to do the opposite)

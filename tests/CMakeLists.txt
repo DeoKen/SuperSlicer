@@ -37,6 +37,7 @@ add_subdirectory(superslicerlibslic3r)
 add_subdirectory(api)
 add_subdirectory(fff_print)
 add_subdirectory(sla_print)
+add_subdirectory(plugins)
 add_subdirectory(cpp17 EXCLUDE_FROM_ALL)    # does not have to be built all the time
 
 if (SLIC3R_GUI)
