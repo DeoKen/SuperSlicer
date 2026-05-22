@@ -89,7 +89,7 @@ const char *GuiRulesExample::print_ui_fragment() noexcept
 {
     return "page:Slicing\n"
            "group:Modifying slices\n"
-           "line:insert$afterline$Convert round vertical holes to polyholes:Plugin GUI rule bool true\n"
+           "line:insert$afterline$Overhangs cut:Plugin GUI rule bool true\n"
            "setting:plugin_gui_rule_test_bool_true_condition\n"
            "setting:plugin_gui_rule_test_bool_true_target\n"
            "end_line\n"

@@ -16,6 +16,9 @@
 #include <libslic3r/Plugins/Polyholes.hpp>
 #include <libslic3r/Plugins/SliceVolume.hpp>
 #include <libslic3r/Plugins/StandardLayerHeightGenerator.hpp>
+#include <libslic3r/FFFPrintConfig.hpp>
+#include <libslic3r/PrintConfig.hpp>
+#include <libslic3r/SLA/SLAPrintConfig.hpp>
 #include <libslic3r/Steps/StepPipeline.hpp>
 //#include <libslic3r/config.hpp>
 #include <algorithm>
@@ -29,17 +32,26 @@ using namespace std::literals;
 
 namespace {
 
-void register_step_pipeline_plugins()
+void ensure_api_test_runtime_initialized()
 {
-    static bool registered = []() {
+    static bool initialized = []() {
+        PrintConfigDef::instance_mutable().init_common_params();
+        init_fff_params(PrintConfigDef::instance_mutable());
+        init_sla_params(PrintConfigDef::instance_mutable());
+
         orchestrator_handle *orchestrator = reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance());
         slic3r_api::StandardLayerHeightGeneratorPlugin::register_standard_layer_height_generator_plugin(orchestrator);
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator);
         slic3r_api::PolyholesPlugin::register_polyholes_plugin(orchestrator);
         slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(orchestrator);
+
+        Orchestrator::instance().initialize_plugins();
+        initialize_fff_print_config_cache();
+        initialize_sla_print_config_cache();
+        PrintConfigDef::instance_mutable().finalize();
         return true;
     }();
-    (void)registered;
+    (void)initialized;
 }
 
 
@@ -83,6 +95,7 @@ size_t perimeter_item_count(const Layer &layer, const LayerRegion &region)
 
 TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayout]")
 {
+    ensure_api_test_runtime_initialized();
     Orchestrator &orchestrator = Orchestrator::instance();
     orchestrator_handle *orch_handle = reinterpret_cast<orchestrator_handle *>(&orchestrator);
     const int32_t polyholes_added = orchestrator_add_ui_fragment(orch_handle,
@@ -91,18 +104,18 @@ TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayo
                                                                  slic3r_api::PolyholesPlugin::Polyholes::print_ui_fragment(),
                                                                  0);
     REQUIRE((polyholes_added == 0 || polyholes_added == 1));
-    const int32_t gui_rules_example_added = orchestrator_add_ui_fragment(orch_handle,
-                                                                        "print.ui",
-                                                                        "gui_rules_example",
-                                                                        slic3r_api::GuiRulesExamplePlugin::GuiRulesExample::print_ui_fragment(),
-                                                                        0);
-    REQUIRE((gui_rules_example_added == 0 || gui_rules_example_added == 1));
     const int32_t overhang_added = orchestrator_add_ui_fragment(orch_handle,
                                                                "print.ui",
                                                                "max_overhang_threshold",
                                                                slic3r_api::MaxOverhangThresholdPlugin::MaxOverhangThreshold::print_ui_fragment(),
                                                                0);
     REQUIRE((overhang_added == 0 || overhang_added == 1));
+    const int32_t gui_rules_example_added = orchestrator_add_ui_fragment(orch_handle,
+                                                                        "print.ui",
+                                                                        "gui_rules_example",
+                                                                        slic3r_api::GuiRulesExamplePlugin::GuiRulesExample::print_ui_fragment(),
+                                                                        0);
+    REQUIRE((gui_rules_example_added == 0 || gui_rules_example_added == 1));
 
     const std::string base = read_text_file(std::string(TEST_DATA_DIR) + "/../../resources/ui_layout/default/print.ui");
     const std::string expected = read_text_file(std::string(TEST_DATA_DIR) + "/ui_layout/print_with_builtin_overhang_threshold.ui");
@@ -119,6 +132,7 @@ TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayo
 
 SCENARIO("PrintObject: Perimeter generation") {
     GIVEN("20mm cube and default config & 0.3 layer height") {
+        ensure_api_test_runtime_initialized();
         DynamicPrintConfig config = Slic3r::DynamicPrintConfig::full_print_config();
         TestMesh mesh = TestMesh::cube_20x20x20;
         Model model{};
@@ -128,7 +142,6 @@ SCENARIO("PrintObject: Perimeter generation") {
 
         WHEN("make_perimeters() is called") {
             Print print{};
-            register_step_pipeline_plugins();
             Slic3r::Test::init_print({mesh}, print, model, config);
 #ifdef _DEBUG
             Slic3r::Steps::StepPipeline::debug_run(Orchestrator::instance(), print, STEP_PRE_PERIMETER);
@@ -159,4 +172,3 @@ SCENARIO("PrintObject: Perimeter generation") {
         }
     }
 }
-
