@@ -20,6 +20,7 @@ protected:
     std::string m_id;
     slicing_step_t m_step;
     std::vector<std::string> m_dependencies;
+    std::vector<std::string> m_used_config_keys;
     int m_priority;
 
 public:
@@ -28,6 +29,7 @@ public:
     const std::string& get_id() const noexcept { return m_id; }
     slicing_step_t get_step() const noexcept { return m_step; }
     const std::vector<std::string>& get_dependencies() const noexcept { return m_dependencies; }
+    const std::vector<std::string>& get_used_config_keys() const noexcept { return m_used_config_keys; }
     int get_priority() const noexcept { return m_priority; }
     void initialize(storage_handle *storage) const {
         m_c_api.vt->initialize(m_c_api.ctx, storage);

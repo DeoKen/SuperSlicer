@@ -16,6 +16,7 @@
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Slicing.hpp"
+#include "libslic3r/Steps/StepPipeline.hpp"
 
 #ifdef _DEBUG
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
@@ -76,7 +77,9 @@ bool validate_post(const Print &, std::string &) { return true; }
 void run_step(Orchestrator &orchestrator, Print &print) {
     Detail::validate_or_report(validate_pre, print, "Layer-height pre-step validation");
 
-    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(STEP_LAYER_HEIGHT);
+    std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(orchestrator,
+                                                                        STEP_LAYER_HEIGHT,
+                                                                        &print.full_print_config());
 
     for (Plugin *plugin : plugins) {
         const size_t run_count = print.objects().size();

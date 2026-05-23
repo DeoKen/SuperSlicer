@@ -17,6 +17,7 @@
 #include <dlfcn.h>
 #endif
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -238,6 +239,24 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
     slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(orchestrator);
 }
 
+void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
+                                           const Steps::StepExclusiveGroup &group,
+                                           const std::vector<Plugin *> &plugins)
+{
+    for (size_t plugin_idx = 0; plugin_idx < plugins.size(); ++plugin_idx) {
+        const Plugin *plugin = plugins[plugin_idx];
+        for (const std::string &setting_key : plugin->get_used_config_keys()) {
+            raw_gui_rule rule = raw_gui_rule_init();
+            rule.action = RAW_GUI_RULE_ACTION_ENABLE_ANY;
+            rule.condition = RAW_GUI_RULE_CONDITION_INT_EQUALS;
+            rule.target_key = setting_key.c_str();
+            rule.condition_key = group.option_def.opt_key;
+            rule.condition_int_value = int32_t(plugin_idx);
+            orchestrator.add_gui_rule(&rule);
+        }
+    }
+}
+
 void register_exclusive_step_groups(Orchestrator &orchestrator)
 {
     const std::map<slicing_step_t, Steps::StepExclusiveGroup> &templates = Steps::get_exclusive_steps();
@@ -255,6 +274,7 @@ void register_exclusive_step_groups(Orchestrator &orchestrator)
         group.set_enum_plugins(plugin_ids);
         orchestrator.create_new_print_config(&group.option_def);
         orchestrator.add_ui_fragment("print.ui", group.option_def.opt_key, group.ui_fragment.c_str(), 0);
+        add_exclusive_step_used_setting_rules(orchestrator, group, active_plugins);
         for (const raw_gui_rule &rule : group.gui_activation_rules)
             orchestrator.add_gui_rule(&rule);
     }

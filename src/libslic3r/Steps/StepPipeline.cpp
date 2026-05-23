@@ -9,6 +9,7 @@
 #include "libslic3r/Api/internal/LayerAccess.hpp"
 #include "libslic3r/Api/internal/LayerRegionAccess.hpp"
 #include "libslic3r/Api/internal/PrintObjectAccess.hpp"
+#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
@@ -125,10 +126,10 @@ void StepExclusiveGroup::set_enum_plugins(const std::vector<std::string> &plugin
     enum_pairs.clear();
     enum_pairs.reserve(plugin_ids.size());
 
-    for (const std::string &plugin_id : plugin_ids) {
+    for (size_t i = 0; i < enum_values.size(); ++i) {
         key_value_string_pair_t pair = {};
-        pair.value = plugin_id.c_str();
-        pair.label = plugin_id.c_str();
+        pair.value = enum_values[i].c_str();
+        pair.label = enum_labels[i].c_str();
         enum_pairs.push_back(pair);
     }
 
@@ -154,6 +155,33 @@ const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps()
         {STEP_GCODE,              make_exclusive_group(STEP_GCODE,              "step_gcode_plugin",             "G-code plugin",            RAW_OPTION_CATEGORY_OUTPUT,       "G-code step plugin")}
     };
     return s_groups;
+}
+
+std::vector<Plugin *> selected_or_active_plugins_for_step(Orchestrator &orchestrator,
+                                                          slicing_step_t step,
+                                                          const ConfigBase *config)
+{
+    std::vector<Plugin *> active_plugins = orchestrator.get_active_plugins_for_step(step);
+    if (active_plugins.size() <= 1)
+        return active_plugins;
+
+    const std::map<slicing_step_t, StepExclusiveGroup> &exclusive_steps = get_exclusive_steps();
+    const std::map<slicing_step_t, StepExclusiveGroup>::const_iterator exclusive_it = exclusive_steps.find(step);
+    if (exclusive_it == exclusive_steps.end())
+        return active_plugins;
+
+    if (config == nullptr)
+        return { active_plugins.front() };
+
+    const ConfigOption *option = config->option(exclusive_it->second.option_def.opt_key);
+    if (option == nullptr)
+        return { active_plugins.front() };
+
+    const int32_t selected_idx = option->get_int();
+    if (selected_idx < 0 || size_t(selected_idx) >= active_plugins.size())
+        return { active_plugins.front() };
+
+    return { active_plugins[size_t(selected_idx)] };
 }
 
 namespace {
