@@ -65,7 +65,6 @@ struct ThroughHole
     HoleData hole_data;
     std::vector<LayerHole> layers;
 };
-} // namespace
 
 // Build one or more polygonal replacement holes around the detected circular
 // center. The returned polygons are storage-owned because they will be copied
@@ -90,11 +89,11 @@ std::vector<StoredPolygon> create_polyholes(storage_handle *storage,
         list.emplace_back(storage);
     for (int i_poly = 0; i_poly < nb_polyhole; i_poly++) {
         StoredPolygon& pts = (((i_poly % 2) == 0) ? list[i_poly / 2] : list[(nb_polyhole + 1) / 2 + i_poly / 2]);
-        const float new_radius = radius / float(std::cos(PI / nb_edges));
+        const coordf_t new_radius = coordf_t(radius) / std::cos(PI / double(nb_edges));
         for (size_t i_edge = 0; i_edge < nb_edges; ++i_edge) {
-            float angle = rotation * i_poly + (float(PI) * 2 * (float)i_edge) / nb_edges;
-            pts.push_back(c_point{coord_t(center.x + new_radius * std::cos(angle)),
-                                  coord_t(center.y + new_radius * std::sin(angle))});
+            const double angle = double(rotation) * double(i_poly) + (PI * 2. * double(i_edge)) / double(nb_edges);
+            pts.push_back(c_point{coord_t(std::round(coordf_t(center.x) + new_radius * std::cos(angle))),
+                                  coord_t(std::round(coordf_t(center.y) + new_radius * std::sin(angle)))});
         }
         pts.make_clockwise();
     }
@@ -117,6 +116,8 @@ bool replace_matching_hole_points(expolygon_handle *expolygon, const Polygon &ho
     }
     return false;
 }
+
+} // namespace
 
 void Polyholes::run_impl(const plugin_run_context *run_ctx) const
 {

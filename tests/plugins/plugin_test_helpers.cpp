@@ -11,6 +11,7 @@
 #include "libslic3r/Plugins/Support/SupportDemandPainting.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLA/SLAPrintConfig.hpp"
+#include "plugins_cpp/Polyholes/Polyholes.hpp"
 
 namespace Slic3r::Test::Plugins {
 
@@ -27,6 +28,7 @@ void ensure_plugin_test_runtime_initialized()
         slic3r_api::StandardLayerHeightGeneratorPlugin::register_standard_layer_height_generator_plugin(
             orchestrator_handle_value);
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator_handle_value);
+        slic3r_api::PolyholesPlugin::register_polyholes_plugin(orchestrator_handle_value);
         slic3r_api::Support::SupportDemandOverhangsPlugin::register_support_demand_overhangs_plugin(
             orchestrator_handle_value);
         slic3r_api::Support::SupportDemandPaintingPlugin::register_support_demand_painting_plugin(
