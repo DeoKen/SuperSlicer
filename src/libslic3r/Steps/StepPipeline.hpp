@@ -6,15 +6,44 @@
 #ifndef steps_steppipeline_hpp_
 #define steps_steppipeline_hpp_
 
+#include <map>
+#include <string>
+#include <vector>
+
+#include "libslic3r/Api/plugin/c/slic3r_config_def.h"
+#include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 namespace Slic3r {
 
+class ConfigBase;
 class Orchestrator;
+class Plugin;
 class Print;
 class PrintObject;
 
 namespace Steps {
+
+struct StepExclusiveGroup
+{
+    slicing_step_t step;
+    raw_config_option_def option_def;
+    std::string ui_fragment;
+    std::vector<raw_gui_rule> gui_activation_rules;
+    // The option enum stores plugin ids as serialized values. Its integer
+    // value is the index in enum_values, which is also the index used by
+    // generated RAW_GUI_RULE_CONDITION_INT_EQUALS rules.
+    std::vector<std::string> enum_values;
+    std::vector<std::string> enum_labels;
+    std::vector<key_value_string_pair_t> enum_pairs;
+
+    void set_enum_plugins(const std::vector<std::string> &plugin_ids);
+};
+
+const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps();
+std::vector<Plugin *> selected_or_active_plugins_for_step(Orchestrator &orchestrator,
+                                                          slicing_step_t step,
+                                                          const ConfigBase *config);
 
 // Central entry point for the step-based slicing pipeline.
 //
