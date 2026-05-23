@@ -87,6 +87,7 @@ public:
 
     static Orchestrator &instance();
 
+    std::vector<Plugin *> registered_plugins() const;
     std::vector<Plugin *> get_all_plugins_for_step(slicing_step_t step) const;
     std::vector<Plugin *> get_active_plugins_for_step(slicing_step_t step) const;
     std::vector<Plugin *> get_current_plugins_for_step(slicing_step_t step) const;

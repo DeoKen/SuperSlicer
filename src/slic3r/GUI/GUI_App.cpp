@@ -100,6 +100,7 @@
 #include "CreateMMUTiledCanvas.hpp"
 #include "FreeCADDialog.hpp"
 #include "FirmwareDialog.hpp"
+#include "PluginConfigDialog.hpp"
 #include "Preferences.hpp"
 #include "Tab.hpp"
 #include "SysInfoDialog.hpp"
@@ -3296,6 +3297,10 @@ void GUI_App::add_config_menu(wxMenuBar *menu)
 #endif //(__linux__) && defined(SLIC3R_DESKTOP_INTEGRATION)        
         local_menu->AppendSeparator();
     }
+    if (is_editor()) {
+        local_menu->Append(config_id_base + ConfigMenuPlugins, _L("Plugins") + dots,
+                           _L("Choose which loaded plugins are active"));
+    }
     local_menu->Append(config_id_base + ConfigMenuPreferences, _L("&Preferences") + dots +
 #ifdef __APPLE__
         "\tCtrl+,",
@@ -3392,6 +3397,13 @@ void GUI_App::add_config_menu(wxMenuBar *menu)
         case ConfigMenuUpdateApp:
             app_version_check(true);
             break;
+        case ConfigMenuPlugins:
+        {
+            PluginConfigDialog dialog(mainframe);
+            UpdateDlgDarkUI(&dialog);
+            dialog.ShowModal();
+            break;
+        }
 #ifdef __linux__
         case ConfigMenuDesktopIntegration:
             show_desktop_integration_dialog();

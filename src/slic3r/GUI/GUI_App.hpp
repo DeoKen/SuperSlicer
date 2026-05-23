@@ -101,6 +101,7 @@ enum ConfigMenuIDs {
     ConfigMenuUpdateConf,
     ConfigMenuUpdateApp,
     ConfigMenuDesktopIntegration,
+    ConfigMenuPlugins,
     ConfigMenuPreferences,
     ConfigMenuLanguage,
     ConfigMenuFlashFirmware,

@@ -126,6 +126,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/GCodeViewer.cpp    
     GUI/Preferences.cpp
     GUI/Preferences.hpp
+    GUI/PluginConfigDialog.cpp
+    GUI/PluginConfigDialog.hpp
     GUI/PresetHints.cpp
     GUI/PresetHints.hpp
     GUI/GUI.cpp

@@ -121,6 +121,15 @@ bool Orchestrator::register_plugin(plugin_instance plugin) {
     return true;
 }
 
+std::vector<Plugin *> Orchestrator::registered_plugins() const
+{
+    std::vector<Plugin *> plugins;
+    plugins.reserve(m_registered_plugins.size());
+    for (const std::unique_ptr<Plugin> &plugin : m_registered_plugins)
+        plugins.push_back(plugin.get());
+    return plugins;
+}
+
 bool Orchestrator::add_ui_fragment(const char *target_file,
                                    const char *fragment_id,
                                    const char *content,
