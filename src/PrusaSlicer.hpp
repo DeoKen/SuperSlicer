@@ -1,10 +1,14 @@
 #ifndef SLIC3R_HPP
 #define SLIC3R_HPP
 
+#include <memory>
+
 #include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Model.hpp"
 
 namespace Slic3r {
+
+class AppConfig;
 
 namespace IO {
 	enum ExportFormat : int { 
@@ -19,6 +23,8 @@ namespace IO {
 
 class CLI {
 public:
+    ~CLI();
+
     int run(int argc, char **argv);
 
     DynamicPrintConfig& full_print_config() { return m_print_config; }
@@ -27,6 +33,7 @@ private:
     DynamicPrintAndCLIConfig    m_config;
     DynamicPrintConfig			m_print_config;
     DynamicPrintConfig          m_extra_config;
+    std::unique_ptr<AppConfig>  m_app_config;
     std::vector<std::string>    m_input_files;
     std::vector<std::string>    m_actions;
     std::vector<std::string>    m_transforms;

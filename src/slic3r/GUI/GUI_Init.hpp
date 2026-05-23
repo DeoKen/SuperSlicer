@@ -8,9 +8,13 @@
 #ifndef slic3r_GUI_Init_hpp_
 #define slic3r_GUI_Init_hpp_
 
+#include <memory>
+
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PrintConfig.hpp"
 namespace Slic3r {
+
+class AppConfig;
 
 namespace GUI {
 
@@ -35,6 +39,7 @@ struct GUI_InitParams
     bool                        start_downloader;
     bool                        delete_after_load;
     std::string                 download_url;
+    std::unique_ptr<AppConfig>  app_config;
 #if ENABLE_GL_CORE_PROFILE
 		std::pair<int, int>         opengl_version;
 		bool                        opengl_debug;

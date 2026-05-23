@@ -28,6 +28,8 @@
 #include <boost/nowide/iostream.hpp>
 #include <boost/nowide/convert.hpp>
 
+#include <utility>
+
 #if __APPLE__
     #include <signal.h>
 #endif // __APPLE__
@@ -52,6 +54,8 @@ int GUI_Run(GUI_InitParams &params)
 
     try {
         GUI::GUI_App* gui = new GUI::GUI_App(params.start_as_gcodeviewer ? GUI::GUI_App::EAppMode::GCodeViewer : GUI::GUI_App::EAppMode::Editor);
+        if (gui->get_app_mode() == GUI::GUI_App::EAppMode::Editor)
+            gui->app_config = std::move(params.app_config);
         if (gui->get_app_mode() != GUI::GUI_App::EAppMode::GCodeViewer) {
             // G-code viewer is currently not performing instance check, a new G-code viewer is started every time.
             //bool gui_single_instance_setting = gui->app_config->get_bool("single_instance");
