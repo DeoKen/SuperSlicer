@@ -157,6 +157,7 @@ endif ()
 target_link_libraries(Slic3r libslic3r libcereal)
 
 add_subdirectory(plugins_cpp)
+add_subdirectory(plugins_python)
 
 if (APPLE)
 #    add_compile_options(-stdlib=libc++)

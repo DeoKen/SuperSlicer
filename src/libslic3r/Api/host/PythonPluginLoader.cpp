@@ -1,0 +1,569 @@
+///|/ Copyright (c) SuperSlicer 2026 Durand Rémi @supermerill
+///|/
+///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+///|/
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+#define SLIC3R_RESTORE_DEBUG_MACRO
+#undef _DEBUG
+#endif
+#include <Python.h>
+#if defined(SLIC3R_RESTORE_DEBUG_MACRO)
+#define _DEBUG
+#undef SLIC3R_RESTORE_DEBUG_MACRO
+#endif
+
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
+
+#include "libslic3r/Api/plugin/c/slic3r_plugin.h"
+
+namespace {
+
+using OrchestratorRegisterPluginFn = void (*)(orchestrator_handle *, plugin_instance);
+
+std::vector<std::unique_ptr<class PythonPlugin>> s_python_plugins;
+
+boost::filesystem::path current_module_path()
+{
+#ifdef _WIN32
+    HMODULE module = NULL;
+    const DWORD flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+    if (GetModuleHandleExW(flags, reinterpret_cast<LPCWSTR>(&current_module_path), &module) == 0 || module == NULL)
+        return {};
+
+    std::vector<wchar_t> buffer(MAX_PATH);
+    DWORD length = 0;
+    for (;;) {
+        length = GetModuleFileNameW(module, buffer.data(), DWORD(buffer.size()));
+        if (length == 0)
+            return {};
+        if (length < buffer.size() - 1)
+            break;
+        buffer.resize(buffer.size() * 2);
+    }
+    return boost::filesystem::path(std::wstring(buffer.data(), length));
+#else
+    Dl_info info = {};
+    if (dladdr(reinterpret_cast<void *>(&current_module_path), &info) == 0 || info.dli_fname == nullptr)
+        return {};
+    return boost::filesystem::path(info.dli_fname);
+#endif
+}
+
+PyObject *python_path_from_boost(const boost::filesystem::path &path)
+{
+#ifdef _WIN32
+    const std::wstring native = path.wstring();
+    return PyUnicode_FromWideChar(native.c_str(), Py_ssize_t(native.size()));
+#else
+    const std::string native = path.string();
+    return PyUnicode_DecodeFSDefault(native.c_str());
+#endif
+}
+
+void append_python_path(const boost::filesystem::path &path)
+{
+    PyObject *sys_path = PySys_GetObject("path");
+    if (sys_path == nullptr || !PyList_Check(sys_path))
+        return;
+
+    PyObject *py_path = python_path_from_boost(path);
+    if (py_path == nullptr) {
+        PyErr_Print();
+        return;
+    }
+
+    const int contains = PySequence_Contains(sys_path, py_path);
+    if (contains == 0 && PyList_Append(sys_path, py_path) != 0)
+        PyErr_Print();
+    else if (contains < 0)
+        PyErr_Clear();
+
+    Py_DECREF(py_path);
+}
+
+std::string py_object_to_string(PyObject *object)
+{
+    if (object == nullptr)
+        return {};
+
+    PyObject *bytes = PyUnicode_AsUTF8String(object);
+    if (bytes == nullptr) {
+        PyErr_Clear();
+        return {};
+    }
+
+    const char *text = PyBytes_AsString(bytes);
+    std::string out = text != nullptr ? text : "";
+    Py_DECREF(bytes);
+    return out;
+}
+
+std::string string_attribute(PyObject *object, const char *name, const char *fallback = "")
+{
+    PyObject *attr = PyObject_GetAttrString(object, name);
+    if (attr == nullptr) {
+        PyErr_Clear();
+        return fallback != nullptr ? fallback : "";
+    }
+
+    std::string out = py_object_to_string(attr);
+    Py_DECREF(attr);
+    return out.empty() && fallback != nullptr ? fallback : out;
+}
+
+int int_attribute(PyObject *object, const char *name, int fallback)
+{
+    PyObject *attr = PyObject_GetAttrString(object, name);
+    if (attr == nullptr) {
+        PyErr_Clear();
+        return fallback;
+    }
+
+    const long value = PyLong_AsLong(attr);
+    if (PyErr_Occurred()) {
+        PyErr_Clear();
+        Py_DECREF(attr);
+        return fallback;
+    }
+
+    Py_DECREF(attr);
+    return int(value);
+}
+
+std::vector<std::string> string_list_attribute(PyObject *object, const char *name)
+{
+    std::vector<std::string> out;
+    PyObject *attr = PyObject_GetAttrString(object, name);
+    if (attr == nullptr) {
+        PyErr_Clear();
+        return out;
+    }
+
+    PyObject *iterator = PyObject_GetIter(attr);
+    Py_DECREF(attr);
+    if (iterator == nullptr) {
+        PyErr_Clear();
+        return out;
+    }
+
+    for (;;) {
+        PyObject *item = PyIter_Next(iterator);
+        if (item == nullptr)
+            break;
+        out.emplace_back(py_object_to_string(item));
+        Py_DECREF(item);
+    }
+    if (PyErr_Occurred())
+        PyErr_Clear();
+
+    Py_DECREF(iterator);
+    return out;
+}
+
+PyObject *pointer_to_python_uint(const void *ptr)
+{
+    return PyLong_FromUnsignedLongLong(static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(ptr)));
+}
+
+void call_python_void(PyObject *object, const char *method_name, PyObject *args, const std::string &plugin_id)
+{
+    PyObject *method = PyObject_GetAttrString(object, method_name);
+    if (method == nullptr) {
+        PyErr_Clear();
+        return;
+    }
+
+    if (!PyCallable_Check(method)) {
+        BOOST_LOG_TRIVIAL(warning) << "Python plugin '" << plugin_id << "' attribute "
+                                   << method_name << " is not callable.";
+        Py_DECREF(method);
+        return;
+    }
+
+    PyObject *result = PyObject_CallObject(method, args);
+    if (result == nullptr) {
+        PyErr_Print();
+        BOOST_LOG_TRIVIAL(error) << "Python plugin '" << plugin_id << "' failed in " << method_name << "().";
+        Py_DECREF(method);
+        return;
+    }
+
+    Py_DECREF(result);
+    Py_DECREF(method);
+}
+
+class PythonPlugin
+{
+public:
+    explicit PythonPlugin(PyObject *plugin)
+        : m_plugin(plugin)
+        , m_id(string_attribute(plugin, "plugin_id", "python.unnamed"))
+        , m_step(slicing_step_t(int_attribute(plugin, "step", STEP_POST_SLICING)))
+        , m_priority(int_attribute(plugin, "priority", 0))
+        , m_dependencies(string_list_attribute(plugin, "dependencies"))
+    {
+        Py_INCREF(m_plugin);
+        for (const std::string &dependency : m_dependencies)
+            m_dependency_ptrs.push_back(dependency.c_str());
+    }
+
+    ~PythonPlugin()
+    {
+        PyGILState_STATE gil_state = PyGILState_Ensure();
+        Py_DECREF(m_plugin);
+        PyGILState_Release(gil_state);
+    }
+
+    plugin_instance c_instance()
+    {
+        plugin_instance instance = {};
+        instance.ctx = this;
+        instance.vt = &vtable();
+        return instance;
+    }
+
+private:
+    static const char *get_id_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_id.c_str();
+    }
+
+    static slicing_step_t get_step_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_step;
+    }
+
+    static const_strings_t get_dependencies_bridge(void *plugin_ctx)
+    {
+        PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
+        const_strings_t out = {};
+        out.items = plugin->m_dependency_ptrs.empty() ? nullptr : plugin->m_dependency_ptrs.data();
+        out.size = uint32_t(plugin->m_dependency_ptrs.size());
+        return out;
+    }
+
+    static int32_t get_priority_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_priority;
+    }
+
+    static void initialize_bridge(void *plugin_ctx, storage_handle *storage)
+    {
+        PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
+        PyGILState_STATE gil_state = PyGILState_Ensure();
+        PyObject *arg = pointer_to_python_uint(storage);
+        PyObject *args = arg != nullptr ? PyTuple_Pack(1, arg) : nullptr;
+        Py_XDECREF(arg);
+        if (args != nullptr) {
+            call_python_void(plugin->m_plugin, "initialize", args, plugin->m_id);
+            Py_DECREF(args);
+        } else {
+            PyErr_Print();
+        }
+        PyGILState_Release(gil_state);
+    }
+
+    static void setup_bridge(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count)
+    {
+        PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
+        PyGILState_STATE gil_state = PyGILState_Ensure();
+        PyObject *py_run_ctx = pointer_to_python_uint(run_ctx);
+        PyObject *py_run_count = PyLong_FromUnsignedLong(run_count);
+        PyObject *args = py_run_ctx != nullptr && py_run_count != nullptr ? PyTuple_Pack(2, py_run_ctx, py_run_count) : nullptr;
+        Py_XDECREF(py_run_ctx);
+        Py_XDECREF(py_run_count);
+        if (args != nullptr) {
+            call_python_void(plugin->m_plugin, "setup", args, plugin->m_id);
+            Py_DECREF(args);
+        } else {
+            PyErr_Print();
+        }
+        PyGILState_Release(gil_state);
+    }
+
+    static void setup_run_bridge(void *plugin_ctx, const plugin_run_context *run_ctx)
+    {
+        PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
+        PyGILState_STATE gil_state = PyGILState_Ensure();
+        PyObject *arg = pointer_to_python_uint(run_ctx);
+        PyObject *args = arg != nullptr ? PyTuple_Pack(1, arg) : nullptr;
+        Py_XDECREF(arg);
+        if (args != nullptr) {
+            call_python_void(plugin->m_plugin, "setup_run", args, plugin->m_id);
+            Py_DECREF(args);
+        } else {
+            PyErr_Print();
+        }
+        PyGILState_Release(gil_state);
+    }
+
+    static void run_bridge(void *plugin_ctx, const plugin_run_context *run_ctx)
+    {
+        PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
+        PyGILState_STATE gil_state = PyGILState_Ensure();
+        PyObject *arg = pointer_to_python_uint(run_ctx);
+        PyObject *args = arg != nullptr ? PyTuple_Pack(1, arg) : nullptr;
+        Py_XDECREF(arg);
+        if (args != nullptr) {
+            call_python_void(plugin->m_plugin, "run", args, plugin->m_id);
+            Py_DECREF(args);
+        } else {
+            PyErr_Print();
+        }
+        PyGILState_Release(gil_state);
+    }
+
+    static const plugin_vtable &vtable()
+    {
+        static const plugin_vtable vt = {
+            &PythonPlugin::get_id_bridge,
+            &PythonPlugin::get_step_bridge,
+            &PythonPlugin::get_dependencies_bridge,
+            &PythonPlugin::get_priority_bridge,
+            &PythonPlugin::initialize_bridge,
+            &PythonPlugin::setup_bridge,
+            &PythonPlugin::setup_run_bridge,
+            &PythonPlugin::run_bridge
+        };
+        return vt;
+    }
+
+    PyObject *m_plugin = nullptr;
+    std::string m_id;
+    slicing_step_t m_step;
+    int32_t m_priority = 0;
+    std::vector<std::string> m_dependencies;
+    std::vector<const char *> m_dependency_ptrs;
+};
+
+OrchestratorRegisterPluginFn resolve_register_plugin(const boost::filesystem::path &host_library_path)
+{
+#ifdef _WIN32
+    static std::vector<HMODULE> loaded_modules;
+    HMODULE module = LoadLibraryW(host_library_path.wstring().c_str());
+    if (module == NULL) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot open host library '" << host_library_path.string()
+                                 << "' for Python plugin registration: error " << GetLastError();
+        return nullptr;
+    }
+    loaded_modules.push_back(module);
+
+    FARPROC farproc = GetProcAddress(module, "orchestrator_register_plugin");
+    if (farproc == NULL) {
+        BOOST_LOG_TRIVIAL(error) << "Host library '" << host_library_path.string()
+                                 << "' does not export orchestrator_register_plugin.";
+        return nullptr;
+    }
+    return reinterpret_cast<OrchestratorRegisterPluginFn>(farproc);
+#else
+    void *symbol = dlsym(RTLD_DEFAULT, "orchestrator_register_plugin");
+    if (symbol != nullptr)
+        return reinterpret_cast<OrchestratorRegisterPluginFn>(symbol);
+
+    void *module = dlopen(host_library_path.string().c_str(), RTLD_NOW | RTLD_GLOBAL);
+    if (module == nullptr) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot open host library '" << host_library_path.string()
+                                 << "' for Python plugin registration: " << dlerror();
+        return nullptr;
+    }
+
+    symbol = dlsym(module, "orchestrator_register_plugin");
+    if (symbol == nullptr) {
+        BOOST_LOG_TRIVIAL(error) << "Host library '" << host_library_path.string()
+                                 << "' does not export orchestrator_register_plugin: " << dlerror();
+        return nullptr;
+    }
+    return reinterpret_cast<OrchestratorRegisterPluginFn>(symbol);
+#endif
+}
+
+void register_python_plugin_object(PyObject *plugin_object,
+                                   OrchestratorRegisterPluginFn register_plugin_fn,
+                                   orchestrator_handle *orchestrator)
+{
+    if (plugin_object == nullptr || plugin_object == Py_None)
+        return;
+
+    std::unique_ptr<PythonPlugin> plugin(new PythonPlugin(plugin_object));
+    plugin_instance instance = plugin->c_instance();
+    register_plugin_fn(orchestrator, instance);
+    BOOST_LOG_TRIVIAL(info) << "Registered Python plugin '" << plugin->c_instance().vt->get_id(plugin.get()) << "'.";
+    s_python_plugins.emplace_back(std::move(plugin));
+}
+
+void register_python_plugin_result(PyObject *result,
+                                   OrchestratorRegisterPluginFn register_plugin_fn,
+                                   orchestrator_handle *orchestrator)
+{
+    if (result == nullptr || result == Py_None)
+        return;
+
+    if (PyList_Check(result) || PyTuple_Check(result)) {
+        const Py_ssize_t count = PySequence_Size(result);
+        for (Py_ssize_t idx = 0; idx < count; ++idx) {
+            PyObject *item = PySequence_GetItem(result, idx);
+            register_python_plugin_object(item, register_plugin_fn, orchestrator);
+            Py_XDECREF(item);
+        }
+        return;
+    }
+
+    register_python_plugin_object(result, register_plugin_fn, orchestrator);
+}
+
+PyObject *create_python_api(orchestrator_handle *orchestrator, const boost::filesystem::path &host_library_path)
+{
+    PyObject *api_module = PyImport_ImportModule("slic3r_api");
+    if (api_module == nullptr) {
+        PyErr_Print();
+        return nullptr;
+    }
+
+    PyObject *api_class = PyObject_GetAttrString(api_module, "Slic3rAPI");
+    Py_DECREF(api_module);
+    if (api_class == nullptr) {
+        PyErr_Print();
+        return nullptr;
+    }
+
+    PyObject *py_orchestrator = pointer_to_python_uint(orchestrator);
+    PyObject *py_host_library = python_path_from_boost(host_library_path);
+    PyObject *api = py_orchestrator != nullptr && py_host_library != nullptr ?
+                        PyObject_CallFunctionObjArgs(api_class, py_orchestrator, py_host_library, nullptr) :
+                        nullptr;
+    Py_DECREF(api_class);
+    Py_XDECREF(py_orchestrator);
+    Py_XDECREF(py_host_library);
+
+    if (api == nullptr)
+        PyErr_Print();
+    return api;
+}
+
+void call_python_register(PyObject *module,
+                          PyObject *api,
+                          OrchestratorRegisterPluginFn register_plugin_fn,
+                          orchestrator_handle *orchestrator,
+                          const boost::filesystem::path &plugin_path)
+{
+    PyObject *register_fn = PyObject_GetAttrString(module, "register_plugin");
+    if (register_fn == nullptr) {
+        PyErr_Clear();
+        BOOST_LOG_TRIVIAL(warning) << "Python plugin '" << plugin_path.string()
+                                   << "' does not define register_plugin(api).";
+        return;
+    }
+
+    if (!PyCallable_Check(register_fn)) {
+        BOOST_LOG_TRIVIAL(warning) << "Python plugin '" << plugin_path.string()
+                                   << "' has a non-callable register_plugin attribute.";
+        Py_DECREF(register_fn);
+        return;
+    }
+
+    PyObject *result = PyObject_CallFunctionObjArgs(register_fn, api, nullptr);
+    Py_DECREF(register_fn);
+
+    if (result == nullptr) {
+        PyErr_Print();
+        BOOST_LOG_TRIVIAL(error) << "Python plugin '" << plugin_path.string() << "' failed during registration.";
+        return;
+    }
+
+    register_python_plugin_result(result, register_plugin_fn, orchestrator);
+    Py_DECREF(result);
+    BOOST_LOG_TRIVIAL(info) << "Loaded Python plugin module '" << plugin_path.string() << "'.";
+}
+
+void load_python_plugin(const boost::filesystem::path &plugin_path,
+                        PyObject *api,
+                        OrchestratorRegisterPluginFn register_plugin_fn,
+                        orchestrator_handle *orchestrator)
+{
+    const std::string module_name = plugin_path.stem().string();
+    PyObject *module = PyImport_ImportModule(module_name.c_str());
+    if (module == nullptr) {
+        PyErr_Print();
+        BOOST_LOG_TRIVIAL(error) << "Cannot import Python plugin '" << plugin_path.string() << "'.";
+        return;
+    }
+
+    call_python_register(module, api, register_plugin_fn, orchestrator, plugin_path);
+    Py_DECREF(module);
+}
+
+void load_python_plugins(orchestrator_handle *orchestrator)
+{
+    const boost::filesystem::path loader_path = current_module_path();
+    if (loader_path.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << "Cannot locate python_plugin_loader module.";
+        return;
+    }
+
+    const boost::filesystem::path plugin_repository = loader_path.parent_path();
+    const boost::filesystem::path python_root = plugin_repository / "python";
+    const boost::filesystem::path python_plugins = python_root / "plugins";
+#ifdef _WIN32
+    const boost::filesystem::path host_library_path = plugin_repository.parent_path() / "Slic3r.dll";
+#else
+    const boost::filesystem::path host_library_path = plugin_repository.parent_path() / "Slic3r";
+#endif
+
+    if (!boost::filesystem::exists(python_plugins)) {
+        BOOST_LOG_TRIVIAL(trace) << "Python plugin directory '" << python_plugins.string() << "' does not exist.";
+        return;
+    }
+
+    OrchestratorRegisterPluginFn register_plugin_fn = resolve_register_plugin(host_library_path);
+    if (register_plugin_fn == nullptr)
+        return;
+
+    if (!Py_IsInitialized())
+        Py_Initialize();
+    if (!Py_IsInitialized()) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot initialize Python runtime for plugins.";
+        return;
+    }
+
+    PyGILState_STATE gil_state = PyGILState_Ensure();
+    append_python_path(python_root);
+    append_python_path(python_plugins);
+
+    PyObject *api = create_python_api(orchestrator, host_library_path);
+    if (api != nullptr) {
+        for (boost::filesystem::directory_iterator it(python_plugins), end; it != end; ++it) {
+            const boost::filesystem::path plugin_path = it->path();
+            if (boost::filesystem::is_regular_file(plugin_path) && plugin_path.extension() == ".py")
+                load_python_plugin(plugin_path, api, register_plugin_fn, orchestrator);
+        }
+        Py_DECREF(api);
+    }
+
+    PyGILState_Release(gil_state);
+}
+
+} // namespace
+
+extern "C" SLIC3R_PLUGIN_API void register_plugin(orchestrator_handle *orch)
+{
+    load_python_plugins(orch);
+}
