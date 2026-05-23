@@ -95,137 +95,137 @@ struct c_surface
 Snapshot one Surface into a tiny C value. Prefer the handle API below when the
 Surface may grow new fields, or when you need to mutate it.
 */
-c_surface surface_c_view(const surface_handle *me);
+SLIC3R_HOST_API c_surface surface_c_view(const surface_handle *me);
 
 /* Get expolygon (non-const / const). */
-expolygon_handle *surface_get_expolygon_mutable(surface_handle *me);
-const expolygon_handle *surface_get_expolygon(const surface_handle *me);
+SLIC3R_HOST_API expolygon_handle *surface_get_expolygon_mutable(surface_handle *me);
+SLIC3R_HOST_API const expolygon_handle *surface_get_expolygon(const surface_handle *me);
 
 /* Surface type bitmask access. */
-raw_surface_type surface_get_type(const surface_handle *me);
-void surface_set_type(surface_handle *me, raw_surface_type type);
+SLIC3R_HOST_API raw_surface_type surface_get_type(const surface_handle *me);
+SLIC3R_HOST_API void surface_set_type(surface_handle *me, raw_surface_type type);
 
 /* Convenience helpers for one flag inside the surface type bitmask. */
-int32_t surface_get_flag(const surface_handle *me, raw_surface_type flag);
-void surface_set_flag(surface_handle *me, raw_surface_type flag, int32_t enabled);
+SLIC3R_HOST_API int32_t surface_get_flag(const surface_handle *me, raw_surface_type flag);
+SLIC3R_HOST_API void surface_set_flag(surface_handle *me, raw_surface_type flag, int32_t enabled);
 
 /* Surface collection view. The collection owns its Surface elements. */
-uint32_t surface_collection_size(const surface_collection_handle *me);
-surface_handle *surface_collection_at_mutable(surface_collection_handle *me, uint32_t idx);
-const surface_handle *surface_collection_at(const surface_collection_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t surface_collection_size(const surface_collection_handle *me);
+SLIC3R_HOST_API surface_handle *surface_collection_at_mutable(surface_collection_handle *me, uint32_t idx);
+SLIC3R_HOST_API const surface_handle *surface_collection_at(const surface_collection_handle *me, uint32_t idx);
 
 /* ========================= LAYER ========================= */
 
-coord_t layer_get_height(const layer_handle *me);
-coord_t layer_get_print_z(const layer_handle *me);
+SLIC3R_HOST_API coord_t layer_get_height(const layer_handle *me);
+SLIC3R_HOST_API coord_t layer_get_print_z(const layer_handle *me);
 /* Center Z of the slicing plane. It is exactly print_z - height / 2. */
-coord_t layer_get_slice_z(const layer_handle *me);
+SLIC3R_HOST_API coord_t layer_get_slice_z(const layer_handle *me);
 /* is == -1 if this layer isn't a support layer. */
-coord_t layer_get_support_id(const layer_handle *me);
+SLIC3R_HOST_API coord_t layer_get_support_id(const layer_handle *me);
 
-const expolygon_collection_handle *layer_get_slices(const layer_handle *me);
+SLIC3R_HOST_API const expolygon_collection_handle *layer_get_slices(const layer_handle *me);
 
-layer_handle *layer_get_upper_layer_mutable(layer_handle *me);
-const layer_handle *layer_get_upper_layer(const layer_handle *me);
+SLIC3R_HOST_API layer_handle *layer_get_upper_layer_mutable(layer_handle *me);
+SLIC3R_HOST_API const layer_handle *layer_get_upper_layer(const layer_handle *me);
 
-layer_handle *layer_get_lower_layer_mutable(layer_handle *me);
-const layer_handle *layer_get_lower_layer(const layer_handle *me);
+SLIC3R_HOST_API layer_handle *layer_get_lower_layer_mutable(layer_handle *me);
+SLIC3R_HOST_API const layer_handle *layer_get_lower_layer(const layer_handle *me);
 
 // tag that can be used by processed to store some information
-void layer_set_tag(layer_handle *me, const char *tag, double value);
-double layer_get_tag(const layer_handle *me, const char *tag);
+SLIC3R_HOST_API void layer_set_tag(layer_handle *me, const char *tag, double value);
+SLIC3R_HOST_API double layer_get_tag(const layer_handle *me, const char *tag);
 
-uint32_t layer_count_region(const layer_handle *me);
-layer_region_handle *layer_get_region_mutable(layer_handle *me, uint32_t idx);
-const layer_region_handle *layer_get_region(const layer_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t layer_count_region(const layer_handle *me);
+SLIC3R_HOST_API layer_region_handle *layer_get_region_mutable(layer_handle *me, uint32_t idx);
+SLIC3R_HOST_API const layer_region_handle *layer_get_region(const layer_handle *me, uint32_t idx);
 
-uint32_t layer_count_island(const layer_handle *me);
-layer_island_handle *layer_get_island_mutable(layer_handle *me, uint32_t idx);
-const layer_island_handle *layer_get_island(const layer_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t layer_count_island(const layer_handle *me);
+SLIC3R_HOST_API layer_island_handle *layer_get_island_mutable(layer_handle *me, uint32_t idx);
+SLIC3R_HOST_API const layer_island_handle *layer_get_island(const layer_handle *me, uint32_t idx);
 
 /* ========================= LAYER REGION ========================= */
 
 /* tag that can be used by processed to store some information */
-void layer_region_set_tag(layer_region_handle *me, const char *tag, double value);
-double layer_region_get_tag(const layer_region_handle *me, const char *tag);
+SLIC3R_HOST_API void layer_region_set_tag(layer_region_handle *me, const char *tag, double value);
+SLIC3R_HOST_API double layer_region_get_tag(const layer_region_handle *me, const char *tag);
 
-c_flow layer_region_get_flow(const layer_region_handle *me, raw_extrusion_role flow_role);
-const expolygon_collection_handle *layer_region_get_slices(const layer_region_handle *me);
-c_bounding_box layer_region_get_bounding_box(const layer_region_handle *me);
+SLIC3R_HOST_API c_flow layer_region_get_flow(const layer_region_handle *me, raw_extrusion_role flow_role);
+SLIC3R_HOST_API const expolygon_collection_handle *layer_region_get_slices(const layer_region_handle *me);
+SLIC3R_HOST_API c_bounding_box layer_region_get_bounding_box(const layer_region_handle *me);
 
 /* ---- processed surfaces ---- */
-surface_collection_handle *layer_region_get_surfaces_mutable(layer_region_handle *me);
-const surface_collection_handle *layer_region_get_surfaces(const layer_region_handle *me);
-uint32_t layer_region_count_surface(const layer_region_handle *me);
-surface_handle *layer_region_get_surface_mutable(layer_region_handle *me, uint32_t idx);
-const surface_handle *layer_region_get_surface(const layer_region_handle *me, uint32_t idx);
+SLIC3R_HOST_API surface_collection_handle *layer_region_get_surfaces_mutable(layer_region_handle *me);
+SLIC3R_HOST_API const surface_collection_handle *layer_region_get_surfaces(const layer_region_handle *me);
+SLIC3R_HOST_API uint32_t layer_region_count_surface(const layer_region_handle *me);
+SLIC3R_HOST_API surface_handle *layer_region_get_surface_mutable(layer_region_handle *me, uint32_t idx);
+SLIC3R_HOST_API const surface_handle *layer_region_get_surface(const layer_region_handle *me, uint32_t idx);
 
 /* ---- processed surfaces for infill ---- */
-surface_collection_handle *layer_region_get_fill_surfaces_mutable(layer_region_handle *me);
-const surface_collection_handle *layer_region_get_fill_surfaces(const layer_region_handle *me);
-uint32_t layer_region_count_fill_surface(const layer_region_handle *me);
-surface_handle *layer_region_get_fill_surface_mutable(layer_region_handle *me, uint32_t idx);
-const surface_handle *layer_region_get_fill_surface(const layer_region_handle *me, uint32_t idx);
+SLIC3R_HOST_API surface_collection_handle *layer_region_get_fill_surfaces_mutable(layer_region_handle *me);
+SLIC3R_HOST_API const surface_collection_handle *layer_region_get_fill_surfaces(const layer_region_handle *me);
+SLIC3R_HOST_API uint32_t layer_region_count_fill_surface(const layer_region_handle *me);
+SLIC3R_HOST_API surface_handle *layer_region_get_fill_surface_mutable(layer_region_handle *me, uint32_t idx);
+SLIC3R_HOST_API const surface_handle *layer_region_get_fill_surface(const layer_region_handle *me, uint32_t idx);
 
-const layer_handle *layer_region_get_layer(const layer_region_handle *me);
-const print_region_handle *layer_region_get_print_region(const layer_region_handle *me);
+SLIC3R_HOST_API const layer_handle *layer_region_get_layer(const layer_region_handle *me);
+SLIC3R_HOST_API const print_region_handle *layer_region_get_print_region(const layer_region_handle *me);
 
 /* ========================= LAYER ISLAND ========================= */
 
-expolygon_handle *layer_island_get_slice_mutable(layer_island_handle *me);
-const expolygon_handle *layer_island_get_slice(const layer_island_handle *me);
-c_bounding_box layer_island_get_bounding_box(const layer_island_handle *me);
+SLIC3R_HOST_API expolygon_handle *layer_island_get_slice_mutable(layer_island_handle *me);
+SLIC3R_HOST_API const expolygon_handle *layer_island_get_slice(const layer_island_handle *me);
+SLIC3R_HOST_API c_bounding_box layer_island_get_bounding_box(const layer_island_handle *me);
 /* give an expolygon included inside get_slice()  where the infill has to be extruded. */
-const expolygon_handle *layer_island_get_infill_slice(const layer_island_handle *me);
-c_bounding_box layer_island_get_infill_bounding_box(const layer_island_handle *me);
+SLIC3R_HOST_API const expolygon_handle *layer_island_get_infill_slice(const layer_island_handle *me);
+SLIC3R_HOST_API c_bounding_box layer_island_get_infill_bounding_box(const layer_island_handle *me);
 /* give an expolygon included inside get_infill_slice() where the infill may be extruded if there was no
  * infill-perimeter encroachment. */
-const expolygon_handle *layer_island_get_infill_no_overlap_slice(const layer_island_handle *me);
+SLIC3R_HOST_API const expolygon_handle *layer_island_get_infill_no_overlap_slice(const layer_island_handle *me);
 
 /* tag that can be used by processed to store some information */
-void layer_island_set_tag(layer_island_handle *me, const char *tag, double value);
-double layer_island_get_tag(const layer_island_handle *me, const char *tag);
+SLIC3R_HOST_API void layer_island_set_tag(layer_island_handle *me, const char *tag, double value);
+SLIC3R_HOST_API double layer_island_get_tag(const layer_island_handle *me, const char *tag);
 
-uint32_t layer_island_count_region(const layer_island_handle *me);
-layer_region_handle *layer_island_get_region_mutable(layer_island_handle *me, uint32_t idx);
-const layer_region_handle *layer_island_get_region(const layer_island_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t layer_island_count_region(const layer_island_handle *me);
+SLIC3R_HOST_API layer_region_handle *layer_island_get_region_mutable(layer_island_handle *me, uint32_t idx);
+SLIC3R_HOST_API const layer_region_handle *layer_island_get_region(const layer_island_handle *me, uint32_t idx);
 
-uint32_t layer_island_count_region_island(const layer_island_handle *me);
-layer_region_island_handle *layer_island_get_region_island_mutable(layer_island_handle *me, uint32_t idx);
-const layer_region_island_handle *layer_island_get_region_island(const layer_island_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t layer_island_count_region_island(const layer_island_handle *me);
+SLIC3R_HOST_API layer_region_island_handle *layer_island_get_region_island_mutable(layer_island_handle *me, uint32_t idx);
+SLIC3R_HOST_API const layer_region_island_handle *layer_island_get_region_island(const layer_island_handle *me, uint32_t idx);
 
-const layer_handle *layer_island_get_layer(const layer_island_handle *me);
+SLIC3R_HOST_API const layer_handle *layer_island_get_layer(const layer_island_handle *me);
 
 /* ========================= LAYER REGION ISLAND ========================= */
 
-int32_t layer_region_island_extruder_id(const layer_region_island_handle *me);
-int32_t layer_region_island_has_extrusions(const layer_region_island_handle *me);
-int32_t layer_region_island_has_extrusion(const layer_region_island_handle *me, raw_extrusion_role role);
-extrusion_entity *layer_region_island_get_mutable_extrusion(layer_region_island_handle *me, raw_extrusion_role role);
-const extrusion_entity *layer_region_island_get_extrusion(const layer_region_island_handle *me,
+SLIC3R_HOST_API int32_t layer_region_island_extruder_id(const layer_region_island_handle *me);
+SLIC3R_HOST_API int32_t layer_region_island_has_extrusions(const layer_region_island_handle *me);
+SLIC3R_HOST_API int32_t layer_region_island_has_extrusion(const layer_region_island_handle *me, raw_extrusion_role role);
+SLIC3R_HOST_API extrusion_entity *layer_region_island_get_mutable_extrusion(layer_region_island_handle *me, raw_extrusion_role role);
+SLIC3R_HOST_API const extrusion_entity *layer_region_island_get_extrusion(const layer_region_island_handle *me,
                                                           raw_extrusion_role role);
 
 /* tag that can be used by processed to store some information */
-void layer_region_island_set_tag(layer_region_island_handle *me, const char *tag, double value);
-double layer_region_island_get_tag(const layer_region_island_handle *me, const char *tag);
+SLIC3R_HOST_API void layer_region_island_set_tag(layer_region_island_handle *me, const char *tag, double value);
+SLIC3R_HOST_API double layer_region_island_get_tag(const layer_region_island_handle *me, const char *tag);
 
-uint32_t layer_region_island_count_region_island(const layer_region_island_handle *me);
-layer_region_island_handle *layer_region_island_get_region_island_mutable(layer_region_island_handle *me, uint32_t idx);
-const layer_region_island_handle *layer_region_island_get_region_island(const layer_region_island_handle *me,
+SLIC3R_HOST_API uint32_t layer_region_island_count_region_island(const layer_region_island_handle *me);
+SLIC3R_HOST_API layer_region_island_handle *layer_region_island_get_region_island_mutable(layer_region_island_handle *me, uint32_t idx);
+SLIC3R_HOST_API const layer_region_island_handle *layer_region_island_get_region_island(const layer_region_island_handle *me,
                                                                         uint32_t idx);
 
 /* ========================= PRINT REGION ========================= */
 
-config_handle *print_region_get_config_mutable(print_region_handle *me);
-const config_handle *print_region_get_config(const print_region_handle *me);
+SLIC3R_HOST_API config_handle *print_region_get_config_mutable(print_region_handle *me);
+SLIC3R_HOST_API const config_handle *print_region_get_config(const print_region_handle *me);
 
 /* ========================= OBJECT ========================= */
 
-config_handle *object_get_config_mutable(object_handle *me);
-const config_handle *object_get_config(const object_handle *me);
+SLIC3R_HOST_API config_handle *object_get_config_mutable(object_handle *me);
+SLIC3R_HOST_API const config_handle *object_get_config(const object_handle *me);
 
 // Deprecated: if not useful, it will be deleted
-coord_t object_get_max_z(const object_handle *me);
+SLIC3R_HOST_API coord_t object_get_max_z(const object_handle *me);
 
 /*
 Transformation from the source model object into this printable Object.
@@ -236,46 +236,46 @@ used to keep Clipper coordinates small is not. To reproduce trafo_centered(),
 apply object_get_center_offset() as a pre-translation:
     centered = translate(-unscaled(center.x), -unscaled(center.y), 0) * transform
 */
-c_matrix4d object_get_transform(const object_handle *me);
+SLIC3R_HOST_API c_matrix4d object_get_transform(const object_handle *me);
 
 /*
 Scaled XY offset used by the host while slicing to center the mesh before it is
 sent to Clipper. This is a slicer-space 2D value, so it uses coord_t through
 c_point. Convert with unscaled() before composing it with c_matrix4d.
 */
-c_point object_get_center_offset(const object_handle *me);
+SLIC3R_HOST_API c_point object_get_center_offset(const object_handle *me);
 
-uint32_t object_count_layer(const object_handle *me);
-layer_handle *object_get_layer_mutable(object_handle *me, uint32_t idx);
-const layer_handle *object_get_layer(const object_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t object_count_layer(const object_handle *me);
+SLIC3R_HOST_API layer_handle *object_get_layer_mutable(object_handle *me, uint32_t idx);
+SLIC3R_HOST_API const layer_handle *object_get_layer(const object_handle *me, uint32_t idx);
 
-uint32_t object_count_region(const object_handle *me);
-print_region_handle *object_get_print_region_mutable(object_handle *me, uint32_t idx);
-const print_region_handle *object_get_print_region(const object_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t object_count_region(const object_handle *me);
+SLIC3R_HOST_API print_region_handle *object_get_print_region_mutable(object_handle *me, uint32_t idx);
+SLIC3R_HOST_API const print_region_handle *object_get_print_region(const object_handle *me, uint32_t idx);
 
 /* ========================= PRINT ========================= */
 
-config_handle *print_get_config_mutable(print_handle *me);
-const config_handle *print_get_config(const print_handle *me);
+SLIC3R_HOST_API config_handle *print_get_config_mutable(print_handle *me);
+SLIC3R_HOST_API const config_handle *print_get_config(const print_handle *me);
 
-uint32_t print_count_object(const print_handle *me);
+SLIC3R_HOST_API uint32_t print_count_object(const print_handle *me);
 
-object_handle *print_get_object_mutable(print_handle *me, uint32_t idx);
-const object_handle *print_get_object(const print_handle *me, uint32_t idx);
+SLIC3R_HOST_API object_handle *print_get_object_mutable(print_handle *me, uint32_t idx);
+SLIC3R_HOST_API const object_handle *print_get_object(const print_handle *me, uint32_t idx);
 
 /* ========================= CONFIG ========================= */
 
 /*
 Returns keys as a borrowed array of strings.
 */
-const_strings_t config_keys(const config_handle *me);
+SLIC3R_HOST_API const_strings_t config_keys(const config_handle *me);
 
 /*
 Get option by key (string must be null-terminated).
 Returns NULL if not found.
 */
-const config_option_handle *config_get(const config_handle *me, const char *key);
-config_option_handle *config_get_mutable(config_handle *me, const char *key);
+SLIC3R_HOST_API const config_option_handle *config_get(const config_handle *me, const char *key);
+SLIC3R_HOST_API config_option_handle *config_get_mutable(config_handle *me, const char *key);
 
 #ifdef __cplusplus
 }

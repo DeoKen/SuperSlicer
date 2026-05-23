@@ -105,28 +105,28 @@ typedef enum raw_facet_painting_value {
 /* ========================= PRINTOBJECT -> VOLUMES ========================= */
 
 /* Returns the number of volumes borrowed from the Object's source model data. */
-uint32_t object_volume_count(const object_handle *object);
+SLIC3R_HOST_API uint32_t object_volume_count(const object_handle *object);
 
 /*
 Returns a borrowed read-only Volume handle.
 The handle stays valid only while the underlying Object stays valid.
 */
-const volume_handle *object_volume_at(const object_handle *object, uint32_t idx);
+SLIC3R_HOST_API const volume_handle *object_volume_at(const object_handle *object, uint32_t idx);
 
 /* ========================= VOLUME ========================= */
 
-raw_volume_type volume_get_type(const volume_handle *volume);
-uint64_t volume_get_id(const volume_handle *volume);
-const config_handle *volume_get_config(const volume_handle *volume);
+SLIC3R_HOST_API raw_volume_type volume_get_type(const volume_handle *volume);
+SLIC3R_HOST_API uint64_t volume_get_id(const volume_handle *volume);
+SLIC3R_HOST_API const config_handle *volume_get_config(const volume_handle *volume);
 
 /* Returns -1 if the volume has no FFF extruder assignment. */
-int32_t volume_get_extruder_id(const volume_handle *volume);
+SLIC3R_HOST_API int32_t volume_get_extruder_id(const volume_handle *volume);
 
-c_matrix4d volume_get_matrix(const volume_handle *volume);
-c_matrix4d volume_get_matrix_no_offset(const volume_handle *volume);
+SLIC3R_HOST_API c_matrix4d volume_get_matrix(const volume_handle *volume);
+SLIC3R_HOST_API c_matrix4d volume_get_matrix_no_offset(const volume_handle *volume);
 
 /* Returns non-zero if the volume has any painted facets of the requested type. */
-int volume_has_painting(const volume_handle *volume, raw_facet_painting_type paint_type);
+SLIC3R_HOST_API int volume_has_painting(const volume_handle *volume, raw_facet_painting_type paint_type);
 
 /*
 Project painted facets from all model-part volumes of an Object to its layers.
@@ -151,20 +151,20 @@ For RAW_FACET_PAINTING_MMU_SEGMENTATION:
     bottom painted facet slabs into the output. This is a raw geometric helper;
     it does not perform the full native MMU segmentation refinement.
 */
-void object_project_painting_to_polygons(const object_handle *object,
-                                         raw_facet_painting_type paint_type,
-                                         int32_t painting_value,
-                                         polygon_collection_handle **out_by_layer,
-                                         uint32_t layer_count);
+SLIC3R_HOST_API void object_project_painting_to_polygons(const object_handle *object,
+                                                         raw_facet_painting_type paint_type,
+                                                         int32_t painting_value,
+                                                         polygon_collection_handle **out_by_layer,
+                                                         uint32_t layer_count);
 
-const triangle_mesh_handle *volume_get_mesh(const volume_handle *volume);
+SLIC3R_HOST_API const triangle_mesh_handle *volume_get_mesh(const volume_handle *volume);
 
 /* ========================= TRIANGLE MESH ========================= */
 
-uint32_t triangle_mesh_vertex_count(const triangle_mesh_handle *mesh);
-uint32_t triangle_mesh_triangle_count(const triangle_mesh_handle *mesh);
-c_vec3f triangle_mesh_vertex_at(const triangle_mesh_handle *mesh, uint32_t idx);
-c_triangle_indices triangle_mesh_triangle_at(const triangle_mesh_handle *mesh, uint32_t idx);
+SLIC3R_HOST_API uint32_t triangle_mesh_vertex_count(const triangle_mesh_handle *mesh);
+SLIC3R_HOST_API uint32_t triangle_mesh_triangle_count(const triangle_mesh_handle *mesh);
+SLIC3R_HOST_API c_vec3f triangle_mesh_vertex_at(const triangle_mesh_handle *mesh, uint32_t idx);
+SLIC3R_HOST_API c_triangle_indices triangle_mesh_triangle_at(const triangle_mesh_handle *mesh, uint32_t idx);
 
 /*
 Slice a TriangleMesh into raw polygon loops at object-local Z positions.
@@ -179,26 +179,26 @@ usually created in plugin storage by the plugin.
 Each destination collection is cleared and replaced by the polygons generated at
 the matching Z.
 */
-void triangle_mesh_slice_to_polygons(const triangle_mesh_handle *mesh,
-                                     c_matrix4d transform,
-                                     const float *z_mm_by_layer,
-                                     polygon_collection_handle **slices_by_layer,
-                                     uint32_t layer_count);
+SLIC3R_HOST_API void triangle_mesh_slice_to_polygons(const triangle_mesh_handle *mesh,
+                                                     c_matrix4d transform,
+                                                     const float *z_mm_by_layer,
+                                                     polygon_collection_handle **slices_by_layer,
+                                                     uint32_t layer_count);
 
 /*
 Same as triangle_mesh_slice_to_polygons(), but exposes MeshSlicingParamsEx so a
 plugin can reproduce the native PrintObject::slice_volumes() behavior.
 */
-void triangle_mesh_slice_to_polygons_with_params(const triangle_mesh_handle *mesh,
-                                                 const c_mesh_slicing_params *params,
-                                                 const float *z_mm_by_layer,
-                                                 polygon_collection_handle **slices_by_layer,
-                                                 uint32_t layer_count);
+SLIC3R_HOST_API void triangle_mesh_slice_to_polygons_with_params(const triangle_mesh_handle *mesh,
+                                                                 const c_mesh_slicing_params *params,
+                                                                 const float *z_mm_by_layer,
+                                                                 polygon_collection_handle **slices_by_layer,
+                                                                 uint32_t layer_count);
 
-polygon_collection_handle* triangle_mesh_slice_to_polygon(storage_handle *storage,
-                                    const triangle_mesh_handle *mesh,
-                                    c_matrix4d transform,
-                                    float layer_z_mm);
+SLIC3R_HOST_API polygon_collection_handle *triangle_mesh_slice_to_polygon(storage_handle *storage,
+                                                                         const triangle_mesh_handle *mesh,
+                                                                         c_matrix4d transform,
+                                                                         float layer_z_mm);
 
 /*
 Slice a TriangleMesh into raw expolygon at object-local Z positions.
@@ -213,22 +213,22 @@ usually created in plugin storage by the plugin.
 Each destination collection is cleared and replaced by the polygons generated at
 the matching Z.
 */
-void triangle_mesh_slice_to_expolygons(const triangle_mesh_handle *mesh,
-                                      c_matrix4d transform,
-                                      const float *z_mm_by_layer,
-                                      expolygon_collection_handle **slices_by_layer,
-                                    uint32_t layer_count);
+SLIC3R_HOST_API void triangle_mesh_slice_to_expolygons(const triangle_mesh_handle *mesh,
+                                                       c_matrix4d transform,
+                                                       const float *z_mm_by_layer,
+                                                       expolygon_collection_handle **slices_by_layer,
+                                                       uint32_t layer_count);
 
 /*
 Slice directly to ExPolygons using MeshSlicingParamsEx. This is the preferred
 entry point for STEP_SLICING plugins because it follows the same low-level path
 as PrintObjectSlice.cpp::slice_volumes_inner().
 */
-void triangle_mesh_slice_to_expolygons_with_params(const triangle_mesh_handle *mesh,
-                                                   const c_mesh_slicing_params *params,
-                                                   const float *z_mm_by_layer,
-                                                   expolygon_collection_handle **slices_by_layer,
-                                                   uint32_t layer_count);
+SLIC3R_HOST_API void triangle_mesh_slice_to_expolygons_with_params(const triangle_mesh_handle *mesh,
+                                                                   const c_mesh_slicing_params *params,
+                                                                   const float *z_mm_by_layer,
+                                                                   expolygon_collection_handle **slices_by_layer,
+                                                                   uint32_t layer_count);
 
 #ifdef __cplusplus
 } /* extern "C" */

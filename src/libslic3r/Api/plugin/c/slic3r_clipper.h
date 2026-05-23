@@ -60,15 +60,15 @@ These functions allocate only the small adapter object in storage. They do not
 copy the source geometry. This keeps conversion cheap, but also means mutating or
 freeing the source geometry before using the clipper_shapes_handle is invalid.
 */
-clipper_shapes_handle *clipper_shapes_create_empty(storage_handle *storage);
-clipper_shapes_handle *clipper_shapes_from_polygon(storage_handle *storage, const polygon_handle *polygon);
-clipper_shapes_handle *clipper_shapes_from_polyline(storage_handle *storage, const polyline_handle *polyline);
-clipper_shapes_handle *clipper_shapes_from_polygons(storage_handle *storage, const polygon_collection_handle *polygons);
-clipper_shapes_handle *clipper_shapes_from_expolygon(storage_handle *storage, const expolygon_handle *expolygon);
-clipper_shapes_handle *clipper_shapes_from_expolygons(storage_handle *storage, const expolygon_collection_handle *expolygons);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_shapes_create_empty(storage_handle *storage);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_shapes_from_polygon(storage_handle *storage, const polygon_handle *polygon);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_shapes_from_polyline(storage_handle *storage, const polyline_handle *polyline);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_shapes_from_polygons(storage_handle *storage, const polygon_collection_handle *polygons);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_shapes_from_expolygon(storage_handle *storage, const expolygon_handle *expolygon);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_shapes_from_expolygons(storage_handle *storage, const expolygon_collection_handle *expolygons);
 
 /* Return non-zero when shapes is NULL or contains no usable paths/geometry. */
-int32_t clipper_shapes_empty(const clipper_shapes_handle *shapes);
+SLIC3R_HOST_API int32_t clipper_shapes_empty(const clipper_shapes_handle *shapes);
 
 /* ---- Boolean operations ---------------------------------------------
 Run a Clipper boolean operation and return a new clipper_shapes_handle.
@@ -81,16 +81,16 @@ clip may be NULL for operations that accept a single subject, such as union.
 All boolean operations currently use pftNonZero for subject and clip fill types,
 matching the common Slic3r ClipperUtils behaviour.
 */
-clipper_shapes_handle *clipper_execute(storage_handle *storage,
-                                       clipper_operation_t operation,
-                                       const clipper_shapes_handle *subject,
-                                       const clipper_shapes_handle *clip);
-clipper_shapes_handle *clipper_diff(storage_handle *storage,
-                                    const clipper_shapes_handle *subject,
-                                    const clipper_shapes_handle *clip);
-clipper_shapes_handle *clipper_intersection(storage_handle *storage,
-                                           const clipper_shapes_handle *subject,
-                                           const clipper_shapes_handle *clip);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_execute(storage_handle *storage,
+                                                       clipper_operation_t operation,
+                                                       const clipper_shapes_handle *subject,
+                                                       const clipper_shapes_handle *clip);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_diff(storage_handle *storage,
+                                                    const clipper_shapes_handle *subject,
+                                                    const clipper_shapes_handle *clip);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_intersection(storage_handle *storage,
+                                                           const clipper_shapes_handle *subject,
+                                                           const clipper_shapes_handle *clip);
 /*
 Run a boolean operation after applying the Clipper safety offset to clip only.
 
@@ -101,17 +101,17 @@ This mirrors Slic3r's ApplySafetyOffset::Yes behaviour:
 The expanded clip is an internal temporary path list, not a storage-owned handle,
 so callers only need to free the returned result.
 */
-clipper_shapes_handle *clipper_diff_with_safety_offset(storage_handle *storage,
-                                                       const clipper_shapes_handle *subject,
-                                                       const clipper_shapes_handle *clip);
-clipper_shapes_handle *clipper_intersection_with_safety_offset(storage_handle *storage,
-                                                              const clipper_shapes_handle *subject,
-                                                              const clipper_shapes_handle *clip);
-clipper_shapes_handle *clipper_union(storage_handle *storage, const clipper_shapes_handle *subject);
-clipper_shapes_handle *clipper_union_with_safety_offset(storage_handle *storage, const clipper_shapes_handle *subject);
-clipper_shapes_handle *clipper_union2(storage_handle *storage,
-                                      const clipper_shapes_handle *subject1,
-                                      const clipper_shapes_handle *subject2);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_diff_with_safety_offset(storage_handle *storage,
+                                                                       const clipper_shapes_handle *subject,
+                                                                       const clipper_shapes_handle *clip);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_intersection_with_safety_offset(storage_handle *storage,
+                                                                              const clipper_shapes_handle *subject,
+                                                                              const clipper_shapes_handle *clip);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_union(storage_handle *storage, const clipper_shapes_handle *subject);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_union_with_safety_offset(storage_handle *storage, const clipper_shapes_handle *subject);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_union2(storage_handle *storage,
+                                                      const clipper_shapes_handle *subject1,
+                                                      const clipper_shapes_handle *subject2);
 
 /*
 Concatenate the raw paths from two shapes without performing a geometric union.
@@ -121,9 +121,9 @@ The returned handle is always a new storage-owned
 ClipperShapes value backed by a flat path accumulator (PathListShapes)
 containing the paths of both inputs.
 */
-clipper_shapes_handle *clipper_concat(storage_handle *storage,
-                                      const clipper_shapes_handle *first,
-                                      const clipper_shapes_handle *second);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_concat(storage_handle *storage,
+                                                      const clipper_shapes_handle *first,
+                                                      const clipper_shapes_handle *second);
 
 /*
 Concatenate and replace one handle in a single call.
@@ -145,9 +145,9 @@ Important limitation:
 In other words, use this only when first is treated as the unique current owner
 of that handle value.
 */
-clipper_shapes_handle *clipper_concat_replace(storage_handle *storage,
-                                              clipper_shapes_handle *first,
-                                              const clipper_shapes_handle *second);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_concat_replace(storage_handle *storage,
+                                                              clipper_shapes_handle *first,
+                                                              const clipper_shapes_handle *second);
 
 /* ---- Offset operations -----------------------------------------------
 Offset a Clipper shape and return a new clipper_shapes_handle.
@@ -158,19 +158,19 @@ negative shrinks them. For open paths, pass an open end type.
 miter_limit is used as MiterLimit for square/miter joins and as ArcTolerance for
 round joins, following the convention already used by ClipperUtils.
 */
-clipper_shapes_handle *clipper_offset(storage_handle *storage,
-                                      const clipper_shapes_handle *subject,
-                                      double delta,
-                                      clipper_join_type_t join_type,
-                                      double miter_limit,
-                                      clipper_end_type_t end_type);
-clipper_shapes_handle *clipper_offset2(storage_handle *storage,
-                                       const clipper_shapes_handle *subject,
-                                       double delta1,
-                                       double delta2,
-                                       clipper_join_type_t join_type,
-                                       double miter_limit,
-                                       clipper_end_type_t end_type);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_offset(storage_handle *storage,
+                                                      const clipper_shapes_handle *subject,
+                                                      double delta,
+                                                      clipper_join_type_t join_type,
+                                                      double miter_limit,
+                                                      clipper_end_type_t end_type);
+SLIC3R_HOST_API clipper_shapes_handle *clipper_offset2(storage_handle *storage,
+                                                       const clipper_shapes_handle *subject,
+                                                       double delta1,
+                                                       double delta2,
+                                                       clipper_join_type_t join_type,
+                                                       double miter_limit,
+                                                       clipper_end_type_t end_type);
 
 /* ---- Conversion back to ABI collections ------------------------------
 Materialize a Clipper shape into a new storage-owned collection.
@@ -182,8 +182,8 @@ clipper_shapes_to_expolygons() returns a real expolygon_collection_handle.
 Both returned handles are owned by storage and may be released with
 storage_free().
 */
-polygon_collection_handle *clipper_shapes_to_polygons(storage_handle *storage, const clipper_shapes_handle *shapes);
-expolygon_collection_handle *clipper_shapes_to_expolygons(storage_handle *storage, const clipper_shapes_handle *shapes);
+SLIC3R_HOST_API polygon_collection_handle *clipper_shapes_to_polygons(storage_handle *storage, const clipper_shapes_handle *shapes);
+SLIC3R_HOST_API expolygon_collection_handle *clipper_shapes_to_expolygons(storage_handle *storage, const clipper_shapes_handle *shapes);
 
 /*
 Replace an existing collection with the materialized contents of shapes.
@@ -194,8 +194,8 @@ collection is cleared first, then filled with the converted result.
 
 dst is not freed or replaced; only its contents are changed.
 */
-void clipper_shapes_replace_polygons(polygon_collection_handle *dst, const clipper_shapes_handle *shapes);
-void clipper_shapes_replace_expolygons(expolygon_collection_handle *dst, const clipper_shapes_handle *shapes);
+SLIC3R_HOST_API void clipper_shapes_replace_polygons(polygon_collection_handle *dst, const clipper_shapes_handle *shapes);
+SLIC3R_HOST_API void clipper_shapes_replace_expolygons(expolygon_collection_handle *dst, const clipper_shapes_handle *shapes);
 
 #ifdef __cplusplus
 }

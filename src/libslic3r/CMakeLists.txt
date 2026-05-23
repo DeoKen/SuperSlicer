@@ -738,6 +738,7 @@ add_library(libslic3r STATIC ${SLIC3R_SOURCES})
 
 if (WIN32)
     target_compile_definitions(libslic3r PUBLIC NOMINMAX)
+    target_compile_definitions(libslic3r PRIVATE SLIC3R_HOST_EXPORTS)
 endif()
 
 foreach(_source IN ITEMS ${SLIC3R_SOURCES})

@@ -19,12 +19,12 @@ extern "C" {
 /*
 Register a plugin instance.
 */
-void orchestrator_register_plugin(
+SLIC3R_HOST_API void orchestrator_register_plugin(
     orchestrator_handle *orch,
     plugin_instance plugin
 );
 
-bridge_detector_instance orchestrator_create_bridge_detector(
+SLIC3R_HOST_API bridge_detector_instance orchestrator_create_bridge_detector(
     orchestrator_handle *orch,
     const bridge_detector_create_input *input
 );
@@ -53,7 +53,7 @@ first. Fragments with the same priority keep registration order.
 Returns 1 when the fragment was added, 0 when it was already present, and a
 negative value on invalid arguments or internal failure.
 */
-int32_t orchestrator_add_ui_fragment(
+SLIC3R_HOST_API int32_t orchestrator_add_ui_fragment(
     orchestrator_handle *orch,
     const char *target_file,
     const char *fragment_id,
@@ -141,7 +141,7 @@ conditions, because enum config options are read as integer values.
 Returns 1 when the rule was added, 0 when an identical rule was already
 registered, and a negative value on invalid arguments or internal failure.
 */
-int32_t orchestrator_add_gui_rule(
+SLIC3R_HOST_API int32_t orchestrator_add_gui_rule(
     orchestrator_handle *orch,
     const raw_gui_rule *rule
 );
@@ -151,10 +151,10 @@ Default host callbacks used to populate plugin_run_context.
 Plugins normally call these through the function pointers stored in the run
 context instead of calling them directly.
 */
-int orchestrator_plugin_is_cancelled(plugin_host_context *host_context);
-void orchestrator_plugin_report_warning(plugin_host_context *host_context, const char *message);
-void orchestrator_plugin_report_error(plugin_host_context *host_context, const char *message);
-void orchestrator_plugin_report_progress(plugin_host_context *host_context, double progress, const char *message);
+SLIC3R_HOST_API int orchestrator_plugin_is_cancelled(plugin_host_context *host_context);
+SLIC3R_HOST_API void orchestrator_plugin_report_warning(plugin_host_context *host_context, const char *message);
+SLIC3R_HOST_API void orchestrator_plugin_report_error(plugin_host_context *host_context, const char *message);
+SLIC3R_HOST_API void orchestrator_plugin_report_progress(plugin_host_context *host_context, double progress, const char *message);
 
 #ifdef __cplusplus
 }

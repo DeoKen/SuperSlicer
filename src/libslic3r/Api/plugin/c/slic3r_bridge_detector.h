@@ -49,19 +49,19 @@ struct bridge_detector_vtable {
     int32_t (*get_layer_id)(void *detector_ctx);
 };
 
-void bridge_detector_destroy(bridge_detector_instance *detector);
-int32_t bridge_detector_detect_angle(bridge_detector_instance *detector, double bridge_direction_override);
-uint32_t bridge_detector_coverage(bridge_detector_instance *detector,
-                                  double angle,
-                                  polygon_collection_handle *out_polygons);
-uint32_t bridge_detector_unsupported_edges(bridge_detector_instance *detector,
-                                           double angle,
-                                           polyline_collection_handle *out_polylines);
-double bridge_detector_get_angle(bridge_detector_instance *detector);
-void bridge_detector_set_max_bridge_length(bridge_detector_instance *detector, double max_bridge_length);
-double bridge_detector_get_max_bridge_length(bridge_detector_instance *detector);
-void bridge_detector_set_layer_id(bridge_detector_instance *detector, int32_t layer_id);
-int32_t bridge_detector_get_layer_id(bridge_detector_instance *detector);
+SLIC3R_HOST_API void bridge_detector_destroy(bridge_detector_instance *detector);
+SLIC3R_HOST_API int32_t bridge_detector_detect_angle(bridge_detector_instance *detector, double bridge_direction_override);
+SLIC3R_HOST_API uint32_t bridge_detector_coverage(bridge_detector_instance *detector,
+                                                  double angle,
+                                                  polygon_collection_handle *out_polygons);
+SLIC3R_HOST_API uint32_t bridge_detector_unsupported_edges(bridge_detector_instance *detector,
+                                                           double angle,
+                                                           polyline_collection_handle *out_polylines);
+SLIC3R_HOST_API double bridge_detector_get_angle(bridge_detector_instance *detector);
+SLIC3R_HOST_API void bridge_detector_set_max_bridge_length(bridge_detector_instance *detector, double max_bridge_length);
+SLIC3R_HOST_API double bridge_detector_get_max_bridge_length(bridge_detector_instance *detector);
+SLIC3R_HOST_API void bridge_detector_set_layer_id(bridge_detector_instance *detector, int32_t layer_id);
+SLIC3R_HOST_API int32_t bridge_detector_get_layer_id(bridge_detector_instance *detector);
 
 #ifdef __cplusplus
 }

@@ -385,7 +385,7 @@ static inline raw_config_option_def raw_config_option_def_init()
 Create a new config option definition.
 The options will be available in the gui and you will have access to them 
 */
-option_def_error_code orchestrator_create_option_def(
+SLIC3R_HOST_API option_def_error_code orchestrator_create_option_def(
     orchestrator_handle *orch,
     const raw_config_option_def *def
 );
@@ -397,12 +397,12 @@ typedef struct print_config_def_handler print_config_def_handler;
 /*
 Ask for the global definition handler
 */
-const print_config_def_handler *orchestrator_get_print_config_def(orchestrator_handle *);
+SLIC3R_HOST_API const print_config_def_handler *orchestrator_get_print_config_def(orchestrator_handle *);
 
 /*
 Ask the global definition handler to copy the definition data from an option into out.
 */
-void printconfigdef_get_config_definition(const orchestrator_handle*, const char* id, raw_config_option_def *out);
+SLIC3R_HOST_API void printconfigdef_get_config_definition(const orchestrator_handle*, const char* id, raw_config_option_def *out);
 
 #ifdef __cplusplus
 } // extern "C"
