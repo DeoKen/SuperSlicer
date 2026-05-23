@@ -38,6 +38,7 @@ from slic3r_api import (
     post_slicing_context,
     report_error,
     report_progress,
+    round_coord,
     scale_i,
     unscaled,
 )
@@ -50,18 +51,18 @@ POLYHOLES_TWISTED_KEY = "python_hole_to_polyhole_twisted"
 
 @dataclass
 class HoleData:
-    center: CPoint
-    max_diameter: float
+    center_scaled: CPoint
+    max_radius_scaled: float
     extruder_id: int
-    max_deviation: int
+    max_deviation_scaled: int
     twist: bool
-    points: list[CPoint]
+    points_scaled: list[CPoint]
     layer_region_idx: int
 
 
 @dataclass
 class LayerHole:
-    points: list[CPoint]
+    points_scaled: list[CPoint]
     layer_idx: int
     layer_region_idx: int
 
@@ -72,11 +73,11 @@ class ThroughHole:
     layers: list[LayerHole]
 
 
-def _point_distance(lhs: CPoint, rhs: CPoint) -> float:
+def _point_distance_scaled(lhs: CPoint, rhs: CPoint) -> float:
     return math.hypot(float(lhs.x - rhs.x), float(lhs.y - rhs.y))
 
 
-def _point_mid(lhs: CPoint, rhs: CPoint) -> CPoint:
+def _point_mid_scaled(lhs: CPoint, rhs: CPoint) -> CPoint:
     return CPoint((lhs.x + rhs.x) // 2, (lhs.y + rhs.y) // 2)
 
 
@@ -86,34 +87,35 @@ def _points_equal(lhs: list[CPoint], rhs: list[CPoint]) -> bool:
     return all(a.x == b.x and a.y == b.y for a, b in zip(lhs, rhs))
 
 
-def _create_polyholes(api, storage_address: int, center: CPoint, radius: float, nozzle_diameter: int, twist: bool) -> list[int]:
-    if nozzle_diameter <= 0:
-        nozzle_diameter = 1
-    edge_count = max(3, round(4.0 * unscaled(radius) * 0.4 / unscaled(nozzle_diameter)))
+def _create_polyholes(api, storage_address: int, center_scaled: CPoint, radius_scaled: float, nozzle_diameter_scaled: int, twist: bool) -> list[int]:
+    if nozzle_diameter_scaled <= 0:
+        nozzle_diameter_scaled = 1
+    radius_mm = unscaled(radius_scaled)
+    nozzle_diameter_mm = unscaled(nozzle_diameter_scaled)
+    edge_count = max(3, round_coord(4.0 * radius_mm * 0.4 / nozzle_diameter_mm))
     polyhole_count = 5 if twist else 1
-    rotation = 2.0 * math.pi / (edge_count * polyhole_count) if twist else 0.0
-    new_radius = radius / math.cos(math.pi / edge_count)
+    rotation_rad = 2.0 * math.pi / (edge_count * polyhole_count) if twist else 0.0
+    new_radius_scaled = radius_scaled / math.cos(math.pi / edge_count)
 
     polygons = [api.storage_new_polygon(storage_address) for _ in range(polyhole_count)]
     for poly_idx in range(polyhole_count):
         polygon_idx = poly_idx // 2 if poly_idx % 2 == 0 else (polyhole_count + 1) // 2 + poly_idx // 2
         polygon = polygons[polygon_idx]
         for edge_idx in range(edge_count):
-            angle = rotation * poly_idx + 2.0 * math.pi * edge_idx / edge_count
+            angle_rad = rotation_rad * poly_idx + 2.0 * math.pi * edge_idx / edge_count
+            x_scaled = round_coord(float(center_scaled.x) + new_radius_scaled * math.cos(angle_rad))
+            y_scaled = round_coord(float(center_scaled.y) + new_radius_scaled * math.sin(angle_rad))
             api.polygon_push_back(
                 polygon,
-                CPoint(
-                    int(center.x + new_radius * math.cos(angle)),
-                    int(center.y + new_radius * math.sin(angle)),
-                ),
+                CPoint(x_scaled, y_scaled),
             )
         api.polygon_make_clockwise(polygon)
     return polygons
 
 
-def _replace_matching_hole(api, expolygon_address: int, points_to_replace: list[CPoint], replacement_polygon: int) -> bool:
+def _replace_matching_hole(api, expolygon_address: int, points_to_replace_scaled: list[CPoint], replacement_polygon: int) -> bool:
     for hole in api.expolygon_holes(expolygon_address, mutable=True):
-        if _points_equal(api.polygon_points(hole), points_to_replace):
+        if _points_equal(api.polygon_points(hole), points_to_replace_scaled):
             api.polygon_replace_points(hole, replacement_polygon)
             return True
     return False
@@ -232,47 +234,47 @@ class PythonPolyholesPlugin(PluginBase):
                 region_slices = self.api.host.layer_region_get_slices(layer_region)
                 for expolygon in self.api.expolygons(region_slices):
                     for hole in self.api.expolygon_holes(expolygon):
-                        points = self.api.polygon_points(hole)
-                        if len(points) <= 8:
+                        points_scaled = self.api.polygon_points(hole)
+                        if len(points_scaled) <= 8:
                             continue
                         if self.api.polygon_convex_point_count(hole, 0.0, math.pi) != 0:
                             continue
 
-                        center = self.api.polygon_centroid(hole)
-                        min_radius = float("inf")
-                        max_radius = 0.0
-                        radius_sum = 0.0
-                        for point in points:
-                            distance = _point_distance(point, center)
-                            min_radius = min(min_radius, distance)
-                            max_radius = max(max_radius, distance)
-                            radius_sum += distance
+                        center_scaled = self.api.polygon_centroid(hole)
+                        min_radius_scaled = float("inf")
+                        max_radius_scaled = 0.0
+                        radius_sum_scaled = 0.0
+                        for point in points_scaled:
+                            distance_scaled = _point_distance_scaled(point, center_scaled)
+                            min_radius_scaled = min(min_radius_scaled, distance_scaled)
+                            max_radius_scaled = max(max_radius_scaled, distance_scaled)
+                            radius_sum_scaled += distance_scaled
 
-                        min_line_radius = float("inf")
-                        max_line_radius = 0.0
-                        previous = points[-1]
-                        for point in points:
-                            midline = _point_mid(previous, point)
-                            distance = _point_distance(center, midline)
-                            min_line_radius = min(min_line_radius, distance)
-                            max_line_radius = max(max_line_radius, distance)
+                        min_line_radius_scaled = float("inf")
+                        max_line_radius_scaled = 0.0
+                        previous = points_scaled[-1]
+                        for point in points_scaled:
+                            midline_scaled = _point_mid_scaled(previous, point)
+                            distance_scaled = _point_distance_scaled(center_scaled, midline_scaled)
+                            min_line_radius_scaled = min(min_line_radius_scaled, distance_scaled)
+                            max_line_radius_scaled = max(max_line_radius_scaled, distance_scaled)
                             previous = point
 
-                        reference_radius = unscaled(radius_sum / len(points))
-                        max_variation = scale_i(self.api.config_float_or_percent_effective(
+                        reference_radius_mm = unscaled(radius_sum_scaled / len(points_scaled))
+                        max_variation_scaled = scale_i(self.api.config_float_or_percent_effective(
                             region_config,
                             POLYHOLES_THRESHOLD_KEY,
-                            reference_radius,
+                            reference_radius_mm,
                         ))
-                        max_variation = max(SCALED_EPSILON, max_variation)
-                        if max_radius - min_radius < max_variation * 2 and max_line_radius - min_line_radius < max_variation * 2:
+                        max_variation_scaled = max(SCALED_EPSILON, max_variation_scaled)
+                        if max_radius_scaled - min_radius_scaled < max_variation_scaled * 2 and max_line_radius_scaled - min_line_radius_scaled < max_variation_scaled * 2:
                             layer_holes[layer_idx].append(HoleData(
-                                center=center,
-                                max_diameter=max_radius,
+                                center_scaled=center_scaled,
+                                max_radius_scaled=max_radius_scaled,
                                 extruder_id=perimeter_extruder,
-                                max_deviation=max_variation,
+                                max_deviation_scaled=max_variation_scaled,
                                 twist=twist,
-                                points=points,
+                                points_scaled=points_scaled,
                                 layer_region_idx=region_idx,
                             ))
             report_progress(run_ctx_address, (layer_idx + 1) / max(1, layer_count), "Python Polyholes: searching holes")
@@ -282,7 +284,7 @@ class PythonPolyholesPlugin(PluginBase):
         modified_layers: set[int] = set()
 
         for hole_idx, through_hole in enumerate(through_holes):
-            nozzle_diameter = scale_i(self.api.config_float(
+            nozzle_diameter_scaled = scale_i(self.api.config_float(
                 print_config,
                 "nozzle_diameter",
                 max(0, through_hole.hole_data.extruder_id),
@@ -290,9 +292,9 @@ class PythonPolyholesPlugin(PluginBase):
             replacements = _create_polyholes(
                 self.api,
                 common.plugin_storage,
-                through_hole.hole_data.center,
-                through_hole.hole_data.max_diameter,
-                nozzle_diameter,
+                through_hole.hole_data.center_scaled,
+                through_hole.hole_data.max_radius_scaled,
+                nozzle_diameter_scaled,
                 through_hole.hole_data.twist,
             )
             for layer_hole in through_hole.layers:
@@ -302,7 +304,7 @@ class PythonPolyholesPlugin(PluginBase):
                 replacement = replacements[layer_hole.layer_idx % len(replacements)]
                 modified = 0
                 for expolygon in self.api.expolygons(mutable_slices, mutable=True):
-                    if _replace_matching_hole(self.api, expolygon, layer_hole.points, replacement):
+                    if _replace_matching_hole(self.api, expolygon, layer_hole.points_scaled, replacement):
                         modified += 1
                 if modified:
                     modified_layers.add(layer_hole.layer_idx)
@@ -326,22 +328,22 @@ class PythonPolyholesPlugin(PluginBase):
 
         for layer_idx in range(layer_count):
             for hole_idx, main_hole in enumerate(list(layer_holes[layer_idx])):
-                max_z = self.api.host.layer_get_print_z(self.api.host.object_get_layer(ctx.object, layer_idx))
-                holes = [LayerHole(main_hole.points, layer_idx, main_hole.layer_region_idx)]
+                max_z_scaled = self.api.host.layer_get_print_z(self.api.host.object_get_layer(ctx.object, layer_idx))
+                holes = [LayerHole(main_hole.points_scaled, layer_idx, main_hole.layer_region_idx)]
                 for search_layer_idx in range(layer_idx + 1, layer_count):
                     search_layer = self.api.host.object_get_layer(ctx.object, search_layer_idx)
-                    if self.api.host.layer_get_print_z(search_layer) - self.api.host.layer_get_height(search_layer) - max_z > 0:
+                    if self.api.host.layer_get_print_z(search_layer) - self.api.host.layer_get_height(search_layer) - max_z_scaled > 0:
                         break
 
                     candidates = layer_holes[search_layer_idx]
                     for search_hole_idx, search_hole in enumerate(candidates):
                         if (
                             main_hole.extruder_id == search_hole.extruder_id
-                            and _point_distance(main_hole.center, search_hole.center) < main_hole.max_deviation
-                            and abs(main_hole.max_diameter - search_hole.max_diameter) < main_hole.max_deviation
+                            and _point_distance_scaled(main_hole.center_scaled, search_hole.center_scaled) < main_hole.max_deviation_scaled
+                            and abs(main_hole.max_radius_scaled - search_hole.max_radius_scaled) < main_hole.max_deviation_scaled
                         ):
-                            max_z = self.api.host.layer_get_print_z(search_layer)
-                            holes.append(LayerHole(search_hole.points, search_layer_idx, search_hole.layer_region_idx))
+                            max_z_scaled = self.api.host.layer_get_print_z(search_layer)
+                            holes.append(LayerHole(search_hole.points_scaled, search_layer_idx, search_hole.layer_region_idx))
                             del candidates[search_hole_idx]
                             break
 

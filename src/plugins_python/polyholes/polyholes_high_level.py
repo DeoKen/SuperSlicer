@@ -36,6 +36,7 @@ from slic3r_api import (
     STEP_SLICING,
     StoredPolygon,
     make_point,
+    round_coord,
     scale_i,
     unscaled,
 )
@@ -48,18 +49,18 @@ POLYHOLES_TWISTED_KEY = "python_high_level_hole_to_polyhole_twisted"
 
 @dataclass
 class HoleData:
-    center: CPoint
-    max_diameter: float
+    center_scaled: CPoint
+    max_radius_scaled: float
     extruder_id: int
-    max_deviation: int
+    max_deviation_scaled: int
     twist: bool
-    points: list[CPoint]
+    points_scaled: list[CPoint]
     layer_region_idx: int
 
 
 @dataclass
 class LayerHole:
-    points: list[CPoint]
+    points_scaled: list[CPoint]
     layer_idx: int
     layer_region_idx: int
 
@@ -70,11 +71,11 @@ class ThroughHole:
     layers: list[LayerHole]
 
 
-def _point_distance(lhs: CPoint, rhs: CPoint) -> float:
+def _point_distance_scaled(lhs: CPoint, rhs: CPoint) -> float:
     return math.hypot(float(lhs.x - rhs.x), float(lhs.y - rhs.y))
 
 
-def _point_mid(lhs: CPoint, rhs: CPoint) -> CPoint:
+def _point_mid_scaled(lhs: CPoint, rhs: CPoint) -> CPoint:
     return make_point((lhs.x + rhs.x) // 2, (lhs.y + rhs.y) // 2)
 
 
@@ -84,31 +85,32 @@ def _points_equal(lhs: list[CPoint], rhs: list[CPoint]) -> bool:
     return all(a.x == b.x and a.y == b.y for a, b in zip(lhs, rhs))
 
 
-def _create_polyholes(api, storage: int, center: CPoint, radius: float, nozzle_diameter: int, twist: bool) -> list[StoredPolygon]:
-    if nozzle_diameter <= 0:
-        nozzle_diameter = 1
-    edge_count = max(3, round(4.0 * unscaled(radius) * 0.4 / unscaled(nozzle_diameter)))
+def _create_polyholes(api, storage: int, center_scaled: CPoint, radius_scaled: float, nozzle_diameter_scaled: int, twist: bool) -> list[StoredPolygon]:
+    if nozzle_diameter_scaled <= 0:
+        nozzle_diameter_scaled = 1
+    radius_mm = unscaled(radius_scaled)
+    nozzle_diameter_mm = unscaled(nozzle_diameter_scaled)
+    edge_count = max(3, round_coord(4.0 * radius_mm * 0.4 / nozzle_diameter_mm))
     polyhole_count = 5 if twist else 1
-    rotation = 2.0 * math.pi / (edge_count * polyhole_count) if twist else 0.0
-    new_radius = radius / math.cos(math.pi / edge_count)
+    rotation_rad = 2.0 * math.pi / (edge_count * polyhole_count) if twist else 0.0
+    new_radius_scaled = radius_scaled / math.cos(math.pi / edge_count)
 
     polygons = [api.new_polygon(storage) for _ in range(polyhole_count)]
     for poly_idx in range(polyhole_count):
         polygon_idx = poly_idx // 2 if poly_idx % 2 == 0 else (polyhole_count + 1) // 2 + poly_idx // 2
         polygon = polygons[polygon_idx]
         for edge_idx in range(edge_count):
-            angle = rotation * poly_idx + 2.0 * math.pi * edge_idx / edge_count
-            polygon.push_back(make_point(
-                int(center.x + new_radius * math.cos(angle)),
-                int(center.y + new_radius * math.sin(angle)),
-            ))
+            angle_rad = rotation_rad * poly_idx + 2.0 * math.pi * edge_idx / edge_count
+            x_scaled = round_coord(float(center_scaled.x) + new_radius_scaled * math.cos(angle_rad))
+            y_scaled = round_coord(float(center_scaled.y) + new_radius_scaled * math.sin(angle_rad))
+            polygon.push_back(make_point(x_scaled, y_scaled))
         polygon.make_clockwise()
     return polygons
 
 
-def _replace_matching_hole(expolygon, points_to_replace: list[CPoint], replacement: StoredPolygon) -> bool:
+def _replace_matching_hole(expolygon, points_to_replace_scaled: list[CPoint], replacement: StoredPolygon) -> bool:
     for hole in expolygon.holes_mutable():
-        if _points_equal(hole.points(), points_to_replace):
+        if _points_equal(hole.points(), points_to_replace_scaled):
             hole.copy_from(replacement)
             return True
     return False
@@ -227,43 +229,43 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
 
                 for expolygon in layer_region.slices():
                     for hole in expolygon.holes():
-                        points = hole.points()
-                        if len(points) <= 8:
+                        points_scaled = hole.points()
+                        if len(points_scaled) <= 8:
                             continue
                         if hole.convex_points_idx(0.0, math.pi):
                             continue
 
-                        center = hole.centroid()
-                        min_radius = float("inf")
-                        max_radius = 0.0
-                        radius_sum = 0.0
-                        for point in points:
-                            distance = _point_distance(point, center)
-                            min_radius = min(min_radius, distance)
-                            max_radius = max(max_radius, distance)
-                            radius_sum += distance
+                        center_scaled = hole.centroid()
+                        min_radius_scaled = float("inf")
+                        max_radius_scaled = 0.0
+                        radius_sum_scaled = 0.0
+                        for point in points_scaled:
+                            distance_scaled = _point_distance_scaled(point, center_scaled)
+                            min_radius_scaled = min(min_radius_scaled, distance_scaled)
+                            max_radius_scaled = max(max_radius_scaled, distance_scaled)
+                            radius_sum_scaled += distance_scaled
 
-                        min_line_radius = float("inf")
-                        max_line_radius = 0.0
-                        previous = points[-1]
-                        for point in points:
-                            midline = _point_mid(previous, point)
-                            distance = _point_distance(center, midline)
-                            min_line_radius = min(min_line_radius, distance)
-                            max_line_radius = max(max_line_radius, distance)
+                        min_line_radius_scaled = float("inf")
+                        max_line_radius_scaled = 0.0
+                        previous = points_scaled[-1]
+                        for point in points_scaled:
+                            midline_scaled = _point_mid_scaled(previous, point)
+                            distance_scaled = _point_distance_scaled(center_scaled, midline_scaled)
+                            min_line_radius_scaled = min(min_line_radius_scaled, distance_scaled)
+                            max_line_radius_scaled = max(max_line_radius_scaled, distance_scaled)
                             previous = point
 
-                        reference_radius = unscaled(radius_sum / len(points))
-                        max_variation = scale_i(threshold.get_effective_value(reference_radius))
-                        max_variation = max(SCALED_EPSILON, max_variation)
-                        if max_radius - min_radius < max_variation * 2 and max_line_radius - min_line_radius < max_variation * 2:
+                        reference_radius_mm = unscaled(radius_sum_scaled / len(points_scaled))
+                        max_variation_scaled = scale_i(threshold.get_effective_value(reference_radius_mm))
+                        max_variation_scaled = max(SCALED_EPSILON, max_variation_scaled)
+                        if max_radius_scaled - min_radius_scaled < max_variation_scaled * 2 and max_line_radius_scaled - min_line_radius_scaled < max_variation_scaled * 2:
                             layer_holes[layer_idx].append(HoleData(
-                                center=center,
-                                max_diameter=max_radius,
+                                center_scaled=center_scaled,
+                                max_radius_scaled=max_radius_scaled,
                                 extruder_id=perimeter_extruder,
-                                max_deviation=max_variation,
+                                max_deviation_scaled=max_variation_scaled,
                                 twist=twist,
-                                points=points,
+                                points_scaled=points_scaled,
                                 layer_region_idx=region_idx,
                             ))
             ctx.report_progress((layer_idx + 1) / max(1, layer_count), "Python Polyholes high level: searching holes")
@@ -273,16 +275,16 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
         modified_layers: set[int] = set()
 
         for hole_idx, through_hole in enumerate(through_holes):
-            nozzle_diameter = scale_i(print_config.float(
+            nozzle_diameter_scaled = scale_i(print_config.float(
                 "nozzle_diameter",
                 max(0, through_hole.hole_data.extruder_id),
             ))
             replacements = _create_polyholes(
                 self.api,
                 ctx.plugin_storage(),
-                through_hole.hole_data.center,
-                through_hole.hole_data.max_diameter,
-                nozzle_diameter,
+                through_hole.hole_data.center_scaled,
+                through_hole.hole_data.max_radius_scaled,
+                nozzle_diameter_scaled,
                 through_hole.hole_data.twist,
             )
             for layer_hole in through_hole.layers:
@@ -292,7 +294,7 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
                 replacement = replacements[layer_hole.layer_idx % len(replacements)]
                 modified = 0
                 for expolygon in mutable_slices.mutable_items():
-                    if _replace_matching_hole(expolygon, layer_hole.points, replacement):
+                    if _replace_matching_hole(expolygon, layer_hole.points_scaled, replacement):
                         modified += 1
                 if modified:
                     modified_layers.add(layer_hole.layer_idx)
@@ -316,22 +318,22 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
 
         for layer_idx in range(layer_count):
             for main_hole in list(layer_holes[layer_idx]):
-                max_z = obj.layer(layer_idx).print_z()
-                holes = [LayerHole(main_hole.points, layer_idx, main_hole.layer_region_idx)]
+                max_z_scaled = obj.layer(layer_idx).print_z()
+                holes = [LayerHole(main_hole.points_scaled, layer_idx, main_hole.layer_region_idx)]
                 for search_layer_idx in range(layer_idx + 1, layer_count):
                     search_layer = obj.layer(search_layer_idx)
-                    if search_layer.print_z() - search_layer.height() - max_z > 0:
+                    if search_layer.print_z() - search_layer.height() - max_z_scaled > 0:
                         break
 
                     candidates = layer_holes[search_layer_idx]
                     for search_hole_idx, search_hole in enumerate(candidates):
                         if (
                             main_hole.extruder_id == search_hole.extruder_id
-                            and _point_distance(main_hole.center, search_hole.center) < main_hole.max_deviation
-                            and abs(main_hole.max_diameter - search_hole.max_diameter) < main_hole.max_deviation
+                            and _point_distance_scaled(main_hole.center_scaled, search_hole.center_scaled) < main_hole.max_deviation_scaled
+                            and abs(main_hole.max_radius_scaled - search_hole.max_radius_scaled) < main_hole.max_deviation_scaled
                         ):
-                            max_z = search_layer.print_z()
-                            holes.append(LayerHole(search_hole.points, search_layer_idx, search_hole.layer_region_idx))
+                            max_z_scaled = search_layer.print_z()
+                            holes.append(LayerHole(search_hole.points_scaled, search_layer_idx, search_hole.layer_region_idx))
                             del candidates[search_hole_idx]
                             break
 
