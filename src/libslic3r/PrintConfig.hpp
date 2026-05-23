@@ -850,6 +850,14 @@ public:
     DynamicPrintAndCLIConfig() {}
     DynamicPrintAndCLIConfig(const DynamicPrintAndCLIConfig &other) : DynamicPrintConfig(other) {}
 
+    // Build the CLI definition after PrintConfigDef has received common, FFF,
+    // SLA and plugin options. Calling read_cli() before this point would freeze
+    // an incomplete option set and make plugin CLI options look unknown.
+    static void             initialize_cli_def();
+    static bool             is_cli_def_initialized();
+
+    bool                    read_cli(int argc, const char* const argv[], t_config_option_keys* extra, t_config_option_keys* keys = nullptr);
+
     // Overrides ConfigBase::def(). Static configuration definition. Any value stored into this ConfigBase shall have its definition here.
     const ConfigDef*        def() const override { return &s_def(); }
 
@@ -864,17 +872,31 @@ private:
     class PrintAndCLIConfigDef : public ConfigDef
     {
     public:
-        PrintAndCLIConfigDef() {
+        PrintAndCLIConfigDef() = default;
+
+        void initialize_from_print_config() {
+            assert(PrintConfigDef::instance().is_finalized());
+            assert(! m_initialized);
+            this->options.clear();
+            this->by_serialization_key_ordinal.clear();
             this->options.insert(PrintConfigDef::instance().options.begin(), PrintConfigDef::instance().options.end());
             this->options.insert(cli_actions_config_def.options.begin(), cli_actions_config_def.options.end());
             this->options.insert(cli_transform_config_def.options.begin(), cli_transform_config_def.options.end());
             this->options.insert(cli_misc_config_def.options.begin(), cli_misc_config_def.options.end());
             for (const auto &kvp : this->options)
                 this->by_serialization_key_ordinal[kvp.second.serialization_key_ordinal] = &kvp.second;
+            m_initialized = true;
         }
+
+        bool initialized() const { return m_initialized; }
+
         // Do not release the default values, they are handled by print_config_def & cli_actions_config_def / cli_transform_config_def / cli_misc_config_def.
         ~PrintAndCLIConfigDef() { this->options.clear(); }
+
+    private:
+        bool m_initialized { false };
     };
+    static PrintAndCLIConfigDef& s_def_mutable();
     static const PrintAndCLIConfigDef& s_def();
 };
 

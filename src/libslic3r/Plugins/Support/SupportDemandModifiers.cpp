@@ -18,7 +18,7 @@ namespace slic3r_api { namespace Support { namespace SupportDemandModifiersPlugi
 namespace {
 
 const char *k_support_demand_modifiers_id = "support.demand.modifiers";
-const char *k_dependencies[] = { "support.demand.painting", nullptr };
+const char *k_dependencies[] = { nullptr };
 
 bool is_support_modifier_type(raw_volume_type type)
 {
