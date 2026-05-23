@@ -20,7 +20,7 @@ namespace slic3r_api { namespace Support { namespace SupportDemandBridgeRemovalP
 namespace {
 
 const char *k_support_demand_bridge_removal_id = "support.demand.bridge_removal";
-const char *k_dependencies[] = { "support.demand.modifiers", nullptr };
+const char *k_dependencies[] = { nullptr };
 
 struct BridgeRemovalConfig
 {

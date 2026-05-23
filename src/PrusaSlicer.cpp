@@ -21,10 +21,6 @@
     #endif /* SLIC3R_GUI */
 #endif /* WIN32 */
 
-#if !defined(_WIN32)
-#include <dlfcn.h>
-#endif
-
 #include <string>
 #include <vector>
 
@@ -33,7 +29,6 @@
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/args.hpp>
 #include <boost/nowide/cenv.hpp>
-#include <boost/nowide/fstream.hpp>
 #include <boost/nowide/iostream.hpp>
 #include <boost/nowide/integration/filesystem.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -44,9 +39,6 @@
 #if ENABLE_GL_CORE_PROFILE
 #include <boost/algorithm/string/split.hpp>
 #endif // ENABLE_GL_CORE_PROFILE
-#include "libslic3r/Api/host/Orchestrator.hpp"
-#include "libslic3r/Plugins/GuiRulesExample.hpp"
-#include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
 #include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/GCode/PostProcessor.hpp"
@@ -64,6 +56,7 @@
 #include "libslic3r/Format/SL1.hpp"
 #include "libslic3r/Format/CWS.hpp"
 #include "libslic3r/FFFPrintConfig.hpp"
+#include "libslic3r/Plugins/PluginLoader.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLA/SLAPrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
@@ -84,236 +77,19 @@ static PrinterTechnology get_printer_technology(const DynamicConfig &config)
     return (opt == nullptr) ? ptUnknown : opt->value;
 }
 
-namespace {
-
-using RegisterPluginFn = void (*)(orchestrator_handle *);
-
-const char *const PLUGIN_ACTIVATION_DIR = "plugin";
-const char *const ACTIVATED_PLUGINS_FILENAME = "activated.ini";
-const char *const DEFAULT_ACTIVATED_PLUGINS_DIR = "plugins";
-const char *const DEFAULT_ACTIVATED_PLUGINS_FILENAME = "default_activated.ini";
-
-std::string trim_ini_token(const std::string &text)
+static std::string find_argument(int argc, char **argv, const std::string& arg_name)
 {
-    const size_t begin = text.find_first_not_of(" \t\r\n");
-    if (begin == std::string::npos)
-        return {};
-
-    const size_t end = text.find_last_not_of(" \t\r\n");
-    return text.substr(begin, end - begin + 1);
-}
-
-bool ini_value_is_enabled(const std::string &value)
-{
-    return boost::algorithm::iequals(value, "1") ||
-           boost::algorithm::iequals(value, "true") ||
-           boost::algorithm::iequals(value, "yes") ||
-           boost::algorithm::iequals(value, "on") ||
-           boost::algorithm::iequals(value, "enabled");
-}
-
-std::vector<std::string> read_active_plugin_ini(const boost::filesystem::path &config_path)
-{
-    boost::nowide::ifstream stream(config_path.string());
-    if (!stream) {
-        BOOST_LOG_TRIVIAL(warning) << "Cannot read active plugin configuration '" << config_path.string() << "'.";
-        return {};
-    }
-
-    std::vector<std::string> plugin_ids;
-    std::string line;
-    while (std::getline(stream, line)) {
-        const std::string trimmed_line = trim_ini_token(line);
-        if (trimmed_line.empty() || trimmed_line.front() == '#' || trimmed_line.front() == ';' ||
-            trimmed_line.front() == '[')
-            continue;
-
-        const size_t separator = trimmed_line.find('=');
-        if (separator == std::string::npos) {
-            plugin_ids.push_back(trimmed_line);
-            continue;
-        }
-
-        const std::string plugin_id = trim_ini_token(trimmed_line.substr(0, separator));
-        const std::string enabled_value = trim_ini_token(trimmed_line.substr(separator + 1));
-        if (!plugin_id.empty() && ini_value_is_enabled(enabled_value))
-            plugin_ids.push_back(plugin_id);
-    }
-    return plugin_ids;
-}
-
-boost::filesystem::path default_active_plugin_config_path(const boost::filesystem::path &resources_dir)
-{
-    return resources_dir / DEFAULT_ACTIVATED_PLUGINS_DIR / DEFAULT_ACTIVATED_PLUGINS_FILENAME;
-}
-
-boost::filesystem::path active_plugin_config_path(const boost::filesystem::path &config_dir)
-{
-    return config_dir / PLUGIN_ACTIVATION_DIR / ACTIVATED_PLUGINS_FILENAME;
-}
-
-std::string find_datadir_argument(int argc, char **argv)
-{
-    const std::string datadir_prefix = "--datadir=";
+    std::string argument_prefix = "--";
+    argument_prefix += arg_name;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i] != nullptr ? argv[i] : "";
-        if (arg == "--datadir" && i + 1 < argc && argv[i + 1] != nullptr)
+        if (arg == argument_prefix && i + 1 < argc && argv[i + 1] != nullptr)
             return argv[i + 1];
-        if (boost::algorithm::starts_with(arg, datadir_prefix))
-            return arg.substr(datadir_prefix.size());
+        if (boost::algorithm::starts_with(arg, argument_prefix + "="))
+            return arg.substr(argument_prefix.size() + 1);
     }
     return {};
 }
-
-boost::filesystem::path active_plugin_data_dir(int argc, char **argv)
-{
-    if (has_data_dir())
-        return boost::filesystem::path(data_dir());
-
-    const std::string cli_data_dir = find_datadir_argument(argc, argv);
-    if (!cli_data_dir.empty()) {
-        set_data_dir(cli_data_dir);
-        return boost::filesystem::path(data_dir());
-    }
-
-    return {};
-}
-
-boost::filesystem::path ensure_active_plugin_config(const boost::filesystem::path &config_dir,
-                                                    const boost::filesystem::path &resources_dir,
-                                                    bool &from_user_config)
-{
-    const boost::filesystem::path default_config_path = default_active_plugin_config_path(resources_dir);
-    from_user_config = false;
-
-    if (config_dir.empty()) {
-        BOOST_LOG_TRIVIAL(trace) << "data_dir is not available before plugin activation. Using default active plugin "
-                                    "configuration from resources.";
-        return default_config_path;
-    }
-
-    const boost::filesystem::path config_path = active_plugin_config_path(config_dir);
-    if (boost::filesystem::exists(config_path)) {
-        from_user_config = true;
-        return config_path;
-    }
-
-    try {
-        boost::filesystem::create_directories(config_path.parent_path());
-        boost::filesystem::copy_file(default_config_path, config_path);
-        from_user_config = true;
-        return config_path;
-    } catch (const boost::filesystem::filesystem_error &error) {
-        BOOST_LOG_TRIVIAL(warning) << "Cannot create active plugin configuration '" << config_path.string()
-                                   << "' from '" << default_config_path.string() << "': " << error.what()
-                                   << ". Falling back to resources.";
-        return default_config_path;
-    }
-}
-
-std::vector<std::string> read_active_plugin_ids(const boost::filesystem::path &config_dir,
-                                                const boost::filesystem::path &resources_dir,
-                                                bool &from_user_config)
-{
-    const boost::filesystem::path config_path = ensure_active_plugin_config(config_dir, resources_dir, from_user_config);
-    return read_active_plugin_ini(config_path);
-}
-
-void activate_plugins_from_ids(Orchestrator &orchestrator,
-                               const std::vector<std::string> &plugin_ids,
-                               bool from_user_config)
-{
-    orchestrator.clear_active_plugins();
-
-    for (const std::string &plugin_id : plugin_ids) {
-        if (orchestrator.set_plugin_active(plugin_id, true))
-            continue;
-
-        if (from_user_config)
-            BOOST_LOG_TRIVIAL(warning) << "Active plugin '" << plugin_id << "' is listed in "
-                                       << ACTIVATED_PLUGINS_FILENAME << " but is not loaded.";
-        else
-            BOOST_LOG_TRIVIAL(trace) << "Default active plugin '" << plugin_id << "' is not loaded.";
-    }
-}
-
-bool is_plugin_library_path(const boost::filesystem::path &path)
-{
-#ifdef _WIN32
-    return boost::algorithm::iequals(path.extension().string(), ".dll");
-#elif defined(__APPLE__)
-    return path.extension() == ".dylib";
-#else
-    return path.extension() == ".so";
-#endif
-}
-
-void load_plugin_library(const boost::filesystem::path &plugin_path, orchestrator_handle *orchestrator)
-{
-#ifdef _WIN32
-    static std::vector<HMODULE> loaded_modules;
-    HMODULE module = LoadLibraryW(plugin_path.wstring().c_str());
-    if (module == NULL) {
-        BOOST_LOG_TRIVIAL(warning) << "Cannot load plugin DLL '" << plugin_path.string()
-                                   << "': error " << GetLastError();
-        return;
-    }
-
-    FARPROC farproc = GetProcAddress(module, "register_plugin");
-    if (farproc == NULL) {
-        BOOST_LOG_TRIVIAL(warning) << "Plugin DLL '" << plugin_path.string()
-                                   << "' does not export register_plugin().";
-        FreeLibrary(module);
-        return;
-    }
-
-    RegisterPluginFn register_plugin_fn = reinterpret_cast<RegisterPluginFn>(farproc);
-    register_plugin_fn(orchestrator);
-    loaded_modules.push_back(module);
-#else
-    static std::vector<void *> loaded_modules;
-    void *module = dlopen(plugin_path.string().c_str(), RTLD_NOW | RTLD_GLOBAL);
-    if (module == nullptr) {
-        BOOST_LOG_TRIVIAL(warning) << "Cannot load plugin library '" << plugin_path.string()
-                                   << "': " << dlerror();
-        return;
-    }
-
-    void *symbol = dlsym(module, "register_plugin");
-    if (symbol == nullptr) {
-        BOOST_LOG_TRIVIAL(warning) << "Plugin library '" << plugin_path.string()
-                                   << "' does not export register_plugin(): " << dlerror();
-        dlclose(module);
-        return;
-    }
-
-    RegisterPluginFn register_plugin_fn = reinterpret_cast<RegisterPluginFn>(symbol);
-    register_plugin_fn(orchestrator);
-    loaded_modules.push_back(module);
-#endif
-}
-
-void load_plugins_from_repository(const boost::filesystem::path &repository, orchestrator_handle *orchestrator)
-{
-    if (!boost::filesystem::exists(repository)) {
-        BOOST_LOG_TRIVIAL(trace) << "Plugin repository '" << repository.string() << "' does not exist.";
-        return;
-    }
-    if (!boost::filesystem::is_directory(repository)) {
-        BOOST_LOG_TRIVIAL(warning) << "Plugin repository path '" << repository.string() << "' is not a directory.";
-        return;
-    }
-
-    for (boost::filesystem::directory_iterator it(repository), end; it != end; ++it) {
-        const boost::filesystem::path plugin_path = it->path();
-        if (boost::filesystem::is_regular_file(plugin_path) && is_plugin_library_path(plugin_path)) {
-            BOOST_LOG_TRIVIAL(info) << "Loading plugin '" << plugin_path.string() << "'.";
-            load_plugin_library(plugin_path, orchestrator);
-        }
-    }
-}
-
-} // namespace
 
 int CLI::run(int argc, char **argv)
 {
@@ -1073,32 +849,30 @@ bool CLI::setup(int argc, char **argv)
     set_sys_shapes_dir((path_resources / "shapes").string());
     set_custom_gcodes_dir((path_resources / "custom_gcodes").string());
 
+    // Bootstrap only --datadir here. The full CLI parser needs plugin-provided
+    // settings to be registered first, while plugin loading needs the data dir.
+    const std::string cli_data_dir = find_argument(argc, argv, "datadir");
+    if (!cli_data_dir.empty())
+        set_data_dir(cli_data_dir);
+
     //setup configs
     PrintConfigDef::instance_mutable().init_common_params();
     init_fff_params(PrintConfigDef::instance_mutable());
     init_sla_params(PrintConfigDef::instance_mutable());
 
-    //setup plugins
-    // slic3r_api::GuiRulesExamplePlugin::register_gui_rules_example_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
-    slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
-
-    // plugins: register from dll / code
-    const boost::filesystem::path plugin_repository = path_to_binary.parent_path() / "plugins";
-    load_plugins_from_repository(plugin_repository, reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance()));
-
-    bool active_plugins_loaded_from_user_config = false;
-    const std::vector<std::string> active_plugin_ids =
-        read_active_plugin_ids(active_plugin_data_dir(argc, argv), path_resources, active_plugins_loaded_from_user_config);
-    activate_plugins_from_ids(Orchestrator::instance(), active_plugin_ids, active_plugins_loaded_from_user_config);
-
-    //plugins: initialise only the active subset
-    Orchestrator::instance().initialize_plugins();
+    load_plugins();
 
     initialize_fff_print_config_cache();
     initialize_sla_print_config_cache();
 
     //finalize
     PrintConfigDef::instance_mutable().finalize();
+
+    // The CLI definition is assembled only after common, FFF, SLA and plugin
+    // options are registered and finalized. This keeps plugin-provided options
+    // visible to read_cli() without allowing an early static initialization to
+    // capture an incomplete PrintConfigDef.
+    DynamicPrintAndCLIConfig::initialize_cli_def();
 
     // Parse all command line options into a DynamicConfig.
     // If any option is unsupported, print usage and abort immediately.
@@ -1145,8 +919,8 @@ bool CLI::setup(int argc, char **argv)
         for (const t_optiondef_map::value_type &optdef : *options)
             m_config.option(optdef.first, true);
 
-    set_data_dir(m_config.opt_string("datadir"));
-    
+    assert(m_config.opt_string("datadir").empty() || data_dir() == m_config.opt_string("datadir"));
+
     //FIXME Validating at this stage most likely does not make sense, as the config is not fully initialized yet.
     if (!validity.empty()) {
         boost::nowide::cerr << "error: " << validity << std::endl;

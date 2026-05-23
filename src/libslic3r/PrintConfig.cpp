@@ -3489,10 +3489,31 @@ const CLIActionsConfigDef    cli_actions_config_def;
 const CLITransformConfigDef  cli_transform_config_def;
 const CLIMiscConfigDef       cli_misc_config_def;
 
-const DynamicPrintAndCLIConfig::PrintAndCLIConfigDef& DynamicPrintAndCLIConfig::s_def()
+DynamicPrintAndCLIConfig::PrintAndCLIConfigDef& DynamicPrintAndCLIConfig::s_def_mutable()
 {
     static PrintAndCLIConfigDef def;
     return def;
+}
+
+const DynamicPrintAndCLIConfig::PrintAndCLIConfigDef& DynamicPrintAndCLIConfig::s_def()
+{
+    return s_def_mutable();
+}
+
+void DynamicPrintAndCLIConfig::initialize_cli_def()
+{
+    s_def_mutable().initialize_from_print_config();
+}
+
+bool DynamicPrintAndCLIConfig::is_cli_def_initialized()
+{
+    return s_def().initialized();
+}
+
+bool DynamicPrintAndCLIConfig::read_cli(int argc, const char* const argv[], t_config_option_keys* extra, t_config_option_keys* keys)
+{
+    assert(is_cli_def_initialized());
+    return DynamicConfig::read_cli(argc, argv, extra, keys);
 }
 
 #ifdef _DEBUGINFO

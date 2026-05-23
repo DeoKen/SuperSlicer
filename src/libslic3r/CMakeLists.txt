@@ -142,6 +142,8 @@ set(SLIC3R_SOURCES
 	Plugins/GuiRulesExample.hpp
 	Plugins/MaxOverhangThreshold.cpp
 	Plugins/MaxOverhangThreshold.hpp
+	Plugins/PluginLoader.cpp
+	Plugins/PluginLoader.hpp
 	Plugins/SliceVolume.cpp
 	Plugins/SliceVolume.hpp
 	Plugins/StandardLayerHeightGenerator.cpp
