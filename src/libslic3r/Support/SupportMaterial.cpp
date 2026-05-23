@@ -68,6 +68,12 @@ using namespace Slic3r::FFFSupport;
 
 namespace Slic3r {
 
+static bool dont_support_bridges_or_default(const ConfigBase &config)
+{
+    const ConfigOption *option = config.optptr("dont_support_bridges");
+    return option == nullptr || option->get_bool();
+}
+
     // how much we extend support around the actual contact area
     //FIXME this should be dependent on the nozzle diameter!
 #define SUPPORT_MATERIAL_MARGIN 1.5 
@@ -1410,7 +1416,7 @@ static inline std::tuple<Polygons, Polygons, Polygons, float> detect_overhangs(
             }
             #endif /* SLIC3R_DEBUG */
 
-            if (object_config.dont_support_bridges) {
+            if (dont_support_bridges_or_default(object_config)) {
                 // FIXME Expensive, potentially not precise enough.
                 assert_valid(diff_polygons);
                 remove_bridges_from_contacts(print_config, lower_layer, layerm, flow_width, diff_polygons);

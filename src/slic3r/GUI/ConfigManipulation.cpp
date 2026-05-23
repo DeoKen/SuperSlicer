@@ -140,6 +140,30 @@ static bool gui_rule_target_index_for_context(const ConfigOption &target_option,
     return true;
 }
 
+struct PluginGuiRuleTargetState
+{
+    bool has_all_rules = false;
+    bool all_rules_enabled = true;
+    bool has_any_rules = false;
+    bool any_rule_enabled = false;
+
+    void add(raw_gui_rule_action action, bool condition_enabled)
+    {
+        if (action == RAW_GUI_RULE_ACTION_ENABLE) {
+            has_all_rules = true;
+            all_rules_enabled = all_rules_enabled && condition_enabled;
+        } else if (action == RAW_GUI_RULE_ACTION_ENABLE_ANY) {
+            has_any_rules = true;
+            any_rule_enabled = any_rule_enabled || condition_enabled;
+        }
+    }
+
+    bool enabled() const
+    {
+        return (!has_all_rules || all_rules_enabled) && (!has_any_rules || any_rule_enabled);
+    }
+};
+
 } // namespace
 
 void ConfigManipulation::apply_plugin_gui_rules(DynamicPrintConfig *config, int current_index)
@@ -147,11 +171,14 @@ void ConfigManipulation::apply_plugin_gui_rules(DynamicPrintConfig *config, int 
     if (config == nullptr)
         return;
 
-    // Rules with the same action, target key and resolved target index are
-    // combined with AND. This lets plugins express "enable this field only if
-    // condition A and condition B are true" by registering two ENABLE rules for
-    // the same target.
-    std::map<PluginGuiRuleTarget, bool> enabled_by_target;
+    // Rules with the same target key and resolved target index are combined by
+    // action:
+    // - ENABLE rules are ANDed.
+    // - ENABLE_ANY rules are ORed.
+    // If a target uses both groups, both the AND group and the OR group have to
+    // pass. This keeps the original "multiple ENABLE rules mean stricter"
+    // behavior while allowing plugin-owned legacy options with OR conditions.
+    std::map<PluginGuiRuleTarget, PluginGuiRuleTargetState> enabled_by_target;
 
     // current_index == -1 means "global pass".
     // current_index >= 0 means "per-extruder pass for that vector item".
@@ -159,7 +186,7 @@ void ConfigManipulation::apply_plugin_gui_rules(DynamicPrintConfig *config, int 
         // This function currently only knows how to apply enable/disable rules.
         // Other actions may be added to the C API later, but they must not be
         // interpreted as enable rules by accident.
-        if (rule.action != RAW_GUI_RULE_ACTION_ENABLE)
+        if (rule.action != RAW_GUI_RULE_ACTION_ENABLE && rule.action != RAW_GUI_RULE_ACTION_ENABLE_ANY)
             continue;
 
         // A plugin may register a rule before the corresponding option exists
@@ -197,16 +224,12 @@ void ConfigManipulation::apply_plugin_gui_rules(DynamicPrintConfig *config, int 
         // or "any vector item" depending on what is available.
         const bool condition_enabled = gui_rule_condition_value(*condition_option, rule, current_index);
         const PluginGuiRuleTarget target(rule.target_key, target_index);
-        std::map<PluginGuiRuleTarget, bool>::iterator target_state = enabled_by_target.find(target);
-        if (target_state == enabled_by_target.end())
-            enabled_by_target.emplace(target, condition_enabled);
-        else
-            target_state->second = target_state->second && condition_enabled;
+        enabled_by_target[target].add(rule.action, condition_enabled);
     }
 
-    for (const std::pair<const PluginGuiRuleTarget, bool> &target_state : enabled_by_target) {
+    for (const std::pair<const PluginGuiRuleTarget, PluginGuiRuleTargetState> &target_state : enabled_by_target) {
         try {
-            this->toggle_field(target_state.first.first, target_state.second, target_state.first.second);
+            this->toggle_field(target_state.first.first, target_state.second.enabled(), target_state.first.second);
         } catch (...) {
             assert(false);
         }
@@ -728,7 +751,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     for (auto el : { "support_material_style", "support_material_pattern", "support_material_with_sheath",
                     "support_material_spacing", "support_material_angle", "support_material_angle_height", 
                     "support_material_bottom_interface_layers", "support_material_interface_layers",
-                    "dont_support_bridges", "support_material_extrusion_width",
+                    "support_material_extrusion_width",
                     "support_material_contact_distance_type",
                     "support_material_xy_spacing",
                     "support_material_layer_height"})

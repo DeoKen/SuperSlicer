@@ -126,6 +126,8 @@ static UiNodeKind anchor_kind_from_name(const std::string &name, UiNodeKind defa
         return UiNodeKind::Group;
     if (name == "line")
         return UiNodeKind::Line;
+    if (name == "setting")
+        return UiNodeKind::Raw;
     return default_kind;
 }
 
@@ -160,7 +162,8 @@ static bool parse_insert_option(const std::string &param, UiNodeKind default_kin
 
     std::string position = parts[1];
     UiNodeKind anchor_kind = default_kind;
-    for (const std::string &kind_name : { std::string("page"), std::string("group"), std::string("line") }) {
+    for (const std::string &kind_name : { std::string("page"), std::string("group"), std::string("line"),
+                                          std::string("setting") }) {
         const size_t suffix_pos = position.find(kind_name);
         if (suffix_pos != std::string::npos) {
             position.erase(suffix_pos, kind_name.size());
@@ -218,9 +221,34 @@ static UiNode make_raw_node(const std::string &line, const std::string &raw_line
 {
     UiNode node;
     node.kind = UiNodeKind::Raw;
-    node.line = line;
     node.raw_line = raw_line;
     node.preserve_raw_line = preserve_raw_line;
+
+    const std::vector<std::string> params = split_ui_params(line);
+    if (params.empty()) {
+        node.line = line;
+        return node;
+    }
+
+    // Settings are raw .ui lines, not structural nodes. Giving them a name and
+    // honoring one insertion directive lets plugin fragments place a setting
+    // next to a neighboring setting without wrapping it in an artificial line.
+    node.name = params.back();
+
+    std::vector<std::string> display_params;
+    display_params.reserve(params.size());
+    display_params.emplace_back(params.front());
+
+    bool insertion_option_found = false;
+    for (size_t i = 1; i < params.size(); ++i) {
+        if (!insertion_option_found && i + 1 < params.size() &&
+            parse_insert_option(params[i], UiNodeKind::Raw, node.insertion)) {
+            insertion_option_found = true;
+        } else
+            display_params.emplace_back(params[i]);
+    }
+
+    node.line = join_ui_params(display_params);
     return node;
 }
 
@@ -377,7 +405,7 @@ static void merge_children(UiNode &target, UiNode &&patch)
             else
                 insert_new_node(target.children, std::move(child));
         } else
-            target.children.emplace_back(std::move(child));
+            insert_new_node(target.children, std::move(child));
     }
 }
 

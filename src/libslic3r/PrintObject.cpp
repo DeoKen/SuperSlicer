@@ -117,6 +117,12 @@ using namespace std::literals;
 
 namespace Slic3r {
 
+static bool dont_support_bridges_or_default(const ConfigBase &config)
+{
+    const ConfigOption *option = config.optptr("dont_support_bridges");
+    return option == nullptr || option->get_bool();
+}
+
 void ApiInternal::PrintObjectAccess::set_layer_profile(PrintObject &object, std::vector<coord_t> &&layer_profile)
 {
     object.m_layer_profile = std::move(layer_profile);
@@ -2026,9 +2032,10 @@ void PrintObject::detect_surfaces_type()
 
         // If we have soluble support material, don't bridge. The overhang will be squished against a soluble layer separating
         // the support from the print.
+        const bool dont_support_bridges = dont_support_bridges_or_default(m_config);
         bool has_bridges = !(m_config.support_material.value
             && m_config.support_material_contact_distance_type.value == zdNone
-            && !m_config.dont_support_bridges);
+            && !dont_support_bridges);
         SurfaceType surface_type_bottom_other =
             !has_bridges ?
             stPosBottom | stDensSolid :

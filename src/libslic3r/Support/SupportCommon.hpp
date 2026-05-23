@@ -23,7 +23,7 @@ class SupportLayer;
 namespace FFFSupport {
 
 // Remove bridges from support contact areas.
-// To be called if PrintObjectConfig::dont_support_bridges.
+// To be called if the dont_support_bridges object config option is enabled.
 void remove_bridges_from_contacts(
     const PrintConfig   &print_config, 
     const Layer         &lower_layer,

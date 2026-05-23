@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "libslic3r/Api/plugin/c/slic3r_config_def.h"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/cpp/Views.hpp"
 
@@ -308,6 +309,50 @@ int32_t SupportDemandBridgeRemoval::priority_impl() const noexcept
 const char *SupportDemandBridgeRemoval::progress_message_format_impl() const noexcept
 {
     return "Support demand bridge removal: %u / %u islands";
+}
+
+const char *SupportDemandBridgeRemoval::print_ui_fragment() noexcept
+{
+    return "page:Support material\n"
+           "group:Options for support material and raft\n"
+           "setting:insert$aftersetting$support_material_xy_spacing:dont_support_bridges\n";
+}
+
+void SupportDemandBridgeRemoval::inilialize_impl(storage_handle *) const
+{
+    raw_config_option_def def = raw_config_option_def_init();
+    def.opt_key = "dont_support_bridges";
+    def.type = RAW_CO_BOOL;
+    def.container_type = RAW_CONTAINER_TYPE_OBJECT;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = "Don't support bridges";
+    def.category = RAW_OPTION_CATEGORY_SUPPORT;
+    def.invalidates_step = STEP_SLICING;
+    def.tooltip = "Experimental option for preventing support material from being generated under bridged areas.";
+    def.mode = RAW_CONFIG_OPTION_MODE_ADV_EXP | RAW_CONFIG_OPTION_MODE_PRUSA;
+    def.default_serialized_value = "1";
+    orchestrator_create_option_def(m_orchestrator, &def);
+
+    orchestrator_add_ui_fragment(m_orchestrator,
+                                 "print.ui",
+                                 k_support_demand_bridge_removal_id,
+                                 SupportDemandBridgeRemoval::print_ui_fragment(),
+                                 0);
+
+    raw_gui_rule rule = raw_gui_rule_init();
+    rule.action = RAW_GUI_RULE_ACTION_ENABLE_ANY;
+    rule.condition = RAW_GUI_RULE_CONDITION_BOOL_TRUE;
+    rule.condition_key = "support_material";
+    rule.target_key = "dont_support_bridges";
+    orchestrator_add_gui_rule(m_orchestrator, &rule);
+
+    rule = raw_gui_rule_init();
+    rule.action = RAW_GUI_RULE_ACTION_ENABLE_ANY;
+    rule.condition = RAW_GUI_RULE_CONDITION_VALUE_NON_ZERO;
+    rule.condition_key = "raft_layers";
+    rule.target_key = "dont_support_bridges";
+    orchestrator_add_gui_rule(m_orchestrator, &rule);
 }
 
 void SupportDemandBridgeRemoval::setup_run_impl(const plugin_run_context *run_ctx) const

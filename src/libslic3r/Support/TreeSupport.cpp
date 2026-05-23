@@ -52,6 +52,12 @@ namespace Slic3r
 namespace FFFTreeSupport
 {
 
+static bool dont_support_bridges_or_default(const ConfigBase &config)
+{
+    const ConfigOption *option = config.optptr("dont_support_bridges");
+    return option == nullptr || option->get_bool();
+}
+
 enum class LineStatus
 {
     INVALID,
@@ -307,7 +313,7 @@ ExPolygons to_expolys(Polygons polys) {
                         // overhangs = offset2_ex(overhangs, - EPSILON *10, EPSILON *10);
                     }
                 }
-                if (config.dont_support_bridges) {
+                if (dont_support_bridges_or_default(config)) {
                     for (const LayerRegion &layerm : current_layer.regions())
                         remove_bridges_from_contacts(print_config, lower_layer, layerm,
                                                      layerm.flow(frExternalPerimeter).scaled_width(),

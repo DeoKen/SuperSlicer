@@ -74,7 +74,8 @@ typedef enum raw_gui_rule_condition {
 
 typedef enum raw_gui_rule_action {
     RAW_GUI_RULE_ACTION_NONE = 0,
-    RAW_GUI_RULE_ACTION_ENABLE
+    RAW_GUI_RULE_ACTION_ENABLE,
+    RAW_GUI_RULE_ACTION_ENABLE_ANY
 } raw_gui_rule_action;
 
 /*
@@ -115,8 +116,18 @@ static inline raw_gui_rule raw_gui_rule_init()
 Register a GUI state rule.
 
 Rules are evaluated by ConfigManipulation when a tab refreshes its enabled
-state. The first supported action is RAW_GUI_RULE_ACTION_ENABLE, which enables
-or disables target_key according to condition_key.
+state.
+
+RAW_GUI_RULE_ACTION_ENABLE enables target_key when every ENABLE rule registered
+for the same target is true.
+
+RAW_GUI_RULE_ACTION_ENABLE_ANY enables target_key when at least one ENABLE_ANY
+rule registered for the same target is true. It is useful for legacy OR
+conditions such as "support is enabled when support_material is true or
+raft_layers is non-zero".
+
+If both actions are used for the same target, the target is enabled only when
+all ENABLE rules are true and at least one ENABLE_ANY rule is true.
 
 condition_index and target_index are used for vector/extruder options.
 Use RAW_GUI_RULE_INDEX_ALL for scalar options or when the whole field should be

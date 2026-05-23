@@ -963,7 +963,7 @@ void init_categories(PrintConfigDef &definition)
         "support_material_contact_distance_type",
         "support_material_contact_distance_top",
         "support_material_contact_distance_bottom",
-        "support_material_buildplate_only", "dont_support_bridges", 
+        "support_material_buildplate_only",
         "support_tree_angle",
         "support_tree_angle_slow",
         "support_tree_branch_diameter",
@@ -2294,15 +2294,6 @@ void init_fff_params(PrintConfigDef &definition)
     def->mode = comExpert | comPrusa;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionInts { 1 });
-
-    def = definition.add("dont_support_bridges", coBool, ptFFF);
-    def->label = L("Don't support bridges");
-    def->category = OptionCategory::support;
-    def->invalidates_step = posSlice;
-    def->tooltip = L("Experimental option for preventing support material from being generated "
-                   "under bridged areas.");
-    def->mode = comAdvancedE | comPrusa;
-    def->set_default_value(new ConfigOptionBool(true));
 
     def = definition.add("draft_shield", coEnum, ptFFF);
     def->label = L("Draft shield");

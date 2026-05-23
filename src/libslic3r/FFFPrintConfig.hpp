@@ -270,7 +270,6 @@ PRINT_CONFIG_CLASS_DEFINE_WITH_SCOPE(
     ((ConfigOptionFloatOrPercent,       brim_speed))
     //((ConfigOptionEnum<BrimType>,       brim_type))
     ((ConfigOptionString,               object_gcode))
-    ((ConfigOptionBool,                 dont_support_bridges))
     ((ConfigOptionPercent,              external_perimeter_cut_corners))
     //((ConfigOptionBool,                 exact_last_layer_height))
     ((ConfigOptionFloatOrPercent,       extrusion_width))

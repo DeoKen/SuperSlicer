@@ -16,6 +16,7 @@
 #include <libslic3r/Plugins/Polyholes.hpp>
 #include <libslic3r/Plugins/SliceVolume.hpp>
 #include <libslic3r/Plugins/StandardLayerHeightGenerator.hpp>
+#include <libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp>
 #include <libslic3r/FFFPrintConfig.hpp>
 #include <libslic3r/PrintConfig.hpp>
 #include <libslic3r/SLA/SLAPrintConfig.hpp>
@@ -44,6 +45,7 @@ void ensure_api_test_runtime_initialized()
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator);
         slic3r_api::PolyholesPlugin::register_polyholes_plugin(orchestrator);
         slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(orchestrator);
+        slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(orchestrator);
 
         Orchestrator::instance().initialize_plugins();
         initialize_fff_print_config_cache();
@@ -110,6 +112,13 @@ TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayo
                                                                slic3r_api::MaxOverhangThresholdPlugin::MaxOverhangThreshold::print_ui_fragment(),
                                                                0);
     REQUIRE((overhang_added == 0 || overhang_added == 1));
+    const int32_t bridge_removal_added = orchestrator_add_ui_fragment(
+        orch_handle,
+        "print.ui",
+        "support.demand.bridge_removal",
+        slic3r_api::Support::SupportDemandBridgeRemovalPlugin::SupportDemandBridgeRemoval::print_ui_fragment(),
+        0);
+    REQUIRE((bridge_removal_added == 0 || bridge_removal_added == 1));
     const int32_t gui_rules_example_added = orchestrator_add_ui_fragment(orch_handle,
                                                                         "print.ui",
                                                                         "gui_rules_example",
