@@ -33,6 +33,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/args.hpp>
 #include <boost/nowide/cenv.hpp>
+#include <boost/nowide/fstream.hpp>
 #include <boost/nowide/iostream.hpp>
 #include <boost/nowide/integration/filesystem.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -86,6 +87,76 @@ static PrinterTechnology get_printer_technology(const DynamicConfig &config)
 namespace {
 
 using RegisterPluginFn = void (*)(orchestrator_handle *);
+
+const char *const ACTIVE_PLUGINS_FILENAME = "active_plugins.txt";
+
+std::vector<std::string> default_active_plugin_ids()
+{
+    return {
+        "bridge_detector.default",
+        "standard_layer_height_generator",
+        "slice_volume",
+        "polyholes",
+        "max_overhang_threshold",
+        "support.demand.overhangs",
+        "support.demand.painting",
+        "support.demand.modifiers",
+        "support.demand.bridge_removal",
+    };
+}
+
+std::string trim_plugin_id_line(const std::string &line)
+{
+    const size_t begin = line.find_first_not_of(" \t\r\n");
+    if (begin == std::string::npos)
+        return {};
+
+    const size_t end = line.find_last_not_of(" \t\r\n");
+    return line.substr(begin, end - begin + 1);
+}
+
+std::vector<std::string> read_active_plugin_ids(const boost::filesystem::path &plugin_repository, bool &from_file)
+{
+    const boost::filesystem::path config_path = plugin_repository / ACTIVE_PLUGINS_FILENAME;
+    from_file = boost::filesystem::exists(config_path);
+    if (!from_file)
+        return default_active_plugin_ids();
+
+    boost::nowide::ifstream stream(config_path.string());
+    if (!stream) {
+        BOOST_LOG_TRIVIAL(warning) << "Cannot read active plugin configuration '" << config_path.string()
+                                   << "'. Falling back to default active plugins.";
+        from_file = false;
+        return default_active_plugin_ids();
+    }
+
+    std::vector<std::string> plugin_ids;
+    std::string line;
+    while (std::getline(stream, line)) {
+        const std::string plugin_id = trim_plugin_id_line(line);
+        if (!plugin_id.empty() && plugin_id.front() != '#')
+            plugin_ids.push_back(plugin_id);
+    }
+    return plugin_ids;
+}
+
+void activate_plugins_from_ids(Orchestrator &orchestrator,
+                               const std::vector<std::string> &plugin_ids,
+                               bool from_file)
+{
+    orchestrator.clear_active_plugins();
+
+    for (const std::string &plugin_id : plugin_ids) {
+        if (orchestrator.set_plugin_active(plugin_id, true))
+            continue;
+
+        if (from_file)
+            BOOST_LOG_TRIVIAL(warning) << "Active plugin '" << plugin_id << "' is listed in "
+                                       << ACTIVE_PLUGINS_FILENAME << " but is not loaded.";
+        else
+            BOOST_LOG_TRIVIAL(trace) << "Default active plugin '" << plugin_id << "' is not loaded.";
+    }
+}
 
 bool is_plugin_library_path(const boost::filesystem::path &path)
 {
@@ -933,10 +1004,15 @@ bool CLI::setup(int argc, char **argv)
     slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
 
     // plugins: register from dll / code
-    load_plugins_from_repository(path_to_binary.parent_path() / "plugins",
-                                 reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance()));
+    const boost::filesystem::path plugin_repository = path_to_binary.parent_path() / "plugins";
+    load_plugins_from_repository(plugin_repository, reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance()));
 
-    //plugins: initialise
+    bool active_plugins_loaded_from_file = false;
+    const std::vector<std::string> active_plugin_ids =
+        read_active_plugin_ids(plugin_repository, active_plugins_loaded_from_file);
+    activate_plugins_from_ids(Orchestrator::instance(), active_plugin_ids, active_plugins_loaded_from_file);
+
+    //plugins: initialise only the active subset
     Orchestrator::instance().initialize_plugins();
 
     initialize_fff_print_config_cache();

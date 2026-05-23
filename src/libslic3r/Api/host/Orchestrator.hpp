@@ -91,9 +91,11 @@ public:
     std::vector<Plugin *> get_active_plugins_for_step(slicing_step_t step) const;
     std::vector<Plugin *> get_current_plugins_for_step(slicing_step_t step) const;
     const Plugin *get_plugin(const std::string &plugin_id) const;
+    Plugin *get_plugin(const std::string &plugin_id);
     void add_plugin_to_step(Plugin *plugin, slicing_step_t step);
     bool is_plugin_active(const Plugin *plugin) const;
     bool is_plugin_active(const std::string &plugin_id) const;
+    void clear_active_plugins();
     bool set_plugin_active(Plugin *plugin, bool active);
     bool set_plugin_active(const std::string &plugin_id, bool active);
     const std::unordered_set<Plugin *> &active_plugins() const { return m_active_plugins; }

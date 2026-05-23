@@ -493,6 +493,17 @@ const Plugin *Orchestrator::get_plugin(const std::string &plugin_id) const {
     return plugin;
 }
 
+Plugin *Orchestrator::get_plugin(const std::string &plugin_id) {
+    Plugin *plugin = nullptr;
+    for (const std::unique_ptr<Plugin> &plugin_test : m_registered_plugins) {
+        if (plugin_test->get_id() == plugin_id) {
+            plugin = plugin_test.get();
+            break;
+        }
+    }
+    return plugin;
+}
+
 bool Orchestrator::is_plugin_active(const Plugin *plugin) const
 {
     return plugin != nullptr && m_active_plugins.find(const_cast<Plugin *>(plugin)) != m_active_plugins.end();
@@ -501,6 +512,11 @@ bool Orchestrator::is_plugin_active(const Plugin *plugin) const
 bool Orchestrator::is_plugin_active(const std::string &plugin_id) const
 {
     return this->is_plugin_active(this->get_plugin(plugin_id));
+}
+
+void Orchestrator::clear_active_plugins()
+{
+    m_active_plugins.clear();
 }
 
 bool Orchestrator::set_plugin_active(Plugin *plugin, bool active)
@@ -517,7 +533,7 @@ bool Orchestrator::set_plugin_active(Plugin *plugin, bool active)
 
 bool Orchestrator::set_plugin_active(const std::string &plugin_id, bool active)
 {
-    return this->set_plugin_active(const_cast<Plugin *>(this->get_plugin(plugin_id)), active);
+    return this->set_plugin_active(this->get_plugin(plugin_id), active);
 }
 
 void Orchestrator::add_plugin_to_step(Plugin *plugin, slicing_step_t step) {
@@ -563,7 +579,8 @@ void Orchestrator::slice(Print &print) {
 
 void Orchestrator::initialize_plugins() {
     for (const std::unique_ptr<Plugin> &plugin_ptr : m_registered_plugins) {
-        plugin_ptr->initialize(reinterpret_cast<storage_handle *>(&m_plugin_storage[plugin_ptr.get()]));
+        if (this->is_plugin_active(plugin_ptr.get()))
+            plugin_ptr->initialize(reinterpret_cast<storage_handle *>(&m_plugin_storage[plugin_ptr.get()]));
     }
 }
 
