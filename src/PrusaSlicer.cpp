@@ -39,6 +39,7 @@
 #if ENABLE_GL_CORE_PROFILE
 #include <boost/algorithm/string/split.hpp>
 #endif // ENABLE_GL_CORE_PROFILE
+#include "libslic3r/AppConfig.hpp"
 #include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/GCode/PostProcessor.hpp"
@@ -90,6 +91,39 @@ static std::string find_argument(int argc, char **argv, const std::string& arg_n
     }
     return {};
 }
+
+static std::string config_app_name()
+{
+#ifdef SLIC3R_ALPHA
+    return SLIC3R_APP_KEY "-alpha";
+#else
+    return SLIC3R_APP_KEY;
+#endif
+}
+
+static std::string default_app_data_path()
+{
+    const std::string app_name = config_app_name();
+
+#if defined(_WIN32)
+    if (const char *appdata = boost::nowide::getenv("APPDATA"); appdata != nullptr && appdata[0] != '\0')
+        return (boost::filesystem::path(appdata) / app_name).string();
+    if (const char *userprofile = boost::nowide::getenv("USERPROFILE"); userprofile != nullptr && userprofile[0] != '\0')
+        return (boost::filesystem::path(userprofile) / "AppData" / "Roaming" / app_name).string();
+#elif defined(__APPLE__)
+    if (const char *home = boost::nowide::getenv("HOME"); home != nullptr && home[0] != '\0')
+        return (boost::filesystem::path(home) / "Library" / "Application Support" / app_name).string();
+#else
+    if (const char *xdg_config_home = boost::nowide::getenv("XDG_CONFIG_HOME"); xdg_config_home != nullptr && xdg_config_home[0] != '\0')
+        return (boost::filesystem::path(xdg_config_home) / app_name).string();
+    if (const char *home = boost::nowide::getenv("HOME"); home != nullptr && home[0] != '\0')
+        return (boost::filesystem::path(home) / ".config" / app_name).string();
+#endif
+
+    return app_name;
+}
+
+CLI::~CLI() = default;
 
 int CLI::run(int argc, char **argv)
 {
@@ -751,6 +785,8 @@ int CLI::run(int argc, char **argv)
         params.start_downloader = start_downloader;
         params.download_url = download_url;
         params.delete_after_load = delete_after_load;
+        if (!start_as_gcodeviewer)
+            params.app_config = std::move(m_app_config);
 #if ENABLE_GL_CORE_PROFILE
         params.opengl_version = opengl_version;
         params.opengl_debug = opengl_debug;
@@ -854,6 +890,17 @@ bool CLI::setup(int argc, char **argv)
     const std::string cli_data_dir = find_argument(argc, argv, "datadir");
     if (!cli_data_dir.empty())
         set_data_dir(cli_data_dir);
+
+    // Plugin activation is stored below data_dir()/plugin. The GUI normally
+    // initializes AppConfig later, but plugins must be loaded before the full
+    // CLI definition is built so their options are accepted by read_cli().
+    m_app_config = std::make_unique<AppConfig>(AppConfig::EAppMode::Editor);
+    m_app_config->init_root_data_dir(default_app_data_path());
+    if (!has_data_dir() && cli_data_dir.empty()) {
+        // Fresh GUI installs still need the interactive installation chooser.
+        // In that case load_plugins() will fall back to the resource defaults.
+        m_app_config.reset();
+    }
 
     //setup configs
     PrintConfigDef::instance_mutable().init_common_params();

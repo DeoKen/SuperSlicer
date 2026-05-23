@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
@@ -82,9 +83,11 @@ std::vector<std::string> read_active_plugin_ini(const boost::filesystem::path &c
     }
 
     std::vector<std::string> plugin_ids;
-    for (const boost::property_tree::ptree::value_type &entry : *activated)
-        if (ini_value_is_enabled(entry.second.get_value<std::string>()))
-            plugin_ids.push_back(entry.first);
+    for (const boost::property_tree::ptree::value_type &entry : *activated) {
+        const std::string plugin_id = boost::algorithm::trim_copy(entry.first);
+        if (!plugin_id.empty() && ini_value_is_enabled(entry.second.get_value<std::string>()))
+            plugin_ids.push_back(plugin_id);
+    }
 
     return plugin_ids;
 }
@@ -144,8 +147,10 @@ void activate_plugins_from_ids(Orchestrator &orchestrator,
     orchestrator.clear_active_plugins();
 
     for (const std::string &plugin_id : plugin_ids) {
-        if (orchestrator.set_plugin_active(plugin_id, true))
+        if (orchestrator.set_plugin_active(plugin_id, true)) {
+            BOOST_LOG_TRIVIAL(info) << "Activated plugin '" << plugin_id << "'.";
             continue;
+        }
 
         if (from_user_config)
             BOOST_LOG_TRIVIAL(warning) << "Active plugin '" << plugin_id << "' is listed in "
@@ -295,6 +300,9 @@ void load_plugins()
                                                                 boost::filesystem::path();
     const std::vector<std::string> active_plugin_ids =
         read_active_plugin_ids(config_dir, active_plugins_loaded_from_user_config);
+    BOOST_LOG_TRIVIAL(info) << "Loaded " << active_plugin_ids.size() << " active plugin id(s) from "
+                            << (active_plugins_loaded_from_user_config ? active_plugin_config_path(config_dir).string() :
+                                default_active_plugin_config_path().string()) << ".";
     activate_plugins_from_ids(orchestrator, active_plugin_ids, active_plugins_loaded_from_user_config);
     register_exclusive_step_groups(orchestrator);
 
