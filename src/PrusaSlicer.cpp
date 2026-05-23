@@ -88,61 +88,140 @@ namespace {
 
 using RegisterPluginFn = void (*)(orchestrator_handle *);
 
-const char *const ACTIVE_PLUGINS_FILENAME = "active_plugins.txt";
+const char *const PLUGIN_ACTIVATION_DIR = "plugin";
+const char *const ACTIVATED_PLUGINS_FILENAME = "activated.ini";
+const char *const DEFAULT_ACTIVATED_PLUGINS_DIR = "plugins";
+const char *const DEFAULT_ACTIVATED_PLUGINS_FILENAME = "default_activated.ini";
 
-std::vector<std::string> default_active_plugin_ids()
+std::string trim_ini_token(const std::string &text)
 {
-    return {
-        "bridge_detector.default",
-        "standard_layer_height_generator",
-        "slice_volume",
-        "polyholes",
-        "max_overhang_threshold",
-        "support.demand.overhangs",
-        "support.demand.painting",
-        "support.demand.modifiers",
-        "support.demand.bridge_removal",
-    };
-}
-
-std::string trim_plugin_id_line(const std::string &line)
-{
-    const size_t begin = line.find_first_not_of(" \t\r\n");
+    const size_t begin = text.find_first_not_of(" \t\r\n");
     if (begin == std::string::npos)
         return {};
 
-    const size_t end = line.find_last_not_of(" \t\r\n");
-    return line.substr(begin, end - begin + 1);
+    const size_t end = text.find_last_not_of(" \t\r\n");
+    return text.substr(begin, end - begin + 1);
 }
 
-std::vector<std::string> read_active_plugin_ids(const boost::filesystem::path &plugin_repository, bool &from_file)
+bool ini_value_is_enabled(const std::string &value)
 {
-    const boost::filesystem::path config_path = plugin_repository / ACTIVE_PLUGINS_FILENAME;
-    from_file = boost::filesystem::exists(config_path);
-    if (!from_file)
-        return default_active_plugin_ids();
+    return boost::algorithm::iequals(value, "1") ||
+           boost::algorithm::iequals(value, "true") ||
+           boost::algorithm::iequals(value, "yes") ||
+           boost::algorithm::iequals(value, "on") ||
+           boost::algorithm::iequals(value, "enabled");
+}
 
+std::vector<std::string> read_active_plugin_ini(const boost::filesystem::path &config_path)
+{
     boost::nowide::ifstream stream(config_path.string());
     if (!stream) {
-        BOOST_LOG_TRIVIAL(warning) << "Cannot read active plugin configuration '" << config_path.string()
-                                   << "'. Falling back to default active plugins.";
-        from_file = false;
-        return default_active_plugin_ids();
+        BOOST_LOG_TRIVIAL(warning) << "Cannot read active plugin configuration '" << config_path.string() << "'.";
+        return {};
     }
 
     std::vector<std::string> plugin_ids;
     std::string line;
     while (std::getline(stream, line)) {
-        const std::string plugin_id = trim_plugin_id_line(line);
-        if (!plugin_id.empty() && plugin_id.front() != '#')
+        const std::string trimmed_line = trim_ini_token(line);
+        if (trimmed_line.empty() || trimmed_line.front() == '#' || trimmed_line.front() == ';' ||
+            trimmed_line.front() == '[')
+            continue;
+
+        const size_t separator = trimmed_line.find('=');
+        if (separator == std::string::npos) {
+            plugin_ids.push_back(trimmed_line);
+            continue;
+        }
+
+        const std::string plugin_id = trim_ini_token(trimmed_line.substr(0, separator));
+        const std::string enabled_value = trim_ini_token(trimmed_line.substr(separator + 1));
+        if (!plugin_id.empty() && ini_value_is_enabled(enabled_value))
             plugin_ids.push_back(plugin_id);
     }
     return plugin_ids;
 }
 
+boost::filesystem::path default_active_plugin_config_path(const boost::filesystem::path &resources_dir)
+{
+    return resources_dir / DEFAULT_ACTIVATED_PLUGINS_DIR / DEFAULT_ACTIVATED_PLUGINS_FILENAME;
+}
+
+boost::filesystem::path active_plugin_config_path(const boost::filesystem::path &config_dir)
+{
+    return config_dir / PLUGIN_ACTIVATION_DIR / ACTIVATED_PLUGINS_FILENAME;
+}
+
+std::string find_datadir_argument(int argc, char **argv)
+{
+    const std::string datadir_prefix = "--datadir=";
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i] != nullptr ? argv[i] : "";
+        if (arg == "--datadir" && i + 1 < argc && argv[i + 1] != nullptr)
+            return argv[i + 1];
+        if (boost::algorithm::starts_with(arg, datadir_prefix))
+            return arg.substr(datadir_prefix.size());
+    }
+    return {};
+}
+
+boost::filesystem::path active_plugin_data_dir(int argc, char **argv)
+{
+    if (has_data_dir())
+        return boost::filesystem::path(data_dir());
+
+    const std::string cli_data_dir = find_datadir_argument(argc, argv);
+    if (!cli_data_dir.empty()) {
+        set_data_dir(cli_data_dir);
+        return boost::filesystem::path(data_dir());
+    }
+
+    return {};
+}
+
+boost::filesystem::path ensure_active_plugin_config(const boost::filesystem::path &config_dir,
+                                                    const boost::filesystem::path &resources_dir,
+                                                    bool &from_user_config)
+{
+    const boost::filesystem::path default_config_path = default_active_plugin_config_path(resources_dir);
+    from_user_config = false;
+
+    if (config_dir.empty()) {
+        BOOST_LOG_TRIVIAL(trace) << "data_dir is not available before plugin activation. Using default active plugin "
+                                    "configuration from resources.";
+        return default_config_path;
+    }
+
+    const boost::filesystem::path config_path = active_plugin_config_path(config_dir);
+    if (boost::filesystem::exists(config_path)) {
+        from_user_config = true;
+        return config_path;
+    }
+
+    try {
+        boost::filesystem::create_directories(config_path.parent_path());
+        boost::filesystem::copy_file(default_config_path, config_path);
+        from_user_config = true;
+        return config_path;
+    } catch (const boost::filesystem::filesystem_error &error) {
+        BOOST_LOG_TRIVIAL(warning) << "Cannot create active plugin configuration '" << config_path.string()
+                                   << "' from '" << default_config_path.string() << "': " << error.what()
+                                   << ". Falling back to resources.";
+        return default_config_path;
+    }
+}
+
+std::vector<std::string> read_active_plugin_ids(const boost::filesystem::path &config_dir,
+                                                const boost::filesystem::path &resources_dir,
+                                                bool &from_user_config)
+{
+    const boost::filesystem::path config_path = ensure_active_plugin_config(config_dir, resources_dir, from_user_config);
+    return read_active_plugin_ini(config_path);
+}
+
 void activate_plugins_from_ids(Orchestrator &orchestrator,
                                const std::vector<std::string> &plugin_ids,
-                               bool from_file)
+                               bool from_user_config)
 {
     orchestrator.clear_active_plugins();
 
@@ -150,9 +229,9 @@ void activate_plugins_from_ids(Orchestrator &orchestrator,
         if (orchestrator.set_plugin_active(plugin_id, true))
             continue;
 
-        if (from_file)
+        if (from_user_config)
             BOOST_LOG_TRIVIAL(warning) << "Active plugin '" << plugin_id << "' is listed in "
-                                       << ACTIVE_PLUGINS_FILENAME << " but is not loaded.";
+                                       << ACTIVATED_PLUGINS_FILENAME << " but is not loaded.";
         else
             BOOST_LOG_TRIVIAL(trace) << "Default active plugin '" << plugin_id << "' is not loaded.";
     }
@@ -1007,10 +1086,10 @@ bool CLI::setup(int argc, char **argv)
     const boost::filesystem::path plugin_repository = path_to_binary.parent_path() / "plugins";
     load_plugins_from_repository(plugin_repository, reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance()));
 
-    bool active_plugins_loaded_from_file = false;
+    bool active_plugins_loaded_from_user_config = false;
     const std::vector<std::string> active_plugin_ids =
-        read_active_plugin_ids(plugin_repository, active_plugins_loaded_from_file);
-    activate_plugins_from_ids(Orchestrator::instance(), active_plugin_ids, active_plugins_loaded_from_file);
+        read_active_plugin_ids(active_plugin_data_dir(argc, argv), path_resources, active_plugins_loaded_from_user_config);
+    activate_plugins_from_ids(Orchestrator::instance(), active_plugin_ids, active_plugins_loaded_from_user_config);
 
     //plugins: initialise only the active subset
     Orchestrator::instance().initialize_plugins();
