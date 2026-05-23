@@ -28,26 +28,14 @@
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/FFFPrintConfig.hpp"
-#include "libslic3r/Plugins/Perimeter/ArachnePerimeterGenerator.hpp"
-#include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
-#include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
-#include "libslic3r/Plugins/Perimeter/ExtraPerimeterOddLayer.hpp"
-#include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterFirstLayer.hpp"
-#include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterOnTop.hpp"
-#include "libslic3r/Plugins/Perimeter/RemoveGapFillOnOverhangs.hpp"
-#include "libslic3r/Plugins/Perimeter/SeparateHoleContour.hpp"
-#include "libslic3r/Plugins/Perimeter/SimplePerimeterGenerator.hpp"
 #include "libslic3r/Plugins/SliceVolume.hpp"
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
-#include "libslic3r/Plugins/Surface/DefaultSurfaceGenerator.hpp"
-#include "libslic3r/Plugins/Surface/DefaultSurfaceType.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandModifiers.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandOverhangs.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandPainting.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLA/SLAPrintConfig.hpp"
-#include "plugins_cpp/FlatAreaLayerHeight/FlatAreaLayerHeight.hpp"
 #include "plugins_cpp/Polyholes/Polyholes.hpp"
 
 namespace {
@@ -163,7 +151,6 @@ void ensure_plugin_test_runtime_initialized()
         slic3r_api::StandardLayerHeightGeneratorPlugin::register_standard_layer_height_generator_plugin(
             orchestrator_handle_value);
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator_handle_value);
-        slic3r_api::FlatAreaLayerHeightPlugin::register_flat_area_layer_height_plugin(orchestrator_handle_value);
         slic3r_api::PolyholesPlugin::register_polyholes_plugin(orchestrator_handle_value);
         slic3r_api::Support::SupportDemandOverhangsPlugin::register_support_demand_overhangs_plugin(
             orchestrator_handle_value);
@@ -173,60 +160,24 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(
             orchestrator_handle_value);
-        slic3r_api::Perimeter::ArachnePerimeterGeneratorPlugin::register_arachne_perimeter_generator_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::SimplePerimeterGeneratorPlugin::register_simple_perimeter_generator_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::ExtraPerimeterCountPlugin::register_extra_perimeter_count_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::ExtraPerimeterBelowAreaPlugin::register_extra_perimeter_below_area_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::ExtraPerimeterOddLayerPlugin::register_extra_perimeter_odd_layer_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::OnlyOnePerimeterFirstLayerPlugin::register_only_one_perimeter_first_layer_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::OnlyOnePerimeterOnTopPlugin::register_only_one_perimeter_on_top_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::SeparateHoleContourPlugin::register_separate_hole_contour_plugin(
-            orchestrator_handle_value);
-        slic3r_api::Perimeter::RemoveGapFillOnOverhangsPlugin::register_remove_gap_fill_on_overhangs_plugin(
-            orchestrator_handle_value);
-        slic3r_api::SurfaceGeneration::DefaultSurfaceGeneratorPlugin::register_default_surface_generator_plugin(
-            orchestrator_handle_value);
-        slic3r_api::SurfaceType::DefaultSurfaceTypePlugin::register_default_surface_type_plugin(
-            orchestrator_handle_value);
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
                                   orchestrator.get_plugin("python.polyholes") != nullptr &&
-                                  orchestrator.get_plugin("python.polyholes.high_level") != nullptr &&
-                                  orchestrator.get_plugin("python.perimeter.generator.simple") != nullptr;
+                                  orchestrator.get_plugin("python.polyholes.high_level") != nullptr;
 #endif
 
         activate_plugin_or_fail(orchestrator, "bridge_detector.default");
         activate_plugin_or_fail(orchestrator, "standard_layer_height_generator");
         activate_plugin_or_fail(orchestrator, "slice_volume");
-        activate_plugin_or_fail(orchestrator, "flat_area_layer_height");
         activate_plugin_or_fail(orchestrator, "polyholes");
         activate_plugin_or_fail(orchestrator, "support.demand.overhangs");
         activate_plugin_or_fail(orchestrator, "support.demand.painting");
         activate_plugin_or_fail(orchestrator, "support.demand.modifiers");
         activate_plugin_or_fail(orchestrator, "support.demand.bridge_removal");
-        activate_plugin_or_fail(orchestrator, "perimeter.generator.arachne");
-        activate_plugin_or_fail(orchestrator, "perimeter.generator.simple");
-        activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_count");
-        activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_below_area");
-        activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_odd_layer");
-        activate_plugin_or_fail(orchestrator, "perimeter.module.only_one_perimeter_first_layer");
-        activate_plugin_or_fail(orchestrator, "perimeter.module.only_one_perimeter_on_top");
-        activate_plugin_or_fail(orchestrator, "perimeter.module.separate_hole_contour");
-        activate_plugin_or_fail(orchestrator, "perimeter.module.remove_gap_fill_on_overhangs");
-        activate_plugin_or_fail(orchestrator, "surface.generator.default");
-        activate_plugin_or_fail(orchestrator, "surface.type.default");
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         if (g_python_plugins_loaded) {
             activate_plugin_or_fail(orchestrator, "python.polyholes");
             activate_plugin_or_fail(orchestrator, "python.polyholes.high_level");
-            activate_plugin_or_fail(orchestrator, "python.perimeter.generator.simple");
         }
 #endif
 

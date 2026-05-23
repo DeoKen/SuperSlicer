@@ -20,7 +20,6 @@ struct LayerRegionAccess
 {
     static ExPolygons &slices_mutable(LayerRegion &layer_region);
     static SurfaceCollection &surfaces_mutable(LayerRegion &layer_region);
-    static ExPolygons &fill_no_overlap_expolygons_mutable(LayerRegion &layer_region);
 };
 
 } // namespace ApiInternal

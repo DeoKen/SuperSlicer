@@ -86,7 +86,6 @@ from slic3r_extrusion_views import *
 from slic3r_datatree_views import *
 from slic3r_clipper_views import *
 from steps.post_slicing import *
-from steps.perimeter import *
 
 
 _registered_apis = []
@@ -151,9 +150,8 @@ class PluginBase:
     """
     Base class for Python plugins.
 
-    Set plugin_id, step, priority, dependencies and used_config_keys in __init__
-    by calling the base constructor. Override initialize/setup/setup_run/run as
-    needed.
+    Set plugin_id, step, priority and dependencies in __init__ by calling the
+    base constructor. Override initialize/setup/setup_run/run as needed.
 
     Callback arguments are raw C pointer addresses represented as Python int:
     - initialize(storage_address)
@@ -171,13 +169,11 @@ class PluginBase:
         step: int,
         priority: int = 0,
         dependencies: Iterable[str] = (),
-        used_config_keys: Iterable[str] = (),
     ) -> None:
         self.plugin_id = plugin_id
         self.step = int(step)
         self.priority = int(priority)
         self.dependencies = list(dependencies)
-        self.used_config_keys = list(used_config_keys)
 
     def initialize(self, storage_address: int) -> None:
         pass
@@ -395,9 +391,6 @@ class Slic3rAPI:
 
     def post_slicing(self, run_ctx_address: int) -> PostSlicingContext | None:
         return PostSlicingContext.from_run_context(self, run_ctx_address)
-
-    def perimeter(self, run_ctx_address: int) -> PerimeterContext | None:
-        return PerimeterContext.from_run_context(self, run_ctx_address)
 
     def storage_clear(self, storage_address: int) -> None:
         self.host.storage_clear(ctypes.c_void_p(storage_address))

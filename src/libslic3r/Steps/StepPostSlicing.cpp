@@ -5,13 +5,11 @@
 
 #include "StepPostSlicing.hpp"
 
-#include <cmath>
 #include <sstream>
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/Plugin.hpp"
 #include "libslic3r/Api/host/steps/PostSlicingStep.hpp"
-#include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
@@ -30,26 +28,6 @@ bool has_non_empty_expolygon(const ExPolygons &expolygons)
         if (!expolygon.empty())
             return true;
     return false;
-}
-
-bool has_significant_overlap(const ExPolygons &lhs, const ExPolygons &rhs, double *overlap_area)
-{
-    if (lhs.empty() || rhs.empty()) {
-        if (overlap_area != nullptr)
-            *overlap_area = 0.;
-        return false;
-    }
-
-    const ExPolygons overlap = intersection_ex(lhs, rhs);
-    const double area_overlap = std::abs(area(overlap));
-    if (overlap_area != nullptr)
-        *overlap_area = area_overlap;
-
-    // Adjacent regions may produce microscopic Clipper slivers along a shared
-    // border. Anything larger than this is a real layer-region overlap.
-    const double max_tolerated_overlap_area =
-        double(SCALED_EPSILON) * double(SCALED_EPSILON) * 10.;
-    return area_overlap > max_tolerated_overlap_area;
 }
 
 } // namespace
@@ -120,21 +98,6 @@ bool validate_pre(const Print &print, std::string &out_error)
                 if (!region.fill_surfaces().empty()) {
                     ok = false;
                     out_error += region_prefix.str() + "fill surfaces are not empty";
-                }
-            }
-
-            for (size_t region_idx = 0; region_idx < layer.region_count(); ++region_idx) {
-                const LayerRegion &region = layer.region(region_idx);
-                for (size_t other_region_idx = region_idx + 1; other_region_idx < layer.region_count(); ++other_region_idx) {
-                    const LayerRegion &other_region = layer.region(other_region_idx);
-                    double overlap_area = 0.;
-                    if (has_significant_overlap(region.get_raw_slices(), other_region.get_raw_slices(), &overlap_area)) {
-                        ok = false;
-                        std::ostringstream msg;
-                        msg << layer_prefix.str() << "regions " << region_idx << " and " << other_region_idx
-                            << " have overlapping raw slices, overlap scaled area " << overlap_area;
-                        out_error += msg.str();
-                    }
                 }
             }
         }

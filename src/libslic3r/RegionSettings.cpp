@@ -132,24 +132,6 @@ ExPolygons RegionSettings::ClipExpoly::intersections(const ExPolygons &to_clip) 
     return intersections;
 }
 
-ExPolygons RegionSettings::ClipExpoly::diff(const ExPolygons &to_diff) const {
-    if (this->is_accept_all()) {
-        return {};
-    }
-    ExPolygons all_differences;
-    for (const ExPolygon &expoly : to_diff) {
-        BoundingBox bb_contour(expoly.contour.points);
-        ExPolygons differences {expoly};
-        for (size_t i = 0; i < this->expolys.size(); ++i) {
-            if (bb_contour.overlap(this->bboxes[i])) {
-                differences = diff_ex(differences, this->expolys[i]);
-            }
-        }
-        append(all_differences, std::move(differences));
-    }
-    return all_differences;
-}
-
 ExPolygons RegionSettings::ClipExpoly::intersections(coord_t offset, const ExPolygons &to_clip) const {
     if (this->is_accept_all()) {
         return to_clip;

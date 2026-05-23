@@ -14,11 +14,6 @@ namespace Slic3r {
 class Orchestrator;
 class Print;
 
-// Extension point after perimeter generation.
-//
-// Typical modules here edit already generated perimeter extrusions or add
-// perimeter-derived metadata: overhang speed enforcement, fuzzy skin,
-// extra perimeters over overhangs, seam tags, and similar post-processing.
 namespace Steps::StepPostPerimeterGeneration {
 
 void clean_and_prepare(Print &print);

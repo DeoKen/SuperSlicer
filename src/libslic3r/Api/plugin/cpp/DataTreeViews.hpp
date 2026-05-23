@@ -389,7 +389,7 @@ public:
     bool has_extrusions() const { return layer_region_island_has_extrusions(handle()) != 0; }
     bool has_extrusion(raw_extrusion_role role) const { return layer_region_island_has_extrusion(handle(), role) != 0; }
 
-    const extrusion_entity_handle *extrusion(raw_extrusion_role role) const {
+    const extrusion_entity *extrusion(raw_extrusion_role role) const {
         return layer_region_island_get_extrusion(handle(), role);
     }
 
@@ -426,42 +426,6 @@ public:
     }
 
     Layer layer() const;
-
-    uint32_t lower_island_count() const { return layer_island_count_lower_island(handle()); }
-
-    LayerIsland lower_island(uint32_t idx) const {
-        return LayerIsland(layer_island_get_lower_island(handle(), idx));
-    }
-
-    std::vector<LayerIsland> lower_islands() const {
-        std::vector<LayerIsland> result;
-        const uint32_t count = lower_island_count();
-        result.reserve(count);
-        for (uint32_t idx = 0; idx < count; ++idx) {
-            const layer_island_handle *island = layer_island_get_lower_island(handle(), idx);
-            if (island != nullptr)
-                result.emplace_back(island);
-        }
-        return result;
-    }
-
-    uint32_t upper_island_count() const { return layer_island_count_upper_island(handle()); }
-
-    LayerIsland upper_island(uint32_t idx) const {
-        return LayerIsland(layer_island_get_upper_island(handle(), idx));
-    }
-
-    std::vector<LayerIsland> upper_islands() const {
-        std::vector<LayerIsland> result;
-        const uint32_t count = upper_island_count();
-        result.reserve(count);
-        for (uint32_t idx = 0; idx < count; ++idx) {
-            const layer_island_handle *island = layer_island_get_upper_island(handle(), idx);
-            if (island != nullptr)
-                result.emplace_back(island);
-        }
-        return result;
-    }
 };
 
 class Layer : public ConstDataTreeHandleView<layer_handle>

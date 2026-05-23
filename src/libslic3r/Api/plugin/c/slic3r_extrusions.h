@@ -180,7 +180,7 @@ typedef int32_t raw_extrusion_role;
 
 /* ========================= HANDLES ========================= */
 
-typedef struct extrusion_entity_handle extrusion_entity_handle;
+typedef struct extrusion_entity extrusion_entity;
 
 /* ---- Flow ---- */
 /*

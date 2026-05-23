@@ -35,8 +35,6 @@
 #include "steps/slic3r_step_surface_type.h"
 #include "steps/slic3r_step_wipetower.h"
 
-#define SLIC3R_PLUGIN_ABI_VERSION 2u
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -54,30 +52,9 @@ typedef void (*plugin_setup_fn)(void *plugin_ctx, const plugin_run_context *run_
 typedef void (*plugin_setup_run_fn)(void *plugin_ctx, const plugin_run_context *run_ctx);
 typedef void (*plugin_run_fn)(void *plugin_ctx, const plugin_run_context *run_ctx);
 
-/*
-Return the configuration option keys read by this plugin.
-
-This uses the usual C double-call pattern:
-- call with keys == NULL to get the number of entries to allocate;
-- call again with an array of that size to receive borrowed const char*
-  pointers owned by the plugin.
-
-The host uses this list to enable/disable GUI fields when several plugins are
-available for an exclusive step and a project selects one of them.
-*/
-typedef int32_t (*plugin_used_config_keys_fn)(void *plugin_ctx, const char **keys);
-
 /* ========================= PLUGIN VTABLE ========================= */
 
 typedef struct plugin_vtable {
-
-    /*
-    ABI version used to build this vtable.
-
-    Keep this as the first field: the host can reject stale plugin instances
-    before calling any function pointer whose slot may have moved.
-    */
-    uint32_t abi_version;
 
     const char* (*get_id)(void *plugin_ctx);
 
@@ -86,8 +63,6 @@ typedef struct plugin_vtable {
     const_strings_t (*get_dependencies)(void *plugin_ctx);
 
     int32_t (*get_priority)(void *plugin_ctx);
-
-    plugin_used_config_keys_fn used_config_keys;
 
     /**
      * Called once at startup, to be able to setup settings, via orchestrator_create_option_def

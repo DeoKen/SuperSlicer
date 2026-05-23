@@ -29,7 +29,7 @@ extrusion_property_store_data_aligned(), passing the address of the
 extrusion_data_id field that will reference the data.
 */
 
-typedef struct extrusion_entity_handle extrusion_entity_handle;
+typedef struct extrusion_entity extrusion_entity;
 typedef struct orchestrator_handle orchestrator_handle;
 
 typedef uint32_t extrusion_property_type;
@@ -85,7 +85,7 @@ host-defined name. The returned string is host-owned.
 SLIC3R_HOST_API const char *extrusion_property_name(const orchestrator_handle *orch, extrusion_property_type type);
 
 /* Return the number of properties stored directly on this extrusion entity. */
-SLIC3R_HOST_API uint32_t extrusion_property_count(const extrusion_entity_handle *entity);
+SLIC3R_HOST_API uint32_t extrusion_property_count(const extrusion_entity *entity);
 
 /*
 Return the property type stored at idx.
@@ -100,10 +100,10 @@ to preserve or inspect custom properties without knowing them at compile time.
 The order has no semantic meaning. Returns EXTRUSION_PROPERTY_TYPE_INVALID if
 entity is NULL or idx is invalid.
 */
-SLIC3R_HOST_API extrusion_property_type extrusion_property_type_at(const extrusion_entity_handle *entity, uint32_t idx);
+SLIC3R_HOST_API extrusion_property_type extrusion_property_type_at(const extrusion_entity *entity, uint32_t idx);
 
 /* Return non-zero if this extrusion entity directly stores a property of type. */
-SLIC3R_HOST_API int32_t extrusion_property_has(const extrusion_entity_handle *entity, extrusion_property_type type);
+SLIC3R_HOST_API int32_t extrusion_property_has(const extrusion_entity *entity, extrusion_property_type type);
 
 /*
 Return a read-only pointer to one property payload.
@@ -119,7 +119,7 @@ This is different from extrusion_data(): property data is the small typed
 payload selected by extrusion_property_type; stored data is a larger auxiliary
 buffer selected by extrusion_data_id.
 */
-SLIC3R_HOST_API const void *extrusion_property_data(const extrusion_entity_handle *entity, extrusion_property_type type);
+SLIC3R_HOST_API const void *extrusion_property_data(const extrusion_entity *entity, extrusion_property_type type);
 
 /*
 Return a mutable pointer to an existing property payload.
@@ -127,7 +127,7 @@ Return a mutable pointer to an existing property payload.
 This does not create the property. Returns NULL if the property is absent or the
 type is unknown.
 */
-SLIC3R_HOST_API void *extrusion_property_data_mutable(extrusion_entity_handle *entity, extrusion_property_type type);
+SLIC3R_HOST_API void *extrusion_property_data_mutable(extrusion_entity *entity, extrusion_property_type type);
 
 /*
 Return a mutable pointer to a property payload, creating it if needed.
@@ -136,7 +136,7 @@ If the property is created, its bytes are zero-initialized. Returns NULL if the
 type is unknown in this orchestrator or the entity cannot be modified.
 */
 SLIC3R_HOST_API void *extrusion_property_get_or_add_data_mutable(orchestrator_handle *orch,
-                                                                 extrusion_entity_handle *entity,
+                                                                 extrusion_entity *entity,
                                                                  extrusion_property_type type);
 
 /*
@@ -146,7 +146,7 @@ Stored data created with extrusion_property_store_data_aligned() for fields in
 this property type is released at the same time. Stored data created with
 extrusion_store_data_aligned() is independent and is not released here.
 */
-SLIC3R_HOST_API int32_t extrusion_property_remove(extrusion_entity_handle *entity, extrusion_property_type type);
+SLIC3R_HOST_API int32_t extrusion_property_remove(extrusion_entity *entity, extrusion_property_type type);
 
 /*
 Store arbitrary byte data on this extrusion entity and return its id.
@@ -162,7 +162,7 @@ entity, and releases it when the entity or data id is destroyed.
 alignment must be a power of two and at least 1. Passing sizeof(T) bytes with
 alignment alignof(T) allows the returned data pointer to be safely cast to T*.
 */
-SLIC3R_HOST_API extrusion_data_id extrusion_store_data_aligned(extrusion_entity_handle *entity,
+SLIC3R_HOST_API extrusion_data_id extrusion_store_data_aligned(extrusion_entity *entity,
                                                                const void *data,
                                                                uint32_t byte_size,
                                                                uint32_t alignment);
@@ -181,7 +181,7 @@ data id field really belongs to the selected property.
 When extrusion_property_remove() removes owner_type, or when owner_type is
 replaced, all data stored for fields in owner_type is released automatically.
 */
-SLIC3R_HOST_API extrusion_data_id extrusion_property_store_data_aligned(extrusion_entity_handle *entity,
+SLIC3R_HOST_API extrusion_data_id extrusion_property_store_data_aligned(extrusion_entity *entity,
                                                                         extrusion_property_type owner_type,
                                                                         extrusion_data_id *field,
                                                                         const void *data,
@@ -202,7 +202,7 @@ in bytes. Returns NULL if entity is NULL or data_id is invalid. A valid stored
 buffer of size 0 may also return NULL; use byte_size_out to distinguish that
 case if zero-sized buffers are meaningful for the caller.
 */
-SLIC3R_HOST_API const void *extrusion_data(const extrusion_entity_handle *entity,
+SLIC3R_HOST_API const void *extrusion_data(const extrusion_entity *entity,
                                            extrusion_data_id data_id,
                                            uint32_t *byte_size_out);
 
@@ -213,7 +213,7 @@ This is different from extrusion_property_remove(): removing a property removes
 the typed payload and the stored data owned by that property type; freeing
 stored data releases exactly one auxiliary buffer referenced by id.
 */
-SLIC3R_HOST_API int32_t extrusion_free_data(extrusion_entity_handle *entity, extrusion_data_id data_id);
+SLIC3R_HOST_API int32_t extrusion_free_data(extrusion_entity *entity, extrusion_data_id data_id);
 
 /* Built-in property payloads. */
 

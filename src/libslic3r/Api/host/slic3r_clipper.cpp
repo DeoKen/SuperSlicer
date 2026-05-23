@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "libslic3r/Api/plugin/c/slic3r_clipper.h"
-#include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/Polygon.hpp"
@@ -35,10 +34,6 @@ static const Polyline *to_polyline(const polyline_handle *handle) {
     return reinterpret_cast<const Polyline *>(handle);
 }
 
-static Polylines *to_polylines(polyline_collection_handle *handle) {
-    return reinterpret_cast<Polylines *>(handle);
-}
-
 static const std::vector<MultiPoint> *to_multipoints(const polygon_collection_handle *handle) {
     return reinterpret_cast<const std::vector<MultiPoint> *>(handle);
 }
@@ -57,10 +52,6 @@ static ExPolygons *to_expolygons(expolygon_collection_handle *handle) {
 
 static const ExPolygons *to_expolygons(const expolygon_collection_handle *handle) {
     return reinterpret_cast<const ExPolygons *>(handle);
-}
-
-static BoundingBox to_bounding_box(c_bounding_box bbox) {
-    return BoundingBox(Point(bbox.min.x, bbox.min.y), Point(bbox.max.x, bbox.max.y));
 }
 
 static ApiClipper::ClipperShapes *to_shapes(clipper_shapes_handle *handle) {
@@ -427,36 +418,6 @@ void clipper_shapes_replace_expolygons(expolygon_collection_handle *dst, const c
         return;
 
     *Slic3r::to_expolygons(dst) = source->to_expolygons();
-}
-
-expolygon_collection_handle *clipper_clip_expolygons_with_subject_bbox(storage_handle *storage,
-                                                                       const expolygon_collection_handle *src,
-                                                                       c_bounding_box bbox)
-{
-    if (storage == nullptr || src == nullptr)
-        return nullptr;
-
-    expolygon_collection_handle *out_handle = storage_new_expolygons(storage);
-    *Slic3r::to_expolygons(out_handle) =
-        Slic3r::ClipperUtils::clip_clipper_expolygons_with_subject_bbox(*Slic3r::to_expolygons(src),
-                                                                        Slic3r::to_bounding_box(bbox));
-    return out_handle;
-}
-
-polyline_collection_handle *clipper_diff_polyline_expolygons(storage_handle *storage,
-                                                             const polyline_handle *subject,
-                                                             const expolygon_collection_handle *clip)
-{
-    if (storage == nullptr || subject == nullptr)
-        return nullptr;
-
-    polyline_collection_handle *out_handle = storage_new_polylines(storage);
-    Slic3r::Polylines &out = *Slic3r::to_polylines(out_handle);
-    if (clip == nullptr || Slic3r::to_expolygons(clip)->empty())
-        out.push_back(*Slic3r::to_polyline(subject));
-    else
-        out = Slic3r::diff_pl(*Slic3r::to_polyline(subject), *Slic3r::to_expolygons(clip));
-    return out_handle;
 }
 
 } // extern "C"

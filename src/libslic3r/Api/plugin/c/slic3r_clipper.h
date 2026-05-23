@@ -197,37 +197,6 @@ dst is not freed or replaced; only its contents are changed.
 SLIC3R_HOST_API void clipper_shapes_replace_polygons(polygon_collection_handle *dst, const clipper_shapes_handle *shapes);
 SLIC3R_HOST_API void clipper_shapes_replace_expolygons(expolygon_collection_handle *dst, const clipper_shapes_handle *shapes);
 
-/*
-Clip an ExPolygon collection to a subject bounding box and return a new
-storage-owned ExPolygon collection.
-
-Use this as a cheap pre-pass before expensive boolean operations when a small
-subject is compared against a large set of possible clip polygons. It keeps only
-the parts of src that may overlap bbox, reducing both the number of paths and
-their point count before diff/intersection/union work.
-
-src is copied into the returned collection after clipping. The returned handle
-is owned by storage and must be released with storage_free() when no longer
-needed.
-*/
-SLIC3R_HOST_API expolygon_collection_handle *clipper_clip_expolygons_with_subject_bbox(storage_handle *storage,
-                                                                                       const expolygon_collection_handle *src,
-                                                                                       c_bounding_box bbox);
-
-/*
-Clip an open polyline by polygonal areas and return the remaining open pieces.
-
-This is the polyline equivalent of subject - clip. It is intentionally exposed
-as a direct helper instead of a generic ClipperOperand conversion because open
-paths materialize as polylines, not as polygon/expolygon collections.
-
-The returned polyline collection is owned by storage and must be released with
-storage_free() when no longer needed.
-*/
-SLIC3R_HOST_API polyline_collection_handle *clipper_diff_polyline_expolygons(storage_handle *storage,
-                                                                             const polyline_handle *subject,
-                                                                             const expolygon_collection_handle *clip);
-
 #ifdef __cplusplus
 }
 #endif

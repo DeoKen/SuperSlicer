@@ -17,8 +17,8 @@ Payload for STEP_LAYER_EXTRUSION_EDIT.
 Plugins may edit generated extrusion at the layer level for one object.
 */
 typedef struct run_ctx_layer_extrusion_edition {
-    const print_handle *print;
-    const object_handle *object;
+    print_handle *print;
+    object_handle *object;
 } run_ctx_layer_extrusion_edition;
 
 static inline const run_ctx_layer_extrusion_edition *

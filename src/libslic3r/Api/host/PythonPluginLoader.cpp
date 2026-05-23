@@ -239,13 +239,10 @@ public:
         , m_step(slicing_step_t(int_attribute(plugin, "step", STEP_POST_SLICING)))
         , m_priority(int_attribute(plugin, "priority", 0))
         , m_dependencies(string_list_attribute(plugin, "dependencies"))
-        , m_used_config_keys(string_list_attribute(plugin, "used_config_keys"))
     {
         Py_INCREF(m_plugin);
         for (const std::string &dependency : m_dependencies)
             m_dependency_ptrs.push_back(dependency.c_str());
-        for (const std::string &key : m_used_config_keys)
-            m_used_config_key_ptrs.push_back(key.c_str());
     }
 
     ~PythonPlugin()
@@ -286,16 +283,6 @@ private:
     static int32_t get_priority_bridge(void *plugin_ctx)
     {
         return static_cast<PythonPlugin *>(plugin_ctx)->m_priority;
-    }
-
-    static int32_t used_config_keys_bridge(void *plugin_ctx, const char **keys)
-    {
-        PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
-        if (keys != nullptr) {
-            for (size_t i = 0; i < plugin->m_used_config_key_ptrs.size(); ++i)
-                keys[i] = plugin->m_used_config_key_ptrs[i];
-        }
-        return int32_t(plugin->m_used_config_key_ptrs.size());
     }
 
     static void initialize_bridge(void *plugin_ctx, storage_handle *storage)
@@ -367,12 +354,10 @@ private:
     static const plugin_vtable &vtable()
     {
         static const plugin_vtable vt = {
-            SLIC3R_PLUGIN_ABI_VERSION,
             &PythonPlugin::get_id_bridge,
             &PythonPlugin::get_step_bridge,
             &PythonPlugin::get_dependencies_bridge,
             &PythonPlugin::get_priority_bridge,
-            &PythonPlugin::used_config_keys_bridge,
             &PythonPlugin::initialize_bridge,
             &PythonPlugin::setup_bridge,
             &PythonPlugin::setup_run_bridge,
@@ -387,8 +372,6 @@ private:
     int32_t m_priority = 0;
     std::vector<std::string> m_dependencies;
     std::vector<const char *> m_dependency_ptrs;
-    std::vector<std::string> m_used_config_keys;
-    std::vector<const char *> m_used_config_key_ptrs;
 };
 
 OrchestratorRegisterPluginFn resolve_register_plugin(const boost::filesystem::path &host_library_path)
@@ -600,8 +583,6 @@ void load_python_plugins(orchestrator_handle *orchestrator)
 }
 
 } // namespace
-
-SLIC3R_PLUGIN_DECLARE_ABI_VERSION()
 
 extern "C" SLIC3R_PLUGIN_API void register_plugin(orchestrator_handle *orch)
 {

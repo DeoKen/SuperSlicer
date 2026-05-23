@@ -129,12 +129,10 @@ set(SLIC3R_SOURCES
 	Api/plugin/cpp/DataTreeViews.hpp
 	Api/plugin/cpp/ExtrusionViews.hpp
 	Api/plugin/cpp/GeometryViews.hpp
-	Api/plugin/cpp/PerimeterStepViews.hpp
 	Api/plugin/cpp/PluginBase.hpp
 	Api/plugin/cpp/PluginContext.hpp
 	Api/plugin/cpp/PrintHelpers.cpp
 	Api/plugin/cpp/PrintHelpers.hpp
-	Api/plugin/cpp/RegionSettingsViews.hpp
 	Api/plugin/cpp/VolumeViews.hpp
 	Api/plugin/cpp/Views.cpp
 	Api/plugin/cpp/Views.hpp
@@ -144,34 +142,10 @@ set(SLIC3R_SOURCES
 	Plugins/GuiRulesExample.hpp
 	Plugins/MaxOverhangThreshold.cpp
 	Plugins/MaxOverhangThreshold.hpp
-	Plugins/Perimeter/ArachnePerimeterGenerator.cpp
-	Plugins/Perimeter/ArachnePerimeterGenerator.hpp
-	Plugins/Perimeter/ExtraPerimeterBelowArea.cpp
-	Plugins/Perimeter/ExtraPerimeterBelowArea.hpp
-	Plugins/Perimeter/ExtraPerimeterCount.cpp
-	Plugins/Perimeter/ExtraPerimeterCount.hpp
-	Plugins/Perimeter/ExtraPerimeterOddLayer.cpp
-	Plugins/Perimeter/ExtraPerimeterOddLayer.hpp
-	Plugins/Perimeter/OnlyOnePerimeterFirstLayer.cpp
-	Plugins/Perimeter/OnlyOnePerimeterFirstLayer.hpp
-	Plugins/Perimeter/OnlyOnePerimeterOnTop.cpp
-	Plugins/Perimeter/OnlyOnePerimeterOnTop.hpp
-	Plugins/Perimeter/RemoveGapFillOnOverhangs.cpp
-	Plugins/Perimeter/RemoveGapFillOnOverhangs.hpp
-	Plugins/Perimeter/SeparateHoleContour.cpp
-	Plugins/Perimeter/SeparateHoleContour.hpp
-	Plugins/Perimeter/SimplePerimeterGenerator.cpp
-	Plugins/Perimeter/SimplePerimeterGenerator.hpp
-	Plugins/PluginLoader.cpp
-	Plugins/PluginLoader.hpp
 	Plugins/SliceVolume.cpp
 	Plugins/SliceVolume.hpp
 	Plugins/StandardLayerHeightGenerator.cpp
 	Plugins/StandardLayerHeightGenerator.hpp
-	Plugins/Surface/DefaultSurfaceGenerator.cpp
-	Plugins/Surface/DefaultSurfaceGenerator.hpp
-	Plugins/Surface/DefaultSurfaceType.cpp
-	Plugins/Surface/DefaultSurfaceType.hpp
 	Plugins/Support/SupportDemandBridgeRemoval.cpp
 	Plugins/Support/SupportDemandBridgeRemoval.hpp
 	Plugins/Support/SupportDemandModifiers.cpp
@@ -535,8 +509,6 @@ set(SLIC3R_SOURCES
     ObjectID.hpp
     PerimeterGenerator.cpp
     PerimeterGenerator.hpp
-    PerimeterGenerator2.cpp
-    PerimeterGenerator2.hpp
     PlaceholderParser.cpp
     PlaceholderParser.hpp
     Platform.cpp

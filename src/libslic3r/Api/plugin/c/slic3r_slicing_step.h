@@ -63,15 +63,7 @@ typedef enum slicing_step_t : uint16_t
     /*
     Service plugin used to create bridge detector instances on demand.
     */
-    BRIDGE_DETECTOR                = 10100,
-
-    /*
-    Service plugin used by perimeter generators to create internal perimeter
-    generation modules. These modules do not run as standalone slicing steps;
-    a STEP_PERIMETER plugin asks for them and calls their start/before/after/end
-    callbacks while it walks its perimeter-node tree.
-    */
-    PERIMETER_GENERATION_MODULE    = 10200
+    BRIDGE_DETECTOR                = 10100
 
 } slicing_step_t;
 

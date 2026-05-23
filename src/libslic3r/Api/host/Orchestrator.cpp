@@ -5,10 +5,7 @@
 #include "Orchestrator.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
-#include <exception>
-#include <memory>
 #include <string>
 #include <utility>
 
@@ -73,11 +70,6 @@ static ConfigOptionType config_option_type(raw_config_option_type type)
     }
 }
 
-static std::chrono::milliseconds elapsed_ms(const std::chrono::steady_clock::time_point &start)
-{
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
-}
-
 } // namespace Slic3r
 
 extern "C" {
@@ -118,24 +110,14 @@ Orchestrator &Orchestrator::instance() {
 }
 
 bool Orchestrator::register_plugin(plugin_instance plugin) {
-    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    std::unique_ptr<Plugin> new_plugin;
-    try {
-        new_plugin.reset(new Plugin(plugin));
-    } catch (const std::exception &error) {
-        BOOST_LOG_TRIVIAL(error) << "Cannot register plugin: " << error.what() << std::endl;
-        return false;
-    }
-
-    const std::string new_id = new_plugin->get_id();
+    const char *new_id = plugin.vt->get_id(plugin.ctx);
     const Plugin *check_exists = get_plugin(new_id);
     if (check_exists) {
         BOOST_LOG_TRIVIAL(error) << "Plugin with id " << new_id << " already exists, cannot register plugin"
                                  << std::endl;
         return false;
     }
-    m_registered_plugins.emplace_back(std::move(new_plugin));
-    BOOST_LOG_TRIVIAL(debug) << "Registered plugin '" << new_id << "' in " << elapsed_ms(start).count() << " ms.";
+    m_registered_plugins.emplace_back(new Plugin(plugin));
     return true;
 }
 
@@ -326,6 +308,7 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     out.option_preset_type = static_cast<uint32_t>(def->option_preset_type);
     out.invalidates_step = def->invalidates_step;
 
+    out.can_be_disabled = def->can_be_disabled != 0;
     out.is_optional = def->is_optional != 0;
     out.multiline = def->multiline != 0;
     out.full_width = def->full_width != 0;
@@ -387,6 +370,32 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
             out.depends_on.emplace_back(s);
     }
 
+    ConfigOption *temp_default_option;
+    switch (def->type) {
+    case RAW_CO_NONE: assert(false); break;
+    case RAW_CO_BOOL: temp_default_option = new ConfigOptionBool(); break;
+    case RAW_CO_INT: temp_default_option = new ConfigOptionInt(); break;
+    case RAW_CO_FLOAT: temp_default_option = new ConfigOptionFloat(); break;
+    case RAW_CO_FLOAT_OR_PERCENT: temp_default_option = new ConfigOptionFloatOrPercent(); break;
+    case RAW_CO_STRING: temp_default_option = new ConfigOptionString(); break;
+    case RAW_CO_POINT: temp_default_option = new ConfigOptionPoint(); break;
+    case RAW_CO_ENUM: temp_default_option = new ConfigOptionEnumGeneric(); break;
+    case RAW_CO_GRAPH: temp_default_option = new ConfigOptionGraph(); break;
+    case RAW_CO_VECTOR_BOOL: temp_default_option = new ConfigOptionBools(); break;
+    case RAW_CO_VECTOR_INT: temp_default_option = new ConfigOptionInts(); break;
+    case RAW_CO_VECTOR_FLOAT: temp_default_option = new ConfigOptionFloats(); break;
+    case RAW_CO_VECTOR_FLOAT_OR_PERCENT: temp_default_option = new ConfigOptionFloatsOrPercents(); break;
+    case RAW_CO_VECTOR_STRING: temp_default_option = new ConfigOptionStrings(); break;
+    case RAW_CO_VECTOR_POINT: temp_default_option = new ConfigOptionPoints(); break;
+    case RAW_CO_VECTOR_ENUM: assert(false); break; // not implemented
+    case RAW_CO_VECTOR_GRAPH: temp_default_option = new ConfigOptionGraphs(); break;
+    default: assert(false);
+    }
+    if (def->can_be_disabled)
+        temp_default_option->set_can_be_disabled();
+    temp_default_option->deserialize(def->default_serialized_value);
+    out.set_default_value(temp_default_option);
+
     const bool has_pair_enum = def->enum_def.value_label_pairs.items != nullptr &&
         def->enum_def.value_label_pairs.count > 0;
     // const bool has_split_enum = def->enum_def.values.items != nullptr &&
@@ -415,33 +424,19 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
         //}
 
         if (!values.empty()) {
-            // Plugin-provided enums may omit gui_type. In that case, keep the
-            // old GUI behavior by exposing them as a closed combo box.
-            const ConfigOptionDef::GUIType enum_gui_type = out.gui_type == ConfigOptionDef::GUIType::undefined ?
-                ConfigOptionDef::GUIType::select_close :
-                out.gui_type;
-            if (enum_gui_type == ConfigOptionDef::GUIType::select_close) {
-                // Closed scripted enums need the string -> int map before the
-                // default value is deserialized below. This is especially
-                // important for exclusive-step plugin selectors: GUI rules read
-                // the enum as its integer index.
-                out.set_enum_as_closed_for_scripted_enum(values_labels);
-                out.gui_type = ConfigOptionDef::GUIType::select_close;
-            } else if (!values_labels.empty()) {
-                // Open enums can keep their string values directly; labels are
-                // used only for display when provided.
-                out.set_enum_values(enum_gui_type, values_labels);
+            if (!values_labels.empty()) {
+                out.set_enum_values(out.gui_type == ConfigOptionDef::GUIType::undefined ?
+                                        ConfigOptionDef::GUIType::select_close :
+                                        out.gui_type,
+                                    values_labels);
             } else {
-                out.set_enum_values(enum_gui_type, values);
+                out.set_enum_values(out.gui_type == ConfigOptionDef::GUIType::undefined ?
+                                        ConfigOptionDef::GUIType::select_open :
+                                        out.gui_type,
+                                    values);
             }
         }
     }
-
-    // deserialize default
-    ConfigOption *temp_default_option = out.create_empty_option();
-    if (def->default_serialized_value != nullptr)
-        temp_default_option->deserialize(def->default_serialized_value);
-    out.set_default_value(temp_default_option);
 
     // publish it?
     PrintConfigDef::instance_mutable().option_keys(def->option_preset_type).insert(out.opt_key);
@@ -593,12 +588,8 @@ void Orchestrator::slice(Print &print) {
 
 void Orchestrator::initialize_plugins() {
     for (const std::unique_ptr<Plugin> &plugin_ptr : m_registered_plugins) {
-        if (this->is_plugin_active(plugin_ptr.get())) {
-            const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        if (this->is_plugin_active(plugin_ptr.get()))
             plugin_ptr->initialize(reinterpret_cast<storage_handle *>(&m_plugin_storage[plugin_ptr.get()]));
-            BOOST_LOG_TRIVIAL(debug) << "Initialized plugin '" << plugin_ptr->get_id() << "' in "
-                                     << elapsed_ms(start).count() << " ms.";
-        }
     }
 }
 

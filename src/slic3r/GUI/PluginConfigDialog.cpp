@@ -7,17 +7,12 @@
 
 #include <algorithm>
 #include <ios>
-#include <set>
 #include <string>
 #include <vector>
 
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
-#include <boost/property_tree/ini_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 
 #include <wx/button.h>
 #include <wx/checkbox.h>
@@ -47,47 +42,6 @@ const char *const ACTIVATED_PLUGINS_FILENAME = "activated.ini";
 boost::filesystem::path active_plugin_config_path()
 {
     return boost::filesystem::path(data_dir()) / PLUGIN_ACTIVATION_DIR / ACTIVATED_PLUGINS_FILENAME;
-}
-
-bool ini_value_is_enabled(const std::string &value)
-{
-    return boost::algorithm::iequals(value, "1") ||
-           boost::algorithm::iequals(value, "true") ||
-           boost::algorithm::iequals(value, "yes") ||
-           boost::algorithm::iequals(value, "on") ||
-           boost::algorithm::iequals(value, "enabled");
-}
-
-std::set<std::string> read_active_plugin_ids()
-{
-    std::set<std::string> out;
-    if (!has_data_dir())
-        return out;
-
-    const boost::filesystem::path config_path = active_plugin_config_path();
-    boost::nowide::ifstream stream(config_path.string());
-    if (!stream)
-        return out;
-
-    try {
-        boost::property_tree::ptree tree;
-        boost::property_tree::read_ini(stream, tree);
-        const boost::property_tree::ptree &const_tree = tree;
-        const boost::optional<const boost::property_tree::ptree&> activated =
-            const_tree.get_child_optional("activated");
-        if (!activated)
-            return out;
-
-        for (const boost::property_tree::ptree::value_type &entry : *activated) {
-            const std::string plugin_id = boost::algorithm::trim_copy(entry.first);
-            if (!plugin_id.empty() && ini_value_is_enabled(entry.second.get_value<std::string>()))
-                out.insert(plugin_id);
-        }
-    } catch (const std::exception &error) {
-        BOOST_LOG_TRIVIAL(warning) << "Cannot read active plugin configuration '"
-                                   << config_path.string() << "': " << error.what();
-    }
-    return out;
 }
 
 wxString step_name(slicing_step_t step)
@@ -133,8 +87,6 @@ PluginConfigDialog::PluginConfigDialog(wxWindow *parent)
 
 void PluginConfigDialog::build()
 {
-    m_original_active_plugin_ids = read_active_plugin_ids();
-
     wxBoxSizer *main_sizer = new wxBoxSizer(wxVERTICAL);
 
     wxStaticText *description = new wxStaticText(
@@ -164,8 +116,7 @@ void PluginConfigDialog::build()
 
     for (Plugin *plugin : plugins) {
         wxCheckBox *checkbox = new wxCheckBox(scrolled, wxID_ANY, wxEmptyString);
-        checkbox->SetValue(Orchestrator::instance().is_plugin_active(plugin) ||
-                           m_original_active_plugin_ids.find(plugin->get_id()) != m_original_active_plugin_ids.end());
+        checkbox->SetValue(Orchestrator::instance().is_plugin_active(plugin));
 
         grid->Add(checkbox, 0, wxALIGN_CENTER_VERTICAL);
         grid->Add(new wxStaticText(scrolled, wxID_ANY, from_u8(plugin->get_id())), 0, wxALIGN_CENTER_VERTICAL);
@@ -219,15 +170,9 @@ bool PluginConfigDialog::write_active_plugins(std::string &error_message) const
 
         stream << "[activated]\n";
         stream << "; Plugin ids enabled by the user.\n";
-        std::set<std::string> active_ids = m_original_active_plugin_ids;
-        for (const PluginRow &row : m_rows) {
-            active_ids.erase(row.id);
+        for (const PluginRow &row : m_rows)
             if (row.checkbox != nullptr && row.checkbox->GetValue())
-                active_ids.insert(row.id);
-        }
-
-        for (const std::string &plugin_id : active_ids)
-            stream << plugin_id << " = 1\n";
+                stream << row.id << " = 1\n";
     } catch (const std::exception &error) {
         error_message = error.what();
         return false;

@@ -9,7 +9,6 @@
 #include "libslic3r/Api/internal/LayerAccess.hpp"
 #include "libslic3r/Api/internal/LayerRegionAccess.hpp"
 #include "libslic3r/Api/internal/PrintObjectAccess.hpp"
-#include "libslic3r/ConfigDef.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
@@ -43,11 +42,11 @@
 #ifdef _DEBUG
 #include "libslic3r/Steps/DebugPrintProcessComparator.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <stdexcept>
 #endif
 
-#include <cassert>
 #include <map>
 #include <string>
 #include <vector>
@@ -58,38 +57,6 @@ LayerUPtrs new_layers(PrintObject *print_object, const std::vector<double> &obje
 
 namespace Slic3r::Steps {
 namespace {
-
-StepExclusiveGroup make_exclusive_group(slicing_step_t step,
-                                        const char *key,
-                                        const char *label,
-                                        raw_option_category category,
-                                        const char *line_label)
-{
-    StepExclusiveGroup group = {};
-    group.step = step;
-
-    raw_config_option_def def = raw_config_option_def_init();
-    def.opt_key = key;
-    def.type = RAW_CO_ENUM;
-    def.gui_type = RAW_GUI_TYPE_SELECT_CLOSE;
-    def.container_type = RAW_CONTAINER_TYPE_PROJECT;
-    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
-    def.printer_technology = RAW_PT_FFF;
-    def.label = label;
-    def.full_label = label;
-    def.category = category;
-    def.invalidates_step = step;
-    def.tooltip = "Choose which active plugin owns this exclusive slicing step.";
-    def.mode = RAW_CONFIG_OPTION_MODE_ADV_EXP | RAW_CONFIG_OPTION_MODE_SUSI;
-    group.option_def = def;
-
-    group.ui_fragment = std::string("page:Plugin pipeline\n") +
-                        "group:Exclusive step plugins\n" +
-                        "line:" + line_label + "\n" +
-                        "setting:" + key + "\n" +
-                        "end_line\n";
-    return group;
-}
 
 inline std::map<slicing_step_t, int> slicingstep_2_percent = {
     {STEP_LAYER_HEIGHT, 0},
@@ -116,84 +83,6 @@ inline std::map<slicing_step_t, int> slicingstep_2_percent = {
     {STEP_EXTRUSION_SIMPLIFICATION, 95},
     {STEP_GCODE, 100},
 };
-
-} // namespace
-
-void StepExclusiveGroup::set_enum_plugins(const std::vector<std::string> &plugin_ids)
-{
-    enum_values = plugin_ids;
-    enum_labels = plugin_ids;
-    enum_pairs.clear();
-    enum_pairs.reserve(plugin_ids.size());
-
-    for (size_t i = 0; i < enum_values.size(); ++i) {
-        key_value_string_pair_t pair = {};
-        pair.value = enum_values[i].c_str();
-        pair.label = enum_labels[i].c_str();
-        enum_pairs.push_back(pair);
-    }
-
-    option_def.enum_def.value_label_pairs.items = enum_pairs.empty() ? nullptr : enum_pairs.data();
-    option_def.enum_def.value_label_pairs.count = uint32_t(enum_pairs.size());
-    option_def.default_serialized_value = enum_values.empty() ? "" : enum_values.front().c_str();
-}
-
-const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps()
-{
-    static const std::map<slicing_step_t, StepExclusiveGroup> s_groups = {
-        {STEP_LAYER_HEIGHT,       make_exclusive_group(STEP_LAYER_HEIGHT,       "step_layer_height_plugin",      "Layer height plugin",      RAW_OPTION_CATEGORY_SLICING,      "Layer height step plugin")},
-        {STEP_SLICING,            make_exclusive_group(STEP_SLICING,            "step_slicing_plugin",           "Slicing plugin",           RAW_OPTION_CATEGORY_SLICING,      "Slicing step plugin")},
-        {STEP_PERIMETER,          make_exclusive_group(STEP_PERIMETER,          "step_perimeter_plugin",         "Perimeter plugin",         RAW_OPTION_CATEGORY_PERIMETER,    "Perimeter step plugin")},
-        {STEP_SURFACE_GENERATION, make_exclusive_group(STEP_SURFACE_GENERATION, "step_surface_generation_plugin","Surface generation plugin",RAW_OPTION_CATEGORY_SLICING,      "Surface generation step plugin")},
-        {STEP_SURFACE_TYPE,       make_exclusive_group(STEP_SURFACE_TYPE,       "step_surface_type_plugin",      "Surface type plugin",      RAW_OPTION_CATEGORY_SLICING,      "Surface type step plugin")},
-        {STEP_INFILL_GROUP,       make_exclusive_group(STEP_INFILL_GROUP,       "step_infill_group_plugin",      "Infill grouping plugin",   RAW_OPTION_CATEGORY_INFILL,       "Infill grouping step plugin")},
-        {STEP_INFILL,             make_exclusive_group(STEP_INFILL,             "step_infill_plugin",            "Infill plugin",            RAW_OPTION_CATEGORY_INFILL,       "Infill step plugin")},
-        {STEP_SUPPORT,            make_exclusive_group(STEP_SUPPORT,            "step_support_plugin",           "Support plugin",           RAW_OPTION_CATEGORY_SUPPORT,      "Support step plugin")},
-        {STEP_ORDERING,           make_exclusive_group(STEP_ORDERING,           "step_ordering_plugin",          "Ordering plugin",          RAW_OPTION_CATEGORY_OUTPUT,       "Ordering step plugin")},
-        {STEP_WIPETOWER,          make_exclusive_group(STEP_WIPETOWER,          "step_wipetower_plugin",         "Wipe tower plugin",        RAW_OPTION_CATEGORY_OUTPUT,       "Wipe tower step plugin")},
-        {STEP_LAYER_STICHING,     make_exclusive_group(STEP_LAYER_STICHING,     "step_layer_stiching_plugin",    "Layer stitching plugin",   RAW_OPTION_CATEGORY_OUTPUT,       "Layer stitching step plugin")},
-        {STEP_GCODE,              make_exclusive_group(STEP_GCODE,              "step_gcode_plugin",             "G-code plugin",            RAW_OPTION_CATEGORY_OUTPUT,       "G-code step plugin")}
-    };
-    return s_groups;
-}
-
-std::vector<Plugin *> selected_or_active_plugins_for_step(Orchestrator &orchestrator,
-                                                          slicing_step_t step,
-                                                          const ConfigBase *config)
-{
-    std::vector<Plugin *> active_plugins = orchestrator.get_active_plugins_for_step(step);
-    if (active_plugins.size() <= 1)
-        return active_plugins;
-
-    const std::map<slicing_step_t, StepExclusiveGroup> &exclusive_steps = get_exclusive_steps();
-    const std::map<slicing_step_t, StepExclusiveGroup>::const_iterator exclusive_it = exclusive_steps.find(step);
-    if (exclusive_it == exclusive_steps.end())
-        return active_plugins;
-
-    if (config == nullptr)
-        return { active_plugins.front() };
-
-    const ConfigOption *option = config->option(exclusive_it->second.option_def.opt_key);
-    if (option == nullptr)
-        return { active_plugins.front() };
-
-    const int32_t selected_idx = option->get_int();
-    if (selected_idx < 0 || size_t(selected_idx) >= active_plugins.size())
-        return { active_plugins.front() };
-
-    return { active_plugins[size_t(selected_idx)] };
-}
-
-Plugin *selected_or_active_plugin_for_step(Orchestrator &orchestrator,
-                                           slicing_step_t step,
-                                           const ConfigBase *config)
-{
-    const std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(orchestrator, step, config);
-    assert(plugins.size() <= 1);
-    return plugins.empty() ? nullptr : plugins.front();
-}
-
-namespace {
 
 void begin_step(Print &print, slicing_step_t step, const std::string &message, const std::string &path)
 {

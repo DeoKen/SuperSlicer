@@ -24,13 +24,12 @@ class RegionSettings
 public:
     struct ClipExpoly
     {
-        // can be empty if only one region (it means there is no clip to do, evrything can be kept)
+        // can be empty if only one region (it means there is no clip to do, evrythign can be kept)
         ExPolygons expolys;
         // bboxes.size() == expolys.size()
         BoundingBoxes bboxes;
         void compute_bb();
         ExPolygons intersections(const ExPolygons &to_clip) const;
-        ExPolygons diff(const ExPolygons &to_diff) const;
         ExPolygons intersections(coord_t offset, const ExPolygons &to_clip) const;
         void clear();
         bool is_accept_all() const { return expolys.empty(); }

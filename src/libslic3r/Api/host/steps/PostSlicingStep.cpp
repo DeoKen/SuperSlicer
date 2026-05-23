@@ -68,8 +68,8 @@ expolygon_handle *layer_island_borrow_mutable_slice(layer_island_handle *me)
 run_ctx_post_slicing make_post_slicing_run_context(Print &print, size_t object_idx)
 {
     run_ctx_post_slicing context_step = {};
-    context_step.print = reinterpret_cast<const print_handle *>(&print);
-    context_step.object = reinterpret_cast<const object_handle *>(&print.object(object_idx));
+    context_step.print = reinterpret_cast<print_handle *>(&print);
+    context_step.object = reinterpret_cast<object_handle *>(&print.object(object_idx));
     context_step.layer_assign_islands_by_moving_contents = layer_assign_islands_by_moving_contents;
     context_step.layer_recompute_slices_from_islands = layer_recompute_slices_from_islands;
     context_step.layer_recompute_slices_and_islands_from_layer_region = layer_recompute_slices_and_islands_from_layer_region;

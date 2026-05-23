@@ -17,8 +17,8 @@ Payload for STEP_PRE_GCODE.
 Runs after slicing/extrusion generation and before final G-code export.
 */
 typedef struct run_ctx_prepare_gcode {
-    const print_handle *print;
-    const object_handle *object;
+    print_handle *print;
+    object_handle *object;
 } run_ctx_prepare_gcode;
 
 static inline const run_ctx_prepare_gcode *

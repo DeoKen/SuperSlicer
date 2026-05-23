@@ -17,7 +17,7 @@ namespace slic3r_api { namespace Support { namespace SupportDemandPaintingPlugin
 namespace {
 
 const char *k_support_demand_painting_id = "support.demand.painting";
-const char *k_dependencies[] = { nullptr };
+const char *k_dependencies[] = { "support.demand.overhangs", nullptr };
 
 bool object_has_support_painting(const Object &object)
 {

@@ -311,11 +311,11 @@ class DefaultArranger: public Arranger<ArrItem> {
             break;
         }
 
-// #ifndef NDEBUG
-        // SVGDebugOutputKernelWrapper<VariantKernel> kernel{bounding_box(bed), basekernel};
-// #else
+#ifndef NDEBUG
+        SVGDebugOutputKernelWrapper<VariantKernel> kernel{bounding_box(bed), basekernel};
+#else
         auto & kernel = basekernel;
-// #endif
+#endif
 
         fill_rotations(items, bed, m_settings);
 

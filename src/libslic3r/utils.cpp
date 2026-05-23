@@ -272,7 +272,6 @@ const std::string& data_dir()
 }
 
 bool has_data_dir() { return !g_data_dir.empty(); }
-
 std::string custom_shapes_dir()
 {
     return (boost::filesystem::path(g_data_dir) / "shapes").string();

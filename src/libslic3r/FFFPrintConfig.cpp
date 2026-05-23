@@ -2694,7 +2694,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Extra perimeters on small areas");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
-    def->tooltip = L("After laying all the perimeters, if there is an area smaller (in mm²) than this value, then fill it with more perimeters."
+    def->tooltip = L("After laying all the perimeters, if there is an area smaler (in mm²) than this value, then fill it with more perimeters."
                     "\nUseful if you want to fortify a small cylinder while not messing with the larger main object."
                     "\nCan be a percentage of the perimeter width (squared)."
                     "\nSet zero to disable.");
@@ -2725,8 +2725,8 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("Extra perimeter on even layers");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
-    def->tooltip = L("Adds one extra perimeter on alternating layers, allowing infill to be captured between "
-                     "perimeter shells. This can significantly reduce how much infill needs to encroach into perimeters.");
+    def->tooltip = L("Add one perimeter every even layer (and not on odd layers like the first one). With this, infill is taken into the sandwich"
+        " and you may be able to reduce drastically the infill/perimeter overlap setting. ");
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionBool(false));
 

@@ -7,7 +7,6 @@
 #define slic3r_GUI_PluginConfigDialog_hpp_
 
 #include <string>
-#include <set>
 #include <vector>
 
 #include "GUI_Utils.hpp"
@@ -37,7 +36,6 @@ private:
     void save_and_restart(wxCommandEvent &event);
     void on_dpi_changed(const wxRect &suggested_rect) override;
 
-    std::set<std::string> m_original_active_plugin_ids;
     std::vector<PluginRow> m_rows;
 };
 

@@ -32,8 +32,6 @@ STEP_POST_SLICING plugins.
 At this point slicing has produced per-layer geometry, but surface generation
 has not run yet. The expected state is:
 - LayerRegion raw slices exist and contain at least one non-empty ExPolygon.
-- LayerRegion raw slices are mutually disjoint, except for tiny numeric slivers
-  around shared borders.
 - Layer slices exist and contain at least one non-empty ExPolygon.
 - Layer islands mirror Layer slices: one island per layer slice.
 - LayerSliceIsland has no LayerRegionIsland yet.

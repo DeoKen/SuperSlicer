@@ -601,16 +601,16 @@ class ExtrusionEntity :
 {
 public:
     ExtrusionEntity() = default;
-    explicit ExtrusionEntity(const extrusion_entity_handle *handle) : m_handle(handle) { assert(handle != nullptr); }
+    explicit ExtrusionEntity(const extrusion_entity *handle) : m_handle(handle) { assert(handle != nullptr); }
 
-    const extrusion_entity_handle *handle() const {
+    const extrusion_entity *handle() const {
         assert(m_handle != nullptr);
         return m_handle;
     }
     bool same_handle(const ExtrusionEntity &other) const { return m_handle == other.m_handle; }
 
 protected:
-    const extrusion_entity_handle *m_handle = nullptr;
+    const extrusion_entity *m_handle = nullptr;
 };
 
 class MutableExtrusionEntity :
@@ -623,13 +623,13 @@ class MutableExtrusionEntity :
 {
 public:
     MutableExtrusionEntity() = default;
-    explicit MutableExtrusionEntity(extrusion_entity_handle *handle) : m_handle(handle) { assert(handle != nullptr); }
+    explicit MutableExtrusionEntity(extrusion_entity *handle) : m_handle(handle) { assert(handle != nullptr); }
 
-    const extrusion_entity_handle *handle() const {
+    const extrusion_entity *handle() const {
         assert(m_handle != nullptr);
         return m_handle;
     }
-    extrusion_entity_handle *mutable_handle() const {
+    extrusion_entity *mutable_handle() const {
         assert(m_handle != nullptr);
         return m_handle;
     }
@@ -637,7 +637,7 @@ public:
     operator ExtrusionEntity() const { return readonly(); }
 
 private:
-    extrusion_entity_handle *m_handle = nullptr;
+    extrusion_entity *m_handle = nullptr;
 };
 
 class StoredExtrusionEntity :
@@ -687,15 +687,15 @@ public:
 
     ~StoredExtrusionEntity() { reset(); }
 
-    static StoredExtrusionEntity adopt(storage_handle *storage, extrusion_entity_handle *handle) {
+    static StoredExtrusionEntity adopt(storage_handle *storage, extrusion_entity *handle) {
         return StoredExtrusionEntity(storage, handle);
     }
 
-    const extrusion_entity_handle *handle() const {
+    const extrusion_entity *handle() const {
         assert(m_handle != nullptr);
         return m_handle;
     }
-    extrusion_entity_handle *mutable_handle() const {
+    extrusion_entity *mutable_handle() const {
         assert(m_handle != nullptr);
         return m_handle;
     }
@@ -722,7 +722,7 @@ public:
     }
 
 private:
-    StoredExtrusionEntity(storage_handle *storage, extrusion_entity_handle *handle) :
+    StoredExtrusionEntity(storage_handle *storage, extrusion_entity *handle) :
         m_storage(storage), m_handle(handle) {
         assert(storage != nullptr);
         assert(handle != nullptr);
@@ -739,13 +739,13 @@ private:
     }
 
     storage_handle *m_storage = nullptr;
-    extrusion_entity_handle *m_handle = nullptr;
+    extrusion_entity *m_handle = nullptr;
 };
 
 template<class Derived>
 inline ExtrusionEntity ExtrusionEntityReadApi<Derived>::child(uint32_t idx) const
 {
-    const extrusion_entity_handle *child_handle = extrusion_child(self().handle(), idx);
+    const extrusion_entity *child_handle = extrusion_child(self().handle(), idx);
     assert(child_handle != nullptr);
     return ExtrusionEntity(child_handle);
 }
@@ -766,7 +766,7 @@ inline StoredExtrusionEntity ExtrusionEntityReadApi<Derived>::clone(storage_hand
 template<class Derived>
 inline MutableExtrusionEntity ExtrusionEntityMutableApi<Derived>::child_mutable(uint32_t idx) const
 {
-    extrusion_entity_handle *child_handle = extrusion_child_mutable(self().mutable_handle(), idx);
+    extrusion_entity *child_handle = extrusion_child_mutable(self().mutable_handle(), idx);
     assert(child_handle != nullptr);
     return MutableExtrusionEntity(child_handle);
 }

@@ -16,7 +16,6 @@
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Slicing.hpp"
-#include "libslic3r/Steps/StepPipeline.hpp"
 
 #ifdef _DEBUG
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
@@ -77,45 +76,40 @@ bool validate_post(const Print &, std::string &) { return true; }
 void run_step(Orchestrator &orchestrator, Print &print) {
     Detail::validate_or_report(validate_pre, print, "Layer-height pre-step validation");
 
-    // STEP_LAYER_HEIGHT is an exclusive step: several active plugins may be
-    // available, but the generated step_layer_height_plugin setting selects
-    // the one that owns this print.
-    Plugin *plugin = selected_or_active_plugin_for_step(orchestrator,
-                                                        STEP_LAYER_HEIGHT,
-                                                        &print.full_print_config());
-    if (plugin == nullptr)
-        return;
+    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(STEP_LAYER_HEIGHT);
 
-    const size_t run_count = print.objects().size();
-    plugin_host_context host_context = orchestrator.prepare_plugin_host_context(STEP_LAYER_HEIGHT, plugin, &print);
-    plugin_run_context run_context = orchestrator.prepare_plugin_run_context(STEP_LAYER_HEIGHT, plugin,
-                                                                               &host_context);
-    plugin->setup(run_context, uint32_t(run_count));
+    for (Plugin *plugin : plugins) {
+        const size_t run_count = print.objects().size();
+        plugin_host_context host_context = orchestrator.prepare_plugin_host_context(STEP_LAYER_HEIGHT, plugin, &print);
+        plugin_run_context run_context = orchestrator.prepare_plugin_run_context(STEP_LAYER_HEIGHT, plugin,
+                                                                                   &host_context);
+        plugin->setup(run_context, uint32_t(run_count));
 
-    std::vector<std::unique_ptr<ApiHost::Steps::LayerHeightRunContext>> layer_contexts;
-    layer_contexts.reserve(run_count);
-    for (size_t object_idx = 0; object_idx < run_count; ++object_idx)
-        layer_contexts.push_back(ApiHost::Steps::make_layer_height_run_context(print, object_idx));
+        std::vector<std::unique_ptr<ApiHost::Steps::LayerHeightRunContext>> layer_contexts;
+        layer_contexts.reserve(run_count);
+        for (size_t object_idx = 0; object_idx < run_count; ++object_idx)
+            layer_contexts.push_back(ApiHost::Steps::make_layer_height_run_context(print, object_idx));
 
-    parallel_for(size_t(0), run_count, [plugin, &run_context, &layer_contexts](const size_t object_idx) {
-        plugin_run_context context_copy = run_context;
-        if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
-            return;
+        parallel_for(size_t(0), run_count, [plugin, &run_context, &layer_contexts](const size_t object_idx) {
+            plugin_run_context context_copy = run_context;
+            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+                return;
 
-        context_copy.data = &layer_contexts[object_idx]->context_step;
-        plugin->setup_run(context_copy);
-    });
+            context_copy.data = &layer_contexts[object_idx]->context_step;
+            plugin->setup_run(context_copy);
+        });
 
-    parallel_for(size_t(0), run_count, [plugin, &run_context, &layer_contexts](const size_t object_idx) {
-        plugin_run_context context_copy = run_context;
-        if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
-            return;
+        parallel_for(size_t(0), run_count, [plugin, &run_context, &layer_contexts](const size_t object_idx) {
+            plugin_run_context context_copy = run_context;
+            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+                return;
 
-        context_copy.data = &layer_contexts[object_idx]->context_step;
-        plugin->run(context_copy);
-    });
+            context_copy.data = &layer_contexts[object_idx]->context_step;
+            plugin->run(context_copy);
+        });
 
-    Detail::validate_or_report(validate_post, print, "Layer-height post-plugin validation");
+        Detail::validate_or_report(validate_post, print, "Layer-height post-plugin validation");
+    }
 }
 
 } // namespace Slic3r::Steps::StepLayerHeightGeneration

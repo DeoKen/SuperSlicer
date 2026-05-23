@@ -25,12 +25,12 @@ struct PropertyInfo
     uint32_t alignment;
 };
 
-static ExtrusionEntity *to_extrusion(extrusion_entity_handle *me)
+static ExtrusionEntity *to_extrusion(extrusion_entity *me)
 {
     return reinterpret_cast<ExtrusionEntity *>(me);
 }
 
-static const ExtrusionEntity *to_extrusion(const extrusion_entity_handle *me)
+static const ExtrusionEntity *to_extrusion(const extrusion_entity *me)
 {
     return reinterpret_cast<const ExtrusionEntity *>(me);
 }
@@ -148,7 +148,7 @@ const char *extrusion_property_name(const orchestrator_handle *orch, extrusion_p
     return nullptr;
 }
 
-uint32_t extrusion_property_count(const extrusion_entity_handle *entity)
+uint32_t extrusion_property_count(const extrusion_entity *entity)
 {
     if (entity == nullptr)
         return 0;
@@ -156,27 +156,27 @@ uint32_t extrusion_property_count(const extrusion_entity_handle *entity)
         Slic3r::ApiInternal::ExtrusionPropertyAccess::property_count(*Slic3r::to_extrusion(entity)));
 }
 
-extrusion_property_type extrusion_property_type_at(const extrusion_entity_handle *entity, uint32_t idx)
+extrusion_property_type extrusion_property_type_at(const extrusion_entity *entity, uint32_t idx)
 {
     if (entity == nullptr)
         return EXTRUSION_PROPERTY_TYPE_INVALID;
     return Slic3r::ApiInternal::ExtrusionPropertyAccess::property_type_at(*Slic3r::to_extrusion(entity), idx);
 }
 
-int32_t extrusion_property_has(const extrusion_entity_handle *entity, extrusion_property_type type)
+int32_t extrusion_property_has(const extrusion_entity *entity, extrusion_property_type type)
 {
     return entity != nullptr &&
         Slic3r::ApiInternal::ExtrusionPropertyAccess::has_property(*Slic3r::to_extrusion(entity), type);
 }
 
-const void *extrusion_property_data(const extrusion_entity_handle *entity, extrusion_property_type type)
+const void *extrusion_property_data(const extrusion_entity *entity, extrusion_property_type type)
 {
     if (entity == nullptr)
         return nullptr;
     return Slic3r::ApiInternal::ExtrusionPropertyAccess::property_data(*Slic3r::to_extrusion(entity), type);
 }
 
-void *extrusion_property_data_mutable(extrusion_entity_handle *entity, extrusion_property_type type)
+void *extrusion_property_data_mutable(extrusion_entity *entity, extrusion_property_type type)
 {
     if (entity == nullptr)
         return nullptr;
@@ -184,7 +184,7 @@ void *extrusion_property_data_mutable(extrusion_entity_handle *entity, extrusion
 }
 
 void *extrusion_property_get_or_add_data_mutable(orchestrator_handle *orch,
-                                                 extrusion_entity_handle *entity,
+                                                 extrusion_entity *entity,
                                                  extrusion_property_type type)
 {
     if (entity == nullptr)
@@ -199,13 +199,13 @@ void *extrusion_property_get_or_add_data_mutable(orchestrator_handle *orch,
         *Slic3r::to_extrusion(entity), type, byte_count, alignment);
 }
 
-int32_t extrusion_property_remove(extrusion_entity_handle *entity, extrusion_property_type type)
+int32_t extrusion_property_remove(extrusion_entity *entity, extrusion_property_type type)
 {
     return entity != nullptr &&
         Slic3r::ApiInternal::ExtrusionPropertyAccess::remove_property(*Slic3r::to_extrusion(entity), type);
 }
 
-extrusion_data_id extrusion_store_data_aligned(extrusion_entity_handle *entity,
+extrusion_data_id extrusion_store_data_aligned(extrusion_entity *entity,
                                                const void *data,
                                                uint32_t byte_size,
                                                uint32_t alignment)
@@ -216,7 +216,7 @@ extrusion_data_id extrusion_store_data_aligned(extrusion_entity_handle *entity,
         *Slic3r::to_extrusion(entity), data, byte_size, alignment);
 }
 
-extrusion_data_id extrusion_property_store_data_aligned(extrusion_entity_handle *entity,
+extrusion_data_id extrusion_property_store_data_aligned(extrusion_entity *entity,
                                                         extrusion_property_type owner_type,
                                                         extrusion_data_id *field,
                                                         const void *data,
@@ -230,7 +230,7 @@ extrusion_data_id extrusion_property_store_data_aligned(extrusion_entity_handle 
         *Slic3r::to_extrusion(entity), owner_type, field, data, byte_size, alignment);
 }
 
-const void *extrusion_data(const extrusion_entity_handle *entity,
+const void *extrusion_data(const extrusion_entity *entity,
                            extrusion_data_id data_id,
                            uint32_t *byte_size_out)
 {
@@ -242,7 +242,7 @@ const void *extrusion_data(const extrusion_entity_handle *entity,
         *Slic3r::to_extrusion(entity), data_id, byte_size_out);
 }
 
-int32_t extrusion_free_data(extrusion_entity_handle *entity, extrusion_data_id data_id)
+int32_t extrusion_free_data(extrusion_entity *entity, extrusion_data_id data_id)
 {
     return entity != nullptr && data_id != EXTRUSION_DATA_ID_INVALID &&
         Slic3r::ApiInternal::ExtrusionPropertyAccess::free_data(*Slic3r::to_extrusion(entity), data_id);

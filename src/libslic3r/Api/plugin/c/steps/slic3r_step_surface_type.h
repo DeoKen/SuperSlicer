@@ -17,8 +17,8 @@ Payload for STEP_SURFACE_TYPE.
 Plugins classify or refine generated surfaces for one object.
 */
 typedef struct run_ctx_detect_surface_type {
-    const print_handle *print;
-    const object_handle *object;
+    print_handle *print;
+    object_handle *object;
 } run_ctx_detect_surface_type;
 
 static inline const run_ctx_detect_surface_type *

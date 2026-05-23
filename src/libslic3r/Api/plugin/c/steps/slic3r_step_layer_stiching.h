@@ -18,8 +18,8 @@ Plugins may stitch or reconcile layer extrusion after layer-level editing.
 The name keeps the existing API spelling.
 */
 typedef struct run_ctx_layer_stiching {
-    const print_handle *print;
-    const object_handle *object;
+    print_handle *print;
+    object_handle *object;
 } run_ctx_layer_stiching;
 
 static inline const run_ctx_layer_stiching *

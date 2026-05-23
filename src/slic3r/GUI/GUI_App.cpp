@@ -1226,7 +1226,6 @@ void GUI_App::init_app_config()
 //	SetAppDisplayName(SLIC3R_APP_NAME);
 
 
-    const bool app_config_was_preinitialized = app_config && !app_config->data_dir().empty();
 	if (!app_config) {
         app_config.reset(new AppConfig(is_editor() ? AppConfig::EAppMode::Editor : AppConfig::EAppMode::GCodeViewer));
 #ifdef _M_ARM64
@@ -1249,15 +1248,8 @@ void GUI_App::init_app_config()
 #endif
     }
 
-    if (app_config_was_preinitialized) {
-        // CLI::setup() may initialize AppConfig early so plugin loading can
-        // read data_dir()/plugin/activated.ini before the GUI exists. Reuse
-        // that AppConfig instead of treating the path as a new command-line
-        // override.
-        m_datadir_redefined = app_config->get_root_data_dir().empty();
-    } else {
-        //init appconfig (find configuration folder)
-        std::string appdata_path;
+    //init appconfig (find configuration folder)
+    std::string appdata_path;
 #ifndef __linux__
         appdata_path = wxStandardPaths::Get().GetUserDataDir().ToUTF8().data();
 #else
@@ -1268,10 +1260,9 @@ void GUI_App::init_app_config()
             dir = wxFileName::GetHomeDir() + wxS("/.config");
         appdata_path = (dir + "/" + GetAppName()).ToUTF8().data();
 #endif
-        m_datadir_redefined = !app_config->init_root_data_dir(appdata_path);
-        if (!has_data_dir()) {
-            choose_app_dir(*this);
-        }
+    m_datadir_redefined = !app_config->init_root_data_dir(appdata_path);
+    if (!has_data_dir()) {
+        choose_app_dir(*this);
     }
 
     app_config->init_ui_layout();

@@ -589,26 +589,6 @@ class LayerIsland(DataTreeView):
     def layer(self) -> "Layer":
         return Layer(self.api, self.api.host.layer_island_get_layer(self.c_handle()))
 
-    def lower_island_count(self) -> int:
-        return int(self.api.host.layer_island_count_lower_island(self.c_handle()))
-
-    def lower_island(self, idx: int) -> "LayerIsland":
-        return LayerIsland(self.api, self.api.host.layer_island_get_lower_island(self.c_handle(), int(idx)))
-
-    def lower_islands(self) -> Iterator["LayerIsland"]:
-        for idx in range(self.lower_island_count()):
-            yield self.lower_island(idx)
-
-    def upper_island_count(self) -> int:
-        return int(self.api.host.layer_island_count_upper_island(self.c_handle()))
-
-    def upper_island(self, idx: int) -> "LayerIsland":
-        return LayerIsland(self.api, self.api.host.layer_island_get_upper_island(self.c_handle(), int(idx)))
-
-    def upper_islands(self) -> Iterator["LayerIsland"]:
-        for idx in range(self.upper_island_count()):
-            yield self.upper_island(idx)
-
 
 class MutableLayerIsland(LayerIsland):
     def mutable_c_handle(self) -> ctypes.c_void_p:

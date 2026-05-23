@@ -17,8 +17,8 @@ Payload for STEP_INFILL.
 This step generates infill extrusion for one object.
 */
 typedef struct run_ctx_generate_infill {
-    const print_handle *print;
-    const object_handle *object;
+    print_handle *print;
+    object_handle *object;
 } run_ctx_generate_infill;
 
 static inline const run_ctx_generate_infill *

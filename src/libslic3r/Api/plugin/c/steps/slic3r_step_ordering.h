@@ -18,8 +18,8 @@ Plugins can inspect or change extrusion ordering data for one object before
 G-code generation consumes it.
 */
 typedef struct run_ctx_extrusion_ordering {
-    const print_handle *print;
-    const object_handle *object;
+    print_handle *print;
+    object_handle *object;
 } run_ctx_extrusion_ordering;
 
 static inline const run_ctx_extrusion_ordering *

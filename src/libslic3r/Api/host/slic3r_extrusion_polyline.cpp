@@ -15,12 +15,12 @@
 
 namespace Slic3r {
 
-static ExtrusionEntity *to_extrusion(extrusion_entity_handle *me)
+static ExtrusionEntity *to_extrusion(extrusion_entity *me)
 {
     return reinterpret_cast<ExtrusionEntity *>(me);
 }
 
-static const ExtrusionEntity *to_extrusion(const extrusion_entity_handle *me)
+static const ExtrusionEntity *to_extrusion(const extrusion_entity *me)
 {
     return reinterpret_cast<const ExtrusionEntity *>(me);
 }
@@ -63,17 +63,17 @@ static raw_extrusion_arc_orientation to_c_orientation(Geometry::ArcWelder::Orien
     }
 }
 
-static const ArcPolyline *polyline_or_null(const extrusion_entity_handle *entity)
+static const ArcPolyline *polyline_or_null(const extrusion_entity *entity)
 {
     return entity == nullptr ? nullptr : to_extrusion(entity)->polyline_or_null();
 }
 
-static ArcPolyline *polyline_or_null(extrusion_entity_handle *entity)
+static ArcPolyline *polyline_or_null(extrusion_entity *entity)
 {
     return entity == nullptr ? nullptr : to_extrusion(entity)->polyline_or_null();
 }
 
-static ArcPolyline *polyline_for_replace(extrusion_entity_handle *entity)
+static ArcPolyline *polyline_for_replace(extrusion_entity *entity)
 {
     if (entity == nullptr)
         return nullptr;
@@ -147,7 +147,7 @@ static bool set_polyline_from_segments(ExtrusionEntity &entity,
     return true;
 }
 
-static bool replace_output_polyline(extrusion_entity_handle *out, ArcPolyline &&polyline)
+static bool replace_output_polyline(extrusion_entity *out, ArcPolyline &&polyline)
 {
     if (out == nullptr)
         return false;
@@ -163,19 +163,19 @@ static bool replace_output_polyline(extrusion_entity_handle *out, ArcPolyline &&
 
 extern "C" {
 
-uint32_t extrusion_polyline_point_count(const extrusion_entity_handle *entity)
+uint32_t extrusion_polyline_point_count(const extrusion_entity *entity)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     return polyline == nullptr ? 0 : static_cast<uint32_t>(polyline->size());
 }
 
-uint32_t extrusion_polyline_segment_count(const extrusion_entity_handle *entity)
+uint32_t extrusion_polyline_segment_count(const extrusion_entity *entity)
 {
     const uint32_t point_count = extrusion_polyline_point_count(entity);
     return point_count > 1 ? point_count - 1 : 0;
 }
 
-int32_t extrusion_polyline_clear(extrusion_entity_handle *entity)
+int32_t extrusion_polyline_clear(extrusion_entity *entity)
 {
     if (entity == nullptr)
         return 0;
@@ -184,7 +184,7 @@ int32_t extrusion_polyline_clear(extrusion_entity_handle *entity)
     return 1;
 }
 
-c_point extrusion_polyline_point(const extrusion_entity_handle *entity, uint32_t point_idx)
+c_point extrusion_polyline_point(const extrusion_entity *entity, uint32_t point_idx)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr || point_idx >= polyline->size())
@@ -192,14 +192,14 @@ c_point extrusion_polyline_point(const extrusion_entity_handle *entity, uint32_t
     return Slic3r::to_c_point(polyline->get_point(point_idx));
 }
 
-int32_t extrusion_polyline_set_point(extrusion_entity_handle *entity, uint32_t point_idx, c_point point)
+int32_t extrusion_polyline_set_point(extrusion_entity *entity, uint32_t point_idx, c_point point)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     return polyline != nullptr &&
         Slic3r::ApiInternal::ArcPolylineAccess::set_point(*polyline, point_idx, Slic3r::to_point(point));
 }
 
-uint32_t extrusion_polyline_insert_point(extrusion_entity_handle *entity, uint32_t point_idx, c_point point)
+uint32_t extrusion_polyline_insert_point(extrusion_entity *entity, uint32_t point_idx, c_point point)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_for_replace(entity);
     if (polyline == nullptr || point_idx > polyline->size())
@@ -209,14 +209,14 @@ uint32_t extrusion_polyline_insert_point(extrusion_entity_handle *entity, uint32
         EXTRUSION_INDEX_INVALID;
 }
 
-int32_t extrusion_polyline_remove_point(extrusion_entity_handle *entity, uint32_t point_idx)
+int32_t extrusion_polyline_remove_point(extrusion_entity *entity, uint32_t point_idx)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     return polyline != nullptr &&
         Slic3r::ApiInternal::ArcPolylineAccess::remove_point(*polyline, point_idx);
 }
 
-uint32_t extrusion_polyline_find_point(const extrusion_entity_handle *entity, c_point point, coord_t max_distance)
+uint32_t extrusion_polyline_find_point(const extrusion_entity *entity, c_point point, coord_t max_distance)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -226,7 +226,7 @@ uint32_t extrusion_polyline_find_point(const extrusion_entity_handle *entity, c_
     return idx < 0 ? EXTRUSION_INDEX_INVALID : static_cast<uint32_t>(idx);
 }
 
-uint32_t extrusion_polyline_copy_points(const extrusion_entity_handle *entity, c_point *dst, uint32_t dst_capacity)
+uint32_t extrusion_polyline_copy_points(const extrusion_entity *entity, c_point *dst, uint32_t dst_capacity)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -240,7 +240,7 @@ uint32_t extrusion_polyline_copy_points(const extrusion_entity_handle *entity, c
     return count;
 }
 
-int32_t extrusion_polyline_set_points(extrusion_entity_handle *entity, const c_point *points, uint32_t count)
+int32_t extrusion_polyline_set_points(extrusion_entity *entity, const c_point *points, uint32_t count)
 {
     if (entity == nullptr)
         return 0;
@@ -263,7 +263,7 @@ int32_t extrusion_polyline_set_points(extrusion_entity_handle *entity, const c_p
     return 1;
 }
 
-int32_t extrusion_polyline_segment(const extrusion_entity_handle *entity,
+int32_t extrusion_polyline_segment(const extrusion_entity *entity,
                                    uint32_t segment_idx,
                                    c_extrusion_segment *out_segment)
 {
@@ -281,7 +281,7 @@ int32_t extrusion_polyline_segment(const extrusion_entity_handle *entity,
     return 1;
 }
 
-int32_t extrusion_polyline_set_segment(extrusion_entity_handle *entity,
+int32_t extrusion_polyline_set_segment(extrusion_entity *entity,
                                        uint32_t segment_idx,
                                        const c_extrusion_segment *segment)
 {
@@ -307,7 +307,7 @@ int32_t extrusion_polyline_set_segment(extrusion_entity_handle *entity,
     return 1;
 }
 
-uint32_t extrusion_polyline_copy_segments(const extrusion_entity_handle *entity,
+uint32_t extrusion_polyline_copy_segments(const extrusion_entity *entity,
                                           c_extrusion_segment *dst,
                                           uint32_t dst_capacity)
 {
@@ -319,7 +319,7 @@ uint32_t extrusion_polyline_copy_segments(const extrusion_entity_handle *entity,
     return count;
 }
 
-int32_t extrusion_polyline_set_segments(extrusion_entity_handle *entity,
+int32_t extrusion_polyline_set_segments(extrusion_entity *entity,
                                         const c_extrusion_segment *segments,
                                         uint32_t count)
 {
@@ -328,10 +328,10 @@ int32_t extrusion_polyline_set_segments(extrusion_entity_handle *entity,
     return Slic3r::set_polyline_from_segments(*Slic3r::to_extrusion(entity), segments, count);
 }
 
-int32_t extrusion_polyline_split_at_point(const extrusion_entity_handle *entity,
+int32_t extrusion_polyline_split_at_point(const extrusion_entity *entity,
                                           c_point point,
-                                          extrusion_entity_handle *out_first,
-                                          extrusion_entity_handle *out_second)
+                                          extrusion_entity *out_first,
+                                          extrusion_entity *out_second)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -345,10 +345,10 @@ int32_t extrusion_polyline_split_at_point(const extrusion_entity_handle *entity,
         Slic3r::replace_output_polyline(out_second, std::move(second));
 }
 
-int32_t extrusion_polyline_split_at_distance(const extrusion_entity_handle *entity,
+int32_t extrusion_polyline_split_at_distance(const extrusion_entity *entity,
                                              distf_t distance,
-                                             extrusion_entity_handle *out_first,
-                                             extrusion_entity_handle *out_second)
+                                             extrusion_entity *out_first,
+                                             extrusion_entity *out_second)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -361,10 +361,10 @@ int32_t extrusion_polyline_split_at_distance(const extrusion_entity_handle *enti
         Slic3r::replace_output_polyline(out_second, std::move(second));
 }
 
-int32_t extrusion_polyline_split_at_index(const extrusion_entity_handle *entity,
+int32_t extrusion_polyline_split_at_index(const extrusion_entity *entity,
                                           uint32_t point_idx,
-                                          extrusion_entity_handle *out_first,
-                                          extrusion_entity_handle *out_second)
+                                          extrusion_entity *out_first,
+                                          extrusion_entity *out_second)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -378,7 +378,7 @@ int32_t extrusion_polyline_split_at_index(const extrusion_entity_handle *entity,
         Slic3r::replace_output_polyline(out_second, std::move(second));
 }
 
-int32_t extrusion_polyline_clip_end(extrusion_entity_handle *entity, distf_t distance)
+int32_t extrusion_polyline_clip_end(extrusion_entity *entity, distf_t distance)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -387,13 +387,13 @@ int32_t extrusion_polyline_clip_end(extrusion_entity_handle *entity, distf_t dis
     return 1;
 }
 
-distf_t extrusion_polyline_length(const extrusion_entity_handle *entity)
+distf_t extrusion_polyline_length(const extrusion_entity *entity)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     return polyline == nullptr ? 0. : polyline->length();
 }
 
-int32_t extrusion_polyline_translate(extrusion_entity_handle *entity, c_point offset)
+int32_t extrusion_polyline_translate(extrusion_entity *entity, c_point offset)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -402,7 +402,7 @@ int32_t extrusion_polyline_translate(extrusion_entity_handle *entity, c_point of
     return 1;
 }
 
-int32_t extrusion_polyline_rotate(extrusion_entity_handle *entity, double angle)
+int32_t extrusion_polyline_rotate(extrusion_entity *entity, double angle)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -411,7 +411,7 @@ int32_t extrusion_polyline_rotate(extrusion_entity_handle *entity, double angle)
     return 1;
 }
 
-c_point extrusion_polyline_point_from_end(const extrusion_entity_handle *entity, distf_t distance)
+c_point extrusion_polyline_point_from_end(const extrusion_entity *entity, distf_t distance)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr || polyline->empty())
@@ -419,7 +419,7 @@ c_point extrusion_polyline_point_from_end(const extrusion_entity_handle *entity,
     return Slic3r::to_c_point(polyline->get_point_from_end(distance));
 }
 
-int32_t extrusion_polyline_reverse(extrusion_entity_handle *entity)
+int32_t extrusion_polyline_reverse(extrusion_entity *entity)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)
@@ -428,13 +428,13 @@ int32_t extrusion_polyline_reverse(extrusion_entity_handle *entity)
     return 1;
 }
 
-int32_t extrusion_polyline_has_z_offsets(const extrusion_entity_handle *entity)
+int32_t extrusion_polyline_has_z_offsets(const extrusion_entity *entity)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     return polyline != nullptr && polyline->has_z_offset();
 }
 
-int32_t extrusion_polyline_z_offset(const extrusion_entity_handle *entity, uint32_t point_idx, coord_t *out_z_offset)
+int32_t extrusion_polyline_z_offset(const extrusion_entity *entity, uint32_t point_idx, coord_t *out_z_offset)
 {
     const Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr || out_z_offset == nullptr || point_idx >= polyline->size())
@@ -443,7 +443,7 @@ int32_t extrusion_polyline_z_offset(const extrusion_entity_handle *entity, uint3
     return 1;
 }
 
-int32_t extrusion_polyline_set_z_offset(extrusion_entity_handle *entity, uint32_t point_idx, coord_t z_offset)
+int32_t extrusion_polyline_set_z_offset(extrusion_entity *entity, uint32_t point_idx, coord_t z_offset)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr || point_idx >= polyline->size())
@@ -452,7 +452,7 @@ int32_t extrusion_polyline_set_z_offset(extrusion_entity_handle *entity, uint32_
     return 1;
 }
 
-int32_t extrusion_polyline_clear_z_offsets(extrusion_entity_handle *entity)
+int32_t extrusion_polyline_clear_z_offsets(extrusion_entity *entity)
 {
     Slic3r::ArcPolyline *polyline = Slic3r::polyline_or_null(entity);
     if (polyline == nullptr)

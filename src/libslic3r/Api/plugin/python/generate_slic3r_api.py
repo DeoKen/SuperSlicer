@@ -91,7 +91,7 @@ OPAQUE_TYPES = {
     "layer_region_island_handle",
     "surface_handle",
     "surface_collection_handle",
-    "extrusion_entity_handle",
+    "extrusion_entity",
     "clipper_shapes_handle",
     "polygon_handle",
     "polyline_handle",
