@@ -84,6 +84,7 @@ from slic3r_geometry_views import *
 from slic3r_extrusion_views import *
 from slic3r_datatree_views import *
 from slic3r_clipper_views import *
+from steps.post_slicing import *
 
 
 _registered_apis = []
@@ -260,8 +261,14 @@ class Slic3rAPI:
     def polygon(self, handle: int) -> Polygon:
         return Polygon(self, handle)
 
+    def mutable_polygon(self, handle: int) -> MutablePolygon:
+        return MutablePolygon(self, handle)
+
     def polyline(self, handle: int) -> Polyline:
         return Polyline(self, handle)
+
+    def mutable_polyline(self, handle: int) -> MutablePolyline:
+        return MutablePolyline(self, handle)
 
     def polygon_collection(self, handle: int) -> PolygonCollection:
         return PolygonCollection(self, handle)
@@ -376,6 +383,9 @@ class Slic3rAPI:
 
     def mutable_print_region(self, handle: int) -> MutablePrintRegion:
         return MutablePrintRegion(self, handle)
+
+    def post_slicing(self, run_ctx_address: int) -> PostSlicingContext | None:
+        return PostSlicingContext.from_run_context(self, run_ctx_address)
 
     def storage_clear(self, storage_address: int) -> None:
         self.host.storage_clear(ctypes.c_void_p(storage_address))

@@ -44,6 +44,10 @@ Lifetime model
 - MultiPoint, Polygon, Polyline, PolygonCollection, PolylineCollection,
   ExPolygon and ExPolygonCollection are borrowed read-only views. They never
   free the handle they wrap.
+- MutablePolygon, MutablePolyline, MutableExPolygon and
+  MutableExPolygonCollection are borrowed mutable views. Use them only when a
+  step payload or host callback explicitly gives mutable access to host-owned
+  geometry.
 - StoredPolygon, StoredPolyline, StoredPolygonCollection,
   StoredPolylineCollection, StoredExPolygon and StoredExPolygonCollection own a
   mutable handle allocated in a storage_handle. They call storage_free() when
@@ -328,8 +332,9 @@ class MultiPointReadMixin:
         return self.at(idx)
 
 
-# Shared mutable point-sequence API for StoredPolygon and StoredPolyline. Use it
-# only on geometry you own in the current storage.
+# Shared mutable point-sequence API. Use it only on geometry you own in the
+# current storage, or on borrowed geometry that the host explicitly exposed as
+# mutable for the current step.
 class MultiPointMutableMixin:
     def mutable_multipoint_handle(self) -> int:
         return self.mutable_handle()
@@ -444,6 +449,25 @@ class Polygon(HandleView, MultiPointReadMixin):
         return [int(out[idx]) for idx in range(count)]
 
 
+# Borrowed mutable polygon. Use it only when a step payload or another mutable
+# view explicitly gives mutable access to host-owned geometry.
+class MutablePolygon(Polygon, MultiPointMutableMixin):
+    def mutable_handle(self) -> int:
+        return self.handle()
+
+    def mutable_c_handle(self) -> ctypes.c_void_p:
+        return self.c_handle()
+
+    def mutable_multipoint_handle(self) -> int:
+        return _address(self.api.host.polygon_as_multipoint(self.mutable_c_handle()))
+
+    def make_counter_clockwise(self) -> bool:
+        return bool(self.api.host.polygon_make_counter_clockwise(self.mutable_c_handle()))
+
+    def make_clockwise(self) -> bool:
+        return bool(self.api.host.polygon_make_clockwise(self.mutable_c_handle()))
+
+
 # Owned mutable polygon allocated in a storage_handle. Use it for temporary
 # plugin geometry, or adopt_owned() an existing mutable handle when the host
 # transfers ownership to the plugin.
@@ -482,6 +506,31 @@ class Polyline(HandleView, MultiPointReadMixin):
 
     def valid_polyline(self) -> bool:
         return bool(self.api.host.polyline_valid(self.c_handle()))
+
+
+# Borrowed mutable polyline. Use it only when a step payload or another mutable
+# view explicitly gives mutable access to host-owned geometry.
+class MutablePolyline(Polyline, MultiPointMutableMixin):
+    def mutable_handle(self) -> int:
+        return self.handle()
+
+    def mutable_c_handle(self) -> ctypes.c_void_p:
+        return self.c_handle()
+
+    def mutable_multipoint_handle(self) -> int:
+        return _address(self.api.host.polyline_as_multipoint(self.mutable_c_handle()))
+
+    def clip_end(self, distance: float) -> None:
+        self.api.host.polyline_clip_end(self.mutable_c_handle(), float(distance))
+
+    def clip_start(self, distance: float) -> None:
+        self.api.host.polyline_clip_start(self.mutable_c_handle(), float(distance))
+
+    def extend_end(self, distance: float) -> None:
+        self.api.host.polyline_extend_end(self.mutable_c_handle(), float(distance))
+
+    def extend_start(self, distance: float) -> None:
+        self.api.host.polyline_extend_start(self.mutable_c_handle(), float(distance))
 
 
 # Owned mutable polyline allocated in a storage_handle. Use it when a plugin
@@ -742,6 +791,26 @@ class ExPolygon(HandleView):
         return bool(self.api.host.expolygon_overlaps(self.c_handle(), other.c_handle()))
 
 
+# Borrowed mutable ExPolygon. It exposes mutable hole/contour views without
+# taking ownership of the ExPolygon itself.
+class MutableExPolygon(ExPolygon):
+    def mutable_handle(self) -> int:
+        return self.handle()
+
+    def mutable_c_handle(self) -> ctypes.c_void_p:
+        return self.c_handle()
+
+    def contour_mutable(self) -> MutablePolygon:
+        return MutablePolygon(self.api, self.api.host.expolygon_contour(self.mutable_c_handle()))
+
+    def hole_mutable(self, idx: int) -> MutablePolygon:
+        return MutablePolygon(self.api, self.api.host.expolygon_hole_at(self.mutable_c_handle(), int(idx)))
+
+    def holes_mutable(self) -> Iterator[MutablePolygon]:
+        for idx in range(self.hole_size()):
+            yield self.hole_mutable(idx)
+
+
 # Owned mutable ExPolygon allocated in a storage_handle. The contour and holes
 # are still exposed as borrowed polygon views; resizing holes may invalidate
 # previously returned hole views.
@@ -794,6 +863,23 @@ class ExPolygonCollection(HandleView, CollectionReadMixin):
 
     def valid_collection(self) -> bool:
         return int(self.api.host.expolygons_valid(self.c_handle())) == EXPOLYGON_STATUS_OK
+
+
+# Borrowed mutable ExPolygon collection. Iteration remains read-only by default;
+# call at_mutable()/mutable_items() when the step explicitly allows mutation.
+class MutableExPolygonCollection(ExPolygonCollection):
+    def mutable_handle(self) -> int:
+        return self.handle()
+
+    def mutable_c_handle(self) -> ctypes.c_void_p:
+        return self.c_handle()
+
+    def at_mutable(self, idx: int) -> MutableExPolygon:
+        return MutableExPolygon(self.api, self.api.host.expolygons_at(self.mutable_c_handle(), int(idx)))
+
+    def mutable_items(self) -> Iterator[MutableExPolygon]:
+        for idx in range(self.size()):
+            yield self.at_mutable(idx)
 
 
 # Owned mutable ExPolygon collection allocated in a storage_handle. This is the
@@ -851,16 +937,20 @@ __all__ = [
     "HandleView",
     "MultiPoint",
     "Polygon",
+    "MutablePolygon",
     "StoredPolygon",
     "Polyline",
+    "MutablePolyline",
     "StoredPolyline",
     "PolygonCollection",
     "StoredPolygonCollection",
     "PolylineCollection",
     "StoredPolylineCollection",
     "ExPolygon",
+    "MutableExPolygon",
     "StoredExPolygon",
     "ExPolygonCollection",
+    "MutableExPolygonCollection",
     "StoredExPolygonCollection",
     "abs_angle",
     "angle_ccw",
