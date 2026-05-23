@@ -65,6 +65,7 @@ runtime directory:
 from __future__ import annotations
 
 import ctypes
+import math
 from typing import Iterable, Optional
 
 try:
@@ -94,8 +95,12 @@ def _as_bytes(text: Optional[str]) -> Optional[bytes]:
     return None if text is None else text.encode("utf-8")
 
 
+def round_coord(value: float) -> int:
+    return math.floor(value + 0.5) if value >= 0.0 else math.ceil(value - 0.5)
+
+
 def scale_i(value: float) -> int:
-    return int(value * UNSCALING_FACTOR)
+    return round_coord(value * UNSCALING_FACTOR)
 
 
 def unscaled(value: float) -> float:
