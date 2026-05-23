@@ -29,6 +29,38 @@ namespace {
 
 using namespace Slic3r;
 
+struct PolyholeOptionKeys
+{
+    const char *label;
+    const char *enabled_key;
+    const char *threshold_key;
+    const char *twisted_key;
+};
+
+const PolyholeOptionKeys cpp_polyhole_keys = {
+    "C++ Polyholes",
+    "hole_to_polyhole",
+    "hole_to_polyhole_threshold",
+    "hole_to_polyhole_twisted"
+};
+
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+const PolyholeOptionKeys python_polyhole_keys[] = {
+    {
+        "Python low-level Polyholes",
+        "python_hole_to_polyhole",
+        "python_hole_to_polyhole_threshold",
+        "python_hole_to_polyhole_twisted"
+    },
+    {
+        "Python high-level Polyholes",
+        "python_high_level_hole_to_polyhole",
+        "python_high_level_hole_to_polyhole_threshold",
+        "python_high_level_hole_to_polyhole_twisted"
+    }
+};
+#endif
+
 Point scaled_point(const double x, const double y)
 {
     return Point(scale_i(x), scale_i(y));
@@ -76,22 +108,27 @@ size_t expected_polyhole_edge_count(const double radius_mm, const double nozzle_
     return size_t(std::max(3, int(std::round(4.0 * radius_mm * 0.4 / nozzle_diameter_mm))));
 }
 
-DynamicPrintConfig polyhole_config(const bool twist)
+DynamicPrintConfig polyhole_config(const PolyholeOptionKeys &keys, const bool twist)
 {
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
 
     DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
     config.set_deserialize_strict({
         {"first_layer_height", "1"},
-        {"hole_to_polyhole", "1"},
-        {"hole_to_polyhole_threshold", "0.1"},
-        {"hole_to_polyhole_twisted", twist ? "1" : "0"},
+        {keys.enabled_key, "1"},
+        {keys.threshold_key, "0.1"},
+        {keys.twisted_key, twist ? "1" : "0"},
         {"layer_height", "1"},
         {"nozzle_diameter", "0.4"},
         {"perimeters", "1"},
         {"resolution", "0.001"}
     });
     return config;
+}
+
+DynamicPrintConfig polyhole_config(const bool twist)
+{
+    return polyhole_config(cpp_polyhole_keys, twist);
 }
 
 Line polygon_segment_at(const Polygon &polygon, const size_t point_idx)
@@ -180,9 +217,10 @@ std::vector<size_t> point_counts(const PolyholeRunResult &result)
 PolyholeRunResult run_polyhole_on_single_hole(const double radius_x_mm,
                                               const double radius_y_mm,
                                               const size_t source_point_count,
-                                              const bool twist)
+                                              const bool twist,
+                                              const PolyholeOptionKeys &keys = cpp_polyhole_keys)
 {
-    DynamicPrintConfig config = polyhole_config(twist);
+    DynamicPrintConfig config = polyhole_config(keys, twist);
     Model model;
     Print print;
     Slic3r::Test::init_print({Slic3r::Test::TestMesh::cube_20x20x20}, print, model, config);
@@ -278,3 +316,87 @@ TEST_CASE("Polyholes rejects layer sections that are too oval", "[plugins][polyh
     REQUIRE(steep_counts.size() > 1);
     CHECK(steep_counts[1] == source_point_count);
 }
+
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+
+TEST_CASE("Python Polyholes converts round holes to polygons with the expected point count", "[plugins][polyholes][python]")
+{
+    REQUIRE(Slic3r::Test::Plugins::python_plugin_test_runtime_available());
+
+    const std::vector<double> radii_mm = {0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2., 2.5, 3., 4., 5., 10.};
+    for (const PolyholeOptionKeys &keys : python_polyhole_keys) {
+        INFO(keys.label);
+        for (const double radius_mm : radii_mm) {
+            const std::vector<size_t> hole_point_counts = point_counts(run_polyhole_on_single_hole(
+                radius_mm, radius_mm, 128, false, keys));
+            REQUIRE(hole_point_counts.size() > 1);
+            CHECK(hole_point_counts[1] == expected_polyhole_edge_count(radius_mm, 0.4));
+        }
+    }
+}
+
+TEST_CASE("Python Polyholes alternates rotated replacements when twisting is enabled", "[plugins][polyholes][python]")
+{
+    REQUIRE(Slic3r::Test::Plugins::python_plugin_test_runtime_available());
+
+    const double radius_mm = 2.5;
+    for (const PolyholeOptionKeys &keys : python_polyhole_keys) {
+        INFO(keys.label);
+        const std::vector<size_t> hole_point_counts = point_counts(run_polyhole_on_single_hole(
+            radius_mm, radius_mm, 128, true, keys));
+
+        REQUIRE(hole_point_counts.size() > 2);
+        CHECK(hole_point_counts[1] == expected_polyhole_edge_count(radius_mm, 0.4));
+        CHECK(hole_point_counts[2] == expected_polyhole_edge_count(radius_mm, 0.4));
+    }
+}
+
+TEST_CASE("Python Polyholes keeps the original round hole inside the replacement polygon", "[plugins][polyholes][python]")
+{
+    REQUIRE(Slic3r::Test::Plugins::python_plugin_test_runtime_available());
+
+    const std::vector<double> radii_mm = {0.1, 0.2, 0.5, 1.0, 2.5, 5.0, 10.0};
+    for (const PolyholeOptionKeys &keys : python_polyhole_keys) {
+        INFO(keys.label);
+        for (const double radius_mm : radii_mm) {
+            const PolyholeRunResult result = run_polyhole_on_single_hole(radius_mm, radius_mm, 128, false, keys);
+            REQUIRE(result.layer_holes.size() > 1);
+
+            const Polygon &replacement_hole = result.layer_holes[1];
+            CHECK(polygon_fully_contains_polygon(replacement_hole, result.source_hole));
+            CHECK(polygon_segments_do_not_cut_polygon(replacement_hole, result.source_hole));
+        }
+    }
+}
+
+TEST_CASE("Python Polyholes rejects layer sections that are too oval", "[plugins][polyholes][python]")
+{
+    REQUIRE(Slic3r::Test::Plugins::python_plugin_test_runtime_available());
+
+    const double radius_mm = 5.;
+    const size_t source_point_count = 128;
+    const double shallow_tilt_degrees = 10.;
+    const double steep_tilt_degrees = 20.;
+    for (const PolyholeOptionKeys &keys : python_polyhole_keys) {
+        INFO(keys.label);
+        const std::vector<size_t> shallow_counts = point_counts(run_polyhole_on_single_hole(
+            radius_mm / std::cos(shallow_tilt_degrees * PI / 180.),
+            radius_mm,
+            source_point_count,
+            false,
+            keys));
+        REQUIRE(shallow_counts.size() > 1);
+        CHECK(shallow_counts[1] == expected_polyhole_edge_count(radius_mm, 0.4));
+
+        const std::vector<size_t> steep_counts = point_counts(run_polyhole_on_single_hole(
+            radius_mm / std::cos(steep_tilt_degrees * PI / 180.),
+            radius_mm,
+            source_point_count,
+            false,
+            keys));
+        REQUIRE(steep_counts.size() > 1);
+        CHECK(steep_counts[1] == source_point_count);
+    }
+}
+
+#endif

@@ -4,6 +4,7 @@
 namespace Slic3r::Test::Plugins {
 
 void ensure_plugin_test_runtime_initialized();
+bool python_plugin_test_runtime_available();
 
 } // namespace Slic3r::Test::Plugins
 

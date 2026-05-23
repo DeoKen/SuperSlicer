@@ -68,6 +68,25 @@ boost::filesystem::path current_module_path()
 #endif
 }
 
+boost::filesystem::path current_executable_path()
+{
+#ifdef _WIN32
+    std::vector<wchar_t> buffer(MAX_PATH);
+    DWORD length = 0;
+    for (;;) {
+        length = GetModuleFileNameW(NULL, buffer.data(), DWORD(buffer.size()));
+        if (length == 0)
+            return {};
+        if (length < buffer.size() - 1)
+            break;
+        buffer.resize(buffer.size() * 2);
+    }
+    return boost::filesystem::path(std::wstring(buffer.data(), length));
+#else
+    return {};
+#endif
+}
+
 PyObject *python_path_from_boost(const boost::filesystem::path &path)
 {
 #ifdef _WIN32
@@ -523,7 +542,9 @@ void load_python_plugins(orchestrator_handle *orchestrator)
     const boost::filesystem::path python_root = plugin_repository / "python";
     const boost::filesystem::path python_plugins = python_root / "plugins";
 #ifdef _WIN32
-    const boost::filesystem::path host_library_path = plugin_repository.parent_path() / "Slic3r.dll";
+    boost::filesystem::path host_library_path = plugin_repository.parent_path() / "Slic3r.dll";
+    if (!boost::filesystem::exists(host_library_path))
+        host_library_path = current_executable_path();
 #else
     const boost::filesystem::path host_library_path = plugin_repository.parent_path() / "Slic3r";
 #endif

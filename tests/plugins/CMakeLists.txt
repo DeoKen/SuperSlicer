@@ -16,4 +16,21 @@ if (WIN32)
     prusaslicer_copy_dlls(${_TEST_NAME}_tests)
 endif()
 
+if (TARGET python_plugin_loader)
+    add_dependencies(${_TEST_NAME}_tests python_plugin_loader)
+    target_compile_definitions(${_TEST_NAME}_tests PRIVATE SLIC3R_TEST_PYTHON_PLUGINS)
+    add_custom_command(TARGET ${_TEST_NAME}_tests POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/plugins"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:python_plugin_loader>"
+            "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/plugins/$<TARGET_FILE_NAME:python_plugin_loader>"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python"
+            "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/plugins/python"
+        COMMENT "Copy Python plugin runtime to plugin tests"
+        VERBATIM
+    )
+endif()
+
 add_test(${_TEST_NAME}_tests ${_TEST_NAME}_tests "[plugins]" ${CATCH_EXTRA_ARGS})

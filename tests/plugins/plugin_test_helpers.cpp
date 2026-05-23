@@ -1,5 +1,27 @@
 #include "plugin_test_helpers.hpp"
 
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#else
+#include <dlfcn.h>
+#include <limits.h>
+#include <unistd.h>
+#endif
+
+#include <string>
+#include <vector>
+
+#include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
+#endif
+
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/FFFPrintConfig.hpp"
@@ -12,6 +34,96 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLA/SLAPrintConfig.hpp"
 #include "plugins_cpp/Polyholes/Polyholes.hpp"
+
+namespace {
+
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+
+bool g_python_plugins_loaded = false;
+
+boost::filesystem::path current_executable_dir()
+{
+#ifdef _WIN32
+    std::vector<wchar_t> buffer(MAX_PATH);
+    DWORD length = 0;
+    for (;;) {
+        length = GetModuleFileNameW(NULL, buffer.data(), DWORD(buffer.size()));
+        if (length == 0)
+            return {};
+        if (length < buffer.size() - 1)
+            break;
+        buffer.resize(buffer.size() * 2);
+    }
+    return boost::filesystem::path(std::wstring(buffer.data(), length)).parent_path();
+#else
+    std::vector<char> buffer(PATH_MAX);
+    for (;;) {
+        const ssize_t length = readlink("/proc/self/exe", buffer.data(), buffer.size());
+        if (length < 0)
+            return boost::filesystem::current_path();
+        if (size_t(length) < buffer.size())
+            return boost::filesystem::path(std::string(buffer.data(), size_t(length))).parent_path();
+        buffer.resize(buffer.size() * 2);
+    }
+#endif
+}
+
+bool load_python_plugins_for_tests(orchestrator_handle *orchestrator)
+{
+#ifdef _WIN32
+    const boost::filesystem::path loader_path = current_executable_dir() / "plugins" / "python_plugin_loader.dll";
+    if (!boost::filesystem::exists(loader_path)) {
+        BOOST_LOG_TRIVIAL(warning) << "Python plugin loader not found for plugin tests: " << loader_path.string();
+        return false;
+    }
+
+    static std::vector<HMODULE> loaded_modules;
+    HMODULE module = LoadLibraryW(loader_path.wstring().c_str());
+    if (module == NULL) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot load Python plugin loader '" << loader_path.string()
+                                 << "': error " << GetLastError();
+        return false;
+    }
+    loaded_modules.push_back(module);
+
+    FARPROC proc = GetProcAddress(module, "register_plugin");
+    if (proc == NULL) {
+        BOOST_LOG_TRIVIAL(error) << "Python plugin loader '" << loader_path.string()
+                                 << "' does not export register_plugin.";
+        return false;
+    }
+#else
+    const boost::filesystem::path loader_path = current_executable_dir() / "plugins" / "libpython_plugin_loader.so";
+    if (!boost::filesystem::exists(loader_path)) {
+        BOOST_LOG_TRIVIAL(warning) << "Python plugin loader not found for plugin tests: " << loader_path.string();
+        return false;
+    }
+
+    static std::vector<void *> loaded_modules;
+    void *module = dlopen(loader_path.string().c_str(), RTLD_NOW | RTLD_GLOBAL);
+    if (module == nullptr) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot load Python plugin loader '" << loader_path.string()
+                                 << "': " << dlerror();
+        return false;
+    }
+    loaded_modules.push_back(module);
+
+    void *proc = dlsym(module, "register_plugin");
+    if (proc == nullptr) {
+        BOOST_LOG_TRIVIAL(error) << "Python plugin loader '" << loader_path.string()
+                                 << "' does not export register_plugin: " << dlerror();
+        return false;
+    }
+#endif
+
+    using RegisterPluginFn = void (*)(orchestrator_handle *);
+    reinterpret_cast<RegisterPluginFn>(proc)(orchestrator);
+    return true;
+}
+
+#endif // SLIC3R_TEST_PYTHON_PLUGINS
+
+} // namespace
 
 namespace Slic3r::Test::Plugins {
 
@@ -37,6 +149,11 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(
             orchestrator_handle_value);
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+        g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
+                                  orchestrator.get_plugin("python.polyholes") != nullptr &&
+                                  orchestrator.get_plugin("python.polyholes.high_level") != nullptr;
+#endif
 
         orchestrator.initialize_plugins();
         initialize_fff_print_config_cache();
@@ -45,6 +162,16 @@ void ensure_plugin_test_runtime_initialized()
         return true;
     }();
     (void)initialized;
+}
+
+bool python_plugin_test_runtime_available()
+{
+    ensure_plugin_test_runtime_initialized();
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+    return g_python_plugins_loaded;
+#else
+    return false;
+#endif
 }
 
 } // namespace Slic3r::Test::Plugins

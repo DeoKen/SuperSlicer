@@ -50,7 +50,6 @@ if (Python3_FOUND)
         COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps"
         COMMAND "${CMAKE_COMMAND}" -E rm -f
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_python.py"
-            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_low_level.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_views.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/slic3r_api.py"
@@ -79,6 +78,9 @@ if (Python3_FOUND)
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/examples/example_python_plugin.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/example_python_plugin.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/polyholes/polyholes_low_level.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_low_level.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/polyholes/polyholes_high_level.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_high_level.py"
