@@ -47,15 +47,31 @@ boost::filesystem::path active_plugin_config_path()
 wxString step_name(slicing_step_t step)
 {
     switch (step) {
-    case STEP_LAYER_HEIGHT:         return "STEP_LAYER_HEIGHT";
-    case STEP_SLICING:              return "STEP_SLICING";
-    case STEP_POST_SLICING:         return "STEP_POST_SLICING";
-    case BRIDGE_DETECTOR:           return "BRIDGE_DETECTOR";
-    case STEP_SUPPORT_DEMAND:       return "STEP_SUPPORT_DEMAND";
-    case STEP_SUPPORT_SPOT:         return "STEP_SUPPORT_SPOT";
-    case STEP_LAYER_EXTRUSION_EDIT: return "STEP_LAYER_EXTRUSION_EDIT";
-    case STEP_NONE:                 return "STEP_NONE";
-    case STEP_ANY:                  return "STEP_ANY";
+    case STEP_LAYER_HEIGHT:         return "Choose Layer Height";
+    case STEP_SLICING:              return "Slice the 3d model";
+    case STEP_POST_SLICING:         return "Post-process slices";
+    case STEP_PRE_PERIMETER:        return "Prepare perimeter generation";
+    case STEP_PERIMETER:            return "Perimeter generation";
+    case STEP_POST_PERIMETER:       return "Post-process perimeters";
+    case STEP_SURFACE_GENERATION:   return "Generate surfaces";
+    case STEP_SURFACE_TYPE:         return "Detect solid surfaces";
+    case STEP_PRE_INFILL:           return "Prepare filling";
+    case STEP_INFILL:               return "Fill surfaces";
+    case STEP_POST_INFILL:          return "Post-process infill";
+    case STEP_SUPPORT_DEMAND:       return "Detect support areas";
+    case STEP_SUPPORT:              return "Create support extrusions";
+    case STEP_PRE_GCODE:            return "Prepare gcode creation";
+    case STEP_CHECK_CONFLICT:       return "Check extrusions conflicts";
+    case STEP_ORDERING:             return "Ordering iland extrusions";
+    case STEP_WIPETOWER:            return "Create wipetower";
+    case STEP_SUPPORT_SPOT:         return "Detect curling areas";
+    case STEP_LAYER_EXTRUSION_EDIT: return "Edit extrusions";
+    case STEP_EXTRUSION_SIMPLIFICATION: return "Create arcs";
+    case STEP_GCODE:                return "Create output file";
+    case STEP_NONE:                 return "Nothing";
+    case STEP_ANY:                  return "Many steps";
+    case BRIDGE_DETECTOR:           return "Detect bridges areas";
+    case INFILL_PATTERN:            return "Fill a surface";
     default:                        return wxString::Format("STEP_%u", unsigned(step));
     }
 }

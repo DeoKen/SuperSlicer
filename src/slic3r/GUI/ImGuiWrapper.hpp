@@ -66,6 +66,7 @@ public:
     };
 
     ImGuiWrapper();
+    // use opengl context to create font texture, be sure it's set (and always the same) before calling.
     ~ImGuiWrapper();
 
     void set_language(const std::string &language);
