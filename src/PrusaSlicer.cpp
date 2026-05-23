@@ -930,7 +930,8 @@ bool CLI::setup(int argc, char **argv)
 
     //setup plugins
     // plugins: register from dll / code
-    slic3r_api::PolyholesPlugin::register_polyholes_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
+    load_plugins_from_repository(path_to_binary.parent_path() / "plugins",
+                                 reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance()));
     // slic3r_api::GuiRulesExamplePlugin::register_gui_rules_example_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
     slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
 

@@ -11,9 +11,9 @@
 #include <libslic3r/Format/3mf.hpp>
 #include <libslic3r/Api/host/Orchestrator.hpp>
 #include <libslic3r/Api/plugin/c/slic3r_orchestrator.h>
+#include <libslic3r/Api/plugin/c/slic3r_plugin.h>
 #include <libslic3r/Plugins/GuiRulesExample.hpp>
 #include <libslic3r/Plugins/MaxOverhangThreshold.hpp>
-#include <libslic3r/Plugins/Polyholes.hpp>
 #include <libslic3r/Plugins/SliceVolume.hpp>
 #include <libslic3r/Plugins/StandardLayerHeightGenerator.hpp>
 #include <libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp>
@@ -43,7 +43,7 @@ void ensure_api_test_runtime_initialized()
         orchestrator_handle *orchestrator = reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance());
         slic3r_api::StandardLayerHeightGeneratorPlugin::register_standard_layer_height_generator_plugin(orchestrator);
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator);
-        slic3r_api::PolyholesPlugin::register_polyholes_plugin(orchestrator);
+        register_plugin(orchestrator);
         slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(orchestrator);
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(orchestrator);
 
@@ -100,12 +100,6 @@ TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayo
     ensure_api_test_runtime_initialized();
     Orchestrator &orchestrator = Orchestrator::instance();
     orchestrator_handle *orch_handle = reinterpret_cast<orchestrator_handle *>(&orchestrator);
-    const int32_t polyholes_added = orchestrator_add_ui_fragment(orch_handle,
-                                                                 "print.ui",
-                                                                 "polyholes",
-                                                                 slic3r_api::PolyholesPlugin::Polyholes::print_ui_fragment(),
-                                                                 0);
-    REQUIRE((polyholes_added == 0 || polyholes_added == 1));
     const int32_t overhang_added = orchestrator_add_ui_fragment(orch_handle,
                                                                "print.ui",
                                                                "max_overhang_threshold",

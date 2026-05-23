@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -432,7 +433,7 @@ void register_polyholes_plugin(orchestrator_handle *orch)
 }} // namespace slic3r_api::PolyholesPlugin
 
 #ifdef POLYHOLES_PLUGIN_DLL
-extern "C" void register_plugin(orchestrator_handle *orch)
+extern "C" SLIC3R_PLUGIN_API void register_plugin(orchestrator_handle *orch)
 {
     slic3r_api::PolyholesPlugin::register_polyholes_plugin(orch);
 }
