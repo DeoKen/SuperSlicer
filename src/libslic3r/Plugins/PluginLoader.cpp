@@ -33,6 +33,7 @@
 #include "libslic3r/Plugins/SliceVolume.hpp"
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
+#include "libslic3r/Steps/StepPipeline.hpp"
 #include "libslic3r/Utils.hpp"
 
 namespace Slic3r {
@@ -237,6 +238,28 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
     slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(orchestrator);
 }
 
+void register_exclusive_step_groups(Orchestrator &orchestrator)
+{
+    const std::map<slicing_step_t, Steps::StepExclusiveGroup> &templates = Steps::get_exclusive_steps();
+    for (const std::pair<const slicing_step_t, Steps::StepExclusiveGroup> &entry : templates) {
+        const std::vector<Plugin *> active_plugins = orchestrator.get_active_plugins_for_step(entry.first);
+        if (active_plugins.size() <= 1)
+            continue;
+
+        std::vector<std::string> plugin_ids;
+        plugin_ids.reserve(active_plugins.size());
+        for (const Plugin *plugin : active_plugins)
+            plugin_ids.push_back(plugin->get_id());
+
+        Steps::StepExclusiveGroup group = entry.second;
+        group.set_enum_plugins(plugin_ids);
+        orchestrator.create_new_print_config(&group.option_def);
+        orchestrator.add_ui_fragment("print.ui", group.option_def.opt_key, group.ui_fragment.c_str(), 0);
+        for (const raw_gui_rule &rule : group.gui_activation_rules)
+            orchestrator.add_gui_rule(&rule);
+    }
+}
+
 } // namespace
 
 void load_plugins()
@@ -253,6 +276,7 @@ void load_plugins()
     const std::vector<std::string> active_plugin_ids =
         read_active_plugin_ids(config_dir, active_plugins_loaded_from_user_config);
     activate_plugins_from_ids(orchestrator, active_plugin_ids, active_plugins_loaded_from_user_config);
+    register_exclusive_step_groups(orchestrator);
 
     orchestrator.initialize_plugins();
 }

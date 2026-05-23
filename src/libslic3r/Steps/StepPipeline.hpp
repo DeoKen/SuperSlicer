@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_config_def.h"
+#include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 namespace Slic3r {
@@ -27,9 +28,14 @@ struct StepExclusiveGroup
     raw_config_option_def option_def;
     std::string ui_fragment;
     std::vector<raw_gui_rule> gui_activation_rules;
+    std::vector<std::string> enum_values;
+    std::vector<std::string> enum_labels;
+    std::vector<key_value_string_pair_t> enum_pairs;
+
+    void set_enum_plugins(const std::vector<std::string> &plugin_ids);
 };
 
-std::map<slicing_step_t, StepExclusiveGroup> get_exclusive_steps();
+const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps();
 
 // Central entry point for the step-based slicing pipeline.
 //
