@@ -15,6 +15,9 @@
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_geometry.h"
+#ifndef PI
+#define PI 3.141592653589793238
+#endif
 
 namespace slic3r_api {
 
