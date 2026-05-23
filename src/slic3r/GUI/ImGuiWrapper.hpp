@@ -71,6 +71,7 @@ public:
 
     void set_language(const std::string &language);
     void set_display_size(float w, float h);
+    // use opengl context to delete font texture, be sure it's set (and the same as new_frame()) before calling.
     void set_scaling(float font_size, float scale_style, float scale_both);
     bool update_mouse_data(wxMouseEvent &evt);
     bool update_key_data(wxKeyEvent &evt);
@@ -79,6 +80,7 @@ public:
     float get_style_scaling() const { return m_style_scaling; }
     const ImWchar *get_glyph_ranges() const { return m_glyph_ranges; } // language specific
 
+    // use opengl context to create font texture, be sure it's set (and always the same) before calling.
     void new_frame();
     void render();
     void reset_color();

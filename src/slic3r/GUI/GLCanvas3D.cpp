@@ -6102,6 +6102,10 @@ void GLCanvas3D::_resize(unsigned int w, unsigned int h)
     if (m_canvas == nullptr && m_context == nullptr)
         return;
 
+    // ImGui scaling may destroy and recreate GL font textures, so the canvas
+    // context has to be current before touching it.
+    _set_current();
+
     const std::array<unsigned int, 2> new_size = { w, h };
     if (m_old_size == new_size)
         return;
@@ -6118,9 +6122,6 @@ void GLCanvas3D::_resize(unsigned int w, unsigned int h)
 #endif
 
     this->request_extra_frame();
-
-    // ensures that this canvas is current
-    _set_current();
 }
 
 BoundingBoxf3 GLCanvas3D::_max_bounding_box(bool include_gizmos, bool include_bed_model) const
