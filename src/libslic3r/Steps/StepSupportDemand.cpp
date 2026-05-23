@@ -74,7 +74,7 @@ void run_step(Orchestrator &orchestrator, Print &print, State &state)
     const size_t run_count = print.objects().size();
     state.reset();
 
-    std::vector<Plugin *> plugins = orchestrator.get_all_plugins_for_step(STEP_SUPPORT_DEMAND);
+    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(STEP_SUPPORT_DEMAND);
     if (plugins.empty())
         return;
 

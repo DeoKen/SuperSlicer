@@ -1,5 +1,9 @@
 #include "plugin_test_helpers.hpp"
 
+#include <cassert>
+
+#include <boost/log/trivial.hpp>
+
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -19,7 +23,6 @@
 #include <vector>
 
 #include <boost/filesystem.hpp>
-#include <boost/log/trivial.hpp>
 #endif
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
@@ -123,6 +126,14 @@ bool load_python_plugins_for_tests(orchestrator_handle *orchestrator)
 
 #endif // SLIC3R_TEST_PYTHON_PLUGINS
 
+void activate_plugin_or_fail(Slic3r::Orchestrator &orchestrator, const char *plugin_id)
+{
+    if (!orchestrator.set_plugin_active(plugin_id, true)) {
+        BOOST_LOG_TRIVIAL(error) << "Test plugin '" << plugin_id << "' was not registered.";
+        assert(false);
+    }
+}
+
 } // namespace
 
 namespace Slic3r::Test::Plugins {
@@ -153,6 +164,21 @@ void ensure_plugin_test_runtime_initialized()
         g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
                                   orchestrator.get_plugin("python.polyholes") != nullptr &&
                                   orchestrator.get_plugin("python.polyholes.high_level") != nullptr;
+#endif
+
+        activate_plugin_or_fail(orchestrator, "bridge_detector.default");
+        activate_plugin_or_fail(orchestrator, "standard_layer_height_generator");
+        activate_plugin_or_fail(orchestrator, "slice_volume");
+        activate_plugin_or_fail(orchestrator, "polyholes");
+        activate_plugin_or_fail(orchestrator, "support.demand.overhangs");
+        activate_plugin_or_fail(orchestrator, "support.demand.painting");
+        activate_plugin_or_fail(orchestrator, "support.demand.modifiers");
+        activate_plugin_or_fail(orchestrator, "support.demand.bridge_removal");
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+        if (g_python_plugins_loaded) {
+            activate_plugin_or_fail(orchestrator, "python.polyholes");
+            activate_plugin_or_fail(orchestrator, "python.polyholes.high_level");
+        }
 #endif
 
         orchestrator.initialize_plugins();

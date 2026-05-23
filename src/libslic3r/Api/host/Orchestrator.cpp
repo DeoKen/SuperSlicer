@@ -461,9 +461,25 @@ std::vector<Plugin *> Orchestrator::get_all_plugins_for_step(slicing_step_t step
     return list;
 }
 
+std::vector<Plugin *> Orchestrator::get_active_plugins_for_step(slicing_step_t step) const {
+    std::vector<Plugin *> list;
+    for (Plugin *plugin : this->get_all_plugins_for_step(step))
+        if (this->is_plugin_active(plugin))
+            list.push_back(plugin);
+    return list;
+}
+
 std::vector<Plugin *> Orchestrator::get_current_plugins_for_step(slicing_step_t step) const {
     auto it = m_plugins_by_step.find(step);
-    return it == m_plugins_by_step.end() ? std::vector<Plugin *>{} : it->second;
+    if (it == m_plugins_by_step.end())
+        return {};
+
+    std::vector<Plugin *> plugins;
+    plugins.reserve(it->second.size());
+    for (Plugin *plugin : it->second)
+        if (this->is_plugin_active(plugin))
+            plugins.push_back(plugin);
+    return plugins;
 }
 
 const Plugin *Orchestrator::get_plugin(const std::string &plugin_id) const {
@@ -475,6 +491,33 @@ const Plugin *Orchestrator::get_plugin(const std::string &plugin_id) const {
         }
     }
     return plugin;
+}
+
+bool Orchestrator::is_plugin_active(const Plugin *plugin) const
+{
+    return plugin != nullptr && m_active_plugins.find(const_cast<Plugin *>(plugin)) != m_active_plugins.end();
+}
+
+bool Orchestrator::is_plugin_active(const std::string &plugin_id) const
+{
+    return this->is_plugin_active(this->get_plugin(plugin_id));
+}
+
+bool Orchestrator::set_plugin_active(Plugin *plugin, bool active)
+{
+    if (plugin == nullptr)
+        return false;
+
+    if (active)
+        m_active_plugins.insert(plugin);
+    else
+        m_active_plugins.erase(plugin);
+    return true;
+}
+
+bool Orchestrator::set_plugin_active(const std::string &plugin_id, bool active)
+{
+    return this->set_plugin_active(const_cast<Plugin *>(this->get_plugin(plugin_id)), active);
 }
 
 void Orchestrator::add_plugin_to_step(Plugin *plugin, slicing_step_t step) {

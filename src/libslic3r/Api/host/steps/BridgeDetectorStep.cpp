@@ -18,7 +18,7 @@ bridge_detector_instance Orchestrator::create_bridge_detector(const bridge_detec
 
     std::vector<Plugin *> plugins = this->get_current_plugins_for_step(BRIDGE_DETECTOR);
     if (plugins.empty())
-        plugins = this->get_all_plugins_for_step(BRIDGE_DETECTOR);
+        plugins = this->get_active_plugins_for_step(BRIDGE_DETECTOR);
     if (plugins.empty())
         return out;
 

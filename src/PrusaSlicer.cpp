@@ -929,11 +929,12 @@ bool CLI::setup(int argc, char **argv)
     init_sla_params(PrintConfigDef::instance_mutable());
 
     //setup plugins
+    // slic3r_api::GuiRulesExamplePlugin::register_gui_rules_example_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
+    slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
+
     // plugins: register from dll / code
     load_plugins_from_repository(path_to_binary.parent_path() / "plugins",
                                  reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance()));
-    // slic3r_api::GuiRulesExamplePlugin::register_gui_rules_example_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
-    slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(reinterpret_cast<orchestrator_handle*>(&Orchestrator::instance()));
 
     //plugins: initialise
     Orchestrator::instance().initialize_plugins();

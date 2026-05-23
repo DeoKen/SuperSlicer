@@ -88,9 +88,15 @@ public:
     static Orchestrator &instance();
 
     std::vector<Plugin *> get_all_plugins_for_step(slicing_step_t step) const;
+    std::vector<Plugin *> get_active_plugins_for_step(slicing_step_t step) const;
     std::vector<Plugin *> get_current_plugins_for_step(slicing_step_t step) const;
     const Plugin *get_plugin(const std::string &plugin_id) const;
     void add_plugin_to_step(Plugin *plugin, slicing_step_t step);
+    bool is_plugin_active(const Plugin *plugin) const;
+    bool is_plugin_active(const std::string &plugin_id) const;
+    bool set_plugin_active(Plugin *plugin, bool active);
+    bool set_plugin_active(const std::string &plugin_id, bool active);
+    const std::unordered_set<Plugin *> &active_plugins() const { return m_active_plugins; }
 
 
     //config def
@@ -136,6 +142,7 @@ private:
     Orchestrator() = default;
 
     std::vector<std::unique_ptr<Plugin>> m_registered_plugins;
+    std::unordered_set<Plugin *> m_active_plugins;
     std::map<slicing_step_t, std::vector<Plugin *>> m_plugins_by_step;
     std::map<Plugin *, PluginStorage> m_plugin_storage;
     std::vector<PluginUiFragment> m_ui_fragments;

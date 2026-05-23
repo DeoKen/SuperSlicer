@@ -47,6 +47,12 @@ void ensure_api_test_runtime_initialized()
         slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(orchestrator);
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(orchestrator);
 
+        REQUIRE(Orchestrator::instance().set_plugin_active("bridge_detector.default", true));
+        REQUIRE(Orchestrator::instance().set_plugin_active("standard_layer_height_generator", true));
+        REQUIRE(Orchestrator::instance().set_plugin_active("slice_volume", true));
+        REQUIRE(Orchestrator::instance().set_plugin_active("max_overhang_threshold", true));
+        REQUIRE(Orchestrator::instance().set_plugin_active("support.demand.bridge_removal", true));
+
         Orchestrator::instance().initialize_plugins();
         initialize_fff_print_config_cache();
         initialize_sla_print_config_cache();

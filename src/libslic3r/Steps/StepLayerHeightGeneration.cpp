@@ -76,7 +76,7 @@ bool validate_post(const Print &, std::string &) { return true; }
 void run_step(Orchestrator &orchestrator, Print &print) {
     Detail::validate_or_report(validate_pre, print, "Layer-height pre-step validation");
 
-    std::vector<Plugin *> plugins = orchestrator.get_all_plugins_for_step(STEP_LAYER_HEIGHT);
+    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(STEP_LAYER_HEIGHT);
 
     for (Plugin *plugin : plugins) {
         const size_t run_count = print.objects().size();
