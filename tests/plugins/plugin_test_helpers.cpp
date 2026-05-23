@@ -36,6 +36,7 @@
 #include "libslic3r/Plugins/Support/SupportDemandPainting.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLA/SLAPrintConfig.hpp"
+#include "plugins_cpp/FlatAreaLayerHeight/FlatAreaLayerHeight.hpp"
 #include "plugins_cpp/Polyholes/Polyholes.hpp"
 
 namespace {
@@ -151,6 +152,7 @@ void ensure_plugin_test_runtime_initialized()
         slic3r_api::StandardLayerHeightGeneratorPlugin::register_standard_layer_height_generator_plugin(
             orchestrator_handle_value);
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator_handle_value);
+        slic3r_api::FlatAreaLayerHeightPlugin::register_flat_area_layer_height_plugin(orchestrator_handle_value);
         slic3r_api::PolyholesPlugin::register_polyholes_plugin(orchestrator_handle_value);
         slic3r_api::Support::SupportDemandOverhangsPlugin::register_support_demand_overhangs_plugin(
             orchestrator_handle_value);
@@ -169,6 +171,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "bridge_detector.default");
         activate_plugin_or_fail(orchestrator, "standard_layer_height_generator");
         activate_plugin_or_fail(orchestrator, "slice_volume");
+        activate_plugin_or_fail(orchestrator, "flat_area_layer_height");
         activate_plugin_or_fail(orchestrator, "polyholes");
         activate_plugin_or_fail(orchestrator, "support.demand.overhangs");
         activate_plugin_or_fail(orchestrator, "support.demand.painting");
