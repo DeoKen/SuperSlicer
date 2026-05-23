@@ -6,6 +6,11 @@
 #ifndef steps_steppipeline_hpp_
 #define steps_steppipeline_hpp_
 
+#include <map>
+#include <string>
+#include <vector>
+
+#include "libslic3r/Api/plugin/c/slic3r_config_def.h"
 #include "libslic3r/Api/plugin/c/slic3r_plugin_types.h"
 
 namespace Slic3r {
@@ -15,6 +20,16 @@ class Print;
 class PrintObject;
 
 namespace Steps {
+
+struct StepExclusiveGroup
+{
+    slicing_step_t step;
+    raw_config_option_def option_def;
+    std::string ui_fragment;
+    std::vector<raw_gui_rule> gui_activation_rules;
+};
+
+std::map<slicing_step_t, StepExclusiveGroup> get_exclusive_steps();
 
 // Central entry point for the step-based slicing pipeline.
 //
