@@ -80,7 +80,7 @@ void PluginConfigDialog::build()
 
     wxScrolledWindow *scrolled = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition,
                                                       wxSize(70 * em_unit(), 24 * em_unit()),
-                                                      wxVSCROLL | wxBORDER_SIMPLE);
+                                                      wxVSCROLL);
     scrolled->SetScrollRate(0, em_unit());
 
     wxFlexGridSizer *grid = new wxFlexGridSizer(4, 8, 12);
@@ -92,8 +92,10 @@ void PluginConfigDialog::build()
     grid->Add(new wxStaticText(scrolled, wxID_ANY, _L("Priority")), 0, wxALIGN_CENTER_VERTICAL);
 
     std::vector<Plugin *> plugins = Orchestrator::instance().registered_plugins();
-    std::sort(plugins.begin(), plugins.end(), [](const Plugin *lhs, const Plugin *rhs) {
-        return lhs->get_id() < rhs->get_id();
+    std::stable_sort(plugins.begin(), plugins.end(), [](const Plugin *lhs, const Plugin *rhs) {
+        if (lhs->get_step() != rhs->get_step())
+            return lhs->get_step() < rhs->get_step();
+        return lhs->get_priority() < rhs->get_priority();
     });
 
     for (Plugin *plugin : plugins) {

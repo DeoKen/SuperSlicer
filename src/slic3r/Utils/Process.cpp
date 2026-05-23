@@ -44,8 +44,9 @@ enum class NewSlicerInstanceType {
 static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance_type, const std::vector<wxString> paths_to_open, bool single_instance, bool delete_after_load)
 {
 #ifdef _WIN32
+	const wxString current_executable = wxStandardPaths::Get().GetExecutablePath();
 	wxString path;
-	wxFileName::SplitPath(wxStandardPaths::Get().GetExecutablePath(), &path, nullptr, nullptr, wxPATH_NATIVE);
+	wxFileName::SplitPath(current_executable, &path, nullptr, nullptr, wxPATH_NATIVE);
 	//check directory exist
 	if (!boost::filesystem::is_directory(boost::filesystem::wpath(path.ToStdWstring()))) {
 		BOOST_LOG_TRIVIAL(info) << "Fail to find directory \"" << path << "\", trying another method.";
@@ -64,6 +65,13 @@ static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance
 	}
 	path += "\\";
 	path += (instance_type == NewSlicerInstanceType::Slicer) ? SLIC3R_APP_CMD ".exe" : GCODEVIEWER_APP_CMD ".exe";
+	if (instance_type == NewSlicerInstanceType::Slicer &&
+		!boost::filesystem::exists(boost::filesystem::wpath(path.ToStdWstring())) &&
+		boost::filesystem::exists(boost::filesystem::wpath(current_executable.ToStdWstring()))) {
+		BOOST_LOG_TRIVIAL(info) << "Cannot find slicer executable \"" << into_u8(path)
+		                        << "\", using current executable \"" << into_u8(current_executable) << "\" instead.";
+		path = current_executable;
+	}
 	std::vector<const wchar_t*> args;
 	args.reserve(6);
 	args.push_back(path.wc_str());
