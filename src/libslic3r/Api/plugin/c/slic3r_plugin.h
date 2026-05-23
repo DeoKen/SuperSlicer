@@ -7,6 +7,12 @@
 
 #include "slic3r_orchestrator.h"
 
+#if defined(_WIN32) && defined(SLIC3R_PLUGIN_EXPORTS)
+#define SLIC3R_PLUGIN_API __declspec(dllexport)
+#else
+#define SLIC3R_PLUGIN_API
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -25,7 +31,7 @@ orchestrator_register_plugin().
 After that, the orchestrator will be able to call the run method defined in the plugin_instance passed by the
 orchestrator_register_plugin()
 */
-void register_plugin(orchestrator_handle *orch);
+SLIC3R_PLUGIN_API void register_plugin(orchestrator_handle *orch);
 
 #ifdef __cplusplus
 }

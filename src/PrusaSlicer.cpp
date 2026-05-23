@@ -21,8 +21,16 @@
     #endif /* SLIC3R_GUI */
 #endif /* WIN32 */
 
+#if !defined(_WIN32)
+#include <dlfcn.h>
+#endif
+
+#include <string>
+#include <vector>
+
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/nowide/args.hpp>
 #include <boost/nowide/cenv.hpp>
 #include <boost/nowide/iostream.hpp>
@@ -38,7 +46,6 @@
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Plugins/GuiRulesExample.hpp"
 #include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
-#include "libslic3r/Plugins/Polyholes.hpp"
 #include "libslic3r/ConfigOption.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/GCode/PostProcessor.hpp"
@@ -75,6 +82,88 @@ static PrinterTechnology get_printer_technology(const DynamicConfig &config)
     const ConfigOptionEnum<PrinterTechnology> *opt = config.option<ConfigOptionEnum<PrinterTechnology>>("printer_technology");
     return (opt == nullptr) ? ptUnknown : opt->value;
 }
+
+namespace {
+
+using RegisterPluginFn = void (*)(orchestrator_handle *);
+
+bool is_plugin_library_path(const boost::filesystem::path &path)
+{
+#ifdef _WIN32
+    return boost::algorithm::iequals(path.extension().string(), ".dll");
+#elif defined(__APPLE__)
+    return path.extension() == ".dylib";
+#else
+    return path.extension() == ".so";
+#endif
+}
+
+void load_plugin_library(const boost::filesystem::path &plugin_path, orchestrator_handle *orchestrator)
+{
+#ifdef _WIN32
+    static std::vector<HMODULE> loaded_modules;
+    HMODULE module = LoadLibraryW(plugin_path.wstring().c_str());
+    if (module == NULL) {
+        BOOST_LOG_TRIVIAL(warning) << "Cannot load plugin DLL '" << plugin_path.string()
+                                   << "': error " << GetLastError();
+        return;
+    }
+
+    FARPROC farproc = GetProcAddress(module, "register_plugin");
+    if (farproc == NULL) {
+        BOOST_LOG_TRIVIAL(warning) << "Plugin DLL '" << plugin_path.string()
+                                   << "' does not export register_plugin().";
+        FreeLibrary(module);
+        return;
+    }
+
+    RegisterPluginFn register_plugin_fn = reinterpret_cast<RegisterPluginFn>(farproc);
+    register_plugin_fn(orchestrator);
+    loaded_modules.push_back(module);
+#else
+    static std::vector<void *> loaded_modules;
+    void *module = dlopen(plugin_path.string().c_str(), RTLD_NOW | RTLD_GLOBAL);
+    if (module == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << "Cannot load plugin library '" << plugin_path.string()
+                                   << "': " << dlerror();
+        return;
+    }
+
+    void *symbol = dlsym(module, "register_plugin");
+    if (symbol == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << "Plugin library '" << plugin_path.string()
+                                   << "' does not export register_plugin(): " << dlerror();
+        dlclose(module);
+        return;
+    }
+
+    RegisterPluginFn register_plugin_fn = reinterpret_cast<RegisterPluginFn>(symbol);
+    register_plugin_fn(orchestrator);
+    loaded_modules.push_back(module);
+#endif
+}
+
+void load_plugins_from_repository(const boost::filesystem::path &repository, orchestrator_handle *orchestrator)
+{
+    if (!boost::filesystem::exists(repository)) {
+        BOOST_LOG_TRIVIAL(trace) << "Plugin repository '" << repository.string() << "' does not exist.";
+        return;
+    }
+    if (!boost::filesystem::is_directory(repository)) {
+        BOOST_LOG_TRIVIAL(warning) << "Plugin repository path '" << repository.string() << "' is not a directory.";
+        return;
+    }
+
+    for (boost::filesystem::directory_iterator it(repository), end; it != end; ++it) {
+        const boost::filesystem::path plugin_path = it->path();
+        if (boost::filesystem::is_regular_file(plugin_path) && is_plugin_library_path(plugin_path)) {
+            BOOST_LOG_TRIVIAL(info) << "Loading plugin '" << plugin_path.string() << "'.";
+            load_plugin_library(plugin_path, orchestrator);
+        }
+    }
+}
+
+} // namespace
 
 int CLI::run(int argc, char **argv)
 {
