@@ -1,0 +1,355 @@
+#/|/ Copyright (c) SuperSlicer 2026 Durand Remi @supermerill
+#/|/
+#/|/ SuperSlicer is released under the terms of the AGPLv3 or higher
+#/|/
+
+"""
+Python port of the Polyholes plugin.
+
+The native Polyholes plugin is still present in this build, so this Python
+version uses its own option keys prefixed with "python_". That makes it possible
+to enable and compare the Python implementation without colliding with the C++
+plugin registration.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+
+from slic3r_api import (
+    CPoint,
+    PluginBase,
+    RAW_CO_BOOL,
+    RAW_CO_FLOAT_OR_PERCENT,
+    RAW_CONFIG_OPTION_MODE_ADV_EXP,
+    RAW_CONFIG_OPTION_MODE_EXPERT,
+    RAW_CONFIG_OPTION_MODE_SUSI,
+    RAW_CONTAINER_TYPE_REGION,
+    RAW_GUI_RULE_ACTION_ENABLE,
+    RAW_GUI_RULE_CONDITION_BOOL_TRUE,
+    RAW_OPTION_CATEGORY_SLICING,
+    RAW_PRESET_TYPE_FFF_PRINT,
+    RAW_PT_FFF,
+    SCALED_EPSILON,
+    STEP_POST_SLICING,
+    STEP_SLICING,
+    PluginRunContext,
+    post_slicing_context,
+    report_error,
+    report_progress,
+    scale_i,
+    unscaled,
+)
+
+
+POLYHOLES_KEY = "python_hole_to_polyhole"
+POLYHOLES_THRESHOLD_KEY = "python_hole_to_polyhole_threshold"
+POLYHOLES_TWISTED_KEY = "python_hole_to_polyhole_twisted"
+
+
+@dataclass
+class HoleData:
+    center: CPoint
+    max_diameter: float
+    extruder_id: int
+    max_deviation: int
+    twist: bool
+    points: list[CPoint]
+    layer_region_idx: int
+
+
+@dataclass
+class LayerHole:
+    points: list[CPoint]
+    layer_idx: int
+    layer_region_idx: int
+
+
+@dataclass
+class ThroughHole:
+    hole_data: HoleData
+    layers: list[LayerHole]
+
+
+def _point_distance(lhs: CPoint, rhs: CPoint) -> float:
+    return math.hypot(float(lhs.x - rhs.x), float(lhs.y - rhs.y))
+
+
+def _point_mid(lhs: CPoint, rhs: CPoint) -> CPoint:
+    return CPoint((lhs.x + rhs.x) // 2, (lhs.y + rhs.y) // 2)
+
+
+def _points_equal(lhs: list[CPoint], rhs: list[CPoint]) -> bool:
+    if len(lhs) != len(rhs):
+        return False
+    return all(a.x == b.x and a.y == b.y for a, b in zip(lhs, rhs))
+
+
+def _create_polyholes(api, storage_address: int, center: CPoint, radius: float, nozzle_diameter: int, twist: bool) -> list[int]:
+    if nozzle_diameter <= 0:
+        nozzle_diameter = 1
+    edge_count = max(3, round(4.0 * unscaled(radius) * 0.4 / unscaled(nozzle_diameter)))
+    polyhole_count = 5 if twist else 1
+    rotation = 2.0 * math.pi / (edge_count * polyhole_count) if twist else 0.0
+    new_radius = radius / math.cos(math.pi / edge_count)
+
+    polygons = [api.storage_new_polygon(storage_address) for _ in range(polyhole_count)]
+    for poly_idx in range(polyhole_count):
+        polygon_idx = poly_idx // 2 if poly_idx % 2 == 0 else (polyhole_count + 1) // 2 + poly_idx // 2
+        polygon = polygons[polygon_idx]
+        for edge_idx in range(edge_count):
+            angle = rotation * poly_idx + 2.0 * math.pi * edge_idx / edge_count
+            api.polygon_push_back(
+                polygon,
+                CPoint(
+                    int(center.x + new_radius * math.cos(angle)),
+                    int(center.y + new_radius * math.sin(angle)),
+                ),
+            )
+        api.polygon_make_clockwise(polygon)
+    return polygons
+
+
+def _replace_matching_hole(api, expolygon_address: int, points_to_replace: list[CPoint], replacement_polygon: int) -> bool:
+    for hole in api.expolygon_holes(expolygon_address, mutable=True):
+        if _points_equal(api.polygon_points(hole), points_to_replace):
+            api.polygon_replace_points(hole, replacement_polygon)
+            return True
+    return False
+
+
+class PythonPolyholesPlugin(PluginBase):
+    def __init__(self, api):
+        super().__init__("python.polyholes", STEP_POST_SLICING, priority=0)
+        self.api = api
+
+    def initialize(self, storage_address: int) -> None:
+        self.api.create_option_def(
+            opt_key=POLYHOLES_KEY,
+            type=RAW_CO_BOOL,
+            container_type=RAW_CONTAINER_TYPE_REGION,
+            option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
+            printer_technology=RAW_PT_FFF,
+            label="Python: Convert round holes to polyholes",
+            full_label="Python: Convert round holes to polyholes",
+            category=RAW_OPTION_CATEGORY_SLICING,
+            invalidates_step=STEP_SLICING,
+            tooltip=(
+                "Search for almost-circular holes that span more than one layer and convert the geometry "
+                "to polyholes. This is the Python plugin version."
+            ),
+            mode=RAW_CONFIG_OPTION_MODE_ADV_EXP | RAW_CONFIG_OPTION_MODE_SUSI,
+            default_serialized_value="0",
+        )
+        self.api.create_option_def(
+            opt_key=POLYHOLES_THRESHOLD_KEY,
+            type=RAW_CO_FLOAT_OR_PERCENT,
+            container_type=RAW_CONTAINER_TYPE_REGION,
+            option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
+            printer_technology=RAW_PT_FFF,
+            label="Python roundness margin",
+            full_label="Python polyhole detection margin",
+            category=RAW_OPTION_CATEGORY_SLICING,
+            invalidates_step=STEP_SLICING,
+            tooltip=(
+                "Maximum deflection of a point to the estimated radius of the circle.\n"
+                "In mm or in % of the radius."
+            ),
+            sidetext="mm or %",
+            has_max_literal=1,
+            max_literal_value=10.0,
+            max_literal_is_percent=0,
+            mode=RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI,
+            default_serialized_value="0.01",
+        )
+        self.api.create_option_def(
+            opt_key=POLYHOLES_TWISTED_KEY,
+            type=RAW_CO_BOOL,
+            container_type=RAW_CONTAINER_TYPE_REGION,
+            option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
+            printer_technology=RAW_PT_FFF,
+            label="Python twisting",
+            full_label="Python polyhole twist",
+            category=RAW_OPTION_CATEGORY_SLICING,
+            invalidates_step=STEP_SLICING,
+            tooltip="Rotate the Python-generated polyhole every layer.",
+            mode=RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI,
+            default_serialized_value="1",
+        )
+
+        self.api.add_ui_fragment(
+            "print.ui",
+            "python_polyholes",
+            "page:Slicing\n"
+            "group:Modifying slices\n"
+            "line:insert$afterline$Convert round vertical holes to polyholes:Python polyholes\n"
+            f"setting:label$_:{POLYHOLES_KEY}\n"
+            f"setting:sidetext_width$5:{POLYHOLES_THRESHOLD_KEY}\n"
+            f"setting:{POLYHOLES_TWISTED_KEY}\n"
+            "end_line\n",
+            priority=10,
+        )
+        self.api.add_gui_rule(
+            target_key=POLYHOLES_THRESHOLD_KEY,
+            condition_key=POLYHOLES_KEY,
+            action=RAW_GUI_RULE_ACTION_ENABLE,
+            condition=RAW_GUI_RULE_CONDITION_BOOL_TRUE,
+        )
+        self.api.add_gui_rule(
+            target_key=POLYHOLES_TWISTED_KEY,
+            condition_key=POLYHOLES_KEY,
+            action=RAW_GUI_RULE_ACTION_ENABLE,
+            condition=RAW_GUI_RULE_CONDITION_BOOL_TRUE,
+        )
+
+    def run(self, run_ctx_address: int) -> None:
+        ctx = post_slicing_context(run_ctx_address)
+        common = PluginRunContext.from_address(run_ctx_address) if run_ctx_address else None
+        if ctx is None or not ctx.print or not ctx.object or common is None:
+            return
+
+        try:
+            self._run_polyholes(run_ctx_address, common, ctx)
+        except Exception as exc:
+            report_error(run_ctx_address, f"Python Polyholes failed: {exc}")
+
+    def _run_polyholes(self, run_ctx_address: int, common: PluginRunContext, ctx) -> None:
+        layer_count = self.api.host.object_count_layer(ctx.object)
+        layer_holes: list[list[HoleData]] = [[] for _ in range(layer_count)]
+
+        for layer_idx in range(layer_count):
+            layer = self.api.host.object_get_layer(ctx.object, layer_idx)
+            for region_idx in range(self.api.host.layer_count_region(layer)):
+                layer_region = self.api.host.layer_get_region(layer, region_idx)
+                print_region = self.api.host.layer_region_get_print_region(layer_region)
+                region_config = self.api.host.print_region_get_config(print_region)
+                if not self.api.config_bool(region_config, POLYHOLES_KEY):
+                    continue
+
+                twist = self.api.config_bool(region_config, POLYHOLES_TWISTED_KEY)
+                perimeter_extruder = self.api.config_int(region_config, "perimeter_extruder") - 1
+                region_slices = self.api.host.layer_region_get_slices(layer_region)
+                for expolygon in self.api.expolygons(region_slices):
+                    for hole in self.api.expolygon_holes(expolygon):
+                        points = self.api.polygon_points(hole)
+                        if len(points) <= 8:
+                            continue
+                        if self.api.polygon_convex_point_count(hole, 0.0, math.pi) != 0:
+                            continue
+
+                        center = self.api.polygon_centroid(hole)
+                        min_radius = float("inf")
+                        max_radius = 0.0
+                        radius_sum = 0.0
+                        for point in points:
+                            distance = _point_distance(point, center)
+                            min_radius = min(min_radius, distance)
+                            max_radius = max(max_radius, distance)
+                            radius_sum += distance
+
+                        min_line_radius = float("inf")
+                        max_line_radius = 0.0
+                        previous = points[-1]
+                        for point in points:
+                            midline = _point_mid(previous, point)
+                            distance = _point_distance(center, midline)
+                            min_line_radius = min(min_line_radius, distance)
+                            max_line_radius = max(max_line_radius, distance)
+                            previous = point
+
+                        reference_radius = unscaled(radius_sum / len(points))
+                        max_variation = scale_i(self.api.config_float_or_percent_effective(
+                            region_config,
+                            POLYHOLES_THRESHOLD_KEY,
+                            reference_radius,
+                        ))
+                        max_variation = max(SCALED_EPSILON, max_variation)
+                        if max_radius - min_radius < max_variation * 2 and max_line_radius - min_line_radius < max_variation * 2:
+                            layer_holes[layer_idx].append(HoleData(
+                                center=center,
+                                max_diameter=max_radius,
+                                extruder_id=perimeter_extruder,
+                                max_deviation=max_variation,
+                                twist=twist,
+                                points=points,
+                                layer_region_idx=region_idx,
+                            ))
+            report_progress(run_ctx_address, (layer_idx + 1) / max(1, layer_count), "Python Polyholes: searching holes")
+
+        through_holes = self._group_holes(ctx, layer_holes)
+        print_config = self.api.host.print_get_config(ctx.print)
+        modified_layers: set[int] = set()
+
+        for hole_idx, through_hole in enumerate(through_holes):
+            nozzle_diameter = scale_i(self.api.config_float(
+                print_config,
+                "nozzle_diameter",
+                max(0, through_hole.hole_data.extruder_id),
+            ))
+            replacements = _create_polyholes(
+                self.api,
+                common.plugin_storage,
+                through_hole.hole_data.center,
+                through_hole.hole_data.max_diameter,
+                nozzle_diameter,
+                through_hole.hole_data.twist,
+            )
+            for layer_hole in through_hole.layers:
+                mutable_layer = self.api.host.object_get_layer_mutable(ctx.object, layer_hole.layer_idx)
+                mutable_region = self.api.host.layer_get_region_mutable(mutable_layer, layer_hole.layer_region_idx)
+                mutable_slices = ctx.layer_region_borrow_mutable_slices(mutable_region)
+                replacement = replacements[layer_hole.layer_idx % len(replacements)]
+                modified = 0
+                for expolygon in self.api.expolygons(mutable_slices, mutable=True):
+                    if _replace_matching_hole(self.api, expolygon, layer_hole.points, replacement):
+                        modified += 1
+                if modified:
+                    modified_layers.add(layer_hole.layer_idx)
+            report_progress(
+                run_ctx_address,
+                (hole_idx + 1) / max(1, len(through_holes)),
+                "Python Polyholes: converting holes",
+            )
+
+        for layer_idx in sorted(modified_layers):
+            mutable_layer = self.api.host.object_get_layer_mutable(ctx.object, layer_idx)
+            ctx.layer_recompute_slices_and_islands_from_layer_region(mutable_layer)
+
+        if self.api.storage_size(common.plugin_storage) != 0:
+            self.api.storage_clear(common.plugin_storage)
+
+    def _group_holes(self, ctx, layer_holes: list[list[HoleData]]) -> list[ThroughHole]:
+        through_holes: list[ThroughHole] = []
+        min_layer_count = 2
+        layer_count = len(layer_holes)
+
+        for layer_idx in range(layer_count):
+            for hole_idx, main_hole in enumerate(list(layer_holes[layer_idx])):
+                max_z = self.api.host.layer_get_print_z(self.api.host.object_get_layer(ctx.object, layer_idx))
+                holes = [LayerHole(main_hole.points, layer_idx, main_hole.layer_region_idx)]
+                for search_layer_idx in range(layer_idx + 1, layer_count):
+                    search_layer = self.api.host.object_get_layer(ctx.object, search_layer_idx)
+                    if self.api.host.layer_get_print_z(search_layer) - self.api.host.layer_get_height(search_layer) - max_z > 0:
+                        break
+
+                    candidates = layer_holes[search_layer_idx]
+                    for search_hole_idx, search_hole in enumerate(candidates):
+                        if (
+                            main_hole.extruder_id == search_hole.extruder_id
+                            and _point_distance(main_hole.center, search_hole.center) < main_hole.max_deviation
+                            and abs(main_hole.max_diameter - search_hole.max_diameter) < main_hole.max_deviation
+                        ):
+                            max_z = self.api.host.layer_get_print_z(search_layer)
+                            holes.append(LayerHole(search_hole.points, search_layer_idx, search_hole.layer_region_idx))
+                            del candidates[search_hole_idx]
+                            break
+
+                if len(holes) >= min_layer_count or (len(holes) == 1 and holes[0].layer_idx == 0):
+                    through_holes.append(ThroughHole(main_hole, holes))
+
+        return through_holes
+
+
+def register_plugin(api):
+    return PythonPolyholesPlugin(api)

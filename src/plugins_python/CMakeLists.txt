@@ -47,6 +47,11 @@ if (Python3_FOUND)
 
     add_custom_command(TARGET python_plugin_loader POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps"
+        COMMAND "${CMAKE_COMMAND}" -E rm -f
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_python.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_low_level.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_views.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/slic3r_api.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/slic3r_api.py"
@@ -63,11 +68,20 @@ if (Python3_FOUND)
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/slic3r_clipper_views.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/slic3r_clipper_views.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/__init__.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/__init__.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/post_slicing.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/post_slicing.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${SLIC3R_PYTHON_API_GENERATED}"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/slic3r_api_generated.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/examples/example_python_plugin.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/example_python_plugin.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/polyholes/polyholes_high_level.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_high_level.py"
         COMMENT "Copying Python plugin helper and examples"
         VERBATIM
     )
