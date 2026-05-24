@@ -389,7 +389,7 @@ public:
     bool has_extrusions() const { return layer_region_island_has_extrusions(handle()) != 0; }
     bool has_extrusion(raw_extrusion_role role) const { return layer_region_island_has_extrusion(handle(), role) != 0; }
 
-    const extrusion_entity *extrusion(raw_extrusion_role role) const {
+    const extrusion_entity_handle *extrusion(raw_extrusion_role role) const {
         return layer_region_island_get_extrusion(handle(), role);
     }
 

@@ -13,19 +13,19 @@
 
 namespace Slic3r {
 
-static ExtrusionEntity *to_extrusion(extrusion_entity *me)
+static ExtrusionEntity *to_extrusion(extrusion_entity_handle *me)
 {
     return reinterpret_cast<ExtrusionEntity *>(me);
 }
 
-static const ExtrusionEntity *to_extrusion(const extrusion_entity *me)
+static const ExtrusionEntity *to_extrusion(const extrusion_entity_handle *me)
 {
     return reinterpret_cast<const ExtrusionEntity *>(me);
 }
 
-static extrusion_entity *to_handle(ExtrusionEntity *me)
+static extrusion_entity_handle *to_handle(ExtrusionEntity *me)
 {
-    return reinterpret_cast<extrusion_entity *>(me);
+    return reinterpret_cast<extrusion_entity_handle *>(me);
 }
 
 static PluginStorage *to_storage(storage_handle *storage)
@@ -42,7 +42,7 @@ static bool may_insert_children(const ExtrusionEntity &entity)
 
 extern "C" {
 
-extrusion_entity *extrusion_create_empty(storage_handle *storage)
+extrusion_entity_handle *extrusion_create_empty(storage_handle *storage)
 {
     if (storage == nullptr)
         return nullptr;
@@ -53,7 +53,7 @@ extrusion_entity *extrusion_create_empty(storage_handle *storage)
     return Slic3r::to_handle(&entity);
 }
 
-extrusion_entity *extrusion_clone(storage_handle *storage, const extrusion_entity *src)
+extrusion_entity_handle *extrusion_clone(storage_handle *storage, const extrusion_entity_handle *src)
 {
     if (storage == nullptr || src == nullptr)
         return nullptr;
@@ -65,7 +65,7 @@ extrusion_entity *extrusion_clone(storage_handle *storage, const extrusion_entit
     return Slic3r::to_handle(&entity);
 }
 
-int32_t extrusion_copy_from(extrusion_entity *dst, const extrusion_entity *src)
+int32_t extrusion_copy_from(extrusion_entity_handle *dst, const extrusion_entity_handle *src)
 {
     if (dst == nullptr || src == nullptr)
         return 0;
@@ -73,7 +73,7 @@ int32_t extrusion_copy_from(extrusion_entity *dst, const extrusion_entity *src)
     return 1;
 }
 
-int32_t extrusion_move_from(extrusion_entity *dst, extrusion_entity *src)
+int32_t extrusion_move_from(extrusion_entity_handle *dst, extrusion_entity_handle *src)
 {
     if (dst == nullptr || src == nullptr)
         return 0;
@@ -88,7 +88,7 @@ int32_t extrusion_move_from(extrusion_entity *dst, extrusion_entity *src)
     return 1;
 }
 
-int32_t extrusion_clear_content(extrusion_entity *entity)
+int32_t extrusion_clear_content(extrusion_entity_handle *entity)
 {
     if (entity == nullptr)
         return 0;
@@ -96,7 +96,7 @@ int32_t extrusion_clear_content(extrusion_entity *entity)
     return 1;
 }
 
-uint32_t extrusion_flags(const extrusion_entity *entity)
+uint32_t extrusion_flags(const extrusion_entity_handle *entity)
 {
     if (entity == nullptr)
         return 0;
@@ -112,7 +112,7 @@ uint32_t extrusion_flags(const extrusion_entity *entity)
     return flags;
 }
 
-int32_t extrusion_set_flags(extrusion_entity *entity, uint32_t flags)
+int32_t extrusion_set_flags(extrusion_entity_handle *entity, uint32_t flags)
 {
     if (entity == nullptr)
         return 0;
@@ -132,24 +132,24 @@ int32_t extrusion_set_flags(extrusion_entity *entity, uint32_t flags)
     return 1;
 }
 
-int32_t extrusion_has_polyline(const extrusion_entity *entity)
+int32_t extrusion_has_polyline(const extrusion_entity_handle *entity)
 {
     return entity != nullptr && Slic3r::to_extrusion(entity)->has_polyline();
 }
 
-int32_t extrusion_has_children(const extrusion_entity *entity)
+int32_t extrusion_has_children(const extrusion_entity_handle *entity)
 {
     return entity != nullptr && !Slic3r::to_extrusion(entity)->is_leaf();
 }
 
-uint32_t extrusion_child_count(const extrusion_entity *entity)
+uint32_t extrusion_child_count(const extrusion_entity_handle *entity)
 {
     if (entity == nullptr)
         return 0;
     return static_cast<uint32_t>(Slic3r::to_extrusion(entity)->child_count());
 }
 
-extrusion_entity *extrusion_child_mutable(extrusion_entity *entity, uint32_t idx)
+extrusion_entity_handle *extrusion_child_mutable(extrusion_entity_handle *entity, uint32_t idx)
 {
     if (entity == nullptr)
         return nullptr;
@@ -160,7 +160,7 @@ extrusion_entity *extrusion_child_mutable(extrusion_entity *entity, uint32_t idx
     return Slic3r::to_handle(&extrusion->child(idx));
 }
 
-const extrusion_entity *extrusion_child(const extrusion_entity *entity, uint32_t idx)
+const extrusion_entity_handle *extrusion_child(const extrusion_entity_handle *entity, uint32_t idx)
 {
     if (entity == nullptr)
         return nullptr;
@@ -168,10 +168,10 @@ const extrusion_entity *extrusion_child(const extrusion_entity *entity, uint32_t
     const Slic3r::ExtrusionEntity *extrusion = Slic3r::to_extrusion(entity);
     if (idx >= extrusion->child_count())
         return nullptr;
-    return reinterpret_cast<const extrusion_entity *>(&extrusion->child(idx));
+    return reinterpret_cast<const extrusion_entity_handle *>(&extrusion->child(idx));
 }
 
-uint32_t extrusion_insert_child_copy(extrusion_entity *parent, uint32_t idx, const extrusion_entity *child)
+uint32_t extrusion_insert_child_copy(extrusion_entity_handle *parent, uint32_t idx, const extrusion_entity_handle *child)
 {
     if (parent == nullptr || child == nullptr)
         return EXTRUSION_INDEX_INVALID;
@@ -184,7 +184,7 @@ uint32_t extrusion_insert_child_copy(extrusion_entity *parent, uint32_t idx, con
     return idx;
 }
 
-uint32_t extrusion_insert_child_move(extrusion_entity *parent, uint32_t idx, extrusion_entity *child)
+uint32_t extrusion_insert_child_move(extrusion_entity_handle *parent, uint32_t idx, extrusion_entity_handle *child)
 {
     if (parent == nullptr || child == nullptr)
         return EXTRUSION_INDEX_INVALID;
@@ -200,7 +200,7 @@ uint32_t extrusion_insert_child_move(extrusion_entity *parent, uint32_t idx, ext
     return idx;
 }
 
-int32_t extrusion_remove_child(extrusion_entity *parent, uint32_t idx)
+int32_t extrusion_remove_child(extrusion_entity_handle *parent, uint32_t idx)
 {
     if (parent == nullptr)
         return 0;
@@ -213,9 +213,9 @@ int32_t extrusion_remove_child(extrusion_entity *parent, uint32_t idx)
     return 1;
 }
 
-uint32_t extrusion_move_child(extrusion_entity *dst_parent,
+uint32_t extrusion_move_child(extrusion_entity_handle *dst_parent,
                               uint32_t dst_idx,
-                              extrusion_entity *src_parent,
+                              extrusion_entity_handle *src_parent,
                               uint32_t src_idx)
 {
     if (dst_parent == nullptr || src_parent == nullptr)
