@@ -511,6 +511,8 @@ set(SLIC3R_SOURCES
     ObjectID.hpp
     PerimeterGenerator.cpp
     PerimeterGenerator.hpp
+    PerimeterGenerator2.cpp
+    PerimeterGenerator2.hpp
     PlaceholderParser.cpp
     PlaceholderParser.hpp
     Platform.cpp

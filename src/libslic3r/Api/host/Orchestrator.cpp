@@ -5,6 +5,7 @@
 #include "Orchestrator.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -72,6 +73,11 @@ static ConfigOptionType config_option_type(raw_config_option_type type)
     }
 }
 
+static std::chrono::milliseconds elapsed_ms(const std::chrono::steady_clock::time_point &start)
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+}
+
 } // namespace Slic3r
 
 extern "C" {
@@ -112,6 +118,7 @@ Orchestrator &Orchestrator::instance() {
 }
 
 bool Orchestrator::register_plugin(plugin_instance plugin) {
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     std::unique_ptr<Plugin> new_plugin;
     try {
         new_plugin.reset(new Plugin(plugin));
@@ -128,6 +135,7 @@ bool Orchestrator::register_plugin(plugin_instance plugin) {
         return false;
     }
     m_registered_plugins.emplace_back(std::move(new_plugin));
+    BOOST_LOG_TRIVIAL(debug) << "Registered plugin '" << new_id << "' in " << elapsed_ms(start).count() << " ms.";
     return true;
 }
 
@@ -585,8 +593,12 @@ void Orchestrator::slice(Print &print) {
 
 void Orchestrator::initialize_plugins() {
     for (const std::unique_ptr<Plugin> &plugin_ptr : m_registered_plugins) {
-        if (this->is_plugin_active(plugin_ptr.get()))
+        if (this->is_plugin_active(plugin_ptr.get())) {
+            const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
             plugin_ptr->initialize(reinterpret_cast<storage_handle *>(&m_plugin_storage[plugin_ptr.get()]));
+            BOOST_LOG_TRIVIAL(debug) << "Initialized plugin '" << plugin_ptr->get_id() << "' in "
+                                     << elapsed_ms(start).count() << " ms.";
+        }
     }
 }
 
