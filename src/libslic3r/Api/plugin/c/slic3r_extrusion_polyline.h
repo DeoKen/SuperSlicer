@@ -27,7 +27,7 @@ and optional Z offsets per point. A segment in this API is a true segment from
 point_a to point_b, so a polyline with N points has N - 1 segments.
 */
 
-typedef struct extrusion_entity extrusion_entity;
+typedef struct extrusion_entity_handle extrusion_entity_handle;
 
 #ifndef EXTRUSION_INDEX_INVALID
 #define EXTRUSION_INDEX_INVALID ((uint32_t)UINT32_MAX)
@@ -63,13 +63,13 @@ typedef struct c_extrusion_segment {
 } c_extrusion_segment;
 
 /* Return the number of points in the local polyline. Returns 0 if absent. */
-SLIC3R_HOST_API uint32_t extrusion_polyline_point_count(const extrusion_entity *entity);
+SLIC3R_HOST_API uint32_t extrusion_polyline_point_count(const extrusion_entity_handle *entity);
 
 /* Return point_count - 1 when a polyline has at least two points, otherwise 0. */
-SLIC3R_HOST_API uint32_t extrusion_polyline_segment_count(const extrusion_entity *entity);
+SLIC3R_HOST_API uint32_t extrusion_polyline_segment_count(const extrusion_entity_handle *entity);
 
 /* Remove the local polyline from the entity. Children and properties are unchanged. */
-SLIC3R_HOST_API int32_t extrusion_polyline_clear(extrusion_entity *entity);
+SLIC3R_HOST_API int32_t extrusion_polyline_clear(extrusion_entity_handle *entity);
 
 /*
 Read or write one point.
@@ -80,8 +80,8 @@ change the number of points.
 extrusion_polyline_point() returns {0, 0} if entity is NULL, if the entity has no
 local polyline, or if point_idx is invalid.
 */
-SLIC3R_HOST_API c_point extrusion_polyline_point(const extrusion_entity *entity, uint32_t point_idx);
-SLIC3R_HOST_API int32_t extrusion_polyline_set_point(extrusion_entity *entity, uint32_t point_idx, c_point point);
+SLIC3R_HOST_API c_point extrusion_polyline_point(const extrusion_entity_handle *entity, uint32_t point_idx);
+SLIC3R_HOST_API int32_t extrusion_polyline_set_point(extrusion_entity_handle *entity, uint32_t point_idx, c_point point);
 
 /*
 Insert or remove one point.
@@ -90,8 +90,8 @@ Insertion at point_idx == point_count appends to the end. point_idx > point_coun
 is invalid and returns UINT32_MAX. When a point is inserted, its Z offset is
 created as 0 if the polyline already has Z offsets.
 */
-SLIC3R_HOST_API uint32_t extrusion_polyline_insert_point(extrusion_entity *entity, uint32_t point_idx, c_point point);
-SLIC3R_HOST_API int32_t extrusion_polyline_remove_point(extrusion_entity *entity, uint32_t point_idx);
+SLIC3R_HOST_API uint32_t extrusion_polyline_insert_point(extrusion_entity_handle *entity, uint32_t point_idx, c_point point);
+SLIC3R_HOST_API int32_t extrusion_polyline_remove_point(extrusion_entity_handle *entity, uint32_t point_idx);
 
 /*
 Return the index of a point close enough to point.
@@ -99,7 +99,7 @@ Return the index of a point close enough to point.
 max_distance is expressed in scaled coordinates. Returns EXTRUSION_INDEX_INVALID
 if entity has no local polyline or if no point is close enough.
 */
-SLIC3R_HOST_API uint32_t extrusion_polyline_find_point(const extrusion_entity *entity, c_point point, coord_t max_distance);
+SLIC3R_HOST_API uint32_t extrusion_polyline_find_point(const extrusion_entity_handle *entity, c_point point, coord_t max_distance);
 
 /*
 Copy points into dst and return the number of points required.
@@ -108,7 +108,7 @@ If dst is NULL or dst_capacity is too small, no partial write is required by the
 host. Call once with dst == NULL to query the size, then again with a large
 enough buffer.
 */
-SLIC3R_HOST_API uint32_t extrusion_polyline_copy_points(const extrusion_entity *entity, c_point *dst, uint32_t dst_capacity);
+SLIC3R_HOST_API uint32_t extrusion_polyline_copy_points(const extrusion_entity_handle *entity, c_point *dst, uint32_t dst_capacity);
 
 /*
 Replace the local polyline with count straight points.
@@ -116,7 +116,7 @@ Replace the local polyline with count straight points.
 Fails if entity has children. Passing count == 0 removes the local polyline.
 Any previous arc data and Z offsets are cleared.
 */
-SLIC3R_HOST_API int32_t extrusion_polyline_set_points(extrusion_entity *entity, const c_point *points, uint32_t count);
+SLIC3R_HOST_API int32_t extrusion_polyline_set_points(extrusion_entity_handle *entity, const c_point *points, uint32_t count);
 
 /*
 Read or write one true segment.
@@ -128,10 +128,10 @@ The segment is returned through out_segment instead of by value so callers may
 reuse the same storage while scanning a path, and so invalid indices can be
 reported without a sentinel segment value.
 */
-SLIC3R_HOST_API int32_t extrusion_polyline_segment(const extrusion_entity *entity,
+SLIC3R_HOST_API int32_t extrusion_polyline_segment(const extrusion_entity_handle *entity,
                                                    uint32_t segment_idx,
                                                    c_extrusion_segment *out_segment);
-SLIC3R_HOST_API int32_t extrusion_polyline_set_segment(extrusion_entity *entity,
+SLIC3R_HOST_API int32_t extrusion_polyline_set_segment(extrusion_entity_handle *entity,
                                                        uint32_t segment_idx,
                                                        const c_extrusion_segment *segment);
 
@@ -140,7 +140,7 @@ Copy true segments into dst and return the number of segments required.
 
 The same two-call pattern as extrusion_polyline_copy_points() applies.
 */
-SLIC3R_HOST_API uint32_t extrusion_polyline_copy_segments(const extrusion_entity *entity,
+SLIC3R_HOST_API uint32_t extrusion_polyline_copy_segments(const extrusion_entity_handle *entity,
                                                           c_extrusion_segment *dst,
                                                           uint32_t dst_capacity);
 
@@ -154,7 +154,7 @@ adjacent pair. Shared Z offsets must also match.
 If all supplied Z offsets are 0, the host may keep the polyline without explicit
 Z-offset storage.
 */
-SLIC3R_HOST_API int32_t extrusion_polyline_set_segments(extrusion_entity *entity,
+SLIC3R_HOST_API int32_t extrusion_polyline_set_segments(extrusion_entity_handle *entity,
                                                         const c_extrusion_segment *segments,
                                                         uint32_t count);
 
@@ -165,18 +165,18 @@ The output entities receive local polylines. Their properties and flags are not
 modified. The operation fails if an output entity has children, because replacing
 an entity's local polyline while it has children is forbidden.
 */
-SLIC3R_HOST_API int32_t extrusion_polyline_split_at_point(const extrusion_entity *entity,
+SLIC3R_HOST_API int32_t extrusion_polyline_split_at_point(const extrusion_entity_handle *entity,
                                                           c_point point,
-                                                          extrusion_entity *out_first,
-                                                          extrusion_entity *out_second);
-SLIC3R_HOST_API int32_t extrusion_polyline_split_at_distance(const extrusion_entity *entity,
+                                                          extrusion_entity_handle *out_first,
+                                                          extrusion_entity_handle *out_second);
+SLIC3R_HOST_API int32_t extrusion_polyline_split_at_distance(const extrusion_entity_handle *entity,
                                                              distf_t distance,
-                                                             extrusion_entity *out_first,
-                                                             extrusion_entity *out_second);
-SLIC3R_HOST_API int32_t extrusion_polyline_split_at_index(const extrusion_entity *entity,
+                                                             extrusion_entity_handle *out_first,
+                                                             extrusion_entity_handle *out_second);
+SLIC3R_HOST_API int32_t extrusion_polyline_split_at_index(const extrusion_entity_handle *entity,
                                                           uint32_t point_idx,
-                                                          extrusion_entity *out_first,
-                                                          extrusion_entity *out_second);
+                                                          extrusion_entity_handle *out_first,
+                                                          extrusion_entity_handle *out_second);
 
 /*
 Remove distance from the end of the local polyline.
@@ -184,16 +184,16 @@ Remove distance from the end of the local polyline.
 distance is expressed in scaled coordinates. Arc and Z-offset data are kept in
 sync by the host. Returns non-zero on success.
 */
-SLIC3R_HOST_API int32_t extrusion_polyline_clip_end(extrusion_entity *entity, distf_t distance);
+SLIC3R_HOST_API int32_t extrusion_polyline_clip_end(extrusion_entity_handle *entity, distf_t distance);
 
 /* Return the local polyline length in scaled coordinates, or 0 if absent. */
-SLIC3R_HOST_API distf_t extrusion_polyline_length(const extrusion_entity *entity);
+SLIC3R_HOST_API distf_t extrusion_polyline_length(const extrusion_entity_handle *entity);
 
 /* Translate all points by offset. Returns non-zero on success. */
-SLIC3R_HOST_API int32_t extrusion_polyline_translate(extrusion_entity *entity, c_point offset);
+SLIC3R_HOST_API int32_t extrusion_polyline_translate(extrusion_entity_handle *entity, c_point offset);
 
 /* Rotate all points around the origin. angle is expressed in radians. */
-SLIC3R_HOST_API int32_t extrusion_polyline_rotate(extrusion_entity *entity, double angle);
+SLIC3R_HOST_API int32_t extrusion_polyline_rotate(extrusion_entity_handle *entity, double angle);
 
 /*
 Return a point located distance from the end of the local polyline.
@@ -202,13 +202,13 @@ distance is expressed in scaled coordinates. The returned point is a copy; the
 polyline is not modified. Returns {0, 0} if entity is NULL or if the local
 polyline is absent or empty.
 */
-SLIC3R_HOST_API c_point extrusion_polyline_point_from_end(const extrusion_entity *entity, distf_t distance);
+SLIC3R_HOST_API c_point extrusion_polyline_point_from_end(const extrusion_entity_handle *entity, distf_t distance);
 
 /* Reverse point order, arc direction, and per-point Z offsets. */
-SLIC3R_HOST_API int32_t extrusion_polyline_reverse(extrusion_entity *entity);
+SLIC3R_HOST_API int32_t extrusion_polyline_reverse(extrusion_entity_handle *entity);
 
 /* Return non-zero if at least one point of the local polyline has a Z offset array. */
-SLIC3R_HOST_API int32_t extrusion_polyline_has_z_offsets(const extrusion_entity *entity);
+SLIC3R_HOST_API int32_t extrusion_polyline_has_z_offsets(const extrusion_entity_handle *entity);
 
 /*
 Read or write one point Z offset.
@@ -216,11 +216,11 @@ Read or write one point Z offset.
 Setting a Z offset creates the point Z-offset array if it does not exist yet and
 initializes other points to 0.
 */
-SLIC3R_HOST_API int32_t extrusion_polyline_z_offset(const extrusion_entity *entity, uint32_t point_idx, coord_t *out_z_offset);
-SLIC3R_HOST_API int32_t extrusion_polyline_set_z_offset(extrusion_entity *entity, uint32_t point_idx, coord_t z_offset);
+SLIC3R_HOST_API int32_t extrusion_polyline_z_offset(const extrusion_entity_handle *entity, uint32_t point_idx, coord_t *out_z_offset);
+SLIC3R_HOST_API int32_t extrusion_polyline_set_z_offset(extrusion_entity_handle *entity, uint32_t point_idx, coord_t z_offset);
 
 /* Remove all per-point Z offsets from the local polyline. */
-SLIC3R_HOST_API int32_t extrusion_polyline_clear_z_offsets(extrusion_entity *entity);
+SLIC3R_HOST_API int32_t extrusion_polyline_clear_z_offsets(extrusion_entity_handle *entity);
 
 #ifdef __cplusplus
 }

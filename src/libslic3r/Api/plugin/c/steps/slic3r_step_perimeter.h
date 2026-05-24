@@ -70,7 +70,7 @@ non-zero on success.
 typedef int32_t (*perimeter_set_region_island_extrusion_fn)(
     layer_region_island_handle *region_island,
     raw_extrusion_role role,
-    extrusion_entity *extrusion);
+    extrusion_entity_handle *extrusion);
 
 /*
 Move a surface collection into a layer region island.
@@ -161,7 +161,7 @@ typedef struct perimeter_node {
     contains the perimeter extrusion(s) for the node. Modules may edit it, for
     example to tag overhangs, remove gap fill on overhangs, or mark scarf seams.
     */
-    extrusion_entity *extrusions;
+    extrusion_entity_handle *extrusions;
 
     /*
     Direct child nodes. The array is borrowed and contains child_count entries.

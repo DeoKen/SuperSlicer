@@ -505,19 +505,19 @@ int32_t layer_region_island_has_extrusion(const layer_region_island_handle *me, 
     return me != nullptr && Slic3r::to_layer_region_island(me)->has_extrusion(Slic3r::to_extrusion_role(role));
 }
 
-extrusion_entity *layer_region_island_get_mutable_extrusion(layer_region_island_handle *me, raw_extrusion_role role)
+extrusion_entity_handle *layer_region_island_get_mutable_extrusion(layer_region_island_handle *me, raw_extrusion_role role)
 {
     if (me == nullptr)
         return nullptr;
     Slic3r::ExtrusionEntityCollection &collection = Slic3r::to_layer_region_island(me)->mutable_extrusion(Slic3r::to_extrusion_role(role));
-    return reinterpret_cast<extrusion_entity*>(&collection);
+    return reinterpret_cast<extrusion_entity_handle*>(&collection);
 }
 
-const extrusion_entity *layer_region_island_get_extrusion(const layer_region_island_handle *me, raw_extrusion_role role)
+const extrusion_entity_handle *layer_region_island_get_extrusion(const layer_region_island_handle *me, raw_extrusion_role role)
 {
     if (me == nullptr || !Slic3r::to_layer_region_island(me)->has_extrusion(Slic3r::to_extrusion_role(role)))
         return nullptr;
-    return reinterpret_cast<const extrusion_entity*>(&Slic3r::to_layer_region_island(me)->extrusion(Slic3r::to_extrusion_role(role)));
+    return reinterpret_cast<const extrusion_entity_handle*>(&Slic3r::to_layer_region_island(me)->extrusion(Slic3r::to_extrusion_role(role)));
 }
 
 void layer_region_island_set_tag(layer_region_island_handle *me, const char *tag, double value)

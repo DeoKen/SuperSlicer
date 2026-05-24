@@ -201,8 +201,8 @@ SLIC3R_HOST_API const layer_handle *layer_island_get_layer(const layer_island_ha
 SLIC3R_HOST_API int32_t layer_region_island_extruder_id(const layer_region_island_handle *me);
 SLIC3R_HOST_API int32_t layer_region_island_has_extrusions(const layer_region_island_handle *me);
 SLIC3R_HOST_API int32_t layer_region_island_has_extrusion(const layer_region_island_handle *me, raw_extrusion_role role);
-SLIC3R_HOST_API extrusion_entity *layer_region_island_get_mutable_extrusion(layer_region_island_handle *me, raw_extrusion_role role);
-SLIC3R_HOST_API const extrusion_entity *layer_region_island_get_extrusion(const layer_region_island_handle *me,
+SLIC3R_HOST_API extrusion_entity_handle *layer_region_island_get_mutable_extrusion(layer_region_island_handle *me, raw_extrusion_role role);
+SLIC3R_HOST_API const extrusion_entity_handle *layer_region_island_get_extrusion(const layer_region_island_handle *me,
                                                           raw_extrusion_role role);
 
 /* tag that can be used by processed to store some information */
