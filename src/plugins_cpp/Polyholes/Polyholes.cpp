@@ -434,6 +434,8 @@ void register_polyholes_plugin(orchestrator_handle *orch)
 }} // namespace slic3r_api::PolyholesPlugin
 
 #ifdef POLYHOLES_PLUGIN_DLL
+SLIC3R_PLUGIN_DECLARE_ABI_VERSION()
+
 extern "C" SLIC3R_PLUGIN_API void register_plugin(orchestrator_handle *orch)
 {
     slic3r_api::PolyholesPlugin::register_polyholes_plugin(orch);

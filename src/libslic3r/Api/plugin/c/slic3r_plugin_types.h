@@ -35,6 +35,8 @@
 #include "steps/slic3r_step_surface_type.h"
 #include "steps/slic3r_step_wipetower.h"
 
+#define SLIC3R_PLUGIN_ABI_VERSION 2u
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -68,6 +70,14 @@ typedef int32_t (*plugin_used_config_keys_fn)(void *plugin_ctx, const char **key
 /* ========================= PLUGIN VTABLE ========================= */
 
 typedef struct plugin_vtable {
+
+    /*
+    ABI version used to build this vtable.
+
+    Keep this as the first field: the host can reject stale plugin instances
+    before calling any function pointer whose slot may have moved.
+    */
+    uint32_t abi_version;
 
     const char* (*get_id)(void *plugin_ctx);
 

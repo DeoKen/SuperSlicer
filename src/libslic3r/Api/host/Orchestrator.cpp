@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <exception>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -110,14 +112,22 @@ Orchestrator &Orchestrator::instance() {
 }
 
 bool Orchestrator::register_plugin(plugin_instance plugin) {
-    const char *new_id = plugin.vt->get_id(plugin.ctx);
+    std::unique_ptr<Plugin> new_plugin;
+    try {
+        new_plugin.reset(new Plugin(plugin));
+    } catch (const std::exception &error) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot register plugin: " << error.what() << std::endl;
+        return false;
+    }
+
+    const std::string new_id = new_plugin->get_id();
     const Plugin *check_exists = get_plugin(new_id);
     if (check_exists) {
         BOOST_LOG_TRIVIAL(error) << "Plugin with id " << new_id << " already exists, cannot register plugin"
                                  << std::endl;
         return false;
     }
-    m_registered_plugins.emplace_back(new Plugin(plugin));
+    m_registered_plugins.emplace_back(std::move(new_plugin));
     return true;
 }
 
