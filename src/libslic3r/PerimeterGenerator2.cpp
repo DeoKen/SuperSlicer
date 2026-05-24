@@ -4,6 +4,7 @@
 ///|/
 #include "PerimeterGenerator2.hpp"
 
+#include <utility>
 #include <vector>
 
 #include "libslic3r/ClipperUtils.hpp"
@@ -14,39 +15,91 @@
 #include "libslic3r/LayerRegion.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
+#include "libslic3r/RegionSettings.hpp"
 
 namespace Slic3r::PerimeterGenerator2 {
 namespace {
 
-struct PerimeterGenerationInput
+struct PerimeterNode
 {
-    ExPolygon expolygon;
-    coord_t spacing = 0;
-    coord_t width = 0;
-    bool external = false;
-    bool hole = false;
-};
-
-struct PerimeterGenerationOutput
-{
-    ExPolygon inner;
+    PerimeterNode *parent = nullptr;
+    // area where you can extrude a new periemter or infill.
+    ExPolygon surface;
+    // bigge surface, that goes over the aprent's extrusions, used to clip when you have a fill surface that anchor
+    // into perimeters. It's often just the parent surface, but it can be split / clipped by some algorithms.
+    ExPolygon fill_surface;
+    // perimeter extrusion extruded inside this surface
     ExtrusionEntityCollection extrusions;
+    // childs contains the areas still available after the extrusions
+    std::vector<PerimeterNode> children;
+    // my index in perimeter count
+    size_t perimeter_idx = 0;
+    // number of perimeters loops
+    int perimeter_needed = 0;
+
+    bool needs_more_perimeters() const
+    {
+        return perimeter_needed > 0 && perimeter_idx < size_t(perimeter_needed);
+    }
 };
 
-struct PerimeterPlan
+class PerimeterTree
 {
-    int contour_count = 0;
-    int hole_count = 0;
+public:
+    explicit PerimeterTree(const ExPolygon &root_surface)
+    {
+        m_root.surface = root_surface;
+    }
+
+    PerimeterNode &root() { return m_root; }
+    const PerimeterNode &root() const { return m_root; }
+    const ExPolygons &final_inner_surfaces() const { return m_final_inner_surfaces; }
+
+    void finish_node(const PerimeterNode &node)
+    {
+        if (!node.discarded)
+            m_final_inner_surfaces.push_back(node.surface);
+    }
+
+    std::vector<PerimeterNode *> create_children(PerimeterNode &parent, ExPolygons &&inner_surfaces)
+    {
+        std::vector<PerimeterNode *> child_nodes;
+        if (inner_surfaces.empty())
+            return child_nodes;
+
+        child_nodes.reserve(inner_surfaces.size());
+        parent.children.reserve(parent.children.size() + inner_surfaces.size());
+
+        for (ExPolygon &inner_surface : inner_surfaces) {
+            parent.children.emplace_back();
+            PerimeterNode &child = parent.children.back();
+            child.parent = &parent;
+            child.surface = std::move(inner_surface);
+            child.perimeter_idx = parent.perimeter_idx + 1;
+            child.perimeter_needed = parent.perimeter_needed;
+            child_nodes.push_back(&child);
+        }
+
+        return child_nodes;
+    }
+
+private:
+    PerimeterNode m_root;
+    ExPolygons m_final_inner_surfaces;
 };
 
-struct SurfaceResult
+struct PerimeterProcessContext
 {
-    ExPolygons inner_perimeters;
-    ExPolygons gap_surfaces;
-    ExPolygons fill_surfaces;
-    ExPolygons fill_no_overlap;
-    ExtrusionEntityCollection perimeters;
-    ExtrusionEntityCollection gap_fill;
+    Print &print;
+    PrintObject &object;
+    Layer &layer;
+    LayerSliceIsland &island;
+    LayerRegionIsland &region_island;
+    RegionSettings region_setting;
+    const ExPolygon &root_surface;
+
+    Flow perimeter_flow() const; //TODO
+    Flow external_perimeter_flow() const; //TODO
 };
 
 std::vector<LayerRegionSetCPtrs> collect_region_groups(const LayerSliceIsland &island, const Layer &layer)
@@ -90,230 +143,356 @@ ExPolygons build_surface_inputs(const LayerSliceIsland &island, const LayerRegio
     return intersection_ex(region_area, ExPolygons{island.get_slice()});
 }
 
-PerimeterPlan build_initial_plan(const Print &print,
-                                 const PrintObject &object,
-                                 const Layer &layer,
-                                 const LayerSliceIsland &island,
-                                 const LayerRegionIsland &region_island,
-                                 const ExPolygon &surface)
+void initialize_root_node(const PerimeterProcessContext &context, PerimeterNode &root)
 {
     // TODO: Recreate the contour/hole count setup from process_classic().
     // This is where the base perimeter count, hole perimeter count, spiral
     // vase, first-layer special case and simple whole-region overrides belong.
-    (void) print;
-    (void) object;
-    (void) layer;
-    (void) island;
-    (void) region_island;
-    (void) surface;
-    return {};
+    (void) context;
+    (void) root;
 }
 
-void apply_perimeter_count_settings(PerimeterPlan &plan,
-                                    const Print &print,
-                                    const PrintObject &object,
-                                    const Layer &layer,
-                                    const LayerSliceIsland &island,
-                                    const LayerRegionIsland &region_island,
-                                    const ExPolygon &surface)
+void apply_perimeter_count_settings(const PerimeterProcessContext &context, PerimeterNode &root)
 {
     // TODO: Pull each setting rule into its own function:
     // - only_one_perimeter_top / only_one_perimeter_first_layer
     // - extra_perimeters_count
     // - extra_perimeters_odd_layers
     // - surface-provided extra perimeter counts
-    // Each rule should edit PerimeterPlan, not touch the generated extrusions.
-    (void) plan;
-    (void) print;
-    (void) object;
-    (void) layer;
-    (void) island;
-    (void) region_island;
-    (void) surface;
+    // Each rule should edit the root node counts or attach data to nodes, not
+    // touch generated extrusions.
+    (void) context;
+    (void) root;
 }
 
-void apply_geometry_masks(PerimeterPlan &plan,
-                          const Print &print,
-                          const PrintObject &object,
-                          const Layer &layer,
-                          const LayerSliceIsland &island,
-                          const LayerRegionIsland &region_island,
-                          const ExPolygon &surface)
+void apply_geometry_masks(const PerimeterProcessContext &context, PerimeterNode &root)
 {
     // TODO: Create explicit masks/constraints for features that alter the
     // perimeter geometry:
     // - no perimeters on bridge / unsupported areas
     // - extra perimeters on overhangs
     // - bridgeable versus unbridgeable unsupported zones
-    // These masks are consumed by the single-perimeter generation loop below.
-    (void) plan;
-    (void) print;
-    (void) object;
-    (void) layer;
-    (void) island;
-    (void) region_island;
-    (void) surface;
+    // These masks are consumed by node generation and by the after-generation
+    // modifier hooks below.
+    (void) context;
+    (void) root;
 }
 
-bool should_generate_next_perimeter(const PerimeterPlan &plan, size_t perimeter_index)
-{
-    // TODO: Use the remaining contour/hole counts and any area-specific rules.
-    // This function is deliberately separated so the loop condition is not
-    // scattered through the future Classic/Arachne-compatible implementation.
-    (void) plan;
-    (void) perimeter_index;
-    return false;
-}
-
-PerimeterGenerationInput make_generation_input(const PerimeterPlan &plan,
-                                               const ExPolygon &current,
-                                               size_t perimeter_index)
-{
-    // TODO: Convert the current plan state into the small black-box input:
-    // expolygon + spacing + width + contour/hole/external metadata.
-    // The black box must not read print config directly.
-    (void) plan;
-    (void) perimeter_index;
-    PerimeterGenerationInput input;
-    input.expolygon = current;
-    return input;
-}
-
-PerimeterGenerationOutput perimeter_generation(const PerimeterGenerationInput &input)
+ExPolygons generate_perimeter_for_node(const PerimeterProcessContext &context, PerimeterNode &node)
 {
     // TODO: Implement one-ring perimeter generation.
+    // The generator receives the current node surface and its counters. It
+    // writes the generated perimeter extrusions into node.extrusions and
+    // returns the inner surfaces. If several inner ExPolygons are returned,
+    // PerimeterTree creates one child node for each of them.
+    //
     // Classic can generate a fixed-width ring. Arachne can generate variable
     // width extrusion and temporarily encode the width profile in ArcPolyline
     // per-point extra data currently stored through z-offset.
-    (void) input;
+    (void) context;
+    (void) node;
     return {};
 }
 
-void absorb_generation_output(SurfaceResult &result,
-                              const PerimeterGenerationOutput &generated,
-                              ExPolygon &current)
+class PerimeterModifier
 {
-    // TODO: Move generated extrusions into result.perimeters and update the
-    // current inner expolygon. This is the only place where the loop advances
-    // from one perimeter ring to the next.
-    (void) result;
-    (void) generated;
-    (void) current;
-}
+public:
+    virtual ~PerimeterModifier() = default;
 
-//void generate_gap_fill(SurfaceResult &result,
-//                       const PerimeterPlan &plan,
-//                       const ExPolygon &last_inner)
-//{
-//    // TODO: Move the old medial-axis gap-fill setup here. This should consume
-//    // the final inner surface and the plan, then write result.gap_fill and
-//    // result.gap_surfaces.
-//    (void) result;
-//    (void) plan;
-//    (void) last_inner;
-//}
+    virtual void after_root_created(const PerimeterProcessContext &context,
+                                    PerimeterTree &tree,
+                                    PerimeterNode &root) const
+    {
+        (void) context;
+        (void) tree;
+        (void) root;
+    }
 
-void build_fill_surfaces(SurfaceResult &result,
-                         const PerimeterPlan &plan,
-                         const ExPolygon &last_inner)
+    virtual void before_generation(const PerimeterProcessContext &context,
+                                   PerimeterTree &tree,
+                                   PerimeterNode &node) const
+    {
+        (void) context;
+        (void) tree;
+        (void) node;
+    }
+
+    virtual void after_generation(const PerimeterProcessContext &context,
+                                  PerimeterTree &tree,
+                                  PerimeterNode &parent,
+                                  const std::vector<PerimeterNode *> &children) const
+    {
+        (void) context;
+        (void) tree;
+        (void) parent;
+        (void) children;
+    }
+};
+
+class ExtraPerimeter final : public PerimeterModifier
 {
-    // TODO: Recreate inner_perimeter, fill_surfaces and fill_no_overlap.
-    // This is intentionally after perimeter and gap-fill generation because
-    // these polygons must stay coherent with what the generator actually made.
-    (void) result;
-    (void) plan;
-    (void) last_inner;
-}
+public:
+    void after_root_created(const PerimeterProcessContext &context,
+                            PerimeterTree &tree,
+                            PerimeterNode &root) const override
+    {
+        // Pseudo-code intent:
+        //
+        // while (need_extra_perimeter()) {
+        //     node.contour_count += 1;
+        //     node.hole_count += 1;
+        // }
+        //
+        // In this model, the extra-perimeter rule first edits the number of
+        // rings to make on the node. If a future rule must immediately consume
+        // rings, it should call the same node-generation helper as the main
+        // loop so children and modifier hooks stay coherent.
+        (void) context;
+        (void) tree;
+        (void) root;
+    }
+};
 
-void publish_surface_result(LayerSliceIsland &island,
-                            LayerRegionIsland &region_island,
-                            SurfaceResult &result)
+class OnlyOnePerimeterOnTop final : public PerimeterModifier
 {
-    // TODO: Move result.perimeters/result.gap_fill to region_island, append
-    // result.fill_surfaces/result.fill_no_overlap to the island-level caches,
-    // and update the perimeter boundary used by avoid-crossing-perimeters.
-    (void) island;
-    (void) region_island;
-    (void) result;
-}
+protected:
+    //TODO same as the perimetergenerator one
+    void split_top_surfaces(const ExPolygons *lower_slices,
+                                            const ExPolygons *upper_slices,
+                                            const ExPolygons &orig_polygons,
+                                            ExPolygons &top_fills,
+                                            ExPolygons &non_top_polygons,
+                                            ExPolygons &fill_clip,
+                                            int peri_count,
+                                            coordf_t min_width,
+                                            bool use_old_algorithm_for_min_width);
+public:
 
-void ExtraPerimeter::init_perimeter_generation(
-                          const Print &print,
-                          const PrintObject &object,
-                          const Layer &layer,
-                          const LayerSliceIsland &island,
-                          const LayerRegionIsland &region_island,
-                          ExPolygon &surface,
-                          std::vector<ExtrusionEntity> &extrusions) {
-    while (this->need_extra_perimeter()) {
-        plan.contour_count += 1;
-        plan.hole_count += 1;
-        input = make_generation_input(plan, surface, perimeter_index);
-        PerimeterGenerationOutput generated = perimeter_generation(input);
-        append(extrusions, generated.extrusions);
-        surface = generated.inner
-    }
-}
-
-void OnlyOnePerimeterOnTop::init_perimeter_generation(PerimeterPlan &plan,
-                          const Print &print,
-                          const PrintObject &object,
-                          const Layer &layer,
-                          const LayerSliceIsland &island,
-                          const LayerRegionIsland &region_island,
-                          ExPolygon &surface,
-                          std::vector<ExtrusionEntity> &extrusions) {
-    ExPolygons results;
-    if(!should_generate_next_perimeter(plan, perimeter_index) ){
-        return;
-    }
-    std::vector<TopAreas> top_surfaces = get_top_surfaces(surface);
-    if(top_surfaces.empty()){
-        return;
-    }
-    input = make_generation_input(plan, surface, perimeter_index);
-    PerimeterGenerationOutput generated = perimeter_generation(input);
-    for (TopArea top_surface = top_surfaces) {
-        append(extrusions, generated.extrusions);
-        if (!generated.inner.empty()) {
-            append(results, intersection_ex(top_surface.get_top_area(),
-                                                offset_ex(generated.inner, get_ext_perimeter_spacing() / 2));
+    void set_child(const PerimeterProcessContext &params,
+                   PerimeterNode &node,
+                   ExPolygon &&surface,
+                   const ExPolygons &fill_clip) {
+        node.surface = std::move(surface);
+        const coord_t max_peri_width = std::max(params.perimeter_flow().scaled_width(),
+                                                params.external_perimeter_flow().scaled_width());
+        ExPolygons big_surface = offset_ex(node.surface, double(max_peri_width));
+        assert(big_surface.size() == 1);
+        if (big_surface.size() != 1) {
+            node.fill_surface = node.surface;
+            return;
         }
+        big_surface = intersection_ex(big_surface, fill_clip);
+        assert(big_surface.size() == 1);
+        if (big_surface.size() != 1) {
+            node.fill_surface = node.surface;
+            return;
+        }
+        node.fill_surface = big_surface[0];
     }
-}
+    void after_generation(const PerimeterProcessContext &params,
+                          PerimeterTree &tree,
+                          PerimeterNode &parent,
+                          const std::vector<PerimeterNode *> &children) const override
+    {
+        // only active on first perimeter
+        // 
+        // Pseudo-code intent:
+        //
+        // top_surfaces = get_top_surfaces(parent.surface);
+        // if (!top_surfaces.empty()) {
+        //     for (top_surface : top_surfaces) {
+        //         use parent.extrusions;
+        //         append(fill_surfaces,
+        //             intersection(top_surface,
+        //                 offset(child.surface, ext_perimeter_spacing / 2)));
+        //     }
+        // }
+        //
+        // This hook has both sides of the operation: the parent node contains
+        // the generated ring extrusions, and children contain the inner surfaces.
+        // It can clamp child contour/hole counts or create fill clipping data.
 
-void SeparateHoleContour::apply_geometry_masks(PerimeterPlan &plan,
-                          const Print &print,
-                          const PrintObject &object,
-                          const Layer &layer,
-                          const LayerSliceIsland &island,
-                          const LayerRegionIsland &region_island,
-                          ExPolygon &surface,
-                          std::vector<ExtrusionEntity> &extrusions)
-{
-
-}
-
-void SeparateHoleContour::absorb_generation_output(SurfaceResult &result,
-                     PerimeterGenerationOutput &output,
-                          ExPolygon &surface)
-{
-
-    if (hole_count != perimeter_count && (hole_count < perimeter_index || contour_count < perimeter_index)) {
-        ExPolygons mask_area;
-        if(hole_count < perimeter_index) {
-            mask_area = grow_contour_only(surface);
+        // if first periemter, and has a first perimeter, and areas inside
+        if (parent.perimeter_idx > 0 || parent.extrusions.empty() || parent.perimeter_needed == 0 || parent.children.empty()) {
+            return;
+        }
+        const ConfigOption *opt_only_one_perimeter_top = params.print.config().option("only_one_perimeter_top");
+        // ensure we ahve at least a region with the option activated,
+        if (!params.region_setting.has_many_config(opt_only_one_perimeter_top) &&
+                    !params.region_setting.get_solo_config(opt_only_one_perimeter_top).get_bool()) {
+            return;
+        }
+        // not sure if best here or in nodes.
+        ExPolygons top_fills;
+        // this one may beuseful, need to test.
+        ExPolygons fill_clip;
+        // we have top layer?
+        if (params.island.overlaps_above.empty()) {
+            // nope: stop here!
+            parent.perimeter_needed = 1;
+            for (auto &child : parent.children) {
+                child.perimeter_needed = 1;
+            }
         } else {
-            mask_area = grow_hole_only(surface);
+            //yes, check if we have a top area
+            // Check if current layer has surfaces that are not covered by upper layer (i.e., top surfaces)
+            ExPolygons non_top_polygons;
+            for (auto const &[opt_values, areas] : params.region_setting.get_areas(opt_only_one_perimeter_top)) {
+                if (opt_values.get_bool(opt_only_one_perimeter_top)) {
+                    ExPolygons upper_slices;
+                    for(const auto &upper_island : params.island.overlaps_above) {
+                        upper_slices.push_back(upper_island.to->get_slice());
+                    }
+                    // has multiple or only one?s
+                    if (!areas.is_accept_all()) {
+                        // compute the area where the only_one_perimeter_top isn't true
+                        ExPolygons cliped_upper_slices = diff_ex({params.island.get_slice()}, areas.expolys);
+                        //add it to upper_slices
+                        if (upper_slices.empty()) {
+                            upper_slices = cliped_upper_slices;
+                        } else {
+                            upper_slices = union_ex(upper_slices, cliped_upper_slices);
+                        }
+                    }
+
+                    ExPolygons perimeter_centerline;
+                    if (non_top_polygons.empty()) {
+                        perimeter_centerline = offset_ex(parent.surface, -params.external_perimeter_flow().scaled_width() / 2);
+                    }else{
+                        perimeter_centerline = offset_ex(non_top_polygons, -params.external_perimeter_flow().scaled_width()/ 2);
+                    }
+                    
+                    ExPolygons lower_slices;
+                    for(const auto &lower_island : params.island.overlaps_below) {
+                        lower_slices.push_back(lower_island.to->get_slice());
+                    }
+                    split_top_surfaces(&lower_slices, &upper_slices, perimeter_centerline,
+                        top_fills, non_top_polygons, fill_clip,
+                        parent.perimeter_needed - 1,
+                        scale_d(opt_values.get_effective_value(unscaled(params.perimeter_flow().scaled_width()),
+                                                               params.print.config().option("min_width_top_surface"))),
+                        opt_values.get_bool(params.print.config().option("only_one_perimeter_top_other_algo")));
+                }
+            }
         }
-        // remove extrusions that are entirely inside mask_area
-        // note: extrusion are are part inside, part outside are perimeter that are both contour and holes, and they are kept, but considered contour afterwards.
-        Extrusions deleted_extrusions = filter(output.extrusions, mask_area);
-        output.inner = union_ex(output.inner, deleted_extrusions.as_polygon(width));
-        // remove approximations
-        output.inner = offset2_ex(output.inner , EPSILON, -EPSILON);
+        // has to set the outer polygon to the centerline of the external perimeter
+        if (top_fills.empty()) {
+            // No top surfaces, no special handling needed
+        } else {
+            // Make sure infill not overlap with wall
+            // offset the InnerContour as the result use bounds and not centerline
+            ExPolygons inner_areas;
+            std::vector<PerimeterNode> new_nodes;
+            for (PerimeterNode &child : parent.children) {
+                // check if this child is top, not top or both
+                ExPolygons only_top = intersection_ex({child.surface}, top_fills);
+                ExPolygons not_top = diff_ex({child.surface}, only_top);
+                if (not_top.empty()) {
+                    // this is top surface, stop making perimeters
+                    child.perimeter_needed = 1;
+                } else if (only_top.empty()) {
+                    // this is not top surface, continue making perimeters
+                } else {
+                    // split the child
+                    ExPolygons fill_top = intersection_ex({child.fill_surface}, top_fills);
+                    ExPolygons fill_not_top = diff_ex({child.fill_surface}, fill_top);
+                    // normal areas
+                    set_child(params, child, std::move(not_top[0]), fill_not_top);
+                    for (size_t i = 1; i < not_top.size(); i++) {
+                        new_nodes.emplace_back(child);
+                        set_child(params, new_nodes.back(), std::move(not_top[i]), fill_not_top);
+                    }
+                    // top areas
+                    new_nodes.emplace_back(child);
+                    set_child(params, new_nodes.back(), std::move(only_top[0]), fill_top);
+                    for (size_t i = 1; i < only_top.size(); i++) {
+                        new_nodes.emplace_back(child);
+                        set_child(params, new_nodes.back(), std::move(only_top[i]), fill_top);
+                    }
+                }
+            }
+        }
     }
+};
+
+class SeparateHoleContour final : public PerimeterModifier
+{
+public:
+    void after_generation(const PerimeterProcessContext &context,
+                          PerimeterTree &tree,
+                          PerimeterNode &parent,
+                          const std::vector<PerimeterNode *> &children) const override
+    {
+        // Pseudo-code intent:
+        //
+        // if (hole_count != contour_count &&
+        //     (hole_count < perimeter_idx || contour_count < perimeter_idx)) {
+        //     mask_area = (hole_count < perimeter_idx) ?
+        //         grow_contour_only(parent.surface) :
+        //         grow_holes_only(parent.surface);
+        //
+        //     deleted_extrusions = filter(parent.extrusions, mask_area);
+        //     repair child surfaces with deleted_extrusions.as_polygon(width);
+        // }
+        //
+        // This stays as a modifier because it needs the generated extrusion and
+        // the freshly created children. It can edit both before children are
+        // queued for further processing.
+        (void) context;
+        (void) tree;
+        (void) parent;
+        (void) children;
+    }
+};
+
+const std::vector<const PerimeterModifier *> &perimeter_modifiers()
+{
+    static const ExtraPerimeter extra_perimeter;
+    static const OnlyOnePerimeterOnTop only_one_perimeter_on_top;
+    static const SeparateHoleContour separate_hole_contour;
+    static const std::vector<const PerimeterModifier *> modifiers = {
+        &extra_perimeter,
+        &only_one_perimeter_on_top,
+        &separate_hole_contour
+    };
+    return modifiers;
 }
+
+void build_fill_surfaces(const PerimeterProcessContext &context, const PerimeterTree &tree)
+{
+    // TODO: Recreate inner_perimeter, fill_surfaces and fill_no_overlap from
+    // tree.final_inner_surfaces(). This is intentionally after perimeter
+    // generation because these polygons must stay coherent with what the
+    // generator actually made.
+    (void) context;
+    (void) tree;
+}
+
+void publish_surface_result(const PerimeterProcessContext &context, const PerimeterTree &tree)
+{
+    // TODO: Move generated node extrusions to context.region_island, append
+    // fill surfaces/fill_no_overlap to context.island, and update the perimeter
+    // boundary used by avoid-crossing-perimeters.
+    (void) context;
+    (void) tree;
+}
+// for RegionSettings
+const std::vector<t_config_option_keys> perimeter_keys({
+    {"extra_perimeters_below_area"},
+    {"extra_perimeters_count"},
+    {"extra_perimeters_odd_layers"},
+    {"extra_perimeters_on_overhangs"},
+    {"only_one_perimeter_top", "min_width_top_surface", "only_one_perimeter_top_other_algo"},
+    {"thin_walls", "thin_walls_min_width", "thin_walls_overlap"},
+    {"overhangs_speed_enforce"},
+    {"overhangs", "overhangs_speed", "overhangs_width_speed", "overhangs_flow_ratio", "overhangs_width"},
+    {"gap_fill_enabled"},
+    {"gap_fill_no_overhang"},
+    {"seam_slope_type", "external_perimeters_first", "external_perimeters_first_force", "external_perimeters_nothole", "external_perimeters_hole"},
+    });
+// same as the perimetergenerator one
+void segregate_extra_perimeters(RegionSettings &region_settings, const ExPolygon &my_srf, const LayerRegionSetCPtrs &lregions);
+
 
 void process_surface(Print &print,
                      PrintObject &object,
@@ -322,60 +501,59 @@ void process_surface(Print &print,
                      LayerRegionIsland &region_island,
                      const ExPolygon &surface)
 {
-    // Build the initial high-level plan for this surface. This function should
-    // own the contour/hole count rules copied from process_classic().
-    PerimeterPlan plan = build_initial_plan(print, object, layer, island, region_island, surface);
+    assert(!region_island.regions().empty());
+    RegionSettings region_settings(region_island.regions().front()->config(), perimeter_keys);
+    segregate_extra_perimeters(region_settings, surface, region_island.regions());
+    PerimeterProcessContext context{print, object, layer, island, region_island, region_settings, surface};
+    PerimeterTree tree(surface);
+    PerimeterNode &root = tree.root();
 
-    // Apply settings that alter only counts and high-level generation policy.
-    // Each old setting branch should become a small function called from here.
-    apply_perimeter_count_settings(plan, print, object, layer, island, region_island, surface);
+    initialize_root_node(context, root);
+    apply_perimeter_count_settings(context, root);
+    apply_geometry_masks(context, root);
 
-    // Apply geometric masks that must be consumed while generating rings.
-    // These are still pre-generation constraints, not post-processing edits.
-    for (size_t idx_plugin = 0; idx_plugin < perimeter_mod_plugins.size(); ++idx_plugin) {
-        PerimeterModPlugin &plugin = *perimeter_mod_plugins[idx_plugin];
-        plugin.init_perimeter_generation(plan, print, object, layer, island, region_island, surface);
-    }
-    SurfaceResult result;
-    ExPolygon current = surface;
-    size_t perimeter_index = 0;
+    const std::vector<const PerimeterModifier *> &modifiers = perimeter_modifiers();
+    for (const PerimeterModifier *modifier : modifiers)
+        modifier->after_root_created(context, tree, root);
 
-    while (should_generate_next_perimeter( perimeter_index)) {
+    std::vector<PerimeterNode *> pending_nodes;
+    pending_nodes.push_back(&root);
 
-        for (size_t idx_plugin = 0; idx_plugin < perimeter_mod_plugins.size(); ++idx_plugin) {
-            PerimeterModPlugin &plugin = *perimeter_mod_plugins[idx_plugin];
-            plugin.apply_geometry_masks( print, object, layer, island, region_island, surface);
+    while (!pending_nodes.empty()) {
+        PerimeterNode *node = pending_nodes.back();
+        pending_nodes.pop_back();
+
+        if (!node->needs_more_perimeters()) {
+            tree.finish_node(*node);
+            continue;
         }
 
-        // Convert the current plan state to the small black-box call. The
-        // single-ring generator must remain independent from global config.
-        PerimeterGenerationInput input = make_generation_input(plan, current, perimeter_index);
+        for (const PerimeterModifier *modifier : modifiers)
+            modifier->before_generation(context, tree, *node);
 
-        // Generate exactly one perimeter ring and the next inner expolygon.
-        // Classic and Arachne should both fit behind this contract.
-        PerimeterGenerationOutput generated = perimeter_generation(input);
+        // Generate one ring for the current node. The generator writes the ring
+        // extrusion into the node and returns the inner surfaces.
+        ExPolygons inner_surfaces = generate_perimeter_for_node(context, *node);
 
-        // Accumulate extrusions and advance the current inner expolygon.
-        for (size_t idx_plugin = perimeter_mod_plugins.size() - 1; idx_plugin < perimeter_mod_plugins.size(); --idx_plugin) {
-            PerimeterModPlugin &plugin = *perimeter_mod_plugins[idx_plugin];
-            plugin.absorb_generation_output(result, generated, current);
-        }
+        // Inner surfaces become child nodes inheriting the parent counters.
+        std::vector<PerimeterNode *> children = tree.create_children(*node, std::move(inner_surfaces));
 
-        current = generated.inner;
-        ++perimeter_index;
+        // Modifiers can now edit the generated parent extrusion, repair/remove
+        // children, or change child counters before they are queued.
+        for (const PerimeterModifier *modifier : modifiers)
+            modifier->after_generation(context, tree, *node, children);
+
+        for (PerimeterNode *child : children)
+            if (!child->discarded)
+                pending_nodes.push_back(child);
     }
 
-    // Generate gap fill from the final inner geometry, once all requested
-    // perimeter rings have been produced.
-    // edit: nope, done in pot-proce or infill
-    //generate_gap_fill(result, plan, current);
+    // Gap fill is intentionally left out of this first PerimeterGenerator2
+    // sketch. It will either become a post-perimeter step or an infill-side
+    // operation once the perimeter/fill boundary contract is stable.
 
-    // Build the fill surfaces that later infill steps will consume.
-    build_fill_surfaces(result, plan, current);
-
-    // Publish all generated data to the LayerSliceIsland / LayerRegionIsland
-    // tree. Keeping this at the end makes the function easier to test.
-    publish_surface_result(island, region_island, result);
+    build_fill_surfaces(context, tree);
+    publish_surface_result(context, tree);
 }
 
 } // namespace
