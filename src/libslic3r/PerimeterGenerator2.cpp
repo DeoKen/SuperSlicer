@@ -8,6 +8,7 @@
 #include <cassert>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <utility>
@@ -100,11 +101,21 @@ public:
             child.fill_surface = child.surface;
             child.perimeter_idx = parent.perimeter_idx + 1;
             child.perimeter_needed = parent.perimeter_needed;
-            child.extra_perimeter_count_applied = parent.extra_perimeter_count_applied;
             child_nodes.push_back(&child);
         }
 
         return child_nodes;
+    }
+
+    static PerimeterNodePtr make_split_sibling(const PerimeterNode &source)
+    {
+        assert(source.children.empty()); // only make sibling for leaf, otherwise we need to split the children too.
+        assert(source.extrusions.empty());
+        PerimeterNodePtr node = std::make_unique<PerimeterNode>();
+        node->parent = source.parent;
+        node->perimeter_idx = source.perimeter_idx;
+        node->perimeter_needed = source.perimeter_needed;
+        return node;
     }
 
     static void set_new_child(const PerimeterProcessContext &params,
@@ -154,14 +165,14 @@ public:
             // normal areas
             PerimeterTree::set_new_child(params, to_split, std::move(srf_yes[0]), srf_fill_yes);
             for (size_t i = 1; i < srf_yes.size(); i++) {
-                new_nodes.emplace_back(to_split);
+                new_nodes.push_back(PerimeterTree::make_split_sibling(to_split));
                 PerimeterTree::set_new_child(params, *new_nodes.back(), std::move(srf_yes[i]), srf_fill_yes);
             }
             // top areas
-            new_nodes.emplace_back(to_split);
+            new_nodes.push_back(PerimeterTree::make_split_sibling(to_split));
             PerimeterTree::set_new_child(params, *new_nodes.back(), std::move(srf_no[0]), srf_fill_no);
             for (size_t i = 1; i < srf_no.size(); i++) {
-                new_nodes.emplace_back(to_split);
+                new_nodes.push_back(PerimeterTree::make_split_sibling(to_split));
                 PerimeterTree::set_new_child(params, *new_nodes.back(), std::move(srf_no[i]), srf_fill_no);
             }
             return srf_yes.size();
@@ -354,6 +365,16 @@ protected:
     void set_data(LayerRegionIsland *island, const PerimeterNode *node, const DATA_TYPE &data) {
         std::lock_guard lock(m_mutex);
         m_nodes_with_extra_perimeter[island][node] = data;
+    }
+
+    const DATA_TYPE* has_data(LayerRegionIsland *island, const PerimeterNode *node) const {
+        std::lock_guard lock(m_mutex);
+        auto island_it = m_nodes_with_extra_perimeter.find(island);
+        if (island_it == m_nodes_with_extra_perimeter.end()) {
+            return nullptr;
+        }
+        auto node_it = island_it->second.find(node);
+        return node_it == island_it->second.end() ? nullptr : &node_it->second;
     }
 
     void finish_generation(const PerimeterProcessContext &context, PerimeterTree &tree) const override {
@@ -693,34 +714,219 @@ public:
         }
     }
 };
+struct HoleCountourCount
+{
+    int max_hole_count = 0;
+    int max_contour_count = 0;
+    int hole_deleted = 0;
+    int contour_deleted = 0;
+};
 
-class SeparateHoleContour final : public PerimeterModifier
+bool extrusion_is_hole_perimeter(const ExtrusionEntity &entity)
+{
+    const ExtrusionPropertyLoopRole *loop_role = entity.get_property<ExtrusionPropertyLoopRole>();
+    return loop_role != nullptr && (loop_role->perimeter_role() & elrHole) != 0;
+}
+
+double erase_cleanup_distance(const PerimeterProcessContext &context, const PerimeterNode &node)
+{
+    const coord_t spacing = node.perimeter_idx == 0 ?
+                                context.external_perimeter_flow().scaled_spacing() :
+                                context.perimeter_flow().scaled_spacing();
+    return std::max<double>(SCALED_EPSILON, 0.1 * double(spacing));
+}
+
+ExPolygons extrusion_coverage_area(const ExtrusionEntityCollection &extrusions, double cleanup_distance)
+{
+    Polygons covered;
+    for (const ExtrusionEntityUPtr &entity : extrusions.children())
+        if (entity)
+            entity->polygons_covered_by_spacing(covered, 1.f, float(cleanup_distance));
+
+    ExPolygons area = union_ex(covered);
+    if (!area.empty()) {
+        // A tiny close-open pass merges almost-touching extrusion coverage and
+        // removes the micro slivers created when the removed loop class is cut
+        // away from the next available surface.
+        area = offset2_ex(area, cleanup_distance, -cleanup_distance);
+    }
+    return area;
+}
+
+size_t erase_perimeter_class(ExtrusionEntityCollection &extrusions, bool erase_holes)
+{
+    ExtrusionEntity::Children &children = extrusions.children();
+    size_t erased_count = 0;
+    for (size_t idx = children.size(); idx > 0; --idx) {
+        const size_t child_idx = idx - 1;
+        const ExtrusionEntityUPtr &child = children[child_idx];
+        if (child && extrusion_is_hole_perimeter(*child) == erase_holes) {
+            extrusions.remove(child_idx);
+            ++erased_count;
+        }
+    }
+    return erased_count;
+}
+
+ExPolygon pick_fill_surface_for_child(const ExPolygon &surface, const ExPolygons &fill_surfaces)
+{
+    if (!surface.empty()) {
+        const Point &sample = surface.contour.points.front();
+        for (const ExPolygon &fill_surface : fill_surfaces)
+            if (fill_surface.contains(sample))
+                return fill_surface;
+    }
+    return surface;
+}
+
+std::vector<PerimeterNodePtr> make_rebuilt_children(const PerimeterNode &parent,
+                                                    ExPolygons &&surfaces,
+                                                    const ExPolygons &fill_surfaces)
+{
+    std::vector<PerimeterNodePtr> children;
+    children.reserve(surfaces.size());
+    for (ExPolygon &surface : surfaces) {
+        if (surface.empty())
+            continue;
+
+        PerimeterNodePtr child = std::make_unique<PerimeterNode>();
+        child->surface = std::move(surface);
+        child->fill_surface = pick_fill_surface_for_child(child->surface, fill_surfaces);
+        child->perimeter_idx = parent.perimeter_idx + 1;
+        child->perimeter_needed = parent.perimeter_needed;
+        children.push_back(std::move(child));
+    }
+    return children;
+}
+
+class SeparateHoleContour final : public PerimeterModifierWithNodeData<HoleCountourCount>
 {
 public:
+    void start_generation(const PerimeterProcessContext &params,
+                            PerimeterTree &tree) const override {
+        // check activation or not.
+        // only one value of perimeters_hole+perimeters combo in one island_region
+        const ConfigOption* opt = params.region_config().option("perimeters_hole");
+        if (opt->is_enabled()) {
+            HoleCountourCount data;
+            data.max_hole_count = opt->get_int();
+            data.max_contour_count = params.region_config().option("perimeters")->get_int();
+            if (data.max_hole_count != data.max_contour_count) {
+                set_data(&params.region_island, &tree.root(), data);
+            }
+        }
+    }
     void after_generation(const PerimeterProcessContext &context,
                           PerimeterTree &tree,
-                          PerimeterNode &parent,
-                          const std::vector<PerimeterNode *> &children) const override
+                          PerimeterNode &parent) const override
     {
-        // Pseudo-code intent:
-        //
-        // if (hole_count != contour_count &&
-        //     (hole_count < perimeter_idx || contour_count < perimeter_idx)) {
-        //     mask_area = (hole_count < perimeter_idx) ?
-        //         grow_contour_only(parent.surface) :
-        //         grow_holes_only(parent.surface);
-        //
-        //     deleted_extrusions = filter(parent.extrusions, mask_area);
-        //     repair child surfaces with deleted_extrusions.as_polygon(width);
-        // }
-        //
-        // This stays as a modifier because it needs the generated extrusion and
-        // the freshly created children. It can edit both before children are
-        // queued for further processing.
-        (void) context;
         (void) tree;
-        (void) parent;
-        (void) children;
+
+        if (const HoleCountourCount *stored_data = has_data(&context.region_island, &parent); stored_data != nullptr) {
+            HoleCountourCount data = *stored_data;
+            // if max_hole_count == 0 => don't allow any hole-perimeter
+            bool need_erase_holes = data.max_hole_count == 0;
+            // if max_contour_count == 0 => don't allow any contour-perimeter
+            bool need_erase_contour = data.max_contour_count == 0;
+            int diff_contour_hole = data.max_contour_count - data.max_hole_count;
+            // then check for erasing "extra" holes/contours: we let the amount required to be extruded, then we erase
+            // the extra one, and if someone tries to add extra periemters after that, we allow it on both
+            if (!need_erase_holes && diff_contour_hole < 0) {
+                // check if we have extruded all the autorized holes.
+                int holes_needed = parent.perimeter_needed + diff_contour_hole;
+                // if we have already extruded the needed holes, and we haven't deleted our quota of hole, then ask
+                // for deletion
+                if (parent.perimeter_idx >= holes_needed && data.hole_deleted < -diff_contour_hole) {
+                    need_erase_holes = true;
+                }
+            }
+            if (!need_erase_contour && diff_contour_hole > 0) {
+                // check if we have extruded all the autorized holes.
+                int contour_needed = parent.perimeter_needed - diff_contour_hole;
+                // if we have already extruded the needed holes, and we haven't deleted our quota of hole, then
+                // ask for deletion
+                if (parent.perimeter_idx >= contour_needed && data.contour_deleted < diff_contour_hole) {
+                    need_erase_contour = true;
+                }
+            }
+            if (!need_erase_holes && !need_erase_contour)
+                return;
+
+            if (need_erase_contour && need_erase_holes) {
+                // Both loop classes are forbidden at this depth. The generated
+                // ring is only useful as a temporary geometry step, so remove
+                // its extrusions. If no child can generate another perimeter,
+                // the branch is finished and the children may be dropped too.
+                const size_t erased_holes = erase_perimeter_class(parent.extrusions, true);
+                const size_t erased_contours = erase_perimeter_class(parent.extrusions, false);
+                if (erased_contours > 0)
+                    ++data.contour_deleted;
+                if (erased_holes > 0)
+                    ++data.hole_deleted;
+
+                bool child_needs_more_perimeters = false;
+                for (const PerimeterNodePtr &child : parent.children)
+                    child_needs_more_perimeters |= child && child->needs_more_perimeters();
+
+                if (parent.is_last_perimeter() && !child_needs_more_perimeters) {
+                    parent.children.clear();
+                    if (parent.perimeter_needed > 0)
+                        --parent.perimeter_needed;
+                } else {
+                    for (PerimeterNodePtr &child : parent.children) {
+                        if (!child)
+                            continue;
+                        if (child->perimeter_needed > child->perimeter_idx)
+                            --child->perimeter_needed;
+                        set_data(&context.region_island, child.get(), data);
+                    }
+                }
+                set_data(&context.region_island, &parent, data);
+                return;
+            }
+
+            // Remove exactly one loop class:
+            // - need_erase_contour keeps only hole loops.
+            // - need_erase_holes keeps only contour loops.
+            //
+            // The child surfaces created by the perimeter generator were based
+            // on both classes being present. Once one class is deleted, they no
+            // longer describe the space available for the next ring, so rebuild
+            // them from the parent surface minus the coverage of the remaining
+            // extrusions.
+            const size_t erased_count = erase_perimeter_class(parent.extrusions, need_erase_holes);
+            if (need_erase_contour && erased_count > 0)
+                ++data.contour_deleted;
+            if (need_erase_holes && erased_count > 0)
+                ++data.hole_deleted;
+
+            const double cleanup_distance = erase_cleanup_distance(context, parent);
+            ExPolygons kept_extrusion_area = extrusion_coverage_area(parent.extrusions, cleanup_distance);
+
+            ExPolygons child_surfaces = kept_extrusion_area.empty() ?
+                                            ExPolygons{ parent.surface } :
+                                            diff_ex(parent.surface, kept_extrusion_area);
+            if (!child_surfaces.empty()) {
+                // Remove tiny artifacts left by clipping a ring-shaped surface
+                // with the extrusion coverage mask. Bigger children survive
+                // unchanged enough for the following perimeter pass.
+                child_surfaces = offset2_ex(child_surfaces, -cleanup_distance, cleanup_distance);
+            }
+
+            const ExPolygon &base_fill_surface = parent.fill_surface.empty() ? parent.surface : parent.fill_surface;
+            ExPolygons fill_surfaces = kept_extrusion_area.empty() ?
+                                           ExPolygons{ base_fill_surface } :
+                                           diff_ex(ExPolygons{ base_fill_surface }, kept_extrusion_area);
+            if (!fill_surfaces.empty())
+                fill_surfaces = offset2_ex(fill_surfaces, -cleanup_distance, cleanup_distance);
+
+            parent.children = make_rebuilt_children(parent, std::move(child_surfaces), fill_surfaces);
+            for (PerimeterNodePtr &child : parent.children) {
+                child->parent = &parent;
+                set_data(&context.region_island, child.get(), data);
+            }
+            set_data(&context.region_island, &parent, data);
+        }
     }
 };
 
