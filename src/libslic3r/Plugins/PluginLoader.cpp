@@ -30,6 +30,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
+#include "libslic3r/Api/plugin/c/slic3r_plugin.h"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
 #include "libslic3r/Plugins/SliceVolume.hpp"
@@ -42,6 +43,7 @@ namespace Slic3r {
 namespace {
 
 using RegisterPluginFn = void (*)(orchestrator_handle *);
+using PluginAbiVersionFn = uint32_t (*)();
 
 const char *const PLUGIN_ACTIVATION_DIR = "plugin";
 const char *const ACTIVATED_PLUGINS_FILENAME = "activated.ini";
@@ -182,6 +184,24 @@ void load_plugin_library(const boost::filesystem::path &plugin_path, orchestrato
         return;
     }
 
+    FARPROC abi_farproc = GetProcAddress(module, "slic3r_plugin_abi_version");
+    if (abi_farproc == NULL) {
+        BOOST_LOG_TRIVIAL(warning) << "Plugin DLL '" << plugin_path.string()
+                                   << "' does not export slic3r_plugin_abi_version(); skipping stale or incompatible plugin.";
+        FreeLibrary(module);
+        return;
+    }
+
+    PluginAbiVersionFn abi_version_fn = reinterpret_cast<PluginAbiVersionFn>(abi_farproc);
+    const uint32_t abi_version = abi_version_fn();
+    if (abi_version != SLIC3R_PLUGIN_ABI_VERSION) {
+        BOOST_LOG_TRIVIAL(warning) << "Plugin DLL '" << plugin_path.string() << "' ABI mismatch: plugin ABI "
+                                   << abi_version << ", host ABI " << SLIC3R_PLUGIN_ABI_VERSION
+                                   << "; skipping incompatible plugin.";
+        FreeLibrary(module);
+        return;
+    }
+
     FARPROC farproc = GetProcAddress(module, "register_plugin");
     if (farproc == NULL) {
         BOOST_LOG_TRIVIAL(warning) << "Plugin DLL '" << plugin_path.string()
@@ -199,6 +219,24 @@ void load_plugin_library(const boost::filesystem::path &plugin_path, orchestrato
     if (module == nullptr) {
         BOOST_LOG_TRIVIAL(warning) << "Cannot load plugin library '" << plugin_path.string()
                                    << "': " << dlerror();
+        return;
+    }
+
+    void *abi_symbol = dlsym(module, "slic3r_plugin_abi_version");
+    if (abi_symbol == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << "Plugin library '" << plugin_path.string()
+                                   << "' does not export slic3r_plugin_abi_version(); skipping stale or incompatible plugin.";
+        dlclose(module);
+        return;
+    }
+
+    PluginAbiVersionFn abi_version_fn = reinterpret_cast<PluginAbiVersionFn>(abi_symbol);
+    const uint32_t abi_version = abi_version_fn();
+    if (abi_version != SLIC3R_PLUGIN_ABI_VERSION) {
+        BOOST_LOG_TRIVIAL(warning) << "Plugin library '" << plugin_path.string() << "' ABI mismatch: plugin ABI "
+                                   << abi_version << ", host ABI " << SLIC3R_PLUGIN_ABI_VERSION
+                                   << "; skipping incompatible plugin.";
+        dlclose(module);
         return;
     }
 

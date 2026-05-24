@@ -527,6 +527,7 @@ private:
     static const plugin_vtable &vtable()
     {
         static const plugin_vtable vt = {
+            SLIC3R_PLUGIN_ABI_VERSION,
             &PluginBase::get_id_bridge,
             &PluginBase::get_step_bridge,
             &PluginBase::get_dependencies_bridge,
