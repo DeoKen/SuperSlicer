@@ -30,6 +30,7 @@ public:
         BoundingBoxes bboxes;
         void compute_bb();
         ExPolygons intersections(const ExPolygons &to_clip) const;
+        ExPolygons diff(const ExPolygons &to_diff) const;
         ExPolygons intersections(coord_t offset, const ExPolygons &to_clip) const;
         void clear();
         bool is_accept_all() const { return expolys.empty(); }
