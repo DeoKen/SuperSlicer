@@ -17,8 +17,8 @@ Payload for STEP_EXTRUSION_SIMPLIFICATION.
 Plugins may simplify or normalize extrusion geometry after extrusion editing.
 */
 typedef struct run_ctx_extrusion_simplification {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_extrusion_simplification;
 
 static inline const run_ctx_extrusion_simplification *

@@ -134,8 +134,8 @@ std::unique_ptr<SupportDemandRunContext> make_support_demand_run_context(Print &
                                                                          SupportDemandSet &demand)
 {
     std::unique_ptr<SupportDemandRunContext> out = std::make_unique<SupportDemandRunContext>();
-    out->context_step.print = reinterpret_cast<print_handle *>(&print);
-    out->context_step.object = reinterpret_cast<object_handle *>(&print.object(object_idx));
+    out->context_step.print = reinterpret_cast<const print_handle *>(&print);
+    out->context_step.object = reinterpret_cast<const object_handle *>(&print.object(object_idx));
     out->context_step.demand = reinterpret_cast<support_demand_handle *>(&demand);
     out->context_step.entry_count = support_demand_entry_count;
     out->context_step.entry_island = support_demand_entry_island;

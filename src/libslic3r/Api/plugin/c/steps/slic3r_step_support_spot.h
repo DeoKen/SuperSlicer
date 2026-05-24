@@ -18,8 +18,8 @@ Plugins detect or edit support spots for one object before support material is
 generated.
 */
 typedef struct run_ctx_detect_support_spots {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_detect_support_spots;
 
 static inline const run_ctx_detect_support_spots *

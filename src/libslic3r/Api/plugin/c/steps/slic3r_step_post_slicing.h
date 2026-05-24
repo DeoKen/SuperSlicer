@@ -19,7 +19,8 @@ layer slices, island slices, and LayerRegion slices. LayerRegion slices are
 mutable directly. Layer slices and island slices require the callbacks below so
 the host can keep its caches consistent.
 */
-
+// get mutable layer from const object to be able to do stuff in this step
+typedef layer_handle *(*object_borrow_mutable_layer_fn)(const object_handle *me, uint32_t idx);
 // clear previous layer's islands, move expolygon_collection_handle into the layer slices and construct islands from it.
 typedef void (*layer_assign_islands_by_moving_contents_fn)(layer_handle *me, expolygon_collection_handle *in_out_islands);
 // this layer islans  has been modified, recompute the slices (cache of islands)
@@ -33,8 +34,8 @@ typedef expolygon_handle *(*layer_island_borrow_mutable_slice_fn)(layer_island_h
 
 typedef struct run_ctx_post_slicing {
     // mutable handles
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 
     // Takes ownership / moves contents into Layer islands.
     layer_assign_islands_by_moving_contents_fn layer_assign_islands_by_moving_contents;
@@ -47,6 +48,7 @@ typedef struct run_ctx_post_slicing {
 
     // Mutable post-slicing accessors. Caller must keep Layer / LayerRegion / LayerIsland
     // slices consistent if several caches are edited manually.
+    object_borrow_mutable_layer_fn object_borrow_mutable_layer;
     layer_borrow_mutable_slices_fn layer_borrow_mutable_slices;
     layer_region_borrow_mutable_slices_fn layer_region_borrow_mutable_slices;
     layer_island_borrow_mutable_slice_fn layer_island_borrow_mutable_slice;

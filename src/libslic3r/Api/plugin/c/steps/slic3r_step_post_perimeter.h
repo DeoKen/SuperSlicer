@@ -18,8 +18,8 @@ Runs after perimeter generation for one object. Plugins may inspect or edit the
 perimeter data before later surface/infill phases consume it.
 */
 typedef struct run_ctx_post_perimeter_generation {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_post_perimeter_generation;
 
 static inline const run_ctx_post_perimeter_generation *

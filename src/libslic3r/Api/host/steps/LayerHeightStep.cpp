@@ -18,12 +18,12 @@
 namespace Slic3r::ApiHost::Steps {
 namespace {
 
-void set_layer_height_profile(object_handle *object_handler, coord_t *layer_zs, uint32_t layer_zs_size)
+void set_layer_height_profile(const object_handle *object_handler, coord_t *layer_zs, uint32_t layer_zs_size)
 {
     if (object_handler == nullptr || (layer_zs == nullptr && layer_zs_size != 0))
         return;
 
-    PrintObject *object = reinterpret_cast<PrintObject *>(object_handler);
+    PrintObject *object = const_cast<PrintObject *>(reinterpret_cast<const PrintObject *>(object_handler));
     std::vector<coord_t> new_layer_profile;
     new_layer_profile.reserve(layer_zs_size);
     for (uint32_t i = 0; i < layer_zs_size; ++i)
@@ -53,8 +53,8 @@ std::unique_ptr<LayerHeightRunContext> make_layer_height_run_context(Print &prin
         out->layer_config_ranges.push_back(c_range);
     }
 
-    out->context_step.print = reinterpret_cast<print_handle *>(&print);
-    out->context_step.object = reinterpret_cast<object_handle *>(&print_object);
+    out->context_step.print = reinterpret_cast<const print_handle *>(&print);
+    out->context_step.object = reinterpret_cast<const object_handle *>(&print_object);
     out->context_step.enforce_layer_zs = out->layer_z_profile.data();
     out->context_step.enforce_layer_zs_size = uint32_t(out->layer_z_profile.size());
     out->context_step.layer_config_ranges = out->layer_config_ranges.data();

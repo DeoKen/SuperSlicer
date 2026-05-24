@@ -18,8 +18,8 @@ Plugins group compatible infill regions for one object before infill paths are
 generated.
 */
 typedef struct run_ctx_group_infill_regions {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_group_infill_regions;
 
 static inline const run_ctx_group_infill_regions *

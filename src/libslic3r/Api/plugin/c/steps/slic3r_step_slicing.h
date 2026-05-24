@@ -51,8 +51,8 @@ typedef int32_t (*slicing_volume_region_layer_region_idx_fn)(const slicing_volum
 typedef c_bounding_box3f (*slicing_volume_region_bbox_fn)(const slicing_volume_region_handle *volume_region);
 
 typedef struct run_ctx_slicing {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 
     // Mutable access to LayerRegion raw slices created/filled by slicing plugins.
     layer_region_borrow_mutable_slices_fn layer_region_borrow_mutable_slices;

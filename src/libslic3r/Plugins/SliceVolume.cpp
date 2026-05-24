@@ -558,9 +558,8 @@ void write_region_slices(const run_ctx_slicing &ctx,
         for (uint32_t layer_idx = 0; layer_idx < by_layer.size(); ++layer_idx) {
             StoredExPolygonCollection &layer_region_slices = by_layer[layer_idx];
 
-            layer_handle *layer = object_get_layer_mutable(ctx.object, layer_idx);
-            layer_region_handle *layer_region = layer_get_region_mutable(layer, region_idx);
-            expolygon_collection_handle *dst = ctx.layer_region_borrow_mutable_slices(layer_region);
+            expolygon_collection_handle *dst = ctx.layer_region_borrow_mutable_slices(
+                object.layer(layer_idx).region(region_idx).handle());
             expolygons_move(dst, layer_region_slices.mutable_handle());
         }
     }

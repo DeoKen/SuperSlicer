@@ -259,7 +259,7 @@ void Polyholes::run_impl(const plugin_run_context *run_ctx) const
             // Borrow the mutable raw slices only at the last possible moment:
             // modifying them may invalidate read-only views collected earlier.
             int modified = 0;
-            layer_handle *mut_layer = object_get_layer_mutable(ctx->object, poly_to_replace.layer_idx);
+            layer_handle *mut_layer = ctx->object_borrow_mutable_layer(ctx->object, poly_to_replace.layer_idx);
             layer_region_handle *mut_lregion = layer_get_region_mutable(mut_layer, poly_to_replace.lregion_idx);
             expolygon_collection_handle *mut_region_slices(ctx->layer_region_borrow_mutable_slices(mut_lregion));
             assert(expolygons_size(mut_region_slices) > 0);
@@ -279,7 +279,7 @@ void Polyholes::run_impl(const plugin_run_context *run_ctx) const
 
     // Recompute once per modified layer instead of after every hole replacement.
     for (uint32_t layer_idx : modified_layer_idx) {
-        layer_handle *mut_layer = object_get_layer_mutable(ctx->object, layer_idx);
+        layer_handle *mut_layer = ctx->object_borrow_mutable_layer(ctx->object, layer_idx);
         ctx->layer_recompute_slices_and_islands_from_layer_region(mut_layer);
     }
 

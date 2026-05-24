@@ -49,11 +49,11 @@ expolygon_collection_handle *layer_borrow_mutable_slices(layer_handle *me)
                                &ApiInternal::LayerAccess::slices_mutable(*reinterpret_cast<Layer *>(me)));
 }
 
-expolygon_collection_handle *layer_region_borrow_mutable_slices(layer_region_handle *me)
-{
-    return me == nullptr ? nullptr :
-                           reinterpret_cast<expolygon_collection_handle *>(
-                               &ApiInternal::LayerRegionAccess::slices_mutable(*reinterpret_cast<LayerRegion *>(me)));
+expolygon_collection_handle *layer_region_borrow_mutable_slices(const layer_region_handle *me) {
+    return me == nullptr ?
+        nullptr :
+        reinterpret_cast<expolygon_collection_handle *>(&ApiInternal::LayerRegionAccess::slices_mutable(
+            *const_cast<LayerRegion *>(reinterpret_cast<const LayerRegion *>(me))));
 }
 
 expolygon_handle *layer_island_borrow_mutable_slice(layer_island_handle *me)
@@ -63,15 +63,23 @@ expolygon_handle *layer_island_borrow_mutable_slice(layer_island_handle *me)
                                &ApiInternal::LayerIslandAccess::slice_mutable(*reinterpret_cast<LayerSliceIsland *>(me)));
 }
 
+layer_handle *object_borrow_mutable_layer(const object_handle *me, uint32_t idx) {
+    return me == nullptr ?
+        nullptr :
+        reinterpret_cast<layer_handle *>(
+            &const_cast<PrintObject *>(reinterpret_cast<const PrintObject *>(me))->layer(static_cast<size_t>(idx)));
+}
+
 } // namespace
 
 run_ctx_post_slicing make_post_slicing_run_context(Print &print, size_t object_idx)
 {
     run_ctx_post_slicing context_step = {};
-    context_step.print = reinterpret_cast<print_handle *>(&print);
-    context_step.object = reinterpret_cast<object_handle *>(&print.object(object_idx));
+    context_step.print = reinterpret_cast<const print_handle *>(&print);
+    context_step.object = reinterpret_cast<const object_handle *>(&print.object(object_idx));
     context_step.layer_assign_islands_by_moving_contents = layer_assign_islands_by_moving_contents;
     context_step.layer_recompute_slices_from_islands = layer_recompute_slices_from_islands;
+    context_step.object_borrow_mutable_layer = object_borrow_mutable_layer;
     context_step.layer_recompute_slices_and_islands_from_layer_region = layer_recompute_slices_and_islands_from_layer_region;
     context_step.layer_borrow_mutable_slices = layer_borrow_mutable_slices;
     context_step.layer_region_borrow_mutable_slices = layer_region_borrow_mutable_slices;

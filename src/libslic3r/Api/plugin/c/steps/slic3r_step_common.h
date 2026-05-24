@@ -17,7 +17,7 @@ Borrow mutable raw slices for a LayerRegion during steps where the host allows
 plugins to fill or edit slicing results. The returned handle is borrowed from
 the data tree; do not free it through plugin storage.
 */
-typedef expolygon_collection_handle *(*layer_region_borrow_mutable_slices_fn)(layer_region_handle *me);
+typedef expolygon_collection_handle *(*layer_region_borrow_mutable_slices_fn)(const layer_region_handle *me);
 
 #ifdef __cplusplus
 }
