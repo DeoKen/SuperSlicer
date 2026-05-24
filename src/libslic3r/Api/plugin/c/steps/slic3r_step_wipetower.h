@@ -17,8 +17,8 @@ Payload for STEP_WIPETOWER.
 Plugins generate or edit wipe-tower data for one object/print context.
 */
 typedef struct run_ctx_generate_wipe_tower {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_generate_wipe_tower;
 
 static inline const run_ctx_generate_wipe_tower *

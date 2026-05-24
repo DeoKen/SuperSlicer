@@ -33,11 +33,11 @@ typedef struct c_layer_config_range {
 } c_layer_config_range;
 
 // Set the layers to these heights.
-typedef void (*set_layer_height_profile_fn)(object_handle *object, coord_t* layer_zs, uint32_t layer_zs_size);
+typedef void (*set_layer_height_profile_fn)(const object_handle *object, coord_t* layer_zs, uint32_t layer_zs_size);
 
 typedef struct run_ctx_layer_height_generation {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
     // input from the gui, containing the layers set by the variable layer height feature. is empty if the feature is not used.
     coord_t* enforce_layer_zs;
     uint32_t enforce_layer_zs_size;

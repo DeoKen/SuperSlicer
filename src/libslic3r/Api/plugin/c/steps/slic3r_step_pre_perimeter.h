@@ -18,8 +18,8 @@ This step runs before perimeter generation for one object. Plugins can inspect
 or prepare layer/region data before perimeter paths are produced.
 */
 typedef struct run_ctx_prepare_for_perimeters {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_prepare_for_perimeters;
 
 static inline const run_ctx_prepare_for_perimeters *

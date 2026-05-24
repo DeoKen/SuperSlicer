@@ -18,8 +18,8 @@ This step generates support layers, support surfaces and/or support extrusion
 for one object, depending on the registered plugin.
 */
 typedef struct run_ctx_generate_support {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_generate_support;
 
 static inline const run_ctx_generate_support *

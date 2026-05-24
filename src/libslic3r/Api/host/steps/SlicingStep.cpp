@@ -136,8 +136,8 @@ c_bounding_box3f slicing_volume_region_bbox(const slicing_volume_region_handle *
 std::unique_ptr<SlicingRunContext> make_slicing_run_context(Print &print, size_t object_idx)
 {
     std::unique_ptr<SlicingRunContext> out = std::make_unique<SlicingRunContext>();
-    out->context_step.print = reinterpret_cast<print_handle *>(&print);
-    out->context_step.object = reinterpret_cast<object_handle *>(&print.object(object_idx));
+    out->context_step.print = reinterpret_cast<const print_handle *>(&print);
+    out->context_step.object = reinterpret_cast<const object_handle *>(&print.object(object_idx));
     out->context_step.layer_region_borrow_mutable_slices = layer_region_borrow_mutable_slices;
     out->context_step.layer_range_count = slicing_layer_range_count;
     out->context_step.layer_range_at = slicing_layer_range_at;

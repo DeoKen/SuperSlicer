@@ -33,8 +33,8 @@ typedef expolygon_handle *(*layer_island_borrow_mutable_slice_fn)(layer_island_h
 
 typedef struct run_ctx_post_slicing {
     // mutable handles
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 
     // Takes ownership / moves contents into Layer islands.
     layer_assign_islands_by_moving_contents_fn layer_assign_islands_by_moving_contents;

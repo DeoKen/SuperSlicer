@@ -18,8 +18,8 @@ The host has object layers and raw slices. Plugins may generate or prepare
 surfaces for the object using the data-tree API.
 */
 typedef struct run_ctx_surface_generation {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_surface_generation;
 
 static inline const run_ctx_surface_generation *

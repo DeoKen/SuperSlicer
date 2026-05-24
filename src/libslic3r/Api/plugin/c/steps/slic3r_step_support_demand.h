@@ -109,13 +109,13 @@ typedef struct run_ctx_support_demand {
     Borrowed print context. It gives access to global print config and objects.
     The handle is read-only for this step and valid only during the callback.
     */
-    print_handle *print;
+    const print_handle *print;
 
     /*
     Borrowed object currently being processed. Plugins usually iterate its
     layers and layer islands to decide where support is needed.
     */
-    object_handle *object;
+    const object_handle *object;
 
     /*
     Mutable island-keyed demand working set. Do not access it directly; use the

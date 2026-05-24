@@ -17,8 +17,8 @@ Payload for STEP_POST_INFILL.
 Runs after infill generation for one object.
 */
 typedef struct run_ctx_post_infill_generation {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_post_infill_generation;
 
 static inline const run_ctx_post_infill_generation *

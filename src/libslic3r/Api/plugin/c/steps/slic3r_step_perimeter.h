@@ -56,7 +56,7 @@ for another run. If a plugin needs persistent data, store it in plugin storage
 or in data owned by the plugin instance.
 */
 typedef layer_region_island_handle *(*perimeter_get_or_create_region_island_fn)(
-    layer_island_handle *island,
+    const layer_island_handle *island,
     const layer_region_handle *const *regions,
     uint32_t region_count);
 
@@ -88,14 +88,14 @@ typedef struct run_ctx_generate_perimeter {
     /*
     Borrowed print and object currently being processed.
     */
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 
     /*
     Borrowed layer and island currently being processed.
     */
-    layer_handle *layer;
-    layer_island_handle *island;
+    const layer_handle *layer;
+    const layer_island_handle *island;
 
     /*
     Return the region-island output node for island and a set of regions,
@@ -198,10 +198,10 @@ perimeter generator call that is currently invoking the module.
 */
 typedef struct perimeter_generation_context {
     plugin_run_context *run_ctx;
-    print_handle *print;
-    object_handle *object;
-    layer_handle *layer;
-    layer_island_handle *island;
+    const print_handle *print;
+    const object_handle *object;
+    const layer_handle *layer;
+    const layer_island_handle *island;
     layer_region_island_handle *region_island;
     perimeter_node *root;
 } perimeter_generation_context;

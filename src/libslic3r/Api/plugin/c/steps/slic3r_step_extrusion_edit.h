@@ -17,8 +17,8 @@ Payload for STEP_EXTRUSION_EDIT.
 Plugins may edit the final object extrusion tree before simplification/G-code.
 */
 typedef struct run_ctx_extrusion_edition {
-    print_handle *print;
-    object_handle *object;
+    const print_handle *print;
+    const object_handle *object;
 } run_ctx_extrusion_edition;
 
 static inline const run_ctx_extrusion_edition *
