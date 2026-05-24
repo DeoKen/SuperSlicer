@@ -17,6 +17,7 @@
 #include <dlfcn.h>
 #endif
 
+#include <chrono>
 #include <map>
 #include <string>
 #include <utility>
@@ -45,11 +46,17 @@ namespace {
 
 using RegisterPluginFn = void (*)(orchestrator_handle *);
 using PluginAbiVersionFn = uint32_t (*)();
+using PluginLoadClock = std::chrono::steady_clock;
 
 const char *const PLUGIN_ACTIVATION_DIR = "plugin";
 const char *const ACTIVATED_PLUGINS_FILENAME = "activated.ini";
 const char *const DEFAULT_ACTIVATED_PLUGINS_DIR = "plugins";
 const char *const DEFAULT_ACTIVATED_PLUGINS_FILENAME = "default_activated.ini";
+
+std::chrono::milliseconds elapsed_ms(const PluginLoadClock::time_point &start)
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(PluginLoadClock::now() - start);
+}
 
 bool ini_value_is_enabled(const std::string &value)
 {
@@ -176,6 +183,7 @@ bool is_plugin_library_path(const boost::filesystem::path &path)
 
 void load_plugin_library(const boost::filesystem::path &plugin_path, orchestrator_handle *orchestrator)
 {
+    const PluginLoadClock::time_point start = PluginLoadClock::now();
 #ifdef _WIN32
     static std::vector<HMODULE> loaded_modules;
     HMODULE module = LoadLibraryW(plugin_path.wstring().c_str());
@@ -214,6 +222,8 @@ void load_plugin_library(const boost::filesystem::path &plugin_path, orchestrato
     RegisterPluginFn register_plugin_fn = reinterpret_cast<RegisterPluginFn>(farproc);
     register_plugin_fn(orchestrator);
     loaded_modules.push_back(module);
+    BOOST_LOG_TRIVIAL(debug) << "Loaded plugin DLL '" << plugin_path.string() << "' in "
+                             << elapsed_ms(start).count() << " ms.";
 #else
     static std::vector<void *> loaded_modules;
     void *module = dlopen(plugin_path.string().c_str(), RTLD_NOW | RTLD_GLOBAL);
@@ -252,6 +262,8 @@ void load_plugin_library(const boost::filesystem::path &plugin_path, orchestrato
     RegisterPluginFn register_plugin_fn = reinterpret_cast<RegisterPluginFn>(symbol);
     register_plugin_fn(orchestrator);
     loaded_modules.push_back(module);
+    BOOST_LOG_TRIVIAL(debug) << "Loaded plugin library '" << plugin_path.string() << "' in "
+                             << elapsed_ms(start).count() << " ms.";
 #endif
 }
 
@@ -275,12 +287,26 @@ void load_plugins_from_repository(const boost::filesystem::path &repository, orc
     }
 }
 
+void register_builtin_plugin(orchestrator_handle *orchestrator,
+                             const char *plugin_name,
+                             RegisterPluginFn register_plugin_fn)
+{
+    const PluginLoadClock::time_point start = PluginLoadClock::now();
+    register_plugin_fn(orchestrator);
+    BOOST_LOG_TRIVIAL(debug) << "Loaded built-in plugin '" << plugin_name << "' in "
+                             << elapsed_ms(start).count() << " ms.";
+}
+
 void register_builtin_plugins(orchestrator_handle *orchestrator)
 {
-    slic3r_api::StandardLayerHeightGeneratorPlugin::register_standard_layer_height_generator_plugin(orchestrator);
-    slic3r_api::SliceVolumePlugin::register_slice_volume_plugin(orchestrator);
-    slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin(orchestrator);
-    slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(orchestrator);
+    register_builtin_plugin(orchestrator, "standard_layer_height_generator",
+        slic3r_api::StandardLayerHeightGeneratorPlugin::register_standard_layer_height_generator_plugin);
+    register_builtin_plugin(orchestrator, "slice_volume",
+        slic3r_api::SliceVolumePlugin::register_slice_volume_plugin);
+    register_builtin_plugin(orchestrator, "max_overhang_threshold",
+        slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin);
+    register_builtin_plugin(orchestrator, "support_demand_bridge_removal",
+        slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin);
 }
 
 void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
@@ -328,6 +354,7 @@ void register_exclusive_step_groups(Orchestrator &orchestrator)
 
 void load_plugins()
 {
+    const PluginLoadClock::time_point start = PluginLoadClock::now();
     Orchestrator &orchestrator = Orchestrator::instance();
     orchestrator_handle *orchestrator_handle_ptr = reinterpret_cast<orchestrator_handle *>(&orchestrator);
 
@@ -346,6 +373,9 @@ void load_plugins()
     register_exclusive_step_groups(orchestrator);
 
     orchestrator.initialize_plugins();
+    //note: --loglevel 4 is read too late for this log, use $env:SLIC3R_LOGLEVEL = "4" (or SLIC3R_LOGLEVEL=4 in visual studio environement line)
+    BOOST_LOG_TRIVIAL(debug) << "Loaded the entire plugin library in "
+                             << elapsed_ms(start).count() << " ms.";
 }
 
 } // namespace Slic3r
