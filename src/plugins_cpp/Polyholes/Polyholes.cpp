@@ -125,11 +125,6 @@ void Polyholes::run_impl(const plugin_run_context *run_ctx) const
     // mutable borrowed handles. The plugin must keep both consistent by asking
     // the host to recompute slices/islands after raw slice edits.
     const run_ctx_post_slicing *ctx = plugin_ctx_as_post_slicing(run_ctx);
-    std::printf("hello_world from polyholes");
-    if (ctx != nullptr)
-        std::printf(" print=%p object=%p", static_cast<void*>(ctx->print), static_cast<void*>(ctx->object));
-    std::printf("\n");
-
     if (ctx == nullptr || ctx->print == nullptr || ctx->object == nullptr)
         return;
 
