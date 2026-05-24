@@ -24,7 +24,7 @@ class RegionSettings
 public:
     struct ClipExpoly
     {
-        // can be empty if only one region (it means there is no clip to do, evrythign can be kept)
+        // can be empty if only one region (it means there is no clip to do, evrything can be kept)
         ExPolygons expolys;
         // bboxes.size() == expolys.size()
         BoundingBoxes bboxes;

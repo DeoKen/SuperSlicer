@@ -2694,7 +2694,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Extra perimeters on small areas");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
-    def->tooltip = L("After laying all the perimeters, if there is an area smaler (in mm²) than this value, then fill it with more perimeters."
+    def->tooltip = L("After laying all the perimeters, if there is an area smaller (in mm²) than this value, then fill it with more perimeters."
                     "\nUseful if you want to fortify a small cylinder while not messing with the larger main object."
                     "\nCan be a percentage of the perimeter width (squared)."
                     "\nSet zero to disable.");

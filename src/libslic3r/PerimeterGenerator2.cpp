@@ -4,6 +4,12 @@
 ///|/
 #include "PerimeterGenerator2.hpp"
 
+#include <algorithm>
+#include <cassert>
+#include <iterator>
+#include <map>
+#include <mutex>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -15,11 +21,17 @@
 #include "libslic3r/LayerRegion.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
+#include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/RegionSettings.hpp"
 
 namespace Slic3r::PerimeterGenerator2 {
 namespace {
 
+struct PerimeterProcessContext;
+struct PerimeterNode;
+using PerimeterNodePtr = std::unique_ptr<PerimeterNode>;
+
+// do not add algo-specific field inside this generic node struture.
 struct PerimeterNode
 {
     // root has nullptr parent.
@@ -32,15 +44,22 @@ struct PerimeterNode
     // perimeter extrusion extruded inside this surface
     ExtrusionEntityCollection extrusions;
     // childs contains the areas still available after the extrusions
-    std::vector<PerimeterNode> children;
-    // my index in perimeter count
+    // unique_ptr to have stable pointers
+    std::vector<PerimeterNodePtr> children;
+    // my index in perimeter loop count
     size_t perimeter_idx = 0;
-    // number of perimeters loops
-    int perimeter_needed = 0;
+    // number of perimeters loops to construct in total
+    size_t perimeter_needed = 0;
 
-    bool needs_more_perimeters() const
-    {
-        return perimeter_needed > 0 && perimeter_idx < size_t(perimeter_needed);
+    bool needs_more_perimeters() const { return perimeter_needed > 0 && perimeter_idx < size_t(perimeter_needed); }
+
+    bool is_last_perimeter() { return perimeter_needed <= 0 || perimeter_idx + 1 >= perimeter_needed; }
+
+    void append_new_children(std::vector<PerimeterNodePtr> &&new_nodes) {
+        for (PerimeterNodePtr &node : new_nodes)
+            node->parent = this;
+        this->children.insert(this->children.end(), std::make_move_iterator(new_nodes.begin()),
+                               std::make_move_iterator(new_nodes.end()));
     }
 };
 
@@ -50,16 +69,18 @@ public:
     explicit PerimeterTree(const ExPolygon &root_surface)
     {
         m_root.surface = root_surface;
+        m_root.fill_surface = root_surface;
     }
 
     PerimeterNode &root() { return m_root; }
     const PerimeterNode &root() const { return m_root; }
-    const ExPolygons &final_inner_surfaces() const { return m_final_inner_surfaces; }
-
-    void finish_node(const PerimeterNode &node)
-    {
-        if (!node.discarded)
-            m_final_inner_surfaces.push_back(node.surface);
+    const ExPolygons &final_inner_surfaces() const { 
+        //TODO: union all leaf surfaces.
+        return {};
+    }
+    const ExPolygons &final_fill_clip_areas() const { 
+        //TODO: union all leaf fill surfaces.
+        return {};
     }
 
     std::vector<PerimeterNode *> create_children(PerimeterNode &parent, ExPolygons &&inner_surfaces)
@@ -72,12 +93,14 @@ public:
         parent.children.reserve(parent.children.size() + inner_surfaces.size());
 
         for (ExPolygon &inner_surface : inner_surfaces) {
-            parent.children.emplace_back();
-            PerimeterNode &child = parent.children.back();
+            parent.children.push_back(std::make_unique<PerimeterNode>());
+            PerimeterNode &child = *parent.children.back();
             child.parent = &parent;
             child.surface = std::move(inner_surface);
+            child.fill_surface = child.surface;
             child.perimeter_idx = parent.perimeter_idx + 1;
             child.perimeter_needed = parent.perimeter_needed;
+            child.extra_perimeter_count_applied = parent.extra_perimeter_count_applied;
             child_nodes.push_back(&child);
         }
 
@@ -89,6 +112,8 @@ public:
                    ExPolygon &&surface,
                    const ExPolygons &fill_clip) {
         node.surface = std::move(surface);
+        if (node.fill_surface.empty())
+            node.fill_surface = node.surface;
         const coord_t max_peri_width = std::max(params.perimeter_flow().scaled_width(),
                                                 params.external_perimeter_flow().scaled_width());
         ExPolygons big_surface = offset_ex(node.surface, double(max_peri_width));
@@ -111,7 +136,7 @@ public:
     // clip need to be wide enoug  to go over the to_clip's parent extrusions, for the fill area to be correctly clipped.
     static int split_node(const PerimeterProcessContext &params,
                             PerimeterNode &to_split,
-                            std::vector<PerimeterNode> &new_nodes,
+                            std::vector<PerimeterNodePtr> &new_nodes,
                             const ExPolygons &clip) {
             // split the child
             ExPolygons srf_yes = intersection_ex(to_split.surface, clip);
@@ -130,22 +155,23 @@ public:
             PerimeterTree::set_new_child(params, to_split, std::move(srf_yes[0]), srf_fill_yes);
             for (size_t i = 1; i < srf_yes.size(); i++) {
                 new_nodes.emplace_back(to_split);
-                PerimeterTree::set_new_child(params, new_nodes.back(), std::move(srf_yes[i]), srf_fill_yes);
+                PerimeterTree::set_new_child(params, *new_nodes.back(), std::move(srf_yes[i]), srf_fill_yes);
             }
             // top areas
             new_nodes.emplace_back(to_split);
-            PerimeterTree::set_new_child(params, new_nodes.back(), std::move(srf_no[0]), srf_fill_no);
+            PerimeterTree::set_new_child(params, *new_nodes.back(), std::move(srf_no[0]), srf_fill_no);
             for (size_t i = 1; i < srf_no.size(); i++) {
                 new_nodes.emplace_back(to_split);
-                PerimeterTree::set_new_child(params, new_nodes.back(), std::move(srf_no[i]), srf_fill_no);
+                PerimeterTree::set_new_child(params, *new_nodes.back(), std::move(srf_no[i]), srf_fill_no);
             }
+            return srf_yes.size();
     }
 
 private:
     PerimeterNode m_root;
-    ExPolygons m_final_inner_surfaces;
 };
 
+//TODO: makes it immutable and create caches for config & flow
 struct PerimeterProcessContext
 {
     Print &print;
@@ -160,6 +186,24 @@ struct PerimeterProcessContext
     Flow perimeter_flow() const; //TODO
     Flow external_perimeter_flow() const; //TODO
 };
+
+const PrintRegionConfig& PerimeterProcessContext::region_config() const
+{
+    assert(!region_island.regions().empty());
+    return (*region_island.regions().begin())->region().config();
+}
+
+Flow PerimeterProcessContext::perimeter_flow() const
+{
+    assert(!region_island.regions().empty());
+    return (*region_island.regions().begin())->flow(frPerimeter);
+}
+
+Flow PerimeterProcessContext::external_perimeter_flow() const
+{
+    assert(!region_island.regions().empty());
+    return (*region_island.regions().begin())->flow(frExternalPerimeter);
+}
 
 std::vector<LayerRegionSetCPtrs> collect_region_groups(const LayerSliceIsland &island, const Layer &layer)
 {
@@ -258,15 +302,15 @@ class PerimeterModifier
 public:
     virtual ~PerimeterModifier() = default;
 
-    virtual void after_root_created(const PerimeterProcessContext &context,
-                                    PerimeterTree &tree,
-                                    PerimeterNode &root) const
+    // init
+    virtual void start_generation(const PerimeterProcessContext &context,
+                                    PerimeterTree &tree) const
     {
         (void) context;
         (void) tree;
-        (void) root;
     }
 
+    // before creating extrusion & childs of node
     virtual void before_generation(const PerimeterProcessContext &context,
                                    PerimeterTree &tree,
                                    PerimeterNode &node) const
@@ -276,49 +320,133 @@ public:
         (void) node;
     }
 
+    // after creating extrusion & childs of parent
     virtual void after_generation(const PerimeterProcessContext &context,
                                   PerimeterTree &tree,
-                                  PerimeterNode &parent,
-                                  const std::vector<PerimeterNode *> &children) const
+                                  PerimeterNode &parent) const
     {
         (void) context;
         (void) tree;
         (void) parent;
-        (void) children;
+    }
+
+    //end of perimeter generation for context's region_island
+    virtual void finish_generation(const PerimeterProcessContext &context,
+                                  PerimeterTree &tree) const
+    {
+        (void) context;
+        (void) tree;
+    }
+};
+template<class DATA_TYPE>
+class PerimeterModifierWithNodeData : public PerimeterModifier
+{
+protected:
+    // map of layerslice island to be sure we can be used in parallel.
+    mutable std::mutex m_mutex;
+    mutable std::map<const LayerRegionIsland *, std::map<const PerimeterNode *, DATA_TYPE>> m_nodes_with_extra_perimeter;
+
+    const DATA_TYPE& get_data(LayerRegionIsland *island, const PerimeterNode *node) const {
+        std::lock_guard lock(m_mutex);
+        return m_nodes_with_extra_perimeter[island][node];
+    }
+
+    void set_data(LayerRegionIsland *island, const PerimeterNode *node, const DATA_TYPE &data) {
+        std::lock_guard lock(m_mutex);
+        m_nodes_with_extra_perimeter[island][node] = data;
+    }
+
+    void finish_generation(const PerimeterProcessContext &context, PerimeterTree &tree) const override {
+        std::lock_guard lock(m_mutex);
+        m_nodes_with_extra_perimeter.erase(&context.region_island);
     }
 };
 
-class ExtraPerimeterOddLayer final : public PerimeterModifier
+// inspired by PeriemterGenerator.cpp lines 3551->3609
+class ExtraPerimeterCount final : public PerimeterModifierWithNodeData<int>
 {
 public:
-    //map of layerslice island to be sure we can be used in parallel.
-    std::mutex mutex;
-    std::map<const LayerSliceIsland*, std::set<const PerimeterNode *>> nodes_with_extra_perimeter;
-    void after_root_created(const PerimeterProcessContext &params,
-                            PerimeterTree &tree,
-                            PerimeterNode &root) const override {
-        std::lock_guard lock(mutex);
-        nodes_with_extra_perimeter[&params.island].clear();
-        // only on odd layers
-        if (params.layer.id() % 2 == 0) {
+    void start_generation(const PerimeterProcessContext &params,
+                            PerimeterTree &tree) const override
+    {
+        // solo config code path
+        const ConfigOption *opt_extra_perimeters_count = params.region_config().option("extra_perimeters_count");
+        if (params.region_setting.has_many_config(opt_extra_perimeters_count))
             return;
-        }
-        if (params.region_setting.get_solo_config(params.region_config().option("extra_perimeters_odd_layers")).get_bool()) {
-            root.perimeter_needed += 1;
-            nodes_with_extra_perimeter[&params.island].insert(&root);
+        const int extra_perimeters_count = params.region_setting.get_solo_config(opt_extra_perimeters_count).get_int();
+        if (extra_perimeters_count > 0) {
+            tree.root().perimeter_needed += extra_perimeters_count;
         }
     }
 
-    bool check_and_set_already_seen(LayerSliceIsland * island, const PerimeterNode *search_for) const
-    {
-        std::lock_guard lock(mutex);
-        auto it = nodes_with_extra_perimeter.find(island);
-        if (it == nodes_with_extra_perimeter.end()) {
+    void after_generation(const PerimeterProcessContext &params,
+                          PerimeterTree &tree,
+                          PerimeterNode &parent) const override {
+        (void) tree;
+        // many config code path
+        if (parent.children.empty()) {
+            return;
+        }
+
+        const ConfigOption *opt_extra_perimeters_count = params.region_config().option("extra_perimeters_count");
+        if(!params.region_setting.has_many_config(opt_extra_perimeters_count)) {
+                return;
+        }
+        std::vector<PerimeterNodePtr> new_nodes;
+        const int already_extruded_extra = this->get_data(&params.region_island, &parent);
+        // iterate per child
+        for (PerimeterNodePtr &child : parent.children) {
+            // if no more perimeters, we can add more!
+            if (child->needs_more_perimeters())
+                return;
+
+
+            ExPolygons extra_perimeter_clip_area;
+            for (auto const &[extra_perimeters_count_settings, clip] :
+                 params.region_setting.get_areas(opt_extra_perimeters_count)) {
+                const int extra_perimeters_count = extra_perimeters_count_settings.get_int(opt_extra_perimeters_count);
+                if (already_extruded_extra >= extra_perimeters_count) {
+                    continue;
+                }
+                append(extra_perimeter_clip_area, clip.expolys);
+            }
+            extra_perimeter_clip_area = union_ex(extra_perimeter_clip_area);
+
+            const size_t start_idx = new_nodes.size();
+            const int nb_inside = PerimeterTree::split_node(params, *child, new_nodes, extra_perimeter_clip_area);
+
+            if (nb_inside <= 0)
+                continue;
+
+            child->perimeter_needed++;
+            this->set_data(&params.region_island, child.get(), already_extruded_extra + 1);
+            assert(start_idx + size_t(nb_inside - 1) <= new_nodes.size());
+            for (size_t idx = 0; idx < size_t(nb_inside - 1); ++idx) {
+                new_nodes[start_idx + idx]->perimeter_needed++;
+                this->set_data(&params.region_island, new_nodes[start_idx + idx].get(), already_extruded_extra + 1);
+            }
+        }
+        if (!new_nodes.empty()) {
+            parent.append_new_children(std::move(new_nodes));
+        }
+    }
+};
+    
+class ExtraPerimeterModifier : public PerimeterModifier
+{
+protected:
+    // map of layerslice island to be sure we can be used in parallel.
+    mutable std::mutex m_mutex;
+    mutable std::map<const LayerRegionIsland *, std::set<const PerimeterNode *>> m_nodes_with_extra_perimeter;
+    bool check_and_set_already_seen(LayerRegionIsland *island, const PerimeterNode *search_for) const {
+        std::lock_guard lock(m_mutex);
+        auto it = m_nodes_with_extra_perimeter.find(island);
+        if (it == m_nodes_with_extra_perimeter.end()) {
             return false;
         }
         std::set<const PerimeterNode *> &already_seen = it->second;
         const PerimeterNode *current = search_for;
-        while(current) {
+        while (current) {
             if (already_seen.find(current) != already_seen.end()) {
                 return true;
             }
@@ -327,22 +455,110 @@ public:
         already_seen.insert(search_for);
         return false;
     }
+    void finish_generation(const PerimeterProcessContext &context, PerimeterTree &tree) const override {
+        std::lock_guard lock(m_mutex);
+        m_nodes_with_extra_perimeter.erase(&context.region_island);
+    }
+};
+
+class ExtraPerimeterBelowArea final : public ExtraPerimeterModifier
+{
+public:
 
     void after_generation(const PerimeterProcessContext &params,
                           PerimeterTree &tree,
-                          PerimeterNode &parent,
-                          const std::vector<PerimeterNode *> &children) const override
+                          PerimeterNode &parent) const override
     {
+        std::vector<PerimeterNodePtr> new_nodes;
+        for (PerimeterNodePtr &child : parent.children) {
+            // add extra when it's the end, after all periemters are already extruded
+            if(child->needs_more_perimeters()) {
+                continue;
+            }
+            // only do it one time per branch (more of an optimisation, it will be exluded again anyway)
+            if (check_and_set_already_seen(&params.region_island, &parent)) {
+                continue;
+            }
+
+            const ConfigOption *opt_extra_perimeters_below_area = params.region_config().option("extra_perimeters_below_area");
+            if (!params.region_setting.has_many_config(opt_extra_perimeters_below_area) &&
+                params.region_setting.get_solo_config(opt_extra_perimeters_below_area).get_float() <= 0) {
+                continue;
+            }
+
+            for (auto const &[extra_perimeters_below_area, clip] :
+                 params.region_setting.get_areas(opt_extra_perimeters_below_area)) {
+                // use only areas with useful min value
+                if (extra_perimeters_below_area.get_float(opt_extra_perimeters_below_area) <= 0) {
+                    continue;
+                }
+
+                const double area_mm2 = extra_perimeters_below_area.get_effective_value(sqr(params.perimeter_flow().width()));
+                const double area_scaled = scale_d(scale_d(area_mm2));
+
+                // if clip.empty - solo config
+                if (clip.is_accept_all()) {
+                    if (child->surface.area() < area_scaled) {
+                        child->perimeter_needed += 9999;
+                    }
+                    continue;
+                }
+                assert(!clip.empty());
+
+                const size_t start_idx = new_nodes.size();
+                const int nb_inside = PerimeterTree::split_node(params, *child, new_nodes, clip.expolys);
+                if (nb_inside <= 0)
+                    continue;
+
+                if (child->surface.area() < area_scaled) {
+                    child->perimeter_needed += 9999;
+                }
+                assert(start_idx + size_t(nb_inside - 1) <= new_nodes.size());
+                for (size_t idx = 0; idx < size_t(nb_inside - 1); ++idx) {
+                    if (new_nodes[start_idx + idx]->surface.area() < area_scaled) {
+                        new_nodes[start_idx + idx]->perimeter_needed += 9999;
+                    }
+                }
+            }
+        }
+        if (!new_nodes.empty()) {
+            parent.append_new_children(std::move(new_nodes));
+        }
+    }
+};
+
+// inspired from PeriemterGenerator.cpp lines 3660->3694
+class ExtraPerimeterOddLayer final : public ExtraPerimeterModifier
+{
+public:
+    //map of layerslice island to be sure we can be used in parallel.
+    void start_generation(const PerimeterProcessContext &params,
+                            PerimeterTree &tree) const override {
+        // == solo_config code path ==
         // only on odd layers
         if (params.layer.id() % 2 == 0) {
             return;
         }
-        // only do it one time per branch. If one parent is already done, stop here.
-        if (check_and_set_already_seen(&params.island, &parent)) {
+        if (params.region_setting.get_solo_config(params.region_config().option("extra_perimeters_odd_layers")).get_bool()) {
+            tree.root().perimeter_needed += 1;
+        }
+    }
+
+    void after_generation(const PerimeterProcessContext &params,
+                          PerimeterTree &tree,
+                          PerimeterNode &parent) const override
+    {
+        // == many_config code path ==
+        // only on odd layers
+        if (params.layer.id() % 2 == 0) {
             return;
         }
         // do it when the last perimeter is extruded
-        if(parent.perimeter_idx < parent.perimeter_needed) {
+        if(!parent.is_last_perimeter()) {
+            return;
+        }
+        // only do it one time per branch. If one parent is already done, stop here.
+        if (check_and_set_already_seen(&params.region_island, &parent)) {
             return;
         }
         // check where we need to do it
@@ -352,24 +568,26 @@ public:
             for (auto const &[is_extra_perimeters_odd_layers, areas] :
                  params.region_setting.get_areas(opt_extra_perimeters_odd_layers)) {
                 if (is_extra_perimeters_odd_layers.get_bool()) {
-                    std::vector<PerimeterNode> new_nodes;
-                    for (PerimeterNode &child : parent.children) {
+                    std::vector<PerimeterNodePtr> new_nodes;
+                    for (PerimeterNodePtr &child : parent.children) {
                         int start_idx = new_nodes.size();
-                        int nb_extra_peri = PerimeterTree::split_node(params, child, new_nodes, areas.expolys);
+                        int nb_extra_peri = PerimeterTree::split_node(params, *child, new_nodes, areas.expolys);
                         if(nb_extra_peri > 0) {
-                            child.perimeter_needed = 1;
-                            assert(start_idx + nb_extra_peri <= new_nodes.size());
-                            for(size_t idx = 0; idx < nb_extra_peri; idx++) {
-                                new_nodes[start_idx + idx].perimeter_needed += 1;
+                            child->perimeter_needed = 1;
+                            assert(start_idx + nb_extra_peri - 1 <= new_nodes.size());
+                            for(size_t idx = 0; idx < size_t(nb_extra_peri - 1); idx++) {
+                                new_nodes[start_idx + idx]->perimeter_needed += 1;
                             }
                         }
                     }
+                    parent.append_new_children(std::move(new_nodes));
                 }
             }
         }
     }
 };
 
+// inspired from PeriemterGenerator.cpp lines 3409->3462
 class OnlyOnePerimeterOnTop final : public PerimeterModifier
 {
 protected:
@@ -387,28 +605,9 @@ public:
 
     void after_generation(const PerimeterProcessContext &params,
                           PerimeterTree &tree,
-                          PerimeterNode &parent,
-                          const std::vector<PerimeterNode *> &children) const override
+                          PerimeterNode &parent) const override
     {
-        // only active on first perimeter
-        // 
-        // Pseudo-code intent:
-        //
-        // top_surfaces = get_top_surfaces(parent.surface);
-        // if (!top_surfaces.empty()) {
-        //     for (top_surface : top_surfaces) {
-        //         use parent.extrusions;
-        //         append(fill_surfaces,
-        //             intersection(top_surface,
-        //                 offset(child.surface, ext_perimeter_spacing / 2)));
-        //     }
-        // }
-        //
-        // This hook has both sides of the operation: the parent node contains
-        // the generated ring extrusions, and children contain the inner surfaces.
-        // It can clamp child contour/hole counts or create fill clipping data.
-
-        // if first periemter, and has a first perimeter, and areas inside
+        // if first perimeter, and has a first perimeter, and areas inside
         if (parent.perimeter_idx > 0 || parent.extrusions.empty() || parent.perimeter_needed == 0 || parent.children.empty()) {
             return;
         }
@@ -426,8 +625,8 @@ public:
         if (params.island.overlaps_above.empty()) {
             // nope: stop here!
             parent.perimeter_needed = 1;
-            for (auto &child : parent.children) {
-                child.perimeter_needed = 1;
+            for (PerimeterNodePtr &child : parent.children) {
+                child->perimeter_needed = 1;
             }
         } else {
             //yes, check if we have a top area
@@ -478,20 +677,19 @@ public:
             // Make sure infill not overlap with wall
             // offset the InnerContour as the result use bounds and not centerline
             ExPolygons inner_areas;
-            std::vector<PerimeterNode> new_nodes;
-            for (PerimeterNode &child : parent.children) {
+            std::vector<PerimeterNodePtr> new_nodes;
+            for (PerimeterNodePtr &child : parent.children) {
                 int start_idx = new_nodes.size();
-                int nb_top = PerimeterTree::split_node(params, child, new_nodes, top_fills);
+                int nb_top = PerimeterTree::split_node(params, *child, new_nodes, top_fills);
                 if(nb_top > 0) {
-                    child.perimeter_needed = 1;
-                    assert(start_idx + nb_top <= new_nodes.size());
-                    for(size_t idx = 0; idx < nb_top; idx++) {
-                        new_nodes[start_idx + idx].perimeter_needed = 1;
+                    child->perimeter_needed = 1;
+                    assert(start_idx + nb_top - 1 <= new_nodes.size());
+                    for(size_t idx = 0; idx < size_t(nb_top - 1); idx++) {
+                        new_nodes[start_idx + idx]->perimeter_needed = 1;
                     }
                 }
             }
-            parent.children.insert(parent.children.end(), std::make_move_iterator(new_nodes.begin()),
-                                    std::make_move_iterator(new_nodes.end()));
+            parent.append_new_children(std::move(new_nodes));
         }
     }
 };
@@ -528,12 +726,16 @@ public:
 
 const std::vector<const PerimeterModifier *> &perimeter_modifiers()
 {
-    static const ExtraPerimeter extra_perimeter;
+    static const ExtraPerimeterCount extra_perimeter_count;
+    static const ExtraPerimeterBelowArea extra_perimeter_below_area;
+    static const ExtraPerimeterOddLayer extra_perimeter_odd_layer;
     static const OnlyOnePerimeterOnTop only_one_perimeter_on_top;
     static const SeparateHoleContour separate_hole_contour;
     static const std::vector<const PerimeterModifier *> modifiers = {
-        &extra_perimeter,
         &only_one_perimeter_on_top,
+        &extra_perimeter_count,
+        &extra_perimeter_below_area,
+        &extra_perimeter_odd_layer,
         &separate_hole_contour
     };
     return modifiers;
@@ -583,7 +785,7 @@ void process_surface(Print &print,
                      const ExPolygon &surface)
 {
     assert(!region_island.regions().empty());
-    RegionSettings region_settings(region_island.regions().front()->config(), perimeter_keys);
+    RegionSettings region_settings((*region_island.regions().begin())->config(), perimeter_keys);
     segregate_extra_perimeters(region_settings, surface, region_island.regions());
     PerimeterProcessContext context{print, object, layer, island, region_island, region_settings, surface};
     PerimeterTree tree(surface);
@@ -595,7 +797,7 @@ void process_surface(Print &print,
 
     const std::vector<const PerimeterModifier *> &modifiers = perimeter_modifiers();
     for (const PerimeterModifier *modifier : modifiers)
-        modifier->after_root_created(context, tree, root);
+        modifier->start_generation(context, tree);
 
     std::vector<PerimeterNode *> pending_nodes;
     pending_nodes.push_back(&root);
@@ -605,7 +807,6 @@ void process_surface(Print &print,
         pending_nodes.pop_back();
 
         if (!node->needs_more_perimeters()) {
-            tree.finish_node(*node);
             continue;
         }
 
@@ -622,16 +823,18 @@ void process_surface(Print &print,
         // Modifiers can now edit the generated parent extrusion, repair/remove
         // children, or change child counters before they are queued.
         for (const PerimeterModifier *modifier : modifiers)
-            modifier->after_generation(context, tree, *node, children);
+            modifier->after_generation(context, tree, *node);
 
-        for (PerimeterNode *child : children)
-            if (!child->discarded)
-                pending_nodes.push_back(child);
+        for (PerimeterNodePtr &child : node->children)
+            pending_nodes.push_back(child.get());
     }
 
     // Gap fill is intentionally left out of this first PerimeterGenerator2
     // sketch. It will either become a post-perimeter step or an infill-side
     // operation once the perimeter/fill boundary contract is stable.
+    
+    for (const PerimeterModifier *modifier : modifiers)
+        modifier->finish_generation(context, tree);
 
     build_fill_surfaces(context, tree);
     publish_surface_result(context, tree);
