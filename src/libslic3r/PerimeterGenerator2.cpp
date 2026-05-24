@@ -829,6 +829,99 @@ std::vector<PerimeterNodePtr> make_rebuilt_children(const PerimeterNode &parent,
     return children;
 }
 
+ExPolygons lower_slice_coverage(const LayerSliceIsland &island)
+{
+    ExPolygons lower_slices;
+    lower_slices.reserve(island.overlaps_below.size());
+    for (const LayerSliceIsland::Link &lower_island : island.overlaps_below)
+        if (lower_island.to != nullptr)
+            lower_slices.push_back(lower_island.to->get_slice());
+    return lower_slices.empty() ? lower_slices : union_ex(lower_slices);
+}
+
+ExPolygons gap_fill_no_overhang_area(const PerimeterProcessContext &context, const PerimeterNode &node)
+{
+    const ConfigOption *opt_gap_fill_no_overhang = context.region_config().option("gap_fill_no_overhang");
+    const std::map<RegionSettings::SettingsValue, RegionSettings::ClipExpoly> setting_areas =
+        context.region_setting.get_areas(opt_gap_fill_no_overhang);
+    const ExPolygons lower_slices = lower_slice_coverage(context.island);
+
+    ExPolygons forbidden_area;
+    for (const std::pair<const RegionSettings::SettingsValue, RegionSettings::ClipExpoly> &setting_area : setting_areas) {
+        const RegionSettings::SettingsValue &setting_value = setting_area.first;
+        const RegionSettings::ClipExpoly &active_area = setting_area.second;
+        if (!setting_value.get_bool(opt_gap_fill_no_overhang))
+            continue;
+
+        ExPolygons enabled_area = active_area.is_accept_all() ?
+                                      ExPolygons{node.surface} :
+                                      active_area.intersections(ExPolygons{node.surface});
+        if (enabled_area.empty())
+            continue;
+
+        ExPolygons unsupported_area = lower_slices.empty() ? enabled_area : diff_ex(enabled_area, lower_slices);
+        append(forbidden_area, std::move(unsupported_area));
+    }
+
+    return forbidden_area.empty() ? forbidden_area : union_ex(forbidden_area);
+}
+
+void append_entity_without_overhang_gap_fill(ExtrusionEntityCollection &dst,
+                                             const ExtrusionEntity &entity,
+                                             const ExPolygons &forbidden_area)
+{
+    if (entity.is_loop() || !entity.has_polyline()) {
+        dst.append(entity);
+        return;
+    }
+
+    // Gap fill is expected to be a plain path. Clipping through diff_pl()
+    // rebuilds linear fragments; if richer point data becomes meaningful for
+    // gap fill later, this needs an ArcPolyline-aware clipper.
+    Polylines fragments = diff_pl(entity.polyline_ref().to_polyline(), forbidden_area);
+    for (const Polyline &fragment : fragments) {
+        if (fragment.points.size() < 2)
+            continue;
+
+        ExtrusionEntityUPtr clipped_entity(entity.clone());
+        clipped_entity->set_polyline(ArcPolyline(fragment));
+        if (!clipped_entity->empty())
+            dst.append(std::move(clipped_entity));
+    }
+}
+
+void remove_gap_fill_on_overhangs(ExtrusionEntityCollection &extrusions, const ExPolygons &forbidden_area)
+{
+    if (forbidden_area.empty() || extrusions.empty())
+        return;
+
+    ExtrusionEntityCollection clipped_extrusions(extrusions.can_sort(), extrusions.can_reverse());
+    for (const ExtrusionEntityUPtr &entity : extrusions.children())
+        if (entity)
+            append_entity_without_overhang_gap_fill(clipped_extrusions, *entity, forbidden_area);
+
+    extrusions = std::move(clipped_extrusions);
+}
+
+class RemoveGapFillOnOverhangs final : public PerimeterModifier
+{
+public:
+    void after_generation(const PerimeterProcessContext &context,
+                          PerimeterTree &tree,
+                          PerimeterNode &parent) const override
+    {
+        (void) tree;
+        const ConfigOption *opt_gap_fill_no_overhang = context.region_config().option("gap_fill_no_overhang");
+        if (!context.region_setting.has_many_config(opt_gap_fill_no_overhang) &&
+            !context.region_setting.get_solo_config(opt_gap_fill_no_overhang).get_bool(opt_gap_fill_no_overhang)) {
+            return;
+        }
+
+        ExPolygons forbidden_area = gap_fill_no_overhang_area(context, parent);
+        remove_gap_fill_on_overhangs(parent.extrusions, forbidden_area);
+    }
+};
+
 class SeparateHoleContour final : public PerimeterModifierWithNodeData<HoleCountourCount>
 {
 public:
@@ -967,12 +1060,14 @@ const std::vector<const PerimeterModifier *> &perimeter_modifiers()
     static const ExtraPerimeterOddLayer extra_perimeter_odd_layer;
     static const OnlyOnePerimeterOnTop only_one_perimeter_on_top;
     static const SeparateHoleContour separate_hole_contour;
+    static const RemoveGapFillOnOverhangs remove_gap_fill_on_overhangs;
     static const std::vector<const PerimeterModifier *> modifiers = {
         &only_one_perimeter_on_top,
         &extra_perimeter_count,
         &extra_perimeter_below_area,
         &extra_perimeter_odd_layer,
-        &separate_hole_contour
+        &separate_hole_contour,
+        &remove_gap_fill_on_overhangs
     };
     return modifiers;
 }
