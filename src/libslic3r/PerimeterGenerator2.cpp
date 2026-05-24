@@ -771,10 +771,40 @@ size_t erase_perimeter_class(ExtrusionEntityCollection &extrusions, bool erase_h
 ExPolygon pick_fill_surface_for_child(const ExPolygon &surface, const ExPolygons &fill_surfaces)
 {
     if (!surface.empty()) {
+        // Fast path: a point-in-polygon test is much cheaper than clipping the
+        // child surface against every possible fill surface. Most children have
+        // exactly one matching fill surface, so keep the expensive geometry for
+        // the ambiguous case only.
         const Point &sample = surface.contour.points.front();
-        for (const ExPolygon &fill_surface : fill_surfaces)
-            if (fill_surface.contains(sample))
-                return fill_surface;
+        std::vector<size_t> candidate_idxs;
+        for (size_t idx = 0; idx < fill_surfaces.size(); ++idx)
+            if (fill_surfaces[idx].contains(sample))
+                candidate_idxs.push_back(idx);
+
+        if (candidate_idxs.size() == 1)
+            return fill_surfaces[candidate_idxs.front()];
+
+        if (candidate_idxs.size() > 1) {
+            ExPolygons best_intersection;
+            double best_area = 0.;
+            for (const size_t idx : candidate_idxs) {
+                ExPolygons intersection = intersection_ex(surface, fill_surfaces[idx]);
+                double intersection_area = 0.;
+                for (const ExPolygon &expoly : intersection)
+                    intersection_area += expoly.area();
+
+                if (intersection_area > best_area) {
+                    best_area = intersection_area;
+                    best_intersection = std::move(intersection);
+                }
+            }
+
+            if (!best_intersection.empty()) {
+                ExPolygons merged = union_ex(best_intersection);
+                if (!merged.empty())
+                    return merged.front();
+            }
+        }
     }
     return surface;
 }
