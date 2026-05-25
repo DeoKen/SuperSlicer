@@ -5,8 +5,10 @@
 
 #include "ExtraPerimeterCount.hpp"
 
+#include <cassert>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
@@ -25,25 +27,47 @@ const char *k_extra_perimeter_count_key = "extra_perimeters_count";
 class ModuleState
 {
 public:
+    void initialize_region_settings(const PerimeterGenerationContextView &context)
+    {
+        // RegionSettings only depends on the current island, its regions and
+        // the static config values. The host may call after() for many nodes in
+        // the same perimeter tree, so build and segregate this once in start().
+        m_settings.reset(new RegionSettings(context.storage(), context.island(), {{k_extra_perimeter_count_key}}));
+        m_settings->segregate(context.island().slice());
+    }
+
+    const RegionSettings *settings() const
+    {
+        return m_settings.get();
+    }
+
     int32_t get(const perimeter_node *node) const
     {
-        const std::map<const perimeter_node *, int32_t>::const_iterator it = counts.find(node);
-        return it == counts.end() ? 0 : it->second;
+        // For region-local settings, each split branch needs to know how many
+        // extra perimeters it has already consumed. Missing means this branch
+        // has not consumed any extra count yet.
+        const std::map<const perimeter_node *, int32_t>::const_iterator it = m_counts.find(node);
+        return it == m_counts.end() ? 0 : it->second;
     }
 
     void set(const perimeter_node *node, int32_t count)
     {
-        counts[node] = count;
+        m_counts[node] = count;
     }
 
 private:
-    std::map<const perimeter_node *, int32_t> counts;
+    std::unique_ptr<RegionSettings> m_settings;
+    std::map<const perimeter_node *, int32_t> m_counts;
 };
 
 bool build_extra_clip(const RegionSettings::AreaMap &areas,
                       int32_t already_extruded_extra,
                       RegionSettingsClip &clip_out)
 {
+    // Merge every area whose configured extra count is still greater than the
+    // number already consumed by the current branch. The result is one clip:
+    // either "accept all" for the uniform case, or a union of all still-eligible
+    // region-local areas.
     bool has_clip = false;
     for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas) {
         const int32_t extra_perimeters_count = entry.first.get_int(k_extra_perimeter_count_key);
@@ -69,6 +93,10 @@ void request_extra_for_inside_nodes(const std::vector<PerimeterNodeView> &inside
                                     int32_t next_extra_count)
 {
     for (const PerimeterNodeView &inside_node : inside_nodes) {
+        // Split nodes may already be complete at their current depth. Asking
+        // for one current perimeter makes the host process the inside branch
+        // once more, then the stored count tells the next after() call how many
+        // region-local extras this branch has consumed.
         inside_node.request_current_perimeter();
         state.set(inside_node.handle(), next_extra_count);
     }
@@ -76,21 +104,38 @@ void request_extra_for_inside_nodes(const std::vector<PerimeterNodeView> &inside
 
 void *module_start(void *, perimeter_generation_context *context)
 {
+    // One state object per perimeter tree. It owns the pre-segregated settings
+    // and the per-branch counters, so it must not live on the plugin singleton.
     ModuleState *state = new ModuleState();
+    assert(context != nullptr);
+    assert(context == nullptr || context->root != nullptr);
     if (context == nullptr || context->root == nullptr)
         return state;
 
     PerimeterGenerationContextView context_view(context);
-    if (context_view.island().region_count() == 0)
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    if (region_count == 0)
         return state;
 
-    RegionSettings settings = context_view.region_settings({{k_extra_perimeter_count_key}});
-    settings.segregate(context_view.island().slice());
-    if (settings.has_many_config(k_extra_perimeter_count_key))
+    state->initialize_region_settings(context_view);
+    const RegionSettings *settings = state->settings();
+    assert(settings != nullptr);
+
+    // == many_config code path ==
+    // Region-local values cannot be resolved at the root: the generator has to
+    // create child areas first, then after() will split those children against
+    // the clips where another extra perimeter is still allowed.
+    if (settings == nullptr || settings->has_many_config(k_extra_perimeter_count_key))
         return state;
 
+    // == solo_config code path ==
+    // Fast uniform path. If the whole island uses one value, the root branch can
+    // simply request the configured number of extra perimeters up front. The
+    // after() path is only needed when different regions require different
+    // counts and child areas have to be split.
     const int32_t extra_perimeters_count =
-        settings.get_solo_config(k_extra_perimeter_count_key).get_int(k_extra_perimeter_count_key);
+        settings->get_solo_config(k_extra_perimeter_count_key).get_int(k_extra_perimeter_count_key);
     if (extra_perimeters_count > 0)
         context_view.root().add_perimeters(uint32_t(extra_perimeters_count));
     return state;
@@ -98,28 +143,46 @@ void *module_start(void *, perimeter_generation_context *context)
 
 void module_after(void *, void *user_context, perimeter_generation_context *context, perimeter_node *node)
 {
+    // Region-local extra counts are applied in after(), once the generator has
+    // created the child areas that may need one more perimeter.
     ModuleState *state = static_cast<ModuleState *>(user_context);
+    assert(context != nullptr);
+    assert(node != nullptr);
+    assert(state != nullptr);
     if (context == nullptr || node == nullptr || state == nullptr)
         return;
 
     PerimeterGenerationContextView context_view(context);
-    if (context_view.island().region_count() == 0)
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    if (region_count == 0)
         return;
 
+    const RegionSettings *settings = state->settings();
+    assert(settings != nullptr);
+    if (settings == nullptr || !settings->has_many_config(k_extra_perimeter_count_key))
+        return;
+
+    // == many_config code path ==
+    // The solo_config case was fully handled in start(), so after() only deals
+    // with per-region values. At this point the generator has created child
+    // areas, which can be split by RegionSettings clips.
     PerimeterNodeView parent(node);
+    // No children means there is no remaining inner area to split or extend.
     if (parent.child_count() == 0)
         return;
 
-    RegionSettings settings = context_view.region_settings({{k_extra_perimeter_count_key}});
-    settings.segregate(context_view.island().slice());
-    if (!settings.has_many_config(k_extra_perimeter_count_key))
-        return;
-
-    const RegionSettings::AreaMap &areas = settings.get_areas(k_extra_perimeter_count_key);
+    const RegionSettings::AreaMap &areas = settings->get_areas(k_extra_perimeter_count_key);
     const int32_t already_extruded_extra = state->get(node);
+    // Take a snapshot because split_node() may rebuild the parent's child array.
+    // Views store node pointers, not array-slot addresses, so they remain valid
+    // under the current split contract.
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
 
     for (const PerimeterNodeView &child : children) {
+        // If something else already requested this child, let that request run
+        // first. This module will see the generated descendants later with the
+        // per-branch extra count preserved in ModuleState.
         if (child.needs_more_perimeters())
             return;
 
@@ -127,6 +190,9 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
         if (!build_extra_clip(areas, already_extruded_extra, eligible_clip))
             continue;
 
+        // Only the part of the child falling inside the still-eligible clip
+        // should receive the next extra perimeter. The outside siblings keep
+        // their current count and will stop if no other module touches them.
         const std::vector<PerimeterNodeView> inside_nodes = context_view.split_node(child, eligible_clip);
         request_extra_for_inside_nodes(inside_nodes, *state, already_extruded_extra + 1);
     }
@@ -134,6 +200,9 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
 
 void module_end(void *, void *user_context, perimeter_generation_context *)
 {
+    assert(user_context != nullptr);
+    if (user_context == nullptr)
+        return;
     delete static_cast<ModuleState *>(user_context);
 }
 
