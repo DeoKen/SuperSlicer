@@ -861,31 +861,30 @@ bool validate_post(const Print &, std::string *)
 
 void run_step(Orchestrator &orchestrator, Print &print)
 {
-    std::vector<Plugin *> plugins =
-        selected_or_active_plugins_for_step(orchestrator, STEP_PERIMETER, &print.full_print_config());
-    if (plugins.empty())
+    // STEP_PERIMETER is an exclusive step: many perimeter generator plugins may
+    // be active, but exactly one owns the generation for this print. The
+    // selected_or_active_plugin_for_step() helper reads the generated
+    // step_perimeter_plugin config option when it exists, falling back to the
+    // first active generator only when there is no selector to read.
+    Plugin *plugin = selected_or_active_plugin_for_step(orchestrator, STEP_PERIMETER, &print.full_print_config());
+    if (plugin == nullptr)
         return;
 
     const size_t run_count = count_layer_islands(print);
-    for (Plugin *plugin : plugins) {
-        if (plugin == nullptr)
-            continue;
+    plugin_host_context host_context =
+        orchestrator.prepare_plugin_host_context(STEP_PERIMETER, plugin, &print);
+    plugin_run_context setup_context =
+        orchestrator.prepare_plugin_run_context(STEP_PERIMETER, plugin, &host_context);
+    plugin->setup(setup_context, uint32_t(run_count));
 
-        plugin_host_context host_context =
-            orchestrator.prepare_plugin_host_context(STEP_PERIMETER, plugin, &print);
-        plugin_run_context setup_context =
-            orchestrator.prepare_plugin_run_context(STEP_PERIMETER, plugin, &host_context);
-        plugin->setup(setup_context, uint32_t(run_count));
-
-        for (PrintObject &object : print.objects()) {
-            for (Layer &layer : object.layers()) {
-                bool layer_needs_fill_rebuild = false;
-                for (LayerSliceIsland &island : layer.islands())
-                    layer_needs_fill_rebuild |= run_generator_for_island(
-                        orchestrator, *plugin, print, object, layer, island, host_context);
-                if (layer_needs_fill_rebuild)
-                    build_region_fill_surfaces(layer);
-            }
+    for (PrintObject &object : print.objects()) {
+        for (Layer &layer : object.layers()) {
+            bool layer_needs_fill_rebuild = false;
+            for (LayerSliceIsland &island : layer.islands())
+                layer_needs_fill_rebuild |= run_generator_for_island(
+                    orchestrator, *plugin, print, object, layer, island, host_context);
+            if (layer_needs_fill_rebuild)
+                build_region_fill_surfaces(layer);
         }
     }
 }

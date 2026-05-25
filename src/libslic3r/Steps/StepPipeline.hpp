@@ -44,6 +44,9 @@ const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps();
 std::vector<Plugin *> selected_or_active_plugins_for_step(Orchestrator &orchestrator,
                                                           slicing_step_t step,
                                                           const ConfigBase *config);
+Plugin *selected_or_active_plugin_for_step(Orchestrator &orchestrator,
+                                           slicing_step_t step,
+                                           const ConfigBase *config);
 
 // Central entry point for the step-based slicing pipeline.
 //

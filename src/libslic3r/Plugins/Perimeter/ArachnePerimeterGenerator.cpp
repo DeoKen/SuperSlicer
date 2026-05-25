@@ -26,7 +26,6 @@
 #include "libslic3r/LayerRegion.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintRegion.hpp"
-#include "libslic3r/SurfaceCollection.hpp"
 
 namespace slic3r_api { namespace Perimeter { namespace ArachnePerimeterGeneratorPlugin {
 
@@ -34,11 +33,6 @@ namespace {
 
 const char *k_arachne_perimeter_generator_id = "perimeter.generator.arachne";
 const char *k_no_dependencies[] = { nullptr };
-
-const Slic3r::LayerSliceIsland *to_layer_island(const layer_island_handle *handle)
-{
-    return reinterpret_cast<const Slic3r::LayerSliceIsland *>(handle);
-}
 
 const Slic3r::Layer *to_layer(const layer_handle *handle)
 {
@@ -50,21 +44,9 @@ const Slic3r::Print *to_print(const print_handle *handle)
     return reinterpret_cast<const Slic3r::Print *>(handle);
 }
 
-layer_region_island_handle *get_or_create_single_region_island(const run_ctx_generate_perimeter &ctx,
-                                                               const Slic3r::LayerSliceIsland &island,
-                                                               std::vector<const layer_region_handle *> &region_handles)
+const Slic3r::LayerSliceIsland *to_layer_island(const layer_island_handle *handle)
 {
-    if (ctx.get_or_create_region_island == nullptr)
-        return nullptr;
-
-    region_handles.clear();
-    region_handles.reserve(island.regions().size());
-    for (const Slic3r::LayerRegion *region : island.regions())
-        region_handles.push_back(reinterpret_cast<const layer_region_handle *>(region));
-
-    return ctx.get_or_create_region_island(ctx.island,
-                                           region_handles.empty() ? nullptr : region_handles.data(),
-                                           uint32_t(region_handles.size()));
+    return reinterpret_cast<const Slic3r::LayerSliceIsland *>(handle);
 }
 
 const Slic3r::LayerRegion *first_region(const Slic3r::LayerSliceIsland &island)
@@ -121,13 +103,13 @@ Slic3r::ExtrusionPaths variable_width_paths(const Slic3r::Arachne::ExtrusionLine
 }
 
 void annotate_paths(Slic3r::ExtrusionPaths &paths,
-                    const size_t inset_idx,
+                    const size_t shell_idx,
                     const Slic3r::ExtrusionLoopRole loop_role)
 {
-    const int16_t shell_idx = int16_t(std::min<size_t>(inset_idx, size_t(std::numeric_limits<int16_t>::max())));
+    const int16_t shell_count = int16_t(std::min<size_t>(shell_idx, size_t(std::numeric_limits<int16_t>::max())));
     for (Slic3r::ExtrusionPath &path : paths) {
         path.get_or_add_property<EPropertyPerimeter>()
-            .shell_count(shell_idx)
+            .shell_count(shell_count)
             .perimeter_role(int32_t(loop_role));
     }
 }
@@ -150,6 +132,7 @@ void append_open_paths(Slic3r::ExtrusionEntityCollection &dst, Slic3r::Extrusion
 void append_arachne_line(Slic3r::ExtrusionEntityCollection &dst,
                          const Slic3r::Arachne::ExtrusionLine &line,
                          const size_t biggest_inset_idx,
+                         const size_t inset_offset,
                          const Slic3r::Layer &layer,
                          const Slic3r::PrintRegionConfig &region_config,
                          const Slic3r::PrintConfig &print_config,
@@ -159,7 +142,8 @@ void append_arachne_line(Slic3r::ExtrusionEntityCollection &dst,
     if (line.size() < 2 || line.is_zero_length())
         return;
 
-    const bool is_external = line.inset_idx == 0;
+    const size_t absolute_inset_idx = inset_offset + line.inset_idx;
+    const bool is_external = absolute_inset_idx == 0;
     const bool is_contour = line.is_contour();
     const bool is_closed = line_is_closed(line);
     const Slic3r::ExtrusionRole role = is_external ?
@@ -171,7 +155,7 @@ void append_arachne_line(Slic3r::ExtrusionEntityCollection &dst,
     if (paths.empty())
         return;
 
-    annotate_paths(paths, line.inset_idx, loop_role);
+    annotate_paths(paths, absolute_inset_idx, loop_role);
 
     if (is_closed && paths.back().last_point().coincides_with_epsilon(paths.front().first_point())) {
         Slic3r::ExtrusionLoop loop(std::move(paths), loop_role);
@@ -198,6 +182,7 @@ void append_arachne_line(Slic3r::ExtrusionEntityCollection &dst,
 
 Slic3r::ExtrusionEntityCollection make_arachne_extrusions(
     const std::vector<Slic3r::Arachne::VariableWidthLines> &perimeters,
+    const size_t inset_offset,
     const Slic3r::Layer &layer,
     const Slic3r::PrintRegionConfig &region_config,
     const Slic3r::PrintConfig &print_config,
@@ -208,33 +193,98 @@ Slic3r::ExtrusionEntityCollection make_arachne_extrusions(
     const size_t biggest_inset_idx = max_inset_idx(perimeters);
     for (const Slic3r::Arachne::VariableWidthLines &perimeter : perimeters)
         for (const Slic3r::Arachne::ExtrusionLine &line : perimeter)
-            append_arachne_line(extrusion, line, biggest_inset_idx, layer, region_config, print_config,
+            append_arachne_line(extrusion, line, biggest_inset_idx, inset_offset, layer, region_config, print_config,
                                 external_flow, internal_flow);
     return extrusion;
 }
 
-void publish_extrusion(const run_ctx_generate_perimeter &ctx,
-                       layer_region_island_handle *region_island,
-                       Slic3r::ExtrusionEntityCollection &extrusion)
+struct ArachneGeneratorState
 {
-    if (ctx.set_region_island_extrusion == nullptr)
-        return;
+    const Slic3r::Layer *layer = nullptr;
+    const Slic3r::Print *print = nullptr;
+    const Slic3r::LayerRegion *region = nullptr;
+    Slic3r::Flow external_flow;
+    Slic3r::Flow internal_flow;
+    size_t perimeter_count = 0;
+};
 
-    ctx.set_region_island_extrusion(region_island,
-                                    RAW_EXTRUSION_ROLE_EXTERNAL_PERIMETER,
-                                    reinterpret_cast<extrusion_entity_handle *>(&extrusion));
+const Slic3r::ExPolygon *node_surface(const perimeter_node &node)
+{
+    return reinterpret_cast<const Slic3r::ExPolygon *>(node.surface);
 }
 
-void publish_fill_surfaces(perimeter_set_region_island_surfaces_fn setter,
-                           layer_region_island_handle *region_island,
-                           Slic3r::ExPolygons surfaces_area)
+Slic3r::ExtrusionEntity *node_extrusions(perimeter_node &node)
 {
-    if (setter == nullptr)
-        return;
+    return reinterpret_cast<Slic3r::ExtrusionEntity *>(node.extrusions);
+}
 
-    Slic3r::SurfaceCollection surfaces;
-    surfaces.append(std::move(surfaces_area), Slic3r::stPosInternal | Slic3r::stDensSparse);
-    setter(region_island, reinterpret_cast<surface_collection_handle *>(&surfaces));
+Slic3r::ExPolygons *to_expolygons(expolygon_collection_handle *handle)
+{
+    return reinterpret_cast<Slic3r::ExPolygons *>(handle);
+}
+
+int32_t generate_node(void *generator_context,
+                      perimeter_generation_context *,
+                      perimeter_node *node,
+                      expolygon_collection_handle *inner_surfaces_out,
+                      expolygon_collection_handle *inner_fill_surfaces_out)
+{
+    const ArachneGeneratorState *state = reinterpret_cast<const ArachneGeneratorState *>(generator_context);
+    if (state == nullptr || state->layer == nullptr || state->print == nullptr || state->region == nullptr ||
+        node == nullptr || node->extrusions == nullptr || inner_surfaces_out == nullptr ||
+        inner_fill_surfaces_out == nullptr)
+        return 0;
+
+    const Slic3r::ExPolygon *surface = node_surface(*node);
+    if (surface == nullptr || surface->empty())
+        return 1;
+
+    if (state->perimeter_count == 0 && node->perimeter_needed <= 1) {
+        node->perimeter_needed = 0;
+        *to_expolygons(inner_surfaces_out) = Slic3r::ExPolygons{ *surface };
+        *to_expolygons(inner_fill_surfaces_out) = Slic3r::ExPolygons{ *surface };
+        return 1;
+    }
+
+    node->perimeter_needed = std::max<uint32_t>(node->perimeter_needed, uint32_t(state->perimeter_count));
+    const bool is_external = node->perimeter_idx == 0;
+    const Slic3r::Flow &outer_flow = is_external ? state->external_flow : state->internal_flow;
+    const Slic3r::Flow &inner_flow = state->internal_flow;
+    const Slic3r::PrintRegionConfig &region_config = state->region->region().config();
+    const Slic3r::PrintConfig &print_config = state->print->config();
+
+    Slic3r::ExPolygons fill_no_overlap = Slic3r::ExPolygons{ *surface };
+    if (node->perimeter_needed > 0) {
+        Slic3r::Polygons outlines = Slic3r::to_polygons(*surface);
+        Slic3r::Arachne::WallToolPaths wall_tool_paths(outlines,
+                                                       outer_flow.scaled_spacing(),
+                                                       outer_flow.scaled_width(),
+                                                       inner_flow.scaled_spacing(),
+                                                       inner_flow.scaled_width(),
+                                                       1,
+                                                       Slic3r::coord_t(0),
+                                                       state->layer->unscaled_height(),
+                                                       region_config,
+                                                       print_config);
+        const std::vector<Slic3r::Arachne::VariableWidthLines> &perimeters =
+            wall_tool_paths.getToolPaths();
+        Slic3r::ExtrusionEntityCollection extrusion =
+            make_arachne_extrusions(perimeters, node->perimeter_idx, *state->layer, region_config, print_config,
+                                    outer_flow, inner_flow);
+        extrusion_move_from(node->extrusions, reinterpret_cast<extrusion_entity_handle *>(&extrusion));
+
+        fill_no_overlap = Slic3r::union_ex(wall_tool_paths.getInnerContour());
+        if (fill_no_overlap.empty())
+            fill_no_overlap = Slic3r::ExPolygons{ *surface };
+    }
+
+    Slic3r::ExPolygons fill_surfaces = Slic3r::ensure_valid(
+        Slic3r::offset_ex(fill_no_overlap, 0.25 * double(inner_flow.scaled_spacing())));
+    fill_no_overlap = Slic3r::ensure_valid(std::move(fill_no_overlap));
+
+    *to_expolygons(inner_surfaces_out) = std::move(fill_no_overlap);
+    *to_expolygons(inner_fill_surfaces_out) = std::move(fill_surfaces);
+    return 1;
 }
 
 } // namespace
@@ -281,7 +331,8 @@ void ArachnePerimeterGenerator::setup_run_impl(const plugin_run_context *run_ctx
 void ArachnePerimeterGenerator::run_impl(const plugin_run_context *run_ctx) const
 {
     const run_ctx_generate_perimeter *ctx = plugin_ctx_as_generate_perimeter(run_ctx);
-    if (ctx == nullptr || ctx->island == nullptr || ctx->layer == nullptr || ctx->print == nullptr)
+    if (ctx == nullptr || ctx->island == nullptr || ctx->layer == nullptr || ctx->print == nullptr ||
+        ctx->run_region_group == nullptr)
         return;
 
     throw_if_cancelled(run_ctx);
@@ -297,51 +348,26 @@ void ArachnePerimeterGenerator::run_impl(const plugin_run_context *run_ctx) cons
         return;
 
     std::vector<const layer_region_handle *> region_handles;
-    layer_region_island_handle *region_island = get_or_create_single_region_island(*ctx, *island, region_handles);
-    if (region_island == nullptr)
-        return;
+    region_handles.reserve(island->regions().size());
+    for (const Slic3r::LayerRegion *island_region : island->regions())
+        region_handles.push_back(reinterpret_cast<const layer_region_handle *>(island_region));
 
-    const Slic3r::PrintRegionConfig &region_config = region->region().config();
-    const Slic3r::PrintConfig &print_config = print->config();
-    const Slic3r::Flow external_flow = perimeter_flow(*region, true);
-    const Slic3r::Flow internal_flow = perimeter_flow(*region, false);
-    const size_t perimeter_count = region_config.perimeters.value <= 0 ?
+    ArachneGeneratorState state;
+    state.layer = layer;
+    state.print = print;
+    state.region = region;
+    state.external_flow = perimeter_flow(*region, true);
+    state.internal_flow = perimeter_flow(*region, false);
+    state.perimeter_count = region->region().config().perimeters.value <= 0 ?
         size_t(0) :
-        size_t(region_config.perimeters.value);
+        size_t(region->region().config().perimeters.value);
 
-    Slic3r::ExtrusionEntityCollection extrusion;
-    Slic3r::ExPolygons fill_no_overlap = Slic3r::ExPolygons{ island->get_slice() };
-
-    if (perimeter_count > 0) {
-        Slic3r::Polygons outlines = Slic3r::to_polygons(island->get_slice());
-        Slic3r::Arachne::WallToolPaths wall_tool_paths(outlines,
-                                                       external_flow.scaled_spacing(),
-                                                       external_flow.scaled_width(),
-                                                       internal_flow.scaled_spacing(),
-                                                       internal_flow.scaled_width(),
-                                                       perimeter_count,
-                                                       Slic3r::coord_t(0),
-                                                       layer->unscaled_height(),
-                                                       region_config,
-                                                       print_config);
-        const std::vector<Slic3r::Arachne::VariableWidthLines> &perimeters =
-            wall_tool_paths.getToolPaths();
-        extrusion = make_arachne_extrusions(perimeters, *layer, region_config, print_config,
-                                            external_flow, internal_flow);
-        fill_no_overlap = Slic3r::union_ex(wall_tool_paths.getInnerContour());
-        if (fill_no_overlap.empty())
-            fill_no_overlap = Slic3r::ExPolygons{ island->get_slice() };
-    }
-
-    Slic3r::ExPolygons fill_surfaces = Slic3r::ensure_valid(
-        Slic3r::offset_ex(fill_no_overlap, 0.25 * double(internal_flow.scaled_spacing())));
-    fill_no_overlap = Slic3r::ensure_valid(std::move(fill_no_overlap));
-
-    publish_extrusion(*ctx, region_island, extrusion);
-    publish_fill_surfaces(ctx->set_region_island_fill_surfaces, region_island, std::move(fill_surfaces));
-    publish_fill_surfaces(ctx->set_region_island_fill_no_overlap_surfaces,
-                          region_island,
-                          std::move(fill_no_overlap));
+    ctx->run_region_group(ctx,
+                          region_handles.empty() ? nullptr : region_handles.data(),
+                          uint32_t(region_handles.size()),
+                          nullptr,
+                          &state,
+                          &generate_node);
 
     progress().increment();
 }

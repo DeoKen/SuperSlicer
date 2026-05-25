@@ -11,9 +11,10 @@
 namespace slic3r_api { namespace Perimeter { namespace ArachnePerimeterGeneratorPlugin {
 
 // STEP_PERIMETER implementation backed by libArachne's variable-width wall
-// generator. This plugin is intentionally independent from the temporary
-// SimplePerimeterGenerator pipeline: it publishes complete Arachne walls for
-// the current layer island and the corresponding fill areas.
+// generator. It groups the current layer-island regions, then delegates the
+// perimeter tree traversal to the host through run_region_group(). Each host
+// node receives one Arachne wall pass, so PerimeterGenerationModule plugins can
+// still adjust branch counts and split child surfaces.
 class ArachnePerimeterGenerator : public PluginBase
 {
 public:
