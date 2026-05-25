@@ -2725,8 +2725,8 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("Extra perimeter on even layers");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
-    def->tooltip = L("Add one perimeter every even layer (and not on odd layers like the first one). With this, infill is taken into the sandwich"
-        " and you may be able to reduce drastically the infill/perimeter overlap setting. ");
+    def->tooltip = L("Adds one extra perimeter on alternating layers, allowing infill to be captured between "
+                     "perimeter shells. This can significantly reduce how much infill needs to encroach into perimeters.");
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionBool(false));
 
