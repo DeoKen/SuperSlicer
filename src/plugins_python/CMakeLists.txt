@@ -73,6 +73,9 @@ if (Python3_FOUND)
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/post_slicing.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/post_slicing.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/perimeter.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/perimeter.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${SLIC3R_PYTHON_API_GENERATED}"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/slic3r_api_generated.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
@@ -84,6 +87,9 @@ if (Python3_FOUND)
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/polyholes/polyholes_high_level.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_high_level.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/perimeter/simple_perimeter_generator.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/simple_perimeter_generator.py"
         COMMENT "Copying Python plugin helper and examples"
         VERBATIM
     )

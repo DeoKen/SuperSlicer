@@ -86,6 +86,7 @@ from slic3r_extrusion_views import *
 from slic3r_datatree_views import *
 from slic3r_clipper_views import *
 from steps.post_slicing import *
+from steps.perimeter import *
 
 
 _registered_apis = []
@@ -394,6 +395,9 @@ class Slic3rAPI:
 
     def post_slicing(self, run_ctx_address: int) -> PostSlicingContext | None:
         return PostSlicingContext.from_run_context(self, run_ctx_address)
+
+    def perimeter(self, run_ctx_address: int) -> PerimeterContext | None:
+        return PerimeterContext.from_run_context(self, run_ctx_address)
 
     def storage_clear(self, storage_address: int) -> None:
         self.host.storage_clear(ctypes.c_void_p(storage_address))

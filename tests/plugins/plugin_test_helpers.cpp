@@ -189,7 +189,8 @@ void ensure_plugin_test_runtime_initialized()
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
                                   orchestrator.get_plugin("python.polyholes") != nullptr &&
-                                  orchestrator.get_plugin("python.polyholes.high_level") != nullptr;
+                                  orchestrator.get_plugin("python.polyholes.high_level") != nullptr &&
+                                  orchestrator.get_plugin("python.perimeter.generator.simple") != nullptr;
 #endif
 
         activate_plugin_or_fail(orchestrator, "bridge_detector.default");
@@ -213,6 +214,7 @@ void ensure_plugin_test_runtime_initialized()
         if (g_python_plugins_loaded) {
             activate_plugin_or_fail(orchestrator, "python.polyholes");
             activate_plugin_or_fail(orchestrator, "python.polyholes.high_level");
+            activate_plugin_or_fail(orchestrator, "python.perimeter.generator.simple");
         }
 #endif
 

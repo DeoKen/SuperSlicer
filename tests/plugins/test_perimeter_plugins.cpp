@@ -18,6 +18,7 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintRegion.hpp"
+#include "libslic3r/Steps/StepGeneratePerimeter.hpp"
 #include "libslic3r/Steps/StepLayerHeightGeneration.hpp"
 #include "libslic3r/Steps/StepPostSlicing.hpp"
 #include "libslic3r/Steps/StepSlicing.hpp"
@@ -37,6 +38,7 @@ namespace {
 using namespace Slic3r;
 
 const char *const SIMPLE_PERIMETER_GENERATOR = "perimeter.generator.simple";
+const char *const PYTHON_SIMPLE_PERIMETER_GENERATOR = "python.perimeter.generator.simple";
 const char *const ARACHNE_PERIMETER_GENERATOR = "perimeter.generator.arachne";
 const char *const EXTRA_PERIMETER_COUNT = "perimeter.module.extra_perimeter_count";
 const char *const EXTRA_PERIMETER_BELOW_AREA = "perimeter.module.extra_perimeter_below_area";
@@ -297,29 +299,14 @@ PerimeterRunCapture run_active_perimeter_plugins(Print &print, Layer &layer, Lay
 {
     Orchestrator &orchestrator = Orchestrator::instance();
     PerimeterRunCapture capture;
-    g_perimeter_run_capture = &capture;
-    const std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(STEP_PERIMETER);
-    for (Plugin *plugin : plugins) {
-        plugin_host_context host_context =
-            orchestrator.prepare_plugin_host_context(STEP_PERIMETER, plugin, &print);
-        plugin_run_context run_context =
-            orchestrator.prepare_plugin_run_context(STEP_PERIMETER, plugin, &host_context);
-        run_ctx_generate_perimeter payload = {};
-        payload.print = reinterpret_cast<const print_handle *>(&print);
-        payload.object = reinterpret_cast<const object_handle *>(&print.object(0));
-        payload.layer = reinterpret_cast<const layer_handle *>(&layer);
-        payload.island = reinterpret_cast<const layer_island_handle *>(&island);
-        payload.get_or_create_region_island = &test_get_or_create_region_island;
-        payload.set_region_island_extrusion = &test_set_region_island_extrusion;
-        payload.set_region_island_fill_surfaces = &test_set_region_island_fill_surfaces;
-        payload.set_region_island_fill_no_overlap_surfaces = &test_set_region_island_fill_no_overlap_surfaces;
-        run_context.data = &payload;
+    Steps::StepGeneratePerimeter::clean_and_prepare(print);
+    Steps::StepGeneratePerimeter::run_step(orchestrator, print);
 
-        plugin->setup(run_context, 1);
-        plugin->setup_run(run_context);
-        plugin->run(run_context);
-    }
-    g_perimeter_run_capture = nullptr;
+    for (const LayerRegionIsland &region_island : island.regions_islands())
+        if (region_island.has_extrusion(LayerRegionIsland::PERIMETERS))
+            capture.external_perimeters.append(region_island.extrusion(LayerRegionIsland::PERIMETERS));
+    capture.fill_surfaces.set(island.fill_expolygons(), stPosInternal | stDensSolid);
+    capture.fill_no_overlap_surfaces.set(island.fill_no_overlap_expolygons(), stPosInternal | stDensSolid);
     return capture;
 }
 
@@ -374,8 +361,8 @@ double extrusion_length(const ExtrusionEntity &entity)
 
 size_t count_loops_with_role(const ExtrusionEntity &entity, const ExtrusionLoopRole role_mask)
 {
-    if (const ExtrusionLoop *loop = dynamic_cast<const ExtrusionLoop *>(&entity))
-        return (loop->loop_role() & role_mask) != 0 ? 1 : 0;
+    if (const ExtrusionPropertyLoopRole *perimeter = entity.get_property<ExtrusionPropertyLoopRole>())
+        return (perimeter->perimeter_role() & role_mask) != 0 ? 1 : 0;
 
     size_t count = 0;
     for (size_t child_idx = 0; child_idx < entity.child_count(); ++child_idx)
@@ -547,7 +534,7 @@ size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
     context.generator_context = &root;
     context.split_node = &test_split_node;
 
-    module.vt->after(module.ctx, &context, &root.c_node);
+    module.vt->after(module.ctx, nullptr, &context, &root.c_node);
     if (length_out != nullptr)
         *length_out = extrusion_length(root.extrusions);
     return count_leaf_extrusions(root.extrusions);
@@ -591,6 +578,28 @@ TEST_CASE("ArachnePerimeterGenerator publishes variable-width perimeter output",
     REQUIRE_FALSE(generated.fill_surfaces.empty());
     REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
 }
+
+#ifdef SLIC3R_TEST_PYTHON_PLUGINS
+
+TEST_CASE("Python SimplePerimeterGenerator publishes perimeter and fill output", "[plugins][perimeter][python]")
+{
+    // Python exercises the same STEP_PERIMETER host loop as the native simple
+    // generator. The plugin should generate one external loop and return child
+    // fill surfaces through run_region_group().
+    REQUIRE(Slic3r::Test::Plugins::python_plugin_test_runtime_available());
+
+    const DynamicPrintConfig config = perimeter_config({});
+    const ExPolygon surface = rectangle_expolygon(-10., -10., 10., 10.);
+
+    const PerimeterRunCapture generated =
+        run_perimeter_case(config, {PYTHON_SIMPLE_PERIMETER_GENERATOR}, surface, 0);
+    REQUIRE(external_perimeter_count(generated) > 0);
+    REQUIRE(extrusion_length(generated.external_perimeters) > 0.);
+    REQUIRE_FALSE(generated.fill_surfaces.empty());
+    REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
+}
+
+#endif
 
 TEST_CASE("Extra perimeter count module adds requested loops", "[plugins][perimeter]")
 {
