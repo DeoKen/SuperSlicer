@@ -123,19 +123,15 @@ ExPolygon &ApiInternal::LayerIslandAccess::slice_mutable(LayerSliceIsland &islan
     return island.m_slice;
 }
 
-ExPolygons &ApiInternal::LayerIslandAccess::fill_expolygons_mutable(LayerSliceIsland &island)
+void ApiInternal::LayerIslandAccess::set_fill_expolygons(LayerSliceIsland &island, ExPolygons &&fill_expolygons)
 {
-    return island.m_fill_expolygons;
+    island.m_fill_expolygons = std::move(fill_expolygons);
+    island.m_fill_expolygons_bboxes = get_extents_vector(island.m_fill_expolygons);
 }
 
 ExPolygons &ApiInternal::LayerIslandAccess::fill_no_overlap_expolygons_mutable(LayerSliceIsland &island)
 {
     return island.m_fill_no_overlap_expolygons;
-}
-
-BoundingBoxes &ApiInternal::LayerIslandAccess::fill_expolygons_bboxes_mutable(LayerSliceIsland &island)
-{
-    return island.m_fill_expolygons_bboxes;
 }
 
 ExPolygons &ApiInternal::LayerIslandAccess::perimeter_slices_mutable(LayerSliceIsland &island)

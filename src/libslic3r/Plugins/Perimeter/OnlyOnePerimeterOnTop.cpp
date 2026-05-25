@@ -276,6 +276,24 @@ void set_top_children_to_one_perimeter(perimeter_generation_context *context,
     }
 }
 
+void set_enabled_children_to_one_perimeter(perimeter_generation_context *context,
+                                           const PerimeterNodeView &parent,
+                                           const RegionSettingsClip &enabled_area)
+{
+    if (enabled_area.is_accept_all()) {
+        set_children_to_one_perimeter(parent);
+        return;
+    }
+
+    const std::vector<PerimeterNodeView> children = parent.children_snapshot();
+    for (const PerimeterNodeView &child : children) {
+        const std::vector<PerimeterNodeView> inside_nodes =
+            split_node_with_expolygons(context, child, enabled_area.expolygons());
+        for (const PerimeterNodeView &inside_node : inside_nodes)
+            inside_node.set_perimeter_needed(1);
+    }
+}
+
 void *module_start(void *, perimeter_generation_context *context)
 {
     if (context == nullptr || context->root == nullptr)
@@ -314,14 +332,19 @@ void module_after(void *, void *, perimeter_generation_context *context, perimet
         !settings.get_solo_config(k_only_one_perimeter_top_key).get_bool(k_only_one_perimeter_top_key))
         return;
 
+    const RegionSettings::AreaMap &areas = settings.get_areas(k_only_one_perimeter_top_key);
+
     if (context_view.island().upper_island_count() == 0) {
-        set_children_to_one_perimeter(parent);
+        for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas) {
+            if (!entry.first.get_bool(k_only_one_perimeter_top_key))
+                continue;
+            set_enabled_children_to_one_perimeter(context, parent, entry.second);
+        }
         return;
     }
 
     StoredExPolygonCollection top_fills(context_view.storage());
     StoredExPolygonCollection non_top_polygons(context_view.storage());
-    const RegionSettings::AreaMap &areas = settings.get_areas(k_only_one_perimeter_top_key);
     for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas) {
         if (!entry.first.get_bool(k_only_one_perimeter_top_key))
             continue;

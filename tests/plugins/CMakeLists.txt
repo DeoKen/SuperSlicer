@@ -4,9 +4,19 @@ add_executable(${_TEST_NAME}_tests
     ${_TEST_NAME}_tests.cpp
     ../../src/plugins_cpp/FlatAreaLayerHeight/FlatAreaLayerHeight.cpp
     ../../src/plugins_cpp/Polyholes/Polyholes.cpp
+    perimeter_test_helpers.cpp
     plugin_test_helpers.cpp
     test_flat_area_layer_height.cpp
-    test_perimeter_plugins.cpp
+    test_perimeter_arachne_generator.cpp
+    test_perimeter_extra_perimeter_below_area.cpp
+    test_perimeter_extra_perimeter_count.cpp
+    test_perimeter_extra_perimeter_odd_layer.cpp
+    test_perimeter_only_one_perimeter_first_layer.cpp
+    test_perimeter_only_one_perimeter_on_top.cpp
+    test_perimeter_python_simple_generator.cpp
+    test_perimeter_remove_gap_fill_on_overhangs.cpp
+    test_perimeter_separate_hole_contour.cpp
+    test_perimeter_simple_generator.cpp
     test_polyholes.cpp
     test_support_demand_modifiers.cpp
     test_support_demand_overhangs.cpp
