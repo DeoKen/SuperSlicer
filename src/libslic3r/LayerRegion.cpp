@@ -18,6 +18,7 @@
 #include <boost/log/trivial.hpp>
 
 #include "Algorithm/RegionExpansion.hpp"
+#include "Api/internal/LayerRegionAccess.hpp"
 #include "BoundingBox.hpp"
 #include "BridgeDetector.hpp"
 #include "ClipperUtils.hpp"
@@ -35,6 +36,21 @@
 #include "SVG.hpp"
 
 namespace Slic3r {
+
+SurfaceCollection &ApiInternal::LayerRegionAccess::surfaces_mutable(LayerRegion &layer_region)
+{
+    return layer_region.m_slices;
+}
+
+ExPolygons &ApiInternal::LayerRegionAccess::slices_mutable(LayerRegion &layer_region)
+{
+    return layer_region.m_raw_slices;
+}
+
+ExPolygons &ApiInternal::LayerRegionAccess::fill_no_overlap_expolygons_mutable(LayerRegion &layer_region)
+{
+    return layer_region.m_fill_no_overlap_expolygons;
+}
 
 bool LayerRegionIsland::has_extrusion(ExtrusionRole role) const {
     std::map<ExtrusionRole, ExtrusionEntityCollection>::const_iterator it = m_extrusion_regions.find(role);

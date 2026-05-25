@@ -65,7 +65,7 @@ protected:
     // cache, can be accessed via m_regions. Only set after fill_regions.
     Layer *m_layer = nullptr;
 
-    // Unspecified fill polygons, used for intersecting when we don't want the infill/perimeter overlap
+    // Unspecified fill polygons, used for intersecting when we don't want the infill/perimeter encroaching
     // note: if empty, that means there is no overlap, so you don't need to intersect with it.
     ExPolygons                  m_fill_no_overlap_expolygons;
     ExPolygons                  m_fill_expolygons;

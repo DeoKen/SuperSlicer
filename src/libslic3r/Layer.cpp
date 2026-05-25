@@ -18,7 +18,6 @@
 
 #include "Api/internal/LayerAccess.hpp"
 #include "Api/internal/LayerIslandAccess.hpp"
-#include "Api/internal/LayerRegionAccess.hpp"
 #include "BoundingBox.hpp"
 #include "ClipperUtils.hpp"
 #include "ClipperZUtils.hpp"
@@ -123,14 +122,20 @@ ExPolygon &ApiInternal::LayerIslandAccess::slice_mutable(LayerSliceIsland &islan
     return island.m_slice;
 }
 
-SurfaceCollection &ApiInternal::LayerRegionAccess::surfaces_mutable(LayerRegion &layer_region)
+void ApiInternal::LayerIslandAccess::set_fill_expolygons(LayerSliceIsland &island, ExPolygons &&fill_expolygons)
 {
-    return layer_region.m_slices;
+    island.m_fill_expolygons = std::move(fill_expolygons);
+    island.m_fill_expolygons_bboxes = get_extents_vector(island.m_fill_expolygons);
 }
 
-ExPolygons &ApiInternal::LayerRegionAccess::slices_mutable(LayerRegion &layer_region)
+ExPolygons &ApiInternal::LayerIslandAccess::fill_no_overlap_expolygons_mutable(LayerSliceIsland &island)
 {
-    return layer_region.m_raw_slices;
+    return island.m_fill_no_overlap_expolygons;
+}
+
+ExPolygons &ApiInternal::LayerIslandAccess::perimeter_slices_mutable(LayerSliceIsland &island)
+{
+    return island.m_perimeter_slices;
 }
 
 Layer::Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool /*scaledok*/)
