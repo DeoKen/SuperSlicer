@@ -42,6 +42,7 @@ TEST_CASE("Only one perimeter on top limits top branches", "[plugins][perimeter]
                                area,
                                top_idx);
         require_default_loop_count(run, 4);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Enabled setting clamps the top layer to one perimeter")
@@ -54,6 +55,7 @@ TEST_CASE("Only one perimeter on top limits top branches", "[plugins][perimeter]
                                area,
                                top_idx);
         require_default_loop_count(run, 1);
+        require_simple_generator_first_child_area_partition(run, area);
     }
 
     SECTION("Enabled setting is ignored where an upper layer covers the island")
@@ -66,6 +68,7 @@ TEST_CASE("Only one perimeter on top limits top branches", "[plugins][perimeter]
                                area,
                                non_top_idx);
         require_default_loop_count(run, 4);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Region-local enabled area clamps only that top side")
@@ -86,6 +89,7 @@ TEST_CASE("Only one perimeter on top limits top branches", "[plugins][perimeter]
         REQUIRE(split_counts.crossing == 1);
         REQUIRE(split_counts.left_only == 0);
         REQUIRE(split_counts.right_only == 3);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Complementary disabled and enabled top areas are equivalent")
@@ -122,5 +126,24 @@ TEST_CASE("Only one perimeter on top limits top branches", "[plugins][perimeter]
         REQUIRE(left_disabled_split.crossing == right_enabled_split.crossing);
         REQUIRE(left_disabled_split.left_only == right_enabled_split.left_only);
         REQUIRE(left_disabled_split.right_only == right_enabled_split.right_only);
+        require_leaf_fill_area_consistency(right_enabled_run);
+        require_leaf_fill_area_consistency(left_disabled_run);
+    }
+
+    SECTION("Partial top split preserves child area and fill area partitions")
+    {
+        // This layer is wider than the layer above it. The middle is covered by
+        // the upper island, while the side bands are top surfaces. The module
+        // therefore has to split the first child domain into stop/continue
+        // pieces. The final fill outputs must still be a clean partition of the
+        // simple generator's child areas.
+        const ExPolygon wider_than_upper = rectangle_expolygon(-12., -10., 12., 10.);
+        const PerimeterRunCapture run =
+            run_perimeter_case(limited,
+                               {SIMPLE_PERIMETER_GENERATOR, ONLY_ONE_PERIMETER_ON_TOP},
+                               wider_than_upper,
+                               non_top_idx);
+        require_default_loop_count(run, 1);
+        require_simple_generator_first_child_area_partition(run, wider_than_upper);
     }
 }

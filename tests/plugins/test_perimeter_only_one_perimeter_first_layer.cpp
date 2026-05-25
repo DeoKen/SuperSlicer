@@ -41,6 +41,7 @@ TEST_CASE("Only one perimeter first layer limits first-layer branches", "[plugin
                                area,
                                0);
         require_default_loop_count(run, 4);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Enabled setting clamps the first layer to one perimeter")
@@ -53,6 +54,7 @@ TEST_CASE("Only one perimeter first layer limits first-layer branches", "[plugin
                                area,
                                0);
         require_default_loop_count(run, 1);
+        require_simple_generator_first_child_area_partition(run, area);
     }
 
     SECTION("Enabled setting is ignored after the first layer")
@@ -65,6 +67,7 @@ TEST_CASE("Only one perimeter first layer limits first-layer branches", "[plugin
                                area,
                                non_first_idx);
         require_default_loop_count(run, 4);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Region-local enabled area clamps only that side")
@@ -85,6 +88,7 @@ TEST_CASE("Only one perimeter first layer limits first-layer branches", "[plugin
         REQUIRE(split_counts.crossing == 1);
         REQUIRE(split_counts.left_only == 0);
         REQUIRE(split_counts.right_only == 3);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Complementary disabled and enabled areas are equivalent")
@@ -121,5 +125,7 @@ TEST_CASE("Only one perimeter first layer limits first-layer branches", "[plugin
         REQUIRE(left_disabled_split.crossing == right_enabled_split.crossing);
         REQUIRE(left_disabled_split.left_only == right_enabled_split.left_only);
         REQUIRE(left_disabled_split.right_only == right_enabled_split.right_only);
+        require_leaf_fill_area_consistency(right_enabled_run);
+        require_leaf_fill_area_consistency(left_disabled_run);
     }
 }

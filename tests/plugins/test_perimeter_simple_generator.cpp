@@ -25,4 +25,5 @@ TEST_CASE("SimplePerimeterGenerator publishes perimeter and fill output", "[plug
     REQUIRE(external_perimeter_count(generated) > 0);
     REQUIRE_FALSE(generated.fill_surfaces.empty());
     REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
+    require_simple_generator_first_child_area_partition(generated, surface);
 }

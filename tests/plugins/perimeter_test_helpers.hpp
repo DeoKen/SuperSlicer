@@ -35,6 +35,8 @@ struct PerimeterRunCapture
     ExtrusionEntityCollection external_perimeters;
     SurfaceCollection fill_surfaces;
     SurfaceCollection fill_no_overlap_surfaces;
+    coord_t external_perimeter_width = 0;
+    coord_t external_perimeter_spacing = 0;
 };
 
 struct VerticalSplitCounts
@@ -71,6 +73,8 @@ const ExtrusionEntityCollection &external_perimeters(const PerimeterRunCapture &
 double extrusion_length(const ExtrusionEntity &entity);
 size_t count_loops_with_role(const ExtrusionEntity &entity, ExtrusionLoopRole role_mask);
 VerticalSplitCounts vertical_split_counts(const ExtrusionEntity &entity, coord_t split_x);
+void require_leaf_fill_area_consistency(const PerimeterRunCapture &capture);
+void require_simple_generator_first_child_area_partition(const PerimeterRunCapture &capture, const ExPolygon &parent_area);
 
 size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
                                   bool use_region_override,

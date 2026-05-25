@@ -33,6 +33,7 @@ TEST_CASE("Extra perimeter below area module extends small islands", "[plugins][
         const PerimeterRunCapture run =
             run_perimeter_case(disabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_BELOW_AREA}, area, 0);
         require_default_loop_count(run, 1);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Threshold below the first inner area is inert")
@@ -43,6 +44,7 @@ TEST_CASE("Extra perimeter below area module extends small islands", "[plugins][
         const PerimeterRunCapture run =
             run_perimeter_case(too_small_threshold, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_BELOW_AREA}, area, 0);
         require_default_loop_count(run, 1);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Large threshold keeps generating while the branch remains small enough")
@@ -55,6 +57,7 @@ TEST_CASE("Extra perimeter below area module extends small islands", "[plugins][
             run_perimeter_case(enabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_BELOW_AREA}, area, 0);
         REQUIRE(external_perimeter_count(run) > 1);
         require_all_default_loops(run);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Region-local enabled area extends only the matching branch")
@@ -77,6 +80,7 @@ TEST_CASE("Extra perimeter below area module extends small islands", "[plugins][
         REQUIRE(split.crossing == 1);
         REQUIRE(split.left_only == count - 1);
         REQUIRE(split.right_only == 0);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Zero base perimeter stays empty when the threshold is disabled")
@@ -88,6 +92,7 @@ TEST_CASE("Extra perimeter below area module extends small islands", "[plugins][
         const PerimeterRunCapture run =
             run_perimeter_case(no_base, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_BELOW_AREA}, area, 0);
         require_default_loop_count(run, 0);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Zero base perimeter does not bootstrap from the root seed")
@@ -100,6 +105,7 @@ TEST_CASE("Extra perimeter below area module extends small islands", "[plugins][
         const PerimeterRunCapture run =
             run_perimeter_case(no_base, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_BELOW_AREA}, area, 0);
         require_default_loop_count(run, 0);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Zero base perimeter can extend children created by another module")
@@ -123,5 +129,7 @@ TEST_CASE("Extra perimeter below area module extends small islands", "[plugins][
         REQUIRE(external_perimeter_count(extra_only_run) == 1);
         REQUIRE(external_perimeter_count(below_run) > external_perimeter_count(extra_only_run));
         require_all_default_loops(below_run);
+        require_leaf_fill_area_consistency(extra_only_run);
+        require_leaf_fill_area_consistency(below_run);
     }
 }

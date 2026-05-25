@@ -15,12 +15,14 @@ TEST_CASE("Extra perimeter count module adds requested loops", "[plugins][perime
     const DynamicPrintConfig disabled = perimeter_config({{"extra_perimeters_count", "0"}});
     const DynamicPrintConfig enabled = perimeter_config({{"extra_perimeters_count", "2"}});
 
-    const size_t base_count = external_perimeter_count(
-        run_perimeter_case(disabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT}, area, 0));
-    const size_t enabled_count = external_perimeter_count(
-        run_perimeter_case(enabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT}, area, 0));
-    REQUIRE(base_count == 1);
-    REQUIRE(enabled_count == 3);
+    const PerimeterRunCapture base_run =
+        run_perimeter_case(disabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT}, area, 0);
+    const PerimeterRunCapture enabled_run =
+        run_perimeter_case(enabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT}, area, 0);
+    REQUIRE(external_perimeter_count(base_run) == 1);
+    REQUIRE(external_perimeter_count(enabled_run) == 3);
+    require_leaf_fill_area_consistency(base_run);
+    require_leaf_fill_area_consistency(enabled_run);
 
     // Region-local case: the left-side region requests one extra loop.
     // We should keep the full-area base loop crossing x=0, then add exactly one
@@ -40,11 +42,13 @@ TEST_CASE("Extra perimeter count module adds requested loops", "[plugins][perime
     REQUIRE(overlap_split.crossing == 1);
     REQUIRE(overlap_split.left_only == 1);
     REQUIRE(overlap_split.right_only == 0);
+    require_leaf_fill_area_consistency(overlap_run);
 
     // Zero base perimeter: extra_perimeters_count still asks for real loops.
     const DynamicPrintConfig no_base =
         perimeter_config({{"perimeters", "0"}, {"extra_perimeters_count", "2"}});
-    const size_t no_base_count = external_perimeter_count(
-        run_perimeter_case(no_base, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT}, area, 0));
-    REQUIRE(no_base_count == 2);
+    const PerimeterRunCapture no_base_run =
+        run_perimeter_case(no_base, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT}, area, 0);
+    REQUIRE(external_perimeter_count(no_base_run) == 2);
+    require_leaf_fill_area_consistency(no_base_run);
 }

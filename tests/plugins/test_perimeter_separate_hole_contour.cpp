@@ -31,6 +31,8 @@ TEST_CASE("Separate hole contour module limits hole loops", "[plugins][perimeter
     REQUIRE(external_perimeter_count(enabled_run) == 3);
     REQUIRE(count_loops_with_role(external_perimeters(enabled_run), elrHole) <
             count_loops_with_role(external_perimeters(enabled_run), elrDefault));
+    require_leaf_fill_area_consistency(disabled_run);
+    require_leaf_fill_area_consistency(enabled_run);
 
     const PerimeterRunCapture overlap_run =
         run_perimeter_case(disabled,
@@ -39,4 +41,5 @@ TEST_CASE("Separate hole contour module limits hole loops", "[plugins][perimeter
                            0,
                            {{"perimeters_hole", "1"}});
     REQUIRE(external_perimeter_count(overlap_run) == external_perimeter_count(disabled_run));
+    require_leaf_fill_area_consistency(overlap_run);
 }

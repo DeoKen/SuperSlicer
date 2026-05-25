@@ -170,6 +170,7 @@ TEST_CASE("ArachnePerimeterGenerator publishes variable-width perimeter output",
     REQUIRE(extrusion_length(generated.external_perimeters) > 0.);
     REQUIRE_FALSE(generated.fill_surfaces.empty());
     REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
+    require_leaf_fill_area_consistency(generated);
 }
 
 TEST_CASE("ArachnePerimeterGenerator emits one wider line through a variable thin area", "[plugins][perimeter]")

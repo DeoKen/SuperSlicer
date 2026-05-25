@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <memory>
 #include <utility>
 
@@ -160,6 +161,12 @@ PerimeterRunCapture run_active_perimeter_plugins(Print &print, LayerSliceIsland 
 {
     Orchestrator &orchestrator = Orchestrator::instance();
     PerimeterRunCapture capture;
+    REQUIRE_FALSE(island.regions().empty());
+    const LayerRegion &first_region = **island.regions().begin();
+    const Flow external_flow = first_region.flow(frExternalPerimeter);
+    capture.external_perimeter_width = external_flow.scaled_width();
+    capture.external_perimeter_spacing = external_flow.scaled_spacing();
+
     Steps::StepGeneratePerimeter::clean_and_prepare(print);
     Steps::StepGeneratePerimeter::run_step(orchestrator, print);
 
@@ -312,6 +319,48 @@ ExtrusionPath open_gap_fill_path()
     path.polyline().append(Point(scale_i(-8.), 0));
     path.polyline().append(Point(scale_i(8.), 0));
     return path;
+}
+
+double area_sum(const ExPolygons &areas)
+{
+    double out = 0.;
+    for (const ExPolygon &area : areas)
+        out += std::abs(area.area());
+    return out;
+}
+
+ExPolygons surface_expolygons(const SurfaceCollection &surfaces)
+{
+    ExPolygons out;
+    out.reserve(surfaces.size());
+    for (const Surface &surface : surfaces)
+        if (!surface.empty())
+            out.push_back(surface.expolygon);
+    return out;
+}
+
+double area_tolerance()
+{
+    const double side = double(scale_i(0.005));
+    return side * side;
+}
+
+void require_no_positive_overlap(const ExPolygons &areas)
+{
+    for (size_t lhs_idx = 0; lhs_idx < areas.size(); ++lhs_idx)
+        for (size_t rhs_idx = lhs_idx + 1; rhs_idx < areas.size(); ++rhs_idx) {
+            INFO("overlap between generated leaf areas " << lhs_idx << " and " << rhs_idx);
+            REQUIRE(area_sum(intersection_ex(areas[lhs_idx], areas[rhs_idx])) <= area_tolerance());
+        }
+}
+
+void require_same_union(const ExPolygons &actual, const ExPolygons &expected)
+{
+    const ExPolygons actual_union = union_ex(actual);
+    const ExPolygons expected_union = union_ex(expected);
+    INFO("actual area " << area_sum(actual_union) << ", expected area " << area_sum(expected_union));
+    REQUIRE(area_sum(diff_ex(actual_union, expected_union)) <= area_tolerance());
+    REQUIRE(area_sum(diff_ex(expected_union, actual_union)) <= area_tolerance());
 }
 
 perimeter_generation_module_instance create_module_instance(const char *plugin_id,
@@ -479,6 +528,55 @@ VerticalSplitCounts vertical_split_counts(const ExtrusionEntity &entity, coord_t
     VerticalSplitCounts out;
     count_vertical_split_leaf_extrusions(entity, split_x, out);
     return out;
+}
+
+void require_leaf_fill_area_consistency(const PerimeterRunCapture &capture)
+{
+    const ExPolygons leaf_areas = surface_expolygons(capture.fill_no_overlap_surfaces);
+    const ExPolygons leaf_fill_areas = surface_expolygons(capture.fill_surfaces);
+    REQUIRE_FALSE(leaf_areas.empty());
+    REQUIRE_FALSE(leaf_fill_areas.empty());
+
+    // Perimeter modules may split or rebuild the tree, but final leaf areas
+    // must remain a clean partition. Infill later consumes these leaves as
+    // independent jobs, so any positive overlap here would double-process area.
+    require_no_positive_overlap(leaf_areas);
+    require_no_positive_overlap(leaf_fill_areas);
+
+    // Fill areas are the anchoring domains attached to the same leaves. They
+    // may be larger than the strict no-overlap areas, but they must never miss
+    // any part of those strict areas.
+    const ExPolygons leaf_area_union = union_ex(leaf_areas);
+    const ExPolygons leaf_fill_union = union_ex(leaf_fill_areas);
+    REQUIRE(area_sum(diff_ex(leaf_area_union, leaf_fill_union)) <= area_tolerance());
+
+    const double leaf_area = area_sum(leaf_area_union);
+    const double leaf_fill_area = area_sum(leaf_fill_union);
+    if (external_perimeter_count(capture) > 0 && leaf_area > area_tolerance())
+        REQUIRE(leaf_fill_area > leaf_area);
+    else
+        REQUIRE(leaf_fill_area + area_tolerance() >= leaf_area);
+}
+
+void require_simple_generator_first_child_area_partition(const PerimeterRunCapture &capture, const ExPolygon &parent_area)
+{
+    require_leaf_fill_area_consistency(capture);
+
+    const ExPolygons leaf_areas = surface_expolygons(capture.fill_no_overlap_surfaces);
+    const ExPolygons leaf_fill_areas = surface_expolygons(capture.fill_surfaces);
+
+    // For the simple generator after the first external perimeter, children are
+    // created from the parent area shrunk past the external wall and half the
+    // next perimeter spacing. Modules may split those children, but their union
+    // must still be exactly the generated child domain.
+    const double leaf_delta =
+        -0.5 * double(capture.external_perimeter_width + capture.external_perimeter_spacing);
+    require_same_union(leaf_areas, offset_ex(parent_area, leaf_delta));
+
+    // The fill/anchor domain follows the same split, but is 25% of perimeter
+    // spacing larger than the strict child area.
+    const double fill_delta = leaf_delta + 0.25 * double(capture.external_perimeter_spacing);
+    require_same_union(leaf_fill_areas, offset_ex(parent_area, fill_delta));
 }
 
 size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,

@@ -26,6 +26,7 @@ TEST_CASE("Python SimplePerimeterGenerator publishes perimeter and fill output",
     REQUIRE(extrusion_length(generated.external_perimeters) > 0.);
     REQUIRE_FALSE(generated.fill_surfaces.empty());
     REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
+    require_simple_generator_first_child_area_partition(generated, surface);
 }
 
 #endif

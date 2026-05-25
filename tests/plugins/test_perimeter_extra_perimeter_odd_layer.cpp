@@ -32,6 +32,7 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
         const PerimeterRunCapture run =
             run_perimeter_case(enabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_ODD_LAYER}, area, 0);
         require_default_loop_count(run, 1);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Odd layer adds one uniform perimeter")
@@ -41,6 +42,7 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
         const PerimeterRunCapture run =
             run_perimeter_case(enabled, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_ODD_LAYER}, area, odd_idx);
         require_default_loop_count(run, 2);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Region-local enabled area adds only one local perimeter")
@@ -60,6 +62,7 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
         REQUIRE(split.crossing == 1);
         REQUIRE(split.left_only == 1);
         REQUIRE(split.right_only == 0);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Region-local disabled area prevents one local perimeter")
@@ -79,6 +82,7 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
         REQUIRE(split.crossing == 1);
         REQUIRE(split.left_only == 0);
         REQUIRE(split.right_only == 1);
+        require_leaf_fill_area_consistency(run);
     }
 
     SECTION("Zero base perimeter still allows the odd-layer extra")
@@ -94,5 +98,6 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
         const PerimeterRunCapture run =
             run_perimeter_case(no_base, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_ODD_LAYER}, area, no_base_odd_idx);
         require_default_loop_count(run, 1);
+        require_leaf_fill_area_consistency(run);
     }
 }
