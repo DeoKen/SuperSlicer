@@ -731,9 +731,8 @@ int32_t set_region_island_fill_no_overlap_surfaces_callback(layer_region_island_
 void clear_island_outputs(LayerSliceIsland &island)
 {
     island.mutable_regions_islands().clear();
-    ApiInternal::LayerIslandAccess::fill_expolygons_mutable(island).clear();
+    ApiInternal::LayerIslandAccess::set_fill_expolygons(island, ExPolygons{});
     ApiInternal::LayerIslandAccess::fill_no_overlap_expolygons_mutable(island).clear();
-    ApiInternal::LayerIslandAccess::fill_expolygons_bboxes_mutable(island).clear();
     ApiInternal::LayerIslandAccess::perimeter_slices_mutable(island).clear();
 }
 
@@ -753,11 +752,9 @@ void assign_island_outputs(LayerSliceIsland &island, PerimeterRunContext &run)
     run.fill_surfaces = ensure_valid(std::move(run.fill_surfaces));
     run.fill_no_overlap_surfaces = ensure_valid(std::move(run.fill_no_overlap_surfaces));
 
-    ApiInternal::LayerIslandAccess::fill_expolygons_mutable(island) = std::move(run.fill_surfaces);
+    ApiInternal::LayerIslandAccess::set_fill_expolygons(island, std::move(run.fill_surfaces));
     ApiInternal::LayerIslandAccess::fill_no_overlap_expolygons_mutable(island) =
         std::move(run.fill_no_overlap_surfaces);
-    ApiInternal::LayerIslandAccess::fill_expolygons_bboxes_mutable(island) =
-        get_extents_vector(island.fill_expolygons());
     ApiInternal::LayerIslandAccess::perimeter_slices_mutable(island) =
         union_ex(ExPolygons{island.get_slice()});
 }

@@ -11,18 +11,15 @@ namespace Slic3r {
 
 class LayerSliceIsland;
 class ExPolygon;
-class BoundingBox;
 using ExPolygons = std::vector<ExPolygon>;
-using BoundingBoxes = std::vector<BoundingBox>;
 
 namespace ApiInternal {
 
 struct LayerIslandAccess
 {
     static ExPolygon &slice_mutable(LayerSliceIsland &island);
-    static ExPolygons &fill_expolygons_mutable(LayerSliceIsland &island);
+    static void set_fill_expolygons(LayerSliceIsland &island, ExPolygons &&fill_expolygons);
     static ExPolygons &fill_no_overlap_expolygons_mutable(LayerSliceIsland &island);
-    static BoundingBoxes &fill_expolygons_bboxes_mutable(LayerSliceIsland &island);
     static ExPolygons &perimeter_slices_mutable(LayerSliceIsland &island);
 };
 
