@@ -5,6 +5,7 @@
 
 #include "SimplePerimeterGenerator.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <vector>
@@ -88,6 +89,7 @@ StoredExtrusionEntity make_perimeter_extrusion(storage_handle *storage,
 struct SimpleGeneratorState
 {
     c_flow flow = {};
+    uint32_t perimeter_count = 1;
 };
 
 int32_t generate_node(void *generator_context,
@@ -104,6 +106,25 @@ int32_t generate_node(void *generator_context,
     const SimpleGeneratorState &state = *reinterpret_cast<const SimpleGeneratorState *>(generator_context);
     storage_handle *storage = context->run_ctx->plugin_storage;
     PerimeterNodeView node_view(node);
+
+    // The host seeds the root with one requested perimeter so the generator is
+    // called at least once. When the config asks for zero base perimeters, drop
+    // that traversal seed before honoring module-requested extras.
+    if (state.perimeter_count == 0 && node_view.perimeter_idx() == 0 && node_view.perimeter_needed() > 0)
+        node_view.set_perimeter_needed(node_view.perimeter_needed() - 1);
+    else if (state.perimeter_count > 0)
+        node_view.set_perimeter_needed(std::max(node_view.perimeter_needed(), state.perimeter_count));
+
+    if (!node_view.needs_more_perimeters()) {
+        StoredExPolygonCollection inner_areas(storage);
+        inner_areas.push_back(node_view.area());
+        expolygons_move(inner_areas_out, inner_areas.mutable_handle());
+
+        StoredExPolygonCollection inner_fill_areas(storage);
+        inner_fill_areas.push_back(node_view.fill_area());
+        expolygons_move(inner_fill_areas_out, inner_fill_areas.mutable_handle());
+        return 1;
+    }
 
     const bool first_perimeter = node_view.perimeter_idx() == 0;
     const double line_offset = first_perimeter ? -0.5 * double(state.flow.width) :
@@ -130,6 +151,14 @@ int32_t generate_node(void *generator_context,
 c_flow external_perimeter_flow(const LayerIsland &island)
 {
     return island.region_count() > 0 ? island.region(0).flow(RAW_EXTRUSION_ROLE_EXTERNAL_PERIMETER) : c_flow{};
+}
+
+uint32_t perimeter_count(const LayerIsland &island)
+{
+    if (island.region_count() == 0)
+        return 0;
+    const int32_t count = island.region(0).print_region().config().get("perimeters").get_int();
+    return count <= 0 ? 0 : uint32_t(count);
 }
 
 } // namespace
@@ -192,6 +221,7 @@ void SimplePerimeterGenerator::run_impl(const plugin_run_context *run_ctx) const
 
     SimpleGeneratorState state;
     state.flow = external_perimeter_flow(island);
+    state.perimeter_count = perimeter_count(island);
     ctx->run_region_group(ctx,
                           regions.empty() ? nullptr : regions.data(),
                           uint32_t(regions.size()),

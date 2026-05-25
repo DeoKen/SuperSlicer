@@ -27,7 +27,8 @@ TEST_CASE("Separate hole contour module limits hole loops", "[plugins][perimeter
     const PerimeterRunCapture enabled_run =
         run_perimeter_case(enabled, {SIMPLE_PERIMETER_GENERATOR, SEPARATE_HOLE_CONTOUR}, surface, 0);
 
-    REQUIRE(external_perimeter_count(enabled_run) > external_perimeter_count(disabled_run));
+    REQUIRE(external_perimeter_count(disabled_run) == 6);
+    REQUIRE(external_perimeter_count(enabled_run) == 3);
     REQUIRE(count_loops_with_role(external_perimeters(enabled_run), elrHole) <
             count_loops_with_role(external_perimeters(enabled_run), elrDefault));
 
