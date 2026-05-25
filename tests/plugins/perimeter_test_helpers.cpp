@@ -119,6 +119,18 @@ void replace_layer_island(Layer &layer, const ExPolygon &area)
     layer.island(0).fill_regions(layer);
 }
 
+void rebuild_island_overlap_graph(PrintObject &object)
+{
+    for (Layer &layer : object.layers())
+        for (LayerSliceIsland &island : layer.islands()) {
+            island.overlaps_above.clear();
+            island.overlaps_below.clear();
+        }
+
+    for (size_t layer_idx = 1; layer_idx < object.layer_count(); ++layer_idx)
+        Layer::build_up_down_graph(object.layer(layer_idx - 1), object.layer(layer_idx));
+}
+
 void add_partitioned_region(PreparedPerimeterPrint &prepared,
                             Layer &layer,
                             const ExPolygon &area,
@@ -415,6 +427,7 @@ PerimeterRunCapture run_perimeter_case(
     REQUIRE(layer_idx < object.layer_count());
     Layer &layer = object.layer(layer_idx);
     replace_layer_island(layer, area);
+    rebuild_island_overlap_graph(object);
 
     if (region_overrides.size() > 0) {
         const ExPolygon default_region_area = rectangle_expolygon(-6., -6., 6., 6.);
@@ -478,6 +491,7 @@ size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
     Layer &layer = object.layer(0);
     const ExPolygon area = rectangle_expolygon(-10., -10., 10., 10.);
     replace_layer_island(layer, area);
+    rebuild_island_overlap_graph(object);
     if (use_region_override)
         add_partitioned_region(prepared, layer, rectangle_expolygon(-1., -10., 10., 10.), "gap_fill_no_overhang", "1");
 

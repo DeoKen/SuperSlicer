@@ -6,7 +6,9 @@
 #include "OnlyOnePerimeterOnTop.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -36,6 +38,59 @@ const char *k_external_infill_margin_key = "external_infill_margin";
 const char *k_bridged_infill_margin_key = "bridged_infill_margin";
 const char *k_gap_fill_enabled_key = "gap_fill_enabled";
 
+class ModuleState
+{
+public:
+    void initialize_region_settings(const PerimeterGenerationContextView &context)
+    {
+        // The island, its top/bottom neighborhood and its region settings are
+        // invariant while the host walks this perimeter tree. Build the
+        // expensive RegionSettings maps once in start(); after() only reads
+        // them for each generated node.
+        const LayerIsland island = context.island();
+        m_region_count = island.region_count();
+        m_has_upper_islands = island.upper_island_count() > 0;
+
+        m_top_settings.reset(new RegionSettings(context.storage(), island, {{k_only_one_perimeter_top_key}}));
+        m_top_settings->segregate(island.slice());
+
+        m_top_fill_settings.reset(new RegionSettings(context.storage(), island,
+            {{k_only_one_perimeter_top_key, k_min_width_top_surface_key, k_only_one_perimeter_top_other_algo_key}}));
+        m_top_fill_settings->segregate(island.slice());
+    }
+
+    bool ready() const
+    {
+        return m_region_count > 0 && m_top_settings != nullptr && m_top_fill_settings != nullptr;
+    }
+
+    uint32_t region_count() const
+    {
+        return m_region_count;
+    }
+
+    bool has_upper_islands() const
+    {
+        return m_has_upper_islands;
+    }
+
+    const RegionSettings *top_settings() const
+    {
+        return m_top_settings.get();
+    }
+
+    const RegionSettings *top_fill_settings() const
+    {
+        return m_top_fill_settings.get();
+    }
+
+private:
+    uint32_t m_region_count = 0;
+    bool m_has_upper_islands = false;
+    std::unique_ptr<RegionSettings> m_top_settings;
+    std::unique_ptr<RegionSettings> m_top_fill_settings;
+};
+
 Config region_config(const PerimeterGenerationContextView &context)
 {
     return context.island().region(0).print_region().config();
@@ -50,6 +105,16 @@ StoredExPolygonCollection collection_from_expolygon(storage_handle *storage, con
 {
     StoredExPolygonCollection collection(storage);
     collection.push_back(expolygon);
+    return collection;
+}
+
+StoredExPolygonCollection collection_from_polygon(storage_handle *storage, const Polygon &polygon)
+{
+    StoredExPolygon expolygon(storage);
+    multipoint_copy(polygon_as_multipoint(expolygon_contour(expolygon.mutable_handle())), polygon.multipoint_handle());
+
+    StoredExPolygonCollection collection(storage);
+    collection.push_back(expolygon.readonly());
     return collection;
 }
 
@@ -171,6 +236,73 @@ StoredExPolygonCollection build_bridge_checker(const PerimeterGenerationContextV
     return bridge_checker;
 }
 
+StoredExPolygonCollection grow_upper_slices_old_algorithm(storage_handle *storage,
+                                                          const ExPolygonCollection &upper_slices,
+                                                          coord_t offset_top_surface,
+                                                          coordf_t min_width_top_surface)
+{
+    // This intentionally mirrors the legacy "old algorithm" branch from
+    // PerimeterGenerator::split_top_surfaces().
+    //
+    // A single offset2() on the whole upper-slice collection is not equivalent:
+    // it may merge nearby islands during the shrink/grow pass, and it lets hole
+    // topology participate in the contour offset. The legacy behavior processes
+    // each ExPolygon independently, grows only the contour, then subtracts the
+    // shrunken holes. That keeps thin upper islands disappearing locally without
+    // turning close-but-separate islands into one blocking blob.
+    ClipperContext clip(storage);
+    StoredExPolygonCollection grown_accumulator(storage);
+
+    for (const ExPolygon &expolygon : upper_slices) {
+        StoredExPolygon contour_expolygon(storage);
+        multipoint_copy(polygon_as_multipoint(expolygon_contour(contour_expolygon.mutable_handle())),
+                        expolygon.contour().multipoint_handle());
+
+        StoredPolygonCollection grown_contours =
+            clipper_offset2(clip(contour_expolygon.readonly()), -double(offset_top_surface),
+                            double(offset_top_surface) + double(min_width_top_surface)).to_polygon_collection();
+        if (grown_contours.empty())
+            continue;
+
+        if (expolygon.hole_size() == 0) {
+            for (const Polygon &contour : grown_contours)
+                grown_accumulator.append_move_from(collection_from_polygon(storage, contour));
+            continue;
+        }
+
+        StoredPolygonCollection holes(storage);
+        for (uint32_t hole_idx = 0; hole_idx < expolygon.hole_size(); ++hole_idx) {
+            StoredPolygon hole(storage);
+            hole.copy_from(expolygon.hole(hole_idx));
+            hole.reverse();
+            holes.push_back(hole.readonly());
+        }
+
+        StoredPolygonCollection shrunken_holes =
+            clipper_offset(clip(holes.readonly()), -double(min_width_top_surface)).to_polygon_collection();
+        StoredExPolygonCollection grown_with_holes =
+            clipper_diff(clip(grown_contours.readonly()), clip(shrunken_holes.readonly())).to_expolygon_collection();
+        grown_accumulator.append_move_from(std::move(grown_with_holes));
+    }
+
+    if (grown_accumulator.empty())
+        return grown_accumulator;
+    return clipper_union(clip(grown_accumulator)).to_expolygon_collection();
+}
+
+// Find the part of current_polygons that should stop after the first perimeter.
+//
+// current_polygons is already shifted to the external-perimeter centerline. The
+// returned polygons are therefore not raw island areas: they are the inner
+// top-fill area left after reserving the external wall. The caller will split
+// the perimeter tree children with this result and set the inside branches to
+// one perimeter.
+//
+// non_top_polygons is both input state and output state across enabled
+// RegionSettings areas. It accumulates the parts that still need normal inner
+// perimeter generation. If the next enabled region is processed, it starts from
+// that accumulated remainder instead of reprocessing areas that were already
+// classified as top fill.
 StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &context,
                                           const PerimeterNodeView &parent,
                                           const RegionSettingsValue &values,
@@ -184,6 +316,10 @@ StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &
     const c_flow ext_flow = external_perimeter_flow(context);
     const uint32_t inner_perimeter_count = parent.perimeter_needed() > 0 ? parent.perimeter_needed() - 1 : 0;
 
+    // external_infill_margin anchors the top fill under the perimeter stack.
+    // Part of that distance is already consumed by the inner perimeters that
+    // still exist, so keep only the excess margin that really has to push the
+    // one-perimeter top area inward.
     const double max_perimeters_width = unscaled(double(ext_flow.width) + double(perimeter_flow.spacing) * double(inner_perimeter_count));
     coord_t offset_top_surface =
         scale_i(config.get(k_external_infill_margin_key).get_effective_value(inner_perimeter_count == 0 ? 0. : max_perimeters_width));
@@ -197,18 +333,28 @@ StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &
     const coordf_t min_width_top_surface =
         std::max(coordf_t(double(ext_flow.spacing) / 2.0 + 10.0), scale_d(configured_min_width));
 
+    // The upper layer marks areas that are not true top surfaces. Region clips
+    // are folded into build_upper_slices_for_area(): outside the enabled region
+    // is treated as covered by an upper layer, so only enabled areas can become
+    // top fill.
     StoredExPolygonCollection upper_slices = build_upper_slices_for_area(context, enabled_area);
     ClipperContext clip(storage);
     StoredExPolygonCollection grown_upper_slices(storage);
     if (!values.get_bool(k_only_one_perimeter_top_other_algo_key))
         grown_upper_slices = clipper_offset(clip(upper_slices), min_width_top_surface).to_expolygon_collection();
     else
-        grown_upper_slices = clipper_offset2(clip(upper_slices), -double(offset_top_surface),
-                                             double(offset_top_surface) + min_width_top_surface).to_expolygon_collection();
+        grown_upper_slices =
+            grow_upper_slices_old_algorithm(storage, upper_slices, offset_top_surface, min_width_top_surface);
 
+    // This is the safe fill area after the first/external perimeter. Later we
+    // clip top_polygons to this area so that the first perimeter itself remains
+    // untouched, and only the children below it are stopped.
     StoredExPolygonCollection fill_clip =
         offset_collection(storage, current_polygons, -double(ext_flow.spacing));
 
+    // Bridged zones should not be treated as ordinary top fill. They need their
+    // own bridging behavior, so detect unsupported regions from the lower layer
+    // and remove them from the top-surface candidate before classifying it.
     StoredExPolygonCollection orig_without_bridge = current_polygons.clone(storage);
     StoredExPolygonCollection lower_slices = lower_slice_coverage(storage, context.island());
     StoredExPolygonCollection bridge_checker =
@@ -216,17 +362,31 @@ StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &
     if (!bridge_checker.empty())
         orig_without_bridge = diff_collection(storage, current_polygons, bridge_checker);
 
+    // Candidate top area: what is not covered by the grown upper slices.
+    // temp_gap keeps the part between the first perimeter and fill_clip; when
+    // gap fill is enabled, legacy behavior lets that thin band continue with
+    // non-top geometry so it may be handled as gap fill.
     StoredExPolygonCollection top_polygons =
         diff_collection(storage, orig_without_bridge, grown_upper_slices);
     StoredExPolygonCollection temp_gap = diff_collection(storage, top_polygons, fill_clip);
+
+    // Expand the candidate top area by the required anchor/min-width distance.
+    // The complement inside current_polygons is the area that is definitely not
+    // top fill and must continue receiving inner perimeters.
     StoredExPolygonCollection top_offset =
         offset_collection(storage, top_polygons,
                           double(offset_top_surface) + min_width_top_surface - double(ext_flow.spacing) / 2.0);
     StoredExPolygonCollection inner_polygons =
         diff_collection(storage, current_polygons, top_offset);
 
+    // Convert back from "expanded top candidate" to the exact fill area that
+    // should stop after the first perimeter: inside fill_clip, outside the
+    // still-normal inner perimeter area.
     top_polygons = diff_collection(storage, fill_clip, inner_polygons);
 
+    // Accumulate the normal remainder for later enabled areas and for the next
+    // perimeter generation branch. This is also why the function mutates
+    // non_top_polygons instead of returning only top_polygons.
     StoredExPolygonCollection new_non_top_polygons =
         intersection_collection(storage, inner_polygons, current_polygons);
     if (config.get(k_gap_fill_enabled_key).get_bool())
@@ -239,6 +399,9 @@ StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &
 
 void set_children_to_one_perimeter(const PerimeterNodeView &parent)
 {
+    // The current node already owns the perimeter that has just been generated.
+    // Setting the parent and every child to one perimeter stops every branch
+    // after that first ring.
     parent.set_perimeter_needed(1);
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children)
@@ -250,8 +413,12 @@ std::vector<PerimeterNodeView> split_node_with_expolygons(perimeter_generation_c
                                                           const ExPolygonCollection &clip)
 {
     std::vector<PerimeterNodeView> inside_nodes;
+    assert(context != nullptr);
+    assert(context == nullptr || context->split_node != nullptr);
+    assert(node.valid());
     if (context == nullptr || context->split_node == nullptr || node.child_count() > 0)
         return inside_nodes;
+
     perimeter_node_span span = {};
     context->split_node(context, node.mutable_handle(), clip.handle(), &span);
     inside_nodes.reserve(span.count);
@@ -265,6 +432,8 @@ void set_top_children_to_one_perimeter(perimeter_generation_context *context,
                                        const PerimeterNodeView &parent,
                                        const ExPolygonCollection &top_fills)
 {
+    // Top areas are only known after the first perimeter was generated. Split
+    // each child with those top areas, then clamp only the inside pieces.
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children) {
         const std::vector<PerimeterNodeView> inside_nodes = split_node_with_expolygons(context, child, top_fills);
@@ -285,6 +454,9 @@ void set_enabled_children_to_one_perimeter(perimeter_generation_context *context
         return;
     }
 
+    // Region-local path for real top layers: clamp only the children that fall
+    // inside the setting-enabled region. split_node() keeps outside siblings
+    // available for normal perimeter generation.
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children) {
         const std::vector<PerimeterNodeView> inside_nodes =
@@ -296,45 +468,76 @@ void set_enabled_children_to_one_perimeter(perimeter_generation_context *context
 
 void *module_start(void *, perimeter_generation_context *context)
 {
+    // One state object per perimeter tree. Do not store this on the plugin
+    // singleton: several islands may be processed in parallel.
+    ModuleState *state = new ModuleState();
+    assert(context != nullptr);
+    assert(context == nullptr || context->root != nullptr);
     if (context == nullptr || context->root == nullptr)
-        return nullptr;
+        return state;
 
     PerimeterGenerationContextView context_view(context);
-    if (context_view.island().region_count() == 0 || context_view.island().upper_island_count() > 0)
-        return nullptr;
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    if (region_count == 0)
+        return state;
 
-    RegionSettings settings = context_view.region_settings({{k_only_one_perimeter_top_key}});
-    settings.segregate(context_view.island().slice());
-    if (!settings.has_many_config(k_only_one_perimeter_top_key) &&
-        settings.get_solo_config(k_only_one_perimeter_top_key).get_bool(k_only_one_perimeter_top_key))
+    state->initialize_region_settings(context_view);
+
+    // If there is no upper island at all and the setting is uniform, we can
+    // clamp the root immediately. Region-local top settings still need after(),
+    // because they must split the children produced by the first perimeter.
+    const RegionSettings *settings = state->top_settings();
+    assert(settings != nullptr);
+    if (!state->has_upper_islands() &&
+        !settings->has_many_config(k_only_one_perimeter_top_key) &&
+        settings->get_solo_config(k_only_one_perimeter_top_key).get_bool(k_only_one_perimeter_top_key))
         context_view.root().set_perimeter_needed(1);
-    return nullptr;
+    return state;
 }
 
-void module_after(void *, void *, perimeter_generation_context *context, perimeter_node *node)
+void module_after(void *, void *user_context, perimeter_generation_context *context, perimeter_node *node)
 {
-    if (context == nullptr || node == nullptr)
+    // This module acts in after(), because it needs the first generated
+    // perimeter to create child areas before it can decide which branches are
+    // top surfaces and should stop.
+    ModuleState *state = static_cast<ModuleState *>(user_context);
+    assert(context != nullptr);
+    assert(node != nullptr);
+    assert(state != nullptr);
+    if (context == nullptr || node == nullptr || state == nullptr)
         return;
 
     PerimeterGenerationContextView context_view(context);
-    if (context_view.island().region_count() == 0)
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    assert(!state->ready() || state->region_count() == region_count);
+    if (region_count == 0 || !state->ready())
         return;
 
+    assert(state->has_upper_islands() == (context_view.island().upper_island_count() > 0));
+
     PerimeterNodeView parent(node);
+    // Only the first generated perimeter may clamp its children. Deeper nodes
+    // are already post-first-ring branches.
     if (parent.perimeter_idx() > 0 || parent.extrusions().empty() ||
         parent.perimeter_needed() == 0 || parent.child_count() == 0)
         return;
 
-    RegionSettings settings = context_view.region_settings(
-        {{k_only_one_perimeter_top_key, k_min_width_top_surface_key, k_only_one_perimeter_top_other_algo_key}});
-    settings.segregate(context_view.island().slice());
-    if (!settings.has_many_config(k_only_one_perimeter_top_key) &&
-        !settings.get_solo_config(k_only_one_perimeter_top_key).get_bool(k_only_one_perimeter_top_key))
+    const RegionSettings *settings = state->has_upper_islands() ? state->top_fill_settings() : state->top_settings();
+    assert(settings != nullptr);
+    if (settings == nullptr)
         return;
 
-    const RegionSettings::AreaMap &areas = settings.get_areas(k_only_one_perimeter_top_key);
+    if (!settings->has_many_config(k_only_one_perimeter_top_key) &&
+        !settings->get_solo_config(k_only_one_perimeter_top_key).get_bool(k_only_one_perimeter_top_key))
+        return;
 
-    if (context_view.island().upper_island_count() == 0) {
+    const RegionSettings::AreaMap &areas = settings->get_areas(k_only_one_perimeter_top_key);
+
+    if (!state->has_upper_islands()) {
+        // == real top layer code path ==
+        // No upper island exists, so every enabled area is a top surface.
         for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas) {
             if (!entry.first.get_bool(k_only_one_perimeter_top_key))
                 continue;
@@ -343,18 +546,36 @@ void module_after(void *, void *, perimeter_generation_context *context, perimet
         return;
     }
 
+    // == partial top-surface code path ==
+    // Upper geometry exists. Reconstruct the areas that are still top surfaces
+    // using the same margin/min-width settings as the legacy algorithm, then
+    // clamp only the children clipped by those top-fill areas.
     StoredExPolygonCollection top_fills(context_view.storage());
     StoredExPolygonCollection non_top_polygons(context_view.storage());
     for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas) {
         if (!entry.first.get_bool(k_only_one_perimeter_top_key))
             continue;
 
+        // Each enabled RegionSettings entry may have different values for
+        // min_width_top_surface / only_one_perimeter_top_other_algo. Process
+        // them one after another:
+        // - first pass starts from the whole node area;
+        // - later passes start from the accumulated non-top remainder, so a
+        //   top area found by a previous pass is not classified again.
         StoredExPolygonCollection source_polygons =
             non_top_polygons.empty() ?
             collection_from_expolygon(context_view.storage(), parent.area()) :
             non_top_polygons.readonly().clone(context_view.storage());
+
+        // The legacy algorithm works from the external-perimeter centerline,
+        // not from the island boundary. Shift the source area inward by half
+        // the external perimeter width before computing top/not-top regions.
         StoredExPolygonCollection perimeter_centerline =
             offset_collection(context_view.storage(), source_polygons, -double(external_perimeter_flow(context_view).width) / 2.0);
+
+        // build_top_fills() returns the newly found top-fill pieces and updates
+        // non_top_polygons with the remainder that may keep generating inner
+        // perimeters or feed the next RegionSettings entry.
         StoredExPolygonCollection current_top_fills =
             build_top_fills(context_view, parent, entry.first, entry.second, perimeter_centerline, non_top_polygons);
         top_fills = union_append(context_view.storage(), std::move(top_fills), std::move(current_top_fills));
@@ -364,13 +585,21 @@ void module_after(void *, void *, perimeter_generation_context *context, perimet
         set_top_children_to_one_perimeter(context, parent, top_fills);
 }
 
+void module_end(void *, void *user_context, perimeter_generation_context *)
+{
+    assert(user_context != nullptr);
+    if (user_context == nullptr)
+        return;
+    delete static_cast<ModuleState *>(user_context);
+}
+
 const perimeter_generation_module_vtable &module_vtable()
 {
     static const perimeter_generation_module_vtable vt = {
         &module_start,
         nullptr,
         &module_after,
-        nullptr
+        &module_end
     };
     return vt;
 }
