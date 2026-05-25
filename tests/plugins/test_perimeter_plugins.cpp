@@ -43,6 +43,7 @@ const char *const ARACHNE_PERIMETER_GENERATOR = "perimeter.generator.arachne";
 const char *const EXTRA_PERIMETER_COUNT = "perimeter.module.extra_perimeter_count";
 const char *const EXTRA_PERIMETER_BELOW_AREA = "perimeter.module.extra_perimeter_below_area";
 const char *const EXTRA_PERIMETER_ODD_LAYER = "perimeter.module.extra_perimeter_odd_layer";
+const char *const ONLY_ONE_PERIMETER_FIRST_LAYER = "perimeter.module.only_one_perimeter_first_layer";
 const char *const ONLY_ONE_PERIMETER_ON_TOP = "perimeter.module.only_one_perimeter_on_top";
 const char *const SEPARATE_HOLE_CONTOUR = "perimeter.module.separate_hole_contour";
 const char *const REMOVE_GAP_FILL_ON_OVERHANGS = "perimeter.module.remove_gap_fill_on_overhangs";
@@ -161,6 +162,7 @@ DynamicPrintConfig perimeter_config(std::initializer_list<std::pair<std::string,
         {"extra_perimeters_count", "0"},
         {"extra_perimeters_below_area", "0"},
         {"extra_perimeters_odd_layers", "0"},
+        {"only_one_perimeter_first_layer", "0"},
         {"only_one_perimeter_top", "0"},
         {"perimeters_hole", "!0"},
         {"gap_fill_no_overhang", "0"},
@@ -679,6 +681,63 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
                            {{"extra_perimeters_odd_layers", "1"}}));
     REQUIRE(overlap_count > even_count);
     REQUIRE(overlap_count != odd_count);
+}
+
+TEST_CASE("Only one perimeter first layer limits first-layer branches", "[plugins][perimeter]")
+{
+    // The first-layer rule is applied after the first perimeter is generated.
+    // ExtraPerimeterCount creates a multi-perimeter baseline; this module then
+    // stops only first-layer child branches, globally or inside the overlapping
+    // region where the setting is enabled.
+    const ExPolygon surface = rectangle_expolygon(-10., -10., 10., 10.);
+    const DynamicPrintConfig multi = perimeter_config({
+        {"extra_perimeters_count", "3"},
+        {"only_one_perimeter_first_layer", "0"}
+    });
+    const DynamicPrintConfig limited = perimeter_config({
+        {"extra_perimeters_count", "3"},
+        {"only_one_perimeter_first_layer", "1"}
+    });
+
+    const PerimeterRunCapture multi_run =
+        run_perimeter_case(multi,
+                           {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, ONLY_ONE_PERIMETER_FIRST_LAYER},
+                           surface,
+                           0);
+    const PerimeterRunCapture limited_run =
+        run_perimeter_case(limited,
+                           {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, ONLY_ONE_PERIMETER_FIRST_LAYER},
+                           surface,
+                           0);
+    const size_t multi_count = external_perimeter_count(multi_run);
+    const size_t limited_count = external_perimeter_count(limited_run);
+    const double multi_length = extrusion_length(multi_run.external_perimeters);
+    const double limited_length = extrusion_length(limited_run.external_perimeters);
+    REQUIRE(limited_count < multi_count);
+    REQUIRE(limited_count > 0);
+    REQUIRE(limited_length < multi_length);
+
+    PreparedPerimeterPrint prepared;
+    prepare_cube_print(prepared, limited);
+    const size_t non_first_idx = layer_index_for_odd_layer(prepared.print.object(0));
+    const PerimeterRunCapture non_first_run =
+        run_perimeter_case(limited,
+                           {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, ONLY_ONE_PERIMETER_FIRST_LAYER},
+                           surface,
+                           non_first_idx);
+    const size_t non_first_count = external_perimeter_count(non_first_run);
+    REQUIRE(non_first_count == multi_count);
+
+    const PerimeterRunCapture overlap_run =
+        run_perimeter_case(multi,
+                           {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, ONLY_ONE_PERIMETER_FIRST_LAYER},
+                           surface,
+                           0,
+                           {{"only_one_perimeter_first_layer", "1"}});
+    const size_t overlap_count = external_perimeter_count(overlap_run);
+    REQUIRE(overlap_count != multi_count);
+    REQUIRE(overlap_count > limited_count);
+    REQUIRE(extrusion_length(overlap_run.external_perimeters) != Approx(limited_length));
 }
 
 TEST_CASE("Only one perimeter on top limits top branches", "[plugins][perimeter]")

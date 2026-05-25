@@ -32,6 +32,7 @@
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterOddLayer.hpp"
+#include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterFirstLayer.hpp"
 #include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterOnTop.hpp"
 #include "libslic3r/Plugins/Perimeter/RemoveGapFillOnOverhangs.hpp"
 #include "libslic3r/Plugins/Perimeter/SeparateHoleContour.hpp"
@@ -180,6 +181,8 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::Perimeter::ExtraPerimeterOddLayerPlugin::register_extra_perimeter_odd_layer_plugin(
             orchestrator_handle_value);
+        slic3r_api::Perimeter::OnlyOnePerimeterFirstLayerPlugin::register_only_one_perimeter_first_layer_plugin(
+            orchestrator_handle_value);
         slic3r_api::Perimeter::OnlyOnePerimeterOnTopPlugin::register_only_one_perimeter_on_top_plugin(
             orchestrator_handle_value);
         slic3r_api::Perimeter::SeparateHoleContourPlugin::register_separate_hole_contour_plugin(
@@ -207,6 +210,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_count");
         activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_below_area");
         activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_odd_layer");
+        activate_plugin_or_fail(orchestrator, "perimeter.module.only_one_perimeter_first_layer");
         activate_plugin_or_fail(orchestrator, "perimeter.module.only_one_perimeter_on_top");
         activate_plugin_or_fail(orchestrator, "perimeter.module.separate_hole_contour");
         activate_plugin_or_fail(orchestrator, "perimeter.module.remove_gap_fill_on_overhangs");

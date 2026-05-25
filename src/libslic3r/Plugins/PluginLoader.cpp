@@ -38,6 +38,7 @@
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterOddLayer.hpp"
+#include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterFirstLayer.hpp"
 #include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterOnTop.hpp"
 #include "libslic3r/Plugins/Perimeter/RemoveGapFillOnOverhangs.hpp"
 #include "libslic3r/Plugins/Perimeter/SeparateHoleContour.hpp"
@@ -318,6 +319,8 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::Perimeter::ExtraPerimeterBelowAreaPlugin::register_extra_perimeter_below_area_plugin);
     register_builtin_plugin(orchestrator, "perimeter.module.extra_perimeter_odd_layer",
         slic3r_api::Perimeter::ExtraPerimeterOddLayerPlugin::register_extra_perimeter_odd_layer_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.module.only_one_perimeter_first_layer",
+        slic3r_api::Perimeter::OnlyOnePerimeterFirstLayerPlugin::register_only_one_perimeter_first_layer_plugin);
     register_builtin_plugin(orchestrator, "perimeter.module.only_one_perimeter_on_top",
         slic3r_api::Perimeter::OnlyOnePerimeterOnTopPlugin::register_only_one_perimeter_on_top_plugin);
     register_builtin_plugin(orchestrator, "perimeter.module.separate_hole_contour",
