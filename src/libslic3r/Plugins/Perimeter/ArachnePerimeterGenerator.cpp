@@ -213,11 +213,6 @@ const Slic3r::ExPolygon *node_surface(const perimeter_node &node)
     return reinterpret_cast<const Slic3r::ExPolygon *>(node.surface);
 }
 
-Slic3r::ExtrusionEntity *node_extrusions(perimeter_node &node)
-{
-    return reinterpret_cast<Slic3r::ExtrusionEntity *>(node.extrusions);
-}
-
 Slic3r::ExPolygons *to_expolygons(expolygon_collection_handle *handle)
 {
     return reinterpret_cast<Slic3r::ExPolygons *>(handle);

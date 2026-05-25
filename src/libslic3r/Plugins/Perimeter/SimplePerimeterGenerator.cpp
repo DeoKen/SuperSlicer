@@ -68,14 +68,15 @@ void append_perimeter_loop(StoredExtrusionEntity &dst,
     dst.add_child(loop.mutable_view());
 }
 
-StoredExtrusionEntity make_external_perimeter_extrusion(storage_handle *storage,
-                                                        const ExPolygon &surface,
-                                                        const c_flow &flow)
+StoredExtrusionEntity make_perimeter_extrusion(storage_handle *storage,
+                                               const ExPolygon &surface,
+                                               const c_flow &flow,
+                                               double line_offset)
 {
     StoredExtrusionEntity extrusion(storage);
     extrusion.disable_reverse().disable_sort();
 
-    StoredExPolygonCollection loops = offset_surface(storage, surface, -0.5 * double(flow.width));
+    StoredExPolygonCollection loops = offset_surface(storage, surface, line_offset);
     for (ExPolygon loop : loops) {
         append_perimeter_loop(extrusion, loop.contour(), flow, k_loop_role_default);
         for (Polygon hole : loop.holes())
@@ -104,17 +105,23 @@ int32_t generate_node(void *generator_context,
     storage_handle *storage = context->run_ctx->plugin_storage;
     PerimeterNodeView node_view(node);
 
-    StoredExtrusionEntity extrusion = make_external_perimeter_extrusion(storage, node_view.surface(), state.flow);
+    const bool first_perimeter = node_view.perimeter_idx() == 0;
+    const double line_offset = first_perimeter ? -0.5 * double(state.flow.width) :
+                                                 -0.5 * double(state.flow.spacing);
+    StoredExtrusionEntity extrusion = make_perimeter_extrusion(storage, node_view.surface(), state.flow, line_offset);
     extrusion_move_from(node->extrusions, extrusion.mutable_handle());
 
+    const double inner_offset = first_perimeter ? -0.5 * double(state.flow.width + state.flow.spacing) :
+                                                  -double(state.flow.spacing);
     StoredExPolygonCollection inner_surfaces =
-        offset_surface(storage, node_view.surface(), -double(state.flow.spacing));
+        offset_surface(storage, node_view.surface(), inner_offset);
     expolygons_move(inner_surfaces_out, inner_surfaces.mutable_handle());
 
     // The fill/anchor area is slightly larger than the next perimeter surface,
     // matching the old "perimeter spacing minus 25%" anchoring convention.
+    const double fill_offset = inner_offset + 0.25 * double(state.flow.spacing);
     StoredExPolygonCollection inner_fill_surfaces =
-        offset_surface(storage, node_view.surface(), -0.75 * double(state.flow.spacing));
+        offset_surface(storage, node_view.surface(), fill_offset);
     expolygons_move(inner_fill_surfaces_out, inner_fill_surfaces.mutable_handle());
 
     return 1;
