@@ -201,6 +201,8 @@ void module_end(void *, void *user_context, perimeter_generation_context *)
 {
     // The host guarantees that end() is called for every successful start().
     assert(user_context != nullptr);
+    if (user_context == nullptr)
+        return;
     delete static_cast<ModuleState *>(user_context);
 }
 
