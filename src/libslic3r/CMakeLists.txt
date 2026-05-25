@@ -129,10 +129,12 @@ set(SLIC3R_SOURCES
 	Api/plugin/cpp/DataTreeViews.hpp
 	Api/plugin/cpp/ExtrusionViews.hpp
 	Api/plugin/cpp/GeometryViews.hpp
+	Api/plugin/cpp/PerimeterStepViews.hpp
 	Api/plugin/cpp/PluginBase.hpp
 	Api/plugin/cpp/PluginContext.hpp
 	Api/plugin/cpp/PrintHelpers.cpp
 	Api/plugin/cpp/PrintHelpers.hpp
+	Api/plugin/cpp/RegionSettingsViews.hpp
 	Api/plugin/cpp/VolumeViews.hpp
 	Api/plugin/cpp/Views.cpp
 	Api/plugin/cpp/Views.hpp
@@ -142,6 +144,20 @@ set(SLIC3R_SOURCES
 	Plugins/GuiRulesExample.hpp
 	Plugins/MaxOverhangThreshold.cpp
 	Plugins/MaxOverhangThreshold.hpp
+	Plugins/Perimeter/ExtraPerimeterBelowArea.cpp
+	Plugins/Perimeter/ExtraPerimeterBelowArea.hpp
+	Plugins/Perimeter/ExtraPerimeterCount.cpp
+	Plugins/Perimeter/ExtraPerimeterCount.hpp
+	Plugins/Perimeter/ExtraPerimeterOddLayer.cpp
+	Plugins/Perimeter/ExtraPerimeterOddLayer.hpp
+	Plugins/Perimeter/OnlyOnePerimeterOnTop.cpp
+	Plugins/Perimeter/OnlyOnePerimeterOnTop.hpp
+	Plugins/Perimeter/RemoveGapFillOnOverhangs.cpp
+	Plugins/Perimeter/RemoveGapFillOnOverhangs.hpp
+	Plugins/Perimeter/SeparateHoleContour.cpp
+	Plugins/Perimeter/SeparateHoleContour.hpp
+	Plugins/Perimeter/SimplePerimeterGenerator.cpp
+	Plugins/Perimeter/SimplePerimeterGenerator.hpp
 	Plugins/PluginLoader.cpp
 	Plugins/PluginLoader.hpp
 	Plugins/SliceVolume.cpp

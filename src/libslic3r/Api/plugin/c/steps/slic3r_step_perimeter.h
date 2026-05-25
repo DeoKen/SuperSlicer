@@ -196,6 +196,58 @@ Use run_ctx for cancellation/progress/error callbacks and plugin storage. It is
 the same common run context shape used by normal plugins, but it belongs to the
 perimeter generator call that is currently invoking the module.
 */
+typedef struct perimeter_generation_context perimeter_generation_context;
+
+/*
+Borrowed list of perimeter nodes.
+
+The array and the nodes are owned by the active perimeter generator. The array
+is only valid until the next structural edit on the same generator tree. Plugin
+code should read or edit the pointed nodes immediately, then discard the span.
+*/
+typedef struct perimeter_node_span {
+    perimeter_node **items;
+    uint32_t count;
+} perimeter_node_span;
+
+/*
+Split one child node with clip.
+
+The generator owns node storage, so structural edits go through this callback.
+If part of node->surface is inside clip and part is outside, the generator may
+keep the original node for one part and create sibling nodes for the remaining
+parts. It writes into inside_nodes_out the exact nodes whose surface is inside
+clip. The plugin must not assume where those nodes are stored in the parent
+child array: a generator may insert them near the source node or append them at
+the end.
+
+If no part of node is inside clip, inside_nodes_out->count is zero. If the whole
+node is inside clip, inside_nodes_out usually contains only node and no
+structural edit is needed.
+*/
+typedef void (*perimeter_node_split_fn)(perimeter_generation_context *context,
+                                        perimeter_node *node,
+                                        const expolygon_collection_handle *clip,
+                                        perimeter_node_span *inside_nodes_out);
+
+/*
+Replace node children with one child per surface.
+
+This is for modules that remove or reshape the extrusion generated on node and
+therefore need the next perimeter pass to continue from a different set of
+inner surfaces. The generator owns the child storage. surfaces contains the new
+node surfaces. fill_surfaces may be NULL; if it is provided, the generator
+should pick the best fill surface for each new child.
+
+The callback may rebuild the child array and invalidate child indexes. Existing
+perimeter_node pointers remain valid only if the generator documents that.
+Modules should query node->children again after calling this function.
+*/
+typedef void (*perimeter_node_rebuild_children_fn)(perimeter_generation_context *context,
+                                                   perimeter_node *node,
+                                                   const expolygon_collection_handle *surfaces,
+                                                   const expolygon_collection_handle *fill_surfaces);
+
 typedef struct perimeter_generation_context {
     plugin_run_context *run_ctx;
     const print_handle *print;
@@ -204,6 +256,9 @@ typedef struct perimeter_generation_context {
     const layer_island_handle *island;
     layer_region_island_handle *region_island;
     perimeter_node *root;
+    void *generator_context;
+    perimeter_node_split_fn split_node;
+    perimeter_node_rebuild_children_fn rebuild_children;
 } perimeter_generation_context;
 
 typedef struct perimeter_generation_module_vtable perimeter_generation_module_vtable;

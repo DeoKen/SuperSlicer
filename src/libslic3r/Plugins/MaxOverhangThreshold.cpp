@@ -467,7 +467,7 @@ void MaxOverhangThreshold::run_impl(const plugin_run_context *run_ctx) const {
                 // Update raw_slices. Surfaces are intentionally left for later
                 // pipeline steps to regenerate from these raw slices.
                 layer_has_changed = true;
-                layer_handle *mut_layer = object_get_layer_mutable(ctx->object, layer_idx);
+                layer_handle *mut_layer = object_get_layer_mutable(const_cast<object_handle *>(ctx->object), layer_idx);
                 layer_region_handle *mut_lregion = layer_get_region_mutable(mut_layer, lregion_idx);
                 expolygon_collection_handle *mut_region_slices = ctx->layer_region_borrow_mutable_slices(mut_lregion);
                 expolygons_move(mut_region_slices, new_slices.mutable_handle());
@@ -476,7 +476,7 @@ void MaxOverhangThreshold::run_impl(const plugin_run_context *run_ctx) const {
         // Raw LayerRegion slices changed, so rebuild the layer-level slice cache
         // and islands once after all regions for this layer are processed.
         if (layer_has_changed) {
-            layer_handle *mut_layer = object_get_layer_mutable(ctx->object, layer_idx);
+            layer_handle *mut_layer = object_get_layer_mutable(const_cast<object_handle *>(ctx->object), layer_idx);
             ctx->layer_recompute_slices_and_islands_from_layer_region(mut_layer);
         }
         progress().increment();

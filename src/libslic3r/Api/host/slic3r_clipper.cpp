@@ -34,6 +34,10 @@ static const Polyline *to_polyline(const polyline_handle *handle) {
     return reinterpret_cast<const Polyline *>(handle);
 }
 
+static Polylines *to_polylines(polyline_collection_handle *handle) {
+    return reinterpret_cast<Polylines *>(handle);
+}
+
 static const std::vector<MultiPoint> *to_multipoints(const polygon_collection_handle *handle) {
     return reinterpret_cast<const std::vector<MultiPoint> *>(handle);
 }
@@ -418,6 +422,22 @@ void clipper_shapes_replace_expolygons(expolygon_collection_handle *dst, const c
         return;
 
     *Slic3r::to_expolygons(dst) = source->to_expolygons();
+}
+
+polyline_collection_handle *clipper_diff_polyline_expolygons(storage_handle *storage,
+                                                             const polyline_handle *subject,
+                                                             const expolygon_collection_handle *clip)
+{
+    if (storage == nullptr || subject == nullptr)
+        return nullptr;
+
+    polyline_collection_handle *out_handle = storage_new_polylines(storage);
+    Slic3r::Polylines &out = *Slic3r::to_polylines(out_handle);
+    if (clip == nullptr || Slic3r::to_expolygons(clip)->empty())
+        out.push_back(*Slic3r::to_polyline(subject));
+    else
+        out = Slic3r::diff_pl(*Slic3r::to_polyline(subject), *Slic3r::to_expolygons(clip));
+    return out_handle;
 }
 
 } // extern "C"

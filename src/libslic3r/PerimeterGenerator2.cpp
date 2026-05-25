@@ -14,6 +14,9 @@
 #include <utility>
 #include <vector>
 
+#include "libslic3r/Api/host/Orchestrator.hpp"
+#include "libslic3r/Api/host/Plugin.hpp"
+#include "libslic3r/Api/plugin/c/steps/slic3r_step_perimeter.h"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/DataTreeFwd.hpp"
 #include "libslic3r/ExPolygon.hpp"
@@ -28,9 +31,26 @@
 namespace Slic3r::PerimeterGenerator2 {
 namespace {
 
-struct PerimeterProcessContext;
 struct PerimeterNode;
 using PerimeterNodePtr = std::unique_ptr<PerimeterNode>;
+
+// TODO: makes it immutable and create caches for config & flow
+struct PerimeterProcessContext
+{
+    Print &print;
+    PrintObject &object;
+    Layer &layer;
+    LayerSliceIsland &island;
+    LayerRegionIsland &region_island;
+    RegionSettings region_setting;
+    const ExPolygon &root_surface;
+    plugin_run_context *run_context = nullptr;
+    std::vector<perimeter_generation_module_instance> perimeter_modules;
+
+    const PrintRegionConfig& region_config() const;    // TODO (get one of the region's region_island's config)
+    Flow perimeter_flow() const; //TODO
+    Flow external_perimeter_flow() const; //TODO
+};
 
 // do not add algo-specific field inside this generic node struture.
 struct PerimeterNode
@@ -62,6 +82,57 @@ struct PerimeterNode
         this->children.insert(this->children.end(), std::make_move_iterator(new_nodes.begin()),
                                std::make_move_iterator(new_nodes.end()));
     }
+};
+
+struct PerimeterNodeCBridge
+{
+    explicit PerimeterNodeCBridge(PerimeterNode &source_node, perimeter_node *parent_node = nullptr) :
+        source(&source_node)
+    {
+        node.parent = parent_node;
+        node.surface = reinterpret_cast<expolygon_handle *>(&source_node.surface);
+        node.fill_surface = reinterpret_cast<expolygon_handle *>(&source_node.fill_surface);
+        node.extrusions = reinterpret_cast<extrusion_entity_handle *>(&source_node.extrusions);
+        node.perimeter_idx = uint32_t(source_node.perimeter_idx);
+        node.perimeter_needed = uint32_t(source_node.perimeter_needed);
+
+        child_bridges.reserve(source_node.children.size());
+        child_ptrs.reserve(source_node.children.size());
+        for (PerimeterNodePtr &child : source_node.children) {
+            child_bridges.push_back(std::make_unique<PerimeterNodeCBridge>(*child, &node));
+            child_ptrs.push_back(&child_bridges.back()->node);
+        }
+
+        node.children = child_ptrs.empty() ? nullptr : child_ptrs.data();
+        node.child_count = uint32_t(child_ptrs.size());
+    }
+
+    perimeter_node *find(PerimeterNode &searched)
+    {
+        if (source == &searched)
+            return &node;
+        for (std::unique_ptr<PerimeterNodeCBridge> &child : child_bridges) {
+            perimeter_node *found = child->find(searched);
+            if (found != nullptr)
+                return found;
+        }
+        return nullptr;
+    }
+
+    void sync_to_cpp()
+    {
+        source->perimeter_idx = node.perimeter_idx;
+        source->perimeter_needed = node.perimeter_needed;
+        // Geometry and extrusion handles point directly at C++ storage, so only
+        // scalar fields copied into the C view need to be written back.
+        for (std::unique_ptr<PerimeterNodeCBridge> &child : child_bridges)
+            child->sync_to_cpp();
+    }
+
+    PerimeterNode *source = nullptr;
+    perimeter_node node = {};
+    std::vector<std::unique_ptr<PerimeterNodeCBridge>> child_bridges;
+    std::vector<perimeter_node *> child_ptrs;
 };
 
 class PerimeterTree
@@ -182,22 +253,6 @@ private:
     PerimeterNode m_root;
 };
 
-//TODO: makes it immutable and create caches for config & flow
-struct PerimeterProcessContext
-{
-    Print &print;
-    PrintObject &object;
-    Layer &layer;
-    LayerSliceIsland &island;
-    LayerRegionIsland &region_island;
-    RegionSettings region_setting;
-    const ExPolygon &root_surface;
-
-    const PrintRegionConfig& region_config() const;    // TODO (get one of the region's region_island's config)
-    Flow perimeter_flow() const; //TODO
-    Flow external_perimeter_flow() const; //TODO
-};
-
 const PrintRegionConfig& PerimeterProcessContext::region_config() const
 {
     assert(!region_island.regions().empty());
@@ -214,6 +269,118 @@ Flow PerimeterProcessContext::external_perimeter_flow() const
 {
     assert(!region_island.regions().empty());
     return (*region_island.regions().begin())->flow(frExternalPerimeter);
+}
+
+plugin_run_context make_perimeter_generator_run_context(plugin_host_context &host_context)
+{
+    plugin_run_context run_context = {};
+    run_context.step = STEP_PERIMETER;
+    run_context.host_context = &host_context;
+    run_context.is_cancelled = orchestrator_plugin_is_cancelled;
+    run_context.report_warning = orchestrator_plugin_report_warning;
+    run_context.report_error = orchestrator_plugin_report_error;
+    run_context.report_progress = orchestrator_plugin_report_progress;
+    return run_context;
+}
+
+std::vector<perimeter_generation_module_instance>
+create_perimeter_generation_modules(Orchestrator &orchestrator, Print &print)
+{
+    std::vector<perimeter_generation_module_instance> modules;
+    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(PERIMETER_GENERATION_MODULE);
+    modules.reserve(plugins.size());
+
+    for (Plugin *plugin : plugins) {
+        plugin_host_context host_context =
+            orchestrator.prepare_plugin_host_context(PERIMETER_GENERATION_MODULE, plugin, &print);
+        plugin_run_context run_context =
+            orchestrator.prepare_plugin_run_context(PERIMETER_GENERATION_MODULE, plugin, &host_context);
+        run_ctx_perimeter_generation_module module_context = {};
+        run_context.data = &module_context;
+
+        plugin->setup(run_context, 1);
+        plugin->setup_run(run_context);
+        plugin->run(run_context);
+
+        if (module_context.module.vt != nullptr)
+            modules.push_back(module_context.module);
+    }
+
+    return modules;
+}
+
+perimeter_generation_context make_perimeter_generation_context(const PerimeterProcessContext &context,
+                                                               perimeter_node &root_node)
+{
+    perimeter_generation_context c_context = {};
+    c_context.run_ctx = context.run_context;
+    c_context.print = reinterpret_cast<const print_handle *>(&context.print);
+    c_context.object = reinterpret_cast<const object_handle *>(&context.object);
+    c_context.layer = reinterpret_cast<const layer_handle *>(&context.layer);
+    c_context.island = reinterpret_cast<const layer_island_handle *>(&context.island);
+    c_context.region_island = reinterpret_cast<layer_region_island_handle *>(&context.region_island);
+    c_context.root = &root_node;
+    return c_context;
+}
+
+void call_perimeter_module_start(const PerimeterProcessContext &context, PerimeterTree &tree)
+{
+    if (context.perimeter_modules.empty())
+        return;
+
+    PerimeterNodeCBridge bridge(tree.root());
+    perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
+    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+        if (module.vt != nullptr && module.vt->start != nullptr)
+            module.vt->start(module.ctx, &c_context);
+    bridge.sync_to_cpp();
+}
+
+void call_perimeter_module_before(const PerimeterProcessContext &context, PerimeterTree &tree, PerimeterNode &node)
+{
+    if (context.perimeter_modules.empty())
+        return;
+
+    PerimeterNodeCBridge bridge(tree.root());
+    perimeter_node *c_node = bridge.find(node);
+    if (c_node == nullptr)
+        return;
+
+    perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
+    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+        if (module.vt != nullptr && module.vt->before != nullptr)
+            module.vt->before(module.ctx, &c_context, c_node);
+    bridge.sync_to_cpp();
+}
+
+void call_perimeter_module_after(const PerimeterProcessContext &context, PerimeterTree &tree, PerimeterNode &node)
+{
+    if (context.perimeter_modules.empty())
+        return;
+
+    PerimeterNodeCBridge bridge(tree.root());
+    perimeter_node *c_node = bridge.find(node);
+    if (c_node == nullptr)
+        return;
+
+    perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
+    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+        if (module.vt != nullptr && module.vt->after != nullptr)
+            module.vt->after(module.ctx, &c_context, c_node);
+    bridge.sync_to_cpp();
+}
+
+void call_perimeter_module_end(const PerimeterProcessContext &context, PerimeterTree &tree)
+{
+    if (context.perimeter_modules.empty())
+        return;
+
+    PerimeterNodeCBridge bridge(tree.root());
+    perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
+    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+        if (module.vt != nullptr && module.vt->end != nullptr)
+            module.vt->end(module.ctx, &c_context);
+    bridge.sync_to_cpp();
 }
 
 std::vector<LayerRegionSetCPtrs> collect_region_groups(const LayerSliceIsland &island, const Layer &layer)
@@ -362,7 +529,7 @@ protected:
         return m_nodes_with_extra_perimeter[island][node];
     }
 
-    void set_data(LayerRegionIsland *island, const PerimeterNode *node, const DATA_TYPE &data) {
+    void set_data(LayerRegionIsland *island, const PerimeterNode *node, const DATA_TYPE &data) const {
         std::lock_guard lock(m_mutex);
         m_nodes_with_extra_perimeter[island][node] = data;
     }
@@ -524,7 +691,7 @@ public:
                     }
                     continue;
                 }
-                assert(!clip.empty());
+                assert(!clip.expolys.empty());
 
                 const size_t start_idx = new_nodes.size();
                 const int nb_inside = PerimeterTree::split_node(params, *child, new_nodes, clip.expolys);
@@ -621,7 +788,7 @@ protected:
                                             ExPolygons &fill_clip,
                                             int peri_count,
                                             coordf_t min_width,
-                                            bool use_old_algorithm_for_min_width);
+                                            bool use_old_algorithm_for_min_width) const;
 public:
 
     void after_generation(const PerimeterProcessContext &params,
@@ -1116,9 +1283,25 @@ void process_surface(Print &print,
                      const ExPolygon &surface)
 {
     assert(!region_island.regions().empty());
-    RegionSettings region_settings((*region_island.regions().begin())->config(), perimeter_keys);
+    RegionSettings region_settings((*region_island.regions().begin())->region().config(), perimeter_keys);
     segregate_extra_perimeters(region_settings, surface, region_island.regions());
-    PerimeterProcessContext context{print, object, layer, island, region_island, region_settings, surface};
+    Orchestrator &orchestrator = Orchestrator::instance();
+    plugin_host_context host_context =
+        orchestrator.prepare_plugin_host_context(STEP_PERIMETER, nullptr, &print);
+    plugin_run_context run_context = make_perimeter_generator_run_context(host_context);
+    std::vector<perimeter_generation_module_instance> modules =
+        create_perimeter_generation_modules(orchestrator, print);
+    PerimeterProcessContext context{
+        print,
+        object,
+        layer,
+        island,
+        region_island,
+        region_settings,
+        surface,
+        &run_context,
+        std::move(modules)
+    };
     PerimeterTree tree(surface);
     PerimeterNode &root = tree.root();
 
@@ -1129,6 +1312,7 @@ void process_surface(Print &print,
     const std::vector<const PerimeterModifier *> &modifiers = perimeter_modifiers();
     for (const PerimeterModifier *modifier : modifiers)
         modifier->start_generation(context, tree);
+    call_perimeter_module_start(context, tree);
 
     std::vector<PerimeterNode *> pending_nodes;
     pending_nodes.push_back(&root);
@@ -1143,6 +1327,7 @@ void process_surface(Print &print,
 
         for (const PerimeterModifier *modifier : modifiers)
             modifier->before_generation(context, tree, *node);
+        call_perimeter_module_before(context, tree, *node);
 
         // Generate one ring for the current node. The generator writes the ring
         // extrusion into the node and returns the inner surfaces.
@@ -1155,6 +1340,7 @@ void process_surface(Print &print,
         // children, or change child counters before they are queued.
         for (const PerimeterModifier *modifier : modifiers)
             modifier->after_generation(context, tree, *node);
+        call_perimeter_module_after(context, tree, *node);
 
         for (PerimeterNodePtr &child : node->children)
             pending_nodes.push_back(child.get());
@@ -1166,6 +1352,7 @@ void process_surface(Print &print,
     
     for (const PerimeterModifier *modifier : modifiers)
         modifier->finish_generation(context, tree);
+    call_perimeter_module_end(context, tree);
 
     build_fill_surfaces(context, tree);
     publish_surface_result(context, tree);

@@ -6,6 +6,7 @@ add_executable(${_TEST_NAME}_tests
     ../../src/plugins_cpp/Polyholes/Polyholes.cpp
     plugin_test_helpers.cpp
     test_flat_area_layer_height.cpp
+    test_perimeter_plugins.cpp
     test_polyholes.cpp
     test_support_demand_modifiers.cpp
     test_support_demand_overhangs.cpp

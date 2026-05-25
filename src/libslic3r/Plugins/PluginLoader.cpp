@@ -34,6 +34,13 @@
 #include "libslic3r/Api/plugin/c/slic3r_plugin.h"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
+#include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
+#include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
+#include "libslic3r/Plugins/Perimeter/ExtraPerimeterOddLayer.hpp"
+#include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterOnTop.hpp"
+#include "libslic3r/Plugins/Perimeter/RemoveGapFillOnOverhangs.hpp"
+#include "libslic3r/Plugins/Perimeter/SeparateHoleContour.hpp"
+#include "libslic3r/Plugins/Perimeter/SimplePerimeterGenerator.hpp"
 #include "libslic3r/Plugins/SliceVolume.hpp"
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
@@ -304,6 +311,20 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin);
     register_builtin_plugin(orchestrator, "max_overhang_threshold",
         slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.module.extra_perimeter_count",
+        slic3r_api::Perimeter::ExtraPerimeterCountPlugin::register_extra_perimeter_count_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.module.extra_perimeter_below_area",
+        slic3r_api::Perimeter::ExtraPerimeterBelowAreaPlugin::register_extra_perimeter_below_area_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.module.extra_perimeter_odd_layer",
+        slic3r_api::Perimeter::ExtraPerimeterOddLayerPlugin::register_extra_perimeter_odd_layer_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.module.only_one_perimeter_on_top",
+        slic3r_api::Perimeter::OnlyOnePerimeterOnTopPlugin::register_only_one_perimeter_on_top_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.module.separate_hole_contour",
+        slic3r_api::Perimeter::SeparateHoleContourPlugin::register_separate_hole_contour_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.module.remove_gap_fill_on_overhangs",
+        slic3r_api::Perimeter::RemoveGapFillOnOverhangsPlugin::register_remove_gap_fill_on_overhangs_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.generator.simple",
+        slic3r_api::Perimeter::SimplePerimeterGeneratorPlugin::register_simple_perimeter_generator_plugin);
     register_builtin_plugin(orchestrator, "support_demand_bridge_removal",
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin);
 }

@@ -142,7 +142,7 @@ ExPolygons RegionSettings::ClipExpoly::diff(const ExPolygons &to_diff) const {
         ExPolygons differences {expoly};
         for (size_t i = 0; i < this->expolys.size(); ++i) {
             if (bb_contour.overlap(this->bboxes[i])) {
-                differences = diff_ex(differences, this->expolys[i]));
+                differences = diff_ex(differences, this->expolys[i]);
             }
         }
         append(all_differences, std::move(differences));

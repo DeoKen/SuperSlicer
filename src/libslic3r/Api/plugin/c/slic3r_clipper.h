@@ -197,6 +197,20 @@ dst is not freed or replaced; only its contents are changed.
 SLIC3R_HOST_API void clipper_shapes_replace_polygons(polygon_collection_handle *dst, const clipper_shapes_handle *shapes);
 SLIC3R_HOST_API void clipper_shapes_replace_expolygons(expolygon_collection_handle *dst, const clipper_shapes_handle *shapes);
 
+/*
+Clip an open polyline by polygonal areas and return the remaining open pieces.
+
+This is the polyline equivalent of subject - clip. It is intentionally exposed
+as a direct helper instead of a generic ClipperOperand conversion because open
+paths materialize as polylines, not as polygon/expolygon collections.
+
+The returned polyline collection is owned by storage and must be released with
+storage_free() when no longer needed.
+*/
+SLIC3R_HOST_API polyline_collection_handle *clipper_diff_polyline_expolygons(storage_handle *storage,
+                                                                             const polyline_handle *subject,
+                                                                             const expolygon_collection_handle *clip);
+
 #ifdef __cplusplus
 }
 #endif

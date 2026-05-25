@@ -196,6 +196,18 @@ SLIC3R_HOST_API const layer_region_island_handle *layer_island_get_region_island
 
 SLIC3R_HOST_API const layer_handle *layer_island_get_layer(const layer_island_handle *me);
 
+/*
+Linked islands on adjacent object layers.
+
+These accessors expose only the neighboring island handles. They intentionally
+do not expose the overlap area: plugin code that needs coverage can read the
+neighbor island slice and perform its own union/intersection logic.
+*/
+SLIC3R_HOST_API uint32_t layer_island_count_lower_island(const layer_island_handle *me);
+SLIC3R_HOST_API const layer_island_handle *layer_island_get_lower_island(const layer_island_handle *me, uint32_t idx);
+SLIC3R_HOST_API uint32_t layer_island_count_upper_island(const layer_island_handle *me);
+SLIC3R_HOST_API const layer_island_handle *layer_island_get_upper_island(const layer_island_handle *me, uint32_t idx);
+
 /* ========================= LAYER REGION ISLAND ========================= */
 
 SLIC3R_HOST_API int32_t layer_region_island_extruder_id(const layer_region_island_handle *me);

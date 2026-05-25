@@ -490,6 +490,30 @@ const layer_handle *layer_island_get_layer(const layer_island_handle *me)
     return me == nullptr ? nullptr : reinterpret_cast<const layer_handle*>(Slic3r::to_layer_island(me)->layer());
 }
 
+uint32_t layer_island_count_lower_island(const layer_island_handle *me)
+{
+    return me == nullptr ? 0 : static_cast<uint32_t>(Slic3r::to_layer_island(me)->overlaps_below.size());
+}
+
+const layer_island_handle *layer_island_get_lower_island(const layer_island_handle *me, uint32_t idx)
+{
+    if (me == nullptr || idx >= Slic3r::to_layer_island(me)->overlaps_below.size())
+        return nullptr;
+    return reinterpret_cast<const layer_island_handle *>(Slic3r::to_layer_island(me)->overlaps_below[idx].to);
+}
+
+uint32_t layer_island_count_upper_island(const layer_island_handle *me)
+{
+    return me == nullptr ? 0 : static_cast<uint32_t>(Slic3r::to_layer_island(me)->overlaps_above.size());
+}
+
+const layer_island_handle *layer_island_get_upper_island(const layer_island_handle *me, uint32_t idx)
+{
+    if (me == nullptr || idx >= Slic3r::to_layer_island(me)->overlaps_above.size())
+        return nullptr;
+    return reinterpret_cast<const layer_island_handle *>(Slic3r::to_layer_island(me)->overlaps_above[idx].to);
+}
+
 int32_t layer_region_island_extruder_id(const layer_region_island_handle *me)
 {
     return me == nullptr ? -1 : static_cast<int32_t>(Slic3r::to_layer_region_island(me)->extruder_id());
