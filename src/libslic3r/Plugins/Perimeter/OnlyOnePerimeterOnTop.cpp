@@ -28,15 +28,13 @@ const char *k_used_config_keys[] = {
     "min_width_top_surface",
     "only_one_perimeter_top_other_algo",
     "external_infill_margin",
-    "bridged_infill_margin",
-    "gap_fill_enabled"
+    "bridged_infill_margin"
 };
 const char *k_only_one_perimeter_top_key = "only_one_perimeter_top";
 const char *k_min_width_top_surface_key = "min_width_top_surface";
 const char *k_only_one_perimeter_top_other_algo_key = "only_one_perimeter_top_other_algo";
 const char *k_external_infill_margin_key = "external_infill_margin";
 const char *k_bridged_infill_margin_key = "bridged_infill_margin";
-const char *k_gap_fill_enabled_key = "gap_fill_enabled";
 
 class ModuleState
 {
@@ -116,9 +114,9 @@ StoredExPolygonCollection collection_from_expolygon(storage_handle *storage, con
     return collection;
 }
 
-// Promote a flat Polygon into an ExPolygon with no holes. The old algorithm
-// sometimes grows contours as raw polygons; this helper brings them back to the
-// ExPolygon collection representation used by the perimeter module API.
+// Promote a flat Polygon into an ExPolygon with no holes. Some contour-growth
+// operations naturally produce raw polygons; perimeter modules exchange areas
+// as ExPolygons, so normalize them at the boundary.
 StoredExPolygonCollection collection_from_polygon(storage_handle *storage, const Polygon &polygon)
 {
     StoredExPolygon expolygon(storage);
@@ -246,10 +244,9 @@ c_bounding_box inflated_bounding_box(c_bounding_box bbox, coord_t delta)
 }
 
 // Clip the possible clip area to the subject bbox before expensive boolean
-// operations. This was critical in the old global algorithm. The new pipeline
-// already works on one island and only asks for nearby intersecting islands, so
-// the win is probably smaller now, but the pre-pass is still cheap and keeps
-// worst-case path counts bounded.
+// operations. The perimeter pipeline already works on one island and nearby
+// upper/lower islands, but this cheap pre-pass still keeps worst-case path
+// counts bounded when the neighborhood contains many small pieces.
 StoredExPolygonCollection clip_to_subject_bbox(storage_handle *storage,
                                                const ExPolygonCollection &src,
                                                const ExPolygonCollection &subject)
@@ -269,7 +266,8 @@ StoredExPolygonCollection clip_to_subject_bbox(storage_handle *storage,
 // setting is region-local, areas outside the enabled clip are deliberately
 // added to the upper coverage so they cannot be classified as top fill.
 StoredExPolygonCollection build_upper_slices_for_area(const PerimeterGenerationContextView &context,
-                                                      const RegionSettingsClip &enabled_area)
+                                                      const RegionSettingsClip &enabled_area,
+                                                      const ExPolygonCollection &domain)
 {
     storage_handle *storage = context.storage();
     StoredExPolygonCollection upper_slices = upper_slice_coverage(storage, context.island());
@@ -279,8 +277,7 @@ StoredExPolygonCollection build_upper_slices_for_area(const PerimeterGenerationC
     // Outside the setting-enabled area, behave as if an upper layer existed.
     // This prevents the module from forcing one perimeter where the setting is
     // disabled by a region/modifier split.
-    StoredExPolygonCollection island_area = collection_from_expolygon(storage, context.island().slice());
-    StoredExPolygonCollection disabled_area = enabled_area.diff(island_area);
+    StoredExPolygonCollection disabled_area = enabled_area.diff(domain);
     return union_append(storage, std::move(upper_slices), std::move(disabled_area));
 }
 
@@ -323,19 +320,15 @@ StoredExPolygonCollection build_bridge_checker(const PerimeterGenerationContextV
     return bridge_checker;
 }
 
-StoredExPolygonCollection grow_upper_slices_old_algorithm(storage_handle *storage,
-                                                          const ExPolygonCollection &upper_slices,
-                                                          coord_t offset_top_surface,
-                                                          coordf_t min_width_top_surface)
+StoredExPolygonCollection grow_upper_slices_preserving_islands(storage_handle *storage,
+                                                               const ExPolygonCollection &upper_slices,
+                                                               coord_t offset_top_surface,
+                                                               coordf_t min_width_top_surface)
 {
-    // This intentionally mirrors the legacy "old algorithm" branch from
-    // PerimeterGenerator::split_top_surfaces().
-    //
     // A single offset2() on the whole upper-slice collection is not equivalent:
     // it may merge nearby islands during the shrink/grow pass, and it lets hole
-    // topology participate in the contour offset. The legacy behavior processes
-    // each ExPolygon independently, grows only the contour, then subtracts the
-    // shrunken holes. That keeps thin upper islands disappearing locally without
+    // topology participate in the contour offset. Processing each ExPolygon
+    // independently keeps thin upper islands disappearing locally without
     // turning close-but-separate islands into one blocking blob.
     ClipperContext clip(storage);
     StoredExPolygonCollection grown_accumulator(storage);
@@ -377,27 +370,45 @@ StoredExPolygonCollection grow_upper_slices_old_algorithm(storage_handle *storag
     return clipper_union(clip(grown_accumulator)).to_expolygon_collection();
 }
 
-// Find the part of current_polygons that should stop after the first perimeter.
+// Build the geometric domain owned by the children created from the first
+// perimeter. These children are where the next perimeter would be generated.
+// The module classifies parts of this domain as "continue" or "stop here".
+StoredExPolygonCollection child_area_collection(storage_handle *storage, const PerimeterNodeView &parent)
+{
+    StoredExPolygonCollection children_area(storage);
+    const std::vector<PerimeterNodeView> children = parent.children_snapshot();
+    for (const PerimeterNodeView &child : children)
+        children_area.push_back(child.area());
+
+    if (children_area.empty())
+        return children_area;
+
+    ClipperContext clip(storage);
+    return clipper_union(clip(children_area)).to_expolygon_collection();
+}
+
+// Find the part of source_child_area that should stop after the first perimeter.
 //
-// current_polygons is already shifted to the external-perimeter centerline. The
-// returned polygons are therefore not raw island areas: they are the inner
-// top-fill area left after reserving the external wall. The caller will split
-// the perimeter tree children with this result and set the inside branches to
-// one perimeter.
+// source_child_area is expressed in child-node coordinates: it is the space
+// where the second perimeter would normally be generated. Returning a subset of
+// that space lets the caller split existing child nodes directly, without
+// reconstructing a perimeter centerline or touching the extrusion that was just
+// emitted.
 //
-// non_top_polygons is both input state and output state across enabled
-// RegionSettings areas. It accumulates the parts that still need normal inner
-// perimeter generation. If the next enabled region is processed, it starts from
-// that accumulated remainder instead of reprocessing areas that were already
-// classified as top fill.
-StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &context,
-                                          const PerimeterNodeView &parent,
-                                          const RegionSettingsValue &values,
-                                          const RegionSettingsClip &enabled_area,
-                                          const ExPolygonCollection &current_polygons,
-                                          StoredExPolygonCollection &non_top_polygons)
+// normal_child_area is the remaining child domain passed between RegionSettings
+// entries. When several region configurations are active, each entry replaces
+// it with the area that still needs ordinary inner perimeter generation.
+StoredExPolygonCollection build_one_perimeter_stop_area(const PerimeterGenerationContextView &context,
+                                                        const PerimeterNodeView &parent,
+                                                        const RegionSettingsValue &values,
+                                                        const RegionSettingsClip &enabled_area,
+                                                        const ExPolygonCollection &source_child_area,
+                                                        StoredExPolygonCollection &normal_child_area)
 {
     storage_handle *storage = context.storage();
+    if (source_child_area.empty())
+        return StoredExPolygonCollection(storage);
+
     Config config = region_config(context);
     const c_flow perimeter_flow = context.perimeter_flow();
     const c_flow ext_flow = external_perimeter_flow(context);
@@ -422,67 +433,58 @@ StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &
 
     // The upper layer marks areas that are not true top surfaces. Region clips
     // are folded into build_upper_slices_for_area(): outside the enabled region
-    // is treated as covered by an upper layer, so only enabled areas can become
-    // top fill.
-    StoredExPolygonCollection upper_slices = build_upper_slices_for_area(context, enabled_area);
+    // is treated as covered by an upper layer, so only enabled child areas can
+    // become one-perimeter top fill.
+    StoredExPolygonCollection upper_slices =
+        build_upper_slices_for_area(context, enabled_area, source_child_area);
     ClipperContext clip(storage);
     StoredExPolygonCollection grown_upper_slices(storage);
-    if (!values.get_bool(k_only_one_perimeter_top_other_algo_key))
+    if (upper_slices.empty()) {
+        grown_upper_slices = StoredExPolygonCollection(storage);
+    } else if (!values.get_bool(k_only_one_perimeter_top_other_algo_key)) {
         grown_upper_slices = clipper_offset(clip(upper_slices), min_width_top_surface).to_expolygon_collection();
-    else
+    } else {
         grown_upper_slices =
-            grow_upper_slices_old_algorithm(storage, upper_slices, offset_top_surface, min_width_top_surface);
-    grown_upper_slices = clip_to_subject_bbox(storage, grown_upper_slices, current_polygons);
-
-    // This is the safe fill area after the first/external perimeter. Later we
-    // clip top_polygons to this area so that the first perimeter itself remains
-    // untouched, and only the children below it are stopped.
-    StoredExPolygonCollection fill_clip =
-        offset_collection(storage, current_polygons, -double(ext_flow.spacing));
+            grow_upper_slices_preserving_islands(storage, upper_slices, offset_top_surface, min_width_top_surface);
+    }
+    grown_upper_slices = clip_to_subject_bbox(storage, grown_upper_slices, source_child_area);
 
     // Bridged zones should not be treated as ordinary top fill. They need their
     // own bridging behavior, so detect unsupported regions from the lower layer
     // and remove them from the top-surface candidate before classifying it.
-    StoredExPolygonCollection orig_without_bridge = current_polygons.clone(storage);
+    StoredExPolygonCollection source_without_bridge = source_child_area.clone(storage);
     StoredExPolygonCollection lower_slices = lower_slice_coverage(storage, context.island());
     StoredExPolygonCollection bridge_checker =
-        build_bridge_checker(context, config, current_polygons, lower_slices, inner_perimeter_count);
+        build_bridge_checker(context, config, source_child_area, lower_slices, inner_perimeter_count);
     if (!bridge_checker.empty())
-        orig_without_bridge = diff_collection(storage, current_polygons, bridge_checker);
+        source_without_bridge = diff_collection(storage, source_child_area, bridge_checker);
 
-    // Candidate top area: what is not covered by the grown upper slices.
-    // temp_gap keeps the part between the first perimeter and fill_clip; when
-    // gap fill is enabled, legacy behavior lets that thin band continue with
-    // non-top geometry so it may be handled as gap fill.
-    StoredExPolygonCollection top_polygons =
-        diff_collection(storage, orig_without_bridge, grown_upper_slices);
-    StoredExPolygonCollection temp_gap = diff_collection(storage, top_polygons, fill_clip);
+    // Candidate top area: child space that is enabled, not bridging, and not
+    // protected by the upper layer after the configured minimum-width growth.
+    StoredExPolygonCollection top_candidate =
+        diff_collection(storage, source_without_bridge, grown_upper_slices);
 
-    // Expand the candidate top area by the required anchor/min-width distance.
-    // The complement inside current_polygons is the area that is definitely not
-    // top fill and must continue receiving inner perimeters.
+    // Grow the candidate by the configured anchor/min-width distance. The
+    // complement inside source_child_area is the area that still needs normal
+    // inner perimeter generation.
     StoredExPolygonCollection top_offset =
-        offset_collection(storage, top_polygons,
+        offset_collection(storage, top_candidate,
                           double(offset_top_surface) + min_width_top_surface - double(ext_flow.spacing) / 2.0);
-    StoredExPolygonCollection inner_polygons =
-        diff_collection(storage, current_polygons, top_offset);
+    StoredExPolygonCollection continue_area =
+        diff_collection(storage, source_child_area, top_offset);
 
-    // Convert back from "expanded top candidate" to the exact fill area that
-    // should stop after the first perimeter: inside fill_clip, outside the
-    // still-normal inner perimeter area.
-    top_polygons = diff_collection(storage, fill_clip, inner_polygons);
+    // Return an exact partition of the child domain. This is deliberately based
+    // on source_child_area rather than on an offset centerline: no geometry is
+    // lost between the "stop" and "continue" branches, and gap-fill creation is
+    // left to the later perimeter post-processing step.
+    StoredExPolygonCollection stop_area =
+        diff_collection(storage, source_child_area, continue_area);
 
-    // Accumulate the normal remainder for later enabled areas and for the next
-    // perimeter generation branch. This is also why the function mutates
-    // non_top_polygons instead of returning only top_polygons.
-    StoredExPolygonCollection new_non_top_polygons =
-        intersection_collection(storage, inner_polygons, current_polygons);
-    if (config.get(k_gap_fill_enabled_key).get_bool())
-        new_non_top_polygons = union_append(storage, std::move(new_non_top_polygons), std::move(temp_gap));
+    StoredExPolygonCollection new_normal_child_area =
+        intersection_collection(storage, continue_area, source_child_area);
+    normal_child_area = std::move(new_normal_child_area);
 
-    non_top_polygons = union_append(storage, std::move(non_top_polygons), std::move(new_non_top_polygons));
-
-    return top_polygons;
+    return stop_area;
 }
 
 // Clamp a whole generated branch to a single perimeter. This is used for the
@@ -523,18 +525,18 @@ std::vector<PerimeterNodeView> split_node_with_expolygons(perimeter_generation_c
     return inside_nodes;
 }
 
-// For partial top surfaces, top_fills is known after the first perimeter and is
+// For partial top layers, stop_areas is known after the first perimeter and is
 // expressed in the child-node coordinate space. Split each child by that area,
 // then stop only the pieces that are actually top fill.
 void set_top_children_to_one_perimeter(perimeter_generation_context *context,
                                        const PerimeterNodeView &parent,
-                                       const ExPolygonCollection &top_fills)
+                                       const ExPolygonCollection &stop_areas)
 {
-    // Top areas are only known after the first perimeter was generated. Split
-    // each child with those top areas, then clamp only the inside pieces.
+    // Stop areas are only known after the first perimeter was generated. Split
+    // each child with those areas, then clamp only the inside pieces.
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children) {
-        const std::vector<PerimeterNodeView> inside_nodes = split_node_with_expolygons(context, child, top_fills);
+        const std::vector<PerimeterNodeView> inside_nodes = split_node_with_expolygons(context, child, stop_areas);
         if (inside_nodes.empty())
             continue;
         child.set_perimeter_needed(1);
@@ -647,42 +649,44 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
     }
 
     // == partial top-surface code path ==
-    // Upper geometry exists. Reconstruct the areas that are still top surfaces
-    // using the same margin/min-width settings as the legacy algorithm, then
-    // clamp only the children clipped by those top-fill areas.
-    StoredExPolygonCollection top_fills(context_view.storage());
-    StoredExPolygonCollection non_top_polygons(context_view.storage());
+    // Upper geometry exists. Work on the children that the first perimeter just
+    // created: each child area is the domain where the next perimeter would be
+    // generated. The module partitions that domain into:
+    // - stop areas, which are top fill and should keep only the first perimeter;
+    // - normal areas, which remain available for deeper perimeter generation.
+    StoredExPolygonCollection child_domain = child_area_collection(context_view.storage(), parent);
+    if (child_domain.empty())
+        return;
+
+    StoredExPolygonCollection stop_areas(context_view.storage());
+    StoredExPolygonCollection normal_child_area(context_view.storage());
+    bool has_processed_enabled_area = false;
     for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas) {
         if (!entry.first.get_bool(k_only_one_perimeter_top_key))
             continue;
+        if (has_processed_enabled_area && normal_child_area.empty())
+            break;
 
         // Each enabled RegionSettings entry may have different values for
         // min_width_top_surface / only_one_perimeter_top_other_algo. Process
         // them one after another:
-        // - first pass starts from the whole node area;
-        // - later passes start from the accumulated non-top remainder, so a
-        //   top area found by a previous pass is not classified again.
-        StoredExPolygonCollection source_polygons =
-            non_top_polygons.empty() ?
-            collection_from_expolygon(context_view.storage(), parent.area()) :
-            non_top_polygons.readonly().clone(context_view.storage());
+        // - first pass starts from the full child domain;
+        // - later passes start from the current normal remainder, so a
+        //   stop area found by a previous pass is not classified again.
+        StoredExPolygonCollection source_child_area =
+            !has_processed_enabled_area ?
+            child_domain.readonly().clone(context_view.storage()) :
+            normal_child_area.readonly().clone(context_view.storage());
 
-        // The legacy algorithm works from the external-perimeter centerline,
-        // not from the island boundary. Shift the source area inward by half
-        // the external perimeter width before computing top/not-top regions.
-        StoredExPolygonCollection perimeter_centerline =
-            offset_collection(context_view.storage(), source_polygons, -double(external_perimeter_flow(context_view).width) / 2.0);
-
-        // build_top_fills() returns the newly found top-fill pieces and updates
-        // non_top_polygons with the remainder that may keep generating inner
-        // perimeters or feed the next RegionSettings entry.
-        StoredExPolygonCollection current_top_fills =
-            build_top_fills(context_view, parent, entry.first, entry.second, perimeter_centerline, non_top_polygons);
-        top_fills = union_append(context_view.storage(), std::move(top_fills), std::move(current_top_fills));
+        StoredExPolygonCollection current_stop_area =
+            build_one_perimeter_stop_area(context_view, parent, entry.first, entry.second,
+                                          source_child_area, normal_child_area);
+        stop_areas = union_append(context_view.storage(), std::move(stop_areas), std::move(current_stop_area));
+        has_processed_enabled_area = true;
     }
 
-    if (!top_fills.empty())
-        set_top_children_to_one_perimeter(context, parent, top_fills);
+    if (!stop_areas.empty())
+        set_top_children_to_one_perimeter(context, parent, stop_areas);
 }
 
 void module_end(void *, void *user_context, perimeter_generation_context *)
