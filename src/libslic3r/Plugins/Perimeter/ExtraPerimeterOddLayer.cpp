@@ -5,8 +5,10 @@
 
 #include "ExtraPerimeterOddLayer.hpp"
 
+#include <cassert>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
@@ -25,6 +27,26 @@ const char *k_extra_perimeter_odd_layer_key = "extra_perimeters_odd_layers";
 class ModuleState
 {
 public:
+    void initialize_region_settings(const PerimeterGenerationContextView &context, uint32_t layer_id)
+    {
+        // RegionSettings and layer parity are invariant while the host walks
+        // the current perimeter tree. Build them once in start() so after()
+        // only reads cached state for each processed node.
+        m_layer_id = layer_id;
+        m_settings.reset(new RegionSettings(context.storage(), context.island(), {{k_extra_perimeter_odd_layer_key}}));
+        m_settings->segregate(context.island().slice());
+    }
+
+    const RegionSettings *settings() const
+    {
+        return m_settings.get();
+    }
+
+    bool is_odd_layer() const
+    {
+        return m_layer_id != uint32_t(-1) && m_layer_id % 2 == 1;
+    }
+
     bool has_extra(const perimeter_node *node) const
     {
         return m_extra_nodes.find(node) != m_extra_nodes.end();
@@ -36,6 +58,8 @@ public:
     }
 
 private:
+    uint32_t m_layer_id = uint32_t(-1);
+    std::unique_ptr<RegionSettings> m_settings;
     // One entry per branch that already received the odd-layer extra perimeter.
     // This replaces the old region-island scoped "already seen" map from the
     // PerimeterGenerator2 sketch and keeps the module safe across parallel runs.
@@ -70,26 +94,33 @@ void request_extra_perimeter_for_children(PerimeterGenerationContextView &contex
 void *module_start(void *, perimeter_generation_context *context)
 {
     ModuleState *state = new ModuleState();
+    assert(context != nullptr);
+    assert(context == nullptr || context->root != nullptr);
     if (context == nullptr || context->root == nullptr)
         return state;
 
     PerimeterGenerationContextView context_view(context);
-    if (context_view.island().region_count() == 0)
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    if (region_count == 0)
         return state;
 
     const uint32_t layer_id = context_view.layer_id_from_object();
+    assert(layer_id != uint32_t(-1));
     if (layer_id == uint32_t(-1))
         return state;
+    state->initialize_region_settings(context_view, layer_id);
 
     // == solo_config code path ==
     // Only run on odd layer ids. Even layers keep the base perimeter count.
     // This mirrors the old "solo config" path: when the whole current island
     // uses extra_perimeters_odd_layers, add one perimeter on odd layer ids.
-    if (layer_id % 2 == 1) {
-        RegionSettings settings = context_view.region_settings({{k_extra_perimeter_odd_layer_key}});
-        settings.segregate(context_view.island().slice());
-        if (!settings.has_many_config(k_extra_perimeter_odd_layer_key) &&
-            settings.get_solo_config(k_extra_perimeter_odd_layer_key).get_bool())
+    if (state->is_odd_layer()) {
+        const RegionSettings *settings = state->settings();
+        assert(settings != nullptr);
+        if (settings != nullptr &&
+            !settings->has_many_config(k_extra_perimeter_odd_layer_key) &&
+            settings->get_solo_config(k_extra_perimeter_odd_layer_key).get_bool())
             context_view.root().add_perimeters(1);
     }
     return state;
@@ -98,17 +129,21 @@ void *module_start(void *, perimeter_generation_context *context)
 void module_after(void *, void *user_context, perimeter_generation_context *context, perimeter_node *node)
 {
     ModuleState *state = static_cast<ModuleState *>(user_context);
+    assert(context != nullptr);
+    assert(node != nullptr);
+    assert(state != nullptr);
     if (context == nullptr || node == nullptr || state == nullptr)
         return;
 
     PerimeterGenerationContextView context_view(context);
-    if (context_view.island().region_count() == 0)
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    if (region_count == 0)
         return;
 
     // == many_config code path ==
     // Only run on odd layer ids. Even layers keep the generated children as-is.
-    const uint32_t layer_id = context_view.layer_id_from_object();
-    if (layer_id == uint32_t(-1) || layer_id % 2 == 0)
+    if (!state->is_odd_layer())
         return;
 
     PerimeterNodeView parent(node);
@@ -125,12 +160,12 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
     // Check where the region settings need the extra perimeter. When the
     // setting is not split by region, module_start() already handled it by
     // bumping the root perimeter count.
-    RegionSettings settings = context_view.region_settings({{k_extra_perimeter_odd_layer_key}});
-    settings.segregate(context_view.island().slice());
-    if (!settings.has_many_config(k_extra_perimeter_odd_layer_key))
+    const RegionSettings *settings = state->settings();
+    assert(settings != nullptr);
+    if (settings == nullptr || !settings->has_many_config(k_extra_perimeter_odd_layer_key))
         return;
 
-    const RegionSettings::AreaMap &areas = settings.get_areas(k_extra_perimeter_odd_layer_key);
+    const RegionSettings::AreaMap &areas = settings->get_areas(k_extra_perimeter_odd_layer_key);
     for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas)
         if (entry.first.get_bool())
             request_extra_perimeter_for_children(context_view, parent, entry.second, *state);
@@ -138,6 +173,7 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
 
 void module_end(void *, void *user_context, perimeter_generation_context *)
 {
+    assert(user_context != nullptr);
     delete static_cast<ModuleState *>(user_context);
 }
 
