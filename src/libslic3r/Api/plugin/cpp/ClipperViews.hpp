@@ -433,6 +433,13 @@ inline ClipperOperand clipper_offset2(const ClipperOperand &subject,
     return clipper_offset2(subject.storage(), subject, delta1, delta2, join_type, miter_limit, end_type);
 }
 
+inline StoredExPolygonCollection clipper_clip_expolygons_with_subject_bbox(storage_handle *storage,
+                                                                           const ExPolygonCollection &src,
+                                                                           c_bounding_box bbox)
+{
+    return StoredExPolygonCollection::adopt(storage, ::clipper_clip_expolygons_with_subject_bbox(storage, src.handle(), bbox));
+}
+
 inline StoredPolylineCollection clipper_diff_polyline_expolygons(storage_handle *storage,
                                                                  const Polyline &subject,
                                                                  const ExPolygonCollection &clip)
