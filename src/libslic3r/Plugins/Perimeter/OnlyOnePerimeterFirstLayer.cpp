@@ -5,7 +5,9 @@
 
 #include "OnlyOnePerimeterFirstLayer.hpp"
 
+#include <cassert>
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -22,8 +24,39 @@ const char *k_no_dependencies[] = { nullptr };
 const char *k_used_config_keys[] = { "only_one_perimeter_first_layer" };
 const char *k_only_one_perimeter_first_layer_key = "only_one_perimeter_first_layer";
 
+class ModuleState
+{
+public:
+    void initialize_region_settings(const PerimeterGenerationContextView &context, uint32_t layer_id)
+    {
+        // RegionSettings and the object-local layer id are invariant while the
+        // host walks this perimeter tree. Build them once in start(); after()
+        // only reads the cached state for each processed node.
+        m_layer_id = layer_id;
+        m_settings.reset(new RegionSettings(context.storage(), context.island(), {{k_only_one_perimeter_first_layer_key}}));
+        m_settings->segregate(context.island().slice());
+    }
+
+    bool is_first_layer() const
+    {
+        return m_layer_id == 0;
+    }
+
+    const RegionSettings *settings() const
+    {
+        return m_settings.get();
+    }
+
+private:
+    uint32_t m_layer_id = uint32_t(-1);
+    std::unique_ptr<RegionSettings> m_settings;
+};
+
 void set_children_to_one_perimeter(const PerimeterNodeView &parent)
 {
+    // In the perimeter tree, children are the areas that would receive the next
+    // perimeter ring. Setting their requested count to one stops all branches
+    // after the already-generated first perimeter.
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children)
         child.set_perimeter_needed(1);
@@ -33,6 +66,9 @@ void set_enabled_children_to_one_perimeter(PerimeterGenerationContextView &conte
                                            const PerimeterNodeView &parent,
                                            const RegionSettingsClip &enabled_area)
 {
+    // Region-local path: only children intersecting the enabled area should be
+    // clamped. split_node() keeps the outside siblings alive so they may keep
+    // generating the normal number of perimeters.
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children) {
         const std::vector<PerimeterNodeView> inside_nodes = context.split_node(child, enabled_area);
@@ -41,34 +77,78 @@ void set_enabled_children_to_one_perimeter(PerimeterGenerationContextView &conte
     }
 }
 
-void module_after(void *, void *, perimeter_generation_context *context, perimeter_node *node)
+void *module_start(void *, perimeter_generation_context *context)
 {
-    if (context == nullptr || node == nullptr)
+    // One state object per perimeter tree. It is intentionally not stored on the
+    // plugin singleton, because multiple objects/layers may be processed in
+    // parallel and RegionSettings clips are only meaningful for one island.
+    ModuleState *state = new ModuleState();
+    assert(context != nullptr);
+    assert(context == nullptr || context->root != nullptr);
+    if (context == nullptr || context->root == nullptr)
+        return state;
+
+    PerimeterGenerationContextView context_view(context);
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    if (region_count == 0)
+        return state;
+
+    const uint32_t layer_id = context_view.layer_id_from_object();
+    assert(layer_id != uint32_t(-1));
+    if (layer_id == uint32_t(-1))
+        return state;
+
+    state->initialize_region_settings(context_view, layer_id);
+    return state;
+}
+
+void module_after(void *, void *user_context, perimeter_generation_context *context, perimeter_node *node)
+{
+    // This module acts in after(), because it needs the first generated ring to
+    // create child areas first. Those children are then clamped so no second
+    // perimeter is generated where the setting is active.
+    ModuleState *state = static_cast<ModuleState *>(user_context);
+    assert(context != nullptr);
+    assert(node != nullptr);
+    assert(state != nullptr);
+    if (context == nullptr || node == nullptr || state == nullptr)
         return;
 
     PerimeterGenerationContextView context_view(context);
-    if (context_view.island().region_count() == 0)
+    const uint32_t region_count = context_view.island().region_count();
+    assert(region_count > 0);
+    if (region_count == 0)
         return;
 
-    const uint32_t layer_id = context_view.layer_id_from_object();
-    if (layer_id != 0)
+    if (!state->is_first_layer())
         return;
 
     PerimeterNodeView parent(node);
+    // Only the root's first generated perimeter is allowed to clamp its
+    // children. Deeper nodes already belong to the post-first-perimeter tree.
     if (parent.perimeter_idx() != 0 || parent.child_count() == 0)
         return;
 
-    RegionSettings settings = context_view.region_settings({{k_only_one_perimeter_first_layer_key}});
-    settings.segregate(context_view.island().slice());
+    const RegionSettings *settings = state->settings();
+    assert(settings != nullptr);
+    if (settings == nullptr)
+        return;
 
-    if (!settings.has_many_config(k_only_one_perimeter_first_layer_key)) {
-        if (settings.get_solo_config(k_only_one_perimeter_first_layer_key).get_bool(
+    // == solo_config code path ==
+    // The whole island has one value. If enabled, every child branch is stopped
+    // after the first perimeter. If disabled, this module is inert.
+    if (!settings->has_many_config(k_only_one_perimeter_first_layer_key)) {
+        if (settings->get_solo_config(k_only_one_perimeter_first_layer_key).get_bool(
                 k_only_one_perimeter_first_layer_key))
             set_children_to_one_perimeter(parent);
         return;
     }
 
-    const RegionSettings::AreaMap &areas = settings.get_areas(k_only_one_perimeter_first_layer_key);
+    // == many_config code path ==
+    // Different regions/modifier areas have different values. Split the child
+    // branches and clamp only the parts where the setting is enabled.
+    const RegionSettings::AreaMap &areas = settings->get_areas(k_only_one_perimeter_first_layer_key);
     for (const std::pair<const RegionSettingsValue, RegionSettingsClip> &entry : areas) {
         if (!entry.first.get_bool(k_only_one_perimeter_first_layer_key))
             continue;
@@ -76,13 +156,21 @@ void module_after(void *, void *, perimeter_generation_context *context, perimet
     }
 }
 
+void module_end(void *, void *user_context, perimeter_generation_context *)
+{
+    assert(user_context != nullptr);
+    if (user_context == nullptr)
+        return;
+    delete static_cast<ModuleState *>(user_context);
+}
+
 const perimeter_generation_module_vtable &module_vtable()
 {
     static const perimeter_generation_module_vtable vt = {
-        nullptr,
+        &module_start,
         nullptr,
         &module_after,
-        nullptr
+        &module_end
     };
     return vt;
 }
