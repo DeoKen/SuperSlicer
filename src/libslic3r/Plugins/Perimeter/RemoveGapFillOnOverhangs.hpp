@@ -10,12 +10,19 @@
 
 namespace slic3r_api { namespace Perimeter { namespace RemoveGapFillOnOverhangsPlugin {
 
-// PerimeterGenerationModule port of gap_fill_no_overhang.
+// Removes unsafe gap-fill strokes from unsupported overhang areas.
 //
-// The module runs after a node has produced perimeter/gap-fill extrusions. It
-// computes the part of the current node area that is enabled for the setting
-// and unsupported by lower islands, then clips non-loop local polylines away
-// from that forbidden area.
+// During perimeter generation, the host creates closed perimeter loops and open
+// gap-fill lines for each node area. When gap_fill_no_overhang is enabled,
+// those open gap-fill lines should not be printed where there is no lower island
+// below them: a thin free-hanging line is fragile and often curls or fails to
+// support the next layer cleanly.
+//
+// This module runs after a node has generated its local extrusions. It builds
+// the part of the node area where the setting is enabled, subtracts the union of
+// lower islands, and clips only open local polylines from that unsupported
+// area. Closed perimeter loops, nested collections, and the area/fill-area tree
+// are intentionally left unchanged.
 class RemoveGapFillOnOverhangs : public PluginBase
 {
 public:
