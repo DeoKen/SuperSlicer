@@ -174,6 +174,8 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
 void module_end(void *, void *user_context, perimeter_generation_context *)
 {
     assert(user_context != nullptr);
+    if (user_context == nullptr)
+        return;
     delete static_cast<ModuleState *>(user_context);
 }
 
