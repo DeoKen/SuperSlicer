@@ -28,6 +28,7 @@
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/FFFPrintConfig.hpp"
+#include "libslic3r/Plugins/Perimeter/ArachnePerimeterGenerator.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterOddLayer.hpp"
@@ -169,6 +170,8 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin(
             orchestrator_handle_value);
+        slic3r_api::Perimeter::ArachnePerimeterGeneratorPlugin::register_arachne_perimeter_generator_plugin(
+            orchestrator_handle_value);
         slic3r_api::Perimeter::SimplePerimeterGeneratorPlugin::register_simple_perimeter_generator_plugin(
             orchestrator_handle_value);
         slic3r_api::Perimeter::ExtraPerimeterCountPlugin::register_extra_perimeter_count_plugin(
@@ -198,6 +201,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "support.demand.painting");
         activate_plugin_or_fail(orchestrator, "support.demand.modifiers");
         activate_plugin_or_fail(orchestrator, "support.demand.bridge_removal");
+        activate_plugin_or_fail(orchestrator, "perimeter.generator.arachne");
         activate_plugin_or_fail(orchestrator, "perimeter.generator.simple");
         activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_count");
         activate_plugin_or_fail(orchestrator, "perimeter.module.extra_perimeter_below_area");

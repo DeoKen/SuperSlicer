@@ -46,6 +46,7 @@ struct PerimeterProcessContext
     const ExPolygon &root_surface;
     plugin_run_context *run_context = nullptr;
     std::vector<perimeter_generation_module_instance> perimeter_modules;
+    mutable std::vector<void *> perimeter_module_user_contexts;
 
     const PrintRegionConfig& region_config() const;    // TODO (get one of the region's region_island's config)
     Flow perimeter_flow() const; //TODO
@@ -330,9 +331,12 @@ void call_perimeter_module_start(const PerimeterProcessContext &context, Perimet
 
     PerimeterNodeCBridge bridge(tree.root());
     perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
-    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+    context.perimeter_module_user_contexts.assign(context.perimeter_modules.size(), nullptr);
+    for (size_t module_idx = 0; module_idx < context.perimeter_modules.size(); ++module_idx) {
+        const perimeter_generation_module_instance &module = context.perimeter_modules[module_idx];
         if (module.vt != nullptr && module.vt->start != nullptr)
-            module.vt->start(module.ctx, &c_context);
+            context.perimeter_module_user_contexts[module_idx] = module.vt->start(module.ctx, &c_context);
+    }
     bridge.sync_to_cpp();
 }
 
@@ -347,9 +351,14 @@ void call_perimeter_module_before(const PerimeterProcessContext &context, Perime
         return;
 
     perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
-    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+    for (size_t module_idx = 0; module_idx < context.perimeter_modules.size(); ++module_idx) {
+        const perimeter_generation_module_instance &module = context.perimeter_modules[module_idx];
+        void *user_context = module_idx < context.perimeter_module_user_contexts.size() ?
+                                 context.perimeter_module_user_contexts[module_idx] :
+                                 nullptr;
         if (module.vt != nullptr && module.vt->before != nullptr)
-            module.vt->before(module.ctx, &c_context, c_node);
+            module.vt->before(module.ctx, user_context, &c_context, c_node);
+    }
     bridge.sync_to_cpp();
 }
 
@@ -364,9 +373,14 @@ void call_perimeter_module_after(const PerimeterProcessContext &context, Perimet
         return;
 
     perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
-    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+    for (size_t module_idx = 0; module_idx < context.perimeter_modules.size(); ++module_idx) {
+        const perimeter_generation_module_instance &module = context.perimeter_modules[module_idx];
+        void *user_context = module_idx < context.perimeter_module_user_contexts.size() ?
+                                 context.perimeter_module_user_contexts[module_idx] :
+                                 nullptr;
         if (module.vt != nullptr && module.vt->after != nullptr)
-            module.vt->after(module.ctx, &c_context, c_node);
+            module.vt->after(module.ctx, user_context, &c_context, c_node);
+    }
     bridge.sync_to_cpp();
 }
 
@@ -377,9 +391,15 @@ void call_perimeter_module_end(const PerimeterProcessContext &context, Perimeter
 
     PerimeterNodeCBridge bridge(tree.root());
     perimeter_generation_context c_context = make_perimeter_generation_context(context, bridge.node);
-    for (const perimeter_generation_module_instance &module : context.perimeter_modules)
+    for (size_t module_idx = 0; module_idx < context.perimeter_modules.size(); ++module_idx) {
+        const perimeter_generation_module_instance &module = context.perimeter_modules[module_idx];
+        void *user_context = module_idx < context.perimeter_module_user_contexts.size() ?
+                                 context.perimeter_module_user_contexts[module_idx] :
+                                 nullptr;
         if (module.vt != nullptr && module.vt->end != nullptr)
-            module.vt->end(module.ctx, &c_context);
+            module.vt->end(module.ctx, user_context, &c_context);
+    }
+    context.perimeter_module_user_contexts.clear();
     bridge.sync_to_cpp();
 }
 

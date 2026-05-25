@@ -25,16 +25,16 @@ Perimeter step helpers
 These classes are the C++ convenience layer over the STEP_PERIMETER and
 PERIMETER_GENERATION_MODULE payloads.
 
-A perimeter generator receives a whole layer island and publishes one or more
-LayerRegionIsland outputs. PerimeterGenerationModule plugins are called by that
-generator while it walks a temporary perimeter-node tree. The generator owns
-the nodes; modules may edit counters, geometry and extrusion handles through
-the views below, while structural edits go through callbacks exposed by the
-generator.
+A perimeter generator receives a whole layer island, groups compatible regions,
+then asks the host to run one group through run_region_group(). The host owns
+the temporary perimeter-node tree and calls PerimeterGenerationModule plugins
+while it walks that tree. Modules may edit counters, geometry and extrusion
+handles through the views below, while structural edits go through callbacks
+exposed by the host loop.
 
-Typical module shape:
+Typical stateless module shape:
 
-    void after(void *, perimeter_generation_context *raw_ctx, perimeter_node *raw_node)
+    void after(void *, void *, perimeter_generation_context *raw_ctx, perimeter_node *raw_node)
     {
         PerimeterGenerationContextView ctx(raw_ctx);
         PerimeterNodeView node(raw_node);
@@ -47,8 +47,33 @@ Typical module shape:
         ...
     }
 
-All handles are borrowed from the host or from the active perimeter generator.
-Do not store these views after the callback returns.
+Typical stateful module shape:
+
+    void *start(void *, perimeter_generation_context *raw_ctx)
+    {
+        PerimeterGenerationContextView ctx(raw_ctx);
+        return new MyTemporaryCache(ctx);
+    }
+
+    void after(void *, void *user_ctx, perimeter_generation_context *raw_ctx, perimeter_node *raw_node)
+    {
+        MyTemporaryCache &cache = *static_cast<MyTemporaryCache *>(user_ctx);
+        ...
+    }
+
+    void end(void *, void *user_ctx, perimeter_generation_context *)
+    {
+        delete static_cast<MyTemporaryCache *>(user_ctx);
+    }
+
+All handles are borrowed from the host perimeter loop. Do not store these views
+after the callback returns.
+
+module_ctx is the long-lived module instance. user_ctx is optional per-tree
+state returned by start() and passed back to before(), after() and end(). Use it
+for temporary caches that used to require global maps keyed by perimeter nodes
+or region-island handles. The host calls end() for every module whose start()
+was called before the current perimeter tree is discarded.
 */
 
 class PerimeterNodeView
@@ -57,11 +82,11 @@ public:
     /*
     PerimeterNodeView is only a borrowed pointer wrapper.
 
-    It does not own the node and it does not pin the perimeter tree. The active
-    perimeter generator is responsible for keeping node addresses stable during
-    module callbacks. Rebuilding the parent's children array is fine: this view
-    stores the pointed node address, not the address of the child-array slot.
-    Removing or destroying the pointed node still invalidates the view.
+    It does not own the node and it does not pin the perimeter tree. The host
+    perimeter loop keeps node addresses stable during module callbacks.
+    Rebuilding the parent's children array is fine: this view stores the
+    pointed node address, not the address of the child-array slot. Removing or
+    destroying the pointed node still invalidates the view.
     */
     PerimeterNodeView() = default;
     explicit PerimeterNodeView(perimeter_node *node) : m_node(node), m_mutable(node != nullptr) {}
@@ -98,7 +123,7 @@ public:
     }
 
     /*
-    Read the current direct child count from the generator-owned C node.
+    Read the current direct child count from the host-owned C node.
 
     This value is a live read. If a structural helper splits/appends/removes
     children, call child_count() again instead of caching it.
@@ -108,7 +133,7 @@ public:
     /*
     Borrow one direct child view by index.
 
-    The child array belongs to the generator. Do not keep indexes across
+    The child array belongs to the host perimeter loop. Do not keep indexes across
     structural edits: after split/append/remove, the same index may refer to a
     different child or be out of range.
     */
@@ -179,7 +204,7 @@ public:
     /*
     Surface available for this node's next perimeter.
 
-    The returned ExPolygon is a borrowed view over the generator-owned node
+    The returned ExPolygon is a borrowed view over the host-owned node
     payload. It must not be stored after the current callback.
     */
     ExPolygon surface() const {
@@ -221,7 +246,7 @@ public:
     Borrowed view over the active perimeter-generation callback context.
 
     The context points both to host objects (print/object/layer/island) and to
-    generator-owned temporary nodes. Use it only during the module callback that
+    host-owned temporary nodes. Use it only during the module callback that
     received it.
     */
     explicit PerimeterGenerationContextView(perimeter_generation_context *context) : m_context(context) {
@@ -261,7 +286,7 @@ public:
     LayerRegionIsland region_island() const { return LayerRegionIsland(handle()->region_island); }
 
     /*
-    Root of the generator-owned perimeter tree for the current surface.
+    Root of the host-owned perimeter tree for the current surface.
 
     Modules usually edit root counters in start(), and inspect/edit individual
     nodes in before()/after().
@@ -308,7 +333,7 @@ public:
     }
 
     /*
-    Split node with clip using the generator-owned callback.
+    Split node with clip using the host-owned callback.
 
     The returned views are the exact inside parts reported by the generator.
     They are copied out of the temporary C span immediately, so callers do not

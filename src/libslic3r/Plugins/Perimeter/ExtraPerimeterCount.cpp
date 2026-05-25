@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include <map>
-#include <mutex>
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
@@ -23,37 +22,23 @@ const char *k_no_dependencies[] = { nullptr };
 const char *k_used_config_keys[] = { "extra_perimeters_count" };
 const char *k_extra_perimeter_count_key = "extra_perimeters_count";
 
-class NodeExtraCount
+class ModuleState
 {
 public:
-    int32_t get(const layer_region_island_handle *region_island, const perimeter_node *node)
+    int32_t get(const perimeter_node *node) const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_counts[region_island][node];
+        const std::map<const perimeter_node *, int32_t>::const_iterator it = counts.find(node);
+        return it == counts.end() ? 0 : it->second;
     }
 
-    void set(const layer_region_island_handle *region_island, const perimeter_node *node, int32_t count)
+    void set(const perimeter_node *node, int32_t count)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_counts[region_island][node] = count;
-    }
-
-    void clear(const layer_region_island_handle *region_island)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_counts.erase(region_island);
+        counts[node] = count;
     }
 
 private:
-    std::mutex m_mutex;
-    std::map<const layer_region_island_handle *, std::map<const perimeter_node *, int32_t>> m_counts;
+    std::map<const perimeter_node *, int32_t> counts;
 };
-
-NodeExtraCount &node_extra_count()
-{
-    static NodeExtraCount s_node_extra_count;
-    return s_node_extra_count;
-}
 
 bool build_extra_clip(const RegionSettings::AreaMap &areas,
                       int32_t already_extruded_extra,
@@ -80,38 +65,41 @@ bool build_extra_clip(const RegionSettings::AreaMap &areas,
 }
 
 void request_extra_for_inside_nodes(const std::vector<PerimeterNodeView> &inside_nodes,
-                                    const layer_region_island_handle *region_island,
+                                    ModuleState &state,
                                     int32_t next_extra_count)
 {
     for (const PerimeterNodeView &inside_node : inside_nodes) {
         inside_node.request_current_perimeter();
-        node_extra_count().set(region_island, inside_node.handle(), next_extra_count);
+        state.set(inside_node.handle(), next_extra_count);
     }
 }
 
-void module_start(void *, perimeter_generation_context *context)
+void *module_start(void *, perimeter_generation_context *context)
 {
+    ModuleState *state = new ModuleState();
     if (context == nullptr || context->root == nullptr)
-        return;
+        return state;
 
     PerimeterGenerationContextView context_view(context);
     if (context_view.island().region_count() == 0)
-        return;
+        return state;
 
     RegionSettings settings = context_view.region_settings({{k_extra_perimeter_count_key}});
     settings.segregate(context_view.island().slice());
     if (settings.has_many_config(k_extra_perimeter_count_key))
-        return;
+        return state;
 
     const int32_t extra_perimeters_count =
         settings.get_solo_config(k_extra_perimeter_count_key).get_int(k_extra_perimeter_count_key);
     if (extra_perimeters_count > 0)
         context_view.root().add_perimeters(uint32_t(extra_perimeters_count));
+    return state;
 }
 
-void module_after(void *, perimeter_generation_context *context, perimeter_node *node)
+void module_after(void *, void *user_context, perimeter_generation_context *context, perimeter_node *node)
 {
-    if (context == nullptr || node == nullptr)
+    ModuleState *state = static_cast<ModuleState *>(user_context);
+    if (context == nullptr || node == nullptr || state == nullptr)
         return;
 
     PerimeterGenerationContextView context_view(context);
@@ -128,7 +116,7 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
         return;
 
     const RegionSettings::AreaMap &areas = settings.get_areas(k_extra_perimeter_count_key);
-    const int32_t already_extruded_extra = node_extra_count().get(context->region_island, node);
+    const int32_t already_extruded_extra = state->get(node);
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
 
     for (const PerimeterNodeView &child : children) {
@@ -140,14 +128,13 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
             continue;
 
         const std::vector<PerimeterNodeView> inside_nodes = context_view.split_node(child, eligible_clip);
-        request_extra_for_inside_nodes(inside_nodes, context->region_island, already_extruded_extra + 1);
+        request_extra_for_inside_nodes(inside_nodes, *state, already_extruded_extra + 1);
     }
 }
 
-void module_end(void *, perimeter_generation_context *context)
+void module_end(void *, void *user_context, perimeter_generation_context *)
 {
-    if (context != nullptr)
-        node_extra_count().clear(context->region_island);
+    delete static_cast<ModuleState *>(user_context);
 }
 
 const perimeter_generation_module_vtable &module_vtable()

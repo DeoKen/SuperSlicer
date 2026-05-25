@@ -276,23 +276,24 @@ void set_top_children_to_one_perimeter(perimeter_generation_context *context,
     }
 }
 
-void module_start(void *, perimeter_generation_context *context)
+void *module_start(void *, perimeter_generation_context *context)
 {
     if (context == nullptr || context->root == nullptr)
-        return;
+        return nullptr;
 
     PerimeterGenerationContextView context_view(context);
     if (context_view.island().region_count() == 0 || context_view.island().upper_island_count() > 0)
-        return;
+        return nullptr;
 
     RegionSettings settings = context_view.region_settings({{k_only_one_perimeter_top_key}});
     settings.segregate(context_view.island().slice());
     if (!settings.has_many_config(k_only_one_perimeter_top_key) &&
         settings.get_solo_config(k_only_one_perimeter_top_key).get_bool(k_only_one_perimeter_top_key))
         context_view.root().set_perimeter_needed(1);
+    return nullptr;
 }
 
-void module_after(void *, perimeter_generation_context *context, perimeter_node *node)
+void module_after(void *, void *, perimeter_generation_context *context, perimeter_node *node)
 {
     if (context == nullptr || node == nullptr)
         return;

@@ -34,6 +34,7 @@
 #include "libslic3r/Api/plugin/c/slic3r_plugin.h"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
+#include "libslic3r/Plugins/Perimeter/ArachnePerimeterGenerator.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterOddLayer.hpp"
@@ -323,6 +324,8 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::Perimeter::SeparateHoleContourPlugin::register_separate_hole_contour_plugin);
     register_builtin_plugin(orchestrator, "perimeter.module.remove_gap_fill_on_overhangs",
         slic3r_api::Perimeter::RemoveGapFillOnOverhangsPlugin::register_remove_gap_fill_on_overhangs_plugin);
+    register_builtin_plugin(orchestrator, "perimeter.generator.arachne",
+        slic3r_api::Perimeter::ArachnePerimeterGeneratorPlugin::register_arachne_perimeter_generator_plugin);
     register_builtin_plugin(orchestrator, "perimeter.generator.simple",
         slic3r_api::Perimeter::SimplePerimeterGeneratorPlugin::register_simple_perimeter_generator_plugin);
     register_builtin_plugin(orchestrator, "support_demand_bridge_removal",

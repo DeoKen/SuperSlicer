@@ -6,8 +6,6 @@
 #include "ExtraPerimeterBelowArea.hpp"
 
 #include <cstdint>
-#include <map>
-#include <mutex>
 #include <set>
 #include <vector>
 
@@ -40,43 +38,29 @@ void force_extra_perimeters_if_small(const PerimeterNodeView &node, double area_
         node.add_perimeters(k_force_many_perimeters);
 }
 
-class SeenNodes
+class ModuleState
 {
 public:
-    bool check_and_set(const layer_region_island_handle *region_island, const perimeter_node *node)
+    bool check_and_set(const perimeter_node *node)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        std::set<const perimeter_node *> &nodes = m_nodes[region_island];
         const perimeter_node *current = node;
         while (current != nullptr) {
-            if (nodes.find(current) != nodes.end())
+            if (seen_nodes.find(current) != seen_nodes.end())
                 return true;
             current = current->parent == current ? nullptr : current->parent;
         }
-        nodes.insert(node);
+        seen_nodes.insert(node);
         return false;
     }
 
-    void clear(const layer_region_island_handle *region_island)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_nodes.erase(region_island);
-    }
-
 private:
-    std::mutex m_mutex;
-    std::map<const layer_region_island_handle *, std::set<const perimeter_node *>> m_nodes;
+    std::set<const perimeter_node *> seen_nodes;
 };
 
-SeenNodes &seen_nodes()
+void module_after(void *, void *user_context, perimeter_generation_context *context, perimeter_node *node)
 {
-    static SeenNodes s_seen_nodes;
-    return s_seen_nodes;
-}
-
-void module_after(void *, perimeter_generation_context *context, perimeter_node *node)
-{
-    if (context == nullptr || node == nullptr)
+    ModuleState *state = static_cast<ModuleState *>(user_context);
+    if (context == nullptr || node == nullptr || state == nullptr)
         return;
 
     PerimeterGenerationContextView context_view(context);
@@ -84,7 +68,7 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
         return;
 
     PerimeterNodeView parent(node);
-    if (parent.child_count() == 0 || seen_nodes().check_and_set(context->region_island, node))
+    if (parent.child_count() == 0 || state->check_and_set(node))
         return;
 
     RegionSettings settings = context_view.region_settings({{k_extra_perimeter_below_area_key}});
@@ -117,16 +101,20 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
     }
 }
 
-void module_end(void *, perimeter_generation_context *context)
+void *module_start(void *, perimeter_generation_context *)
 {
-    if (context != nullptr)
-        seen_nodes().clear(context->region_island);
+    return new ModuleState();
+}
+
+void module_end(void *, void *user_context, perimeter_generation_context *)
+{
+    delete static_cast<ModuleState *>(user_context);
 }
 
 const perimeter_generation_module_vtable &module_vtable()
 {
     static const perimeter_generation_module_vtable vt = {
-        nullptr,
+        &module_start,
         nullptr,
         &module_after,
         &module_end

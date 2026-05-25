@@ -123,6 +123,26 @@ ExPolygon &ApiInternal::LayerIslandAccess::slice_mutable(LayerSliceIsland &islan
     return island.m_slice;
 }
 
+ExPolygons &ApiInternal::LayerIslandAccess::fill_expolygons_mutable(LayerSliceIsland &island)
+{
+    return island.m_fill_expolygons;
+}
+
+ExPolygons &ApiInternal::LayerIslandAccess::fill_no_overlap_expolygons_mutable(LayerSliceIsland &island)
+{
+    return island.m_fill_no_overlap_expolygons;
+}
+
+BoundingBoxes &ApiInternal::LayerIslandAccess::fill_expolygons_bboxes_mutable(LayerSliceIsland &island)
+{
+    return island.m_fill_expolygons_bboxes;
+}
+
+ExPolygons &ApiInternal::LayerIslandAccess::perimeter_slices_mutable(LayerSliceIsland &island)
+{
+    return island.m_perimeter_slices;
+}
+
 SurfaceCollection &ApiInternal::LayerRegionAccess::surfaces_mutable(LayerRegion &layer_region)
 {
     return layer_region.m_slices;
@@ -131,6 +151,11 @@ SurfaceCollection &ApiInternal::LayerRegionAccess::surfaces_mutable(LayerRegion 
 ExPolygons &ApiInternal::LayerRegionAccess::slices_mutable(LayerRegion &layer_region)
 {
     return layer_region.m_raw_slices;
+}
+
+ExPolygons &ApiInternal::LayerRegionAccess::fill_no_overlap_expolygons_mutable(LayerRegion &layer_region)
+{
+    return layer_region.m_fill_no_overlap_expolygons;
 }
 
 Layer::Layer(size_t id, PrintObject *object, coord_t height, coord_t print_z, double slice_z, bool /*scaledok*/)

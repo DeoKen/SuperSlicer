@@ -33,18 +33,18 @@ void request_extra_perimeter_for_children(PerimeterGenerationContextView &contex
     }
 }
 
-void module_start(void *, perimeter_generation_context *context)
+void *module_start(void *, perimeter_generation_context *context)
 {
     if (context == nullptr || context->root == nullptr)
-        return;
+        return nullptr;
 
     PerimeterGenerationContextView context_view(context);
     if (context_view.island().region_count() == 0)
-        return;
+        return nullptr;
 
     const uint32_t layer_id = context_view.layer_id_from_object();
     if (layer_id == uint32_t(-1))
-        return;
+        return nullptr;
 
     // This mirrors the old "solo config" path: when the whole current island
     // uses extra_perimeters_odd_layers, add one perimeter on odd layer ids.
@@ -55,9 +55,10 @@ void module_start(void *, perimeter_generation_context *context)
             settings.get_solo_config(k_extra_perimeter_odd_layer_key).get_bool())
             context_view.root().add_perimeters(1);
     }
+    return nullptr;
 }
 
-void module_after(void *, perimeter_generation_context *context, perimeter_node *node)
+void module_after(void *, void *, perimeter_generation_context *context, perimeter_node *node)
 {
     if (context == nullptr || node == nullptr)
         return;

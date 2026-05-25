@@ -37,6 +37,7 @@ namespace {
 using namespace Slic3r;
 
 const char *const SIMPLE_PERIMETER_GENERATOR = "perimeter.generator.simple";
+const char *const ARACHNE_PERIMETER_GENERATOR = "perimeter.generator.arachne";
 const char *const EXTRA_PERIMETER_COUNT = "perimeter.module.extra_perimeter_count";
 const char *const EXTRA_PERIMETER_BELOW_AREA = "perimeter.module.extra_perimeter_below_area";
 const char *const EXTRA_PERIMETER_ODD_LAYER = "perimeter.module.extra_perimeter_odd_layer";
@@ -570,6 +571,23 @@ TEST_CASE("SimplePerimeterGenerator publishes perimeter and fill output", "[plug
     const PerimeterRunCapture generated =
         run_perimeter_case(config, {SIMPLE_PERIMETER_GENERATOR}, surface, 0);
     REQUIRE(external_perimeter_count(generated) > 0);
+    REQUIRE_FALSE(generated.fill_surfaces.empty());
+    REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
+}
+
+TEST_CASE("ArachnePerimeterGenerator publishes variable-width perimeter output", "[plugins][perimeter]")
+{
+    // The Arachne STEP_PERIMETER plugin is a second perimeter generator, not a
+    // perimeter module. It should consume the same island payload as the simple
+    // generator and publish both variable-width perimeter extrusions and fill
+    // surfaces for the generated inner contour.
+    const DynamicPrintConfig config = perimeter_config({{"perimeters", "2"}});
+    const ExPolygon surface = rectangle_with_hole_expolygon();
+
+    const PerimeterRunCapture generated =
+        run_perimeter_case(config, {ARACHNE_PERIMETER_GENERATOR}, surface, 0);
+    REQUIRE(external_perimeter_count(generated) > 0);
+    REQUIRE(extrusion_length(generated.external_perimeters) > 0.);
     REQUIRE_FALSE(generated.fill_surfaces.empty());
     REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
 }

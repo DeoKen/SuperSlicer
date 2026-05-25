@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <map>
-#include <mutex>
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
@@ -38,52 +37,27 @@ struct HoleContourCount
     int32_t contour_deleted = 0;
 };
 
-class NodeHoleContourCount
+class ModuleState
 {
 public:
-    bool get(const layer_region_island_handle *region_island,
-             const perimeter_node *node,
-             HoleContourCount &out)
+    bool get(const perimeter_node *node, HoleContourCount &out) const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        const std::map<const layer_region_island_handle *, std::map<const perimeter_node *, HoleContourCount>>::const_iterator region_it =
-            m_counts.find(region_island);
-        if (region_it == m_counts.end())
+        const std::map<const perimeter_node *, HoleContourCount>::const_iterator it = counts.find(node);
+        if (it == counts.end())
             return false;
 
-        const std::map<const perimeter_node *, HoleContourCount>::const_iterator node_it =
-            region_it->second.find(node);
-        if (node_it == region_it->second.end())
-            return false;
-
-        out = node_it->second;
+        out = it->second;
         return true;
     }
 
-    void set(const layer_region_island_handle *region_island,
-             const perimeter_node *node,
-             const HoleContourCount &count)
+    void set(const perimeter_node *node, const HoleContourCount &count)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_counts[region_island][node] = count;
-    }
-
-    void clear(const layer_region_island_handle *region_island)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_counts.erase(region_island);
+        counts[node] = count;
     }
 
 private:
-    std::mutex m_mutex;
-    std::map<const layer_region_island_handle *, std::map<const perimeter_node *, HoleContourCount>> m_counts;
+    std::map<const perimeter_node *, HoleContourCount> counts;
 };
-
-NodeHoleContourCount &node_hole_contour_count()
-{
-    static NodeHoleContourCount s_node_hole_contour_count;
-    return s_node_hole_contour_count;
-}
 
 uint32_t count_from_config(int32_t value)
 {
@@ -238,13 +212,13 @@ StoredExPolygonCollection build_fill_surfaces(storage_handle *storage,
     return fill_surfaces;
 }
 
-void store_for_children(const layer_region_island_handle *region_island,
+void store_for_children(ModuleState &state,
                         const PerimeterNodeView &parent,
                         const HoleContourCount &data)
 {
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children)
-        node_hole_contour_count().set(region_island, child.handle(), data);
+        state.set(child.handle(), data);
 }
 
 void set_if_child_needs_one_less_perimeter(const PerimeterNodeView &child)
@@ -253,14 +227,15 @@ void set_if_child_needs_one_less_perimeter(const PerimeterNodeView &child)
         child.set_perimeter_needed(child.perimeter_needed() - 1);
 }
 
-void module_start(void *, perimeter_generation_context *context)
+void *module_start(void *, perimeter_generation_context *context)
 {
+    ModuleState *state = new ModuleState();
     if (context == nullptr || context->root == nullptr)
-        return;
+        return state;
 
     PerimeterGenerationContextView context_view(context);
     if (context_view.island().region_count() == 0)
-        return;
+        return state;
 
     RegionSettings settings = context_view.region_settings({{k_perimeters_hole_key, k_perimeters_key}});
     settings.segregate(context_view.island().slice());
@@ -269,11 +244,11 @@ void module_start(void *, perimeter_generation_context *context)
     // The old in-core implementation only supported one value pair per island
     // here, so keep that restriction until the generator tree is complete.
     if (settings.has_many_config(k_perimeters_hole_key))
-        return;
+        return state;
 
     const RegionSettingsValue &values = settings.get_solo_config(k_perimeters_hole_key);
     if (!values.is_enabled(k_perimeters_hole_key))
-        return;
+        return state;
 
     HoleContourCount data;
     data.max_hole_count = values.get_int(k_perimeters_hole_key);
@@ -285,12 +260,14 @@ void module_start(void *, perimeter_generation_context *context)
         context_view.root().set_perimeter_needed(requested_perimeter_count);
 
     if (data.max_hole_count != data.max_contour_count)
-        node_hole_contour_count().set(context->region_island, context->root, data);
+        state->set(context->root, data);
+    return state;
 }
 
-void module_after(void *, perimeter_generation_context *context, perimeter_node *node)
+void module_after(void *, void *user_context, perimeter_generation_context *context, perimeter_node *node)
 {
-    if (context == nullptr || node == nullptr)
+    ModuleState *state = static_cast<ModuleState *>(user_context);
+    if (context == nullptr || node == nullptr || state == nullptr)
         return;
 
     PerimeterGenerationContextView context_view(context);
@@ -298,7 +275,7 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
         return;
 
     HoleContourCount data;
-    if (!node_hole_contour_count().get(context->region_island, node, data))
+    if (!state->get(node, data))
         return;
 
     PerimeterNodeView parent(node);
@@ -322,8 +299,8 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
     }
 
     if (!need_erase_holes && !need_erase_contour) {
-        store_for_children(context->region_island, parent, data);
-        node_hole_contour_count().set(context->region_island, node, data);
+        store_for_children(*state, parent, data);
+        state->set(node, data);
         return;
     }
 
@@ -347,17 +324,17 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
         } else {
             for (const PerimeterNodeView &child : children) {
                 set_if_child_needs_one_less_perimeter(child);
-                node_hole_contour_count().set(context->region_island, child.handle(), data);
+                state->set(child.handle(), data);
             }
         }
 
-        node_hole_contour_count().set(context->region_island, node, data);
+        state->set(node, data);
         return;
     }
 
     const size_t erased_count = erase_perimeter_class(extrusions, need_erase_holes);
     if (erased_count == 0) {
-        node_hole_contour_count().set(context->region_island, node, data);
+        state->set(node, data);
         return;
     }
 
@@ -375,15 +352,14 @@ void module_after(void *, perimeter_generation_context *context, perimeter_node 
         build_fill_surfaces(context_view.storage(), parent, kept_extrusion_area, cleanup_distance);
 
     if (context_view.rebuild_children(parent, child_surfaces, fill_surfaces))
-        store_for_children(context->region_island, parent, data);
+        store_for_children(*state, parent, data);
 
-    node_hole_contour_count().set(context->region_island, node, data);
+    state->set(node, data);
 }
 
-void module_end(void *, perimeter_generation_context *context)
+void module_end(void *, void *user_context, perimeter_generation_context *)
 {
-    if (context != nullptr)
-        node_hole_contour_count().clear(context->region_island);
+    delete static_cast<ModuleState *>(user_context);
 }
 
 const perimeter_generation_module_vtable &module_vtable()

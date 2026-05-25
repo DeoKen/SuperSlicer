@@ -134,7 +134,7 @@ void remove_gap_fill_on_overhangs(storage_handle *storage,
     (void) moved;
 }
 
-void module_after(void *, perimeter_generation_context *context, perimeter_node *node)
+void module_after(void *, void *, perimeter_generation_context *context, perimeter_node *node)
 {
     if (context == nullptr || node == nullptr)
         return;
