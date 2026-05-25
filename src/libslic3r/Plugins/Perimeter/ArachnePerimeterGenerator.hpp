@@ -14,7 +14,7 @@ namespace slic3r_api { namespace Perimeter { namespace ArachnePerimeterGenerator
 // generator. It groups the current layer-island regions, then delegates the
 // perimeter tree traversal to the host through run_region_group(). Each host
 // node receives one Arachne wall pass, so PerimeterGenerationModule plugins can
-// still adjust branch counts and split child surfaces.
+// still adjust branch counts and split child areas.
 class ArachnePerimeterGenerator : public PluginBase
 {
 public:

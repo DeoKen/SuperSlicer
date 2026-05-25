@@ -61,10 +61,10 @@ size_t layer_index_for_odd_layer(const PrintObject &object);
 PerimeterRunCapture run_perimeter_case(
     const DynamicPrintConfig &config,
     std::initializer_list<const char *> active_plugins,
-    const ExPolygon &surface,
+    const ExPolygon &area,
     size_t layer_idx,
     std::initializer_list<std::pair<std::string, std::string>> overlap_overrides = {},
-    const ExPolygon *overlap_surface = nullptr);
+    const ExPolygon *overlap_area = nullptr);
 
 size_t external_perimeter_count(const PerimeterRunCapture &capture);
 const ExtrusionEntityCollection &external_perimeters(const PerimeterRunCapture &capture);

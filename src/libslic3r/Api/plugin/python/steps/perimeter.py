@@ -10,7 +10,7 @@ The STEP_PERIMETER payload gives a plugin one layer island at a time. A normal
 perimeter generator groups compatible layer regions, then calls
 run_region_group(). The host owns the perimeter-node tree, calls registered
 perimeter modules before/after each generated ring, and publishes the final
-extrusions and fill surfaces back into the layer data tree.
+extrusions and fill areas back into the layer data tree.
 
 Typical use
 -----------
@@ -23,9 +23,9 @@ Typical use
     regions = list(island.regions())
     flow = regions[0].flow(RAW_EXTRUSION_ROLE_EXTERNAL_PERIMETER)
 
-    def generate(state, generation, node, inner_surfaces, inner_fill_surfaces):
-        # Write node.extrusions(), then move generated child surfaces into
-        # inner_surfaces / inner_fill_surfaces.
+    def generate(state, generation, node, inner_areas, inner_fill_areas):
+        # Write node.extrusions(), then move generated child areas into
+        # inner_areas / inner_fill_areas.
         return True
 
     ctx.run_region_group(regions, island.slice(), {"flow": flow}, generate)
@@ -97,7 +97,7 @@ class PerimeterNodeView:
 
     The node and its handles are valid only during the current generator or
     module callback. Store generated perimeter extrusion in extrusions(), then
-    return child surfaces through the output collections passed to the
+    return child areas through the output collections passed to the
     generator callback.
     """
 
@@ -109,11 +109,11 @@ class PerimeterNodeView:
     def raw(self) -> PerimeterNode:
         return self._ptr.contents
 
-    def surface(self) -> ExPolygon:
-        return ExPolygon(self.api, self.raw.surface)
+    def area(self) -> ExPolygon:
+        return ExPolygon(self.api, self.raw.area)
 
-    def fill_surface(self) -> ExPolygon:
-        return ExPolygon(self.api, self.raw.fill_surface)
+    def fill_area(self) -> ExPolygon:
+        return ExPolygon(self.api, self.raw.fill_area)
 
     def extrusions(self) -> MutableExtrusionEntity:
         return MutableExtrusionEntity(self.api, self.raw.extrusions)
@@ -236,7 +236,7 @@ class PerimeterContext:
     def run_region_group(
         self,
         regions: Iterable[LayerRegion],
-        root_surface: ExPolygon | None,
+        root_area: ExPolygon | None,
         generator_state,
         generate_node: Callable[
             [object, PerimeterGenerationContextView, PerimeterNodeView, MutableExPolygonCollection, MutableExPolygonCollection],
@@ -251,15 +251,15 @@ class PerimeterContext:
         state_key = id(generator_state)
         self._states[state_key] = generator_state
 
-        def callback(raw_state, raw_context, raw_node, inner_surfaces, inner_fill_surfaces) -> int:
+        def callback(raw_state, raw_context, raw_node, inner_areas, inner_fill_areas) -> int:
             try:
                 state = self._states.get(_address(raw_state))
                 if state is None or not raw_context or not raw_node:
                     return 0
                 generation = PerimeterGenerationContextView(self.api, raw_context)
                 node = PerimeterNodeView(self.api, raw_node)
-                inner = MutableExPolygonCollection(self.api, inner_surfaces)
-                inner_fill = MutableExPolygonCollection(self.api, inner_fill_surfaces)
+                inner = MutableExPolygonCollection(self.api, inner_areas)
+                inner_fill = MutableExPolygonCollection(self.api, inner_fill_areas)
                 return 1 if generate_node(state, generation, node, inner, inner_fill) else 0
             except Exception as exc:
                 self.report_error(f"Python perimeter generator callback failed: {exc}")
@@ -272,7 +272,7 @@ class PerimeterContext:
                 ctypes.cast(self._payload_ptr, ctypes.c_void_p),
                 region_array,
                 len(region_addresses),
-                _void_p(_expolygon_handle(root_surface)),
+                _void_p(_expolygon_handle(root_area)),
                 ctypes.c_void_p(state_key),
                 c_callback,
             ))

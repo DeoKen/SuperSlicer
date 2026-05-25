@@ -202,25 +202,25 @@ public:
     }
 
     /*
-    Surface available for this node's next perimeter.
+    Area available for this node's next perimeter.
 
     The returned ExPolygon is a borrowed view over the host-owned node
     payload. It must not be stored after the current callback.
     */
-    ExPolygon surface() const {
-        assert(handle()->surface != nullptr);
-        return ExPolygon(handle()->surface);
+    ExPolygon area() const {
+        assert(handle()->area != nullptr);
+        return ExPolygon(handle()->area);
     }
 
     /*
-    Fill clipping surface associated with this node.
+    Fill clipping area associated with this node.
 
-    It may be larger than surface so fill can anchor into already generated
-    perimeter material. Like surface(), this is a borrowed view.
+    It may be larger than area so fill can anchor into already generated
+    perimeter material. Like area(), this is a borrowed view.
     */
-    ExPolygon fill_surface() const {
-        assert(handle()->fill_surface != nullptr);
-        return ExPolygon(handle()->fill_surface);
+    ExPolygon fill_area() const {
+        assert(handle()->fill_area != nullptr);
+        return ExPolygon(handle()->fill_area);
     }
 
     /*
@@ -286,7 +286,7 @@ public:
     LayerRegionIsland region_island() const { return LayerRegionIsland(handle()->region_island); }
 
     /*
-    Root of the host-owned perimeter tree for the current surface.
+    Root of the host-owned perimeter tree for the current area.
 
     Modules usually edit root counters in start(), and inspect/edit individual
     nodes in before()/after().
@@ -362,17 +362,17 @@ public:
     }
 
     /*
-    Ask the generator to replace a node's children from a new surface list.
+    Ask the generator to replace a node's children from a new area list.
 
     Modules use this after deleting or changing a generated perimeter class:
-    the old child surfaces were computed from the previous geometry and may no
+    the old child areas were computed from the previous geometry and may no
     longer represent the space available for the next ring. Generators that do
     not maintain a real node tree may leave rebuild_children null; in that case
     this helper is a no-op and returns false.
     */
     bool rebuild_children(const PerimeterNodeView &node,
-                          const ExPolygonCollection &surfaces,
-                          const ExPolygonCollection &fill_surfaces) const {
+                          const ExPolygonCollection &areas,
+                          const ExPolygonCollection &fill_areas) const {
         if (!node.valid())
             return false;
 
@@ -380,7 +380,7 @@ public:
         if (context->rebuild_children == nullptr)
             return false;
 
-        context->rebuild_children(context, node.mutable_handle(), surfaces.handle(), fill_surfaces.handle());
+        context->rebuild_children(context, node.mutable_handle(), areas.handle(), fill_areas.handle());
         return true;
     }
 

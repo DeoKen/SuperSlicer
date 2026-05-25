@@ -43,7 +43,7 @@ struct PerimeterProcessContext
     LayerSliceIsland &island;
     LayerRegionIsland &region_island;
     RegionSettings region_setting;
-    const ExPolygon &root_surface;
+    const ExPolygon &root_area;
     plugin_run_context *run_context = nullptr;
     std::vector<perimeter_generation_module_instance> perimeter_modules;
     mutable std::vector<void *> perimeter_module_user_contexts;
@@ -59,11 +59,11 @@ struct PerimeterNode
     // root has nullptr parent.
     PerimeterNode *parent = nullptr;
     // area where you can extrude a new periemter or infill.
-    ExPolygon surface;
-    // bigge surface, that goes over the aprent's extrusions, used to clip when you have a fill surface that anchor
-    // into perimeters. It's often just the parent surface, but it can be split / clipped by some algorithms.
-    ExPolygon fill_surface;
-    // perimeter extrusion extruded inside this surface
+    ExPolygon area;
+    // bigger area, that goes over the parent's extrusions, used to clip when you have a fill area that anchors
+    // into perimeters. It's often just the parent area, but it can be split / clipped by some algorithms.
+    ExPolygon fill_area;
+    // perimeter extrusion extruded inside this area
     ExtrusionEntityCollection extrusions;
     // childs contains the areas still available after the extrusions
     // unique_ptr to have stable pointers
@@ -91,8 +91,8 @@ struct PerimeterNodeCBridge
         source(&source_node)
     {
         node.parent = parent_node;
-        node.surface = reinterpret_cast<expolygon_handle *>(&source_node.surface);
-        node.fill_surface = reinterpret_cast<expolygon_handle *>(&source_node.fill_surface);
+        node.area = reinterpret_cast<expolygon_handle *>(&source_node.area);
+        node.fill_area = reinterpret_cast<expolygon_handle *>(&source_node.fill_area);
         node.extrusions = reinterpret_cast<extrusion_entity_handle *>(&source_node.extrusions);
         node.perimeter_idx = uint32_t(source_node.perimeter_idx);
         node.perimeter_needed = uint32_t(source_node.perimeter_needed);
@@ -139,38 +139,38 @@ struct PerimeterNodeCBridge
 class PerimeterTree
 {
 public:
-    explicit PerimeterTree(const ExPolygon &root_surface)
+    explicit PerimeterTree(const ExPolygon &root_area)
     {
-        m_root.surface = root_surface;
-        m_root.fill_surface = root_surface;
+        m_root.area = root_area;
+        m_root.fill_area = root_area;
     }
 
     PerimeterNode &root() { return m_root; }
     const PerimeterNode &root() const { return m_root; }
-    const ExPolygons &final_inner_surfaces() const { 
-        //TODO: union all leaf surfaces.
+    const ExPolygons &final_inner_areas() const {
+        //TODO: union all leaf areas.
         return {};
     }
     const ExPolygons &final_fill_clip_areas() const { 
-        //TODO: union all leaf fill surfaces.
+        //TODO: union all leaf fill areas.
         return {};
     }
 
-    std::vector<PerimeterNode *> create_children(PerimeterNode &parent, ExPolygons &&inner_surfaces)
+    std::vector<PerimeterNode *> create_children(PerimeterNode &parent, ExPolygons &&inner_areas)
     {
         std::vector<PerimeterNode *> child_nodes;
-        if (inner_surfaces.empty())
+        if (inner_areas.empty())
             return child_nodes;
 
-        child_nodes.reserve(inner_surfaces.size());
-        parent.children.reserve(parent.children.size() + inner_surfaces.size());
+        child_nodes.reserve(inner_areas.size());
+        parent.children.reserve(parent.children.size() + inner_areas.size());
 
-        for (ExPolygon &inner_surface : inner_surfaces) {
+        for (ExPolygon &inner_area : inner_areas) {
             parent.children.push_back(std::make_unique<PerimeterNode>());
             PerimeterNode &child = *parent.children.back();
             child.parent = &parent;
-            child.surface = std::move(inner_surface);
-            child.fill_surface = child.surface;
+            child.area = std::move(inner_area);
+            child.fill_area = child.area;
             child.perimeter_idx = parent.perimeter_idx + 1;
             child.perimeter_needed = parent.perimeter_needed;
             child_nodes.push_back(&child);
@@ -192,26 +192,26 @@ public:
 
     static void set_new_child(const PerimeterProcessContext &params,
                    PerimeterNode &node,
-                   ExPolygon &&surface,
+                   ExPolygon &&area,
                    const ExPolygons &fill_clip) {
-        node.surface = std::move(surface);
-        if (node.fill_surface.empty())
-            node.fill_surface = node.surface;
+        node.area = std::move(area);
+        if (node.fill_area.empty())
+            node.fill_area = node.area;
         const coord_t max_peri_width = std::max(params.perimeter_flow().scaled_width(),
                                                 params.external_perimeter_flow().scaled_width());
-        ExPolygons big_surface = offset_ex(node.surface, double(max_peri_width));
-        assert(big_surface.size() == 1);
-        if (big_surface.size() != 1) {
-            node.fill_surface = node.surface;
+        ExPolygons big_area = offset_ex(node.area, double(max_peri_width));
+        assert(big_area.size() == 1);
+        if (big_area.size() != 1) {
+            node.fill_area = node.area;
             return;
         }
-        big_surface = intersection_ex(big_surface, fill_clip);
-        assert(big_surface.size() == 1);
-        if (big_surface.size() != 1) {
-            node.fill_surface = node.surface;
+        big_area = intersection_ex(big_area, fill_clip);
+        assert(big_area.size() == 1);
+        if (big_area.size() != 1) {
+            node.fill_area = node.area;
             return;
         }
-        node.fill_surface = big_surface[0];
+        node.fill_area = big_area[0];
     }
 
     // return the number of node inside the clip area, including the 'to_split'. the node not inside the clip area are
@@ -222,18 +222,18 @@ public:
                             std::vector<PerimeterNodePtr> &new_nodes,
                             const ExPolygons &clip) {
             // split the child
-            ExPolygons srf_yes = intersection_ex(to_split.surface, clip);
+            ExPolygons srf_yes = intersection_ex(to_split.area, clip);
             if(srf_yes.empty()) {
                 // nothing to clip, nothing is inside the clip area
                 return 0;
             }
-            ExPolygons srf_no = diff_ex(to_split.surface, srf_yes);
+            ExPolygons srf_no = diff_ex(to_split.area, srf_yes);
             if(srf_no.empty()) {
                 // nothing to clip, evrything is inside the clip area
                 return 1;
             }
-            ExPolygons srf_fill_yes = intersection_ex({to_split.fill_surface}, clip);
-            ExPolygons srf_fill_no = diff_ex({to_split.fill_surface}, srf_fill_yes);
+            ExPolygons srf_fill_yes = intersection_ex({to_split.fill_area}, clip);
+            ExPolygons srf_fill_no = diff_ex({to_split.fill_area}, srf_fill_yes);
             // normal areas
             PerimeterTree::set_new_child(params, to_split, std::move(srf_yes[0]), srf_fill_yes);
             for (size_t i = 1; i < srf_yes.size(); i++) {
@@ -428,7 +428,7 @@ LayerRegionIsland &prepare_region_island(LayerSliceIsland &island, const LayerRe
     return island.get_or_add_region_island(regions);
 }
 
-ExPolygons build_surface_inputs(const LayerSliceIsland &island, const LayerRegionIsland &region_island)
+ExPolygons build_area_inputs(const LayerSliceIsland &island, const LayerRegionIsland &region_island)
 {
     // TODO: Reuse the old "whole island if all regions match, otherwise
     // intersect region raw slices with the island slice" logic. This isolates
@@ -459,7 +459,7 @@ void apply_perimeter_count_settings(const PerimeterProcessContext &context, Peri
     // - only_one_perimeter_top / only_one_perimeter_first_layer
     // - extra_perimeters_count
     // - extra_perimeters_odd_layers
-    // - surface-provided extra perimeter counts
+    // - area-provided extra perimeter counts
     // Each rule should edit the root node counts or attach data to nodes, not
     // touch generated extrusions.
     (void) context;
@@ -482,9 +482,9 @@ void apply_geometry_masks(const PerimeterProcessContext &context, PerimeterNode 
 ExPolygons generate_perimeter_for_node(const PerimeterProcessContext &context, PerimeterNode &node)
 {
     // TODO: Implement one-ring perimeter generation.
-    // The generator receives the current node surface and its counters. It
+    // The generator receives the current node area and its counters. It
     // writes the generated perimeter extrusions into node.extrusions and
-    // returns the inner surfaces. If several inner ExPolygons are returned,
+    // returns the inner areas. If several inner ExPolygons are returned,
     // PerimeterTree creates one child node for each of them.
     //
     // Classic can generate a fixed-width ring. Arachne can generate variable
@@ -706,7 +706,7 @@ public:
 
                 // if clip.empty - solo config
                 if (clip.is_accept_all()) {
-                    if (child->surface.area() < area_scaled) {
+                    if (child->area.area() < area_scaled) {
                         child->perimeter_needed += 9999;
                     }
                     continue;
@@ -718,12 +718,12 @@ public:
                 if (nb_inside <= 0)
                     continue;
 
-                if (child->surface.area() < area_scaled) {
+                if (child->area.area() < area_scaled) {
                     child->perimeter_needed += 9999;
                 }
                 assert(start_idx + size_t(nb_inside - 1) <= new_nodes.size());
                 for (size_t idx = 0; idx < size_t(nb_inside - 1); ++idx) {
-                    if (new_nodes[start_idx + idx]->surface.area() < area_scaled) {
+                    if (new_nodes[start_idx + idx]->area.area() < area_scaled) {
                         new_nodes[start_idx + idx]->perimeter_needed += 9999;
                     }
                 }
@@ -800,7 +800,7 @@ class OnlyOnePerimeterOnTop final : public PerimeterModifier
 {
 protected:
     //TODO same as the perimetergenerator one
-    void split_top_surfaces(const ExPolygons *lower_slices,
+    void split_top_areas(const ExPolygons *lower_slices,
                                             const ExPolygons *upper_slices,
                                             const ExPolygons &orig_polygons,
                                             ExPolygons &top_fills,
@@ -838,7 +838,7 @@ public:
             }
         } else {
             //yes, check if we have a top area
-            // Check if current layer has surfaces that are not covered by upper layer (i.e., top surfaces)
+            // Check if current layer has areas that are not covered by upper layer (i.e., top areas)
             ExPolygons non_top_polygons;
             for (auto const &[opt_values, areas] : params.region_setting.get_areas(opt_only_one_perimeter_top)) {
                 if (opt_values.get_bool(opt_only_one_perimeter_top)) {
@@ -860,7 +860,7 @@ public:
 
                     ExPolygons perimeter_centerline;
                     if (non_top_polygons.empty()) {
-                        perimeter_centerline = offset_ex(parent.surface, -params.external_perimeter_flow().scaled_width() / 2);
+                        perimeter_centerline = offset_ex(parent.area, -params.external_perimeter_flow().scaled_width() / 2);
                     }else{
                         perimeter_centerline = offset_ex(non_top_polygons, -params.external_perimeter_flow().scaled_width()/ 2);
                     }
@@ -869,7 +869,7 @@ public:
                     for(const auto &lower_island : params.island.overlaps_below) {
                         lower_slices.push_back(lower_island.to->get_slice());
                     }
-                    split_top_surfaces(&lower_slices, &upper_slices, perimeter_centerline,
+                    split_top_areas(&lower_slices, &upper_slices, perimeter_centerline,
                         top_fills, non_top_polygons, fill_clip,
                         parent.perimeter_needed - 1,
                         scale_d(opt_values.get_effective_value(unscaled(params.perimeter_flow().scaled_width()),
@@ -880,7 +880,7 @@ public:
         }
         // has to set the outer polygon to the centerline of the external perimeter
         if (top_fills.empty()) {
-            // No top surfaces, no special handling needed
+            // No top areas, no special handling needed
         } else {
             // Make sure infill not overlap with wall
             // offset the InnerContour as the result use bounds and not centerline
@@ -934,7 +934,7 @@ ExPolygons extrusion_coverage_area(const ExtrusionEntityCollection &extrusions, 
     if (!area.empty()) {
         // A tiny close-open pass merges almost-touching extrusion coverage and
         // removes the micro slivers created when the removed loop class is cut
-        // away from the next available surface.
+        // away from the next available area.
         area = offset2_ex(area, cleanup_distance, -cleanup_distance);
     }
     return area;
@@ -955,27 +955,27 @@ size_t erase_perimeter_class(ExtrusionEntityCollection &extrusions, bool erase_h
     return erased_count;
 }
 
-ExPolygon pick_fill_surface_for_child(const ExPolygon &surface, const ExPolygons &fill_surfaces)
+ExPolygon pick_fill_area_for_child(const ExPolygon &area, const ExPolygons &fill_areas)
 {
-    if (!surface.empty()) {
+    if (!area.empty()) {
         // Fast path: a point-in-polygon test is much cheaper than clipping the
-        // child surface against every possible fill surface. Most children have
-        // exactly one matching fill surface, so keep the expensive geometry for
+        // child area against every possible fill area. Most children have
+        // exactly one matching fill area, so keep the expensive geometry for
         // the ambiguous case only.
-        const Point &sample = surface.contour.points.front();
+        const Point &sample = area.contour.points.front();
         std::vector<size_t> candidate_idxs;
-        for (size_t idx = 0; idx < fill_surfaces.size(); ++idx)
-            if (fill_surfaces[idx].contains(sample))
+        for (size_t idx = 0; idx < fill_areas.size(); ++idx)
+            if (fill_areas[idx].contains(sample))
                 candidate_idxs.push_back(idx);
 
         if (candidate_idxs.size() == 1)
-            return fill_surfaces[candidate_idxs.front()];
+            return fill_areas[candidate_idxs.front()];
 
         if (candidate_idxs.size() > 1) {
             ExPolygons best_intersection;
             double best_area = 0.;
             for (const size_t idx : candidate_idxs) {
-                ExPolygons intersection = intersection_ex(surface, fill_surfaces[idx]);
+                ExPolygons intersection = intersection_ex(area, fill_areas[idx]);
                 double intersection_area = 0.;
                 for (const ExPolygon &expoly : intersection)
                     intersection_area += expoly.area();
@@ -993,22 +993,22 @@ ExPolygon pick_fill_surface_for_child(const ExPolygon &surface, const ExPolygons
             }
         }
     }
-    return surface;
+    return area;
 }
 
 std::vector<PerimeterNodePtr> make_rebuilt_children(const PerimeterNode &parent,
-                                                    ExPolygons &&surfaces,
-                                                    const ExPolygons &fill_surfaces)
+                                                    ExPolygons &&areas,
+                                                    const ExPolygons &fill_areas)
 {
     std::vector<PerimeterNodePtr> children;
-    children.reserve(surfaces.size());
-    for (ExPolygon &surface : surfaces) {
-        if (surface.empty())
+    children.reserve(areas.size());
+    for (ExPolygon &area : areas) {
+        if (area.empty())
             continue;
 
         PerimeterNodePtr child = std::make_unique<PerimeterNode>();
-        child->surface = std::move(surface);
-        child->fill_surface = pick_fill_surface_for_child(child->surface, fill_surfaces);
+        child->area = std::move(area);
+        child->fill_area = pick_fill_area_for_child(child->area, fill_areas);
         child->perimeter_idx = parent.perimeter_idx + 1;
         child->perimeter_needed = parent.perimeter_needed;
         children.push_back(std::move(child));
@@ -1041,8 +1041,8 @@ ExPolygons gap_fill_no_overhang_area(const PerimeterProcessContext &context, con
             continue;
 
         ExPolygons enabled_area = active_area.is_accept_all() ?
-                                      ExPolygons{node.surface} :
-                                      active_area.intersections(ExPolygons{node.surface});
+                                      ExPolygons{node.area} :
+                                      active_area.intersections(ExPolygons{node.area});
         if (enabled_area.empty())
             continue;
 
@@ -1199,10 +1199,10 @@ public:
             // - need_erase_contour keeps only hole loops.
             // - need_erase_holes keeps only contour loops.
             //
-            // The child surfaces created by the perimeter generator were based
+            // The child areas created by the perimeter generator were based
             // on both classes being present. Once one class is deleted, they no
             // longer describe the space available for the next ring, so rebuild
-            // them from the parent surface minus the coverage of the remaining
+            // them from the parent area minus the coverage of the remaining
             // extrusions.
             const size_t erased_count = erase_perimeter_class(parent.extrusions, need_erase_holes);
             if (need_erase_contour && erased_count > 0)
@@ -1213,24 +1213,24 @@ public:
             const double cleanup_distance = erase_cleanup_distance(context, parent);
             ExPolygons kept_extrusion_area = extrusion_coverage_area(parent.extrusions, cleanup_distance);
 
-            ExPolygons child_surfaces = kept_extrusion_area.empty() ?
-                                            ExPolygons{ parent.surface } :
-                                            diff_ex(parent.surface, kept_extrusion_area);
-            if (!child_surfaces.empty()) {
-                // Remove tiny artifacts left by clipping a ring-shaped surface
+            ExPolygons child_areas = kept_extrusion_area.empty() ?
+                                            ExPolygons{ parent.area } :
+                                            diff_ex(parent.area, kept_extrusion_area);
+            if (!child_areas.empty()) {
+                // Remove tiny artifacts left by clipping a ring-shaped area
                 // with the extrusion coverage mask. Bigger children survive
                 // unchanged enough for the following perimeter pass.
-                child_surfaces = offset2_ex(child_surfaces, -cleanup_distance, cleanup_distance);
+                child_areas = offset2_ex(child_areas, -cleanup_distance, cleanup_distance);
             }
 
-            const ExPolygon &base_fill_surface = parent.fill_surface.empty() ? parent.surface : parent.fill_surface;
-            ExPolygons fill_surfaces = kept_extrusion_area.empty() ?
-                                           ExPolygons{ base_fill_surface } :
-                                           diff_ex(ExPolygons{ base_fill_surface }, kept_extrusion_area);
-            if (!fill_surfaces.empty())
-                fill_surfaces = offset2_ex(fill_surfaces, -cleanup_distance, cleanup_distance);
+            const ExPolygon &base_fill_area = parent.fill_area.empty() ? parent.area : parent.fill_area;
+            ExPolygons fill_areas = kept_extrusion_area.empty() ?
+                                           ExPolygons{ base_fill_area } :
+                                           diff_ex(ExPolygons{ base_fill_area }, kept_extrusion_area);
+            if (!fill_areas.empty())
+                fill_areas = offset2_ex(fill_areas, -cleanup_distance, cleanup_distance);
 
-            parent.children = make_rebuilt_children(parent, std::move(child_surfaces), fill_surfaces);
+            parent.children = make_rebuilt_children(parent, std::move(child_areas), fill_areas);
             for (PerimeterNodePtr &child : parent.children) {
                 child->parent = &parent;
                 set_data(&context.region_island, child.get(), data);
@@ -1259,20 +1259,20 @@ const std::vector<const PerimeterModifier *> &perimeter_modifiers()
     return modifiers;
 }
 
-void build_fill_surfaces(const PerimeterProcessContext &context, const PerimeterTree &tree)
+void build_fill_areas(const PerimeterProcessContext &context, const PerimeterTree &tree)
 {
-    // TODO: Recreate inner_perimeter, fill_surfaces and fill_no_overlap from
-    // tree.final_inner_surfaces(). This is intentionally after perimeter
+    // TODO: Recreate inner_perimeter, fill_areas and fill_no_overlap from
+    // tree.final_inner_areas(). This is intentionally after perimeter
     // generation because these polygons must stay coherent with what the
     // generator actually made.
     (void) context;
     (void) tree;
 }
 
-void publish_surface_result(const PerimeterProcessContext &context, const PerimeterTree &tree)
+void publish_area_result(const PerimeterProcessContext &context, const PerimeterTree &tree)
 {
     // TODO: Move generated node extrusions to context.region_island, append
-    // fill surfaces/fill_no_overlap to context.island, and update the perimeter
+    // fill areas/fill_no_overlap to context.island, and update the perimeter
     // boundary used by avoid-crossing-perimeters.
     (void) context;
     (void) tree;
@@ -1295,16 +1295,16 @@ const std::vector<t_config_option_keys> perimeter_keys({
 void segregate_extra_perimeters(RegionSettings &region_settings, const ExPolygon &my_srf, const LayerRegionSetCPtrs &lregions);
 
 
-void process_surface(Print &print,
+void process_area(Print &print,
                      PrintObject &object,
                      Layer &layer,
                      LayerSliceIsland &island,
                      LayerRegionIsland &region_island,
-                     const ExPolygon &surface)
+                     const ExPolygon &area)
 {
     assert(!region_island.regions().empty());
     RegionSettings region_settings((*region_island.regions().begin())->region().config(), perimeter_keys);
-    segregate_extra_perimeters(region_settings, surface, region_island.regions());
+    segregate_extra_perimeters(region_settings, area, region_island.regions());
     Orchestrator &orchestrator = Orchestrator::instance();
     plugin_host_context host_context =
         orchestrator.prepare_plugin_host_context(STEP_PERIMETER, nullptr, &print);
@@ -1318,11 +1318,11 @@ void process_surface(Print &print,
         island,
         region_island,
         region_settings,
-        surface,
+        area,
         &run_context,
         std::move(modules)
     };
-    PerimeterTree tree(surface);
+    PerimeterTree tree(area);
     PerimeterNode &root = tree.root();
 
     initialize_root_node(context, root);
@@ -1350,11 +1350,11 @@ void process_surface(Print &print,
         call_perimeter_module_before(context, tree, *node);
 
         // Generate one ring for the current node. The generator writes the ring
-        // extrusion into the node and returns the inner surfaces.
-        ExPolygons inner_surfaces = generate_perimeter_for_node(context, *node);
+        // extrusion into the node and returns the inner areas.
+        ExPolygons inner_areas = generate_perimeter_for_node(context, *node);
 
-        // Inner surfaces become child nodes inheriting the parent counters.
-        std::vector<PerimeterNode *> children = tree.create_children(*node, std::move(inner_surfaces));
+        // Inner areas become child nodes inheriting the parent counters.
+        std::vector<PerimeterNode *> children = tree.create_children(*node, std::move(inner_areas));
 
         // Modifiers can now edit the generated parent extrusion, repair/remove
         // children, or change child counters before they are queued.
@@ -1374,8 +1374,8 @@ void process_surface(Print &print,
         modifier->finish_generation(context, tree);
     call_perimeter_module_end(context, tree);
 
-    build_fill_surfaces(context, tree);
-    publish_surface_result(context, tree);
+    build_fill_areas(context, tree);
+    publish_area_result(context, tree);
 }
 
 } // namespace
@@ -1391,14 +1391,14 @@ void process(Print &print, PrintObject &object, Layer &layer, LayerSliceIsland &
         // Create or retrieve the output node for this region group.
         LayerRegionIsland &region_island = prepare_region_island(island, regions);
 
-        // Build the concrete expolygon surfaces that this region group will
+        // Build the concrete expolygon areas that this region group will
         // process inside the current island.
-        ExPolygons surfaces = build_surface_inputs(island, region_island);
+        ExPolygons areas = build_area_inputs(island, region_island);
 
-        for (const ExPolygon &surface : surfaces) {
-            // Process one surface independently. All setting-dependent logic is
-            // routed through named helper functions inside process_surface().
-            process_surface(print, object, layer, island, region_island, surface);
+        for (const ExPolygon &area : areas) {
+            // Process one area independently. All setting-dependent logic is
+            // routed through named helper functions inside process_area().
+            process_area(print, object, layer, island, region_island, area);
         }
     }
 }

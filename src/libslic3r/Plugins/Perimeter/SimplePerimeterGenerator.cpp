@@ -33,9 +33,9 @@ Payload &get_or_add_property(StoredExtrusionEntity &entity)
     return properties.template property<Payload>();
 }
 
-StoredExPolygonCollection offset_surface(storage_handle *storage, const ExPolygon &surface, double delta)
+StoredExPolygonCollection offset_area(storage_handle *storage, const ExPolygon &area, double delta)
 {
-    ClipperOperand subject(storage, surface);
+    ClipperOperand subject(storage, area);
     StoredExPolygonCollection out = clipper_offset(subject, delta).to_expolygon_collection();
     out.ensure_valid();
     return out;
@@ -69,14 +69,14 @@ void append_perimeter_loop(StoredExtrusionEntity &dst,
 }
 
 StoredExtrusionEntity make_perimeter_extrusion(storage_handle *storage,
-                                               const ExPolygon &surface,
+                                               const ExPolygon &area,
                                                const c_flow &flow,
                                                double line_offset)
 {
     StoredExtrusionEntity extrusion(storage);
     extrusion.disable_reverse().disable_sort();
 
-    StoredExPolygonCollection loops = offset_surface(storage, surface, line_offset);
+    StoredExPolygonCollection loops = offset_area(storage, area, line_offset);
     for (ExPolygon loop : loops) {
         append_perimeter_loop(extrusion, loop.contour(), flow, k_loop_role_default);
         for (Polygon hole : loop.holes())
@@ -93,12 +93,12 @@ struct SimpleGeneratorState
 int32_t generate_node(void *generator_context,
                       perimeter_generation_context *context,
                       perimeter_node *node,
-                      expolygon_collection_handle *inner_surfaces_out,
-                      expolygon_collection_handle *inner_fill_surfaces_out)
+                      expolygon_collection_handle *inner_areas_out,
+                      expolygon_collection_handle *inner_fill_areas_out)
 {
     if (generator_context == nullptr || context == nullptr || context->run_ctx == nullptr ||
         context->run_ctx->plugin_storage == nullptr || node == nullptr ||
-        inner_surfaces_out == nullptr || inner_fill_surfaces_out == nullptr)
+        inner_areas_out == nullptr || inner_fill_areas_out == nullptr)
         return 0;
 
     const SimpleGeneratorState &state = *reinterpret_cast<const SimpleGeneratorState *>(generator_context);
@@ -108,21 +108,21 @@ int32_t generate_node(void *generator_context,
     const bool first_perimeter = node_view.perimeter_idx() == 0;
     const double line_offset = first_perimeter ? -0.5 * double(state.flow.width) :
                                                  -0.5 * double(state.flow.spacing);
-    StoredExtrusionEntity extrusion = make_perimeter_extrusion(storage, node_view.surface(), state.flow, line_offset);
+    StoredExtrusionEntity extrusion = make_perimeter_extrusion(storage, node_view.area(), state.flow, line_offset);
     extrusion_move_from(node->extrusions, extrusion.mutable_handle());
 
     const double inner_offset = first_perimeter ? -0.5 * double(state.flow.width + state.flow.spacing) :
                                                   -double(state.flow.spacing);
-    StoredExPolygonCollection inner_surfaces =
-        offset_surface(storage, node_view.surface(), inner_offset);
-    expolygons_move(inner_surfaces_out, inner_surfaces.mutable_handle());
+    StoredExPolygonCollection inner_areas =
+        offset_area(storage, node_view.area(), inner_offset);
+    expolygons_move(inner_areas_out, inner_areas.mutable_handle());
 
-    // The fill/anchor area is slightly larger than the next perimeter surface,
+    // The fill/anchor area is slightly larger than the next perimeter area,
     // matching the old "perimeter spacing minus 25%" anchoring convention.
     const double fill_offset = inner_offset + 0.25 * double(state.flow.spacing);
-    StoredExPolygonCollection inner_fill_surfaces =
-        offset_surface(storage, node_view.surface(), fill_offset);
-    expolygons_move(inner_fill_surfaces_out, inner_fill_surfaces.mutable_handle());
+    StoredExPolygonCollection inner_fill_areas =
+        offset_area(storage, node_view.area(), fill_offset);
+    expolygons_move(inner_fill_areas_out, inner_fill_areas.mutable_handle());
 
     return 1;
 }

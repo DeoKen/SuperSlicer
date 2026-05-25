@@ -182,34 +182,34 @@ StoredExPolygonCollection extrusion_coverage_area(storage_handle *storage,
     return area;
 }
 
-StoredExPolygonCollection build_child_surfaces(storage_handle *storage,
-                                               const PerimeterNodeView &parent,
-                                               const ExPolygonCollection &kept_extrusion_area,
-                                               double cleanup_distance)
+StoredExPolygonCollection build_child_areas(storage_handle *storage,
+                                            const PerimeterNodeView &parent,
+                                            const ExPolygonCollection &kept_extrusion_area,
+                                            double cleanup_distance)
 {
-    StoredExPolygonCollection parent_surface = collection_from_expolygon(storage, parent.surface());
-    StoredExPolygonCollection child_surfaces = kept_extrusion_area.empty() ?
-        parent_surface.readonly().clone(storage) :
-        diff_collection(storage, parent_surface, kept_extrusion_area);
+    StoredExPolygonCollection parent_area = collection_from_expolygon(storage, parent.area());
+    StoredExPolygonCollection child_areas = kept_extrusion_area.empty() ?
+        parent_area.readonly().clone(storage) :
+        diff_collection(storage, parent_area, kept_extrusion_area);
 
-    if (!child_surfaces.empty())
-        child_surfaces = offset2_collection(storage, child_surfaces.readonly(), -cleanup_distance, cleanup_distance);
-    return child_surfaces;
+    if (!child_areas.empty())
+        child_areas = offset2_collection(storage, child_areas.readonly(), -cleanup_distance, cleanup_distance);
+    return child_areas;
 }
 
-StoredExPolygonCollection build_fill_surfaces(storage_handle *storage,
-                                              const PerimeterNodeView &parent,
-                                              const ExPolygonCollection &kept_extrusion_area,
-                                              double cleanup_distance)
+StoredExPolygonCollection build_fill_areas(storage_handle *storage,
+                                           const PerimeterNodeView &parent,
+                                           const ExPolygonCollection &kept_extrusion_area,
+                                           double cleanup_distance)
 {
-    StoredExPolygonCollection base_fill_surface = collection_from_expolygon(storage, parent.fill_surface());
-    StoredExPolygonCollection fill_surfaces = kept_extrusion_area.empty() ?
-        base_fill_surface.readonly().clone(storage) :
-        diff_collection(storage, base_fill_surface, kept_extrusion_area);
+    StoredExPolygonCollection base_fill_area = collection_from_expolygon(storage, parent.fill_area());
+    StoredExPolygonCollection fill_areas = kept_extrusion_area.empty() ?
+        base_fill_area.readonly().clone(storage) :
+        diff_collection(storage, base_fill_area, kept_extrusion_area);
 
-    if (!fill_surfaces.empty())
-        fill_surfaces = offset2_collection(storage, fill_surfaces.readonly(), -cleanup_distance, cleanup_distance);
-    return fill_surfaces;
+    if (!fill_areas.empty())
+        fill_areas = offset2_collection(storage, fill_areas.readonly(), -cleanup_distance, cleanup_distance);
+    return fill_areas;
 }
 
 void store_for_children(ModuleState &state,
@@ -346,12 +346,12 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
     const double cleanup_distance = erase_cleanup_distance(context_view, parent);
     StoredExPolygonCollection kept_extrusion_area =
         extrusion_coverage_area(context_view.storage(), extrusions.readonly(), cleanup_distance);
-    StoredExPolygonCollection child_surfaces =
-        build_child_surfaces(context_view.storage(), parent, kept_extrusion_area, cleanup_distance);
-    StoredExPolygonCollection fill_surfaces =
-        build_fill_surfaces(context_view.storage(), parent, kept_extrusion_area, cleanup_distance);
+    StoredExPolygonCollection child_areas =
+        build_child_areas(context_view.storage(), parent, kept_extrusion_area, cleanup_distance);
+    StoredExPolygonCollection fill_areas =
+        build_fill_areas(context_view.storage(), parent, kept_extrusion_area, cleanup_distance);
 
-    if (context_view.rebuild_children(parent, child_surfaces, fill_surfaces))
+    if (context_view.rebuild_children(parent, child_areas, fill_areas))
         store_for_children(*state, parent, data);
 
     state->set(node, data);

@@ -35,7 +35,7 @@ Typical use:
 
     if (!settings.has_many_config("extra_perimeters_odd_layers") &&
         settings.get_solo_config("extra_perimeters_odd_layers").get_bool()) {
-        // Fast path: the whole surface uses the same value.
+        // Fast path: the whole area uses the same value.
     }
 
     for (const auto &[value, clip] : settings.get_areas("extra_perimeters_odd_layers")) {
@@ -268,7 +268,7 @@ public:
             add_region(island.region(idx));
     }
 
-    void segregate(const ExPolygon &surface) {
+    void segregate(const ExPolygon &area) {
         m_key_areas.clear();
         ClipperContext clip(m_storage);
 
@@ -302,7 +302,7 @@ public:
 
                     if (!region.slices().empty()) {
                         StoredExPolygonCollection overlap =
-                            clipper_intersection(clip(region.slices()), clip(surface)).to_expolygon_collection();
+                            clipper_intersection(clip(region.slices()), clip(area)).to_expolygon_collection();
                         if (!overlap.empty())
                             inserted.first->second.append_move_from(std::move(overlap));
                     }

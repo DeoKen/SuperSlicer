@@ -14,7 +14,7 @@ namespace slic3r_api { namespace Perimeter { namespace SeparateHoleContourPlugin
 //
 // The module lets contour perimeters and hole perimeters stop at different
 // depths. It removes the loop class that is past its configured count and asks
-// the generator to continue from surfaces rebuilt around the remaining loops.
+// the generator to continue from areas rebuilt around the remaining loops.
 class SeparateHoleContour : public PluginBase
 {
 public:

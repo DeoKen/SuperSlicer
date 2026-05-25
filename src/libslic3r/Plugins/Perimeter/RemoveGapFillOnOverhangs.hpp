@@ -13,7 +13,7 @@ namespace slic3r_api { namespace Perimeter { namespace RemoveGapFillOnOverhangsP
 // PerimeterGenerationModule port of gap_fill_no_overhang.
 //
 // The module runs after a node has produced perimeter/gap-fill extrusions. It
-// computes the part of the current node surface that is enabled for the setting
+// computes the part of the current node area that is enabled for the setting
 // and unsupported by lower islands, then clips non-loop local polylines away
 // from that forbidden area.
 class RemoveGapFillOnOverhangs : public PluginBase

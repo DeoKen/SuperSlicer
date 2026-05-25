@@ -135,8 +135,8 @@ StoredExPolygonCollection build_upper_slices_for_area(const PerimeterGenerationC
     // Outside the setting-enabled area, behave as if an upper layer existed.
     // This prevents the module from forcing one perimeter where the setting is
     // disabled by a region/modifier split.
-    StoredExPolygonCollection island_surface = collection_from_expolygon(storage, context.island().slice());
-    StoredExPolygonCollection disabled_area = enabled_area.diff(island_surface);
+    StoredExPolygonCollection island_area = collection_from_expolygon(storage, context.island().slice());
+    StoredExPolygonCollection disabled_area = enabled_area.diff(island_area);
     return union_append(storage, std::move(upper_slices), std::move(disabled_area));
 }
 
@@ -351,7 +351,7 @@ void module_after(void *, void *, perimeter_generation_context *context, perimet
 
         StoredExPolygonCollection source_polygons =
             non_top_polygons.empty() ?
-            collection_from_expolygon(context_view.storage(), parent.surface()) :
+            collection_from_expolygon(context_view.storage(), parent.area()) :
             non_top_polygons.readonly().clone(context_view.storage());
         StoredExPolygonCollection perimeter_centerline =
             offset_collection(context_view.storage(), source_polygons, -double(external_perimeter_flow(context_view).width) / 2.0);

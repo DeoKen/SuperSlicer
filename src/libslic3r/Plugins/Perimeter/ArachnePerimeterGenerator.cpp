@@ -208,9 +208,9 @@ struct ArachneGeneratorState
     size_t perimeter_count = 0;
 };
 
-const Slic3r::ExPolygon *node_surface(const perimeter_node &node)
+const Slic3r::ExPolygon *node_area(const perimeter_node &node)
 {
-    return reinterpret_cast<const Slic3r::ExPolygon *>(node.surface);
+    return reinterpret_cast<const Slic3r::ExPolygon *>(node.area);
 }
 
 Slic3r::ExPolygons *to_expolygons(expolygon_collection_handle *handle)
@@ -221,23 +221,23 @@ Slic3r::ExPolygons *to_expolygons(expolygon_collection_handle *handle)
 int32_t generate_node(void *generator_context,
                       perimeter_generation_context *,
                       perimeter_node *node,
-                      expolygon_collection_handle *inner_surfaces_out,
-                      expolygon_collection_handle *inner_fill_surfaces_out)
+                      expolygon_collection_handle *inner_areas_out,
+                      expolygon_collection_handle *inner_fill_areas_out)
 {
     const ArachneGeneratorState *state = reinterpret_cast<const ArachneGeneratorState *>(generator_context);
     if (state == nullptr || state->layer == nullptr || state->print == nullptr || state->region == nullptr ||
-        node == nullptr || node->extrusions == nullptr || inner_surfaces_out == nullptr ||
-        inner_fill_surfaces_out == nullptr)
+        node == nullptr || node->extrusions == nullptr || inner_areas_out == nullptr ||
+        inner_fill_areas_out == nullptr)
         return 0;
 
-    const Slic3r::ExPolygon *surface = node_surface(*node);
-    if (surface == nullptr || surface->empty())
+    const Slic3r::ExPolygon *area = node_area(*node);
+    if (area == nullptr || area->empty())
         return 1;
 
     if (state->perimeter_count == 0 && node->perimeter_needed <= 1) {
         node->perimeter_needed = 0;
-        *to_expolygons(inner_surfaces_out) = Slic3r::ExPolygons{ *surface };
-        *to_expolygons(inner_fill_surfaces_out) = Slic3r::ExPolygons{ *surface };
+        *to_expolygons(inner_areas_out) = Slic3r::ExPolygons{ *area };
+        *to_expolygons(inner_fill_areas_out) = Slic3r::ExPolygons{ *area };
         return 1;
     }
 
@@ -248,9 +248,9 @@ int32_t generate_node(void *generator_context,
     const Slic3r::PrintRegionConfig &region_config = state->region->region().config();
     const Slic3r::PrintConfig &print_config = state->print->config();
 
-    Slic3r::ExPolygons fill_no_overlap = Slic3r::ExPolygons{ *surface };
+    Slic3r::ExPolygons fill_no_overlap = Slic3r::ExPolygons{ *area };
     if (node->perimeter_needed > 0) {
-        Slic3r::Polygons outlines = Slic3r::to_polygons(*surface);
+        Slic3r::Polygons outlines = Slic3r::to_polygons(*area);
         Slic3r::Arachne::WallToolPaths wall_tool_paths(outlines,
                                                        outer_flow.scaled_spacing(),
                                                        outer_flow.scaled_width(),
@@ -270,15 +270,15 @@ int32_t generate_node(void *generator_context,
 
         fill_no_overlap = Slic3r::union_ex(wall_tool_paths.getInnerContour());
         if (fill_no_overlap.empty())
-            fill_no_overlap = Slic3r::ExPolygons{ *surface };
+            fill_no_overlap = Slic3r::ExPolygons{ *area };
     }
 
-    Slic3r::ExPolygons fill_surfaces = Slic3r::ensure_valid(
+    Slic3r::ExPolygons fill_areas = Slic3r::ensure_valid(
         Slic3r::offset_ex(fill_no_overlap, 0.25 * double(inner_flow.scaled_spacing())));
     fill_no_overlap = Slic3r::ensure_valid(std::move(fill_no_overlap));
 
-    *to_expolygons(inner_surfaces_out) = std::move(fill_no_overlap);
-    *to_expolygons(inner_fill_surfaces_out) = std::move(fill_surfaces);
+    *to_expolygons(inner_areas_out) = std::move(fill_no_overlap);
+    *to_expolygons(inner_fill_areas_out) = std::move(fill_areas);
     return 1;
 }
 

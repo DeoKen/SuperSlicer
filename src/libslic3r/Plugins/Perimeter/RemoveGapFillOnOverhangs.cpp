@@ -37,11 +37,11 @@ StoredExPolygonCollection lower_slice_coverage(storage_handle *storage, const La
     return clipper_union(clip(lower_slices)).to_expolygon_collection();
 }
 
-StoredExPolygonCollection node_surface_collection(storage_handle *storage, const PerimeterNodeView &node)
+StoredExPolygonCollection node_area_collection(storage_handle *storage, const PerimeterNodeView &node)
 {
-    StoredExPolygonCollection surface(storage);
-    surface.push_back(node.surface());
-    return surface;
+    StoredExPolygonCollection area(storage);
+    area.push_back(node.area());
+    return area;
 }
 
 StoredExPolygonCollection gap_fill_no_overhang_area(const PerimeterGenerationContextView &context,
@@ -50,7 +50,7 @@ StoredExPolygonCollection gap_fill_no_overhang_area(const PerimeterGenerationCon
 {
     storage_handle *storage = context.storage();
     StoredExPolygonCollection forbidden_area(storage);
-    StoredExPolygonCollection node_surface = node_surface_collection(storage, node);
+    StoredExPolygonCollection node_area = node_area_collection(storage, node);
     StoredExPolygonCollection lower_slices = lower_slice_coverage(storage, context.island());
     const RegionSettings::AreaMap &areas = settings.get_areas(k_gap_fill_no_overhang_key);
 
@@ -59,8 +59,8 @@ StoredExPolygonCollection gap_fill_no_overhang_area(const PerimeterGenerationCon
             continue;
 
         StoredExPolygonCollection enabled_area = entry.second.is_accept_all() ?
-            node_surface.readonly().clone(storage) :
-            entry.second.intersections(node_surface);
+            node_area.readonly().clone(storage) :
+            entry.second.intersections(node_area);
         if (enabled_area.empty())
             continue;
 
@@ -148,7 +148,7 @@ void module_after(void *, void *, perimeter_generation_context *context, perimet
         return;
 
     RegionSettings settings = context_view.region_settings({{k_gap_fill_no_overhang_key}});
-    settings.segregate(parent.surface());
+    settings.segregate(parent.area());
     if (!settings.has_many_config(k_gap_fill_no_overhang_key) &&
         !settings.get_solo_config(k_gap_fill_no_overhang_key).get_bool(k_gap_fill_no_overhang_key))
         return;

@@ -33,17 +33,17 @@ namespace {
 
 struct PerimeterTreeNode
 {
-    explicit PerimeterTreeNode(const ExPolygon &surface)
-        : surface(surface)
-        , fill_surface(surface)
+    explicit PerimeterTreeNode(const ExPolygon &area)
+        : area(area)
+        , fill_area(area)
         , extrusions(true)
     {}
 
     // Canonical C ABI node. The C++ wrapper only owns the heavier objects
     // referenced by the handles below; scalar traversal state lives here.
     perimeter_node node = {};
-    ExPolygon surface;
-    ExPolygon fill_surface;
+    ExPolygon area;
+    ExPolygon fill_area;
     ExtrusionEntity extrusions;
     std::vector<std::unique_ptr<PerimeterTreeNode>> children;
     std::vector<perimeter_node *> child_nodes;
@@ -63,8 +63,8 @@ struct PerimeterTreeNode
             child_nodes.push_back(&child->node);
         }
 
-        node.surface = reinterpret_cast<expolygon_handle *>(&surface);
-        node.fill_surface = reinterpret_cast<expolygon_handle *>(&fill_surface);
+        node.area = reinterpret_cast<expolygon_handle *>(&area);
+        node.fill_area = reinterpret_cast<expolygon_handle *>(&fill_area);
         node.extrusions = reinterpret_cast<extrusion_entity_handle *>(&extrusions);
         node.children = child_nodes.empty() ? nullptr : child_nodes.data();
         node.child_count = uint32_t(child_nodes.size());
@@ -73,8 +73,8 @@ struct PerimeterTreeNode
 
 struct PerimeterTree
 {
-    explicit PerimeterTree(const ExPolygon &root_surface)
-        : root(root_surface)
+    explicit PerimeterTree(const ExPolygon &root_area)
+        : root(root_area)
     {
         root.node.perimeter_idx = 0;
         root.node.perimeter_needed = 1;
@@ -100,8 +100,8 @@ struct PerimeterRunContext
     PrintObject *object = nullptr;
     Layer *layer = nullptr;
     LayerSliceIsland *island = nullptr;
-    ExPolygons fill_surfaces;
-    ExPolygons fill_no_overlap_surfaces;
+    ExPolygons fill_areas;
+    ExPolygons fill_no_overlap_areas;
     ExPolygons perimeter_slices;
     std::vector<plugin_host_context> module_host_contexts;
     bool used_region_group = false;
@@ -214,21 +214,21 @@ void collect_extrusions(PerimeterTreeNode &node, ExtrusionEntityCollection &out)
         collect_extrusions(*child, out);
 }
 
-void collect_leaf_surfaces(const PerimeterTreeNode &node,
-                           ExPolygons &fill_surfaces,
-                           ExPolygons &fill_no_overlap_surfaces)
+void collect_leaf_areas(const PerimeterTreeNode &node,
+                        ExPolygons &fill_areas,
+                        ExPolygons &fill_no_overlap_areas)
 {
     if (!node.children.empty()) {
         for (const std::unique_ptr<PerimeterTreeNode> &child : node.children)
-            collect_leaf_surfaces(*child, fill_surfaces, fill_no_overlap_surfaces);
+            collect_leaf_areas(*child, fill_areas, fill_no_overlap_areas);
         return;
     }
 
-    if (node.surface.empty())
+    if (node.area.empty())
         return;
 
-    fill_no_overlap_surfaces.push_back(node.surface);
-    fill_surfaces.push_back(node.fill_surface.empty() ? node.surface : node.fill_surface);
+    fill_no_overlap_areas.push_back(node.area);
+    fill_areas.push_back(node.fill_area.empty() ? node.area : node.fill_area);
 }
 
 PerimeterTreeNode *find_node(PerimeterTreeNode &node, perimeter_node *c_node)
@@ -249,25 +249,25 @@ PerimeterTreeNode *find_node(PerimeterTree &tree, perimeter_node *c_node)
     return c_node == nullptr ? nullptr : find_node(tree.root, c_node);
 }
 
-ExPolygon pick_fill_surface_for_child(const ExPolygon &surface, const ExPolygons &fill_surfaces)
+ExPolygon pick_fill_area_for_child(const ExPolygon &area, const ExPolygons &fill_areas)
 {
-    if (surface.empty() || fill_surfaces.empty())
-        return surface;
+    if (area.empty() || fill_areas.empty())
+        return area;
 
-    const Point sample = surface.contour.front();
+    const Point sample = area.contour.front();
     std::vector<size_t> candidate_idxs;
-    for (size_t idx = 0; idx < fill_surfaces.size(); ++idx)
-        if (fill_surfaces[idx].contains(sample))
+    for (size_t idx = 0; idx < fill_areas.size(); ++idx)
+        if (fill_areas[idx].contains(sample))
             candidate_idxs.push_back(idx);
 
     if (candidate_idxs.size() == 1)
-        return fill_surfaces[candidate_idxs.front()];
+        return fill_areas[candidate_idxs.front()];
 
     if (candidate_idxs.size() > 1) {
         ExPolygons best_intersection;
         double best_area = 0.;
         for (size_t idx : candidate_idxs) {
-            ExPolygons intersection = intersection_ex(ExPolygons{surface}, ExPolygons{fill_surfaces[idx]});
+            ExPolygons intersection = intersection_ex(ExPolygons{area}, ExPolygons{fill_areas[idx]});
             double intersection_area = 0.;
             for (const ExPolygon &expoly : intersection)
                 intersection_area += expoly.area();
@@ -283,31 +283,31 @@ ExPolygon pick_fill_surface_for_child(const ExPolygon &surface, const ExPolygons
             return merged.front();
     }
 
-    return surface;
+    return area;
 }
 
-void set_split_node_surface(PerimeterTreeNode &node, ExPolygon &&surface, const ExPolygons &fill_clip)
+void set_split_node_area(PerimeterTreeNode &node, ExPolygon &&area, const ExPolygons &fill_clip)
 {
-    node.surface = std::move(surface);
-    node.fill_surface = node.surface;
+    node.area = std::move(area);
+    node.fill_area = node.area;
 
     if (fill_clip.empty())
         return;
 
-    ExPolygons fill_intersection = intersection_ex(ExPolygons{node.surface}, fill_clip);
+    ExPolygons fill_intersection = intersection_ex(ExPolygons{node.area}, fill_clip);
     ExPolygons merged = union_ex(fill_intersection);
     if (!merged.empty())
-        node.fill_surface = merged.front();
+        node.fill_area = merged.front();
 }
 
 std::unique_ptr<PerimeterTreeNode> make_child_node(PerimeterTreeNode &parent,
-                                                   const ExPolygon &surface,
-                                                   const ExPolygon *fill_surface)
+                                                   const ExPolygon &area,
+                                                   const ExPolygon *fill_area)
 {
-    std::unique_ptr<PerimeterTreeNode> child = std::make_unique<PerimeterTreeNode>(surface);
+    std::unique_ptr<PerimeterTreeNode> child = std::make_unique<PerimeterTreeNode>(area);
     child->node.parent = &parent.node;
-    if (fill_surface != nullptr)
-        child->fill_surface = *fill_surface;
+    if (fill_area != nullptr)
+        child->fill_area = *fill_area;
     child->node.perimeter_idx = parent.node.perimeter_idx + 1;
     child->node.perimeter_needed = parent.node.perimeter_needed;
     child->sync_c_pointers();
@@ -316,7 +316,7 @@ std::unique_ptr<PerimeterTreeNode> make_child_node(PerimeterTreeNode &parent,
 
 std::unique_ptr<PerimeterTreeNode> make_split_sibling(const PerimeterTreeNode &source)
 {
-    std::unique_ptr<PerimeterTreeNode> node = std::make_unique<PerimeterTreeNode>(source.surface);
+    std::unique_ptr<PerimeterTreeNode> node = std::make_unique<PerimeterTreeNode>(source.area);
     node->node.parent = source.node.parent;
     node->node.perimeter_idx = source.node.perimeter_idx;
     node->node.perimeter_needed = source.node.perimeter_needed;
@@ -324,16 +324,16 @@ std::unique_ptr<PerimeterTreeNode> make_split_sibling(const PerimeterTreeNode &s
     return node;
 }
 
-void create_children(PerimeterTreeNode &parent, const ExPolygons &inner_surfaces, const ExPolygons &inner_fill_surfaces)
+void create_children(PerimeterTreeNode &parent, const ExPolygons &inner_areas, const ExPolygons &inner_fill_areas)
 {
     parent.children.clear();
-    parent.children.reserve(inner_surfaces.size());
-    const bool has_matching_fill_surfaces = inner_fill_surfaces.size() == inner_surfaces.size();
-    for (size_t idx = 0; idx < inner_surfaces.size(); ++idx) {
-        if (inner_surfaces[idx].empty())
+    parent.children.reserve(inner_areas.size());
+    const bool has_matching_fill_areas = inner_fill_areas.size() == inner_areas.size();
+    for (size_t idx = 0; idx < inner_areas.size(); ++idx) {
+        if (inner_areas[idx].empty())
             continue;
-        const ExPolygon *fill_surface = has_matching_fill_surfaces ? &inner_fill_surfaces[idx] : nullptr;
-        parent.children.push_back(make_child_node(parent, inner_surfaces[idx], fill_surface));
+        const ExPolygon *fill_area = has_matching_fill_areas ? &inner_fill_areas[idx] : nullptr;
+        parent.children.push_back(make_child_node(parent, inner_areas[idx], fill_area));
     }
     parent.sync_c_pointers();
 }
@@ -371,41 +371,41 @@ void split_node_callback(perimeter_generation_context *context,
     if (!to_split->children.empty() || to_split->node.parent == nullptr)
         return;
 
-    ExPolygons srf_yes = intersection_ex(ExPolygons{to_split->surface}, *clip_expolygons);
-    if (srf_yes.empty())
+    ExPolygons area_yes = intersection_ex(ExPolygons{to_split->area}, *clip_expolygons);
+    if (area_yes.empty())
         return;
 
-    ExPolygons srf_no = diff_ex(ExPolygons{to_split->surface}, srf_yes);
-    if (srf_no.empty()) {
+    ExPolygons area_no = diff_ex(ExPolygons{to_split->area}, area_yes);
+    if (area_no.empty()) {
         tree->last_span_nodes = {&to_split->node};
         inside_nodes_out->items = tree->last_span_nodes.data();
         inside_nodes_out->count = uint32_t(tree->last_span_nodes.size());
         return;
     }
 
-    ExPolygons fill_yes = intersection_ex(ExPolygons{to_split->fill_surface}, *clip_expolygons);
-    ExPolygons fill_no = diff_ex(ExPolygons{to_split->fill_surface}, fill_yes);
+    ExPolygons fill_yes = intersection_ex(ExPolygons{to_split->fill_area}, *clip_expolygons);
+    ExPolygons fill_no = diff_ex(ExPolygons{to_split->fill_area}, fill_yes);
 
     tree->last_span_nodes.clear();
-    ExPolygon first_inside = std::move(srf_yes.front());
-    srf_yes.erase(srf_yes.begin());
-    set_split_node_surface(*to_split, std::move(first_inside), fill_yes);
+    ExPolygon first_inside = std::move(area_yes.front());
+    area_yes.erase(area_yes.begin());
+    set_split_node_area(*to_split, std::move(first_inside), fill_yes);
     tree->last_span_nodes.push_back(&to_split->node);
 
-    while (!srf_yes.empty()) {
+    while (!area_yes.empty()) {
         std::unique_ptr<PerimeterTreeNode> sibling = make_split_sibling(*to_split);
-        ExPolygon inside_surface = std::move(srf_yes.front());
-        srf_yes.erase(srf_yes.begin());
-        set_split_node_surface(*sibling, std::move(inside_surface), fill_yes);
+        ExPolygon inside_area = std::move(area_yes.front());
+        area_yes.erase(area_yes.begin());
+        set_split_node_area(*sibling, std::move(inside_area), fill_yes);
         tree->last_span_nodes.push_back(&sibling->node);
         append_sibling(*tree, *to_split, std::move(sibling));
     }
 
-    while (!srf_no.empty()) {
+    while (!area_no.empty()) {
         std::unique_ptr<PerimeterTreeNode> sibling = make_split_sibling(*to_split);
-        ExPolygon outside_surface = std::move(srf_no.front());
-        srf_no.erase(srf_no.begin());
-        set_split_node_surface(*sibling, std::move(outside_surface), fill_no);
+        ExPolygon outside_area = std::move(area_no.front());
+        area_no.erase(area_no.begin());
+        set_split_node_area(*sibling, std::move(outside_area), fill_no);
         append_sibling(*tree, *to_split, std::move(sibling));
     }
 
@@ -416,28 +416,28 @@ void split_node_callback(perimeter_generation_context *context,
 
 void rebuild_children_callback(perimeter_generation_context *context,
                                perimeter_node *node,
-                               const expolygon_collection_handle *surfaces,
-                               const expolygon_collection_handle *fill_surfaces)
+                               const expolygon_collection_handle *areas,
+                               const expolygon_collection_handle *fill_areas)
 {
-    if (context == nullptr || node == nullptr || surfaces == nullptr)
+    if (context == nullptr || node == nullptr || areas == nullptr)
         return;
 
     PerimeterTree *tree = reinterpret_cast<PerimeterTree *>(context->generator_context);
     PerimeterTreeNode *parent = tree == nullptr ? nullptr : find_node(*tree, node);
-    const ExPolygons *child_surfaces = reinterpret_cast<const ExPolygons *>(surfaces);
-    const ExPolygons *child_fill_surfaces = reinterpret_cast<const ExPolygons *>(fill_surfaces);
-    if (parent == nullptr || child_surfaces == nullptr)
+    const ExPolygons *child_areas = reinterpret_cast<const ExPolygons *>(areas);
+    const ExPolygons *child_fill_areas = reinterpret_cast<const ExPolygons *>(fill_areas);
+    if (parent == nullptr || child_areas == nullptr)
         return;
 
     parent->children.clear();
-    parent->children.reserve(child_surfaces->size());
-    for (const ExPolygon &surface : *child_surfaces) {
-        if (surface.empty())
+    parent->children.reserve(child_areas->size());
+    for (const ExPolygon &area : *child_areas) {
+        if (area.empty())
             continue;
-        ExPolygon fill_surface = child_fill_surfaces == nullptr || child_fill_surfaces->empty() ?
-                                     surface :
-                                     pick_fill_surface_for_child(surface, *child_fill_surfaces);
-        parent->children.push_back(make_child_node(*parent, surface, &fill_surface));
+        ExPolygon fill_area = child_fill_areas == nullptr || child_fill_areas->empty() ?
+                                  area :
+                                  pick_fill_area_for_child(area, *child_fill_areas);
+        parent->children.push_back(make_child_node(*parent, area, &fill_area));
     }
     tree->sync_c_pointers();
 }
@@ -575,13 +575,13 @@ void publish_region_group(PerimeterRunContext &run,
     dst.append_move_from(perimeters);
     region_island.remove_empty_extrusions();
 
-    collect_leaf_surfaces(tree.root, run.fill_surfaces, run.fill_no_overlap_surfaces);
+    collect_leaf_areas(tree.root, run.fill_areas, run.fill_no_overlap_areas);
 }
 
 int32_t run_region_group_callback(const run_ctx_generate_perimeter *ctx,
                                   const layer_region_handle *const *region_handles,
                                   uint32_t region_count,
-                                  const expolygon_handle *root_surface,
+                                  const expolygon_handle *root_area,
                                   void *generator_context,
                                   perimeter_generate_node_fn generate_node)
 {
@@ -593,7 +593,7 @@ int32_t run_region_group_callback(const run_ctx_generate_perimeter *ctx,
         return 0;
     run.used_region_group = true;
 
-    const ExPolygon *root_expolygon = root_surface == nullptr ? &run.island->get_slice() : to_expolygon(root_surface);
+    const ExPolygon *root_expolygon = root_area == nullptr ? &run.island->get_slice() : to_expolygon(root_area);
     if (root_expolygon == nullptr || root_expolygon->empty())
         return 1;
 
@@ -631,19 +631,19 @@ int32_t run_region_group_callback(const run_ctx_generate_perimeter *ctx,
 
         node->extrusions.clear_content();
         node->extrusions.clear_properties();
-        ExPolygons inner_surfaces;
-        ExPolygons inner_fill_surfaces;
+        ExPolygons inner_areas;
+        ExPolygons inner_fill_areas;
         const int32_t ok = generate_node(generator_context,
                                          &generation_context,
                                          &node->node,
-                                         reinterpret_cast<expolygon_collection_handle *>(&inner_surfaces),
-                                         reinterpret_cast<expolygon_collection_handle *>(&inner_fill_surfaces));
+                                         reinterpret_cast<expolygon_collection_handle *>(&inner_areas),
+                                         reinterpret_cast<expolygon_collection_handle *>(&inner_fill_areas));
         if (!ok) {
             result = 0;
             break;
         }
 
-        create_children(*node, inner_surfaces, inner_fill_surfaces);
+        create_children(*node, inner_areas, inner_fill_areas);
 
         tree.sync_c_pointers();
         call_module_after(modules, generation_context, node->node);
@@ -749,12 +749,12 @@ void clear_layer_outputs(Layer &layer)
 
 void assign_island_outputs(LayerSliceIsland &island, PerimeterRunContext &run)
 {
-    run.fill_surfaces = ensure_valid(std::move(run.fill_surfaces));
-    run.fill_no_overlap_surfaces = ensure_valid(std::move(run.fill_no_overlap_surfaces));
+    run.fill_areas = ensure_valid(std::move(run.fill_areas));
+    run.fill_no_overlap_areas = ensure_valid(std::move(run.fill_no_overlap_areas));
 
-    ApiInternal::LayerIslandAccess::set_fill_expolygons(island, std::move(run.fill_surfaces));
+    ApiInternal::LayerIslandAccess::set_fill_expolygons(island, std::move(run.fill_areas));
     ApiInternal::LayerIslandAccess::fill_no_overlap_expolygons_mutable(island) =
-        std::move(run.fill_no_overlap_surfaces);
+        std::move(run.fill_no_overlap_areas);
     ApiInternal::LayerIslandAccess::perimeter_slices_mutable(island) =
         union_ex(ExPolygons{island.get_slice()});
 }

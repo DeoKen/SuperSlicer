@@ -34,7 +34,7 @@ double threshold_area_scaled(const PerimeterGenerationContextView &context, cons
 
 void force_extra_perimeters_if_small(const PerimeterNodeView &node, double area_scaled)
 {
-    if (node.surface().area() < area_scaled)
+    if (node.area().area() < area_scaled)
         node.add_perimeters(k_force_many_perimeters);
 }
 

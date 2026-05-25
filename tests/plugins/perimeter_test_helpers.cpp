@@ -97,26 +97,26 @@ void run_until_perimeter_input(Orchestrator &orchestrator, Print &print)
     Steps::StepPostSlicing::run_step(orchestrator, print);
 }
 
-void set_region_surface(LayerRegion &region, const ExPolygon &surface)
+void set_region_area(LayerRegion &region, const ExPolygon &area)
 {
-    ExPolygons surfaces;
-    surfaces.push_back(surface);
-    ApiInternal::LayerRegionAccess::slices_mutable(region) = surfaces;
-    ApiInternal::LayerRegionAccess::surfaces_mutable(region).set(surfaces, stPosInternal | stDensSolid);
+    ExPolygons areas;
+    areas.push_back(area);
+    ApiInternal::LayerRegionAccess::slices_mutable(region) = areas;
+    ApiInternal::LayerRegionAccess::surfaces_mutable(region).set(areas, stPosInternal | stDensSolid);
 }
 
-void replace_layer_island(Layer &layer, const ExPolygon &surface)
+void replace_layer_island(Layer &layer, const ExPolygon &area)
 {
     ExPolygons islands;
-    islands.push_back(surface);
+    islands.push_back(area);
     ApiInternal::LayerAccess::set_islands(layer, std::move(islands));
-    set_region_surface(layer.region(0), surface);
+    set_region_area(layer.region(0), area);
     layer.island(0).fill_regions(layer);
 }
 
 void add_overlapping_region(PreparedPerimeterPrint &prepared,
                             Layer &layer,
-                            const ExPolygon &surface,
+                            const ExPolygon &area,
                             const std::string &key,
                             const std::string &value)
 {
@@ -126,7 +126,7 @@ void add_overlapping_region(PreparedPerimeterPrint &prepared,
     ApiInternal::LayerAccess::add_region(layer, *prepared.extra_regions.back());
 
     LayerRegion &region = layer.region(layer.region_count() - 1);
-    set_region_surface(region, surface);
+    set_region_area(region, area);
     layer.island(0).fill_regions(layer);
 }
 
@@ -194,8 +194,8 @@ void count_vertical_split_leaf_extrusions(const ExtrusionEntity &entity,
 struct TestPerimeterNode
 {
     TestPerimeterNode *parent = nullptr;
-    ExPolygon surface;
-    ExPolygon fill_surface;
+    ExPolygon area;
+    ExPolygon fill_area;
     ExtrusionEntityCollection extrusions;
     std::vector<std::unique_ptr<TestPerimeterNode>> children;
     std::vector<perimeter_node *> c_children;
@@ -212,8 +212,8 @@ struct TestPerimeterNode
         }
 
         c_node.parent = parent == nullptr ? nullptr : &parent->c_node;
-        c_node.surface = reinterpret_cast<expolygon_handle *>(&surface);
-        c_node.fill_surface = reinterpret_cast<expolygon_handle *>(&fill_surface);
+        c_node.area = reinterpret_cast<expolygon_handle *>(&area);
+        c_node.fill_area = reinterpret_cast<expolygon_handle *>(&fill_area);
         c_node.extrusions = reinterpret_cast<extrusion_entity_handle *>(&extrusions);
         c_node.children = c_children.empty() ? nullptr : c_children.data();
         c_node.child_count = uint32_t(c_children.size());
@@ -252,24 +252,24 @@ void test_split_node(perimeter_generation_context *context,
     }
 
     const ExPolygons &clip = *reinterpret_cast<const ExPolygons *>(clip_handle);
-    ExPolygons inside = intersection_ex(ExPolygons{test_node->surface}, clip);
-    ExPolygons outside = diff_ex(ExPolygons{test_node->surface}, clip);
+    ExPolygons inside = intersection_ex(ExPolygons{test_node->area}, clip);
+    ExPolygons outside = diff_ex(ExPolygons{test_node->area}, clip);
 
     test_node->children.clear();
     root.c_children.clear();
-    for (ExPolygon &surface : inside) {
+    for (ExPolygon &area : inside) {
         std::unique_ptr<TestPerimeterNode> child(new TestPerimeterNode);
-        child->surface = std::move(surface);
-        child->fill_surface = child->surface;
+        child->area = std::move(area);
+        child->fill_area = child->area;
         child->c_node.perimeter_idx = node->perimeter_idx;
         child->c_node.perimeter_needed = node->perimeter_needed;
         test_node->children.push_back(std::move(child));
         root.c_children.push_back(&test_node->children.back()->c_node);
     }
-    for (ExPolygon &surface : outside) {
+    for (ExPolygon &area : outside) {
         std::unique_ptr<TestPerimeterNode> child(new TestPerimeterNode);
-        child->surface = std::move(surface);
-        child->fill_surface = child->surface;
+        child->area = std::move(area);
+        child->fill_area = child->area;
         child->c_node.perimeter_idx = node->perimeter_idx;
         child->c_node.perimeter_needed = node->perimeter_needed;
         test_node->children.push_back(std::move(child));
@@ -390,21 +390,21 @@ size_t layer_index_for_odd_layer(const PrintObject &object)
 PerimeterRunCapture run_perimeter_case(
     const DynamicPrintConfig &config,
     std::initializer_list<const char *> active_plugins,
-    const ExPolygon &surface,
+    const ExPolygon &area,
     const size_t layer_idx,
     std::initializer_list<std::pair<std::string, std::string>> overlap_overrides,
-    const ExPolygon *overlap_surface)
+    const ExPolygon *overlap_area)
 {
     PreparedPerimeterPrint prepared;
     prepare_cube_print(prepared, config);
     PrintObject &object = prepared.print.object(0);
     REQUIRE(layer_idx < object.layer_count());
     Layer &layer = object.layer(layer_idx);
-    replace_layer_island(layer, surface);
+    replace_layer_island(layer, area);
 
     if (overlap_overrides.size() > 0) {
         const ExPolygon default_overlap = rectangle_expolygon(-6., -6., 6., 6.);
-        const ExPolygon &overlap = overlap_surface != nullptr ? *overlap_surface : default_overlap;
+        const ExPolygon &overlap = overlap_area != nullptr ? *overlap_area : default_overlap;
         for (const std::pair<std::string, std::string> &entry : overlap_overrides)
             add_overlapping_region(prepared, layer, overlap, entry.first, entry.second);
     }
@@ -462,14 +462,14 @@ size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
     prepare_cube_print(prepared, config);
     PrintObject &object = prepared.print.object(0);
     Layer &layer = object.layer(0);
-    const ExPolygon surface = rectangle_expolygon(-10., -10., 10., 10.);
-    replace_layer_island(layer, surface);
+    const ExPolygon area = rectangle_expolygon(-10., -10., 10., 10.);
+    replace_layer_island(layer, area);
     if (use_overlap_region)
         add_overlapping_region(prepared, layer, rectangle_expolygon(-1., -10., 10., 10.), "gap_fill_no_overhang", "1");
 
     TestPerimeterNode root;
-    root.surface = surface;
-    root.fill_surface = surface;
+    root.area = area;
+    root.fill_area = area;
     root.extrusions.append(open_gap_fill_path());
     root.c_node.perimeter_idx = 0;
     root.c_node.perimeter_needed = 1;

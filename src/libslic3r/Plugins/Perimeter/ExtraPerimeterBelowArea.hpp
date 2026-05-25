@@ -13,7 +13,7 @@ namespace slic3r_api { namespace Perimeter { namespace ExtraPerimeterBelowAreaPl
 // PerimeterGenerationModule port of extra_perimeters_below_area.
 //
 // The module runs after a generator has created children for the next inner
-// surface. When a child surface is smaller than the configured threshold, it
+// area. When a child area is smaller than the configured threshold, it
 // asks the generator to keep producing many more perimeters for that branch.
 class ExtraPerimeterBelowArea : public PluginBase
 {

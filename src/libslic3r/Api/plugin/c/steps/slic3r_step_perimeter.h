@@ -22,7 +22,7 @@ decide which regions can be processed together, usually by grouping regions
 whose perimeter-relevant configuration is compatible. For each group, the plugin
 calls run_region_group(). The host then owns the temporary perimeter tree,
 calls PerimeterGenerationModule plugins around each generated ring, and
-publishes the final extrusion and fill surfaces into the data tree.
+publishes the final extrusion and fill areas into the data tree.
 
 Normal plugin usage:
 
@@ -38,15 +38,15 @@ Normal plugin usage:
    pointers. The array order has no semantic meaning; the group is treated as a
    set.
 
-4. For each group, call run_region_group(ctx, regions, count, root_surface,
+4. For each group, call run_region_group(ctx, regions, count, root_area,
    generator_state, generate_node).
 
 5. The host calls generate_node once for each perimeter tree node that still
    needs another perimeter. generate_node writes the current node extrusion into
    node->extrusions and fills the two output polygon collections with child
-   surfaces:
-       - inner_surfaces_out: the geometric area available for the next ring;
-       - inner_fill_surfaces_out: the area later used for infill anchoring.
+   areas:
+       - inner_areas_out: the geometric area available for the next ring;
+       - inner_fill_areas_out: the area later used for infill anchoring.
 
 6. The host builds child nodes from these output collections, runs modules, then
    publishes the aggregated result.
@@ -71,14 +71,14 @@ generator_context is the opaque pointer passed by the plugin to
 run_region_group(). It usually points to a small plugin-side state object for
 the current region group.
 
-node->surface is the input area. The generator should write the generated
+node->area is the input area. The generator should write the generated
 extrusion into node->extrusions. The host provides two empty mutable polygon
 collections:
 
-- inner_surfaces_out receives one polygon per child node to process next.
-- inner_fill_surfaces_out optionally receives matching fill/anchor surfaces.
-  If it is left empty or its size does not match inner_surfaces_out, the host
-  will use each child surface as its own fill surface.
+- inner_areas_out receives one polygon per child node to process next.
+- inner_fill_areas_out optionally receives matching fill/anchor areas.
+  If it is left empty or its size does not match inner_areas_out, the host
+  will use each child area as its own fill area.
 
 Return non-zero on success. Returning zero aborts this region group.
 */
@@ -86,13 +86,13 @@ typedef int32_t (*perimeter_generate_node_fn)(
     void *generator_context,
     perimeter_generation_context *context,
     perimeter_node *node,
-    expolygon_collection_handle *inner_surfaces_out,
-    expolygon_collection_handle *inner_fill_surfaces_out);
+    expolygon_collection_handle *inner_areas_out,
+    expolygon_collection_handle *inner_fill_areas_out);
 
 /*
 Run the host-owned perimeter loop for one island/region group.
 
-regions is the group selected by the perimeter plugin. root_surface is the area
+regions is the group selected by the perimeter plugin. root_area is the area
 to process for the first perimeter ring; it is usually the whole island slice,
 but a generator may pass a region-specific subset if it already split the
 island.
@@ -104,7 +104,7 @@ typedef int32_t (*perimeter_run_region_group_fn)(
     const struct run_ctx_generate_perimeter *ctx,
     const layer_region_handle *const *regions,
     uint32_t region_count,
-    const expolygon_handle *root_surface,
+    const expolygon_handle *root_area,
     void *generator_context,
     perimeter_generate_node_fn generate_node);
 
@@ -187,16 +187,16 @@ typedef struct run_ctx_generate_perimeter {
 Perimeter generation node.
 
 This is the C view of the host-owned working tree used while creating perimeter
-rings for one island/region surface.
+rings for one island/region area.
 
-The root node represents the initial surface. Each generated ring is written to
-node->extrusions, and each remaining inner surface becomes one child node. A
+The root node represents the initial area. Each generated ring is written to
+node->extrusions, and each remaining inner area becomes one child node. A
 module can inspect or edit the current node before/after the generator creates
 one ring.
 
 Lifetime rules:
 - all pointers are borrowed from the host perimeter loop;
-- do not free surface, fill_surface, extrusions, children, or child nodes;
+- do not free area, fill_area, extrusions, children, or child nodes;
 - pointers are valid only during the current perimeter-generation callback;
 - child array storage may change when helper layers add/remove/split children.
 
@@ -212,16 +212,16 @@ struct perimeter_node {
 
     /*
     Area available for the next perimeter ring. The handle is mutable so modules
-    can refine the current node surface before the next ring is generated.
+    can refine the current node area before the next ring is generated.
     */
-    expolygon_handle *surface;
+    expolygon_handle *area;
 
     /*
     Area later used as fill clipping/anchoring support. It is often equal to
-    surface, but modifiers may keep it larger so infill can anchor into already
+    area, but modifiers may keep it larger so infill can anchor into already
     generated perimeters.
     */
-    expolygon_handle *fill_surface;
+    expolygon_handle *fill_area;
 
     /*
     Extrusion entity owned by this node. After a ring is generated this usually
@@ -257,7 +257,7 @@ Context shared by PerimeterGenerationModule callbacks.
 A PerimeterGenerationModule is not a full slicing step. It is a service module
 called by the host perimeter loop while it walks the perimeter-node tree chosen
 by a STEP_PERIMETER plugin. The module receives the same object/layer/island
-context as the generator plus the root node of the current surface.
+context as the generator plus the root node of the current area.
 
 Use run_ctx for cancellation/progress/error callbacks and plugin storage. It is
 the same common run context shape used by normal plugins, but it belongs to the
@@ -279,9 +279,9 @@ typedef struct perimeter_node_span {
 Split one child node with clip.
 
 The host loop owns node storage, so structural edits go through this callback.
-If part of node->surface is inside clip and part is outside, the generator may
+If part of node->area is inside clip and part is outside, the generator may
 keep the original node for one part and create sibling nodes for the remaining
-parts. It writes into inside_nodes_out the exact nodes whose surface is inside
+parts. It writes into inside_nodes_out the exact nodes whose area is inside
 clip. The plugin must not assume where those nodes are stored in the parent
 child array: a generator may insert them near the source node or append them at
 the end.
@@ -296,13 +296,13 @@ typedef void (*perimeter_node_split_fn)(perimeter_generation_context *context,
                                         perimeter_node_span *inside_nodes_out);
 
 /*
-Replace node children with one child per surface.
+Replace node children with one child per area.
 
 This is for modules that remove or reshape the extrusion generated on node and
 therefore need the next perimeter pass to continue from a different set of
-inner surfaces. The host loop owns the child storage. surfaces contains the new
-node surfaces. fill_surfaces may be NULL; if it is provided, the generator
-should pick the best fill surface for each new child.
+inner areas. The host loop owns the child storage. areas contains the new node
+areas. fill_areas may be NULL; if it is provided, the generator should pick the
+best fill area for each new child.
 
 The callback may rebuild the child array and invalidate child indexes. Existing
 perimeter_node pointers remain valid only if the generator documents that.
@@ -310,8 +310,8 @@ Modules should query node->children again after calling this function.
 */
 typedef void (*perimeter_node_rebuild_children_fn)(perimeter_generation_context *context,
                                                    perimeter_node *node,
-                                                   const expolygon_collection_handle *surfaces,
-                                                   const expolygon_collection_handle *fill_surfaces);
+                                                   const expolygon_collection_handle *areas,
+                                                   const expolygon_collection_handle *fill_areas);
 
 struct perimeter_generation_context {
     plugin_run_context *run_ctx;
@@ -370,19 +370,19 @@ typedef void (*perimeter_generation_module_end_fn)(void *module_ctx,
 /*
 Function table for a PerimeterGenerationModule.
 
-Call order for one generated surface:
+Call order for one generated area:
 
 1. start(context)
    Called once after the root node has been initialized and before any node is
-   processed. Use it to initialize per-surface caches or edit root counters.
-   Its return value is the temporary module_user_context for this surface.
+   processed. Use it to initialize per-area caches or edit root counters.
+   Its return value is the temporary module_user_context for this area.
 
 2. before(context, module_user_context, node)
    Called before the perimeter generator creates one ring for node.
 
 3. after(context, module_user_context, node)
    Called after the generator has written node->extrusions and created/updated
-   node children for the inner surfaces.
+   node children for the inner areas.
 
 4. end(context, module_user_context)
    Called once after every pending node has been processed, before the generator
@@ -390,7 +390,7 @@ Call order for one generated surface:
    allocated pointer, end() is responsible for freeing it.
 
 before/after may be called many times. start/end are called exactly once for the
-surface if generation starts normally. If generation is aborted after start(),
+area if generation starts normally. If generation is aborted after start(),
 the host should still call end() when it can do so safely.
 */
 struct perimeter_generation_module_vtable {
