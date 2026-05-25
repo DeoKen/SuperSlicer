@@ -63,8 +63,8 @@ PerimeterRunCapture run_perimeter_case(
     std::initializer_list<const char *> active_plugins,
     const ExPolygon &area,
     size_t layer_idx,
-    std::initializer_list<std::pair<std::string, std::string>> overlap_overrides = {},
-    const ExPolygon *overlap_area = nullptr);
+    std::initializer_list<std::pair<std::string, std::string>> region_overrides = {},
+    const ExPolygon *region_area = nullptr);
 
 size_t external_perimeter_count(const PerimeterRunCapture &capture);
 const ExtrusionEntityCollection &external_perimeters(const PerimeterRunCapture &capture);
@@ -73,7 +73,7 @@ size_t count_loops_with_role(const ExtrusionEntity &entity, ExtrusionLoopRole ro
 VerticalSplitCounts vertical_split_counts(const ExtrusionEntity &entity, coord_t split_x);
 
 size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
-                                  bool use_overlap_region,
+                                  bool use_region_override,
                                   double *length_out = nullptr);
 
 } // namespace Slic3r::Test::PerimeterPluginTests

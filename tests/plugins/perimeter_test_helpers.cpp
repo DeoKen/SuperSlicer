@@ -22,6 +22,7 @@
 #include "libslic3r/TriangleMesh.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <utility>
 
@@ -97,12 +98,16 @@ void run_until_perimeter_input(Orchestrator &orchestrator, Print &print)
     Steps::StepPostSlicing::run_step(orchestrator, print);
 }
 
+void set_region_areas(LayerRegion &region, ExPolygons areas)
+{
+    ExPolygons &region_slices = ApiInternal::LayerRegionAccess::slices_mutable(region);
+    region_slices = std::move(areas);
+    ApiInternal::LayerRegionAccess::surfaces_mutable(region).set(region_slices, stPosInternal | stDensSolid);
+}
+
 void set_region_area(LayerRegion &region, const ExPolygon &area)
 {
-    ExPolygons areas;
-    areas.push_back(area);
-    ApiInternal::LayerRegionAccess::slices_mutable(region) = areas;
-    ApiInternal::LayerRegionAccess::surfaces_mutable(region).set(areas, stPosInternal | stDensSolid);
+    set_region_areas(region, ExPolygons{area});
 }
 
 void replace_layer_island(Layer &layer, const ExPolygon &area)
@@ -114,19 +119,28 @@ void replace_layer_island(Layer &layer, const ExPolygon &area)
     layer.island(0).fill_regions(layer);
 }
 
-void add_overlapping_region(PreparedPerimeterPrint &prepared,
+void add_partitioned_region(PreparedPerimeterPrint &prepared,
                             Layer &layer,
                             const ExPolygon &area,
                             const std::string &key,
                             const std::string &value)
 {
+    LayerRegion &default_region = layer.region(0);
+    const ExPolygons default_areas = ApiInternal::LayerRegionAccess::slices_mutable(default_region);
+    ExPolygons override_areas = intersection_ex(default_areas, area);
+    assert(!override_areas.empty());
+    if (override_areas.empty())
+        return;
+
+    set_region_areas(default_region, diff_ex(default_areas, area));
+
     PrintRegionConfig config = layer.region(0).region().config();
     config.set_deserialize_strict({{key, value}});
     prepared.extra_regions.push_back(std::make_unique<PrintRegion>(config));
     ApiInternal::LayerAccess::add_region(layer, *prepared.extra_regions.back());
 
     LayerRegion &region = layer.region(layer.region_count() - 1);
-    set_region_area(region, area);
+    set_region_areas(region, std::move(override_areas));
     layer.island(0).fill_regions(layer);
 }
 
@@ -392,8 +406,8 @@ PerimeterRunCapture run_perimeter_case(
     std::initializer_list<const char *> active_plugins,
     const ExPolygon &area,
     const size_t layer_idx,
-    std::initializer_list<std::pair<std::string, std::string>> overlap_overrides,
-    const ExPolygon *overlap_area)
+    std::initializer_list<std::pair<std::string, std::string>> region_overrides,
+    const ExPolygon *region_area)
 {
     PreparedPerimeterPrint prepared;
     prepare_cube_print(prepared, config);
@@ -402,11 +416,11 @@ PerimeterRunCapture run_perimeter_case(
     Layer &layer = object.layer(layer_idx);
     replace_layer_island(layer, area);
 
-    if (overlap_overrides.size() > 0) {
-        const ExPolygon default_overlap = rectangle_expolygon(-6., -6., 6., 6.);
-        const ExPolygon &overlap = overlap_area != nullptr ? *overlap_area : default_overlap;
-        for (const std::pair<std::string, std::string> &entry : overlap_overrides)
-            add_overlapping_region(prepared, layer, overlap, entry.first, entry.second);
+    if (region_overrides.size() > 0) {
+        const ExPolygon default_region_area = rectangle_expolygon(-6., -6., 6., 6.);
+        const ExPolygon &override_area = region_area != nullptr ? *region_area : default_region_area;
+        for (const std::pair<std::string, std::string> &entry : region_overrides)
+            add_partitioned_region(prepared, layer, override_area, entry.first, entry.second);
     }
 
     ScopedActivePlugins active_scope(active_plugins);
@@ -455,7 +469,7 @@ VerticalSplitCounts vertical_split_counts(const ExtrusionEntity &entity, coord_t
 }
 
 size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
-                                  const bool use_overlap_region,
+                                  const bool use_region_override,
                                   double *length_out)
 {
     PreparedPerimeterPrint prepared;
@@ -464,8 +478,8 @@ size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
     Layer &layer = object.layer(0);
     const ExPolygon area = rectangle_expolygon(-10., -10., 10., 10.);
     replace_layer_island(layer, area);
-    if (use_overlap_region)
-        add_overlapping_region(prepared, layer, rectangle_expolygon(-1., -10., 10., 10.), "gap_fill_no_overhang", "1");
+    if (use_region_override)
+        add_partitioned_region(prepared, layer, rectangle_expolygon(-1., -10., 10., 10.), "gap_fill_no_overhang", "1");
 
     TestPerimeterNode root;
     root.area = area;

@@ -22,7 +22,7 @@ TEST_CASE("Extra perimeter count module adds requested loops", "[plugins][perime
     REQUIRE(base_count == 1);
     REQUIRE(enabled_count == 3);
 
-    // Overlapping region: the left-side modifier area requests one extra loop.
+    // Region-local case: the left-side region requests one extra loop.
     // We should keep the full-area base loop crossing x=0, then add exactly one
     // left-only loop. If the module applied the override globally, this would
     // still have two loops, but both would cross the split line.

@@ -23,7 +23,7 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
     prepare_cube_print(prepared, enabled);
     const size_t odd_idx = layer_index_for_odd_layer(prepared.print.object(0));
 
-    const ExPolygon left_override_area = rectangle_expolygon(-9., -9., -2., 9.);
+    const ExPolygon left_override_area = rectangle_expolygon(-10., -10., 0., 10.);
 
     SECTION("Even layer is inert")
     {
@@ -45,7 +45,7 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
 
     SECTION("Region-local enabled area adds only one local perimeter")
     {
-        // The base config disables the setting. A left-side overlapping region
+        // The base config disables the setting. A left-side region
         // enables it, so the base loop still crosses x=0 and the extra loop must
         // stay on the left side.
         const PerimeterRunCapture run =
@@ -64,9 +64,9 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
 
     SECTION("Region-local disabled area prevents one local perimeter")
     {
-        // The base config enables the setting. A left-side overlapping region
-        // disables it, so the extra loop is generated only outside the disabled
-        // area and must not stay entirely on the left side.
+        // The base config enables the setting. A left-side region
+        // disables it, so the base loop still crosses x=0 and the extra loop
+        // is generated only on the enabled right side.
         const PerimeterRunCapture run =
             run_perimeter_case(enabled,
                                {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_ODD_LAYER},
@@ -76,9 +76,9 @@ TEST_CASE("Extra perimeter odd layer module is layer-parity dependent", "[plugin
                                &left_override_area);
         require_default_loop_count(run, 2);
         const VerticalSplitCounts split = vertical_split_counts(external_perimeters(run), 0);
-        REQUIRE(split.crossing == 2);
+        REQUIRE(split.crossing == 1);
         REQUIRE(split.left_only == 0);
-        REQUIRE(split.right_only == 0);
+        REQUIRE(split.right_only == 1);
     }
 
     SECTION("Zero base perimeter still allows the odd-layer extra")

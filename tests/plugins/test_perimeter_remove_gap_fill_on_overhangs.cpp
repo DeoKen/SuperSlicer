@@ -13,7 +13,7 @@ TEST_CASE("Remove gap fill on overhangs clips unsupported open paths", "[plugins
     // generator only emits loops. The test calls the module directly with a
     // synthetic node containing one open gap-fill path. With the setting off it
     // stays unchanged. With the setting on and no lower island, the unsupported
-    // path is removed. With an overlapping enabled region, only the forbidden
+    // path is removed. With a local enabled region, only the forbidden
     // side of the path is clipped.
     const DynamicPrintConfig disabled = perimeter_config({{"gap_fill_no_overhang", "0"}});
     const DynamicPrintConfig enabled = perimeter_config({{"gap_fill_no_overhang", "1"}});
@@ -28,9 +28,9 @@ TEST_CASE("Remove gap fill on overhangs clips unsupported open paths", "[plugins
     REQUIRE(enabled_count == 0);
     REQUIRE(enabled_length == 0.);
 
-    double overlap_length = 0.;
-    const size_t overlap_count = run_remove_gap_fill_module(disabled, true, &overlap_length);
-    REQUIRE(overlap_count > 0);
-    REQUIRE(overlap_length > 0.);
-    REQUIRE(overlap_length < disabled_length);
+    double local_length = 0.;
+    const size_t local_count = run_remove_gap_fill_module(disabled, true, &local_length);
+    REQUIRE(local_count > 0);
+    REQUIRE(local_length > 0.);
+    REQUIRE(local_length < disabled_length);
 }

@@ -55,17 +55,17 @@ TEST_CASE("Only one perimeter on top limits top branches", "[plugins][perimeter]
     // active-left branch stops, and the inactive-right branch keeps generating
     // the requested extra rings.
     const ExPolygon left_half = rectangle_expolygon(-10., -10., 0., 10.);
-    const PerimeterRunCapture overlap_run =
+    const PerimeterRunCapture local_run =
         run_perimeter_case(multi,
                            {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, ONLY_ONE_PERIMETER_ON_TOP},
                            surface,
                            top_idx,
                            {{"only_one_perimeter_top", "1"}},
                            &left_half);
-    const size_t overlap_count = external_perimeter_count(overlap_run);
-    const VerticalSplitCounts split_counts = vertical_split_counts(overlap_run.external_perimeters, scale_i(0.));
+    const size_t local_count = external_perimeter_count(local_run);
+    const VerticalSplitCounts split_counts = vertical_split_counts(local_run.external_perimeters, scale_i(0.));
     REQUIRE(split_counts.crossing > 0);
     REQUIRE(split_counts.left_only == 0);
     REQUIRE(split_counts.right_only >= 3);
-    REQUIRE(overlap_count == split_counts.crossing + split_counts.left_only + split_counts.right_only);
+    REQUIRE(local_count == split_counts.crossing + split_counts.left_only + split_counts.right_only);
 }
