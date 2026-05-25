@@ -91,16 +91,24 @@ private:
     std::unique_ptr<RegionSettings> m_top_fill_settings;
 };
 
+// This module currently uses the first region as the source of shared print
+// settings. Region-local variations are handled separately through
+// RegionSettings clips.
 Config region_config(const PerimeterGenerationContextView &context)
 {
     return context.island().region(0).print_region().config();
 }
 
+// The top-surface computations are expressed relative to the external wall:
+// its width reserves the first perimeter, and its spacing defines the safe fill
+// area just inside that wall.
 c_flow external_perimeter_flow(const PerimeterGenerationContextView &context)
 {
     return context.island().region(0).flow(RAW_EXTRUSION_ROLE_EXTERNAL_PERIMETER);
 }
 
+// Wrap a single ExPolygon view into a temporary collection so it can be passed
+// to the collection-based Clipper helpers without special one-off overloads.
 StoredExPolygonCollection collection_from_expolygon(storage_handle *storage, const ExPolygon &expolygon)
 {
     StoredExPolygonCollection collection(storage);
@@ -108,6 +116,9 @@ StoredExPolygonCollection collection_from_expolygon(storage_handle *storage, con
     return collection;
 }
 
+// Promote a flat Polygon into an ExPolygon with no holes. The old algorithm
+// sometimes grows contours as raw polygons; this helper brings them back to the
+// ExPolygon collection representation used by the perimeter module API.
 StoredExPolygonCollection collection_from_polygon(storage_handle *storage, const Polygon &polygon)
 {
     StoredExPolygon expolygon(storage);
@@ -118,6 +129,9 @@ StoredExPolygonCollection collection_from_polygon(storage_handle *storage, const
     return collection;
 }
 
+// Build the union of lower islands that may support the current island. The
+// host already filters this neighborhood, so this is intentionally local to the
+// current LayerIsland instead of scanning the whole layer.
 StoredExPolygonCollection lower_slice_coverage(storage_handle *storage, const LayerIsland &island)
 {
     StoredExPolygonCollection lower_slices(storage);
@@ -132,6 +146,8 @@ StoredExPolygonCollection lower_slice_coverage(storage_handle *storage, const La
     return clipper_union(clip(lower_slices)).to_expolygon_collection();
 }
 
+// Build the union of upper islands. This coverage is later grown to decide
+// which parts of the current perimeter branch are not real top surfaces.
 StoredExPolygonCollection upper_slice_coverage(storage_handle *storage, const LayerIsland &island)
 {
     StoredExPolygonCollection upper_slices(storage);
@@ -146,6 +162,9 @@ StoredExPolygonCollection upper_slice_coverage(storage_handle *storage, const La
     return clipper_union(clip(upper_slices)).to_expolygon_collection();
 }
 
+// Append two temporary collections and normalize them with a union. This keeps
+// later diffs/intersections simpler: callers can treat the result as one
+// coherent area even if pieces came from different RegionSettings entries.
 StoredExPolygonCollection union_append(storage_handle *storage,
                                        StoredExPolygonCollection &&lhs,
                                        StoredExPolygonCollection &&rhs)
@@ -159,6 +178,8 @@ StoredExPolygonCollection union_append(storage_handle *storage,
     return clipper_union(clip(lhs)).to_expolygon_collection();
 }
 
+// Common one-line geometry helpers. They centralize the storage/ClipperContext
+// ceremony so the algorithm below reads in terms of areas rather than handles.
 StoredExPolygonCollection offset_collection(storage_handle *storage,
                                             const ExPolygonCollection &subject,
                                             double delta)
@@ -189,6 +210,64 @@ StoredExPolygonCollection intersection_collection(storage_handle *storage,
     return clipper_intersection_with_safety_offset(clip(subject), clip(clip_area)).to_expolygon_collection();
 }
 
+// Return the bounding box of an ExPolygon collection using contours only. Holes
+// are inside their contour, so they cannot enlarge the collection bounds.
+bool collection_bounding_box(const ExPolygonCollection &collection, c_bounding_box &out)
+{
+    bool initialized = false;
+    for (const ExPolygon &expolygon : collection) {
+        const Polygon contour = expolygon.contour();
+        if (contour.empty())
+            continue;
+
+        const c_bounding_box bbox = contour.bounding_box();
+        if (!initialized) {
+            out = bbox;
+            initialized = true;
+            continue;
+        }
+
+        out.min.x = std::min(out.min.x, bbox.min.x);
+        out.min.y = std::min(out.min.y, bbox.min.y);
+        out.max.x = std::max(out.max.x, bbox.max.x);
+        out.max.y = std::max(out.max.y, bbox.max.y);
+    }
+    return initialized;
+}
+
+// Inflate an ABI bounding box by a scaled slicer-space margin.
+c_bounding_box inflated_bounding_box(c_bounding_box bbox, coord_t delta)
+{
+    bbox.min.x -= delta;
+    bbox.min.y -= delta;
+    bbox.max.x += delta;
+    bbox.max.y += delta;
+    return bbox;
+}
+
+// Clip the possible clip area to the subject bbox before expensive boolean
+// operations. This was critical in the old global algorithm. The new pipeline
+// already works on one island and only asks for nearby intersecting islands, so
+// the win is probably smaller now, but the pre-pass is still cheap and keeps
+// worst-case path counts bounded.
+StoredExPolygonCollection clip_to_subject_bbox(storage_handle *storage,
+                                               const ExPolygonCollection &src,
+                                               const ExPolygonCollection &subject)
+{
+    if (src.empty())
+        return StoredExPolygonCollection(storage);
+
+    c_bounding_box subject_bbox = {};
+    if (!collection_bounding_box(subject, subject_bbox))
+        return StoredExPolygonCollection(storage);
+
+    return clipper_clip_expolygons_with_subject_bbox(storage, src,
+        inflated_bounding_box(subject_bbox, SCALED_EPSILON));
+}
+
+// Return the upper coverage used by this RegionSettings entry. When the
+// setting is region-local, areas outside the enabled clip are deliberately
+// added to the upper coverage so they cannot be classified as top fill.
 StoredExPolygonCollection build_upper_slices_for_area(const PerimeterGenerationContextView &context,
                                                       const RegionSettingsClip &enabled_area)
 {
@@ -205,6 +284,10 @@ StoredExPolygonCollection build_upper_slices_for_area(const PerimeterGenerationC
     return union_append(storage, std::move(upper_slices), std::move(disabled_area));
 }
 
+// Approximate the current area that should be considered bridging. Start with
+// current area minus lower coverage, then grow/clean it by the configured
+// bridge margin so small supported islands near the edge do not incorrectly
+// mark the area as ordinary top fill.
 StoredExPolygonCollection build_bridge_checker(const PerimeterGenerationContextView &context,
                                                const Config &config,
                                                const ExPolygonCollection &orig_polygons,
@@ -219,7 +302,11 @@ StoredExPolygonCollection build_bridge_checker(const PerimeterGenerationContextV
     const c_flow ext_flow = external_perimeter_flow(context);
     const double bridge_margin = config.get(k_bridged_infill_margin_key).get_effective_value(unscaled(ext_flow.width));
     double bridge_offset = double(perimeter_flow.spacing) * double(perimeter_count) + scale_d(bridge_margin);
-    StoredExPolygonCollection bridge_checker = diff_collection(storage, orig_polygons, lower_slices);
+    StoredExPolygonCollection lower_slices_clipped = clip_to_subject_bbox(storage, lower_slices, orig_polygons);
+    // If the clipped lower layer is empty, diff_collection() intentionally
+    // returns orig_polygons: this area has no lower support under the subject
+    // bbox and is therefore fully bridge/overhang candidate.
+    StoredExPolygonCollection bridge_checker = diff_collection(storage, orig_polygons, lower_slices_clipped);
 
     while (bridge_offset > SCALED_EPSILON && !bridge_checker.empty()) {
         double current_offset = double(perimeter_flow.spacing);
@@ -345,6 +432,7 @@ StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &
     else
         grown_upper_slices =
             grow_upper_slices_old_algorithm(storage, upper_slices, offset_top_surface, min_width_top_surface);
+    grown_upper_slices = clip_to_subject_bbox(storage, grown_upper_slices, current_polygons);
 
     // This is the safe fill area after the first/external perimeter. Later we
     // clip top_polygons to this area so that the first perimeter itself remains
@@ -397,6 +485,9 @@ StoredExPolygonCollection build_top_fills(const PerimeterGenerationContextView &
     return top_polygons;
 }
 
+// Clamp a whole generated branch to a single perimeter. This is used for the
+// easy case where no upper island exists and the enabled top area is the whole
+// current node.
 void set_children_to_one_perimeter(const PerimeterNodeView &parent)
 {
     // The current node already owns the perimeter that has just been generated.
@@ -408,6 +499,10 @@ void set_children_to_one_perimeter(const PerimeterNodeView &parent)
         child.set_perimeter_needed(1);
 }
 
+// Split a leaf node by a clipping area and return the newly created inside
+// nodes. split_node() is only valid on leaf nodes; if the node already has
+// children, its geometry has already been branched and must be handled by
+// iterating those children instead.
 std::vector<PerimeterNodeView> split_node_with_expolygons(perimeter_generation_context *context,
                                                           const PerimeterNodeView &node,
                                                           const ExPolygonCollection &clip)
@@ -428,6 +523,9 @@ std::vector<PerimeterNodeView> split_node_with_expolygons(perimeter_generation_c
     return inside_nodes;
 }
 
+// For partial top surfaces, top_fills is known after the first perimeter and is
+// expressed in the child-node coordinate space. Split each child by that area,
+// then stop only the pieces that are actually top fill.
 void set_top_children_to_one_perimeter(perimeter_generation_context *context,
                                        const PerimeterNodeView &parent,
                                        const ExPolygonCollection &top_fills)
@@ -445,6 +543,8 @@ void set_top_children_to_one_perimeter(perimeter_generation_context *context,
     }
 }
 
+// Same clamping operation as above, but for the no-upper-island case. There is
+// no need to reconstruct top-fill geometry: every enabled region area is top.
 void set_enabled_children_to_one_perimeter(perimeter_generation_context *context,
                                            const PerimeterNodeView &parent,
                                            const RegionSettingsClip &enabled_area)
