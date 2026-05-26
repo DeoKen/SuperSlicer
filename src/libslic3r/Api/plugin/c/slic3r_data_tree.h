@@ -177,10 +177,14 @@ SLIC3R_HOST_API const expolygon_handle *layer_island_get_slice(const layer_islan
 SLIC3R_HOST_API c_bounding_box layer_island_get_bounding_box(const layer_island_handle *me);
 /* give an expolygon included inside get_slice()  where the infill has to be extruded. */
 SLIC3R_HOST_API const expolygon_handle *layer_island_get_infill_slice(const layer_island_handle *me);
+/* All ExPolygons where infill has to be extruded. Prefer this when a previous step split the island fill area. */
+SLIC3R_HOST_API const expolygon_collection_handle *layer_island_get_infill_areas(const layer_island_handle *me);
 SLIC3R_HOST_API c_bounding_box layer_island_get_infill_bounding_box(const layer_island_handle *me);
 /* give an expolygon included inside get_infill_slice() where the infill may be extruded if there was no
  * infill-perimeter encroachment. */
 SLIC3R_HOST_API const expolygon_handle *layer_island_get_infill_no_overlap_slice(const layer_island_handle *me);
+/* All no-overlap/free infill ExPolygons. */
+SLIC3R_HOST_API const expolygon_collection_handle *layer_island_get_infill_no_overlap_areas(const layer_island_handle *me);
 
 /* tag that can be used by processed to store some information */
 SLIC3R_HOST_API void layer_island_set_tag(layer_island_handle *me, const char *tag, double value);

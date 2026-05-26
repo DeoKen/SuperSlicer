@@ -419,6 +419,13 @@ const expolygon_handle *layer_island_get_infill_slice(const layer_island_handle 
     return reinterpret_cast<const expolygon_handle*>(expoly);
 }
 
+const expolygon_collection_handle *layer_island_get_infill_areas(const layer_island_handle *me)
+{
+    return me == nullptr ? nullptr :
+                           reinterpret_cast<const expolygon_collection_handle *>(
+                               &Slic3r::to_layer_island(me)->infill_areas());
+}
+
 c_bounding_box layer_island_get_infill_bounding_box(const layer_island_handle *me)
 {
     return me == nullptr ? c_bounding_box{} : Slic3r::to_c_bounding_box(Slic3r::first_extents_or_empty(Slic3r::to_layer_island(me)->infill_areas()));
@@ -430,6 +437,13 @@ const expolygon_handle *layer_island_get_infill_no_overlap_slice(const layer_isl
         return nullptr;
     const Slic3r::ExPolygon *expoly = Slic3r::first_or_null(Slic3r::to_layer_island(me)->infill_free_areas());
     return reinterpret_cast<const expolygon_handle*>(expoly);
+}
+
+const expolygon_collection_handle *layer_island_get_infill_no_overlap_areas(const layer_island_handle *me)
+{
+    return me == nullptr ? nullptr :
+                           reinterpret_cast<const expolygon_collection_handle *>(
+                               &Slic3r::to_layer_island(me)->infill_free_areas());
 }
 
 void layer_island_set_tag(layer_island_handle *me, const char *tag, double value)

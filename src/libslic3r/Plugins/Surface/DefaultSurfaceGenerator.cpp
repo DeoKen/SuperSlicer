@@ -21,6 +21,7 @@ namespace slic3r_api { namespace SurfaceGeneration { namespace DefaultSurfaceGen
 namespace {
 
 const char *k_default_surface_generator_id = "surface.generator.default";
+const char *k_surface_generation_group = "step_surface_generation_plugin";
 const char *k_no_dependencies[] = { nullptr };
 
 Slic3r::PrintObject *to_object(const object_handle *handle)
@@ -106,6 +107,21 @@ DefaultSurfaceGenerator::instance(orchestrator_handle *orch)
 const char *DefaultSurfaceGenerator::id_impl() const noexcept
 {
     return k_default_surface_generator_id;
+}
+
+const char *DefaultSurfaceGenerator::exclusive_group_impl() const noexcept
+{
+    return k_surface_generation_group;
+}
+
+const char *DefaultSurfaceGenerator::exclusive_group_label_impl() const noexcept
+{
+    return "Surface generation plugin";
+}
+
+const char *DefaultSurfaceGenerator::exclusive_group_tooltip_impl() const noexcept
+{
+    return "Choose which active plugin converts perimeter fill areas into infill surfaces.";
 }
 
 slicing_step_t DefaultSurfaceGenerator::step_impl() const noexcept

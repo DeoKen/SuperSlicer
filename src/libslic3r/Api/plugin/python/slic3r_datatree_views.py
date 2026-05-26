@@ -557,11 +557,17 @@ class LayerIsland(DataTreeView):
     def infill_slice(self) -> ExPolygon:
         return ExPolygon(self.api, self.api.host.layer_island_get_infill_slice(self.c_handle()))
 
+    def infill_areas(self) -> ExPolygonCollection:
+        return ExPolygonCollection(self.api, self.api.host.layer_island_get_infill_areas(self.c_handle()))
+
     def infill_bounding_box(self):
         return self.api.host.layer_island_get_infill_bounding_box(self.c_handle())
 
     def infill_no_overlap_slice(self) -> ExPolygon:
         return ExPolygon(self.api, self.api.host.layer_island_get_infill_no_overlap_slice(self.c_handle()))
+
+    def infill_no_overlap_areas(self) -> ExPolygonCollection:
+        return ExPolygonCollection(self.api, self.api.host.layer_island_get_infill_no_overlap_areas(self.c_handle()))
 
     def get_tag(self, tag: str) -> float:
         return float(self.api.host.layer_island_get_tag(self.c_handle(), _as_bytes(tag)))

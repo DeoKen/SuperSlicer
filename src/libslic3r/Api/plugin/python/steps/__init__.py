@@ -4,5 +4,6 @@
 #/|/
 
 from .post_slicing import PostSlicingContext
+from .surface_generation import SurfaceGenerationContext
 
-__all__ = ["PostSlicingContext"]
+__all__ = ["PostSlicingContext", "SurfaceGenerationContext"]

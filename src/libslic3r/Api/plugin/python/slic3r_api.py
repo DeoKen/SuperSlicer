@@ -87,6 +87,7 @@ from slic3r_datatree_views import *
 from slic3r_clipper_views import *
 from steps.post_slicing import *
 from steps.perimeter import *
+from steps.surface_generation import *
 
 
 _registered_apis = []
@@ -410,6 +411,9 @@ class Slic3rAPI:
 
     def perimeter(self, run_ctx_address: int) -> PerimeterContext | None:
         return PerimeterContext.from_run_context(self, run_ctx_address)
+
+    def surface_generation(self, run_ctx_address: int) -> SurfaceGenerationContext | None:
+        return SurfaceGenerationContext.from_run_context(self, run_ctx_address)
 
     def storage_clear(self, storage_address: int) -> None:
         self.host.storage_clear(ctypes.c_void_p(storage_address))
