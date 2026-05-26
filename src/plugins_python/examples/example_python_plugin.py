@@ -23,7 +23,13 @@ from slic3r_api import PluginBase, STEP_POST_SLICING, report_progress
 
 class ExamplePythonPlugin(PluginBase):
     def __init__(self):
-        super().__init__("python.example.noop", STEP_POST_SLICING, priority=100000)
+        super().__init__(
+            "python.example.noop",
+            STEP_POST_SLICING,
+            name="Python no-op example",
+            description="Minimal Python plugin example that does not change print data.",
+            priority=100000,
+        )
 
     def run(self, run_ctx_address):
         if run_ctx_address:

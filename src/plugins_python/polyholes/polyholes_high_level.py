@@ -118,7 +118,13 @@ def _replace_matching_hole(expolygon, points_to_replace_scaled: list[CPoint], re
 
 class PythonPolyholesHighLevelPlugin(PluginBase):
     def __init__(self, api):
-        super().__init__("python.polyholes.high_level", STEP_POST_SLICING, priority=0)
+        super().__init__(
+            "python.polyholes.high_level",
+            STEP_POST_SLICING,
+            name="Python polyholes high-level",
+            description="High-level Python version of the polyholes post-slicing plugin.",
+            priority=0,
+        )
         self.api = api
 
     def initialize(self, storage_address: int) -> None:

@@ -70,6 +70,16 @@ const char *GuiRulesExample::id_impl() const noexcept
     return k_gui_rules_example_id;
 }
 
+const char *GuiRulesExample::name_impl() const noexcept
+{
+    return "GUI rules example";
+}
+
+const char *GuiRulesExample::description_impl() const noexcept
+{
+    return "Example plugin that demonstrates plugin-defined GUI activation rules.";
+}
+
 slicing_step_t GuiRulesExample::step_impl() const noexcept
 {
     return STEP_NONE;

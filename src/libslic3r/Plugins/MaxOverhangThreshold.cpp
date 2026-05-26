@@ -494,6 +494,13 @@ MaxOverhangThreshold &MaxOverhangThreshold::instance(orchestrator_handle *orch) 
 
 const char *MaxOverhangThreshold::id_impl() const noexcept { return k_max_overhang_threshold_id; }
 
+const char *MaxOverhangThreshold::name_impl() const noexcept { return "Max overhang threshold"; }
+
+const char *MaxOverhangThreshold::description_impl() const noexcept
+{
+    return "Cut unsupported bridge spans from overhang detection using plugin-defined settings.";
+}
+
 slicing_step_t MaxOverhangThreshold::step_impl() const noexcept { return STEP_POST_SLICING; }
 
 const char *const *MaxOverhangThreshold::dependencies_impl() const noexcept { return k_no_dependencies; }

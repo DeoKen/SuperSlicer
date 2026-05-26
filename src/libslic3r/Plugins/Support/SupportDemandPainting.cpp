@@ -103,6 +103,16 @@ const char *SupportDemandPainting::id_impl() const noexcept
     return k_support_demand_painting_id;
 }
 
+const char *SupportDemandPainting::name_impl() const noexcept
+{
+    return "Support demand painting";
+}
+
+const char *SupportDemandPainting::description_impl() const noexcept
+{
+    return "Apply support enforcer and blocker painting to support demand polygons.";
+}
+
 slicing_step_t SupportDemandPainting::step_impl() const noexcept
 {
     return STEP_SUPPORT_DEMAND;

@@ -24,6 +24,8 @@ private:
     SupportDemandPainting(orchestrator_handle *orch) : PluginBase(orch) {}
 
     const char *id_impl() const noexcept override;
+    const char *name_impl() const noexcept override;
+    const char *description_impl() const noexcept override;
     slicing_step_t step_impl() const noexcept override;
     const char *const *dependencies_impl() const noexcept override;
     int32_t priority_impl() const noexcept override;

@@ -358,6 +358,13 @@ StandardLayerHeightGenerator &StandardLayerHeightGenerator::instance(orchestrato
 
 const char *StandardLayerHeightGenerator::id_impl() const noexcept { return k_standard_layer_height_generator_id; }
 
+const char *StandardLayerHeightGenerator::name_impl() const noexcept { return "Standard layer height"; }
+
+const char *StandardLayerHeightGenerator::description_impl() const noexcept
+{
+    return "Generate the usual layer height profile from object settings and enforced layer positions.";
+}
+
 slicing_step_t StandardLayerHeightGenerator::step_impl() const noexcept { return STEP_LAYER_HEIGHT; }
 
 const char *const *StandardLayerHeightGenerator::dependencies_impl() const noexcept { return k_no_dependencies; }

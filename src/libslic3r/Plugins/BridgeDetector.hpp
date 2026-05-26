@@ -23,6 +23,8 @@ public:
     plugin_instance c_instance() const;
 
     const char *id() const noexcept;
+    const char *name() const noexcept;
+    const char *description() const noexcept;
     slicing_step_t step() const noexcept;
     const char *const *dependencies() const noexcept;
     int32_t priority() const noexcept;
@@ -32,6 +34,8 @@ public:
     void run(const plugin_run_context *run_ctx) const;
 
     static const char *get_id_bridge(void *plugin_ctx);
+    static const char *get_name_bridge(void *plugin_ctx);
+    static const char *get_description_bridge(void *plugin_ctx);
     static slicing_step_t get_step_bridge(void *plugin_ctx);
     static const_strings_t get_dependencies_bridge(void *plugin_ctx);
     static int32_t get_priority_bridge(void *plugin_ctx);

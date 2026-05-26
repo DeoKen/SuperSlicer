@@ -19,6 +19,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -308,13 +309,13 @@ void register_exclusive_step_groups(Orchestrator &orchestrator)
         if (active_plugins.size() <= 1)
             continue;
 
-        std::vector<std::string> plugin_ids;
-        plugin_ids.reserve(active_plugins.size());
+        std::vector<std::pair<std::string, std::string>> plugin_ids_and_labels;
+        plugin_ids_and_labels.reserve(active_plugins.size());
         for (const Plugin *plugin : active_plugins)
-            plugin_ids.push_back(plugin->get_id());
+            plugin_ids_and_labels.emplace_back(plugin->get_id(), plugin->get_name());
 
         Steps::StepExclusiveGroup group = entry.second;
-        group.set_enum_plugins(plugin_ids);
+        group.set_enum_plugins(plugin_ids_and_labels);
         orchestrator.create_new_print_config(&group.option_def);
         orchestrator.add_ui_fragment("print.ui", group.option_def.opt_key, group.ui_fragment.c_str(), 0);
         add_exclusive_step_used_setting_rules(orchestrator, group, active_plugins);

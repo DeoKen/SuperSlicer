@@ -579,6 +579,16 @@ const char *SliceVolume::id_impl() const noexcept
     return k_slice_volume_id;
 }
 
+const char *SliceVolume::name_impl() const noexcept
+{
+    return "Volume slicer";
+}
+
+const char *SliceVolume::description_impl() const noexcept
+{
+    return "Slice object volumes into raw layer-region slices.";
+}
+
 slicing_step_t SliceVolume::step_impl() const noexcept
 {
     return STEP_SLICING;

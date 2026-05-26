@@ -163,15 +163,26 @@ void PluginConfigDialog::build()
     });
 
     for (Plugin *plugin : plugins) {
+        const wxString plugin_tooltip = plugin->get_description().empty() ?
+            from_u8(plugin->get_id()) :
+            from_u8(plugin->get_description());
+
         wxCheckBox *checkbox = new wxCheckBox(scrolled, wxID_ANY, wxEmptyString);
         checkbox->SetValue(Orchestrator::instance().is_plugin_active(plugin) ||
                            m_original_active_plugin_ids.find(plugin->get_id()) != m_original_active_plugin_ids.end());
+        checkbox->SetToolTip(plugin_tooltip);
+
+        wxStaticText *name_label = new wxStaticText(scrolled, wxID_ANY, from_u8(plugin->get_name()));
+        wxStaticText *step_label = new wxStaticText(scrolled, wxID_ANY, step_name(plugin->get_step()));
+        wxStaticText *priority_label = new wxStaticText(scrolled, wxID_ANY, wxString::Format("%d", plugin->get_priority()));
+        name_label->SetToolTip(plugin_tooltip);
+        step_label->SetToolTip(plugin_tooltip);
+        priority_label->SetToolTip(plugin_tooltip);
 
         grid->Add(checkbox, 0, wxALIGN_CENTER_VERTICAL);
-        grid->Add(new wxStaticText(scrolled, wxID_ANY, from_u8(plugin->get_id())), 0, wxALIGN_CENTER_VERTICAL);
-        grid->Add(new wxStaticText(scrolled, wxID_ANY, step_name(plugin->get_step())), 0, wxALIGN_CENTER_VERTICAL);
-        grid->Add(new wxStaticText(scrolled, wxID_ANY, wxString::Format("%d", plugin->get_priority())),
-                  0, wxALIGN_CENTER_VERTICAL);
+        grid->Add(name_label, 0, wxALIGN_CENTER_VERTICAL);
+        grid->Add(step_label, 0, wxALIGN_CENTER_VERTICAL);
+        grid->Add(priority_label, 0, wxALIGN_CENTER_VERTICAL);
 
         m_rows.push_back({ plugin->get_id(), checkbox });
     }

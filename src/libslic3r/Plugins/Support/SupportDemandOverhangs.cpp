@@ -126,6 +126,16 @@ const char *SupportDemandOverhangs::id_impl() const noexcept
     return k_support_demand_overhangs_id;
 }
 
+const char *SupportDemandOverhangs::name_impl() const noexcept
+{
+    return "Support demand overhangs";
+}
+
+const char *SupportDemandOverhangs::description_impl() const noexcept
+{
+    return "Create support demand polygons from layer overhangs.";
+}
+
 slicing_step_t SupportDemandOverhangs::step_impl() const noexcept
 {
     return STEP_SUPPORT_DEMAND;

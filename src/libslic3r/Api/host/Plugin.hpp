@@ -18,6 +18,8 @@ class Plugin
 protected:
     plugin_instance m_c_api;
     std::string m_id;
+    std::string m_name;
+    std::string m_description;
     slicing_step_t m_step;
     std::vector<std::string> m_dependencies;
     std::vector<std::string> m_used_config_keys;
@@ -27,6 +29,8 @@ public:
     Plugin(plugin_instance c_api);
 
     const std::string& get_id() const noexcept { return m_id; }
+    const std::string& get_name() const noexcept { return m_name; }
+    const std::string& get_description() const noexcept { return m_description; }
     slicing_step_t get_step() const noexcept { return m_step; }
     const std::vector<std::string>& get_dependencies() const noexcept { return m_dependencies; }
     const std::vector<std::string>& get_used_config_keys() const noexcept { return m_used_config_keys; }

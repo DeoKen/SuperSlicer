@@ -367,6 +367,14 @@ protected:
     // Stable plugin identifier. It must be unique among registered plugins.
     virtual const char *id_impl() const noexcept = 0;
 
+    // Short user-facing plugin name. It is used in plugin selectors while
+    // id_impl() remains the stable serialized value. Override when the id is
+    // too technical for end users.
+    virtual const char *name_impl() const noexcept { return id_impl(); }
+
+    // Longer user-facing description. Dialogs may show this as helper text.
+    virtual const char *description_impl() const noexcept { return ""; }
+
     // Pipeline step where the plugin runs, for example STEP_POST_SLICING.
     virtual slicing_step_t step_impl() const noexcept = 0;
 
@@ -476,6 +484,16 @@ private:
         return static_cast<PluginBase *>(plugin_ctx)->id_impl();
     }
 
+    static const char *get_name_bridge(void *plugin_ctx)
+    {
+        return static_cast<PluginBase *>(plugin_ctx)->name_impl();
+    }
+
+    static const char *get_description_bridge(void *plugin_ctx)
+    {
+        return static_cast<PluginBase *>(plugin_ctx)->description_impl();
+    }
+
     static slicing_step_t get_step_bridge(void *plugin_ctx)
     {
         return static_cast<PluginBase *>(plugin_ctx)->step_impl();
@@ -529,6 +547,8 @@ private:
         static const plugin_vtable vt = {
             SLIC3R_PLUGIN_ABI_VERSION,
             &PluginBase::get_id_bridge,
+            &PluginBase::get_name_bridge,
+            &PluginBase::get_description_bridge,
             &PluginBase::get_step_bridge,
             &PluginBase::get_dependencies_bridge,
             &PluginBase::get_priority_bridge,

@@ -199,6 +199,16 @@ const char *SupportDemandModifiers::id_impl() const noexcept
     return k_support_demand_modifiers_id;
 }
 
+const char *SupportDemandModifiers::name_impl() const noexcept
+{
+    return "Support demand modifiers";
+}
+
+const char *SupportDemandModifiers::description_impl() const noexcept
+{
+    return "Apply support enforcer and blocker modifier volumes to support demand polygons.";
+}
+
 slicing_step_t SupportDemandModifiers::step_impl() const noexcept
 {
     return STEP_SUPPORT_DEMAND;

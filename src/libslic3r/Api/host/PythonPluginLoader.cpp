@@ -236,6 +236,8 @@ public:
     explicit PythonPlugin(PyObject *plugin)
         : m_plugin(plugin)
         , m_id(string_attribute(plugin, "plugin_id", "python.unnamed"))
+        , m_name(string_attribute(plugin, "name", m_id.c_str()))
+        , m_description(string_attribute(plugin, "description", ""))
         , m_step(slicing_step_t(int_attribute(plugin, "step", STEP_POST_SLICING)))
         , m_priority(int_attribute(plugin, "priority", 0))
         , m_dependencies(string_list_attribute(plugin, "dependencies"))
@@ -267,6 +269,16 @@ private:
     static const char *get_id_bridge(void *plugin_ctx)
     {
         return static_cast<PythonPlugin *>(plugin_ctx)->m_id.c_str();
+    }
+
+    static const char *get_name_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_name.c_str();
+    }
+
+    static const char *get_description_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_description.c_str();
     }
 
     static slicing_step_t get_step_bridge(void *plugin_ctx)
@@ -369,6 +381,8 @@ private:
         static const plugin_vtable vt = {
             SLIC3R_PLUGIN_ABI_VERSION,
             &PythonPlugin::get_id_bridge,
+            &PythonPlugin::get_name_bridge,
+            &PythonPlugin::get_description_bridge,
             &PythonPlugin::get_step_bridge,
             &PythonPlugin::get_dependencies_bridge,
             &PythonPlugin::get_priority_bridge,
@@ -383,6 +397,8 @@ private:
 
     PyObject *m_plugin = nullptr;
     std::string m_id;
+    std::string m_name;
+    std::string m_description;
     slicing_step_t m_step;
     int32_t m_priority = 0;
     std::vector<std::string> m_dependencies;

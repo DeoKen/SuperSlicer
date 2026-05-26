@@ -304,6 +304,16 @@ const char *Polyholes::id_impl() const noexcept
     return k_polyholes_id;
 }
 
+const char *Polyholes::name_impl() const noexcept
+{
+    return "Polyholes";
+}
+
+const char *Polyholes::description_impl() const noexcept
+{
+    return "Convert round vertical holes to polygonal holes tuned for FDM extrusion.";
+}
+
 slicing_step_t Polyholes::step_impl() const noexcept
 {
     return STEP_POST_SLICING;

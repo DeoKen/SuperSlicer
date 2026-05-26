@@ -119,12 +119,18 @@ inline std::map<slicing_step_t, int> slicingstep_2_percent = {
 
 } // namespace
 
-void StepExclusiveGroup::set_enum_plugins(const std::vector<std::string> &plugin_ids)
+void StepExclusiveGroup::set_enum_plugins(const std::vector<std::pair<std::string, std::string>> &plugin_ids_and_labels)
 {
-    enum_values = plugin_ids;
-    enum_labels = plugin_ids;
+    enum_values.clear();
+    enum_labels.clear();
+    enum_values.reserve(plugin_ids_and_labels.size());
+    enum_labels.reserve(plugin_ids_and_labels.size());
+    for (const std::pair<std::string, std::string> &plugin : plugin_ids_and_labels) {
+        enum_values.emplace_back(plugin.first);
+        enum_labels.emplace_back(plugin.second.empty() ? plugin.first : plugin.second);
+    }
     enum_pairs.clear();
-    enum_pairs.reserve(plugin_ids.size());
+    enum_pairs.reserve(plugin_ids_and_labels.size());
 
     for (size_t i = 0; i < enum_values.size(); ++i) {
         key_value_string_pair_t pair = {};

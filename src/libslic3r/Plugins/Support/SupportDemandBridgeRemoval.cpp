@@ -291,6 +291,16 @@ const char *SupportDemandBridgeRemoval::id_impl() const noexcept
     return k_support_demand_bridge_removal_id;
 }
 
+const char *SupportDemandBridgeRemoval::name_impl() const noexcept
+{
+    return "Support demand bridge removal";
+}
+
+const char *SupportDemandBridgeRemoval::description_impl() const noexcept
+{
+    return "Remove support demand under bridge spans when bridge support is disabled.";
+}
+
 slicing_step_t SupportDemandBridgeRemoval::step_impl() const noexcept
 {
     return STEP_SUPPORT_DEMAND;

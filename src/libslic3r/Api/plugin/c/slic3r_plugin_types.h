@@ -35,7 +35,7 @@
 #include "steps/slic3r_step_surface_type.h"
 #include "steps/slic3r_step_wipetower.h"
 
-#define SLIC3R_PLUGIN_ABI_VERSION 2u
+#define SLIC3R_PLUGIN_ABI_VERSION 3u
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,7 +79,31 @@ typedef struct plugin_vtable {
     */
     uint32_t abi_version;
 
+    /*
+    Stable machine-readable id.
+
+    This value is used in config files, dependencies and plugin activation
+    lists. It must not be translated and should not change between releases
+    unless the plugin is intentionally replaced by a different plugin.
+    */
     const char* (*get_id)(void *plugin_ctx);
+
+    /*
+    Short user-facing name.
+
+    This is displayed in combo boxes and plugin lists. It may contain spaces and
+    should be clear to non-developers. It is only a label: the host still stores
+    get_id() as the serialized value.
+    */
+    const char* (*get_name)(void *plugin_ctx);
+
+    /*
+    Optional longer user-facing description.
+
+    Return an empty string if there is no useful description yet. The pointer is
+    borrowed from the plugin and only read during registration.
+    */
+    const char* (*get_description)(void *plugin_ctx);
 
     slicing_step_t (*get_step)(void *plugin_ctx);
 

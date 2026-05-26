@@ -8,6 +8,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "libslic3r/Api/plugin/c/slic3r_config_def.h"
@@ -37,7 +38,7 @@ struct StepExclusiveGroup
     std::vector<std::string> enum_labels;
     std::vector<key_value_string_pair_t> enum_pairs;
 
-    void set_enum_plugins(const std::vector<std::string> &plugin_ids);
+    void set_enum_plugins(const std::vector<std::pair<std::string, std::string>> &plugin_ids_and_labels);
 };
 
 const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps();

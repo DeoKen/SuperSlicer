@@ -166,6 +166,8 @@ plugin_vtable default_plugin_vtable = {
     // creates a detector instance instead of editing print data directly.
     SLIC3R_PLUGIN_ABI_VERSION,
     &BridgeDetector::get_id_bridge,
+    &BridgeDetector::get_name_bridge,
+    &BridgeDetector::get_description_bridge,
     &BridgeDetector::get_step_bridge,
     &BridgeDetector::get_dependencies_bridge,
     &BridgeDetector::get_priority_bridge,
@@ -222,6 +224,16 @@ const char *BridgeDetector::id() const noexcept
     return k_bridge_detector_id;
 }
 
+const char *BridgeDetector::name() const noexcept
+{
+    return "Bridge detector";
+}
+
+const char *BridgeDetector::description() const noexcept
+{
+    return "Detect bridge direction and unsupported bridge edges for other plugins.";
+}
+
 slicing_step_t BridgeDetector::step() const noexcept
 {
     return BRIDGE_DETECTOR;
@@ -240,6 +252,16 @@ int32_t BridgeDetector::priority() const noexcept
 const char *BridgeDetector::get_id_bridge(void *plugin_ctx)
 {
     return static_cast<BridgeDetector *>(plugin_ctx)->id();
+}
+
+const char *BridgeDetector::get_name_bridge(void *plugin_ctx)
+{
+    return static_cast<BridgeDetector *>(plugin_ctx)->name();
+}
+
+const char *BridgeDetector::get_description_bridge(void *plugin_ctx)
+{
+    return static_cast<BridgeDetector *>(plugin_ctx)->description();
 }
 
 slicing_step_t BridgeDetector::get_step_bridge(void *plugin_ctx)
