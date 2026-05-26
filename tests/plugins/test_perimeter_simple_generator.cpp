@@ -259,6 +259,21 @@ TEST_CASE("SimplePerimeterGenerator writes loop and path properties", "[plugins]
         CHECK(loop_count_with_shell(loops, 1) >= 1);
         require_loop_payloads_match_external_flow(generated, loops);
     }
+
+    SECTION("zero requested perimeters creates no extrusion loops")
+    {
+        // perimeters=0 is handled by the generator itself. SeparateHoleContour
+        // must not be responsible for removing the traversal seed used by the
+        // perimeter step, so this test keeps perimeters_hole disabled.
+        const DynamicPrintConfig config = perimeter_config({{"perimeters", "0"}});
+        const ExPolygon surface = rectangle_with_hole(-3., -3., 3., 3.);
+        const PerimeterRunCapture generated = run_perimeter_case(config, {SIMPLE_PERIMETER_GENERATOR}, surface, 0);
+
+        CHECK(external_perimeter_count(generated) == 0);
+        REQUIRE_FALSE(generated.fill_surfaces.empty());
+        REQUIRE_FALSE(generated.fill_no_overlap_surfaces.empty());
+        require_leaf_fill_area_consistency(generated);
+    }
 }
 
 TEST_CASE("SimplePerimeterGenerator publishes the perimeter-node tree shape", "[plugins][perimeter][simple-generator]")

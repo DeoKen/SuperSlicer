@@ -112,7 +112,7 @@ int32_t generate_node(void *generator_context,
     // The host seeds the root with one requested perimeter so the generator is
     // called at least once. When the config asks for zero base perimeters, drop
     // that traversal seed before honoring module-requested extras.
-    if (state.perimeter_count == 0 && node_view.perimeter_idx() == 0 && node_view.perimeter_needed() > 0)
+    if (state.perimeter_count == 0 && node_view.perimeter_idx() == 0 && node_view.perimeter_needed() == 1)
         node_view.set_perimeter_needed(node_view.perimeter_needed() - 1);
     else if (state.perimeter_count > 0)
         node_view.set_perimeter_needed(std::max(node_view.perimeter_needed(), state.perimeter_count));

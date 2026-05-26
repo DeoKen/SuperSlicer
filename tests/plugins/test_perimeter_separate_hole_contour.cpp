@@ -212,8 +212,9 @@ TEST_CASE("Separate hole contour configuration matrix", "[plugins][perimeter][se
 
     SECTION("07 zero contour and zero hole perimeters generate no loops")
     {
-        // CASE 07: both configured counts are zero. The tree still needs valid
-        // leaf areas for later infill even though no perimeter extrusion exists.
+        // CASE 07: perimeters_hole is enabled, but equal to perimeters. The
+        // module should be inert; the no-loop result comes from the simple
+        // generator handling perimeters=0, not from SeparateHoleContour.
         const PerimeterRunCapture run = run_separate_case(0, "0", surface);
         check_loop_counts(run, 0, 0);
         require_leaf_fill_area_consistency(run);
@@ -281,16 +282,16 @@ TEST_CASE("Separate hole contour geometry cases", "[plugins][perimeter][separate
         require_leaf_fill_area_consistency(run);
     }
 
-    SECTION("14 very small hole can disappear before the requested count")
+    SECTION("14 very small hole can still receive the requested count")
     {
-        // CASE 14: when the hole is below the available shell depth, fewer hole
-        // loops than requested is valid, but contours and leaf areas must stay
-        // consistent.
+        // CASE 14: a small hole is not like a small island contour. Hole
+        // perimeter offsets expand into the surrounding material, so even a
+        // tiny valid hole can keep receiving the requested hole count.
         const PerimeterRunCapture run =
-            run_separate_case(5, "5", rectangle_with_hole(-10., -10., 10., 10., -0.5, -0.5, 0.5, 0.5));
+            run_separate_case(5, "5", rectangle_with_hole(-10., -10., 10., 10., -0.05, -0.05, 0.05, 0.05));
         const LoopCounts counts = loop_counts(run);
         CHECK(counts.contours == 5);
-        CHECK(counts.holes < 5);
+        CHECK(counts.holes == 5);
         check_no_unknown_simple_loops(run);
         require_leaf_fill_area_consistency(run);
     }
@@ -350,10 +351,12 @@ TEST_CASE("Separate hole contour geometry cases", "[plugins][perimeter][separate
     SECTION("19 slot-like hole can split remaining child areas")
     {
         // CASE 19: a long slot hole can split the remaining interior into two
-        // branches. This checks that rebuild_children can publish that split.
+        // branches. Once the tree splits, several contour loops can be emitted
+        // at the same shell depth, so the useful invariant is "at least the
+        // requested contour chain survived" rather than an exact loop count.
         const PerimeterRunCapture run = run_separate_case(4, "1", vertical_slot_hole());
         const LoopCounts counts = loop_counts(run);
-        CHECK(counts.contours == 4);
+        CHECK(counts.contours >= 4);
         CHECK(counts.holes == 1);
         check_no_unknown_simple_loops(run);
         require_leaf_fill_area_consistency(run);
@@ -382,15 +385,18 @@ TEST_CASE("Separate hole contour tree rebuild cases", "[plugins][perimeter][sepa
         require_leaf_fill_area_consistency(run);
     }
 
-    SECTION("22 removing both classes in the same node reduces pending work")
+    SECTION("22 equal zero counts are inert in direct module calls")
     {
-        // CASE 22: the branch where both contours and holes are past their
-        // configured counts must not leave a stale child asking for more loops.
+        // CASE 22: perimeters_hole=0 with perimeters=0 is still an equal-count
+        // configuration. The module should not erase artificial loops handed to
+        // it by this direct harness; real no-loop behavior is tested on the
+        // simple generator and on the full 0/0 pipeline case above.
         const SeparateHoleContourDirectResult result =
             run_separate_hole_contour_module_direct(separate_config(0, "0"), 0, 1, 1, 1);
-        CHECK(result.contours == 0);
-        CHECK(result.holes == 0);
-        CHECK(result.perimeter_needed == 0);
+        CHECK(result.contours == 1);
+        CHECK(result.holes == 1);
+        CHECK(result.total == 2);
+        CHECK(result.perimeter_needed == 1);
     }
 
     SECTION("23 missing loop class does not advance the deletion counter")
@@ -404,24 +410,31 @@ TEST_CASE("Separate hole contour tree rebuild cases", "[plugins][perimeter][sepa
         CHECK(result.perimeter_needed == 1);
     }
 
-    SECTION("24 last perimeter with no child demand can reduce perimeter_needed")
+    SECTION("24 equal positive counts are inert in direct module calls")
     {
-        // CASE 24: when the current node is the last requested perimeter and
-        // both classes are erased, the node should stop requesting work.
+        // CASE 24: when perimeters_hole equals perimeters, the separate
+        // contour/hole module has no delta to apply and should leave node
+        // state and extrusion classes unchanged.
         const SeparateHoleContourDirectResult result =
-            run_separate_hole_contour_module_direct(separate_config(0, "0"), 0, 1, 1, 1);
-        CHECK(result.total == 0);
-        CHECK(result.perimeter_needed == 0);
+            run_separate_hole_contour_module_direct(separate_config(2, "2"), 0, 1, 1, 1);
+        CHECK(result.contours == 1);
+        CHECK(result.holes == 1);
+        CHECK(result.total == 2);
+        CHECK(result.perimeter_needed == 1);
     }
 
-    SECTION("25 child demand survives when more perimeters are still needed")
+    SECTION("25 equal zero counts stay inert even with fake pending depth")
     {
-        // CASE 25: if erased loops are not the last requested perimeter, the
-        // module should keep child nodes alive so the remaining depth can run.
+        // CASE 25: this direct harness can create impossible state: equal zero
+        // counts but pending perimeter depth. The module should still be inert
+        // because equal counts mean there is no separate contour/hole policy to
+        // apply.
         const SeparateHoleContourDirectResult result =
             run_separate_hole_contour_module_direct(separate_config(0, "0"), 0, 3, 1, 1);
-        CHECK(result.total == 0);
-        CHECK(result.children > 0);
+        CHECK(result.contours == 1);
+        CHECK(result.holes == 1);
+        CHECK(result.total == 2);
+        CHECK(result.children == 0);
         CHECK(result.perimeter_needed == 3);
     }
 }

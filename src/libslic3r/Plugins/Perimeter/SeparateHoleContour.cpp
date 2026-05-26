@@ -6,6 +6,7 @@
 #include "SeparateHoleContour.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <map>
 #include <vector>
@@ -29,12 +30,41 @@ const char *k_perimeters_key = "perimeters";
 // is a C payload, so the module only needs the ABI bit, not the C++ enum type.
 const int32_t k_perimeter_loop_role_hole = 1 << 3;
 
+/*
+SeparateHoleContour is a perimeter-generation module, not a generator.
+
+The active STEP_PERIMETER generator first creates a normal perimeter tree. This
+module then edits each generated node so contours and holes can stop at
+different shell counts:
+
+  - perimeters controls contour loops.
+  - perimeters_hole controls hole loops when enabled.
+  - the root asks the generator for max(perimeters, perimeters_hole) shells.
+  - after each generated node, this module removes the class that is past its
+    configured count and rebuilds child areas from the loops that remain.
+
+That last rebuild is the important bit. Children are created by the generator
+before modules run. If a module removes a loop, the previous child areas still
+assume that removed loop exists. Rebuilding keeps the next perimeter level and
+the later fill areas consistent with the edited extrusion tree.
+*/
 struct HoleContourCount
 {
+    // Requested counts copied from the active region configuration at start().
     int32_t max_hole_count = 0;
     int32_t max_contour_count = 0;
+
+    // Number of shell levels where this module actually removed that class.
+    // These counters are propagated to child nodes, so they describe the current
+    // branch, not the whole island globally.
     int32_t hole_deleted = 0;
     int32_t contour_deleted = 0;
+};
+
+struct EraseDecision
+{
+    bool holes = false;
+    bool contours = false;
 };
 
 class ModuleState
@@ -42,6 +72,10 @@ class ModuleState
 public:
     bool get(const perimeter_node *node, HoleContourCount &out) const
     {
+        assert(node != nullptr);
+        if (node == nullptr)
+            return false;
+
         const std::map<const perimeter_node *, HoleContourCount>::const_iterator it = counts.find(node);
         if (it == counts.end())
             return false;
@@ -52,10 +86,16 @@ public:
 
     void set(const perimeter_node *node, const HoleContourCount &count)
     {
+        assert(node != nullptr);
+        if (node == nullptr)
+            return;
+
         counts[node] = count;
     }
 
 private:
+    // Host perimeter nodes have stable addresses during one run_region_group()
+    // traversal. The state is local to that traversal and is deleted in end().
     std::map<const perimeter_node *, HoleContourCount> counts;
 };
 
@@ -72,11 +112,14 @@ bool extrusion_is_hole_perimeter(const ExtrusionEntity &entity)
 
 bool extrusion_is_perimeter_loop_candidate(const ExtrusionEntity &entity)
 {
+    // Gap fill and other open extrusions may live in the same node. Only closed
+    // generated perimeter loops participate in contour/hole filtering.
     return !entity.empty() && entity.is_closed();
 }
 
 size_t erase_perimeter_class(MutableExtrusionEntity extrusions, bool erase_holes)
 {
+    // Iterate backwards because remove_child() shifts later indexes.
     size_t erased_count = 0;
     for (uint32_t idx = extrusions.child_count(); idx > 0; --idx) {
         const uint32_t child_idx = idx - 1;
@@ -92,18 +135,25 @@ size_t erase_perimeter_class(MutableExtrusionEntity extrusions, bool erase_holes
     return erased_count;
 }
 
-double erase_cleanup_distance(const PerimeterGenerationContextView &context,
-                              const PerimeterNodeView &node)
+double cleanup_distance_from_flow(const c_flow &flow)
 {
-    (void) node;
-    const c_flow flow = context.perimeter_flow();
+    assert(flow.spacing >= 0);
     return std::max<double>(double(SCALED_EPSILON), 0.1 * double(flow.spacing));
+}
+
+c_flow external_perimeter_flow(const PerimeterGenerationContextView &context)
+{
+    const LayerIsland island = context.island();
+    assert(island.region_count() > 0);
+    return island.region_count() > 0 ? island.region(0).flow(RAW_EXTRUSION_ROLE_EXTERNAL_PERIMETER) : c_flow{};
 }
 
 void append_closed_entity_polygons(storage_handle *storage,
                                    StoredPolygonCollection &polygons,
                                    const ExtrusionEntity &entity)
 {
+    assert(storage != nullptr);
+
     if (entity.has_polyline() && entity.local_is_closed()) {
         std::vector<c_point> points = entity.points();
         if (points.size() > 1 && points_equal(points.front(), points.back()))
@@ -112,6 +162,10 @@ void append_closed_entity_polygons(storage_handle *storage,
         if (points.size() >= 3) {
             StoredPolygon polygon(storage);
             polygon.insert_array(0, points.data(), uint32_t(points.size()));
+            polygon.make_counter_clockwise();
+            // Clipper treats polygons as filled areas. Normalize orientation so
+            // a closed perimeter loop can be converted to a robust coverage
+            // polygon regardless of the path direction chosen by the generator.
             if (polygon.valid_polygon())
                 polygons.push_back(polygon.readonly());
         }
@@ -124,6 +178,7 @@ void append_closed_entity_polygons(storage_handle *storage,
 StoredExPolygonCollection collection_from_expolygon(storage_handle *storage,
                                                     const ExPolygon &expolygon)
 {
+    assert(storage != nullptr);
     StoredExPolygonCollection collection(storage);
     collection.push_back(expolygon);
     return collection;
@@ -133,6 +188,7 @@ StoredExPolygonCollection offset_collection(storage_handle *storage,
                                             const ExPolygonCollection &subject,
                                             double delta)
 {
+    assert(storage != nullptr);
     if (subject.empty())
         return StoredExPolygonCollection(storage);
 
@@ -145,6 +201,7 @@ StoredExPolygonCollection offset2_collection(storage_handle *storage,
                                              double delta1,
                                              double delta2)
 {
+    assert(storage != nullptr);
     if (subject.empty())
         return StoredExPolygonCollection(storage);
 
@@ -156,6 +213,7 @@ StoredExPolygonCollection diff_collection(storage_handle *storage,
                                           const ExPolygonCollection &subject,
                                           const ExPolygonCollection &clip_area)
 {
+    assert(storage != nullptr);
     if (subject.empty())
         return StoredExPolygonCollection(storage);
     if (clip_area.empty())
@@ -167,16 +225,29 @@ StoredExPolygonCollection diff_collection(storage_handle *storage,
 
 StoredExPolygonCollection extrusion_coverage_area(storage_handle *storage,
                                                   const ExtrusionEntity &extrusions,
+                                                  double radius,
                                                   double cleanup_distance)
 {
+    assert(storage != nullptr);
+    assert(radius >= 0.);
+    assert(cleanup_distance >= 0.);
+
     StoredPolygonCollection polygons(storage);
     append_closed_entity_polygons(storage, polygons, extrusions);
     if (polygons.empty())
         return StoredExPolygonCollection(storage);
 
+    // Closed perimeter loops are centerlines. To know which area remains
+    // available for the next child node, turn kept centerlines into a physical
+    // coverage area. CLOSED_LINE is intentional: a loop centerline covers a
+    // stroke around the line, not the whole polygon interior.
     ClipperContext clip(storage);
     StoredExPolygonCollection area =
-        clipper_union(clipper_offset(clip(polygons), cleanup_distance)).to_expolygon_collection();
+        clipper_union(clipper_offset(clip(polygons),
+                                     std::max(radius, cleanup_distance),
+                                     CLIPPER_JOIN_MITER,
+                                     3.0,
+                                     CLIPPER_END_CLOSED_LINE)).to_expolygon_collection();
     if (!area.empty())
         area = offset2_collection(storage, area.readonly(), cleanup_distance, -cleanup_distance);
     return area;
@@ -187,6 +258,11 @@ StoredExPolygonCollection build_child_areas(storage_handle *storage,
                                             const ExPolygonCollection &kept_extrusion_area,
                                             double cleanup_distance)
 {
+    assert(storage != nullptr);
+
+    // Child areas are the strict no-overlap domains for the next perimeter
+    // level. They are rebuilt from the parent area minus the physical coverage
+    // of the perimeter class that stayed in this node.
     StoredExPolygonCollection parent_area = collection_from_expolygon(storage, parent.area());
     StoredExPolygonCollection child_areas = kept_extrusion_area.empty() ?
         parent_area.readonly().clone(storage) :
@@ -202,6 +278,11 @@ StoredExPolygonCollection build_fill_areas(storage_handle *storage,
                                            const ExPolygonCollection &kept_extrusion_area,
                                            double cleanup_distance)
 {
+    assert(storage != nullptr);
+
+    // Fill areas intentionally remain a little larger than child areas. They
+    // are anchoring domains for later infill; if they collapse to child areas,
+    // infill loses the controlled encroachment into perimeter material.
     StoredExPolygonCollection base_fill_area = collection_from_expolygon(storage, parent.fill_area());
     StoredExPolygonCollection fill_areas = kept_extrusion_area.empty() ?
         base_fill_area.readonly().clone(storage) :
@@ -216,6 +297,8 @@ void store_for_children(ModuleState &state,
                         const PerimeterNodeView &parent,
                         const HoleContourCount &data)
 {
+    // After a rebuild, old child handles are invalid. Take a fresh snapshot and
+    // associate the branch counters with the newly created children.
     const std::vector<PerimeterNodeView> children = parent.children_snapshot();
     for (const PerimeterNodeView &child : children)
         state.set(child.handle(), data);
@@ -223,12 +306,47 @@ void store_for_children(ModuleState &state,
 
 void set_if_child_needs_one_less_perimeter(const PerimeterNodeView &child)
 {
+    // When both classes were removed from the parent, the child should not
+    // spend one more generator pass recreating the same now-deleted shell.
     if (child.perimeter_needed() > child.perimeter_idx())
         child.set_perimeter_needed(child.perimeter_needed() - 1);
 }
 
+EraseDecision erase_decision_for_node(const PerimeterNodeView &node,
+                                      const HoleContourCount &data)
+{
+    const int32_t perimeter_idx = int32_t(node.perimeter_idx());
+    const int32_t perimeter_needed = int32_t(node.perimeter_needed());
+    const int32_t diff_contour_hole = data.max_contour_count - data.max_hole_count;
+
+    EraseDecision decision;
+    decision.holes = data.max_hole_count == 0;
+    decision.contours = data.max_contour_count == 0;
+
+    // If contours are requested fewer times than holes, the generator still
+    // creates max(contour, hole) levels. Remove contour loops once the contour
+    // quota for this branch has been reached.
+    if (!decision.contours && diff_contour_hole < 0) {
+        const int32_t contour_needed = perimeter_needed + diff_contour_hole;
+        if (perimeter_idx >= contour_needed && data.contour_deleted < -diff_contour_hole)
+            decision.contours = true;
+    }
+
+    // Symmetric case: holes are requested fewer times than contours.
+    if (!decision.holes && diff_contour_hole > 0) {
+        const int32_t holes_needed = perimeter_needed - diff_contour_hole;
+        if (perimeter_idx >= holes_needed && data.hole_deleted < diff_contour_hole)
+            decision.holes = true;
+    }
+
+    return decision;
+}
+
 void *module_start(void *, perimeter_generation_context *context)
 {
+    // Always allocate the per-run state here, even for no-op cases. The host
+    // will later call end(), and end() can then use the same simple delete path
+    // for active and inactive runs.
     ModuleState *state = new ModuleState();
     if (context == nullptr || context->root == nullptr)
         return state;
@@ -237,6 +355,10 @@ void *module_start(void *, perimeter_generation_context *context)
     if (context_view.island().region_count() == 0)
         return state;
 
+    // Build RegionSettings once per perimeter tree. The current module supports
+    // one effective value pair for the whole island; mixed per-region values
+    // require splitting the tree by setting area and are intentionally left as a
+    // no-op until that design is implemented.
     RegionSettings settings = context_view.region_settings({{k_perimeters_hole_key, k_perimeters_key}});
     settings.segregate(context_view.island().slice());
 
@@ -254,13 +376,20 @@ void *module_start(void *, perimeter_generation_context *context)
     data.max_hole_count = values.get_int(k_perimeters_hole_key);
     data.max_contour_count = values.get_int(k_perimeters_key);
 
+    // Equal counts mean there is no separate contour/hole policy to apply.
+    // This includes the enabled 0/0 case: the generator owns "no perimeters",
+    // this module only owns differences between the two counts.
+    if (data.max_hole_count == data.max_contour_count)
+        return state;
+
+    // The generator must create enough levels for the larger count. The module
+    // will delete the over-requested class after each generated level.
     const uint32_t requested_perimeter_count =
         std::max(count_from_config(data.max_hole_count), count_from_config(data.max_contour_count));
     if (requested_perimeter_count > context_view.root().perimeter_needed())
         context_view.root().set_perimeter_needed(requested_perimeter_count);
 
-    if (data.max_hole_count != data.max_contour_count)
-        state->set(context->root, data);
+    state->set(context->root, data);
     return state;
 }
 
@@ -279,33 +408,22 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
         return;
 
     PerimeterNodeView parent(node);
-    const int32_t perimeter_idx = int32_t(parent.perimeter_idx());
-    const int32_t perimeter_needed = int32_t(parent.perimeter_needed());
+    const EraseDecision decision = erase_decision_for_node(parent, data);
 
-    bool need_erase_holes = data.max_hole_count == 0;
-    bool need_erase_contour = data.max_contour_count == 0;
-    const int32_t diff_contour_hole = data.max_contour_count - data.max_hole_count;
-
-    if (!need_erase_contour && diff_contour_hole < 0) {
-        const int32_t contour_needed = perimeter_needed + diff_contour_hole;
-        if (perimeter_idx >= contour_needed && data.contour_deleted < -diff_contour_hole)
-            need_erase_contour = true;
-    }
-
-    if (!need_erase_holes && diff_contour_hole > 0) {
-        const int32_t holes_needed = perimeter_needed - diff_contour_hole;
-        if (perimeter_idx >= holes_needed && data.hole_deleted < diff_contour_hole)
-            need_erase_holes = true;
-    }
-
-    if (!need_erase_holes && !need_erase_contour) {
+    if (!decision.holes && !decision.contours) {
+        // This node is still within both requested counts. Nothing structural
+        // changed, so keep the generator children and simply propagate state.
         store_for_children(*state, parent, data);
         state->set(node, data);
         return;
     }
 
     MutableExtrusionEntity extrusions = parent.extrusions();
-    if (need_erase_contour && need_erase_holes) {
+    if (decision.contours && decision.holes) {
+        // Both classes are beyond their requested count. This is unusual in the
+        // normal pipeline because equal counts are a no-op, but it can happen
+        // on child branches after topology changes. Remove both classes and
+        // shrink child work so the generator does not recreate this shell.
         const size_t erased_holes = erase_perimeter_class(extrusions, true);
         const size_t erased_contours = erase_perimeter_class(extrusions, false);
         if (erased_contours > 0)
@@ -332,24 +450,31 @@ void module_after(void *, void *user_context, perimeter_generation_context *cont
         return;
     }
 
-    const size_t erased_count = erase_perimeter_class(extrusions, need_erase_holes);
+    // Only one class is past its limit. Keep the other class in this node, then
+    // rebuild child/fill areas from the physical footprint of the kept loops.
+    // Without this rebuild, child nodes would still be based on the pre-edit
+    // generator output and may overlap or miss material.
+    const size_t erased_count = erase_perimeter_class(extrusions, decision.holes);
     if (erased_count == 0) {
         state->set(node, data);
         return;
     }
 
-    if (need_erase_contour)
+    if (decision.contours)
         ++data.contour_deleted;
-    if (need_erase_holes)
+    if (decision.holes)
         ++data.hole_deleted;
 
-    const double cleanup_distance = erase_cleanup_distance(context_view, parent);
+    const c_flow flow = external_perimeter_flow(context_view);
+    const double cleanup_distance = cleanup_distance_from_flow(flow);
     StoredExPolygonCollection kept_extrusion_area =
-        extrusion_coverage_area(context_view.storage(), extrusions.readonly(), cleanup_distance);
+        extrusion_coverage_area(context_view.storage(), extrusions.readonly(), 0.5 * double(flow.spacing), cleanup_distance);
+    StoredExPolygonCollection kept_extrusion_fill_area =
+        extrusion_coverage_area(context_view.storage(), extrusions.readonly(), 0.25 * double(flow.spacing), cleanup_distance);
     StoredExPolygonCollection child_areas =
         build_child_areas(context_view.storage(), parent, kept_extrusion_area, cleanup_distance);
     StoredExPolygonCollection fill_areas =
-        build_fill_areas(context_view.storage(), parent, kept_extrusion_area, cleanup_distance);
+        build_fill_areas(context_view.storage(), parent, kept_extrusion_fill_area, cleanup_distance);
 
     if (context_view.rebuild_children(parent, child_areas, fill_areas))
         store_for_children(*state, parent, data);
