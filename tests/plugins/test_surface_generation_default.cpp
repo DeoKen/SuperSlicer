@@ -27,6 +27,8 @@ using namespace Slic3r::Test::PerimeterPluginTests;
 class ScopedActivePlugins
 {
 public:
+    // Test-local activation guard: surface-generation tests need a precise
+    // active plugin set, but the global orchestrator is shared by all tests.
     explicit ScopedActivePlugins(std::initializer_list<const char *> plugin_ids) :
         m_orchestrator(Orchestrator::instance())
     {
@@ -61,12 +63,16 @@ double area_sum(const ExPolygons &areas)
     return out;
 }
 
+// Geometry comparisons use a tiny area tolerance because Clipper may normalize
+// polygons without preserving every intermediate vertex exactly.
 double area_tolerance()
 {
     const double side = double(scale_i(0.005));
     return side * side;
 }
 
+// Tests compare geometric coverage, not Surface metadata. Extract only the
+// ExPolygons that would later be consumed by infill.
 ExPolygons surface_expolygons(const SurfaceCollection &surfaces)
 {
     ExPolygons out;
@@ -77,6 +83,8 @@ ExPolygons surface_expolygons(const SurfaceCollection &surfaces)
     return out;
 }
 
+// Compare two polygon sets by union, so harmless splitting differences do not
+// make the test brittle.
 void require_same_union(const ExPolygons &actual, const ExPolygons &expected)
 {
     const ExPolygons actual_union = union_ex(actual);
@@ -86,11 +94,16 @@ void require_same_union(const ExPolygons &actual, const ExPolygons &expected)
     REQUIRE(area_sum(diff_ex(expected_union, actual_union)) <= area_tolerance());
 }
 
+// Used for the no-overlap contract: the strict no-overlap area may be smaller
+// than fill, but must never escape it.
 void require_subset(const ExPolygons &child, const ExPolygons &parent)
 {
     REQUIRE(area_sum(diff_ex(union_ex(child), union_ex(parent))) <= area_tolerance());
 }
 
+// Replace region slices and reset their SurfaceCollection to raw internal fill.
+// The surface-generation plugin should overwrite fill_surfaces from perimeter
+// output, not from this pre-existing placeholder.
 void set_region_areas(LayerRegion &region, ExPolygons areas)
 {
     ExPolygons &region_slices = ApiInternal::LayerRegionAccess::slices_mutable(region);
@@ -98,11 +111,14 @@ void set_region_areas(LayerRegion &region, ExPolygons areas)
     ApiInternal::LayerRegionAccess::surfaces_mutable(region).set(region_slices, stPosInternal | stDensSparse);
 }
 
+// Test fixture helper for the common one-region layer case.
 void set_region_area(LayerRegion &region, const ExPolygon &area)
 {
     set_region_areas(region, ExPolygons{area});
 }
 
+// Replace the layer by one deterministic island and reconnect that island to
+// the region, matching what the post-slicing step normally prepares.
 void replace_layer_island(Layer &layer, const ExPolygon &area)
 {
     ApiInternal::LayerAccess::set_islands(layer, ExPolygons{area});
@@ -110,6 +126,7 @@ void replace_layer_island(Layer &layer, const ExPolygon &area)
     layer.island(0).fill_regions(layer);
 }
 
+// Add a second region that shares the same PrintObject lifetime as the test.
 void add_region(PreparedPerimeterPrint &prepared, Layer &layer, const ExPolygon &area)
 {
     PrintRegionConfig config = layer.region(0).region().config();
@@ -118,6 +135,8 @@ void add_region(PreparedPerimeterPrint &prepared, Layer &layer, const ExPolygon 
     set_region_area(layer.region(layer.region_count() - 1), area);
 }
 
+// Build a layer with one island split into two regions. This is the key shape
+// proving surface generation clips island fill areas back to region boundaries.
 void replace_layer_with_two_regions(PreparedPerimeterPrint &prepared,
                                     Layer &layer,
                                     const ExPolygon &island_area,
@@ -130,6 +149,8 @@ void replace_layer_with_two_regions(PreparedPerimeterPrint &prepared,
     layer.island(0).fill_regions(layer);
 }
 
+// Manual island edits invalidate the above/below graph. Rebuild it so later
+// steps that consult layer adjacency see the same topology as production code.
 void rebuild_island_overlap_graph(PrintObject &object)
 {
     for (Layer &layer : object.layers())
@@ -142,6 +163,8 @@ void rebuild_island_overlap_graph(PrintObject &object)
         Layer::build_up_down_graph(object.layer(layer_idx - 1), object.layer(layer_idx));
 }
 
+// Run just enough of the plugin pipeline to turn perimeter outputs into raw
+// LayerRegion fill surfaces.
 void run_perimeter_and_surface_steps(Print &print)
 {
     Orchestrator &orchestrator = Orchestrator::instance();
@@ -151,6 +174,7 @@ void run_perimeter_and_surface_steps(Print &print)
     Steps::StepSurfaceGeneration::run_step(orchestrator, print);
 }
 
+// Expected fill area is: raw region slice clipped by all island fill areas.
 ExPolygons expected_fill_for_region(const Layer &layer, const LayerRegion &region)
 {
     ExPolygons all_fill_expolygons;
@@ -159,6 +183,8 @@ ExPolygons expected_fill_for_region(const Layer &layer, const LayerRegion &regio
     return intersection_ex(region.get_raw_slices(), all_fill_expolygons);
 }
 
+// Expected no-overlap area is the same region-local clipping, but against the
+// stricter island no-overlap set, with the old safety union preserved.
 ExPolygons expected_no_overlap_for_region(const Layer &layer, const LayerRegion &region)
 {
     ExPolygons all_fill_no_overlap_expolygons;
@@ -173,6 +199,8 @@ ExPolygons expected_no_overlap_for_region(const Layer &layer, const LayerRegion 
     return intersection_ex(region.get_raw_slices(), all_fill_no_overlap_expolygons);
 }
 
+// Surface generation should not type surfaces yet. It only publishes internal
+// sparse fill areas for STEP_SURFACE_TYPE to classify later.
 void require_sparse_internal_surfaces(const SurfaceCollection &surfaces)
 {
     REQUIRE_FALSE(surfaces.empty());

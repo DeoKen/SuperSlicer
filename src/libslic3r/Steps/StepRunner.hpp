@@ -42,8 +42,15 @@ void run_object_step_plugin(Orchestrator &orchestrator,
                             PayloadFactory payload_factory)
 {
     assert(run_count <= UINT32_MAX);
+
+    // One host context is shared as the immutable template for this plugin
+    // execution. Per-object workers copy it below to set their own object_idx;
+    // this avoids sharing mutable host_context fields between threads.
     plugin_host_context host_context = orchestrator.prepare_plugin_host_context(step, &plugin, &print);
     host_context.object_count = run_count;
+
+    // setup() is the plugin-level entry point. It sees the step and print, but
+    // no object payload yet, and it runs once before all object setup/run calls.
     plugin_run_context run_context = orchestrator.prepare_plugin_run_context(step, &plugin, &host_context);
     plugin.setup(run_context, uint32_t(run_count));
 
@@ -58,6 +65,9 @@ void run_object_step_plugin(Orchestrator &orchestrator,
         if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
             return;
 
+        // Payloads are stack objects valid only for the duration of the plugin
+        // callback. Plugins may inspect the handles immediately, but must not
+        // store the payload pointer itself.
         decltype(payload_factory(idx)) payload = payload_factory(idx);
         context_copy.data = &payload;
         plugin.setup_run(context_copy);
@@ -71,6 +81,9 @@ void run_object_step_plugin(Orchestrator &orchestrator,
         if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
             return;
 
+        // Rebuild the same payload for run(): setup_run() may have been called
+        // on another thread, and keeping payload ownership local makes the ABI
+        // lifetime rule straightforward.
         decltype(payload_factory(idx)) payload = payload_factory(idx);
         context_copy.data = &payload;
         plugin.run(context_copy);
@@ -86,6 +99,9 @@ void run_object_step_plugins(Orchestrator &orchestrator,
 {
     std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(step);
 
+    // Non-exclusive steps execute every active plugin in orchestrator order.
+    // The orchestrator owns priority sorting; this helper only applies the
+    // common object-level setup/setup_run/run protocol.
     for (Plugin *plugin : plugins) {
         if (plugin != nullptr)
             run_object_step_plugin(orchestrator, print, step, *plugin, run_count, payload_factory);

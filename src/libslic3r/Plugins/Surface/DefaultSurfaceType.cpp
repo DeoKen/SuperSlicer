@@ -5,6 +5,8 @@
 
 #include "DefaultSurfaceType.hpp"
 
+#include <boost/log/trivial.hpp>
+
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/c/steps/slic3r_step_surface_type.h"
 #include "libslic3r/Layer.hpp"
@@ -14,14 +16,14 @@
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Surface.hpp"
 
-#include <boost/log/trivial.hpp>
-
 namespace slic3r_api { namespace SurfaceType { namespace DefaultSurfaceTypePlugin {
 namespace {
 
 const char *k_default_surface_type_id = "surface.type.default";
 const char *k_no_dependencies[] = { nullptr };
 
+// Built-in host bridge: convert the opaque C handle back to the native
+// PrintObject so this first migration pass can reuse the legacy internals.
 Slic3r::PrintObject *to_object(const object_handle *handle)
 {
     return const_cast<Slic3r::PrintObject *>(reinterpret_cast<const Slic3r::PrintObject *>(handle));
@@ -32,12 +34,16 @@ Slic3r::PrintObject *to_object(const object_handle *handle)
 DefaultSurfaceType &
 DefaultSurfaceType::instance(orchestrator_handle *orch)
 {
+    // Built-in plugins are registered once and never unloaded. A singleton
+    // keeps the C plugin_instance stable after registration.
     static DefaultSurfaceType s_instance(orch);
     return s_instance;
 }
 
 const char *DefaultSurfaceType::id_impl() const noexcept
 {
+    // Stable id used by activation.ini and by the generated exclusive-step
+    // config option when more than one surface type plugin is active.
     return k_default_surface_type_id;
 }
 
@@ -63,11 +69,16 @@ const char *DefaultSurfaceType::progress_message_format_impl() const noexcept
 
 void DefaultSurfaceType::setup_run_impl(const plugin_run_context *) const
 {
+    // The whole object is one work unit: internally the legacy code performs
+    // several passes over all layers, but the public progress remains object
+    // based until those passes become real modules.
     progress().add_max(1);
 }
 
 void DefaultSurfaceType::run_impl(const plugin_run_context *run_ctx) const
 {
+    // run_step() provides one payload per PrintObject. The selected plugin owns
+    // the final typing/refinement of all LayerRegion::fill_surfaces() in it.
     const run_ctx_detect_surface_type *ctx = plugin_ctx_as_detect_surface_type(run_ctx);
     Slic3r::PrintObject *object = ctx == nullptr ? nullptr : to_object(ctx->object);
     if (object == nullptr)
@@ -80,6 +91,9 @@ void DefaultSurfaceType::run_impl(const plugin_run_context *run_ctx) const
 void DefaultSurfaceType::run_surface_type_pipeline(const plugin_run_context *run_ctx,
                                                    Slic3r::PrintObject &object) const
 {
+    // This method mirrors the old PrintObject::prepare_infill() order, but each
+    // group now has a name. That makes the data flow visible before we decide
+    // whether to expose a SURFACE_TYPE_MODULE ABI.
     if (!start_prepare_infill(object))
         return;
 
@@ -87,6 +101,10 @@ void DefaultSurfaceType::run_surface_type_pipeline(const plugin_run_context *run
     classify_top_bottom_surfaces(run_ctx, object);
     prepare_fill_surfaces(run_ctx, object);
 
+    // The old path changes where bridge/external surface expansion runs
+    // depending on ensure_vertical_shell_thickness. Preserve that order exactly:
+    // "disabled" and "enabled_old" expand before vertical shells; "partial" and
+    // "enabled" expand after vertical shells.
     const Slic3r::EnsureVerticalShellThickness ensure_vertical_shell_thickness =
         object.default_region_config(object.m_print->default_region_config())
             .option<Slic3r::ConfigOptionEnum<Slic3r::EnsureVerticalShellThickness>>("ensure_vertical_shell_thickness")->value;
@@ -112,6 +130,8 @@ void DefaultSurfaceType::run_surface_type_pipeline(const plugin_run_context *run
 
 bool DefaultSurfaceType::start_prepare_infill(Slic3r::PrintObject &object) const
 {
+    // Reuse the existing PrintObject state bit while STEP_PRE_INFILL is being
+    // split. If another path already prepared infill, the plugin becomes a no-op.
     return object.set_started(Slic3r::posPrepareInfill);
 }
 
@@ -217,6 +237,9 @@ void DefaultSurfaceType::build_bridge_over_infill_data(const plugin_run_context 
     object.bridge_over_infill();
     object.m_print->throw_if_canceled();
 
+    // Mark solid surfaces that sit above bridge-tagged solid surfaces. The four
+    // calls cover top/internal surfaces above either internal bridges or bottom
+    // bridges, matching the old prepare_infill() sequence one-for-one.
     object.replaceSurfaceType(Slic3r::stPosInternal | Slic3r::stDensSolid,
         Slic3r::stPosInternal | Slic3r::stDensSolid | Slic3r::stModOverBridge,
         Slic3r::stPosInternal | Slic3r::stDensSolid | Slic3r::stModBridge);

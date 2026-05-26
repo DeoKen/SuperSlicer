@@ -21,6 +21,9 @@ namespace Slic3r::Steps::StepSurfaceGeneration {
 
 void clean_and_prepare(Print &print)
 {
+    // This step is the sole owner of LayerRegion fill surfaces immediately
+    // after perimeter generation. Clear stale data before rebuilding it from
+    // the island fill areas published by STEP_PERIMETER.
     for (PrintObject &object : print.objects())
         for (Layer &layer : object.layers())
             for (LayerRegion &region : layer.regions()) {
@@ -41,6 +44,9 @@ bool validate_post(const Print &, std::string *)
 
 void run_step(Orchestrator &orchestrator, Print &print)
 {
+    // Surface generation is exclusive because two generators would both write
+    // LayerRegion::fill_surfaces(). The selector lets future plugins replace
+    // the default clipping strategy without running side-by-side.
     Plugin *plugin = selected_or_active_plugin_for_step(orchestrator,
                                                         STEP_SURFACE_GENERATION,
                                                         &print.full_print_config());
@@ -54,6 +60,9 @@ void run_step(Orchestrator &orchestrator, Print &print)
         *plugin,
         print.objects().size(),
         [&print](const size_t object_idx) {
+            // Object payload only. The default generator walks layers/regions
+            // through the object handle and converts island fill areas to
+            // region-local SurfaceCollection entries.
             run_ctx_surface_generation payload = {};
             payload.print = reinterpret_cast<const print_handle *>(&print);
             payload.object = reinterpret_cast<const object_handle *>(&print.object(object_idx));

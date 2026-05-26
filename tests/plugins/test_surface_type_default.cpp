@@ -25,6 +25,8 @@ using namespace Slic3r::Test::PerimeterPluginTests;
 class ScopedActivePlugins
 {
 public:
+    // Test-local activation guard: the global plugin runtime is shared, while
+    // each section needs to select exactly the plugins under test.
     explicit ScopedActivePlugins(std::initializer_list<const char *> plugin_ids) :
         m_orchestrator(Orchestrator::instance())
     {
@@ -61,6 +63,9 @@ struct SurfaceTypeCounts
     size_t solid = 0;
 };
 
+// Small aggregate used by assertions: the exact number of split surfaces is
+// algorithm-dependent, but these family counts prove which classification
+// modules have run.
 SurfaceTypeCounts count_surface_types(const PrintObject &object)
 {
     SurfaceTypeCounts out;
@@ -82,6 +87,9 @@ SurfaceTypeCounts count_surface_types(const PrintObject &object)
     return out;
 }
 
+// Replace a LayerRegion's raw slice and its pre-plugin SurfaceCollection with
+// one known sparse/internal polygon. Tests use this to avoid depending on the
+// exact mesh slicer output.
 void set_region_area(LayerRegion &region, const ExPolygon &area)
 {
     ExPolygons &region_slices = ApiInternal::LayerRegionAccess::slices_mutable(region);
@@ -89,6 +97,9 @@ void set_region_area(LayerRegion &region, const ExPolygon &area)
     ApiInternal::LayerRegionAccess::surfaces_mutable(region).set(region_slices, stPosInternal | stDensSparse);
 }
 
+// Build a one-island/one-region layer. The perimeter and surface-generation
+// plugins then operate on deterministic geometry instead of the cube's native
+// slice topology.
 void replace_layer_island(Layer &layer, const ExPolygon &area)
 {
     ApiInternal::LayerAccess::set_islands(layer, ExPolygons{area});
@@ -96,6 +107,8 @@ void replace_layer_island(Layer &layer, const ExPolygon &area)
     layer.island(0).fill_regions(layer);
 }
 
+// LayerIsland above/below links are consumed by top/bottom classification.
+// Rebuild them after the tests replace layer islands by hand.
 void rebuild_island_overlap_graph(PrintObject &object)
 {
     for (Layer &layer : object.layers())
@@ -108,6 +121,9 @@ void rebuild_island_overlap_graph(PrintObject &object)
         Layer::build_up_down_graph(object.layer(layer_idx - 1), object.layer(layer_idx));
 }
 
+// Give every layer the same island footprint. This creates a simple vertical
+// stack where the first layer is bottom, the last layer is top, and middle
+// layers are internal.
 void replace_all_layers_with_test_island(PrintObject &object)
 {
     const ExPolygon island_area = rectangle_expolygon(-10., -10., 10., 10.);
@@ -116,6 +132,8 @@ void replace_all_layers_with_test_island(PrintObject &object)
     rebuild_island_overlap_graph(object);
 }
 
+// Run only the steps that prepare raw fill surfaces. STEP_SURFACE_TYPE is kept
+// separate so tests can assert the before/after contract.
 void run_perimeter_and_surface_generation(Print &print)
 {
     Orchestrator &orchestrator = Orchestrator::instance();
@@ -125,6 +143,8 @@ void run_perimeter_and_surface_generation(Print &print)
     Steps::StepSurfaceGeneration::run_step(orchestrator, print);
 }
 
+// Execute the selected surface type plugin. In these tests it is either the
+// default native-compatible plugin or intentionally absent.
 void run_surface_type_detection(Print &print)
 {
     Orchestrator &orchestrator = Orchestrator::instance();

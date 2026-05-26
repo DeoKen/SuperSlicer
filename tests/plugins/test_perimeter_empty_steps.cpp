@@ -36,6 +36,9 @@ struct RecordedEvent
     size_t object_count = 0;
 };
 
+// Recording plugins are tiny C-ABI plugins used only by this test file. They
+// let us observe the generic object-step runner without depending on real
+// perimeter behavior.
 struct RecordingPluginState
 {
     const char *id = nullptr;
@@ -45,6 +48,9 @@ struct RecordingPluginState
     std::mutex *mutex = nullptr;
 };
 
+// Two active plugins plus one inactive plugin per step. Active plugins are
+// intentionally given different priorities so the test can prove orchestrator
+// ordering is used instead of activation order.
 RecordingPluginState g_pre_first  = {"test.pre_perimeter.first", STEP_PRE_PERIMETER, -10, nullptr, nullptr};
 RecordingPluginState g_pre_second = {"test.pre_perimeter.second", STEP_PRE_PERIMETER, 20, nullptr, nullptr};
 RecordingPluginState g_pre_inactive = {"test.pre_perimeter.inactive", STEP_PRE_PERIMETER, 0, nullptr, nullptr};
@@ -67,6 +73,8 @@ const_strings_t recording_get_dependencies(void *)
     return out;
 }
 
+// The following callbacks implement just enough of the plugin ABI to record
+// setup/setup_run/run calls and their payloads.
 const char *recording_get_id(void *plugin_ctx)
 {
     return static_cast<RecordingPluginState *>(plugin_ctx)->id;
@@ -84,11 +92,14 @@ int32_t recording_get_priority(void *plugin_ctx)
 
 int32_t recording_used_config_keys(void *, const char **)
 {
+    // Boundary-step test plugins do not create settings.
     return 0;
 }
 
 void recording_initialize(void *, storage_handle *) {}
 
+// Decode the step-specific payload into a common RecordedEvent. This verifies
+// both pre and post perimeter steps pass the expected C payload type.
 void fill_payload_event(const plugin_run_context *run_ctx, RecordedEvent &event)
 {
     if (run_ctx == nullptr)
@@ -116,6 +127,8 @@ void fill_payload_event(const plugin_run_context *run_ctx, RecordedEvent &event)
     }
 }
 
+// setup_run() and run() may be called from worker threads, so all event writes
+// go through the mutex installed by ScopedRecordingEvents.
 void record_event(RecordingPluginState &state, RecordedEvent event)
 {
     if (state.events == nullptr || state.mutex == nullptr)
@@ -126,6 +139,7 @@ void record_event(RecordingPluginState &state, RecordedEvent event)
     state.events->push_back(std::move(event));
 }
 
+// setup() is called once per plugin with the number of object runs to expect.
 void recording_setup(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count)
 {
     RecordingPluginState &state = *static_cast<RecordingPluginState *>(plugin_ctx);
@@ -136,6 +150,7 @@ void recording_setup(void *plugin_ctx, const plugin_run_context *run_ctx, uint32
     record_event(state, std::move(event));
 }
 
+// setup_run() is called once per object before run() begins for this plugin.
 void recording_setup_run(void *plugin_ctx, const plugin_run_context *run_ctx)
 {
     RecordingPluginState &state = *static_cast<RecordingPluginState *>(plugin_ctx);
@@ -145,6 +160,7 @@ void recording_setup_run(void *plugin_ctx, const plugin_run_context *run_ctx)
     record_event(state, std::move(event));
 }
 
+// run() is the actual object-level plugin callback.
 void recording_run(void *plugin_ctx, const plugin_run_context *run_ctx)
 {
     RecordingPluginState &state = *static_cast<RecordingPluginState *>(plugin_ctx);
@@ -154,6 +170,8 @@ void recording_run(void *plugin_ctx, const plugin_run_context *run_ctx)
     record_event(state, std::move(event));
 }
 
+// All recording plugins share one vtable; RecordingPluginState provides the
+// per-plugin id, step and priority.
 const plugin_vtable *recording_vtable()
 {
     static const plugin_vtable vt = {
@@ -171,6 +189,8 @@ const plugin_vtable *recording_vtable()
     return &vt;
 }
 
+// Register once into the process-wide orchestrator. Re-registering would make
+// tests order-dependent, so existing ids are skipped.
 void register_recording_plugins()
 {
     Orchestrator &orchestrator = Orchestrator::instance();
@@ -185,6 +205,8 @@ void register_recording_plugins()
     }
 }
 
+// Temporarily replace the active plugin set for one section and restore it when
+// the section exits.
 class ScopedActivePlugins
 {
 public:
@@ -212,6 +234,7 @@ private:
     std::vector<Plugin *> m_previous_active_plugins;
 };
 
+// Connect all recording plugin states to the event vector used by one test run.
 class ScopedRecordingEvents
 {
 public:
@@ -237,6 +260,8 @@ private:
 
 using StepRunFn = void (*)(Orchestrator &, Print &);
 
+// Extract callback order as plugin ids. The test uses this for readable checks
+// on setup/setup_run/run priority order.
 std::vector<std::string> plugin_ids_for_callback(const std::vector<RecordedEvent> &events,
                                                  const char *callback)
 {
@@ -247,12 +272,15 @@ std::vector<std::string> plugin_ids_for_callback(const std::vector<RecordedEvent
     return out;
 }
 
+// A registered but inactive plugin must receive no callback at all.
 void require_no_event_for_plugin(const std::vector<RecordedEvent> &events, const char *plugin_id)
 {
     for (const RecordedEvent &event : events)
         CHECK(event.plugin_id != plugin_id);
 }
 
+// Each active plugin gets exactly one setup() call and the setup run count must
+// match the two PrintObjects in this fixture.
 void require_setup_counts(const std::vector<RecordedEvent> &events, uint32_t expected_run_count)
 {
     size_t setup_count = 0;
@@ -264,6 +292,8 @@ void require_setup_counts(const std::vector<RecordedEvent> &events, uint32_t exp
     CHECK(setup_count == 2);
 }
 
+// setup_run() and run() should each receive one payload per object. The host
+// context index and payload object handle must describe the same PrintObject.
 void require_object_payloads(const std::vector<RecordedEvent> &events,
                              const Print &print,
                              slicing_step_t step)
@@ -305,6 +335,9 @@ void require_object_payloads(const std::vector<RecordedEvent> &events,
     CHECK(run_seen[1] == 2);
 }
 
+// Shared test body for the two empty boundary steps. The active list is passed
+// in reverse priority order to prove priority sorting is applied by the
+// orchestrator before StepRunner executes plugins.
 void run_and_check_object_step(slicing_step_t step,
                                const char *first_plugin_id,
                                const char *second_plugin_id,

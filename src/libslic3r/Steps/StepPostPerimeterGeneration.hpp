@@ -14,15 +14,12 @@ namespace Slic3r {
 class Orchestrator;
 class Print;
 
-/// <summary>
-/// == algo in this step:==
-/// overhangs_speed_enforce
-/// fuzzy skin
-/// extra_perimeters_on_overhangs
-/// </summary>
+// Extension point after perimeter generation.
+//
+// Typical modules here edit already generated perimeter extrusions or add
+// perimeter-derived metadata: overhang speed enforcement, fuzzy skin,
+// extra perimeters over overhangs, seam tags, and similar post-processing.
 namespace Steps::StepPostPerimeterGeneration {
-
-
 
 void clean_and_prepare(Print &print);
 bool validate_pre(const Print &print, std::string &error);

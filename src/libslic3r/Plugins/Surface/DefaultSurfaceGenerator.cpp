@@ -23,11 +23,22 @@ namespace {
 const char *k_default_surface_generator_id = "surface.generator.default";
 const char *k_no_dependencies[] = { nullptr };
 
+// C payload handles are opaque at the ABI boundary. This plugin is built into
+// the host, so it may unwrap the object handle and use the native data tree.
 Slic3r::PrintObject *to_object(const object_handle *handle)
 {
     return const_cast<Slic3r::PrintObject *>(reinterpret_cast<const Slic3r::PrintObject *>(handle));
 }
 
+// Convert perimeter output from island space into region-local fill surfaces.
+//
+// STEP_PERIMETER writes two island-level area sets:
+// - fill_expolygons(): the area where infill may be generated;
+// - fill_no_overlap_expolygons(): the stricter area used to avoid encroaching
+//   into perimeters when later infill code needs that distinction.
+//
+// This function clips those island areas back to each LayerRegion's raw slices
+// and stores the result in LayerRegion::fill_surfaces()/fill_no_overlap.
 void build_region_fill_surfaces(Slic3r::Layer &layer)
 {
     Slic3r::ExPolygons all_fill_expolygons;
@@ -44,6 +55,8 @@ void build_region_fill_surfaces(Slic3r::Layer &layer)
     for (Slic3r::LayerRegion &region : layer.regions()) {
         region.set_fill_surfaces().clear();
         for (const Slic3r::Surface &raw_surface : region.slices()) {
+            // Preserve the raw slice Surface metadata while replacing its
+            // geometry by the area actually left available after perimeters.
             Slic3r::ExPolygons expolygons =
                 Slic3r::intersection_ex(Slic3r::ExPolygons{raw_surface.expolygon}, all_fill_expolygons);
             region.set_fill_surfaces().append(std::move(expolygons), raw_surface);
@@ -52,6 +65,8 @@ void build_region_fill_surfaces(Slic3r::Layer &layer)
         Slic3r::ExPolygons &fill_no_overlap =
             Slic3r::ApiInternal::LayerRegionAccess::fill_no_overlap_expolygons_mutable(region);
         fill_no_overlap = Slic3r::intersection_ex(region.get_raw_slices(), all_fill_no_overlap_expolygons);
+        // Keep the old fast path behavior: if clipping produced exactly the
+        // raw slices, only normalize validity and avoid needless geometry churn.
         if (fill_no_overlap == region.get_raw_slices())
             Slic3r::ensure_valid(fill_no_overlap);
     }
@@ -62,12 +77,15 @@ void build_region_fill_surfaces(Slic3r::Layer &layer)
 DefaultSurfaceGenerator &
 DefaultSurfaceGenerator::instance(orchestrator_handle *orch)
 {
+    // Built-in plugins are process singletons. They are registered once at
+    // startup and remain alive for the lifetime of the host.
     static DefaultSurfaceGenerator s_instance(orch);
     return s_instance;
 }
 
 const char *DefaultSurfaceGenerator::id_impl() const noexcept
 {
+    // Stable id used by activation.ini and the exclusive-step selector setting.
     return k_default_surface_generator_id;
 }
 
@@ -93,6 +111,8 @@ const char *DefaultSurfaceGenerator::progress_message_format_impl() const noexce
 
 void DefaultSurfaceGenerator::setup_run_impl(const plugin_run_context *run_ctx) const
 {
+    // Each object run processes all layers of that object. Count layers here
+    // so the common PluginProgress helper can report meaningful progress.
     const run_ctx_surface_generation *ctx = plugin_ctx_as_surface_generation(run_ctx);
     const Slic3r::PrintObject *object = ctx == nullptr ? nullptr : to_object(ctx->object);
     if (object != nullptr)
@@ -106,6 +126,9 @@ void DefaultSurfaceGenerator::run_impl(const plugin_run_context *run_ctx) const
     if (object == nullptr)
         return;
 
+    // One plugin run owns one PrintObject. Layers stay sequential inside the
+    // object because the underlying LayerRegion writes are object-local and
+    // cheap compared with the clipping itself.
     for (Slic3r::Layer &layer : object->layers()) {
         throw_if_cancelled(run_ctx);
         build_region_fill_surfaces(layer);
