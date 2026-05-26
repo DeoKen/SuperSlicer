@@ -26,6 +26,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 using namespace Slic3r;
 using namespace Slic3r::Test;
@@ -140,6 +141,39 @@ TEST_CASE("Plugin UI fragment rebuilds the original print layout", "[Api][UiLayo
         CAPTURE(expected.substr(diff_pos, 160));
     }
     REQUIRE(merged == expected);
+}
+
+TEST_CASE("Implemented plugin UI fragments are skipped during layout merge", "[Api][UiLayout]")
+{
+    ensure_api_test_runtime_initialized();
+    Orchestrator &orchestrator = Orchestrator::instance();
+    const char *target_file = "test_implemented_fragment.ui";
+    const char *fragment_id = "test.implemented.fragment";
+    const bool added = orchestrator.add_ui_fragment(
+        target_file,
+        fragment_id,
+        "page:Notes\n"
+        "group:insert$aftergroup$Existing group:Inserted group\n"
+        "line:inserted_line\n"
+        "setting:inserted_setting\n"
+        "end_line\n",
+        0);
+    REQUIRE((added || orchestrator.merged_ui_layout(target_file, "page:Notes\ngroup:Existing group\n").find("inserted_setting") != std::string::npos));
+
+    const std::string base =
+        "page:Notes\n"
+        "group:Existing group\n"
+        "line:existing_line\n"
+        "setting:existing_setting\n"
+        "end_line\n";
+
+    const std::string merged_with_fragment = orchestrator.merged_ui_layout(target_file, base);
+    REQUIRE(merged_with_fragment.find("inserted_setting") != std::string::npos);
+
+    const std::unordered_set<std::string> implemented_fragment_ids = { fragment_id };
+    const std::string merged_with_fragment_skipped =
+        orchestrator.merged_ui_layout(target_file, base, implemented_fragment_ids);
+    REQUIRE(merged_with_fragment_skipped == base);
 }
 
 SCENARIO("PrintObject: Perimeter generation") {

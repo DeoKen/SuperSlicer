@@ -184,14 +184,25 @@ Orchestrator::ui_fragments_for_file(const std::string &target_file) const
 
 std::string Orchestrator::merged_ui_layout(const std::string &target_file, const std::string &base_content) const
 {
+    static const std::unordered_set<std::string> empty_implemented_fragment_ids;
+    return this->merged_ui_layout(target_file, base_content, empty_implemented_fragment_ids);
+}
+
+std::string Orchestrator::merged_ui_layout(const std::string &target_file,
+                                           const std::string &base_content,
+                                           const std::unordered_set<std::string> &implemented_fragment_ids) const
+{
     const std::vector<PluginUiFragment> fragments = this->ui_fragments_for_file(target_file);
     if (fragments.empty())
         return base_content;
 
     UiLayoutMerger merger(target_file);
     merger.set_base(base_content);
-    for (const PluginUiFragment &fragment : fragments)
+    for (const PluginUiFragment &fragment : fragments) {
+        if (implemented_fragment_ids.find(fragment.fragment_id) != implemented_fragment_ids.end())
+            continue;
         merger.add_fragment(fragment.fragment_id, fragment.content, fragment.priority, fragment.order);
+    }
     return merger.merged();
 }
 

@@ -112,6 +112,9 @@ public:
                          int32_t priority);
     std::vector<PluginUiFragment> ui_fragments_for_file(const std::string &target_file) const;
     std::string merged_ui_layout(const std::string &target_file, const std::string &base_content) const;
+    std::string merged_ui_layout(const std::string &target_file,
+                                 const std::string &base_content,
+                                 const std::unordered_set<std::string> &implemented_fragment_ids) const;
     bool add_gui_rule(const raw_gui_rule *rule);
     const std::vector<PluginGuiRule> &gui_rules() const { return m_gui_rules; }
 

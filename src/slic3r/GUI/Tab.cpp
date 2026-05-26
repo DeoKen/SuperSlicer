@@ -62,7 +62,9 @@
 #include "Widgets/CheckBox.hpp"
 #include "WipeTowerDialog.hpp"
 
+#include <array>
 #include <sstream>
+#include <unordered_set>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -75,6 +77,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <wx/app.h>
 #include <wx/bmpcbox.h>
@@ -1931,10 +1935,73 @@ t_change Tab::set_or_add(t_change previous, t_change toadd) {
     };
 }
 
+static bool implemented_ui_fragment_value_is_enabled(const std::string &value)
+{
+    // The ini file is hand-editable, so accept the usual textual spellings for
+    // "this fragment is already implemented by the base layout".
+    return boost::algorithm::iequals(value, "1") ||
+           boost::algorithm::iequals(value, "true") ||
+           boost::algorithm::iequals(value, "yes") ||
+           boost::algorithm::iequals(value, "on") ||
+           boost::algorithm::iequals(value, "enabled");
+}
+
+static std::unordered_set<std::string> load_implemented_ui_fragments(const boost::filesystem::path &layout_dir,
+                                                                     const std::string &target_file)
+{
+    // Some layouts intentionally include controls that are normally supplied
+    // by plugin fragments. The ini sidecar lets the layout declare those
+    // fragment ids per UI file, keeping the merger from adding duplicates.
+    std::unordered_set<std::string> implemented_fragment_ids;
+    const boost::filesystem::path config_path = layout_dir / "implemented_fragments.ini";
+    if (!boost::filesystem::exists(config_path))
+        return implemented_fragment_ids;
+
+    boost::nowide::ifstream stream(config_path.string());
+    if (!stream) {
+        BOOST_LOG_TRIVIAL(warning) << "Cannot read implemented UI fragment configuration '"
+                                   << config_path.string() << "'.";
+        return implemented_fragment_ids;
+    }
+
+    boost::property_tree::ptree tree;
+    try {
+        boost::property_tree::read_ini(stream, tree);
+    } catch (const boost::property_tree::ini_parser_error &error) {
+        BOOST_LOG_TRIVIAL(warning) << "Cannot parse implemented UI fragment configuration '"
+                                   << config_path.string() << "': " << error.what();
+        return implemented_fragment_ids;
+    }
+
+    const std::string target_stem = boost::filesystem::path(target_file).stem().string();
+    const std::array<std::string, 2> section_names = { target_stem, target_file };
+    for (const std::string &section_name : section_names) {
+        // UI fragments are scoped by logical layout name, for example [print].
+        // [print.ui] is still accepted as a fallback, but the extension has no
+        // semantic value here. Use find() instead of get_child_optional():
+        // property_tree treats dots as path separators.
+        const boost::property_tree::ptree::const_assoc_iterator section = tree.find(section_name);
+        if (section == tree.not_found())
+            continue;
+
+        // Each enabled key names a plugin fragment already present in that base
+        // layout, so the fragment merger must not inject it a second time.
+        for (const boost::property_tree::ptree::value_type &entry : section->second) {
+            const std::string fragment_id = boost::algorithm::trim_copy(entry.first);
+            const std::string enabled = boost::algorithm::trim_copy(entry.second.get_value<std::string>());
+            if (!fragment_id.empty() && implemented_ui_fragment_value_is_enabled(enabled))
+                implemented_fragment_ids.insert(fragment_id);
+        }
+    }
+
+    return implemented_fragment_ids;
+}
+
 std::vector<Slic3r::GUI::PageShp> Tab::create_pages(std::string setting_type_name, int32_t idx_page, Preset::Type type_override)
 {
     //search for the file
-    const boost::filesystem::path ui_layout_file = Slic3r::GUI::get_app_config()->layout_config_path() / setting_type_name;
+    const boost::filesystem::path ui_layout_dir = Slic3r::GUI::get_app_config()->layout_config_path();
+    const boost::filesystem::path ui_layout_file = ui_layout_dir / setting_type_name;
     if (!boost::filesystem::exists(ui_layout_file)) {
         std::cerr << "Error: cannot create " << setting_type_name << "settings, cannot find file " << ui_layout_file << "\n";
         return {};
@@ -1971,7 +2038,12 @@ std::vector<Slic3r::GUI::PageShp> Tab::create_pages(std::string setting_type_nam
     std::ostringstream ui_layout_content;
     ui_layout_content << ui_layout_stream.rdbuf();
 
-    std::istringstream filestream(Orchestrator::instance().merged_ui_layout(setting_type_name, ui_layout_content.str()));
+    const std::unordered_set<std::string> implemented_fragment_ids =
+        load_implemented_ui_fragments(ui_layout_dir, setting_type_name);
+    std::istringstream filestream(Orchestrator::instance().merged_ui_layout(
+        setting_type_name,
+        ui_layout_content.str(),
+        implemented_fragment_ids));
     std::string full_line;
     while (std::getline(filestream, full_line)) {
         //remove spaces

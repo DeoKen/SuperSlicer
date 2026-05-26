@@ -10,6 +10,7 @@ group:Vertical shells
 	setting:spiral_vase
 	recommended_thin_wall_thickness_description
 group:Horizontal shells
+	setting:step_layer_height_plugin
 	line:Solid layers
 		setting:top_solid_layers
 		setting:label$Bottom:bottom_solid_layers
