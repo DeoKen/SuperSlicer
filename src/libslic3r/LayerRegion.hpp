@@ -207,6 +207,7 @@ public:
     const LayerRegionSetCPtrs &regions() const { return m_regions; }
 
     [[nodiscard]] const SurfaceCollection&          fill_surfaces() const { return m_fill_surfaces; }
+    [[nodiscard]] SurfaceCollection&                set_fill_surfaces() { return m_fill_surfaces; }
 
     // @Deprecated this is an algorithm, it should use the LayerRegionIsland, not be inside.
     void simplify_extrusion_entity(const Layer& layer);

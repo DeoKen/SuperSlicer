@@ -34,49 +34,61 @@ inline void validate_or_report(bool (*validator)(const Print &, std::string &),
 }
 
 template<class PayloadFactory>
+void run_object_step_plugin(Orchestrator &orchestrator,
+                            Print &print,
+                            slicing_step_t step,
+                            Plugin &plugin,
+                            size_t run_count,
+                            PayloadFactory payload_factory)
+{
+    assert(run_count <= UINT32_MAX);
+    plugin_host_context host_context = orchestrator.prepare_plugin_host_context(step, &plugin, &print);
+    host_context.object_count = run_count;
+    plugin_run_context run_context = orchestrator.prepare_plugin_run_context(step, &plugin, &host_context);
+    plugin.setup(run_context, uint32_t(run_count));
+
+    // Prepare every object payload before any object run starts. This gives
+    // plugins a deterministic discovery pass even if the host executes the
+    // per-object setup in parallel.
+    parallel_for(size_t(0), run_count, [&host_context, &payload_factory, &run_context, &plugin](const size_t idx) {
+        plugin_run_context context_copy = run_context;
+        plugin_host_context host_context_copy = host_context;
+        host_context_copy.object_idx = idx;
+        context_copy.host_context = &host_context_copy;
+        if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+            return;
+
+        decltype(payload_factory(idx)) payload = payload_factory(idx);
+        context_copy.data = &payload;
+        plugin.setup_run(context_copy);
+    });
+
+    parallel_for(size_t(0), run_count, [&host_context, &payload_factory, &run_context, &plugin](const size_t idx) {
+        plugin_run_context context_copy = run_context;
+        plugin_host_context host_context_copy = host_context;
+        host_context_copy.object_idx = idx;
+        context_copy.host_context = &host_context_copy;
+        if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+            return;
+
+        decltype(payload_factory(idx)) payload = payload_factory(idx);
+        context_copy.data = &payload;
+        plugin.run(context_copy);
+    });
+}
+
+template<class PayloadFactory>
 void run_object_step_plugins(Orchestrator &orchestrator,
                              Print &print,
                              slicing_step_t step,
                              size_t run_count,
                              PayloadFactory payload_factory)
 {
-    assert(run_count <= UINT32_MAX);
     std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(step);
 
     for (Plugin *plugin : plugins) {
-        plugin_host_context host_context = orchestrator.prepare_plugin_host_context(step, plugin, &print);
-        host_context.object_count = run_count;
-        plugin_run_context run_context = orchestrator.prepare_plugin_run_context(step, plugin, &host_context);
-        plugin->setup(run_context, uint32_t(run_count));
-
-        // Prepare every object payload before any object run starts. This gives
-        // plugins a deterministic discovery pass even if the host executes the
-        // per-object setup in parallel.
-        parallel_for(size_t(0), run_count, [&host_context, &payload_factory, &run_context, plugin](const size_t idx) {
-            plugin_run_context context_copy = run_context;
-            plugin_host_context host_context_copy = host_context;
-            host_context_copy.object_idx = idx;
-            context_copy.host_context = &host_context_copy;
-            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
-                return;
-
-            decltype(payload_factory(idx)) payload = payload_factory(idx);
-            context_copy.data = &payload;
-            plugin->setup_run(context_copy);
-        });
-
-        parallel_for(size_t(0), run_count, [&host_context, &payload_factory, &run_context, plugin](const size_t idx) {
-            plugin_run_context context_copy = run_context;
-            plugin_host_context host_context_copy = host_context;
-            host_context_copy.object_idx = idx;
-            context_copy.host_context = &host_context_copy;
-            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
-                return;
-
-            decltype(payload_factory(idx)) payload = payload_factory(idx);
-            context_copy.data = &payload;
-            plugin->run(context_copy);
-        });
+        if (plugin != nullptr)
+            run_object_step_plugin(orchestrator, print, step, *plugin, run_count, payload_factory);
     }
 }
 
