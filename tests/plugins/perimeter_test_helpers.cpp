@@ -120,6 +120,14 @@ void replace_layer_island(Layer &layer, const ExPolygon &area)
     layer.island(0).fill_regions(layer);
 }
 
+void replace_layer_islands(Layer &layer, ExPolygons areas)
+{
+    ApiInternal::LayerAccess::set_islands(layer, ExPolygons(areas));
+    set_region_areas(layer.region(0), std::move(areas));
+    for (LayerSliceIsland &island : layer.islands())
+        island.fill_regions(layer);
+}
+
 void rebuild_island_overlap_graph(PrintObject &object)
 {
     for (Layer &layer : object.layers())
@@ -157,9 +165,8 @@ void add_partitioned_region(PreparedPerimeterPrint &prepared,
     layer.island(0).fill_regions(layer);
 }
 
-PerimeterRunCapture run_active_perimeter_plugins(Print &print, LayerSliceIsland &island)
+PerimeterRunCapture capture_perimeter_outputs(const LayerSliceIsland &island)
 {
-    Orchestrator &orchestrator = Orchestrator::instance();
     PerimeterRunCapture capture;
     REQUIRE_FALSE(island.regions().empty());
     const LayerRegion &first_region = **island.regions().begin();
@@ -169,9 +176,6 @@ PerimeterRunCapture run_active_perimeter_plugins(Print &print, LayerSliceIsland 
     capture.external_perimeter_mm3_per_mm = external_flow.mm3_per_mm();
     capture.external_perimeter_width_mm = external_flow.width();
     capture.external_perimeter_height_mm = external_flow.height();
-
-    Steps::StepGeneratePerimeter::clean_and_prepare(print);
-    Steps::StepGeneratePerimeter::run_step(orchestrator, print);
 
     bool has_external_perimeters = false;
     for (const LayerRegionIsland &region_island : island.regions_islands())
@@ -186,6 +190,14 @@ PerimeterRunCapture run_active_perimeter_plugins(Print &print, LayerSliceIsland 
     capture.fill_surfaces.set(island.fill_expolygons(), stPosInternal | stDensSolid);
     capture.fill_no_overlap_surfaces.set(island.fill_no_overlap_expolygons(), stPosInternal | stDensSolid);
     return capture;
+}
+
+PerimeterRunCapture run_active_perimeter_plugins(Print &print, LayerSliceIsland &island)
+{
+    Orchestrator &orchestrator = Orchestrator::instance();
+    Steps::StepGeneratePerimeter::clean_and_prepare(print);
+    Steps::StepGeneratePerimeter::run_step(orchestrator, print);
+    return capture_perimeter_outputs(island);
 }
 
 size_t count_leaf_extrusions(const ExtrusionEntity &entity)
@@ -529,6 +541,32 @@ PerimeterRunCapture run_perimeter_case(
 
     ScopedActivePlugins active_scope(active_plugins);
     return run_active_perimeter_plugins(prepared.print, layer.island(0));
+}
+
+PerimeterMultiIslandRunCapture run_perimeter_multi_island_case(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> active_plugins,
+    const ExPolygons &areas,
+    const size_t layer_idx)
+{
+    PreparedPerimeterPrint prepared;
+    prepare_cube_print(prepared, config);
+    PrintObject &object = prepared.print.object(0);
+    REQUIRE(layer_idx < object.layer_count());
+    Layer &layer = object.layer(layer_idx);
+    replace_layer_islands(layer, areas);
+    rebuild_island_overlap_graph(object);
+
+    ScopedActivePlugins active_scope(active_plugins);
+    Orchestrator &orchestrator = Orchestrator::instance();
+    Steps::StepGeneratePerimeter::clean_and_prepare(prepared.print);
+    Steps::StepGeneratePerimeter::run_step(orchestrator, prepared.print);
+
+    PerimeterMultiIslandRunCapture out;
+    out.islands.reserve(layer.islands().size());
+    for (const LayerSliceIsland &island : layer.islands())
+        out.islands.push_back(capture_perimeter_outputs(island));
+    return out;
 }
 
 size_t external_perimeter_count(const PerimeterRunCapture &capture)

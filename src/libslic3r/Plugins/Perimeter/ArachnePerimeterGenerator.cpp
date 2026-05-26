@@ -234,19 +234,6 @@ int32_t generate_node(void *generator_context,
     if (area == nullptr || area->empty())
         return 1;
 
-    // The host seeds the root with one requested perimeter so the generator is
-    // called at least once. When the config asks for zero base perimeters, drop
-    // that traversal seed before honoring module-requested extras.
-    if (state->perimeter_count == 0 && node->perimeter_idx == 0 && node->perimeter_needed > 0)
-        --node->perimeter_needed;
-
-    if (state->perimeter_count == 0 && node->perimeter_needed == 0) {
-        node->perimeter_needed = 0;
-        *to_expolygons(inner_areas_out) = Slic3r::ExPolygons{ *area };
-        *to_expolygons(inner_fill_areas_out) = Slic3r::ExPolygons{ *area };
-        return 1;
-    }
-
     if (state->perimeter_count > 0)
         node->perimeter_needed = std::max<uint32_t>(node->perimeter_needed, uint32_t(state->perimeter_count));
     const bool is_external = node->perimeter_idx == 0;

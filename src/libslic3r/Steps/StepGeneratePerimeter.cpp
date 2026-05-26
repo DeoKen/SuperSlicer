@@ -73,11 +73,11 @@ struct PerimeterTreeNode
 
 struct PerimeterTree
 {
-    explicit PerimeterTree(const ExPolygon &root_area)
+    explicit PerimeterTree(const ExPolygon &root_area, uint32_t perimeter_needed)
         : root(root_area)
     {
         root.node.perimeter_idx = 0;
-        root.node.perimeter_needed = 1;
+        root.node.perimeter_needed = perimeter_needed;
         this->sync_c_pointers();
     }
 
@@ -183,6 +183,15 @@ uint16_t perimeter_extruder_id(const LayerRegionSetCPtrs &regions)
 
     const int16_t extruder_id = int16_t((*regions.begin())->region().config().perimeter_extruder) - 1;
     return extruder_id < 0 ? uint16_t(-1) : uint16_t(extruder_id);
+}
+
+uint32_t requested_perimeter_count(const LayerRegionSetCPtrs &regions)
+{
+    if (regions.empty())
+        return 0;
+
+    const int count = (*regions.begin())->region().config().perimeters.value;
+    return count <= 0 ? 0 : uint32_t(count);
 }
 
 void append_extrusion_children(ExtrusionEntityCollection &dst, ExtrusionEntity &src)
@@ -635,7 +644,7 @@ int32_t run_region_group_callback(const run_ctx_generate_perimeter *ctx,
 
     LayerRegionIsland &region_island =
         run.island->get_or_add_region_island(regions, perimeter_extruder_id(regions));
-    PerimeterTree tree(*root_expolygon);
+    PerimeterTree tree(*root_expolygon, requested_perimeter_count(regions));
     std::vector<PerimeterModuleRun> modules = create_perimeter_generation_modules(run);
     perimeter_generation_context generation_context =
         make_generation_context(run.generator_run_context,

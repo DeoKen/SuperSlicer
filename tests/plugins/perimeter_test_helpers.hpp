@@ -42,6 +42,11 @@ struct PerimeterRunCapture
     float external_perimeter_height_mm = 0.f;
 };
 
+struct PerimeterMultiIslandRunCapture
+{
+    std::vector<PerimeterRunCapture> islands;
+};
+
 struct VerticalSplitCounts
 {
     size_t left_only = 0;
@@ -79,6 +84,12 @@ PerimeterRunCapture run_perimeter_case(
     size_t layer_idx,
     std::initializer_list<std::pair<std::string, std::string>> region_overrides = {},
     const ExPolygon *region_area = nullptr);
+
+PerimeterMultiIslandRunCapture run_perimeter_multi_island_case(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> active_plugins,
+    const ExPolygons &areas,
+    size_t layer_idx);
 
 size_t external_perimeter_count(const PerimeterRunCapture &capture);
 const ExtrusionEntityCollection &external_perimeters(const PerimeterRunCapture &capture);

@@ -201,6 +201,85 @@ TEST_CASE("SimplePerimeterGenerator publishes perimeter and fill output", "[plug
     require_simple_generator_first_child_area_partition(generated, surface);
 }
 
+TEST_CASE("SimplePerimeterGenerator processes two layer islands independently", "[plugins][perimeter][simple-generator]")
+{
+    SECTION("single perimeter pass publishes output for both islands")
+    {
+        // The layer contains two disconnected islands in one region. The step
+        // must run the selected perimeter generator once for each island, and
+        // each island must receive fill areas clipped to its own geometry, not
+        // to the union of the whole layer.
+        const DynamicPrintConfig config = perimeter_config({{"perimeters", "1"}});
+        ExPolygons islands;
+        islands.push_back(rectangle_expolygon(-24., -5., -14., 5.));
+        islands.push_back(rectangle_expolygon(14., -4., 24., 4.));
+
+        const PerimeterMultiIslandRunCapture generated =
+            run_perimeter_multi_island_case(config, {SIMPLE_PERIMETER_GENERATOR}, islands, 0);
+
+        REQUIRE(generated.islands.size() == 2);
+        for (size_t island_idx = 0; island_idx < generated.islands.size(); ++island_idx) {
+            INFO("island " << island_idx);
+            CHECK(external_perimeter_count(generated.islands[island_idx]) == 1);
+            REQUIRE_FALSE(generated.islands[island_idx].fill_surfaces.empty());
+            REQUIRE_FALSE(generated.islands[island_idx].fill_no_overlap_surfaces.empty());
+            require_simple_generator_first_child_area_partition(generated.islands[island_idx], islands[island_idx]);
+        }
+    }
+
+    SECTION("nested perimeter tree is independent for each island")
+    {
+        // With three requested shells, both disconnected islands should publish
+        // their own root node and child chain. A bug in the pipeline would show
+        // up here as only the first island being processed, or both islands
+        // being flattened/merged into one tree.
+        const DynamicPrintConfig config = perimeter_config({{"perimeters", "3"}});
+        ExPolygons islands;
+        islands.push_back(rectangle_expolygon(-25., -6., -13., 6.));
+        islands.push_back(rectangle_expolygon(13., -6., 25., 6.));
+
+        const PerimeterMultiIslandRunCapture generated =
+            run_perimeter_multi_island_case(config, {SIMPLE_PERIMETER_GENERATOR}, islands, 0);
+
+        REQUIRE(generated.islands.size() == 2);
+        for (const PerimeterRunCapture &island_capture : generated.islands) {
+            CHECK(external_perimeter_count(island_capture) == 3);
+            require_published_tree_matches_perimeter_tree(island_capture, 3, 1);
+            require_leaf_fill_area_consistency(island_capture);
+        }
+    }
+
+    SECTION("plain island and holed island keep separate topology")
+    {
+        // The two islands deliberately have different topology: one plain
+        // rectangle and one rectangle with a stable hole. The simple generator
+        // should classify loops per island, so the plain island has only
+        // contour loops while the holed island has contour and hole loops.
+        const DynamicPrintConfig config = perimeter_config({{"perimeters", "2"}});
+        ExPolygons islands;
+        islands.push_back(rectangle_expolygon(-24., -8., -10., 8.));
+        islands.push_back(rectangle_with_hole(-3., -3., 3., 3.));
+        islands.back().translate(scale_i(17.), 0);
+
+        const PerimeterMultiIslandRunCapture generated =
+            run_perimeter_multi_island_case(config, {SIMPLE_PERIMETER_GENERATOR}, islands, 0);
+
+        REQUIRE(generated.islands.size() == 2);
+
+        const std::vector<SimpleLoopInfo> plain_loops = simple_loops(generated.islands[0]);
+        REQUIRE(plain_loops.size() == 2);
+        CHECK(loop_count_with_role(plain_loops, elrDefault) == 2);
+        CHECK(loop_count_with_role(plain_loops, elrHole) == 0);
+        require_published_tree_matches_perimeter_tree(generated.islands[0], 2, 1);
+
+        const std::vector<SimpleLoopInfo> holed_loops = simple_loops(generated.islands[1]);
+        REQUIRE(holed_loops.size() == 4);
+        CHECK(loop_count_with_role(holed_loops, elrDefault) == 2);
+        CHECK(loop_count_with_role(holed_loops, elrHole) == 2);
+        require_published_tree_matches_perimeter_tree(generated.islands[1], 2, 2);
+    }
+}
+
 TEST_CASE("SimplePerimeterGenerator writes loop and path properties", "[plugins][perimeter][simple-generator]")
 {
     SECTION("contour-only island has external flow and shell indices on every loop")
