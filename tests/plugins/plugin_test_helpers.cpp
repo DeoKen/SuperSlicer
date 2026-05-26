@@ -28,6 +28,7 @@
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/FFFPrintConfig.hpp"
+#include "libslic3r/Plugins/PluginLoader.hpp"
 #include "libslic3r/Plugins/Perimeter/ArachnePerimeterGenerator.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
@@ -226,7 +227,9 @@ void ensure_plugin_test_runtime_initialized()
         }
 #endif
 
+        register_exclusive_step_group_options(orchestrator);
         orchestrator.initialize_plugins();
+        register_exclusive_step_group_ui_fragments(orchestrator);
         initialize_fff_print_config_cache();
         initialize_sla_print_config_cache();
         PrintConfigDef::instance_mutable().finalize();

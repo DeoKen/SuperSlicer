@@ -516,7 +516,7 @@ const char *MaxOverhangThreshold::print_ui_fragment() noexcept
 {
     return "page:Slicing\n"
            "group:Modifying slices\n"
-           "line:insert$afterline$Convert round vertical holes to polyholes:Overhangs cut\n"
+           "line:Overhangs cut\n"
            "setting:overhangs_max_slope\n"
            "setting:overhangs_bridge_threshold\n"
            "setting:overhangs_bridge_upper_layers\n"
@@ -591,7 +591,7 @@ void MaxOverhangThreshold::inilialize_impl(storage_handle *) const
                                  "print.ui",
                                  k_max_overhang_threshold_id,
                                  MaxOverhangThreshold::print_ui_fragment(),
-                                 0);
+                                 1);
 
     raw_gui_rule rule = raw_gui_rule_init();
     rule.action = RAW_GUI_RULE_ACTION_ENABLE;

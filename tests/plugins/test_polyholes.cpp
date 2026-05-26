@@ -18,10 +18,16 @@
 #include "libslic3r/Steps/StepLayerHeightGeneration.hpp"
 #include "libslic3r/Steps/StepPostSlicing.hpp"
 #include "libslic3r/Steps/StepSlicing.hpp"
+#include "libslic3r/UiLayoutMerger.hpp"
+#include "plugins_cpp/Polyholes/Polyholes.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <fstream>
+#include <set>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -35,31 +41,71 @@ struct PolyholeOptionKeys
     const char *enabled_key;
     const char *threshold_key;
     const char *twisted_key;
+    const char *angle_start_key;
+    const char *selector_plugin_id;
 };
 
 const PolyholeOptionKeys cpp_polyhole_keys = {
     "C++ Polyholes",
     "hole_to_polyhole",
     "hole_to_polyhole_threshold",
-    "hole_to_polyhole_twisted"
+    "hole_to_polyhole_twisted",
+    nullptr,
+    nullptr
 };
 
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
 const PolyholeOptionKeys python_polyhole_keys[] = {
     {
         "Python low-level Polyholes",
-        "python_hole_to_polyhole",
-        "python_hole_to_polyhole_threshold",
-        "python_hole_to_polyhole_twisted"
+        "hole_to_polyhole",
+        "hole_to_polyhole_threshold",
+        "hole_to_polyhole_twisted",
+        "hole_to_polyhole_angle_start",
+        "python.polyholes"
     },
     {
         "Python high-level Polyholes",
-        "python_high_level_hole_to_polyhole",
-        "python_high_level_hole_to_polyhole_threshold",
-        "python_high_level_hole_to_polyhole_twisted"
+        "hole_to_polyhole",
+        "hole_to_polyhole_threshold",
+        "hole_to_polyhole_twisted",
+        nullptr,
+        "python.polyholes.high_level"
     }
 };
 #endif
+
+const char *k_polyholes_selector_key = "exclusive_group_300_polyholes_plugin";
+const char *k_polyholes_settings_fragment_id = "polyholes_settings";
+
+const char *python_polyholes_ui_fragment()
+{
+    return "page:Slicing\n"
+           "group:Modifying slices\n"
+           "line:insert$afterline$Vertical Hole shrinking compensation:Convert round vertical holes to polyholes\n"
+           "setting:label$_:hole_to_polyhole\n"
+           "setting:sidetext_width$5:hole_to_polyhole_threshold\n"
+           "setting:hole_to_polyhole_twisted\n"
+           "end_line\n";
+}
+
+const char *python_polyholes_exclusive_group_ui_fragment()
+{
+    return "page:Slicing\n"
+           "group:Modifying slices\n"
+           "line:insert$beforeline$Convert round vertical holes to polyholes:Polyholes plugin\n"
+           "setting:exclusive_group_300_polyholes_plugin\n"
+           "end_line\n";
+}
+
+const char *python_polyholes_angle_ui_fragment()
+{
+    return "page:Slicing\n"
+           "group:Modifying slices\n"
+           "line:Convert round vertical holes to polyholes\n"
+           "setting:insert$beforesetting$hole_to_polyhole_twisted:sidetext_width$5:hole_to_polyhole_angle_start\n"
+           "end_line\n";
+}
 
 Point scaled_point(const double x, const double y)
 {
@@ -113,7 +159,7 @@ DynamicPrintConfig polyhole_config(const PolyholeOptionKeys &keys, const bool tw
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
 
     DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
-    config.set_deserialize_strict({
+    std::vector<std::pair<std::string, std::string>> values = {
         {"first_layer_height", "1"},
         {keys.enabled_key, "1"},
         {keys.threshold_key, "0.1"},
@@ -122,7 +168,13 @@ DynamicPrintConfig polyhole_config(const PolyholeOptionKeys &keys, const bool tw
         {"nozzle_diameter", "0.4"},
         {"perimeters", "1"},
         {"resolution", "0.001"}
-    });
+    };
+    if (keys.angle_start_key != nullptr)
+        values.emplace_back(keys.angle_start_key, "0");
+    if (keys.selector_plugin_id != nullptr)
+        values.emplace_back(k_polyholes_selector_key, keys.selector_plugin_id);
+    for (const std::pair<std::string, std::string> &value : values)
+        config.set_deserialize_strict(value.first, value.second);
     return config;
 }
 
@@ -243,6 +295,54 @@ PolyholeRunResult run_polyhole_on_single_hole(const double radius_x_mm,
     return PolyholeRunResult{std::move(source_hole), std::move(layer_holes)};
 }
 
+std::string read_text_file(const std::string &path)
+{
+    std::ifstream file(path, std::ios::binary);
+    REQUIRE(file.good());
+    std::ostringstream content;
+    content << file.rdbuf();
+    return content.str();
+}
+
+struct UiFragmentForTest
+{
+    std::string id;
+    std::string content;
+    int32_t priority = 0;
+};
+
+std::string merge_polyhole_fragments_for_test(const std::vector<UiFragmentForTest> &fragments)
+{
+    const std::string base = read_text_file(std::string(TEST_DATA_DIR) + "/../../resources/ui_layout/default/print.ui");
+    UiLayoutMerger merger("print.ui");
+    merger.set_base(base);
+
+    // Orchestrator accepts only the first fragment for a target/id pair. This
+    // local helper mirrors that rule so the test can check that C++ and Python
+    // Polyholes produce the same final layout even if they are registered in a
+    // different order.
+    std::set<std::string> registered_ids;
+    uint64_t order = 0;
+    for (const UiFragmentForTest &fragment : fragments) {
+        if (!registered_ids.insert(fragment.id).second)
+            continue;
+        merger.add_fragment(fragment.id, fragment.content, fragment.priority, order++);
+    }
+
+    return merger.merged();
+}
+
+size_t occurrence_count(const std::string &text, const std::string &needle)
+{
+    size_t count = 0;
+    size_t pos = 0;
+    while ((pos = text.find(needle, pos)) != std::string::npos) {
+        ++count;
+        pos += needle.size();
+    }
+    return count;
+}
+
 } // namespace
 
 TEST_CASE("Polyholes converts round holes to polygons with the expected point count", "[plugins][polyholes]")
@@ -317,7 +417,74 @@ TEST_CASE("Polyholes rejects layer sections that are too oval", "[plugins][polyh
     CHECK(steep_counts[1] == source_point_count);
 }
 
+TEST_CASE("Polyhole UI fragments are stable when C++ and Python register the same line", "[plugins][polyholes][ui]")
+{
+    // All Polyholes variants provide the same exclusive-group selector
+    // fragment id, so only one selector is kept. They also share the same
+    // settings line fragment id; the Python-only angle setting is merged into
+    // that line afterwards.
+    const std::string cpp_then_python = merge_polyhole_fragments_for_test({
+        {"polyholes", slic3r_api::PolyholesPlugin::Polyholes::exclusive_group_ui_fragment(), 1},
+        {k_polyholes_settings_fragment_id, slic3r_api::PolyholesPlugin::Polyholes::print_ui_fragment(), 0},
+        {"polyholes", python_polyholes_exclusive_group_ui_fragment(), 1},
+        {k_polyholes_settings_fragment_id, python_polyholes_ui_fragment(), 0},
+        {"polyholes_angle_start", python_polyholes_angle_ui_fragment(), 1}
+    });
+
+    const std::string python_then_cpp = merge_polyhole_fragments_for_test({
+        {"polyholes", python_polyholes_exclusive_group_ui_fragment(), 1},
+        {k_polyholes_settings_fragment_id, python_polyholes_ui_fragment(), 0},
+        {"polyholes_angle_start", python_polyholes_angle_ui_fragment(), 1},
+        {"polyholes", slic3r_api::PolyholesPlugin::Polyholes::exclusive_group_ui_fragment(), 1},
+        {k_polyholes_settings_fragment_id, slic3r_api::PolyholesPlugin::Polyholes::print_ui_fragment(), 0}
+    });
+
+    CHECK(cpp_then_python == python_then_cpp);
+    CHECK(occurrence_count(cpp_then_python, "setting:label$_:hole_to_polyhole") == 1);
+    CHECK(occurrence_count(cpp_then_python, "hole_to_polyhole_angle_start") == 1);
+    CHECK(occurrence_count(cpp_then_python, k_polyholes_selector_key) == 1);
+
+    const size_t selector_pos = cpp_then_python.find(k_polyholes_selector_key);
+    const size_t angle_pos = cpp_then_python.find("hole_to_polyhole_angle_start");
+    const size_t twist_pos = cpp_then_python.find("hole_to_polyhole_twisted");
+    const size_t polyholes_pos = cpp_then_python.find("setting:label$_:hole_to_polyhole");
+    REQUIRE(selector_pos != std::string::npos);
+    REQUIRE(angle_pos != std::string::npos);
+    REQUIRE(twist_pos != std::string::npos);
+    REQUIRE(polyholes_pos != std::string::npos);
+    CHECK(selector_pos < polyholes_pos);
+    CHECK(angle_pos < twist_pos);
+}
+
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
+
+TEST_CASE("Python low-level Polyholes shares C++ option definitions and adds only its own angle option", "[plugins][polyholes][python][ui]")
+{
+    REQUIRE(Slic3r::Test::Plugins::python_plugin_test_runtime_available());
+
+    CHECK(PrintConfigDef::instance().get("hole_to_polyhole") != nullptr);
+    CHECK(PrintConfigDef::instance().get("hole_to_polyhole_threshold") != nullptr);
+    CHECK(PrintConfigDef::instance().get("hole_to_polyhole_twisted") != nullptr);
+    CHECK(PrintConfigDef::instance().get("hole_to_polyhole_angle_start") != nullptr);
+    CHECK(PrintConfigDef::instance().get("python_hole_to_polyhole") == nullptr);
+    CHECK(PrintConfigDef::instance().get("python_hole_to_polyhole_threshold") == nullptr);
+    CHECK(PrintConfigDef::instance().get("python_hole_to_polyhole_twisted") == nullptr);
+    CHECK(PrintConfigDef::instance().get("python_high_level_hole_to_polyhole") == nullptr);
+    CHECK(PrintConfigDef::instance().get("python_high_level_hole_to_polyhole_threshold") == nullptr);
+    CHECK(PrintConfigDef::instance().get("python_high_level_hole_to_polyhole_twisted") == nullptr);
+
+    const std::string base = read_text_file(std::string(TEST_DATA_DIR) + "/../../resources/ui_layout/default/print.ui");
+    const std::string merged = Orchestrator::instance().merged_ui_layout("print.ui", base);
+    CHECK(occurrence_count(merged, "setting:label$_:hole_to_polyhole") == 1);
+    CHECK(occurrence_count(merged, "hole_to_polyhole_angle_start") == 1);
+    CHECK(occurrence_count(merged, k_polyholes_selector_key) == 1);
+
+    const size_t selector_pos = merged.find(k_polyholes_selector_key);
+    const size_t polyholes_pos = merged.find("setting:label$_:hole_to_polyhole");
+    REQUIRE(selector_pos != std::string::npos);
+    REQUIRE(polyholes_pos != std::string::npos);
+    CHECK(selector_pos < polyholes_pos);
+}
 
 TEST_CASE("Python Polyholes converts round holes to polygons with the expected point count", "[plugins][polyholes][python]")
 {

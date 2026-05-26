@@ -14,9 +14,29 @@ class path;
 
 namespace Slic3r {
 
+class Orchestrator;
+
 // Register built-in plugins, load plugin libraries from the runtime plugin
 // repository, activate the configured subset, then initialize active plugins.
 void load_plugins();
+
+// Register selector settings for active exclusive plugin groups.
+//
+// This runs before plugin initialization so plugins may refer to the selector
+// setting from their own UI fragments. The matching UI fallback is registered
+// later, after plugins had a chance to provide a group-specific fragment.
+void register_exclusive_step_group_options(Orchestrator &orchestrator);
+
+// Register fallback UI fragments for active exclusive plugin groups.
+//
+// The fragment id is always the exclusive group id. If a plugin already
+// registered a better placed fragment with that id, the fallback is ignored by
+// Orchestrator's normal fragment de-duplication.
+void register_exclusive_step_group_ui_fragments(Orchestrator &orchestrator);
+
+// Compatibility helper for tests or small tools that do not need to inject
+// custom fragments between option creation and fallback registration.
+void register_exclusive_step_groups(Orchestrator &orchestrator);
 
 } // namespace Slic3r
 

@@ -357,7 +357,7 @@ void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
     }
 }
 
-void register_exclusive_step_groups(Orchestrator &orchestrator)
+void register_exclusive_step_group_options_impl(Orchestrator &orchestrator)
 {
     for (Steps::StepExclusivePluginGroup plugin_group : Steps::active_exclusive_plugin_groups(orchestrator)) {
         std::vector<std::pair<std::string, std::string>> plugin_ids_and_labels;
@@ -368,14 +368,41 @@ void register_exclusive_step_groups(Orchestrator &orchestrator)
         Steps::StepExclusiveGroup &group = plugin_group.group;
         group.set_enum_plugins(plugin_ids_and_labels);
         orchestrator.create_new_print_config(&group.option_def);
-        orchestrator.add_ui_fragment("print.ui", group.option_def.opt_key, group.ui_fragment.c_str(), 0);
         add_exclusive_step_used_setting_rules(orchestrator, group, plugin_group.plugins);
         for (const raw_gui_rule &rule : group.gui_activation_rules)
             orchestrator.add_gui_rule(&rule);
     }
 }
 
+void register_exclusive_step_group_ui_fragments_impl(Orchestrator &orchestrator)
+{
+    for (Steps::StepExclusivePluginGroup plugin_group : Steps::active_exclusive_plugin_groups(orchestrator)) {
+        // The fragment id is the group id, not the generated option key. This
+        // lets several plugins in the same group provide the same placement
+        // fragment while keeping de-duplication stable and independent from the
+        // generated setting name.
+        const Steps::StepExclusiveGroup &group = plugin_group.group;
+        orchestrator.add_ui_fragment("print.ui", group.group_id.c_str(), group.ui_fragment.c_str(), 0);
+    }
+}
+
 } // namespace
+
+void register_exclusive_step_group_options(Orchestrator &orchestrator)
+{
+    register_exclusive_step_group_options_impl(orchestrator);
+}
+
+void register_exclusive_step_group_ui_fragments(Orchestrator &orchestrator)
+{
+    register_exclusive_step_group_ui_fragments_impl(orchestrator);
+}
+
+void register_exclusive_step_groups(Orchestrator &orchestrator)
+{
+    register_exclusive_step_group_options_impl(orchestrator);
+    register_exclusive_step_group_ui_fragments_impl(orchestrator);
+}
 
 void load_plugins()
 {
@@ -395,9 +422,10 @@ void load_plugins()
                             << (active_plugins_loaded_from_user_config ? active_plugin_config_path(config_dir).string() :
                                 default_active_plugin_config_path().string()) << ".";
     activate_plugins_from_ids(orchestrator, active_plugin_ids, active_plugins_loaded_from_user_config);
-    register_exclusive_step_groups(orchestrator);
+    register_exclusive_step_group_options_impl(orchestrator);
 
     orchestrator.initialize_plugins();
+    register_exclusive_step_group_ui_fragments_impl(orchestrator);
     //note: --loglevel 4 is read too late for this log, use $env:SLIC3R_LOGLEVEL = "4" (or SLIC3R_LOGLEVEL=4 in visual studio environement line)
     BOOST_LOG_TRIVIAL(debug) << "Loaded the entire plugin library in "
                              << elapsed_ms(start).count() << " ms.";

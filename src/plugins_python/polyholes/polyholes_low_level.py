@@ -6,10 +6,11 @@
 """
 Python port of the Polyholes plugin.
 
-The native Polyholes plugin is still present in this build, so this Python
-version uses its own option keys prefixed with "python_". That makes it possible
-to enable and compare the Python implementation without colliding with the C++
-plugin registration.
+This low-level version intentionally shares the normal Polyholes option keys
+with the C++ plugin. The host treats compatible option definitions as
+idempotent, so either plugin may be initialized first. The Python plugin adds
+one extra option, hole_to_polyhole_angle_start, to exercise plugin-specific
+settings inside the shared UI line.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from slic3r_api import (
     CPoint,
     PluginBase,
     RAW_CO_BOOL,
+    RAW_CO_FLOAT,
     RAW_CO_FLOAT_OR_PERCENT,
     RAW_CONFIG_OPTION_MODE_ADV_EXP,
     RAW_CONFIG_OPTION_MODE_EXPERT,
@@ -44,9 +46,13 @@ from slic3r_api import (
 )
 
 
-POLYHOLES_KEY = "python_hole_to_polyhole"
-POLYHOLES_THRESHOLD_KEY = "python_hole_to_polyhole_threshold"
-POLYHOLES_TWISTED_KEY = "python_hole_to_polyhole_twisted"
+POLYHOLES_KEY = "hole_to_polyhole"
+POLYHOLES_THRESHOLD_KEY = "hole_to_polyhole_threshold"
+POLYHOLES_TWISTED_KEY = "hole_to_polyhole_twisted"
+POLYHOLES_ANGLE_START_KEY = "hole_to_polyhole_angle_start"
+POLYHOLES_EXCLUSIVE_GROUP = "polyholes"
+POLYHOLES_SELECTOR_KEY = "exclusive_group_300_polyholes_plugin"
+POLYHOLES_SETTINGS_FRAGMENT_ID = "polyholes_settings"
 
 
 @dataclass
@@ -56,6 +62,7 @@ class HoleData:
     extruder_id: int
     max_deviation_scaled: int
     twist: bool
+    angle_start_rad: float
     points_scaled: list[CPoint]
     layer_region_idx: int
 
@@ -87,7 +94,15 @@ def _points_equal(lhs: list[CPoint], rhs: list[CPoint]) -> bool:
     return all(a.x == b.x and a.y == b.y for a, b in zip(lhs, rhs))
 
 
-def _create_polyholes(api, storage_address: int, center_scaled: CPoint, radius_scaled: float, nozzle_diameter_scaled: int, twist: bool) -> list[int]:
+def _create_polyholes(
+    api,
+    storage_address: int,
+    center_scaled: CPoint,
+    radius_scaled: float,
+    nozzle_diameter_scaled: int,
+    twist: bool,
+    angle_start_rad: float,
+) -> list[int]:
     if nozzle_diameter_scaled <= 0:
         nozzle_diameter_scaled = 1
     radius_mm = unscaled(radius_scaled)
@@ -102,7 +117,7 @@ def _create_polyholes(api, storage_address: int, center_scaled: CPoint, radius_s
         polygon_idx = poly_idx // 2 if poly_idx % 2 == 0 else (polyhole_count + 1) // 2 + poly_idx // 2
         polygon = polygons[polygon_idx]
         for edge_idx in range(edge_count):
-            angle_rad = rotation_rad * poly_idx + 2.0 * math.pi * edge_idx / edge_count
+            angle_rad = angle_start_rad + rotation_rad * poly_idx + 2.0 * math.pi * edge_idx / edge_count
             x_scaled = round_coord(float(center_scaled.x) + new_radius_scaled * math.cos(angle_rad))
             y_scaled = round_coord(float(center_scaled.y) + new_radius_scaled * math.sin(angle_rad))
             api.polygon_push_back(
@@ -128,7 +143,16 @@ class PythonPolyholesPlugin(PluginBase):
             STEP_POST_SLICING,
             name="Python polyholes",
             description="Low-level Python version of the polyholes post-slicing plugin.",
-            priority=0,
+            priority=10,
+            exclusive_group=POLYHOLES_EXCLUSIVE_GROUP,
+            exclusive_group_label="Polyholes plugin",
+            exclusive_group_tooltip="Choose which active plugin converts round vertical holes to polyholes.",
+            used_config_keys=[
+                POLYHOLES_KEY,
+                POLYHOLES_THRESHOLD_KEY,
+                POLYHOLES_TWISTED_KEY,
+                POLYHOLES_ANGLE_START_KEY,
+            ],
         )
         self.api = api
 
@@ -139,13 +163,14 @@ class PythonPolyholesPlugin(PluginBase):
             container_type=RAW_CONTAINER_TYPE_REGION,
             option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
             printer_technology=RAW_PT_FFF,
-            label="Python: Convert round holes to polyholes",
-            full_label="Python: Convert round holes to polyholes",
+            label="Convert round holes to polyholes",
+            full_label="Convert round holes to polyholes",
             category=RAW_OPTION_CATEGORY_SLICING,
             invalidates_step=STEP_SLICING,
             tooltip=(
-                "Search for almost-circular holes that span more than one layer and convert the geometry "
-                "to polyholes. This is the Python plugin version."
+                "Search for almost-circular holes that span more than one layer and convert the geometry to polyholes."
+                " Use the nozzle size and the (biggest) diameter to compute the polyhole."
+                "\nSee http://hydraraptor.blogspot.com/2011/02/polyholes.html"
             ),
             mode=RAW_CONFIG_OPTION_MODE_ADV_EXP | RAW_CONFIG_OPTION_MODE_SUSI,
             default_serialized_value="0",
@@ -156,13 +181,15 @@ class PythonPolyholesPlugin(PluginBase):
             container_type=RAW_CONTAINER_TYPE_REGION,
             option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
             printer_technology=RAW_PT_FFF,
-            label="Python roundness margin",
-            full_label="Python polyhole detection margin",
+            label="Roundness margin",
+            full_label="Polyhole detection margin",
             category=RAW_OPTION_CATEGORY_SLICING,
             invalidates_step=STEP_SLICING,
             tooltip=(
-                "Maximum deflection of a point to the estimated radius of the circle.\n"
-                "In mm or in % of the radius."
+                "Maximum deflection of a point to the estimated radius of the circle."
+                "\nAs cylinders are often exported as triangles of varying size, points may not be on the circle circumference."
+                " This setting allows you some leeway to broaden the detection."
+                "\nIn mm or in % of the radius."
             ),
             sidetext="mm or %",
             has_max_literal=1,
@@ -177,26 +204,61 @@ class PythonPolyholesPlugin(PluginBase):
             container_type=RAW_CONTAINER_TYPE_REGION,
             option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
             printer_technology=RAW_PT_FFF,
-            label="Python twisting",
-            full_label="Python polyhole twist",
+            label="Twisting",
+            full_label="Polyhole twist",
             category=RAW_OPTION_CATEGORY_SLICING,
             invalidates_step=STEP_SLICING,
-            tooltip="Rotate the Python-generated polyhole every layer.",
+            tooltip="Rotate the polyhole every layer.",
             mode=RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI,
             default_serialized_value="1",
+        )
+        self.api.create_option_def(
+            opt_key=POLYHOLES_ANGLE_START_KEY,
+            type=RAW_CO_FLOAT,
+            container_type=RAW_CONTAINER_TYPE_REGION,
+            option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
+            printer_technology=RAW_PT_FFF,
+            label="Start angle",
+            full_label="Polyhole start angle",
+            category=RAW_OPTION_CATEGORY_SLICING,
+            invalidates_step=STEP_SLICING,
+            tooltip="Initial rotation angle applied to Python-generated polyholes.",
+            sidetext="deg",
+            mode=RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI,
+            default_serialized_value="0",
         )
 
         self.api.add_ui_fragment(
             "print.ui",
-            "python_polyholes",
+            POLYHOLES_EXCLUSIVE_GROUP,
             "page:Slicing\n"
             "group:Modifying slices\n"
-            "line:insert$afterline$Convert round vertical holes to polyholes:Python polyholes\n"
+            "line:insert$beforeline$Convert round vertical holes to polyholes:Polyholes plugin\n"
+            f"setting:{POLYHOLES_SELECTOR_KEY}\n"
+            "end_line\n",
+            priority=1,
+        )
+        self.api.add_ui_fragment(
+            "print.ui",
+            POLYHOLES_SETTINGS_FRAGMENT_ID,
+            "page:Slicing\n"
+            "group:Modifying slices\n"
+            "line:insert$afterline$Vertical Hole shrinking compensation:Convert round vertical holes to polyholes\n"
             f"setting:label$_:{POLYHOLES_KEY}\n"
             f"setting:sidetext_width$5:{POLYHOLES_THRESHOLD_KEY}\n"
             f"setting:{POLYHOLES_TWISTED_KEY}\n"
             "end_line\n",
-            priority=10,
+            priority=0,
+        )
+        self.api.add_ui_fragment(
+            "print.ui",
+            "polyholes_angle_start",
+            "page:Slicing\n"
+            "group:Modifying slices\n"
+            "line:Convert round vertical holes to polyholes\n"
+            f"setting:insert$beforesetting${POLYHOLES_TWISTED_KEY}:sidetext_width$5:{POLYHOLES_ANGLE_START_KEY}\n"
+            "end_line\n",
+            priority=1,
         )
         self.api.add_gui_rule(
             target_key=POLYHOLES_THRESHOLD_KEY,
@@ -206,6 +268,12 @@ class PythonPolyholesPlugin(PluginBase):
         )
         self.api.add_gui_rule(
             target_key=POLYHOLES_TWISTED_KEY,
+            condition_key=POLYHOLES_KEY,
+            action=RAW_GUI_RULE_ACTION_ENABLE,
+            condition=RAW_GUI_RULE_CONDITION_BOOL_TRUE,
+        )
+        self.api.add_gui_rule(
+            target_key=POLYHOLES_ANGLE_START_KEY,
             condition_key=POLYHOLES_KEY,
             action=RAW_GUI_RULE_ACTION_ENABLE,
             condition=RAW_GUI_RULE_CONDITION_BOOL_TRUE,
@@ -236,6 +304,7 @@ class PythonPolyholesPlugin(PluginBase):
                     continue
 
                 twist = self.api.config_bool(region_config, POLYHOLES_TWISTED_KEY)
+                angle_start_rad = math.radians(self.api.config_float(region_config, POLYHOLES_ANGLE_START_KEY))
                 perimeter_extruder = self.api.config_int(region_config, "perimeter_extruder") - 1
                 region_slices = self.api.host.layer_region_get_slices(layer_region)
                 for expolygon in self.api.expolygons(region_slices):
@@ -280,6 +349,7 @@ class PythonPolyholesPlugin(PluginBase):
                                 extruder_id=perimeter_extruder,
                                 max_deviation_scaled=max_variation_scaled,
                                 twist=twist,
+                                angle_start_rad=angle_start_rad,
                                 points_scaled=points_scaled,
                                 layer_region_idx=region_idx,
                             ))
@@ -302,6 +372,7 @@ class PythonPolyholesPlugin(PluginBase):
                 through_hole.hole_data.max_radius_scaled,
                 nozzle_diameter_scaled,
                 through_hole.hole_data.twist,
+                through_hole.hole_data.angle_start_rad,
             )
             for layer_hole in through_hole.layers:
                 mutable_layer = self.api.host.object_get_layer_mutable(ctx.object, layer_hole.layer_idx)

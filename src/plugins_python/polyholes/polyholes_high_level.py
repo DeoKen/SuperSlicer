@@ -9,7 +9,9 @@ Polyholes plugin written against the high-level Python helpers.
 This file intentionally avoids raw api.host calls and raw geometry handles. It
 is meant as a readable example of how a Python plugin can walk the data tree,
 inspect configs, edit mutable raw slices and keep host caches consistent through
-the view layer.
+the view layer. It shares the normal Polyholes settings and exclusive group so
+the host selector can choose between the C++, low-level Python and high-level
+Python implementations.
 """
 
 from __future__ import annotations
@@ -42,9 +44,12 @@ from slic3r_api import (
 )
 
 
-POLYHOLES_KEY = "python_high_level_hole_to_polyhole"
-POLYHOLES_THRESHOLD_KEY = "python_high_level_hole_to_polyhole_threshold"
-POLYHOLES_TWISTED_KEY = "python_high_level_hole_to_polyhole_twisted"
+POLYHOLES_KEY = "hole_to_polyhole"
+POLYHOLES_THRESHOLD_KEY = "hole_to_polyhole_threshold"
+POLYHOLES_TWISTED_KEY = "hole_to_polyhole_twisted"
+POLYHOLES_EXCLUSIVE_GROUP = "polyholes"
+POLYHOLES_SELECTOR_KEY = "exclusive_group_300_polyholes_plugin"
+POLYHOLES_SETTINGS_FRAGMENT_ID = "polyholes_settings"
 
 
 @dataclass
@@ -123,7 +128,15 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
             STEP_POST_SLICING,
             name="Python polyholes high-level",
             description="High-level Python version of the polyholes post-slicing plugin.",
-            priority=0,
+            priority=20,
+            exclusive_group=POLYHOLES_EXCLUSIVE_GROUP,
+            exclusive_group_label="Polyholes plugin",
+            exclusive_group_tooltip="Choose which active plugin converts round vertical holes to polyholes.",
+            used_config_keys=[
+                POLYHOLES_KEY,
+                POLYHOLES_THRESHOLD_KEY,
+                POLYHOLES_TWISTED_KEY,
+            ],
         )
         self.api = api
 
@@ -134,13 +147,14 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
             container_type=RAW_CONTAINER_TYPE_REGION,
             option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
             printer_technology=RAW_PT_FFF,
-            label="Python high level: Convert round holes to polyholes",
-            full_label="Python high level: Convert round holes to polyholes",
+            label="Convert round holes to polyholes",
+            full_label="Convert round holes to polyholes",
             category=RAW_OPTION_CATEGORY_SLICING,
             invalidates_step=STEP_SLICING,
             tooltip=(
-                "Search for almost-circular holes that span more than one layer and convert the geometry "
-                "to polyholes. This version uses the high-level Python helpers."
+                "Search for almost-circular holes that span more than one layer and convert the geometry to polyholes."
+                " Use the nozzle size and the (biggest) diameter to compute the polyhole."
+                "\nSee http://hydraraptor.blogspot.com/2011/02/polyholes.html"
             ),
             mode=RAW_CONFIG_OPTION_MODE_ADV_EXP | RAW_CONFIG_OPTION_MODE_SUSI,
             default_serialized_value="0",
@@ -151,13 +165,15 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
             container_type=RAW_CONTAINER_TYPE_REGION,
             option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
             printer_technology=RAW_PT_FFF,
-            label="Python high level roundness margin",
-            full_label="Python high level polyhole detection margin",
+            label="Roundness margin",
+            full_label="Polyhole detection margin",
             category=RAW_OPTION_CATEGORY_SLICING,
             invalidates_step=STEP_SLICING,
             tooltip=(
-                "Maximum deflection of a point to the estimated radius of the circle.\n"
-                "In mm or in % of the radius."
+                "Maximum deflection of a point to the estimated radius of the circle."
+                "\nAs cylinders are often exported as triangles of varying size, points may not be on the circle circumference."
+                " This setting allows you some leeway to broaden the detection."
+                "\nIn mm or in % of the radius."
             ),
             sidetext="mm or %",
             has_max_literal=1,
@@ -172,26 +188,36 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
             container_type=RAW_CONTAINER_TYPE_REGION,
             option_preset_type=RAW_PRESET_TYPE_FFF_PRINT,
             printer_technology=RAW_PT_FFF,
-            label="Python high level twisting",
-            full_label="Python high level polyhole twist",
+            label="Twisting",
+            full_label="Polyhole twist",
             category=RAW_OPTION_CATEGORY_SLICING,
             invalidates_step=STEP_SLICING,
-            tooltip="Rotate the Python-view-generated polyhole every layer.",
+            tooltip="Rotate the polyhole every layer.",
             mode=RAW_CONFIG_OPTION_MODE_EXPERT | RAW_CONFIG_OPTION_MODE_SUSI,
             default_serialized_value="1",
         )
 
         self.api.add_ui_fragment(
             "print.ui",
-            "python_polyholes_high_level",
+            POLYHOLES_EXCLUSIVE_GROUP,
             "page:Slicing\n"
             "group:Modifying slices\n"
-            "line:insert$afterline$Convert round vertical holes to polyholes:Python polyholes high level\n"
+            "line:insert$beforeline$Convert round vertical holes to polyholes:Polyholes plugin\n"
+            f"setting:{POLYHOLES_SELECTOR_KEY}\n"
+            "end_line\n",
+            priority=1,
+        )
+        self.api.add_ui_fragment(
+            "print.ui",
+            POLYHOLES_SETTINGS_FRAGMENT_ID,
+            "page:Slicing\n"
+            "group:Modifying slices\n"
+            "line:insert$afterline$Vertical Hole shrinking compensation:Convert round vertical holes to polyholes\n"
             f"setting:label$_:{POLYHOLES_KEY}\n"
             f"setting:sidetext_width$5:{POLYHOLES_THRESHOLD_KEY}\n"
             f"setting:{POLYHOLES_TWISTED_KEY}\n"
             "end_line\n",
-            priority=11,
+            priority=0,
         )
         self.api.add_gui_rule(
             target_key=POLYHOLES_THRESHOLD_KEY,

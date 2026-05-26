@@ -61,8 +61,12 @@ LayerUPtrs new_layers(PrintObject *print_object, const std::vector<double> &obje
 namespace Slic3r::Steps {
 namespace {
 
-std::string exclusive_group_ui_fragment(const std::string &key, const std::string &line_label)
+std::string exclusive_group_ui_fragment(const std::string &key,
+                                        const std::string &line_label)
 {
+    // This is the neutral fallback for exclusive groups that do not provide
+    // their own placement fragment. Feature plugins may register a fragment
+    // with the same group id to put the selector next to their settings.
     return std::string("page:Notes\n") +
            "group:Exclusive step plugins\n" +
            "line:" + line_label + "\n" +

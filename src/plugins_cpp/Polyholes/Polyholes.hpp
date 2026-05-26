@@ -18,6 +18,7 @@ class Polyholes : public PluginBase
 {
 public:
     static Polyholes &instance(orchestrator_handle *orch);
+    static const char *exclusive_group_ui_fragment() noexcept;
     static const char *print_ui_fragment() noexcept;
 
 private:
@@ -26,9 +27,13 @@ private:
     const char *id_impl() const noexcept override;
     const char *name_impl() const noexcept override;
     const char *description_impl() const noexcept override;
+    const char *exclusive_group_impl() const noexcept override;
+    const char *exclusive_group_label_impl() const noexcept override;
+    const char *exclusive_group_tooltip_impl() const noexcept override;
     slicing_step_t step_impl() const noexcept override;
     const char *const *dependencies_impl() const noexcept override;
     int32_t priority_impl() const noexcept override;
+    int32_t used_config_keys(const char **keys) const noexcept override;
     const char *progress_message_format_impl() const noexcept override;
     void inilialize_impl(storage_handle *storage) const override;
     void setup_impl(const plugin_run_context *run_ctx, uint32_t run_count) const override;

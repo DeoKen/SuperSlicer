@@ -14,6 +14,7 @@
 #include <libslic3r/Api/plugin/c/slic3r_plugin.h>
 #include <libslic3r/Plugins/GuiRulesExample.hpp>
 #include <libslic3r/Plugins/MaxOverhangThreshold.hpp>
+#include <libslic3r/Plugins/PluginLoader.hpp>
 #include <libslic3r/Plugins/SliceVolume.hpp>
 #include <libslic3r/Plugins/StandardLayerHeightGenerator.hpp>
 #include <libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp>
@@ -57,7 +58,9 @@ void ensure_api_test_runtime_initialized()
         REQUIRE(Orchestrator::instance().set_plugin_active("max_overhang_threshold", true));
         REQUIRE(Orchestrator::instance().set_plugin_active("support.demand.bridge_removal", true));
 
+        register_exclusive_step_group_options(Orchestrator::instance());
         Orchestrator::instance().initialize_plugins();
+        register_exclusive_step_group_ui_fragments(Orchestrator::instance());
         initialize_fff_print_config_cache();
         initialize_sla_print_config_cache();
         PrintConfigDef::instance_mutable().finalize();
