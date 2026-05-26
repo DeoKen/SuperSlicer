@@ -272,7 +272,11 @@ class Slic3rAPI:
             else:
                 setattr(defn, key, value)
 
-        return self.host.orchestrator_create_option_def(self.orchestrator, ctypes.byref(defn))
+        result = self.host.orchestrator_create_option_def(self.orchestrator, ctypes.byref(defn))
+        if result != OPTION_DEF_ERROR_OK:
+            option_key = kwargs.get("opt_key", "<unknown>")
+            raise RuntimeError(f"Cannot register config option '{option_key}': error {result}")
+        return result
 
     def storage_new_polygon(self, storage_address: int) -> int:
         return int(self.host.storage_new_polygon(ctypes.c_void_p(storage_address)) or 0)

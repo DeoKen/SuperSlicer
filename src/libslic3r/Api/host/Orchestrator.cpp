@@ -6,9 +6,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -73,6 +75,198 @@ static ConfigOptionType config_option_type(raw_config_option_type type)
     }
 }
 
+static bool string_vector_equal(const std::vector<std::string> &lhs, const std::vector<std::string> &rhs)
+{
+    return lhs == rhs;
+}
+
+static bool optional_double_equal(const double lhs, const double rhs)
+{
+    return std::abs(lhs - rhs) < 1e-12;
+}
+
+static std::string config_option_def_default_serialized(const ConfigOptionDef &def)
+{
+    return def.default_value ? def.default_value->serialize() : std::string();
+}
+
+static bool enum_def_equal(const ConfigOptionDef &lhs, const ConfigOptionDef &rhs)
+{
+    if (lhs.enum_def.get() == nullptr || rhs.enum_def.get() == nullptr)
+        return lhs.enum_def.get() == nullptr && rhs.enum_def.get() == nullptr;
+
+    return lhs.enum_def->values() == rhs.enum_def->values() &&
+           lhs.enum_def->labels() == rhs.enum_def->labels();
+}
+
+static bool config_option_def_compatible(const ConfigOptionDef &existing,
+                                         const ConfigOptionDef &candidate,
+                                         std::string *reason)
+{
+    const auto fail = [reason](const char *field) {
+        if (reason != nullptr)
+            *reason = field;
+        return false;
+    };
+
+    if (existing.type != candidate.type) return fail("type");
+    if (existing.category != candidate.category) return fail("category");
+    if (existing.gui_type != candidate.gui_type) return fail("gui_type");
+    if (existing.printer_technology != candidate.printer_technology) return fail("printer_technology");
+    if (existing.container_type != candidate.container_type) return fail("container_type");
+    if (existing.option_preset_type != candidate.option_preset_type) return fail("option_preset_type");
+    if (existing.invalidates_step != candidate.invalidates_step) return fail("invalidates_step");
+    if (existing.is_optional != candidate.is_optional) return fail("is_optional");
+    if (existing.can_be_disabled != candidate.can_be_disabled) return fail("can_be_disabled");
+    if (existing.multiline != candidate.multiline) return fail("multiline");
+    if (existing.full_width != candidate.full_width) return fail("full_width");
+    if (existing.is_code != candidate.is_code) return fail("is_code");
+    if (existing.is_vector_extruder != candidate.is_vector_extruder) return fail("is_vector_extruder");
+    if (existing.readonly != candidate.readonly) return fail("readonly");
+    if (existing.can_phony != candidate.can_phony) return fail("can_phony");
+    if (existing.aligned_label_left != candidate.aligned_label_left) return fail("aligned_label_left");
+    if (existing.gui_flags != candidate.gui_flags) return fail("gui_flags");
+    if (existing.label != candidate.label) return fail("label");
+    if (existing.full_label != candidate.full_label) return fail("full_label");
+    if (existing.tooltip != candidate.tooltip) return fail("tooltip");
+    if (existing.sidetext != candidate.sidetext) return fail("sidetext");
+    if (existing.cli != candidate.cli) return fail("cli");
+    if (existing.ratio_over != candidate.ratio_over) return fail("ratio_over");
+    if (existing.height != candidate.height) return fail("height");
+    if (existing.width != candidate.width) return fail("width");
+    if (existing.label_width != candidate.label_width) return fail("label_width");
+    if (existing.sidetext_width != candidate.sidetext_width) return fail("sidetext_width");
+    if (!optional_double_equal(existing.min, candidate.min)) return fail("min");
+    if (!optional_double_equal(existing.max, candidate.max)) return fail("max");
+    if (!optional_double_equal(existing.max_literal.value, candidate.max_literal.value) ||
+        existing.max_literal.percent != candidate.max_literal.percent) return fail("max_literal");
+    if (existing.precision != candidate.precision) return fail("precision");
+    if (existing.mode != candidate.mode) return fail("mode");
+    if (!string_vector_equal(existing.aliases, candidate.aliases)) return fail("aliases");
+    if (!string_vector_equal(existing.shortcut, candidate.shortcut)) return fail("shortcut");
+    if (!string_vector_equal(existing.depends_on, candidate.depends_on)) return fail("depends_on");
+    if (!enum_def_equal(existing, candidate)) return fail("enum_def");
+    if (config_option_def_default_serialized(existing) != config_option_def_default_serialized(candidate))
+        return fail("default_value");
+
+    return true;
+}
+
+static void populate_config_option_def_from_raw(ConfigOptionDef &out, const raw_config_option_def *def)
+{
+    out.opt_key = def->opt_key;
+    out.type = config_option_type(def->type);
+    out.category = static_cast<OptionCategory>(def->category);
+    out.gui_type = static_cast<ConfigOptionDef::GUIType>(def->gui_type);
+    out.printer_technology = static_cast<PrinterTechnology>(def->printer_technology);
+    out.container_type = config_option_container_type(def->container_type);
+    out.option_preset_type = static_cast<uint32_t>(def->option_preset_type);
+    out.invalidates_step = def->invalidates_step;
+
+    out.is_optional = def->is_optional != 0;
+    out.multiline = def->multiline != 0;
+    out.full_width = def->full_width != 0;
+    out.is_code = def->is_code != 0;
+    out.is_vector_extruder = def->is_vector_extruder != 0;
+    out.readonly = def->readonly != 0;
+    out.can_phony = def->can_phony != 0;
+    out.can_be_disabled = def->can_be_disabled != 0;
+    out.aligned_label_left = def->aligned_label_left != 0;
+    out.is_script = false;
+
+    if (def->gui_flags)
+        out.gui_flags = def->gui_flags;
+    if (def->label)
+        out.label = def->label;
+    if (def->full_label)
+        out.full_label = def->full_label;
+    if (def->tooltip)
+        out.tooltip = def->tooltip;
+    if (def->sidetext)
+        out.sidetext = def->sidetext;
+    if (def->cli)
+        out.cli = def->cli;
+    if (def->ratio_over)
+        out.ratio_over = def->ratio_over;
+
+    out.height = def->height;
+    out.width = def->width;
+    out.label_width = def->label_width;
+    out.sidetext_width = def->sidetext_width;
+
+    if (def->has_min)
+        out.min = def->min_value;
+    if (def->has_max)
+        out.max = def->max_value;
+
+    if (def->has_max_literal)
+        out.max_literal = FloatOrPercent{def->max_literal_value, def->max_literal_is_percent != 0};
+
+    out.precision = def->precision;
+    out.mode = static_cast<ConfigOptionMode>(def->mode);
+
+    for (size_t i = 0; i < def->aliases.size; ++i) {
+        const char *s = def->aliases.items[i];
+        if (s)
+            out.aliases.emplace_back(s);
+    }
+
+    for (size_t i = 0; i < def->shortcut.size; ++i) {
+        const char *s = def->shortcut.items[i];
+        if (s)
+            out.shortcut.emplace_back(s);
+    }
+
+    for (size_t i = 0; i < def->depends_on.size; ++i) {
+        const char *s = def->depends_on.items[i];
+        if (s)
+            out.depends_on.emplace_back(s);
+    }
+
+    const bool has_pair_enum = def->enum_def.value_label_pairs.items != nullptr &&
+        def->enum_def.value_label_pairs.count > 0;
+
+    if (has_pair_enum) {
+        std::vector<std::string> values;
+        std::vector<std::pair<std::string, std::string>> values_labels;
+
+        values.reserve(def->enum_def.value_label_pairs.count);
+        values_labels.reserve(def->enum_def.value_label_pairs.count);
+        for (size_t i = 0; i < def->enum_def.value_label_pairs.count; ++i) {
+            const key_value_string_pair_t &p = def->enum_def.value_label_pairs.items[i];
+            values.emplace_back(p.value ? p.value : "");
+            values_labels.emplace_back(values.back(), p.label ? p.label : "");
+        }
+
+        if (!values.empty()) {
+            // Plugin-provided enums may omit gui_type. In that case, keep the
+            // old GUI behavior by exposing them as a closed combo box.
+            const ConfigOptionDef::GUIType enum_gui_type = out.gui_type == ConfigOptionDef::GUIType::undefined ?
+                ConfigOptionDef::GUIType::select_close :
+                out.gui_type;
+            if (enum_gui_type == ConfigOptionDef::GUIType::select_close) {
+                // Closed scripted enums need the string -> int map before the
+                // default value is deserialized below. This is especially
+                // important for exclusive-step plugin selectors: GUI rules read
+                // the enum as its integer index.
+                out.set_enum_as_closed_for_scripted_enum(values_labels);
+                out.gui_type = ConfigOptionDef::GUIType::select_close;
+            } else if (!values_labels.empty()) {
+                // Open enums can keep their string values directly; labels are
+                // used only for display when provided.
+                out.set_enum_values(enum_gui_type, values_labels);
+            } else {
+                out.set_enum_values(enum_gui_type, values);
+            }
+        }
+    }
+
+    ConfigOption *temp_default_option = out.create_empty_option();
+    if (def->default_serialized_value != nullptr)
+        temp_default_option->deserialize(def->default_serialized_value);
+    out.set_default_value(temp_default_option);
+}
+
 static std::chrono::milliseconds elapsed_ms(const std::chrono::steady_clock::time_point &start)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
@@ -95,11 +289,8 @@ option_def_error_code orchestrator_create_option_def(orchestrator_handle *me, co
         def->printer_technology == RAW_PT_NONE)
         return OPTION_DEF_ERROR_INVALID_ARGUMENT;
 
-    // TODO: check for OPTION_DEF_ERROR_ALREADY_EXISTS
-
     try {
-        Slic3r::orchestrator_from_handle(me)->create_new_print_config(def);
-        return OPTION_DEF_ERROR_OK;
+        return Slic3r::orchestrator_from_handle(me)->create_new_print_config(def);
     } catch (...) { return OPTION_DEF_ERROR_INTERNAL; }
 }
 }
@@ -320,139 +511,39 @@ void Orchestrator::request_plugin_cancel() { m_plugin_cancel_requested.store(tru
 
 void Orchestrator::reset_plugin_cancel() { m_plugin_cancel_requested.store(false, std::memory_order_relaxed); }
 
-void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
+option_def_error_code Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     //PrintOptionPresetType preset_type = static_cast<PrintOptionPresetType>(def->option_preset_type);
     //PrintOptionContainer container = static_cast<PrintOptionContainer>(def->container_type);
     const ConfigOptionType type = config_option_type(def->type);
     assert(type != coNone);
 
+    // Several alternative plugins may publish the same setting. Treat an
+    // identical second definition as a no-op, but reject incompatible reuse of
+    // the key so the GUI and presets cannot silently depend on whichever plugin
+    // happened to initialize last.
+    if (const ConfigOptionDef *existing = PrintConfigDef::instance().get(def->opt_key)) {
+        ConfigOptionDef candidate;
+        populate_config_option_def_from_raw(candidate, def);
+
+        std::string reason;
+        if (config_option_def_compatible(*existing, candidate, &reason))
+            return OPTION_DEF_ERROR_OK;
+
+        std::ostringstream message;
+        message << "Plugin config option '" << def->opt_key
+                << "' is already defined with incompatible " << reason << ".";
+        if (m_initializing_plugin != nullptr)
+            message << " Plugin '" << m_initializing_plugin->get_id() << "' will be disabled.";
+        BOOST_LOG_TRIVIAL(error) << message.str();
+        if (m_initializing_plugin != nullptr) {
+            m_initializing_plugin_failed = true;
+            m_initializing_plugin_failure = message.str();
+        }
+        return OPTION_DEF_ERROR_ALREADY_EXISTS;
+    }
+
     ConfigOptionDef &out = *PrintConfigDef::instance_mutable().add(def->opt_key, type);
-
-    out.opt_key = def->opt_key;
-    out.type = type;
-    out.category = static_cast<OptionCategory>(def->category);
-    out.gui_type = static_cast<ConfigOptionDef::GUIType>(def->gui_type);
-    out.printer_technology = static_cast<PrinterTechnology>(def->printer_technology);
-    out.container_type = config_option_container_type(def->container_type);
-    out.option_preset_type = static_cast<uint32_t>(def->option_preset_type);
-    out.invalidates_step = def->invalidates_step;
-
-    out.is_optional = def->is_optional != 0;
-    out.multiline = def->multiline != 0;
-    out.full_width = def->full_width != 0;
-    out.is_code = def->is_code != 0;
-    out.is_vector_extruder = def->is_vector_extruder != 0;
-    out.readonly = def->readonly != 0;
-    out.can_phony = def->can_phony != 0;
-    out.can_be_disabled = def->can_be_disabled != 0;
-    out.aligned_label_left = def->aligned_label_left != 0;
-    out.is_script = false;
-
-    if (def->gui_flags)
-        out.gui_flags = def->gui_flags;
-    if (def->label)
-        out.label = def->label;
-    if (def->full_label)
-        out.full_label = def->full_label;
-    if (def->tooltip)
-        out.tooltip = def->tooltip;
-    if (def->sidetext)
-        out.sidetext = def->sidetext;
-    if (def->cli)
-        out.cli = def->cli;
-    if (def->ratio_over)
-        out.ratio_over = def->ratio_over;
-
-    out.height = def->height;
-    out.width = def->width;
-    out.label_width = def->label_width;
-    out.sidetext_width = def->sidetext_width;
-
-    if (def->has_min)
-        out.min = def->min_value;
-    if (def->has_max)
-        out.max = def->max_value;
-
-    if (def->has_max_literal) {
-        out.max_literal = FloatOrPercent{def->max_literal_value, def->max_literal_is_percent != 0};
-    }
-
-    out.precision = def->precision;
-    out.mode = static_cast<ConfigOptionMode>(def->mode);
-
-    for (size_t i = 0; i < def->aliases.size; ++i) {
-        const char *s = def->aliases.items[i];
-        if (s)
-            out.aliases.emplace_back(s);
-    }
-
-    for (size_t i = 0; i < def->shortcut.size; ++i) {
-        const char *s = def->shortcut.items[i];
-        if (s)
-            out.shortcut.emplace_back(s);
-    }
-
-    for (size_t i = 0; i < def->depends_on.size; ++i) {
-        const char *s = def->depends_on.items[i];
-        if (s)
-            out.depends_on.emplace_back(s);
-    }
-
-    const bool has_pair_enum = def->enum_def.value_label_pairs.items != nullptr &&
-        def->enum_def.value_label_pairs.count > 0;
-    // const bool has_split_enum = def->enum_def.values.items != nullptr &&
-    //                             def->enum_def.values.count > 0;
-
-    if (has_pair_enum /*|| has_split_enum*/) {
-        std::vector<std::string> values;
-        std::vector<std::pair<std::string, std::string>> values_labels;
-
-        // if (has_pair_enum) {
-        values.reserve(def->enum_def.value_label_pairs.count);
-        values_labels.reserve(def->enum_def.value_label_pairs.count);
-        for (size_t i = 0; i < def->enum_def.value_label_pairs.count; ++i) {
-            const key_value_string_pair_t &p = def->enum_def.value_label_pairs.items[i];
-            values.emplace_back(p.value ? p.value : "");
-            values_labels.emplace_back(values.back(), p.label ? p.label : "");
-        }
-        //} else {
-        // values.reserve(def->enum_def.values.count);
-        // for (size_t i = 0; i < def->enum_def.values.count; ++i)
-        //    values.emplace_back(def->enum_def.values.items[i] ? def->enum_def.values.items[i] : "");
-
-        // values_labels.reserve(def->enum_def.labels.count);
-        // for (size_t i = 0; i < def->enum_def.labels.count; ++i)
-        //     values_labels.emplace_back(values[i], def->enum_def.labels.items[i] ? def->enum_def.labels.items[i] : "");
-        //}
-
-        if (!values.empty()) {
-            // Plugin-provided enums may omit gui_type. In that case, keep the
-            // old GUI behavior by exposing them as a closed combo box.
-            const ConfigOptionDef::GUIType enum_gui_type = out.gui_type == ConfigOptionDef::GUIType::undefined ?
-                ConfigOptionDef::GUIType::select_close :
-                out.gui_type;
-            if (enum_gui_type == ConfigOptionDef::GUIType::select_close) {
-                // Closed scripted enums need the string -> int map before the
-                // default value is deserialized below. This is especially
-                // important for exclusive-step plugin selectors: GUI rules read
-                // the enum as its integer index.
-                out.set_enum_as_closed_for_scripted_enum(values_labels);
-                out.gui_type = ConfigOptionDef::GUIType::select_close;
-            } else if (!values_labels.empty()) {
-                // Open enums can keep their string values directly; labels are
-                // used only for display when provided.
-                out.set_enum_values(enum_gui_type, values_labels);
-            } else {
-                out.set_enum_values(enum_gui_type, values);
-            }
-        }
-    }
-
-    // deserialize default
-    ConfigOption *temp_default_option = out.create_empty_option();
-    if (def->default_serialized_value != nullptr)
-        temp_default_option->deserialize(def->default_serialized_value);
-    out.set_default_value(temp_default_option);
+    populate_config_option_def_from_raw(out, def);
 
     // publish it?
     PrintConfigDef::instance_mutable().option_keys(def->option_preset_type).insert(out.opt_key);
@@ -472,6 +563,7 @@ void Orchestrator::create_new_print_config(const raw_config_option_def *def) {
         PrintConfigDef::instance_mutable().option_keys(RAW_PRESET_TYPE_FFF_PRINTER).insert(out.opt_key);
     }
     add_to_prusa_export_to_remove_keys(out.opt_key);
+    return OPTION_DEF_ERROR_OK;
 }
 
 std::vector<Plugin *> Orchestrator::get_all_plugins_for_step(slicing_step_t step) const {
@@ -606,9 +698,22 @@ void Orchestrator::initialize_plugins() {
     for (const std::unique_ptr<Plugin> &plugin_ptr : m_registered_plugins) {
         if (this->is_plugin_active(plugin_ptr.get())) {
             const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+            m_initializing_plugin = plugin_ptr.get();
+            m_initializing_plugin_failed = false;
+            m_initializing_plugin_failure.clear();
             plugin_ptr->initialize(reinterpret_cast<storage_handle *>(&m_plugin_storage[plugin_ptr.get()]));
-            BOOST_LOG_TRIVIAL(debug) << "Initialized plugin '" << plugin_ptr->get_id() << "' in "
-                                     << elapsed_ms(start).count() << " ms.";
+            if (m_initializing_plugin_failed) {
+                this->set_plugin_active(plugin_ptr.get(), false);
+                BOOST_LOG_TRIVIAL(error) << "Disabled plugin '" << plugin_ptr->get_id()
+                                         << "' after initialization failure: "
+                                         << m_initializing_plugin_failure;
+            } else {
+                BOOST_LOG_TRIVIAL(debug) << "Initialized plugin '" << plugin_ptr->get_id() << "' in "
+                                         << elapsed_ms(start).count() << " ms.";
+            }
+            m_initializing_plugin = nullptr;
+            m_initializing_plugin_failed = false;
+            m_initializing_plugin_failure.clear();
         }
     }
 }

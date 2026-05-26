@@ -103,7 +103,7 @@ public:
 
 
     //config def
-    void create_new_print_config(const raw_config_option_def *def);
+    option_def_error_code create_new_print_config(const raw_config_option_def *def);
 
     bool register_plugin(plugin_instance plugin);
     bool add_ui_fragment(const char *target_file,
@@ -157,6 +157,9 @@ private:
     std::vector<CustomExtrusionPropertyInfo> m_custom_extrusion_property_infos;
     extrusion_property_type m_next_custom_extrusion_property_type { extrusion_property_type(0x80000000u) };
     std::atomic_bool m_plugin_cancel_requested { false };
+    Plugin *m_initializing_plugin { nullptr };
+    bool m_initializing_plugin_failed { false };
+    std::string m_initializing_plugin_failure;
 };
 
 // temporary storage for plugins
