@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <vector>
 
@@ -50,7 +51,9 @@ the later fill areas consistent with the edited extrusion tree.
 */
 struct HoleContourCount
 {
-    // Requested counts copied from the active region configuration at start().
+    // Effective class limits for this branch. They preserve the configured
+    // contour/hole difference, but start from the current root perimeter count
+    // so modules that already added or removed shell levels are respected.
     int32_t max_hole_count = 0;
     int32_t max_contour_count = 0;
 
@@ -102,6 +105,13 @@ private:
 uint32_t count_from_config(int32_t value)
 {
     return value <= 0 ? 0 : uint32_t(value);
+}
+
+int32_t count_from_node(const PerimeterNodeView &node)
+{
+    const uint32_t count = node.perimeter_needed();
+    const uint32_t max_int32 = uint32_t(std::numeric_limits<int32_t>::max());
+    return int32_t(std::min(count, max_int32));
 }
 
 bool extrusion_is_hole_perimeter(const ExtrusionEntity &entity)
@@ -316,26 +326,23 @@ EraseDecision erase_decision_for_node(const PerimeterNodeView &node,
                                       const HoleContourCount &data)
 {
     const int32_t perimeter_idx = int32_t(node.perimeter_idx());
-    const int32_t perimeter_needed = int32_t(node.perimeter_needed());
     const int32_t diff_contour_hole = data.max_contour_count - data.max_hole_count;
 
     EraseDecision decision;
     decision.holes = data.max_hole_count == 0;
     decision.contours = data.max_contour_count == 0;
 
-    // If contours are requested fewer times than holes, the generator still
-    // creates max(contour, hole) levels. Remove contour loops once the contour
-    // quota for this branch has been reached.
+    // Only the class with the smaller configured count is capped here. The
+    // larger class may have been extended by another module, such as
+    // ExtraPerimeterCount, which increases node.perimeter_needed before this
+    // module sees the generated tree.
     if (!decision.contours && diff_contour_hole < 0) {
-        const int32_t contour_needed = perimeter_needed + diff_contour_hole;
-        if (perimeter_idx >= contour_needed && data.contour_deleted < -diff_contour_hole)
+        if (perimeter_idx >= data.max_contour_count)
             decision.contours = true;
     }
 
-    // Symmetric case: holes are requested fewer times than contours.
     if (!decision.holes && diff_contour_hole > 0) {
-        const int32_t holes_needed = perimeter_needed - diff_contour_hole;
-        if (perimeter_idx >= holes_needed && data.hole_deleted < diff_contour_hole)
+        if (perimeter_idx >= data.max_hole_count)
             decision.holes = true;
     }
 
@@ -372,20 +379,25 @@ void *module_start(void *, perimeter_generation_context *context)
     if (!values.is_enabled(k_perimeters_hole_key))
         return state;
 
-    HoleContourCount data;
-    data.max_hole_count = values.get_int(k_perimeters_hole_key);
-    data.max_contour_count = values.get_int(k_perimeters_key);
+    const int32_t configured_hole_count = values.get_int(k_perimeters_hole_key);
+    const int32_t configured_contour_count = values.get_int(k_perimeters_key);
 
     // Equal counts mean there is no separate contour/hole policy to apply.
     // This includes the enabled 0/0 case: the generator owns "no perimeters",
     // this module only owns differences between the two counts.
-    if (data.max_hole_count == data.max_contour_count)
+    if (configured_hole_count == configured_contour_count)
         return state;
 
-    // The generator must create enough levels for the larger count. The module
-    // will delete the over-requested class after each generated level.
-    const uint32_t requested_perimeter_count =
-        std::max(count_from_config(data.max_hole_count), count_from_config(data.max_contour_count));
+    HoleContourCount data;
+    const int32_t diff_contour_hole = configured_contour_count - configured_hole_count;
+    data.max_contour_count = count_from_node(context_view.root());
+    data.max_hole_count = std::max<int32_t>(0, data.max_contour_count - diff_contour_hole);
+
+    // The generator must create enough levels for the larger effective count.
+    // If a previous module already increased the root, the differential is kept:
+    // perimeters=2, perimeters_hole=5, extra=2 becomes contour=4, hole=7.
+    const uint32_t requested_perimeter_count = count_from_config(
+        std::max(data.max_hole_count, data.max_contour_count));
     if (requested_perimeter_count > context_view.root().perimeter_needed())
         context_view.root().set_perimeter_needed(requested_perimeter_count);
 

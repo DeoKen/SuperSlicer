@@ -505,8 +505,10 @@ TEST_CASE("Separate hole contour region and interaction cases", "[plugins][perim
 
     SECTION("30 extra perimeter count composes with hole/contour separation")
     {
-        // CASE 30: another module may request more children. SeparateHoleContour
-        // must still apply its class-specific limits afterward.
+        // CASE 30: another module may request more children before
+        // SeparateHoleContour runs. That request adds one contour-capable and
+        // one hole-capable shell, so the configured contour/hole differential
+        // must stay the same instead of keeping the raw perimeters_hole value.
         const DynamicPrintConfig config = perimeter_config({
             {"perimeters", "2"},
             {"perimeters_hole", "1"},
@@ -514,9 +516,44 @@ TEST_CASE("Separate hole contour region and interaction cases", "[plugins][perim
         });
         const PerimeterRunCapture run =
             run_perimeter_case(config, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, SEPARATE_HOLE_CONTOUR}, surface, 0);
-        const LoopCounts counts = loop_counts(run);
-        CHECK(counts.contours >= 2);
-        CHECK(counts.holes == 1);
+        check_loop_counts(run, 3, 2);
+        check_no_unknown_simple_loops(run);
+        require_leaf_fill_area_consistency(run);
+    }
+
+    SECTION("30b extra perimeter count keeps hole-greater-than-contour differential")
+    {
+        // CASE 30b: perimeters_hole asks for three more hole shells than
+        // contours. ExtraPerimeterCount adds two shells before
+        // SeparateHoleContour, so the final counts must become 4 contours and 7
+        // holes, not the raw configured 2 contours and 5 holes.
+        const ExPolygon roomy_surface = rectangle_with_hole(-25., -25., 25., 25., -5., -5., 5., 5.);
+        const DynamicPrintConfig config = perimeter_config({
+            {"perimeters", "2"},
+            {"perimeters_hole", "5"},
+            {"extra_perimeters_count", "2"}
+        });
+        const PerimeterRunCapture run =
+            run_perimeter_case(config, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, SEPARATE_HOLE_CONTOUR}, roomy_surface, 0);
+        check_loop_counts(run, 4, 7);
+        check_no_unknown_simple_loops(run);
+        require_leaf_fill_area_consistency(run);
+    }
+
+    SECTION("30c extra perimeter count keeps contour-greater-than-hole differential")
+    {
+        // CASE 30c: symmetric to 30b. Contours start three shells ahead of
+        // holes, and ExtraPerimeterCount adds two shells to both classes. The
+        // final result must therefore be 7 contour shells and 4 hole shells.
+        const ExPolygon roomy_surface = rectangle_with_hole(-25., -25., 25., 25., -5., -5., 5., 5.);
+        const DynamicPrintConfig config = perimeter_config({
+            {"perimeters", "5"},
+            {"perimeters_hole", "2"},
+            {"extra_perimeters_count", "2"}
+        });
+        const PerimeterRunCapture run =
+            run_perimeter_case(config, {SIMPLE_PERIMETER_GENERATOR, EXTRA_PERIMETER_COUNT, SEPARATE_HOLE_CONTOUR}, roomy_surface, 0);
+        check_loop_counts(run, 7, 4);
         check_no_unknown_simple_loops(run);
         require_leaf_fill_area_consistency(run);
     }
