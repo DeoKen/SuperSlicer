@@ -46,6 +46,15 @@ struct VerticalSplitCounts
     size_t crossing = 0;
 };
 
+struct SeparateHoleContourDirectResult
+{
+    size_t total = 0;
+    size_t contours = 0;
+    size_t holes = 0;
+    size_t children = 0;
+    uint32_t perimeter_needed = 0;
+};
+
 struct PreparedPerimeterPrint
 {
     Model model;
@@ -78,7 +87,17 @@ void require_simple_generator_first_child_area_partition(const PerimeterRunCaptu
 
 size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
                                   bool use_region_override,
-                                  double *length_out = nullptr);
+                                  double *length_out = nullptr,
+                                  size_t layer_idx = 0);
+
+SeparateHoleContourDirectResult run_separate_hole_contour_module_direct(
+    const DynamicPrintConfig &config,
+    uint32_t perimeter_idx,
+    uint32_t perimeter_needed,
+    uint32_t contour_loop_count,
+    uint32_t hole_loop_count,
+    bool add_open_polyline = false,
+    bool add_unclassified_closed_loop = false);
 
 } // namespace Slic3r::Test::PerimeterPluginTests
 

@@ -191,6 +191,22 @@ size_t count_leaf_extrusions(const ExtrusionEntity &entity)
     return count;
 }
 
+size_t count_direct_default_perimeter_loops(const ExtrusionEntity &entity)
+{
+    if (entity.is_nop())
+        return 0;
+
+    if (entity.is_loop()) {
+        const ExtrusionPropertyLoopRole *loop_role = entity.get_property<ExtrusionPropertyLoopRole>();
+        return loop_role == nullptr || (loop_role->perimeter_role() & elrDefault) != 0 ? 1 : 0;
+    }
+
+    size_t count = 0;
+    for (size_t child_idx = 0; child_idx < entity.child_count(); ++child_idx)
+        count += count_direct_default_perimeter_loops(entity.child(child_idx));
+    return count;
+}
+
 void count_vertical_split_leaf_extrusions(const ExtrusionEntity &entity,
                                           coord_t split_x,
                                           VerticalSplitCounts &out)
@@ -319,6 +335,22 @@ ExtrusionPath open_gap_fill_path()
     path.polyline().append(Point(scale_i(-8.), 0));
     path.polyline().append(Point(scale_i(8.), 0));
     return path;
+}
+
+ExtrusionPath closed_perimeter_path(const double min_x, const double min_y, const double max_x, const double max_y)
+{
+    ExtrusionPath path(ExtrusionAttributes(ExtrusionRole::ExternalPerimeter, ExtrusionFlow(0.1, 0.4f, 0.2f)), nullptr, true);
+    path.polyline().append(Point(scale_i(min_x), scale_i(min_y)));
+    path.polyline().append(Point(scale_i(max_x), scale_i(min_y)));
+    path.polyline().append(Point(scale_i(max_x), scale_i(max_y)));
+    path.polyline().append(Point(scale_i(min_x), scale_i(max_y)));
+    path.polyline().append(Point(scale_i(min_x), scale_i(min_y)));
+    return path;
+}
+
+ExtrusionLoop perimeter_loop(const ExtrusionLoopRole role, const double inset)
+{
+    return ExtrusionLoop(closed_perimeter_path(-8. + inset, -8. + inset, 8. - inset, 8. - inset), role);
 }
 
 double area_sum(const ExPolygons &areas)
@@ -581,12 +613,14 @@ void require_simple_generator_first_child_area_partition(const PerimeterRunCaptu
 
 size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
                                   const bool use_region_override,
-                                  double *length_out)
+                                  double *length_out,
+                                  const size_t layer_idx)
 {
     PreparedPerimeterPrint prepared;
     prepare_cube_print(prepared, config);
     PrintObject &object = prepared.print.object(0);
-    Layer &layer = object.layer(0);
+    REQUIRE(layer_idx < object.layer_count());
+    Layer &layer = object.layer(layer_idx);
     const ExPolygon area = rectangle_expolygon(-10., -10., 10., 10.);
     replace_layer_island(layer, area);
     rebuild_island_overlap_graph(object);
@@ -617,10 +651,80 @@ size_t run_remove_gap_fill_module(const DynamicPrintConfig &config,
     context.generator_context = &root;
     context.split_node = &test_split_node;
 
-    module.vt->after(module.ctx, nullptr, &context, &root.c_node);
+    REQUIRE(module.vt->start != nullptr);
+    REQUIRE(module.vt->after != nullptr);
+    REQUIRE(module.vt->end != nullptr);
+    void *module_context = module.vt->start(module.ctx, &context);
+    module.vt->after(module.ctx, module_context, &context, &root.c_node);
+    module.vt->end(module.ctx, module_context, &context);
     if (length_out != nullptr)
         *length_out = extrusion_length(root.extrusions);
     return count_leaf_extrusions(root.extrusions);
+}
+
+SeparateHoleContourDirectResult run_separate_hole_contour_module_direct(
+    const DynamicPrintConfig &config,
+    const uint32_t perimeter_idx,
+    const uint32_t perimeter_needed,
+    const uint32_t contour_loop_count,
+    const uint32_t hole_loop_count,
+    const bool add_open_polyline,
+    const bool add_unclassified_closed_loop)
+{
+    PreparedPerimeterPrint prepared;
+    prepare_cube_print(prepared, config);
+    PrintObject &object = prepared.print.object(0);
+    Layer &layer = object.layer(0);
+    const ExPolygon area = rectangle_with_hole_expolygon();
+    replace_layer_island(layer, area);
+    rebuild_island_overlap_graph(object);
+
+    TestPerimeterNode root;
+    root.area = area;
+    root.fill_area = area;
+    root.c_node.perimeter_idx = perimeter_idx;
+    root.c_node.perimeter_needed = perimeter_needed;
+
+    for (uint32_t idx = 0; idx < contour_loop_count; ++idx)
+        root.extrusions.append(perimeter_loop(elrDefault, double(idx) * 0.5));
+    for (uint32_t idx = 0; idx < hole_loop_count; ++idx)
+        root.extrusions.append(perimeter_loop(elrHole, double(idx) * 0.5));
+    if (add_open_polyline)
+        root.extrusions.append(open_gap_fill_path());
+    if (add_unclassified_closed_loop)
+        root.extrusions.append(closed_perimeter_path(-5., -5., 5., 5.));
+    root.refresh_c_node();
+
+    plugin_host_context host_context = {};
+    plugin_run_context run_context = {};
+    run_ctx_perimeter_generation_module payload = {};
+    perimeter_generation_module_instance module =
+        create_module_instance(SEPARATE_HOLE_CONTOUR, prepared.print, run_context, host_context, payload);
+
+    perimeter_generation_context context = {};
+    context.run_ctx = &run_context;
+    context.print = reinterpret_cast<const print_handle *>(&prepared.print);
+    context.object = reinterpret_cast<const object_handle *>(&object);
+    context.layer = reinterpret_cast<const layer_handle *>(&layer);
+    context.island = reinterpret_cast<const layer_island_handle *>(&layer.island(0));
+    context.root = &root.c_node;
+    context.generator_context = &root;
+    context.split_node = &test_split_node;
+
+    REQUIRE(module.vt->start != nullptr);
+    REQUIRE(module.vt->after != nullptr);
+    REQUIRE(module.vt->end != nullptr);
+    void *module_context = module.vt->start(module.ctx, &context);
+    module.vt->after(module.ctx, module_context, &context, &root.c_node);
+    module.vt->end(module.ctx, module_context, &context);
+
+    SeparateHoleContourDirectResult result;
+    result.total = count_leaf_extrusions(root.extrusions);
+    result.contours = count_direct_default_perimeter_loops(root.extrusions);
+    result.holes = count_loops_with_role(root.extrusions, elrHole);
+    result.children = root.children.size();
+    result.perimeter_needed = root.c_node.perimeter_needed;
+    return result;
 }
 
 } // namespace Slic3r::Test::PerimeterPluginTests
