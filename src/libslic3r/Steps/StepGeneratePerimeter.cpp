@@ -781,11 +781,6 @@ void clear_layer_outputs(Layer &layer)
 {
     for (LayerSliceIsland &island : layer.islands())
         clear_island_outputs(island);
-
-    for (LayerRegion &region : layer.regions()) {
-        region.set_fill_surfaces().clear();
-        ApiInternal::LayerRegionAccess::fill_no_overlap_expolygons_mutable(region).clear();
-    }
 }
 
 void assign_island_outputs(LayerSliceIsland &island, PerimeterRunContext &run)
@@ -798,34 +793,6 @@ void assign_island_outputs(LayerSliceIsland &island, PerimeterRunContext &run)
         std::move(run.fill_no_overlap_areas);
     ApiInternal::LayerIslandAccess::perimeter_slices_mutable(island) =
         union_ex(ExPolygons{island.get_slice()});
-}
-
-void build_region_fill_surfaces(Layer &layer)
-{
-    ExPolygons all_fill_expolygons;
-    ExPolygons all_fill_no_overlap_expolygons;
-    for (LayerSliceIsland &island : layer.islands()) {
-        append(all_fill_expolygons, island.fill_expolygons());
-        if (island.fill_no_overlap_expolygons().empty())
-            append(all_fill_no_overlap_expolygons, island.fill_expolygons());
-        else
-            append(all_fill_no_overlap_expolygons, island.fill_no_overlap_expolygons());
-    }
-
-    all_fill_no_overlap_expolygons = union_safety_offset_ex(all_fill_no_overlap_expolygons);
-    for (LayerRegion &region : layer.regions()) {
-        region.set_fill_surfaces().clear();
-        for (const Surface &raw_surface : region.slices()) {
-            ExPolygons expolygons = intersection_ex(ExPolygons{raw_surface.expolygon}, all_fill_expolygons);
-            region.set_fill_surfaces().append(std::move(expolygons), raw_surface);
-        }
-
-        ExPolygons &fill_no_overlap =
-            ApiInternal::LayerRegionAccess::fill_no_overlap_expolygons_mutable(region);
-        fill_no_overlap = intersection_ex(region.get_raw_slices(), all_fill_no_overlap_expolygons);
-        if (fill_no_overlap == region.get_raw_slices())
-            ensure_valid(fill_no_overlap);
-    }
 }
 
 size_t count_layer_islands(const Print &print)
@@ -917,12 +884,8 @@ void run_step(Orchestrator &orchestrator, Print &print)
 
     for (PrintObject &object : print.objects()) {
         for (Layer &layer : object.layers()) {
-            bool layer_needs_fill_rebuild = false;
             for (LayerSliceIsland &island : layer.islands())
-                layer_needs_fill_rebuild |= run_generator_for_island(
-                    orchestrator, *plugin, print, object, layer, island, host_context);
-            if (layer_needs_fill_rebuild)
-                build_region_fill_surfaces(layer);
+                run_generator_for_island(orchestrator, *plugin, print, object, layer, island, host_context);
         }
     }
 }
