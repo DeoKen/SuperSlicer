@@ -386,6 +386,15 @@ void run_and_check_object_step(slicing_step_t step,
 
 } // namespace
 
+// "Empty perimeter boundary steps" are the pre/post perimeter extension points.
+// They currently do not transform perimeter geometry themselves; their host-side
+// job is to run object-level plugins with the right lifecycle and C payload.
+//
+// This test therefore uses tiny recording plugins instead of real perimeter
+// algorithms. It proves the step runner filters inactive plugins, sorts active
+// plugins by priority, calls setup/setup_run/run at the expected granularity,
+// and passes print/object handles plus object indexes that match the Print.
+// Geometry regressions are covered by the generator/module tests, not here.
 TEST_CASE("Empty perimeter boundary steps run object plugins", "[plugins][perimeter][steps]")
 {
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
