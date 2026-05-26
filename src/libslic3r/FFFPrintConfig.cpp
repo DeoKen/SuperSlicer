@@ -299,7 +299,7 @@ double min_object_distance(const ConfigBase *config, double ref_height /* = 0*/)
                 base_dist = extruder_clearance_radius;
             }
 
-            // Add aso the skirt dist if per object, as the arrange & check method don't use it yet.
+            // Add also the skirt dist if per object, as the arrange & check method don't use it yet.
             // we use the max nozzle, just to be on the safe side
             //ideally, we should use print::first_layer_height()
             const double first_layer_height =
@@ -368,7 +368,7 @@ double min_object_distance(const ConfigBase *config, double ref_height /* = 0*/)
 
         return base_dist + std::max(skirt_dist, brim_dist);
     }
-    // else (not cmplete object/step)
+    // else (not complete object/step)
     return base_dist;
 }
 
@@ -1415,7 +1415,7 @@ void init_milling_params(PrintConfigDef &definition)
     def->category = OptionCategory::milling_extruders;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("Put here the gcode to change the toolhead (called after the g-code T{next_extruder}). You have access to {next_extruder} and {previous_extruder}."
-        " next_extruder is the 'extruder number' of the new milling tool, it's equal to the index (begining at 0) of the milling tool plus the number of extruders."
+        " next_extruder is the 'extruder number' of the new milling tool, it's equal to the index (beginning at 0) of the milling tool plus the number of extruders."
         " previous_extruder is the 'extruder number' of the previous tool, it may be a normal extruder, if it's below the number of extruders."
         " The number of extruder is available at {extruder} and the number of milling tool is available at {milling_cutter}.");
     def->multiline = true;
@@ -1430,7 +1430,7 @@ void init_milling_params(PrintConfigDef &definition)
     def->category = OptionCategory::milling_extruders;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("Enter here the gcode to end the toolhead action, like stopping the spindle. You have access to {next_extruder} and {previous_extruder}."
-        " previous_extruder is the 'extruder number' of the current milling tool, it's equal to the index (begining at 0) of the milling tool plus the number of extruders."
+        " previous_extruder is the 'extruder number' of the current milling tool, it's equal to the index (beginning at 0) of the milling tool plus the number of extruders."
         " next_extruder is the 'extruder number' of the next tool, it may be a normal extruder, if it's below the number of extruders."
         " The number of extruder is available at {extruder}and the number of milling tool is available at {milling_cutter}.");
     def->multiline = true;
@@ -1542,7 +1542,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->sidetext = L("mm or %");
     def->category = OptionCategory::firmware;
     def->invalidates_step = posSlice;
-    def->tooltip = L("When using the arc_fitting option, allow the curve to deviate a cetain % from the collection of strait paths."
+    def->tooltip = L("When using the arc_fitting option, allow the curve to deviate a certain % from the collection of straight paths."
         "\nCan be a mm value or a percentage of the current extrusion width.");
     def->mode = comAdvancedE | comSuSi;
     def->min = 0;
@@ -1557,7 +1557,7 @@ void init_fff_params(PrintConfigDef &definition)
         " This setting allow to have a threshold, enforcing the max speed to this flow."
         " Any lower flow will still use the max speed, creating a difference in mm3/s for these but keeping a high speed for all others."
         "\nTo keep the automatic computation for the Autospeed, but excluding the thin gap fill & thin wall from it, set this setting to 0."
-        "\nCan be a % of the maximum flow (compute from print's autopseed max volumetric flow and filament's max volumetric flow.");
+        "\nCan be a % of the maximum flow (compute from print's autospeed max volumetric flow and filament's max volumetric flow.");
     def->sidetext = L("mm3/s or %");
     def->mode = comAdvancedE | comSuSi;
     def->min = 0;
@@ -1619,7 +1619,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Find smallest crossing between islands");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("When using 'Avoid crossing perimeters', if you neeed to travel between two islands, find the two poitns that are nearest to each other."
+    def->tooltip = L("When using 'Avoid crossing perimeters', if you need to travel between two islands, find the two points that are nearest to each other."
         "\nNote: In modifiers, only works in object & layer range modifiers.");
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionBool(true));
@@ -1630,7 +1630,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::perimeter;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("When using 'Avoid crossing perimeters', and 'Find smallest travel between islands'"
-        ", also consider the distance bewteen the crossing poitns and the start & end of the travel while searchign for the smallest crossing."
+        ", also consider the distance between the crossing points and the start & end of the travel while searching for the smallest crossing."
         "\nSet to zero to be sure to have the smallest crossing possible."
         "\nSet to a higher value to be able to choose a nearer crossing even if the crossing distance isn't as small as possible."
         "\nNote: In modifiers, only works in object & layer range modifiers.");
@@ -1833,7 +1833,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Bridge precision");
     def->category = OptionCategory::slicing;
     def->invalidates_step = posSlice;
-    def->tooltip = L("This is the precision of the bridge detection. If you put it too low, the bridge detection will be very inneficient."
+    def->tooltip = L("This is the precision of the bridge detection. If you put it too low, the bridge detection will be very inefficient."
                     "\nCan be a % of the bridge spacing.");
     def->sidetext = L("mm or %");
     def->min = 0;
@@ -2210,7 +2210,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("Curve smoothing cutoff dist");
     def->category = OptionCategory::slicing;
     def->invalidates_step = posSlice;
-    def->tooltip = L("Maximum distance between two points to allow adding new ones. Allow to avoid distorting long strait areas.\nSet zero to disable.");
+    def->tooltip = L("Maximum distance between two points to allow adding new ones. Allow to avoid distorting long straight areas.\nSet zero to disable.");
     def->sidetext = L("mm");
     def->min = 0;
     def->cli = "curve-smoothing-cutoff-dist=f";
@@ -2249,7 +2249,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->tooltip  = L(
         "Default speed for the fan, to set the speed for features where there is no fan control. Useful for PLA and other low-temp filament."
         "\nSet 0 to disable the fan by default. Useful for ABS and other high-temp filaments."
-        "\nIf disabled, no fan speed command will be emmited when possible (if a feature set a speed, it won't be reverted).");
+        "\nIf disabled, no fan speed command will be emitted when possible (if a feature set a speed, it won't be reverted).");
     def->mode               = comSimpleAE | comSuSi;
     def->min                = 0;
     def->max                = 100;
@@ -2614,7 +2614,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("External perimeters first: force for all");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
-    def->tooltip = L("Print all external contours & periemter first, then the internal ones.");
+    def->tooltip = L("Print all external contours & perimeter first, then the internal ones.");
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionBool(false));
 
@@ -2640,8 +2640,8 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::perimeter;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("When using the scarf seam ('seam_slope_type'), it will use this setting to compute the base height (it doesn't start at 0)"
-        ", so be sure to put here the lowest value your extruder can handle whithout clogging (or 0 if it works)."
-        "\n The hight is clamped to a third of the current layer height, you can't go higher or you won't be able to do a scarf at all."
+        ", so be sure to put here the lowest value your extruder can handle without clogging (or 0 if it works)."
+        "\n The height is clamped to a third of the current layer height, you can't go higher or you won't be able to do a scarf at all."
         "\nCan be a percentage of the current nozzle diameter.");
     def->mode = comExpert;
     def->aliases = {"external_perimeters_vase_min_height"};
@@ -2694,7 +2694,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Extra perimeters on small areas");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
-    def->tooltip = L("After laying all the perimeters, if there is an area smaler (in mm²) than this value, then fill it with more perimeters."
+    def->tooltip = L("After laying all the perimeters, if there is an area smaller (in mm²) than this value, then fill it with more perimeters."
                     "\nUseful if you want to fortify a small cylinder while not messing with the larger main object."
                     "\nCan be a percentage of the perimeter width (squared)."
                     "\nSet zero to disable.");
@@ -2705,7 +2705,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Extra perimeters");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
-    def->tooltip = L("To be used in modifiers, as long as periemeter contour & hole count split the perimeters.");
+    def->tooltip = L("To be used in modifiers, as long as perimeter contour & hole count split the perimeters.");
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionInt(0));
 
@@ -2824,9 +2824,9 @@ void init_fff_params(PrintConfigDef &definition)
     def->set_default_value(new ConfigOptionStrings{ "" });
 
     def = definition.add("extruder_extrusion_multiplier_speed", coGraphs, ptFFF);
-    def->label = L("Extrusion multipler");
+    def->label = L("Extrusion multiplier");
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("This string is edited by a Dialog and contains extusion multiplier for different speeds.");
+    def->tooltip = L("This string is edited by a Dialog and contains extrusion multiplier for different speeds.");
     def->mode = comExpert | comSuSi;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionGraphs({ GraphData(0,10, GraphData::GraphType::LINEAR,
@@ -2834,7 +2834,7 @@ void init_fff_params(PrintConfigDef &definition)
     )}));
     def->graph_settings = std::make_shared<GraphSettings>();
     def->graph_settings->title       = L("Extrusion multiplier per extrusion speed");
-    def->graph_settings->description = L("Choose the extrusion multipler value for multiple speeds.\nYou can add/remove points with a right clic.");
+    def->graph_settings->description = L("Choose the extrusion multiplier value for multiple speeds.\nYou can add/remove points with a right click.");
     def->graph_settings->x_label     = L("Print speed (mm/s)");
     def->graph_settings->y_label     = L("Extrusion multiplier");
     def->graph_settings->null_label  = L("No compensation");
@@ -3007,7 +3007,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->tooltip = L("You can add data accessible to custom-gcode macros."
         "\nEach line can define one variable."
         "\nThe format is 'variable_name=value'. The variable name should only have [a-zA-Z0-9] characters or '_'."
-        "\nA value that can be parsed as a int or float will be avaible as a numeric value."
+        "\nA value that can be parsed as a int or float will be available as a numeric value."
         "\nA value that is enclosed by double-quotes will be available as a string (without the quotes)"
         "\nA value that only takes values as 'true' or 'false' will be a boolean)"
         "\nEvery other value will be parsed as a string as-is."
@@ -3091,7 +3091,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->invalidates_step = psSkirtBrim;
     def->tooltip = L("This setting is used to set the maximum speed when extruding inside the wipe tower (use M220)."
         " In %, set 0 to disable and use the Filament type instead."
-        "\nIf disabled, these filament types will have a defaut value of:"
+        "\nIf disabled, these filament types will have a default value of:"
         "\n - PVA: 80% to 60%"
         "\n - SCAFF: 35%"
         "\n - FLEX: 35%"
@@ -3674,10 +3674,10 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::infill;
     def->invalidates_step = posInfill;
     def->tooltip = L("The voids of the pattern of sparse infill grows with the extrusion width, to keep the same percentage of fill."
-                    " With this setting set to true, the algorithms will now only use the highest sparse infill width avaialble to create the pattern."
-                    " This way, the pattern can still be aligned even if the width is changing (from first layer width, from a modifier, from aanother extruder with different diameter)."
+                    " With this setting set to true, the algorithms will now only use the highest sparse infill width available to create the pattern."
+                    " This way, the pattern can still be aligned even if the width is changing (from first layer width, from a modifier, from another extruder with different diameter)."
                     "\nExperimental: works only for infill that won't depends on the fill area. So for infill where it's not useful (Hilbert, Archimedean, Octagram, Scattered, Lightning), this setting is disabled."
-                    "\n This setting is useful for rectilinear, monotonic, grid, trianlge, star, cubic, gyroid, honeycomb, 3D honeycomb, adaptative cubic, support cubic patterns.");
+                    "\n This setting is useful for rectilinear, monotonic, grid, triangle, star, cubic, gyroid, honeycomb, 3D honeycomb, adaptive cubic, support cubic patterns.");
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionBool(true));
 
@@ -4385,7 +4385,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::firmware;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("When printing the gcode file, replace any non-ascii character by a '_'."
-        " Can be useful if the firmware or a software in a workflow doesn't support uft-8.");
+        " Can be useful if the firmware or a software in a workflow doesn't support UTF-8.");
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionBool(false));
 
@@ -4669,7 +4669,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::infill;
     def->invalidates_step = posPrepareInfill;
     def->tooltip = L("Choose the way the dense layer is laid out."
-        " The automatic option lets it try to draw the smallest surface with only strait lines inside the sparse infill."
+        " The automatic option lets it try to draw the smallest surface with only straight lines inside the sparse infill."
         " The Anchored option just slightly enlarges (by 'Default infill margin') the surfaces that need a better support.");
     def->set_enum<DenseInfillAlgo>({
         { "automatic", L("Automatic") },
@@ -4934,7 +4934,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Interlocking depth of a segmented region");
     def->tooltip = L("Interlocking depth of a segmented region. It will be ignored if "
                        "\"mmu_segmented_region_max_width\" is zero or if \"mmu_segmented_region_interlocking_depth\""
-                       "is bigger then \"mmu_segmented_region_max_width\". Zero disables this feature.");
+                       "is bigger than \"mmu_segmented_region_max_width\". Zero disables this feature.");
     def->sidetext = L("mm (zero to disable)");
     def->min = 0;
     def->category = OptionCategory::mmsetup;
@@ -5105,8 +5105,8 @@ void init_fff_params(PrintConfigDef &definition)
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("Move the fan start in the past by at least this delay (in seconds, you can use decimals)."
         " It assumes infinite acceleration for this time estimation, and will only take into account G1 and G0 moves."
-        "\nIt won't move fan comands from custom gcodes (they act as a sort of 'barrier')."
-        "\nIt won't move fan comands into the start gcode if the 'only custom start gcode' is activated."
+        "\nIt won't move fan commands from custom gcodes (they act as a sort of 'barrier')."
+        "\nIt won't move fan commands into the start gcode if the 'only custom start gcode' is activated."
         "\nUse 0 to deactivate.");
     def->sidetext = L("s");
     def->mode = comAdvancedE | comSuSi;
@@ -5160,7 +5160,7 @@ void init_fff_params(PrintConfigDef &definition)
                     "\n* In every case, they will be used as safeguards: Even if you use a print profile that sets an acceleration of 5000,"
                     " if in your machine limits the acceleration is 4000, the outputted gcode will use the 4000 limit."
                     "\n* You can also use it as a safeguard and to have a better printing time estimate."
-                    "\n* You can also use it as a safeguard, to have a better printing time estimate and emit the limits at the begining of the gcode file, with M201 M202 M203 M204 and M205 commands."
+                    "\n* You can also use it as a safeguard, to have a better printing time estimate and emit the limits at the beginning of the gcode file, with M201 M202 M203 M204 and M205 commands."
                     " If you want only to write a sub-set, choose the 'for time estimate' option and write your own gcodes in the custom gcode section.");
     def->set_enum<MachineLimitsUsage>({
         { "emit_to_gcode",      L("Also emit limits to G-code") },
@@ -5554,7 +5554,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->tooltip = L("You can add data accessible to custom-gcode macros."
         "\nEach line can define one variable."
         "\nThe format is 'variable_name=value'. the variable name should only have [a-zA-Z0-9] characters or '_'."
-        "\nA value that can be parsed as a int or float will be avaible as a numeric value."
+        "\nA value that can be parsed as a int or float will be available as a numeric value."
         "\nA value that is enclosed by double-quotes will be available as a string (without the quotes)"
         "\nA value that only takes values as 'true' or 'false' will be a boolean)"
         "\nEvery other value will be parsed as a string as-is."
@@ -5571,7 +5571,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::advanced;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("This code is inserted each layer, when the object began to print (just after the label if any)."
-                     " It's main advantage is when you use it as a object modifer (right click on a model)."
+                     " It's main advantage is when you use it as a object modifier (right click on a model)."
                      "\nSpecial variables: 'layer_num','layer_z'");
     def->multiline = true;
     def->full_width = true;
@@ -5779,7 +5779,7 @@ void init_fff_params(PrintConfigDef &definition)
         ", the bridge flow is set separately."
         "If left zero, the distance between two overhang extrusion lines will be the same as that of the (external) perimeters."
         "If expressed as percentage (for example 105%) it will be computed over (current) nozzle diameter."
-        "You may want to ahve a smaller value than for perimeter to ensure the next overhang can stick to the previous one.");
+        "You may want to have a smaller value than for perimeter to ensure the next overhang can stick to the previous one.");
     def->sidetext = L("mm or %");
     def->ratio_over = "nozzle_diameter";
     def->min = 0;
@@ -5795,7 +5795,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("This fan speed is enforced during all Overhang Perimeter moves"
         "\nIf disabled, the previous (perimeter) fan speed will be used."
-        "\nCan be overriden by disable_fan_first_layers and increased by low layer time.");
+        "\nCan be overridden by disable_fan_first_layers and increased by low layer time.");
     def->sidetext = L("%");
     def->min = 0;
     def->max = 100;
@@ -5810,7 +5810,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::width;
     def->tooltip = L("This factor affects the amount of plastic for overhangs. "
                    "You can increase it to prevent the nozzle to pull the extrudates,"
-                    " to have better corners but it will make strait bridging to sag more."
+                    " to have better corners but it will make straight bridging to sag more."
                    "\nYou should experiment with cooling (use a strong fan) before tweaking this."
                    "\nFor reference, the default bridge flow is :"
                     "\n * When using the 'nozzle diameter' as bridge type: (in mm3/mm): (nozzle diameter) * (nozzle diameter) * PI/4"
@@ -6239,7 +6239,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->tooltip = L("You can add data accessible to custom-gcode macros."
         "\nEach line can define one variable."
         "\nThe format is 'variable_name=value'. the variable name should only have [a-zA-Z0-9] characters or '_'."
-        "\nA value that can be parsed as a int or float will be avaible as a numeric value."
+        "\nA value that can be parsed as a int or float will be available as a numeric value."
         "\nA value that is enclosed by double-quotes will be available as a string (without the quotes)"
         "\nA value that only takes values as 'true' or 'false' will be a boolean)"
         "\nEvery other value will be parsed as a string as-is."
@@ -6492,7 +6492,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::output;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("This code is inserted when a region is starting to print something (infill, perimeter, ironing)."
-                     " It's main advantage is when you use it as a object modifer(right click on a model to add it there)"
+                     " It's main advantage is when you use it as a object modifier(right click on a model to add it there)"
                      "\nSpecial variables: 'layer_num','layer_z'");
     def->multiline = true;
     def->full_width = true;
@@ -6533,7 +6533,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Command buffer");
     def->category = OptionCategory::speed;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("Buffer the firmware has for gcode comamnds. Allow to have some burst of command with a rate over 'max_gcode_per_second' for a few instant.");
+    def->tooltip = L("Buffer the firmware has for gcode commands. Allow to have some burst of command with a rate over 'max_gcode_per_second' for a few instant.");
     def->min = 0;
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionInt(10));
@@ -6771,7 +6771,7 @@ void init_fff_params(PrintConfigDef &definition)
 
     def = definition.add("retract_restart_extra_toolchange", coFloats, ptFFF);
     def->label = L("Extra length on restart");
-    def->full_label = L("Extrat length on toolchange restart");
+    def->full_label = L("Extra length on toolchange restart");
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("When the retraction is compensated after changing tool, the extruder will push "
                     "this additional amount of filament"
@@ -6897,9 +6897,9 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("Seam notch");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("It's sometimes very problematic to have a little buldge from the seam."
+    def->tooltip = L("It's sometimes very problematic to have a little bulge from the seam."
         " This setting move the seam inside the part, in a little cavity (for every seams in external perimeters, unless it's in an overhang)."
-        "\nThe size of the cavity is in mm or a % of the external perimeter width. It's overriden by the two other 'seam notch' setting when applicable."
+        "\nThe size of the cavity is in mm or a % of the external perimeter width. It's overridden by the two other 'seam notch' setting when applicable."
         "\nSet zero to disable.");
     def->sidetext = L("mm or %");
     def->min = 0;
@@ -6925,7 +6925,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("Seam notch for round holes");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("In convex holes (circular/oval), it's sometimes very problematic to have a little buldge from the seam."
+    def->tooltip = L("In convex holes (circular/oval), it's sometimes very problematic to have a little bulge from the seam."
         " This setting move the seam inside the part, in a little cavity (for all external perimeters in convex holes, unless it's in an overhang)."
         "\nThe size of the cavity is in mm or a % of the external perimeter width"
         "\nSet zero to disable.");
@@ -6941,7 +6941,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("Seam notch for round perimeters");
     def->category = OptionCategory::perimeter;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("In convex perimeters (circular/oval), it's sometimes very problematic to have a little buldge from the seam."
+    def->tooltip = L("In convex perimeters (circular/oval), it's sometimes very problematic to have a little bulge from the seam."
         " This setting move the seam inside the part, in a little cavity (for all external perimeters if the path is convex, unless it's in an overhang)."
         "\nThe size of the cavity is in mm or a % of the external perimeter width"
         "\nSet zero to disable.");
@@ -7092,9 +7092,9 @@ void init_fff_params(PrintConfigDef &definition)
     def->invalidates_step = posSlice;
     def->tooltip = L("When you have in an object multiple parts,"
         " the last one in the list has the highest priority and will be used where it intersects other parts."
-        " This setting only works when the two parts are each assign to a different extruder."
+        " This setting only works when the two parts are each assigned to a different extruder."
         " This setting allow the other parts to keep a little bit of their former surface by a certain amount."
-        "\nCan be a mm or a % of the exernal perimeter width");
+        "\nCan be a mm or a % of the external perimeter width");
     def->sidetext = L("mm or %");
     def->min = 0;
     def->mode = comAdvancedE | comSuSi;
@@ -7107,10 +7107,10 @@ void init_fff_params(PrintConfigDef &definition)
     def->invalidates_step = posSlice;
     def->tooltip = L("When you have in an object multiple parts,"
         " the last one in the list has the highest priority and will be used where it intersects other parts."
-        " This setting only works when the two parts are each assign to a different extruder."
+        " This setting only works when the two parts are each assigned to a different extruder."
         " This setting allow to collapse first thin areas of the part before removing it from the other parts,"
         " as doing this can create holes without anything printed inside, as it's too thin."
-        "\nCan be a mm or a % of the exernal perimeter width");
+        "\nCan be a mm or a % of the external perimeter width");
     def->sidetext = L("mm or %");
     def->min = 0;
     def->mode = comAdvancedE | comSuSi;
@@ -7454,7 +7454,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Parallel printing step");
     def->category = OptionCategory::output;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("When multiple objects are present, instead of jumping form one to another at each layer"
+    def->tooltip = L("When multiple objects are present, instead of jumping from one to another at each layer"
         " the printer will continue to print the current object layers up to this height before moving to the next object."
         " (first layers will be still printed one by one)."
         "\nThis feature also use the same extruder clearance radius field as 'complete individual objects' (complete_objects)"
@@ -7478,7 +7478,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::output;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("When using 'parallel_objects_step', consider each object island as a separate object, if far enough."
-                    "\nTwo islands are consider separate if there are farther than the extruder clearance.");
+                    "\nTwo islands are considered separate if they are farther than the extruder clearance.");
     def->sidetext = L("mm");
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionBool(false));
@@ -7801,7 +7801,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->tooltip = L("This fan speed is enforced during all support interfaces, to be able to weaken their bonding with a high fan speed."
         "\nSet to 0 to stop the fan."
         "\nIf disabled, Support Material fan speed will be used."
-        "\nCan only be overriden by disable_fan_first_layers.");
+        "\nCan only be overridden by disable_fan_first_layers.");
     def->sidetext = L("%");
     def->min = 0;
     def->max = 100;
@@ -8176,7 +8176,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::extruders;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L(
-        "As the extruder takes time to heat up, when a toolchange is approchaing, the next extruder that may be at "
+        "As the extruder takes time to heat up, when a toolchange is approaching, the next extruder that may be at "
         "parking temp can heat up in advance to be ready for the higher temp more quickly."
         "\nSet to 0 to deactivate.");
     def->sidetext = L("°C/s");
@@ -8191,10 +8191,10 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
     def->tooltip = L("Allow outermost perimeter to overlap itself to avoid the use of thin walls. Note that flow isn't adjusted and so this will result in over-extruding and undefined behavior."
-                "\n100% means that perimeters can overlap completly on top of each other."
+                "\n100% means that perimeters can overlap completely on top of each other."
                 "\n0% will deactivate this setting."
                 "\nValues below 2% don't have any effect."
-                "\n-1% will also deactivate the anti-hysteris checks for external perimeters.");
+                "\n-1% will also deactivate the anti-hysteresis checks for external perimeters.");
     def->sidetext = "%";
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionPercent(80));
@@ -8205,10 +8205,10 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::perimeter;
     def->invalidates_step = posPerimeters;
     def->tooltip = L("Allow all perimeters to overlap, instead of just external ones."
-                "\n100% means that perimeters can overlap completly on top of each other."
+                "\n100% means that perimeters can overlap completely on top of each other."
                 "\n0% will deactivate this setting."
                 "\nValues below 2% don't have any effect."
-                "\n-1% will also deactivate the anti-hysteris checks for internal perimeters.");
+                "\n-1% will also deactivate the anti-hysteresis checks for internal perimeters.");
     def->sidetext = "%";
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionPercent(20));
@@ -8280,7 +8280,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->full_label = L("Thin walls speed");
     def->category = OptionCategory::speed;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("Speed for thin walls (external extrusions that are alone because the obect is too thin at these places)."
+    def->tooltip = L("Speed for thin walls (external extrusions that are alone because the object is too thin at these places)."
         "\nThis can be expressed as a percentage (for example: 80%) over the External Perimeter speed."
         "\nSet zero to use autospeed for this feature.");
     def->sidetext = L("mm/s or %");
@@ -8308,7 +8308,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Time cost");
     def->category = OptionCategory::firmware;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("This setting allows you to set how much an hour of printing time is costing you in printer maintenance, loan, human albor, etc.");
+    def->tooltip = L("This setting allows you to set how much an hour of printing time is costing you in printer maintenance, loan, human labor, etc.");
     def->mode = comExpert | comSuSi;
     def->sidetext = L("$ per hour");
     def->min = 0;
@@ -8663,7 +8663,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("Ensure the nozzle will move at least this much."
         "\nCan be a percentage of the needed travel for the retraction"
-        " (if this is set to 0, then it's posisble that the end of the retraction occur after the end of the wipe).");
+        " (if this is set to 0, then it's possible that the end of the retraction occur after the end of the wipe).");
     def->mode = comAdvancedE | comSuSi;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionFloatsOrPercents{FloatOrPercent{150, true}});
@@ -8682,7 +8682,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->category = OptionCategory::extruders;
     def->invalidates_step = psGCodeExport;
     def->tooltip = L("If true, it ensure the wipe ends at the seam. It can stop and return back at mid-distance."
-        " If it's a loop, it can consitue a bit more or stop early to stop at the right point.");
+        " If it's a loop, it can continue a bit more or stop early to stop at the right point.");
     def->mode = comExpert | comSuSi;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionBools{ false });
@@ -8691,7 +8691,7 @@ void init_fff_params(PrintConfigDef &definition)
     def->label = L("Wipe speed");
     def->category = OptionCategory::extruders;
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("Speed in mm/s of the wipe. If it's faster, it will try to go further away, as the wipe time is set by ( 100% - 'retract before wipe') * 'retaction length' / 'retraction speed'."
+    def->tooltip = L("Speed in mm/s of the wipe. If it's faster, it will try to go further away, as the wipe time is set by ( 100% - 'retract before wipe') * 'retraction length' / 'retraction speed'."
         "\nIf set to zero, the travel speed is used.");
     def->mode = comAdvancedE | comSuSi;
     def->is_vector_extruder = true;
@@ -8778,7 +8778,7 @@ void init_fff_params(PrintConfigDef &definition)
     def = definition.add("filament_wipe_advanced_pigment", coFloats, ptFFF);
     def->label = L("Pigment percentage");
     def->invalidates_step = psGCodeExport;
-    def->tooltip = L("The pigment % for this filament (bewteen 0 and 1, 1=100%). 0 for translucent/natural, 0.2-0.5 for white and 1 for black.");
+    def->tooltip = L("The pigment % for this filament (between 0 and 1, 1=100%). 0 for translucent/natural, 0.2-0.5 for white and 1 for black.");
     def->min = 0;
     def->max = 1;
     def->mode = comExpert | comSuSi;
@@ -8833,14 +8833,14 @@ void init_fff_params(PrintConfigDef &definition)
     def->set_default_value(new ConfigOptionBool(false));
 
     def = definition.add("wipe_tower_rest_in_middle", coBool, ptFFF);
-    def->label = L("toolchange inside the wipetower");
+    def->label = L("toolchange inside the wipe tower");
     def->category = OptionCategory::mmsetup;
     def->invalidates_step = psSkirtBrim;
     def->tooltip = L("If enabled, there will be a travel inside the wipe tower before the toolchange.");
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionBool(false));
 
-    //TODO: combuine x&y into a coPoint
+    //TODO: combine x&y into a coPoint
     def = definition.add("wipe_tower_x", coFloat, ptFFF);
     def->label = L("X");
     def->full_label = L("Wipe tower X");
@@ -9164,7 +9164,7 @@ void init_fff_params(PrintConfigDef &definition)
         def->sidetext   = it_opt->second.sidetext;
         def->mode       = it_opt->second.mode;
         // create default value with the default value is taken from the default value of the config.
-        // put a disbaled value as first entry.
+        // put a disabled value as first entry.
         switch (def->type) {
         case coBools: {
             ConfigOptionBools *opt = new ConfigOptionBools({it_opt->second.default_value.get()->get_bool()});
