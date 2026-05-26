@@ -28,6 +28,7 @@ set_property(TARGET ${_TEST_NAME}_tests PROPERTY FOLDER "tests")
 
 if (WIN32)
     prusaslicer_copy_dlls(${_TEST_NAME}_tests)
+    set_target_properties(${_TEST_NAME}_tests PROPERTIES ENABLE_EXPORTS ON)
 endif()
 
 if (TARGET python_plugin_loader)
@@ -42,6 +43,8 @@ if (TARGET python_plugin_loader)
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
             "$<TARGET_FILE_DIR:python_plugin_loader>/python"
             "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/plugins/python"
+        COMMAND "${CMAKE_COMMAND}" -E rm -f
+            "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/Slic3r.dll"
         COMMENT "Copy Python plugin runtime to plugin tests"
         VERBATIM
     )
