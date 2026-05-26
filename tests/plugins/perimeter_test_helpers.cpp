@@ -450,6 +450,7 @@ const char *const ONLY_ONE_PERIMETER_ON_TOP = "perimeter.module.only_one_perimet
 const char *const SEPARATE_HOLE_CONTOUR = "perimeter.module.separate_hole_contour";
 const char *const REMOVE_GAP_FILL_ON_OVERHANGS = "perimeter.module.remove_gap_fill_on_overhangs";
 const char *const DEFAULT_SURFACE_GENERATOR = "surface.generator.default";
+const char *const DEFAULT_SURFACE_TYPE = "surface.type.default";
 
 ExPolygon rectangle_expolygon(const double min_x, const double min_y, const double max_x, const double max_y)
 {

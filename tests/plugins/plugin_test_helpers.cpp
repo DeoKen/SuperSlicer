@@ -40,6 +40,7 @@
 #include "libslic3r/Plugins/SliceVolume.hpp"
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Surface/DefaultSurfaceGenerator.hpp"
+#include "libslic3r/Plugins/Surface/DefaultSurfaceType.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandModifiers.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandOverhangs.hpp"
@@ -192,6 +193,8 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::SurfaceGeneration::DefaultSurfaceGeneratorPlugin::register_default_surface_generator_plugin(
             orchestrator_handle_value);
+        slic3r_api::SurfaceType::DefaultSurfaceTypePlugin::register_default_surface_type_plugin(
+            orchestrator_handle_value);
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
                                   orchestrator.get_plugin("python.polyholes") != nullptr &&
@@ -218,6 +221,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "perimeter.module.separate_hole_contour");
         activate_plugin_or_fail(orchestrator, "perimeter.module.remove_gap_fill_on_overhangs");
         activate_plugin_or_fail(orchestrator, "surface.generator.default");
+        activate_plugin_or_fail(orchestrator, "surface.type.default");
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         if (g_python_plugins_loaded) {
             activate_plugin_or_fail(orchestrator, "python.polyholes");

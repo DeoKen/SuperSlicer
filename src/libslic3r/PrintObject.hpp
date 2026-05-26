@@ -43,6 +43,10 @@
 #include "PrintSteps.hpp"
 #include "Surface.hpp"
 
+namespace slic3r_api { namespace SurfaceType { namespace DefaultSurfaceTypePlugin {
+class DefaultSurfaceType;
+}}}
+
 namespace Slic3r {
 
 class BoundingBox;
@@ -198,6 +202,7 @@ protected:
     friend class Print;
     template<typename PrintStepEnumType, const size_t COUNT> friend class PrintBaseWithState;
     friend class Steps::StepPipeline;
+    friend class ::slic3r_api::SurfaceType::DefaultSurfaceTypePlugin::DefaultSurfaceType;
     friend struct ApiInternal::PrintObjectAccess;
 
     PrintObject(Print* print, ModelObject* model_object, const Transform3d& trafo, PrintInstances&& instances);
