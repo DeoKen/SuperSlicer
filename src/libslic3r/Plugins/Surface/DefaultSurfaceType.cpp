@@ -7,7 +7,14 @@
 
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
 #include "libslic3r/Api/plugin/c/steps/slic3r_step_surface_type.h"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/LayerRegion.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/PrintObject.hpp"
+#include "libslic3r/Surface.hpp"
+
+#include <boost/log/trivial.hpp>
 
 namespace slic3r_api { namespace SurfaceType { namespace DefaultSurfaceTypePlugin {
 namespace {
@@ -66,9 +73,177 @@ void DefaultSurfaceType::run_impl(const plugin_run_context *run_ctx) const
     if (object == nullptr)
         return;
 
-    throw_if_cancelled(run_ctx);
-    object->prepare_infill();
+    run_surface_type_pipeline(run_ctx, *object);
     progress().increment();
+}
+
+void DefaultSurfaceType::run_surface_type_pipeline(const plugin_run_context *run_ctx,
+                                                   Slic3r::PrintObject &object) const
+{
+    if (!start_prepare_infill(object))
+        return;
+
+    restore_untyped_input_if_needed(run_ctx, object);
+    classify_top_bottom_surfaces(run_ctx, object);
+    prepare_fill_surfaces(run_ctx, object);
+
+    const Slic3r::EnsureVerticalShellThickness ensure_vertical_shell_thickness =
+        object.default_region_config(object.m_print->default_region_config())
+            .option<Slic3r::ConfigOptionEnum<Slic3r::EnsureVerticalShellThickness>>("ensure_vertical_shell_thickness")->value;
+    if (ensure_vertical_shell_thickness != Slic3r::EnsureVerticalShellThickness::Partial &&
+        ensure_vertical_shell_thickness != Slic3r::EnsureVerticalShellThickness::Enabled) {
+        apply_external_expansion_and_bridge_detection(run_ctx, object, true);
+    }
+
+    ensure_vertical_shells(run_ctx, object);
+
+    if (ensure_vertical_shell_thickness == Slic3r::EnsureVerticalShellThickness::Partial ||
+        ensure_vertical_shell_thickness == Slic3r::EnsureVerticalShellThickness::Enabled) {
+        apply_external_expansion_and_bridge_detection(run_ctx, object, false);
+    }
+
+    ensure_horizontal_shells(run_ctx, object);
+    clean_surface_collections(run_ctx, object);
+    build_bridge_over_infill_data(run_ctx, object);
+    combine_infill_surfaces(run_ctx, object);
+
+    object.set_done(Slic3r::posPrepareInfill);
+}
+
+bool DefaultSurfaceType::start_prepare_infill(Slic3r::PrintObject &object) const
+{
+    return object.set_started(Slic3r::posPrepareInfill);
+}
+
+void DefaultSurfaceType::restore_untyped_input_if_needed(const plugin_run_context *run_ctx,
+                                                         Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    if (!object.has_typed_slices())
+        return;
+
+    // Re-running from already typed slices is fragile: the old native code
+    // first goes back to the raw internal/sparse slices, then classifies from
+    // scratch. Keep that behavior as the first module in this pipeline.
+    object.restore_untyped_slices();
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::classify_top_bottom_surfaces(const plugin_run_context *run_ctx,
+                                                      Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    // Classify raw slices as top, bottom, bridge-bottom or internal, then clip
+    // that classification onto the fill_surfaces created by STEP_SURFACE_GENERATION.
+    object.detect_surfaces_type();
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::prepare_fill_surfaces(const plugin_run_context *run_ctx,
+                                               Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    BOOST_LOG_TRIVIAL(info) << "Preparing fill surfaces..." << Slic3r::log_memory_info();
+
+    // LayerRegion owns the region-local decisions: disabling top/bottom solid
+    // infill when layer counts are zero and promoting tiny sparse areas to
+    // solid infill. Keep it after top/bottom classification and before any
+    // shell expansion.
+    for (Slic3r::Layer &layer : object.layers()) {
+        for (Slic3r::LayerRegion &region : layer.regions()) {
+            region.prepare_fill_surfaces();
+            object.m_print->throw_if_canceled();
+        }
+        throw_if_cancelled(run_ctx);
+    }
+
+    // This is still object-wide because the legacy setting compares the total
+    // printed area at one Z, not just one LayerRegion.
+    object.apply_solid_infill_below_layer_area();
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::apply_external_expansion_and_bridge_detection(const plugin_run_context *run_ctx,
+                                                                       Slic3r::PrintObject &object,
+                                                                       const bool old_algorithm) const
+{
+    throw_if_cancelled(run_ctx);
+    // Bridge detection expands top/bottom areas, computes bridge direction,
+    // clips overlaps and merges compatible surfaces. It intentionally stays as
+    // one module until the bridge data flow is disentangled from surface growth.
+    object.process_external_surfaces(old_algorithm);
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::ensure_vertical_shells(const plugin_run_context *run_ctx,
+                                                Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    // Add solid fill around sloping walls so the configured vertical shell
+    // thickness is respected.
+    object.discover_vertical_shells();
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::ensure_horizontal_shells(const plugin_run_context *run_ctx,
+                                                  Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    // Split internal areas near top/bottom surfaces so top and bottom shells
+    // receive the required number of solid layers.
+    object.discover_horizontal_shells();
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::clean_surface_collections(const plugin_run_context *run_ctx,
+                                                   Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    // Remove too-thin remnants and merge contiguous surfaces with compatible
+    // types before bridge-over-infill creates additional overlapping tags.
+    object.clean_surfaces();
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::build_bridge_over_infill_data(const plugin_run_context *run_ctx,
+                                                       Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    // Dense infill near bridges is tagged before bridge_over_infill(), because
+    // bridge expansion must not grow through dense support areas unchecked.
+    object.tag_under_bridge();
+    object.m_print->throw_if_canceled();
+
+    object.bridge_over_infill();
+    object.m_print->throw_if_canceled();
+
+    object.replaceSurfaceType(Slic3r::stPosInternal | Slic3r::stDensSolid,
+        Slic3r::stPosInternal | Slic3r::stDensSolid | Slic3r::stModOverBridge,
+        Slic3r::stPosInternal | Slic3r::stDensSolid | Slic3r::stModBridge);
+    object.m_print->throw_if_canceled();
+    object.replaceSurfaceType(Slic3r::stPosTop | Slic3r::stDensSolid,
+        Slic3r::stPosTop | Slic3r::stDensSolid | Slic3r::stModOverBridge,
+        Slic3r::stPosInternal | Slic3r::stDensSolid | Slic3r::stModBridge);
+    object.m_print->throw_if_canceled();
+    object.replaceSurfaceType(Slic3r::stPosInternal | Slic3r::stDensSolid,
+        Slic3r::stPosInternal | Slic3r::stDensSolid | Slic3r::stModOverBridge,
+        Slic3r::stPosBottom | Slic3r::stDensSolid | Slic3r::stModBridge);
+    object.m_print->throw_if_canceled();
+    object.replaceSurfaceType(Slic3r::stPosTop | Slic3r::stDensSolid,
+        Slic3r::stPosTop | Slic3r::stDensSolid | Slic3r::stModOverBridge,
+        Slic3r::stPosBottom | Slic3r::stDensSolid | Slic3r::stModBridge);
+    object.m_print->throw_if_canceled();
+}
+
+void DefaultSurfaceType::combine_infill_surfaces(const plugin_run_context *run_ctx,
+                                                 Slic3r::PrintObject &object) const
+{
+    throw_if_cancelled(run_ctx);
+    // Final staging for infill generation: combine sparse infill according to
+    // "infill every N layers" and refresh fill_aligned_z sparse spacing data.
+    object.combine_infill();
+    object.m_print->throw_if_canceled();
+    object._compute_max_sparse_spacing();
 }
 
 void register_default_surface_type_plugin(orchestrator_handle *orch)

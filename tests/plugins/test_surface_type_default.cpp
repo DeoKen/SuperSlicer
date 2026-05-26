@@ -201,4 +201,57 @@ TEST_CASE("Default surface type plugin classifies generated fill surfaces",
         CHECK(counts.internal > 0);
         CHECK_FALSE(object.is_step_done(posPrepareInfill));
     }
+
+    SECTION("zero top solid layers disables top surfaces")
+    {
+        // prepare_fill_surfaces() is now one named internal module. This case
+        // proves it still runs after classification: detect_surfaces_type()
+        // would create top surfaces on the last layer, then the zero top layer
+        // setting must turn them back into non-top fill.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({
+            {"bottom_solid_layers", "1"},
+            {"top_solid_layers", "0"},
+            {"ensure_vertical_shell_thickness", "disabled"}
+        }));
+        PrintObject &object = prepared.print.object(0);
+        replace_all_layers_with_test_island(object);
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR,
+                                    DEFAULT_SURFACE_GENERATOR,
+                                    DEFAULT_SURFACE_TYPE});
+        run_perimeter_and_surface_generation(prepared.print);
+        run_surface_type_detection(prepared.print);
+
+        SurfaceTypeCounts counts = count_surface_types(object);
+        CHECK(counts.top == 0);
+        CHECK(counts.bottom > 0);
+        CHECK(counts.internal > 0);
+    }
+
+    SECTION("zero bottom solid layers disables bottom surfaces")
+    {
+        // Same module boundary as above, but for the bottom layer side. This
+        // catches accidental extraction that classifies top/bottom correctly
+        // but forgets to apply region fill preparation afterward.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({
+            {"bottom_solid_layers", "0"},
+            {"top_solid_layers", "1"},
+            {"ensure_vertical_shell_thickness", "disabled"}
+        }));
+        PrintObject &object = prepared.print.object(0);
+        replace_all_layers_with_test_island(object);
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR,
+                                    DEFAULT_SURFACE_GENERATOR,
+                                    DEFAULT_SURFACE_TYPE});
+        run_perimeter_and_surface_generation(prepared.print);
+        run_surface_type_detection(prepared.print);
+
+        SurfaceTypeCounts counts = count_surface_types(object);
+        CHECK(counts.top > 0);
+        CHECK(counts.bottom == 0);
+        CHECK(counts.internal > 0);
+    }
 }
