@@ -46,6 +46,7 @@ struct PerimeterTreeNode
     ExtrusionEntity extrusions;
     std::vector<std::unique_ptr<PerimeterTreeNode>> children;
     std::vector<perimeter_node *> child_nodes;
+    bool generated_perimeter = false;
 
     bool needs_more_perimeters() const
     {
@@ -267,6 +268,13 @@ void collect_leaf_areas(const PerimeterTreeNode &node,
     if (node.area.empty())
         return;
 
+    // A leaf that already went through the perimeter generator has no inner
+    // child. This means the generated perimeter consumed the whole remaining
+    // area, so it must not be republished as fill. A leaf that was never
+    // generated still represents original fill, for example when perimeters=0.
+    if (node.generated_perimeter)
+        return;
+
     infill_free_areas.push_back(node.area);
     infill_areas.push_back(node.infill_areas.empty() ? node.area : node.infill_areas);
 }
@@ -360,6 +368,7 @@ std::unique_ptr<PerimeterTreeNode> make_split_sibling(const PerimeterTreeNode &s
     node->node.parent = source.node.parent;
     node->node.perimeter_idx = source.node.perimeter_idx;
     node->node.perimeter_needed = source.node.perimeter_needed;
+    node->generated_perimeter = source.generated_perimeter;
     node->sync_c_pointers();
     return node;
 }
@@ -682,6 +691,7 @@ int32_t run_region_group_callback(const run_ctx_generate_perimeter *ctx,
             result = 0;
             break;
         }
+        node->generated_perimeter = true;
 
         create_children(*node, inner_areas, inner_infill_areas);
 

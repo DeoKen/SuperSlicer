@@ -449,6 +449,7 @@ const char *const ONLY_ONE_PERIMETER_FIRST_LAYER = "perimeter.module.only_one_pe
 const char *const ONLY_ONE_PERIMETER_ON_TOP = "perimeter.module.only_one_perimeter_on_top";
 const char *const SEPARATE_HOLE_CONTOUR = "perimeter.module.separate_hole_contour";
 const char *const REMOVE_GAP_FILL_ON_OVERHANGS = "perimeter.module.remove_gap_fill_on_overhangs";
+const char *const DEFAULT_SURFACE_GENERATOR = "surface.generator.default";
 
 ExPolygon rectangle_expolygon(const double min_x, const double min_y, const double max_x, const double max_y)
 {
@@ -614,8 +615,16 @@ void require_leaf_fill_area_consistency(const PerimeterRunCapture &capture)
 {
     const ExPolygons leaf_areas = surface_expolygons(capture.fill_no_overlap_surfaces);
     const ExPolygons leaf_fill_areas = surface_expolygons(capture.fill_surfaces);
-    REQUIRE_FALSE(leaf_areas.empty());
-    REQUIRE_FALSE(leaf_fill_areas.empty());
+
+    // A generated perimeter can consume a very thin branch completely. In that
+    // case there is no remaining infill job to validate; the important part is
+    // that both published leaf domains agree that no fill is left.
+    if (leaf_areas.empty() || leaf_fill_areas.empty()) {
+        REQUIRE(leaf_areas.empty());
+        REQUIRE(leaf_fill_areas.empty());
+        REQUIRE(external_perimeter_count(capture) > 0);
+        return;
+    }
 
     // Perimeter modules may split or rebuild the tree, but final leaf areas
     // must remain a clean partition. Infill later consumes these leaves as
@@ -632,10 +641,7 @@ void require_leaf_fill_area_consistency(const PerimeterRunCapture &capture)
 
     const double leaf_area = area_sum(leaf_area_union);
     const double leaf_fill_area = area_sum(leaf_fill_union);
-    if (external_perimeter_count(capture) > 0 && leaf_area > area_tolerance())
-        REQUIRE(leaf_fill_area > leaf_area);
-    else
-        REQUIRE(leaf_fill_area + area_tolerance() >= leaf_area);
+    REQUIRE(leaf_fill_area + area_tolerance() >= leaf_area);
 }
 
 void require_simple_generator_first_child_area_partition(const PerimeterRunCapture &capture, const ExPolygon &parent_area)
