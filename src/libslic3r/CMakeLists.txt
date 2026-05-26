@@ -133,6 +133,7 @@ set(SLIC3R_SOURCES
 	Api/plugin/cpp/PluginContext.hpp
 	Api/plugin/cpp/PrintHelpers.cpp
 	Api/plugin/cpp/PrintHelpers.hpp
+	Api/plugin/cpp/RegionSettingsViews.hpp
 	Api/plugin/cpp/VolumeViews.hpp
 	Api/plugin/cpp/Views.cpp
 	Api/plugin/cpp/Views.hpp
