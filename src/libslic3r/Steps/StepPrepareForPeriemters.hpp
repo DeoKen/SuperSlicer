@@ -17,8 +17,8 @@ class Print;
 namespace Steps::StepPrepareForPeriemters {
 
 void clean_and_prepare(Print &print);
-bool validate_pre(const Print &print, std::string *error = nullptr);
-bool validate_post(const Print &print, std::string *error = nullptr);
+bool validate_pre(const Print &print, std::string &error);
+bool validate_post(const Print &print, std::string &error);
 void run_step(Orchestrator &orchestrator, Print &print);
 
 } // namespace Steps::StepPrepareForPeriemters

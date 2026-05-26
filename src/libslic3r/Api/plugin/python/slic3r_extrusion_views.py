@@ -639,6 +639,9 @@ class MutableExtrusionEntity(
     def readonly(self) -> ExtrusionEntity:
         return ExtrusionEntity(self.api, self.address)
 
+    def property(self, payload_cls, orchestrator=None):
+        return ExtrusionPropertyMutableMixin.property(self, payload_cls, orchestrator)
+
     def copy_from(self, src: ExtrusionEntity) -> bool:
         return bool(self.api.host.extrusion_copy_from(self.mutable_c_handle(), src.c_handle()))
 

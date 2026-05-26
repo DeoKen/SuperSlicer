@@ -43,11 +43,11 @@
 #ifdef _DEBUG
 #include "libslic3r/Steps/DebugPrintProcessComparator.hpp"
 
-#include <cassert>
 #include <iostream>
 #include <stdexcept>
 #endif
 
+#include <cassert>
 #include <map>
 #include <string>
 #include <vector>
@@ -188,6 +188,15 @@ std::vector<Plugin *> selected_or_active_plugins_for_step(Orchestrator &orchestr
         return { active_plugins.front() };
 
     return { active_plugins[size_t(selected_idx)] };
+}
+
+Plugin *selected_or_active_plugin_for_step(Orchestrator &orchestrator,
+                                           slicing_step_t step,
+                                           const ConfigBase *config)
+{
+    const std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(orchestrator, step, config);
+    assert(plugins.size() <= 1);
+    return plugins.empty() ? nullptr : plugins.front();
 }
 
 namespace {

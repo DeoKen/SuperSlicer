@@ -131,46 +131,49 @@ void run_step(Orchestrator &orchestrator, Print &print)
 
     clean_and_prepare(print);
 
-    std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(orchestrator,
-                                                                        STEP_SLICING,
-                                                                        &print.full_print_config());
+    // STEP_SLICING is an exclusive step: several active slicer plugins may be
+    // available, but the generated step_slicing_plugin setting selects the one
+    // that owns this print.
+    Plugin *plugin = selected_or_active_plugin_for_step(orchestrator,
+                                                        STEP_SLICING,
+                                                        &print.full_print_config());
+    if (plugin == nullptr)
+        return;
 
-    for (Plugin *plugin : plugins) {
-        const size_t run_count = print.objects().size();
-        plugin_host_context host_context = orchestrator.prepare_plugin_host_context(STEP_SLICING, plugin, &print);
-        plugin_run_context run_context = orchestrator.prepare_plugin_run_context(STEP_SLICING, plugin, &host_context);
-        plugin->setup(run_context, uint32_t(run_count));
+    const size_t run_count = print.objects().size();
+    plugin_host_context host_context = orchestrator.prepare_plugin_host_context(STEP_SLICING, plugin, &print);
+    plugin_run_context run_context = orchestrator.prepare_plugin_run_context(STEP_SLICING, plugin, &host_context);
+    plugin->setup(run_context, uint32_t(run_count));
 
-        std::vector<std::unique_ptr<ApiHost::Steps::SlicingRunContext>> run_contexts;
-        run_contexts.reserve(run_count);
-        for (size_t object_idx = 0; object_idx < run_count; ++object_idx)
-            run_contexts.push_back(ApiHost::Steps::make_slicing_run_context(print, object_idx));
+    std::vector<std::unique_ptr<ApiHost::Steps::SlicingRunContext>> run_contexts;
+    run_contexts.reserve(run_count);
+    for (size_t object_idx = 0; object_idx < run_count; ++object_idx)
+        run_contexts.push_back(ApiHost::Steps::make_slicing_run_context(print, object_idx));
 
-        parallel_for(size_t(0), run_count, [plugin, &run_context, &run_contexts](const size_t object_idx) {
-            plugin_run_context context_copy = run_context;
-            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
-                return;
+    parallel_for(size_t(0), run_count, [plugin, &run_context, &run_contexts](const size_t object_idx) {
+        plugin_run_context context_copy = run_context;
+        if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+            return;
 
-            context_copy.data = &run_contexts[object_idx]->context_step;
-            plugin->setup_run(context_copy);
-        });
+        context_copy.data = &run_contexts[object_idx]->context_step;
+        plugin->setup_run(context_copy);
+    });
 
-        parallel_for(size_t(0), run_count, [plugin, &run_context, &run_contexts](const size_t object_idx) {
-            plugin_run_context context_copy = run_context;
-            if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
-                return;
+    parallel_for(size_t(0), run_count, [plugin, &run_context, &run_contexts](const size_t object_idx) {
+        plugin_run_context context_copy = run_context;
+        if (context_copy.is_cancelled != nullptr && context_copy.is_cancelled(context_copy.host_context))
+            return;
 
-            context_copy.data = &run_contexts[object_idx]->context_step;
-            plugin->run(context_copy);
-        });
+        context_copy.data = &run_contexts[object_idx]->context_step;
+        plugin->run(context_copy);
+    });
 
-        parallel_for(size_t(0), run_count, [&print](const size_t object_idx) {
-            PrintObject &object = print.object(object_idx);
-            recompute_layer_slices_from_raw_regions(object);
-        });
+    parallel_for(size_t(0), run_count, [&print](const size_t object_idx) {
+        PrintObject &object = print.object(object_idx);
+        recompute_layer_slices_from_raw_regions(object);
+    });
 
-        Detail::validate_or_report(validate_post, print, "Slicing post-plugin validation");
-    }
+    Detail::validate_or_report(validate_post, print, "Slicing post-plugin validation");
 }
 
 } // namespace Slic3r::Steps::StepSlicing
