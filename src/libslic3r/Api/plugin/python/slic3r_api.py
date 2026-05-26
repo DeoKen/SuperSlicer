@@ -152,8 +152,10 @@ class PluginBase:
     Base class for Python plugins.
 
     Set plugin_id, name, description, step, priority, dependencies and
-    used_config_keys in __init__ by calling the base constructor. Override
-    initialize/setup/setup_run/run as needed.
+    used_config_keys in __init__ by calling the base constructor. If several
+    plugins are alternatives for the same work, give them the same
+    exclusive_group so the host can expose a selector and run only one of them.
+    Override initialize/setup/setup_run/run as needed.
 
     Callback arguments are raw C pointer addresses represented as Python int:
     - initialize(storage_address)
@@ -174,10 +176,16 @@ class PluginBase:
         priority: int = 0,
         dependencies: Iterable[str] = (),
         used_config_keys: Iterable[str] = (),
+        exclusive_group: str = "",
+        exclusive_group_label: str = "",
+        exclusive_group_tooltip: str = "",
     ) -> None:
         self.plugin_id = plugin_id
         self.name = name or plugin_id
         self.description = description
+        self.exclusive_group = exclusive_group
+        self.exclusive_group_label = exclusive_group_label
+        self.exclusive_group_tooltip = exclusive_group_tooltip
         self.step = int(step)
         self.priority = int(priority)
         self.dependencies = list(dependencies)

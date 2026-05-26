@@ -23,7 +23,11 @@ void validate_plugin_instance(const plugin_instance &c_api)
             ", host ABI " + std::to_string(SLIC3R_PLUGIN_ABI_VERSION) +
             ". Plugin id is unavailable because the vtable layout may be incompatible.");
     if (c_api.vt->get_id == nullptr || c_api.vt->get_name == nullptr ||
-        c_api.vt->get_description == nullptr || c_api.vt->get_step == nullptr ||
+        c_api.vt->get_description == nullptr ||
+        c_api.vt->get_exclusive_group == nullptr ||
+        c_api.vt->get_exclusive_group_label == nullptr ||
+        c_api.vt->get_exclusive_group_tooltip == nullptr ||
+        c_api.vt->get_step == nullptr ||
         c_api.vt->get_dependencies == nullptr || c_api.vt->get_priority == nullptr ||
         c_api.vt->initialize == nullptr || c_api.vt->setup == nullptr ||
         c_api.vt->setup_run == nullptr || c_api.vt->run == nullptr)
@@ -38,9 +42,15 @@ Plugin::Plugin(plugin_instance c_api) : m_c_api(c_api) {
     const char *plugin_id = c_api.vt->get_id(c_api.ctx);
     const char *plugin_name = c_api.vt->get_name(c_api.ctx);
     const char *plugin_description = c_api.vt->get_description(c_api.ctx);
+    const char *plugin_exclusive_group = c_api.vt->get_exclusive_group(c_api.ctx);
+    const char *plugin_exclusive_group_label = c_api.vt->get_exclusive_group_label(c_api.ctx);
+    const char *plugin_exclusive_group_tooltip = c_api.vt->get_exclusive_group_tooltip(c_api.ctx);
     this->m_id = plugin_id != nullptr ? plugin_id : "";
     this->m_name = plugin_name != nullptr && plugin_name[0] != '\0' ? plugin_name : this->m_id;
     this->m_description = plugin_description != nullptr ? plugin_description : "";
+    this->m_exclusive_group = plugin_exclusive_group != nullptr ? plugin_exclusive_group : "";
+    this->m_exclusive_group_label = plugin_exclusive_group_label != nullptr ? plugin_exclusive_group_label : "";
+    this->m_exclusive_group_tooltip = plugin_exclusive_group_tooltip != nullptr ? plugin_exclusive_group_tooltip : "";
     this->m_step = c_api.vt->get_step(c_api.ctx);
     this->m_priority = c_api.vt->get_priority(c_api.ctx);
     const_strings_t cstrings = c_api.vt->get_dependencies(c_api.ctx);

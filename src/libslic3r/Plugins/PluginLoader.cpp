@@ -359,22 +359,17 @@ void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
 
 void register_exclusive_step_groups(Orchestrator &orchestrator)
 {
-    const std::map<slicing_step_t, Steps::StepExclusiveGroup> &templates = Steps::get_exclusive_steps();
-    for (const std::pair<const slicing_step_t, Steps::StepExclusiveGroup> &entry : templates) {
-        const std::vector<Plugin *> active_plugins = orchestrator.get_active_plugins_for_step(entry.first);
-        if (active_plugins.size() <= 1)
-            continue;
-
+    for (Steps::StepExclusivePluginGroup plugin_group : Steps::active_exclusive_plugin_groups(orchestrator)) {
         std::vector<std::pair<std::string, std::string>> plugin_ids_and_labels;
-        plugin_ids_and_labels.reserve(active_plugins.size());
-        for (const Plugin *plugin : active_plugins)
+        plugin_ids_and_labels.reserve(plugin_group.plugins.size());
+        for (const Plugin *plugin : plugin_group.plugins)
             plugin_ids_and_labels.emplace_back(plugin->get_id(), plugin->get_name());
 
-        Steps::StepExclusiveGroup group = entry.second;
+        Steps::StepExclusiveGroup &group = plugin_group.group;
         group.set_enum_plugins(plugin_ids_and_labels);
         orchestrator.create_new_print_config(&group.option_def);
         orchestrator.add_ui_fragment("print.ui", group.option_def.opt_key, group.ui_fragment.c_str(), 0);
-        add_exclusive_step_used_setting_rules(orchestrator, group, active_plugins);
+        add_exclusive_step_used_setting_rules(orchestrator, group, plugin_group.plugins);
         for (const raw_gui_rule &rule : group.gui_activation_rules)
             orchestrator.add_gui_rule(&rule);
     }

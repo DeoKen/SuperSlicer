@@ -35,7 +35,7 @@
 #include "steps/slic3r_step_surface_type.h"
 #include "steps/slic3r_step_wipetower.h"
 
-#define SLIC3R_PLUGIN_ABI_VERSION 3u
+#define SLIC3R_PLUGIN_ABI_VERSION 4u
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,6 +104,36 @@ typedef struct plugin_vtable {
     borrowed from the plugin and only read during registration.
     */
     const char* (*get_description)(void *plugin_ctx);
+
+    /*
+    Optional machine-readable exclusive group id.
+
+    Plugins in the same exclusive group are alternatives: the project stores a
+    selector setting and the host runs only the selected active plugin from the
+    group. Return NULL or an empty string for normal additive plugins.
+
+    Some host-defined "unique" steps force all active plugins for that step into
+    one exclusive group even if this callback returns empty. This lets old-style
+    step replacement plugins use the same selection machinery.
+    */
+    const char* (*get_exclusive_group)(void *plugin_ctx);
+
+    /*
+    User-facing label for the exclusive group selector.
+
+    If several active plugins declare the same group, the host uses the first
+    non-empty label it sees in plugin execution order. Return an empty string to
+    let the host use its default label.
+    */
+    const char* (*get_exclusive_group_label)(void *plugin_ctx);
+
+    /*
+    User-facing tooltip/description for the exclusive group selector.
+
+    As with get_exclusive_group_label(), the first non-empty tooltip found for a
+    group wins. Return an empty string to use the host default.
+    */
+    const char* (*get_exclusive_group_tooltip)(void *plugin_ctx);
 
     slicing_step_t (*get_step)(void *plugin_ctx);
 

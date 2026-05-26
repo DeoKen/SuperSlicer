@@ -583,7 +583,9 @@ create_perimeter_generation_modules(PerimeterRunContext &run)
     if (run.orchestrator == nullptr)
         return modules;
 
-    std::vector<Plugin *> plugins = run.orchestrator->get_active_plugins_for_step(PERIMETER_GENERATION_MODULE);
+    std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(*run.orchestrator,
+                                                                        PERIMETER_GENERATION_MODULE,
+                                                                        &run.print->full_print_config());
     modules.reserve(plugins.size());
     run.module_host_contexts.clear();
     run.module_host_contexts.reserve(plugins.size());

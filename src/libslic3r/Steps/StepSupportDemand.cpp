@@ -14,6 +14,7 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Thread.hpp"
 
+#include "StepPipeline.hpp"
 #include "StepRunner.hpp"
 
 namespace Slic3r::Steps::StepSupportDemand {
@@ -74,7 +75,9 @@ void run_step(Orchestrator &orchestrator, Print &print, State &state)
     const size_t run_count = print.objects().size();
     state.reset();
 
-    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(STEP_SUPPORT_DEMAND);
+    std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(orchestrator,
+                                                                        STEP_SUPPORT_DEMAND,
+                                                                        &print.full_print_config());
     if (plugins.empty())
         return;
 

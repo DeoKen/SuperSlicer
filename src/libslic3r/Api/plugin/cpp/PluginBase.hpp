@@ -375,6 +375,18 @@ protected:
     // Longer user-facing description. Dialogs may show this as helper text.
     virtual const char *description_impl() const noexcept { return ""; }
 
+    // Optional exclusive group id. Plugins sharing a non-empty group id are
+    // mutually exclusive: the host creates one selector and runs only the
+    // selected active plugin. Most pipeline extension plugins should keep this
+    // empty unless they are true alternatives.
+    virtual const char *exclusive_group_impl() const noexcept { return ""; }
+
+    // Optional user-facing text for the selector created for an exclusive
+    // group. The first active plugin in the group that returns non-empty text
+    // provides the label/tooltip for the whole group.
+    virtual const char *exclusive_group_label_impl() const noexcept { return ""; }
+    virtual const char *exclusive_group_tooltip_impl() const noexcept { return ""; }
+
     // Pipeline step where the plugin runs, for example STEP_POST_SLICING.
     virtual slicing_step_t step_impl() const noexcept = 0;
 
@@ -494,6 +506,21 @@ private:
         return static_cast<PluginBase *>(plugin_ctx)->description_impl();
     }
 
+    static const char *get_exclusive_group_bridge(void *plugin_ctx)
+    {
+        return static_cast<PluginBase *>(plugin_ctx)->exclusive_group_impl();
+    }
+
+    static const char *get_exclusive_group_label_bridge(void *plugin_ctx)
+    {
+        return static_cast<PluginBase *>(plugin_ctx)->exclusive_group_label_impl();
+    }
+
+    static const char *get_exclusive_group_tooltip_bridge(void *plugin_ctx)
+    {
+        return static_cast<PluginBase *>(plugin_ctx)->exclusive_group_tooltip_impl();
+    }
+
     static slicing_step_t get_step_bridge(void *plugin_ctx)
     {
         return static_cast<PluginBase *>(plugin_ctx)->step_impl();
@@ -549,6 +576,9 @@ private:
             &PluginBase::get_id_bridge,
             &PluginBase::get_name_bridge,
             &PluginBase::get_description_bridge,
+            &PluginBase::get_exclusive_group_bridge,
+            &PluginBase::get_exclusive_group_label_bridge,
+            &PluginBase::get_exclusive_group_tooltip_bridge,
             &PluginBase::get_step_bridge,
             &PluginBase::get_dependencies_bridge,
             &PluginBase::get_priority_bridge,

@@ -27,6 +27,10 @@ namespace Steps {
 
 struct StepExclusiveGroup
 {
+    std::string group_id;
+    std::string option_key_storage;
+    std::string label_storage;
+    std::string tooltip_storage;
     slicing_step_t step;
     raw_config_option_def option_def;
     std::string ui_fragment;
@@ -38,10 +42,18 @@ struct StepExclusiveGroup
     std::vector<std::string> enum_labels;
     std::vector<key_value_string_pair_t> enum_pairs;
 
+    void refresh_storage_pointers();
     void set_enum_plugins(const std::vector<std::pair<std::string, std::string>> &plugin_ids_and_labels);
 };
 
+struct StepExclusivePluginGroup
+{
+    StepExclusiveGroup group;
+    std::vector<Plugin *> plugins;
+};
+
 const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps();
+std::vector<StepExclusivePluginGroup> active_exclusive_plugin_groups(Orchestrator &orchestrator);
 std::vector<Plugin *> selected_or_active_plugins_for_step(Orchestrator &orchestrator,
                                                           slicing_step_t step,
                                                           const ConfigBase *config);

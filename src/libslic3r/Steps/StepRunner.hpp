@@ -19,6 +19,16 @@
 #include "libslic3r/DataTreeFwd.hpp"
 #include "libslic3r/Thread.hpp"
 
+namespace Slic3r {
+class ConfigBase;
+}
+
+namespace Slic3r::Steps {
+std::vector<Plugin *> selected_or_active_plugins_for_step(Orchestrator &orchestrator,
+                                                          slicing_step_t step,
+                                                          const ConfigBase *config);
+}
+
 namespace Slic3r::Steps::Detail {
 
 inline void validate_or_report(bool (*validator)(const Print &, std::string &),
@@ -81,10 +91,11 @@ template<class PayloadFactory>
 void run_object_step_plugins(Orchestrator &orchestrator,
                              Print &print,
                              slicing_step_t step,
+                             const ConfigBase *config,
                              size_t run_count,
                              PayloadFactory payload_factory)
 {
-    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(step);
+    std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(orchestrator, step, config);
 
     for (Plugin *plugin : plugins) {
         if (plugin != nullptr)

@@ -19,6 +19,7 @@
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Steps/StepPostPerimeterGeneration.hpp"
 #include "libslic3r/Steps/StepPrepareForPeriemters.hpp"
+#include "libslic3r/Steps/StepPipeline.hpp"
 
 namespace {
 using namespace Slic3r;
@@ -41,21 +42,42 @@ struct RecordingPluginState
     const char *id = nullptr;
     slicing_step_t step = STEP_NONE;
     int32_t priority = 0;
+    const char *exclusive_group = "";
+    const char *exclusive_group_label = "";
+    const char *exclusive_group_tooltip = "";
     std::vector<RecordedEvent> *events = nullptr;
     std::mutex *mutex = nullptr;
 };
 
-RecordingPluginState g_pre_first  = {"test.pre_perimeter.first", STEP_PRE_PERIMETER, -10, nullptr, nullptr};
-RecordingPluginState g_pre_second = {"test.pre_perimeter.second", STEP_PRE_PERIMETER, 20, nullptr, nullptr};
-RecordingPluginState g_pre_inactive = {"test.pre_perimeter.inactive", STEP_PRE_PERIMETER, 0, nullptr, nullptr};
-RecordingPluginState g_post_first = {"test.post_perimeter.first", STEP_POST_PERIMETER, -10, nullptr, nullptr};
-RecordingPluginState g_post_second = {"test.post_perimeter.second", STEP_POST_PERIMETER, 20, nullptr, nullptr};
-RecordingPluginState g_post_inactive = {"test.post_perimeter.inactive", STEP_POST_PERIMETER, 0, nullptr, nullptr};
+RecordingPluginState g_pre_first  = {"test.pre_perimeter.first", STEP_PRE_PERIMETER, -10};
+RecordingPluginState g_pre_second = {"test.pre_perimeter.second", STEP_PRE_PERIMETER, 20};
+RecordingPluginState g_pre_inactive = {"test.pre_perimeter.inactive", STEP_PRE_PERIMETER, 0};
+RecordingPluginState g_pre_group_first = {
+    "test.pre_perimeter.group.first",
+    STEP_PRE_PERIMETER,
+    -5,
+    "test.pre_perimeter.exclusive_group",
+    "Test exclusive pre-perimeter group",
+    "Choose one test pre-perimeter plugin."
+};
+RecordingPluginState g_pre_group_second = {
+    "test.pre_perimeter.group.second",
+    STEP_PRE_PERIMETER,
+    5,
+    "test.pre_perimeter.exclusive_group",
+    "Second label should not win",
+    "Second tooltip should not win."
+};
+RecordingPluginState g_post_first = {"test.post_perimeter.first", STEP_POST_PERIMETER, -10};
+RecordingPluginState g_post_second = {"test.post_perimeter.second", STEP_POST_PERIMETER, 20};
+RecordingPluginState g_post_inactive = {"test.post_perimeter.inactive", STEP_POST_PERIMETER, 0};
 
 RecordingPluginState *const g_recording_plugins[] = {
     &g_pre_first,
     &g_pre_second,
     &g_pre_inactive,
+    &g_pre_group_first,
+    &g_pre_group_second,
     &g_post_first,
     &g_post_second,
     &g_post_inactive
@@ -80,6 +102,21 @@ const char *recording_get_name(void *plugin_ctx)
 const char *recording_get_description(void *)
 {
     return "";
+}
+
+const char *recording_get_exclusive_group(void *plugin_ctx)
+{
+    return static_cast<RecordingPluginState *>(plugin_ctx)->exclusive_group;
+}
+
+const char *recording_get_exclusive_group_label(void *plugin_ctx)
+{
+    return static_cast<RecordingPluginState *>(plugin_ctx)->exclusive_group_label;
+}
+
+const char *recording_get_exclusive_group_tooltip(void *plugin_ctx)
+{
+    return static_cast<RecordingPluginState *>(plugin_ctx)->exclusive_group_tooltip;
 }
 
 slicing_step_t recording_get_step(void *plugin_ctx)
@@ -171,6 +208,9 @@ const plugin_vtable *recording_vtable()
         &recording_get_id,
         &recording_get_name,
         &recording_get_description,
+        &recording_get_exclusive_group,
+        &recording_get_exclusive_group_label,
+        &recording_get_exclusive_group_tooltip,
         &recording_get_step,
         &recording_get_dependencies,
         &recording_get_priority,
@@ -317,6 +357,15 @@ void require_object_payloads(const std::vector<RecordedEvent> &events,
     CHECK(run_seen[1] == 2);
 }
 
+const Steps::StepExclusivePluginGroup *find_exclusive_group(const std::vector<Steps::StepExclusivePluginGroup> &groups,
+                                                            const char *group_id)
+{
+    for (const Steps::StepExclusivePluginGroup &group : groups)
+        if (group.group.group_id == group_id)
+            return &group;
+    return nullptr;
+}
+
 void run_and_check_object_step(slicing_step_t step,
                                const char *first_plugin_id,
                                const char *second_plugin_id,
@@ -396,4 +445,55 @@ TEST_CASE("Empty perimeter boundary steps run object plugins", "[plugins][perime
                                   g_post_inactive.id,
                                   &Steps::StepPostPerimeterGeneration::run_step);
     }
+}
+
+TEST_CASE("Explicit exclusive groups select one object-step plugin", "[plugins][perimeter][steps]")
+{
+    Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
+    register_recording_plugins();
+
+    PreparedPerimeterPrint prepared;
+    const DynamicPrintConfig config = perimeter_config({});
+    Slic3r::Test::init_print({Slic3r::Test::TestMesh::cube_20x20x20,
+                              Slic3r::Test::TestMesh::cube_20x20x20},
+                             prepared.print,
+                             prepared.model,
+                             config);
+
+    std::vector<RecordedEvent> events;
+    ScopedRecordingEvents event_scope(events);
+    ScopedActivePlugins active_scope({
+        g_pre_first.id,
+        g_pre_group_first.id,
+        g_pre_group_second.id
+    });
+
+    // The two grouped plugins are alternatives. The group text used by the GUI
+    // selector comes from the first active plugin in execution order, while the
+    // additive pre-perimeter plugin stays outside the selector.
+    const std::vector<Steps::StepExclusivePluginGroup> groups =
+        Steps::active_exclusive_plugin_groups(Orchestrator::instance());
+    const Steps::StepExclusivePluginGroup *group =
+        find_exclusive_group(groups, g_pre_group_first.exclusive_group);
+    REQUIRE(group != nullptr);
+    REQUIRE(group->plugins.size() == 2);
+    CHECK(group->plugins[0]->get_id() == g_pre_group_first.id);
+    CHECK(group->plugins[1]->get_id() == g_pre_group_second.id);
+    CHECK(group->group.label_storage == g_pre_group_first.exclusive_group_label);
+    CHECK(group->group.tooltip_storage == g_pre_group_first.exclusive_group_tooltip);
+
+    // No selector option is injected into this synthetic test config, so the
+    // runtime falls back to the first plugin in the exclusive group. The normal
+    // additive plugin still runs alongside it.
+    Steps::StepPrepareForPeriemters::run_step(Orchestrator::instance(), prepared.print);
+
+    require_no_event_for_plugin(events, g_pre_group_second.id);
+    require_setup_counts(events, 2);
+
+    const std::vector<std::string> setup_ids = plugin_ids_for_callback(events, "setup");
+    REQUIRE(setup_ids.size() == 2);
+    CHECK(setup_ids[0] == g_pre_first.id);
+    CHECK(setup_ids[1] == g_pre_group_first.id);
+
+    require_object_payloads(events, prepared.print, STEP_PRE_PERIMETER);
 }

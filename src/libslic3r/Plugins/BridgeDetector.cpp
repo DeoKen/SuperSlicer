@@ -168,6 +168,9 @@ plugin_vtable default_plugin_vtable = {
     &BridgeDetector::get_id_bridge,
     &BridgeDetector::get_name_bridge,
     &BridgeDetector::get_description_bridge,
+    &BridgeDetector::get_exclusive_group_bridge,
+    &BridgeDetector::get_exclusive_group_label_bridge,
+    &BridgeDetector::get_exclusive_group_tooltip_bridge,
     &BridgeDetector::get_step_bridge,
     &BridgeDetector::get_dependencies_bridge,
     &BridgeDetector::get_priority_bridge,
@@ -234,6 +237,21 @@ const char *BridgeDetector::description() const noexcept
     return "Detect bridge direction and unsupported bridge edges for other plugins.";
 }
 
+const char *BridgeDetector::exclusive_group() const noexcept
+{
+    return "";
+}
+
+const char *BridgeDetector::exclusive_group_label() const noexcept
+{
+    return "";
+}
+
+const char *BridgeDetector::exclusive_group_tooltip() const noexcept
+{
+    return "";
+}
+
 slicing_step_t BridgeDetector::step() const noexcept
 {
     return BRIDGE_DETECTOR;
@@ -262,6 +280,21 @@ const char *BridgeDetector::get_name_bridge(void *plugin_ctx)
 const char *BridgeDetector::get_description_bridge(void *plugin_ctx)
 {
     return static_cast<BridgeDetector *>(plugin_ctx)->description();
+}
+
+const char *BridgeDetector::get_exclusive_group_bridge(void *plugin_ctx)
+{
+    return static_cast<BridgeDetector *>(plugin_ctx)->exclusive_group();
+}
+
+const char *BridgeDetector::get_exclusive_group_label_bridge(void *plugin_ctx)
+{
+    return static_cast<BridgeDetector *>(plugin_ctx)->exclusive_group_label();
+}
+
+const char *BridgeDetector::get_exclusive_group_tooltip_bridge(void *plugin_ctx)
+{
+    return static_cast<BridgeDetector *>(plugin_ctx)->exclusive_group_tooltip();
 }
 
 slicing_step_t BridgeDetector::get_step_bridge(void *plugin_ctx)

@@ -238,6 +238,9 @@ public:
         , m_id(string_attribute(plugin, "plugin_id", "python.unnamed"))
         , m_name(string_attribute(plugin, "name", m_id.c_str()))
         , m_description(string_attribute(plugin, "description", ""))
+        , m_exclusive_group(string_attribute(plugin, "exclusive_group", ""))
+        , m_exclusive_group_label(string_attribute(plugin, "exclusive_group_label", ""))
+        , m_exclusive_group_tooltip(string_attribute(plugin, "exclusive_group_tooltip", ""))
         , m_step(slicing_step_t(int_attribute(plugin, "step", STEP_POST_SLICING)))
         , m_priority(int_attribute(plugin, "priority", 0))
         , m_dependencies(string_list_attribute(plugin, "dependencies"))
@@ -279,6 +282,21 @@ private:
     static const char *get_description_bridge(void *plugin_ctx)
     {
         return static_cast<PythonPlugin *>(plugin_ctx)->m_description.c_str();
+    }
+
+    static const char *get_exclusive_group_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_exclusive_group.c_str();
+    }
+
+    static const char *get_exclusive_group_label_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_exclusive_group_label.c_str();
+    }
+
+    static const char *get_exclusive_group_tooltip_bridge(void *plugin_ctx)
+    {
+        return static_cast<PythonPlugin *>(plugin_ctx)->m_exclusive_group_tooltip.c_str();
     }
 
     static slicing_step_t get_step_bridge(void *plugin_ctx)
@@ -383,6 +401,9 @@ private:
             &PythonPlugin::get_id_bridge,
             &PythonPlugin::get_name_bridge,
             &PythonPlugin::get_description_bridge,
+            &PythonPlugin::get_exclusive_group_bridge,
+            &PythonPlugin::get_exclusive_group_label_bridge,
+            &PythonPlugin::get_exclusive_group_tooltip_bridge,
             &PythonPlugin::get_step_bridge,
             &PythonPlugin::get_dependencies_bridge,
             &PythonPlugin::get_priority_bridge,
@@ -399,6 +420,9 @@ private:
     std::string m_id;
     std::string m_name;
     std::string m_description;
+    std::string m_exclusive_group;
+    std::string m_exclusive_group_label;
+    std::string m_exclusive_group_tooltip;
     slicing_step_t m_step;
     int32_t m_priority = 0;
     std::vector<std::string> m_dependencies;

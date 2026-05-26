@@ -19,6 +19,7 @@
 #include "libslic3r/SurfaceCollection.hpp"
 #include "libslic3r/Thread.hpp"
 
+#include "StepPipeline.hpp"
 #include "StepRunner.hpp"
 
 namespace Slic3r::Steps::StepPostSlicing {
@@ -152,7 +153,9 @@ void run_step(Orchestrator &orchestrator, Print &print)
 {
     Detail::validate_or_report(validate_pre, print, "Post-slicing pre-step validation");
 
-    std::vector<Plugin *> plugins = orchestrator.get_active_plugins_for_step(STEP_POST_SLICING);
+    std::vector<Plugin *> plugins = selected_or_active_plugins_for_step(orchestrator,
+                                                                        STEP_POST_SLICING,
+                                                                        &print.full_print_config());
 
     for (Plugin *plugin : plugins) {
         const size_t run_count = print.objects().size();

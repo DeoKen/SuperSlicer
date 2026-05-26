@@ -26,6 +26,7 @@ void run_step(Orchestrator &orchestrator, Print &print)
     Detail::run_object_step_plugins(orchestrator,
                                     print,
                                     STEP_POST_PERIMETER,
+                                    &print.full_print_config(),
                                     print.objects().size(),
                                     [&print](const size_t object_idx) {
         run_ctx_post_perimeter_generation context = {};
