@@ -166,13 +166,23 @@ PerimeterRunCapture run_active_perimeter_plugins(Print &print, LayerSliceIsland 
     const Flow external_flow = first_region.flow(frExternalPerimeter);
     capture.external_perimeter_width = external_flow.scaled_width();
     capture.external_perimeter_spacing = external_flow.scaled_spacing();
+    capture.external_perimeter_mm3_per_mm = external_flow.mm3_per_mm();
+    capture.external_perimeter_width_mm = external_flow.width();
+    capture.external_perimeter_height_mm = external_flow.height();
 
     Steps::StepGeneratePerimeter::clean_and_prepare(print);
     Steps::StepGeneratePerimeter::run_step(orchestrator, print);
 
+    bool has_external_perimeters = false;
     for (const LayerRegionIsland &region_island : island.regions_islands())
-        if (region_island.has_extrusion(LayerRegionIsland::PERIMETERS))
-            capture.external_perimeters.append(region_island.extrusion(LayerRegionIsland::PERIMETERS));
+        if (region_island.has_extrusion(LayerRegionIsland::PERIMETERS)) {
+            if (!has_external_perimeters) {
+                capture.external_perimeters = region_island.extrusion(LayerRegionIsland::PERIMETERS);
+                has_external_perimeters = true;
+            } else {
+                capture.external_perimeters.append(region_island.extrusion(LayerRegionIsland::PERIMETERS));
+            }
+        }
     capture.fill_surfaces.set(island.fill_expolygons(), stPosInternal | stDensSolid);
     capture.fill_no_overlap_surfaces.set(island.fill_no_overlap_expolygons(), stPosInternal | stDensSolid);
     return capture;

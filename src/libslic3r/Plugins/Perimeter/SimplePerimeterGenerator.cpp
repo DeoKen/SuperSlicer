@@ -45,6 +45,7 @@ StoredExPolygonCollection offset_area(storage_handle *storage, const ExPolygon &
 void append_perimeter_loop(StoredExtrusionEntity &dst,
                            const Polygon &polygon,
                            const c_flow &flow,
+                           uint16_t perimeter_idx,
                            uint16_t loop_role)
 {
     if (!polygon.valid_polygon() || polygon.empty())
@@ -63,15 +64,16 @@ void append_perimeter_loop(StoredExtrusionEntity &dst,
         .height(float(unscaled(flow.height)));
 
     StoredExtrusionEntity loop(dst.storage());
-    loop.set_flags(RAW_EXTRUSION_FLAG_CONTINUOUS | RAW_EXTRUSION_FLAG_REVERSIBLE);
-    get_or_add_property<EPropertyPerimeter>(loop).shell_count(0).perimeter_role(loop_role);
+    get_or_add_property<EPropertyPerimeter>(loop).shell_count(perimeter_idx).perimeter_role(loop_role);
     loop.add_child(path.mutable_view());
+    loop.set_flags(RAW_EXTRUSION_FLAG_CONTINUOUS | RAW_EXTRUSION_FLAG_REVERSIBLE);
     dst.add_child(loop.mutable_view());
 }
 
 StoredExtrusionEntity make_perimeter_extrusion(storage_handle *storage,
                                                const ExPolygon &area,
                                                const c_flow &flow,
+                                               uint16_t perimeter_idx,
                                                double line_offset)
 {
     StoredExtrusionEntity extrusion(storage);
@@ -79,9 +81,9 @@ StoredExtrusionEntity make_perimeter_extrusion(storage_handle *storage,
 
     StoredExPolygonCollection loops = offset_area(storage, area, line_offset);
     for (ExPolygon loop : loops) {
-        append_perimeter_loop(extrusion, loop.contour(), flow, k_loop_role_default);
+        append_perimeter_loop(extrusion, loop.contour(), flow, perimeter_idx, k_loop_role_default);
         for (Polygon hole : loop.holes())
-            append_perimeter_loop(extrusion, hole, flow, k_loop_role_hole);
+            append_perimeter_loop(extrusion, hole, flow, perimeter_idx, k_loop_role_hole);
     }
     return extrusion;
 }
@@ -129,7 +131,9 @@ int32_t generate_node(void *generator_context,
     const bool first_perimeter = node_view.perimeter_idx() == 0;
     const double line_offset = first_perimeter ? -0.5 * double(state.flow.width) :
                                                  -0.5 * double(state.flow.spacing);
-    StoredExtrusionEntity extrusion = make_perimeter_extrusion(storage, node_view.area(), state.flow, line_offset);
+    const uint16_t perimeter_idx = uint16_t(std::min<uint32_t>(node_view.perimeter_idx(), UINT16_MAX));
+    StoredExtrusionEntity extrusion = make_perimeter_extrusion(
+        storage, node_view.area(), state.flow, perimeter_idx, line_offset);
     extrusion_move_from(node->extrusions, extrusion.mutable_handle());
 
     const double inner_offset = first_perimeter ? -0.5 * double(state.flow.width + state.flow.spacing) :

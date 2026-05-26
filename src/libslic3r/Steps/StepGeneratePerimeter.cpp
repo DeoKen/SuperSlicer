@@ -207,11 +207,43 @@ void append_extrusion_children(ExtrusionEntityCollection &dst, ExtrusionEntity &
     }
 }
 
+void append_extrusion_children(ExtrusionEntity &dst, ExtrusionEntity &src)
+{
+    if (src.is_nop())
+        return;
+
+    if (src.is_leaf()) {
+        dst.append_child(ExtrusionEntityUPtr(src.clone_move()));
+        src.clear_content();
+        src.clear_properties();
+        return;
+    }
+
+    ExtrusionEntity::Children &children = src.children();
+    while (!children.empty()) {
+        dst.append_child(std::move(children.front()));
+        children.erase(children.begin());
+    }
+}
+
 void collect_extrusions(PerimeterTreeNode &node, ExtrusionEntityCollection &out)
 {
-    append_extrusion_children(out, node.extrusions);
-    for (std::unique_ptr<PerimeterTreeNode> &child : node.children)
-        collect_extrusions(*child, out);
+    // Keep the extrusion publication shaped like the generation tree. Each
+    // PerimeterTreeNode becomes one collection node containing the loops/gap
+    // fill generated for this level, followed by one child collection per
+    // inner area. Later steps can then recover the perimeter depth hierarchy
+    // instead of receiving a flat list of unrelated loops.
+    std::unique_ptr<ExtrusionEntity> group =
+        std::make_unique<ExtrusionEntity>(ExtrusionEntity::Children(), false, true, false);
+    append_extrusion_children(*group, node.extrusions);
+    for (std::unique_ptr<PerimeterTreeNode> &child : node.children) {
+        ExtrusionEntityCollection child_group;
+        collect_extrusions(*child, child_group);
+        append_extrusion_children(*group, child_group);
+    }
+
+    if (!group->is_leaf() && group->child_count() > 0)
+        out.append(std::move(group));
 }
 
 void collect_leaf_areas(const PerimeterTreeNode &node,

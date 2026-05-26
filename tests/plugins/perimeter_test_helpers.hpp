@@ -37,6 +37,9 @@ struct PerimeterRunCapture
     SurfaceCollection fill_no_overlap_surfaces;
     coord_t external_perimeter_width = 0;
     coord_t external_perimeter_spacing = 0;
+    double external_perimeter_mm3_per_mm = 0.;
+    float external_perimeter_width_mm = 0.f;
+    float external_perimeter_height_mm = 0.f;
 };
 
 struct VerticalSplitCounts
