@@ -67,9 +67,9 @@ protected:
 
     // Unspecified fill polygons, used for intersecting when we don't want the infill/perimeter encroaching
     // note: if empty, that means there is no overlap, so you don't need to intersect with it.
-    ExPolygons                  m_fill_no_overlap_expolygons;
-    ExPolygons                  m_fill_expolygons;
-    BoundingBoxes               m_fill_expolygons_bboxes;
+    ExPolygons                  m_infill_free_areas;
+    ExPolygons                  m_infill_areas;
+    BoundingBoxes               m_infill_areas_bboxes;
     // to get the boundary in avoid_crossing_perimeters. Filled by make_perimeters()
     ExPolygons                  m_perimeter_slices;
 
@@ -93,9 +93,9 @@ public:
 
         // Unspecified fill polygons, used for overhang detection ("ensure vertical wall thickness feature")
     // and for re-starting of infills.
-    [[nodiscard]] const ExPolygons&                 fill_expolygons() const { return m_fill_expolygons; }
+    [[nodiscard]] const ExPolygons&                 infill_areas() const { return m_infill_areas; }
     // and their bounding boxes
-    [[nodiscard]] const BoundingBoxes&              fill_expolygons_bboxes() const { return m_fill_expolygons_bboxes; }
+    [[nodiscard]] const BoundingBoxes&              infill_areas_bboxes() const { return m_infill_areas_bboxes; }
 
     // return true if this expolygon is (inside) this island.
     // TODO remove when the fill surfaces will be linked to their islands (maybe moved here)
@@ -106,7 +106,7 @@ public:
 
     //// Unspecified fill polygons, used for intersecting when we don't want the infill/perimeter overlap
     //// note: if empty, that means there is no overlap, so you don't need to intersect with it.
-    [[nodiscard]] const ExPolygons&                 fill_no_overlap_expolygons() const { return m_fill_no_overlap_expolygons; }
+    [[nodiscard]] const ExPolygons&                 infill_free_areas() const { return m_infill_free_areas; }
 
     void make_perimeters(LayerRegionIsland &region_island);
 };

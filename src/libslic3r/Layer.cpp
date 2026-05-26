@@ -122,15 +122,15 @@ ExPolygon &ApiInternal::LayerIslandAccess::slice_mutable(LayerSliceIsland &islan
     return island.m_slice;
 }
 
-void ApiInternal::LayerIslandAccess::set_fill_expolygons(LayerSliceIsland &island, ExPolygons &&fill_expolygons)
+void ApiInternal::LayerIslandAccess::set_infill_areas(LayerSliceIsland &island, ExPolygons &&infill_areas)
 {
-    island.m_fill_expolygons = std::move(fill_expolygons);
-    island.m_fill_expolygons_bboxes = get_extents_vector(island.m_fill_expolygons);
+    island.m_infill_areas = std::move(infill_areas);
+    island.m_infill_areas_bboxes = get_extents_vector(island.m_infill_areas);
 }
 
-ExPolygons &ApiInternal::LayerIslandAccess::fill_no_overlap_expolygons_mutable(LayerSliceIsland &island)
+ExPolygons &ApiInternal::LayerIslandAccess::infill_free_areas_mutable(LayerSliceIsland &island)
 {
-    return island.m_fill_no_overlap_expolygons;
+    return island.m_infill_free_areas;
 }
 
 ExPolygons &ApiInternal::LayerIslandAccess::perimeter_slices_mutable(LayerSliceIsland &island)
@@ -1015,11 +1015,11 @@ void Layer::make_perimeters() {
                 LayerRegionIsland &region_island = island->get_or_add_region_island(regions, uint16_t(perimeter_extruder));
                 island->make_perimeters(region_island);
             }
-            append(all_fill_expolygon, island->fill_expolygons());
-            if (island->fill_no_overlap_expolygons().empty()) {
-                append(all_fill_no_overlap_expolygon, island->fill_expolygons());
+            append(all_fill_expolygon, island->infill_areas());
+            if (island->infill_free_areas().empty()) {
+                append(all_fill_no_overlap_expolygon, island->infill_areas());
             } else {
-                append(all_fill_no_overlap_expolygon, island->fill_no_overlap_expolygons());
+                append(all_fill_no_overlap_expolygon, island->infill_free_areas());
             }
         //}
     }
@@ -1148,9 +1148,9 @@ void LayerSliceIsland::make_perimeters(LayerRegionIsland &region_island) {
                 // Gaps without the thin walls
             &gap_fills,
                 // Infills without the gap fills
-            m_fill_expolygons,
+            m_infill_areas,
                 // mask for "no overlap" area
-            m_fill_no_overlap_expolygons
+            m_infill_free_areas
         );
 
         DEBUG_TREE_VISIT(perimeters, LoopAssertVisitor());

@@ -187,8 +187,8 @@ PerimeterRunCapture capture_perimeter_outputs(const LayerSliceIsland &island)
                 capture.external_perimeters.append(region_island.extrusion(LayerRegionIsland::PERIMETERS));
             }
         }
-    capture.fill_surfaces.set(island.fill_expolygons(), stPosInternal | stDensSolid);
-    capture.fill_no_overlap_surfaces.set(island.fill_no_overlap_expolygons(), stPosInternal | stDensSolid);
+    capture.fill_surfaces.set(island.infill_areas(), stPosInternal | stDensSolid);
+    capture.fill_no_overlap_surfaces.set(island.infill_free_areas(), stPosInternal | stDensSolid);
     return capture;
 }
 

@@ -160,11 +160,11 @@ bool same_island(const LayerSliceIsland &lhs,
         return false;
     if (!same_region_set(lhs.regions(), rhs.regions(), out_error, path + ".regions"))
         return false;
-    if (!same_expolygons(lhs.fill_no_overlap_expolygons(), rhs.fill_no_overlap_expolygons(), out_error, path + ".fill_no_overlap_expolygons"))
+    if (!same_expolygons(lhs.infill_free_areas(), rhs.infill_free_areas(), out_error, path + ".infill_free_areas"))
         return false;
-    if (!same_expolygons(lhs.fill_expolygons(), rhs.fill_expolygons(), out_error, path + ".fill_expolygons"))
+    if (!same_expolygons(lhs.infill_areas(), rhs.infill_areas(), out_error, path + ".infill_areas"))
         return false;
-    if (!same_value(lhs.fill_expolygons_bboxes(), rhs.fill_expolygons_bboxes(), out_error, path, "fill_expolygons_bboxes"))
+    if (!same_value(lhs.infill_areas_bboxes(), rhs.infill_areas_bboxes(), out_error, path, "infill_areas_bboxes"))
         return false;
     const ExPolygons &lhs_perimeter_slices = const_cast<LayerSliceIsland &>(lhs).get_perimeter_slices();
     const ExPolygons &rhs_perimeter_slices = const_cast<LayerSliceIsland &>(rhs).get_perimeter_slices();

@@ -175,12 +175,6 @@ typedef struct run_ctx_generate_perimeter {
     */
     perimeter_set_region_island_extrusion_fn set_region_island_extrusion;
 
-    /*
-    Publish fill surfaces and non-encroaching/no-overlap fill surfaces into a
-    region island.
-    */
-    perimeter_set_region_island_surfaces_fn set_region_island_fill_surfaces;
-    perimeter_set_region_island_surfaces_fn set_region_island_fill_no_overlap_surfaces;
 } run_ctx_generate_perimeter;
 
 /*

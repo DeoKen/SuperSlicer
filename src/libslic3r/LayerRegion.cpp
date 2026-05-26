@@ -196,7 +196,7 @@ const ExPolygons& LayerRegion::fill_expolygons() const {
     int shift = 0;
     for (const LayerSliceIsland &layer_island_ptr : this->layer()->islands()) {
         if (layer_island_ptr.regions().find(this) != layer_island_ptr.regions().end()) {
-            for (const ExPolygon &expoly : layer_island_ptr.fill_expolygons()) {
+            for (const ExPolygon &expoly : layer_island_ptr.infill_areas()) {
                 hash_islands ^= (uint64_t(&expoly) << shift);
                 shift++;
             }
@@ -215,7 +215,7 @@ ExPolygons LayerRegion::_compute_fill_expolygons() const {
     size_t nb_add = 0;
     for (const LayerSliceIsland &layer_island_ptr : this->layer()->islands()) {
         if (auto &regions = layer_island_ptr.regions(); regions.find(this) != regions.end()) {
-            append(my_fill_expolygons, layer_island_ptr.fill_expolygons());
+            append(my_fill_expolygons, layer_island_ptr.infill_areas());
             nb_add++;
         }
     }

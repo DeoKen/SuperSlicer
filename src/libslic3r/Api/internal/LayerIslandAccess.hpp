@@ -18,8 +18,8 @@ namespace ApiInternal {
 struct LayerIslandAccess
 {
     static ExPolygon &slice_mutable(LayerSliceIsland &island);
-    static void set_fill_expolygons(LayerSliceIsland &island, ExPolygons &&fill_expolygons);
-    static ExPolygons &fill_no_overlap_expolygons_mutable(LayerSliceIsland &island);
+    static void set_infill_areas(LayerSliceIsland &island, ExPolygons &&infill_areas);
+    static ExPolygons &infill_free_areas_mutable(LayerSliceIsland &island);
     static ExPolygons &perimeter_slices_mutable(LayerSliceIsland &island);
 };
 

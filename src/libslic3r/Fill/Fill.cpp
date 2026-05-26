@@ -976,7 +976,7 @@ void Layer::_make_fills(LayerSliceIsland& island,
             if (surface_fill.params.config->perimeters > 0) {
                 f->overlap = surface_fill.params.config->infill_overlap.get_effective_value((perimeter_spacing + (f->get_spacing())) / 2);
                 if (f->overlap != 0) {
-                    f->no_overlap_expolygons = intersection_ex(island.fill_no_overlap_expolygons(), ExPolygons() = {expoly});
+                    f->no_overlap_expolygons = intersection_ex(island.infill_free_areas(), ExPolygons() = {expoly});
                 } else {
                     f->no_overlap_expolygons.push_back(expoly);
                 }
