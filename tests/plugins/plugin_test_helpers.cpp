@@ -43,6 +43,7 @@
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Surface/InitialTypedSurfaceBuilder.hpp"
 #include "libslic3r/Plugins/Surface/SolidShells.hpp"
+#include "libslic3r/Plugins/Surface/TopSurfaceExpansion.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandModifiers.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandOverhangs.hpp"
@@ -198,6 +199,8 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::SurfaceGeneration::SolidShellsPlugin::register_solid_shells_plugin(
             orchestrator_handle_value);
+        slic3r_api::SurfaceGeneration::TopSurfaceExpansionPlugin::register_top_surface_expansion_plugin(
+            orchestrator_handle_value);
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
                                   orchestrator.get_plugin("python.polyholes") != nullptr &&
@@ -226,6 +229,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "perimeter.post_process.fuzzy_skin");
         activate_plugin_or_fail(orchestrator, "surface.initial_typed_surface_builder");
         activate_plugin_or_fail(orchestrator, "surface.solid_shells");
+        activate_plugin_or_fail(orchestrator, "surface.top_surface_expansion");
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         if (g_python_plugins_loaded) {
             activate_plugin_or_fail(orchestrator, "python.polyholes");

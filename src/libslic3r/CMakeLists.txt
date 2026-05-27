@@ -175,6 +175,8 @@ set(SLIC3R_SOURCES
 	Plugins/Surface/InitialTypedSurfaceBuilder.hpp
 	Plugins/Surface/SolidShells.cpp
 	Plugins/Surface/SolidShells.hpp
+	Plugins/Surface/TopSurfaceExpansion.cpp
+	Plugins/Surface/TopSurfaceExpansion.hpp
 	Plugins/Support/SupportDemandBridgeRemoval.cpp
 	Plugins/Support/SupportDemandBridgeRemoval.hpp
 	Plugins/Support/SupportDemandModifiers.cpp

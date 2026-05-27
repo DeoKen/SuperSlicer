@@ -32,6 +32,7 @@ extern const char *const REMOVE_GAP_FILL_ON_OVERHANGS;
 extern const char *const FUZZY_SKIN;
 extern const char *const INITIAL_TYPED_SURFACE_BUILDER;
 extern const char *const SOLID_SHELLS;
+extern const char *const TOP_SURFACE_EXPANSION;
 
 struct PerimeterRunCapture
 {

@@ -24,6 +24,7 @@ add_executable(${_TEST_NAME}_tests
     test_support_demand_overhangs.cpp
     test_surface_initial_typed_surface_builder.cpp
     test_surface_solid_shells.cpp
+    test_surface_top_surface_expansion.cpp
     )
 
 target_link_libraries(${_TEST_NAME}_tests test_common test_common_data libslic3r)
