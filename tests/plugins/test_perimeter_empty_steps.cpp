@@ -12,11 +12,17 @@
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/Plugin.hpp"
+#include "libslic3r/Api/internal/LayerAccess.hpp"
+#include "libslic3r/Api/internal/LayerRegionAccess.hpp"
+#include "libslic3r/Api/plugin/c/slic3r_extrusion_entity.h"
 #include "libslic3r/Api/plugin/c/steps/slic3r_step_post_perimeter.h"
 #include "libslic3r/Api/plugin/c/steps/slic3r_step_pre_perimeter.h"
+#include "libslic3r/Layer.hpp"
+#include "libslic3r/LayerRegion.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
+#include "libslic3r/Steps/StepGeneratePerimeter.hpp"
 #include "libslic3r/Steps/StepPostPerimeterGeneration.hpp"
 #include "libslic3r/Steps/StepPrepareForPeriemters.hpp"
 #include "libslic3r/Steps/StepPipeline.hpp"
@@ -47,6 +53,9 @@ struct RecordingPluginState
     const char *exclusive_group_tooltip = "";
     std::vector<RecordedEvent> *events = nullptr;
     std::mutex *mutex = nullptr;
+    bool mutate_post_perimeter_outputs = false;
+    bool saw_mutable_extrusion = false;
+    bool changed_fill_areas = false;
 };
 
 RecordingPluginState g_pre_first  = {"test.pre_perimeter.first", STEP_PRE_PERIMETER, -10};
@@ -71,6 +80,7 @@ RecordingPluginState g_pre_group_second = {
 RecordingPluginState g_post_first = {"test.post_perimeter.first", STEP_POST_PERIMETER, -10};
 RecordingPluginState g_post_second = {"test.post_perimeter.second", STEP_POST_PERIMETER, 20};
 RecordingPluginState g_post_inactive = {"test.post_perimeter.inactive", STEP_POST_PERIMETER, 0};
+RecordingPluginState g_post_mutator = {"test.post_perimeter.mutator", STEP_POST_PERIMETER, 0};
 
 RecordingPluginState *const g_recording_plugins[] = {
     &g_pre_first,
@@ -80,7 +90,8 @@ RecordingPluginState *const g_recording_plugins[] = {
     &g_pre_group_second,
     &g_post_first,
     &g_post_second,
-    &g_post_inactive
+    &g_post_inactive,
+    &g_post_mutator
 };
 
 const_strings_t recording_get_dependencies(void *)
@@ -178,6 +189,39 @@ void record_event(RecordingPluginState &state, RecordedEvent event)
     state.events->push_back(std::move(event));
 }
 
+void mutate_post_perimeter_outputs(RecordingPluginState &state, const plugin_run_context *run_ctx)
+{
+    const run_ctx_post_perimeter_generation *payload = plugin_ctx_as_post_perimeter_generation(run_ctx);
+    if (payload == nullptr || payload->object == nullptr ||
+        payload->get_region_island_mutable_extrusion == nullptr ||
+        payload->set_island_fill_areas == nullptr ||
+        payload->set_island_fill_free_areas == nullptr)
+        return;
+
+    const uint32_t layer_count = object_count_layer(payload->object);
+    for (uint32_t layer_idx = 0; layer_idx < layer_count; ++layer_idx) {
+        const layer_handle *layer = object_get_layer(payload->object, layer_idx);
+        const uint32_t island_count = layer_count_island(layer);
+        for (uint32_t island_idx = 0; island_idx < island_count; ++island_idx) {
+            const layer_island_handle *island = layer_get_island(layer, island_idx);
+            if (payload->set_island_fill_areas(island, nullptr) != 0 &&
+                payload->set_island_fill_free_areas(island, nullptr) != 0)
+                state.changed_fill_areas = true;
+
+            const uint32_t region_island_count = layer_island_count_region_island(island);
+            for (uint32_t region_island_idx = 0; region_island_idx < region_island_count; ++region_island_idx) {
+                const layer_region_island_handle *region_island =
+                    layer_island_get_region_island(island, region_island_idx);
+                extrusion_entity_handle *root =
+                    payload->get_region_island_mutable_extrusion(region_island, RAW_EXTRUSION_ROLE_PERIMETER);
+                if (root != nullptr &&
+                    extrusion_set_flags(root, extrusion_flags(root) | RAW_EXTRUSION_FLAG_REVERSIBLE) != 0)
+                    state.saw_mutable_extrusion = true;
+            }
+        }
+    }
+}
+
 void recording_setup(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count)
 {
     RecordingPluginState &state = *static_cast<RecordingPluginState *>(plugin_ctx);
@@ -204,6 +248,8 @@ void recording_run(void *plugin_ctx, const plugin_run_context *run_ctx)
     event.callback = "run";
     fill_payload_event(run_ctx, event);
     record_event(state, std::move(event));
+    if (state.mutate_post_perimeter_outputs)
+        mutate_post_perimeter_outputs(state, run_ctx);
 }
 
 const plugin_vtable *recording_vtable()
@@ -363,6 +409,36 @@ void require_object_payloads(const std::vector<RecordedEvent> &events,
     CHECK(run_seen[1] == 2);
 }
 
+void set_single_region_area(LayerRegion &region, const ExPolygon &area)
+{
+    ExPolygons &region_slices = ApiInternal::LayerRegionAccess::slices_mutable(region);
+    region_slices = ExPolygons{area};
+    ApiInternal::LayerRegionAccess::surfaces_mutable(region).set(region_slices, stPosInternal | stDensSparse);
+}
+
+void replace_single_layer_island(Layer &layer, const ExPolygon &area)
+{
+    // These step-boundary tests need a deterministic perimeter input, not a
+    // full slicer fixture. Replacing the slice island and its matching region
+    // slice gives the simple perimeter generator a small self-contained island
+    // to process.
+    ApiInternal::LayerAccess::set_islands(layer, ExPolygons{area});
+    set_single_region_area(layer.region(0), area);
+    layer.island(0).fill_regions(layer);
+}
+
+void rebuild_island_overlap_graph(PrintObject &object)
+{
+    for (Layer &layer : object.layers())
+        for (LayerSliceIsland &island : layer.islands()) {
+            island.overlaps_above.clear();
+            island.overlaps_below.clear();
+        }
+
+    for (size_t layer_idx = 1; layer_idx < object.layer_count(); ++layer_idx)
+        Layer::build_up_down_graph(object.layer(layer_idx - 1), object.layer(layer_idx));
+}
+
 const Steps::StepExclusivePluginGroup *find_exclusive_group(const std::vector<Steps::StepExclusivePluginGroup> &groups,
                                                             const char *group_id)
 {
@@ -451,6 +527,51 @@ TEST_CASE("Empty perimeter boundary steps run object plugins", "[plugins][perime
                                   g_post_inactive.id,
                                   &Steps::StepPostPerimeterGeneration::run_step);
     }
+}
+
+TEST_CASE("Post-perimeter step exposes mutable perimeter outputs", "[plugins][perimeter][steps]")
+{
+    Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
+    register_recording_plugins();
+
+    PreparedPerimeterPrint prepared;
+    const DynamicPrintConfig config = perimeter_config({{"perimeters", "2"}});
+    prepare_cube_print(prepared, config);
+    PrintObject &object = prepared.print.object(0);
+    REQUIRE(object.layer_count() > 0);
+    Layer &layer = object.layer(0);
+    replace_single_layer_island(layer, rectangle_expolygon(-8., -8., 8., 8.));
+    rebuild_island_overlap_graph(object);
+
+    {
+        ScopedActivePlugins active_scope({SIMPLE_PERIMETER_GENERATOR});
+        Steps::StepGeneratePerimeter::clean_and_prepare(prepared.print);
+        Steps::StepGeneratePerimeter::run_step(Orchestrator::instance(), prepared.print);
+    }
+
+    bool saw_perimeter_extrusions = false;
+    const LayerSliceIsland &generated_island = layer.island(0);
+    REQUIRE_FALSE(generated_island.infill_areas().empty());
+    for (const LayerRegionIsland &region_island : generated_island.regions_islands())
+        saw_perimeter_extrusions =
+            saw_perimeter_extrusions || region_island.has_extrusion(LayerRegionIsland::PERIMETERS);
+    REQUIRE(saw_perimeter_extrusions);
+
+    g_post_mutator.mutate_post_perimeter_outputs = true;
+    g_post_mutator.saw_mutable_extrusion = false;
+    g_post_mutator.changed_fill_areas = false;
+    {
+        ScopedActivePlugins active_scope({g_post_mutator.id});
+        Steps::StepPostPerimeterGeneration::run_step(Orchestrator::instance(), prepared.print);
+    }
+    g_post_mutator.mutate_post_perimeter_outputs = false;
+
+    CHECK(g_post_mutator.saw_mutable_extrusion);
+    CHECK(g_post_mutator.changed_fill_areas);
+    const LayerSliceIsland &mutated_island = layer.island(0);
+    CHECK(mutated_island.infill_areas().empty());
+    CHECK(mutated_island.infill_free_areas().empty());
+    CHECK(mutated_island.infill_areas_bboxes().empty());
 }
 
 TEST_CASE("Explicit exclusive groups select one object-step plugin", "[plugins][perimeter][steps]")
