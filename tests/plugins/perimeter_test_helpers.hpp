@@ -78,6 +78,13 @@ struct PerimeterRegionOverride
     std::vector<std::pair<std::string, std::string>> settings;
 };
 
+struct GenericFacetPaintingOverride
+{
+    std::string key;
+    EnforcerBlockerType type;
+    std::vector<int> facets;
+};
+
 ExPolygon rectangle_expolygon(double min_x, double min_y, double max_x, double max_y);
 ExPolygon rectangle_with_hole_expolygon();
 DynamicPrintConfig perimeter_config(std::initializer_list<std::pair<std::string, std::string>> overrides);
@@ -109,6 +116,14 @@ PerimeterRunCapture run_perimeter_and_post_case_with_regions(
     const ExPolygon &area,
     size_t layer_idx,
     const std::vector<PerimeterRegionOverride> &region_overrides);
+
+PerimeterRunCapture run_perimeter_and_post_case_with_generic_facet_painting(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> perimeter_plugins,
+    std::initializer_list<const char *> post_plugins,
+    const ExPolygon &area,
+    size_t layer_idx,
+    const std::vector<GenericFacetPaintingOverride> &paintings);
 
 PerimeterMultiIslandRunCapture run_perimeter_multi_island_case(
     const DynamicPrintConfig &config,

@@ -175,6 +175,31 @@ void add_partitioned_region(PreparedPerimeterPrint &prepared,
     add_partitioned_region(prepared, layer, area, std::vector<std::pair<std::string, std::string>>{{key, value}});
 }
 
+void paint_generic_facets(ModelVolume &volume,
+                          const std::string &key,
+                          const EnforcerBlockerType type,
+                          const std::vector<int> &facets)
+{
+    const char *encoded_state = type == EnforcerBlockerType::ENFORCER ? "4" :
+                                type == EnforcerBlockerType::BLOCKER  ? "8" : "0";
+    FacetsAnnotation &annotation = volume.facets_annotation_mutable(key);
+    annotation.reserve(int(facets.size()));
+    for (int facet_idx : facets)
+        annotation.set_triangle_from_string(facet_idx, encoded_state);
+    annotation.shrink_to_fit();
+}
+
+void apply_generic_facet_paintings(PrintObject &object,
+                                   const std::vector<GenericFacetPaintingOverride> &paintings)
+{
+    ModelObject *model_object = object.model_object();
+    REQUIRE(model_object != nullptr);
+    REQUIRE_FALSE(model_object->volumes.empty());
+    ModelVolume &model_volume = *model_object->volumes.front();
+    for (const GenericFacetPaintingOverride &painting : paintings)
+        paint_generic_facets(model_volume, painting.key, painting.type, painting.facets);
+}
+
 PerimeterRunCapture capture_perimeter_outputs(const LayerSliceIsland &island)
 {
     PerimeterRunCapture capture;
@@ -611,6 +636,38 @@ PerimeterRunCapture run_perimeter_and_post_case_with_regions(
 
     for (const PerimeterRegionOverride &override_region : region_overrides)
         add_partitioned_region(prepared, layer, override_region.area, override_region.settings);
+
+    {
+        ScopedActivePlugins active_scope(perimeter_plugins);
+        Steps::StepGeneratePerimeter::clean_and_prepare(prepared.print);
+        Steps::StepGeneratePerimeter::run_step(Orchestrator::instance(), prepared.print);
+    }
+
+    {
+        ScopedActivePlugins active_scope(post_plugins);
+        Steps::StepPostPerimeterGeneration::run_step(Orchestrator::instance(), prepared.print);
+    }
+
+    return capture_perimeter_outputs(layer.island(0));
+}
+
+PerimeterRunCapture run_perimeter_and_post_case_with_generic_facet_painting(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> perimeter_plugins,
+    std::initializer_list<const char *> post_plugins,
+    const ExPolygon &area,
+    const size_t layer_idx,
+    const std::vector<GenericFacetPaintingOverride> &paintings)
+{
+    PreparedPerimeterPrint prepared;
+    prepare_cube_print(prepared, config);
+    PrintObject &object = prepared.print.object(0);
+    REQUIRE(layer_idx < object.layer_count());
+    apply_generic_facet_paintings(object, paintings);
+
+    Layer &layer = object.layer(layer_idx);
+    replace_layer_island(layer, area);
+    rebuild_island_overlap_graph(object);
 
     {
         ScopedActivePlugins active_scope(perimeter_plugins);

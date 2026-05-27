@@ -2,6 +2,7 @@
 
 #include "perimeter_test_helpers.hpp"
 
+#include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Line.hpp"
 
@@ -13,6 +14,8 @@
 namespace {
 using namespace Slic3r;
 using namespace Slic3r::Test::PerimeterPluginTests;
+
+const char *k_fuzzy_skin_painting_key = "perimeter.post_process.fuzzy_skin.painting";
 
 DynamicPrintConfig fuzzy_config(std::initializer_list<std::pair<std::string, std::string>> overrides)
 {
@@ -174,13 +177,55 @@ void require_centerline_inside_envelope(const PerimeterRunCapture &baseline,
     REQUIRE(total_length(outside) <= scale_d(0.02));
 }
 
+Lines collect_lines(const Polylines &polylines)
+{
+    Lines out;
+    for (const Polyline &polyline : polylines) {
+        const Lines lines = polyline.lines();
+        out.insert(out.end(), lines.begin(), lines.end());
+    }
+    return out;
+}
+
+bool line_touches_or_crosses_reference(const Line &line, const Line &reference, coordf_t tolerance)
+{
+    if (proper_segment_crossing(line, reference))
+        return true;
+
+    return reference.distance_to(line.a) <= tolerance ||
+           reference.distance_to(line.b) <= tolerance ||
+           line.distance_to(reference.a) <= tolerance ||
+           line.distance_to(reference.b) <= tolerance;
+}
+
+void require_fuzzy_segments_return_to_old_centerline(const PerimeterRunCapture &baseline,
+                                                     const PerimeterRunCapture &modified)
+{
+    // Fuzzy skin is expected to create small back-and-forth strokes around the
+    // original centerline, not a long offset polyline running beside it. This
+    // assertion checks that every generated segment either crosses the original
+    // perimeter centerline or touches it at one of its endpoints.
+    const Lines reference_lines = collect_lines(leaf_polylines(baseline.external_perimeters));
+    const Lines fuzzy_lines = collect_lines(leaf_polylines(modified.external_perimeters));
+    REQUIRE(!reference_lines.empty());
+
+    const coordf_t tolerance = scale_d(0.03);
+    for (size_t line_idx = 0; line_idx < fuzzy_lines.size(); ++line_idx) {
+        bool touches_reference = false;
+        for (const Line &reference : reference_lines)
+            if (line_touches_or_crosses_reference(fuzzy_lines[line_idx], reference, tolerance)) {
+                touches_reference = true;
+                break;
+            }
+
+        INFO("fuzzy segment " << line_idx << " does not return to the old centerline");
+        REQUIRE(touches_reference);
+    }
+}
+
 double max_distance_to_reference(const Polylines &subject, const Polylines &reference)
 {
-    Lines reference_lines;
-    for (const Polyline &polyline : reference) {
-        const Lines lines = polyline.lines();
-        reference_lines.insert(reference_lines.end(), lines.begin(), lines.end());
-    }
+    const Lines reference_lines = collect_lines(reference);
     if (reference_lines.empty())
         return 0.;
 
@@ -218,6 +263,7 @@ TEST_CASE("Fuzzy skin post-process perturbs a full perimeter without breaking ge
             total_polyline_points(external_perimeters(baseline)));
     require_length_growth_bounded(baseline, fuzzy, 1.35);
     require_no_centerline_crossings(fuzzy.external_perimeters);
+    require_fuzzy_segments_return_to_old_centerline(baseline, fuzzy);
     require_centerline_inside_envelope(baseline, fuzzy, scale_d(0.25));
     require_leaf_fill_area_consistency(fuzzy);
 }
@@ -252,6 +298,7 @@ TEST_CASE("Fuzzy skin post-process splits and fuzzifies only the enabled region"
             point_count_on_side(baseline.external_perimeters, false) + 4);
     require_length_growth_bounded(baseline, regional, 1.35);
     require_no_centerline_crossings(regional.external_perimeters);
+    require_fuzzy_segments_return_to_old_centerline(baseline, regional);
     require_centerline_inside_envelope(baseline, regional, scale_d(0.25));
     require_leaf_fill_area_consistency(regional);
 }
@@ -287,6 +334,7 @@ TEST_CASE("Fuzzy skin post-process honors different settings in different region
             point_count_on_side(regional.external_perimeters, false));
     require_length_growth_bounded(baseline, regional, 1.65);
     require_no_centerline_crossings(regional.external_perimeters);
+    require_fuzzy_segments_return_to_old_centerline(baseline, regional);
     require_centerline_inside_envelope(baseline, regional, scale_d(0.40));
     require_leaf_fill_area_consistency(regional);
 }
@@ -329,8 +377,75 @@ TEST_CASE("Fuzzy skin settings change point density and displacement", "[plugins
     require_length_growth_bounded(baseline, thick, 1.85);
     require_no_centerline_crossings(dense.external_perimeters);
     require_no_centerline_crossings(thick.external_perimeters);
+    require_fuzzy_segments_return_to_old_centerline(baseline, dense);
+    require_fuzzy_segments_return_to_old_centerline(baseline, thick);
     require_centerline_inside_envelope(baseline, dense, scale_d(0.25));
     require_centerline_inside_envelope(baseline, thick, scale_d(0.45));
+}
+
+TEST_CASE("Fuzzy skin facet painting can enable or block fuzzy areas", "[plugins][perimeter]")
+{
+    // The test model is the standard 20x20x10 cube used by perimeter plugin
+    // helpers. Painting all vertical side facets produces a band around the
+    // perimeter centerline on every non-first layer, which lets us verify the
+    // facet pipeline without relying on GUI code.
+    const ExPolygon area = rectangle_expolygon(-10., -10., 10., 10.);
+    const DynamicPrintConfig smooth_config = fuzzy_config({{"fuzzy_skin", "none"}});
+    const DynamicPrintConfig fuzzy_config_all = fuzzy_config({{"fuzzy_skin", "all"}});
+    const size_t layer_idx = 1;
+    const std::vector<int> side_facets = {4, 5, 6, 7, 8, 9, 10, 11};
+
+    bool annotation_registered = false;
+    for (const GenericFacetsAnnotationDefinition &definition :
+         Orchestrator::instance().generic_facets_annotations())
+        annotation_registered |= definition.key == k_fuzzy_skin_painting_key;
+    REQUIRE(annotation_registered);
+
+    SECTION("Enforcer facets enable fuzzy skin on the painted layer")
+    {
+        // Base fuzzy_skin is disabled, so the only reason this perimeter may
+        // gain randomized points is the generic facets annotation registered by
+        // the plugin and projected through the post-perimeter API.
+        const PerimeterRunCapture smooth =
+            run_perimeter_case(smooth_config, {SIMPLE_PERIMETER_GENERATOR}, area, layer_idx);
+        const PerimeterRunCapture painted =
+            run_perimeter_and_post_case_with_generic_facet_painting(
+                smooth_config,
+                {SIMPLE_PERIMETER_GENERATOR},
+                {FUZZY_SKIN},
+                area,
+                layer_idx,
+                {{k_fuzzy_skin_painting_key, EnforcerBlockerType::ENFORCER, side_facets}});
+
+        REQUIRE(total_polyline_points(painted.external_perimeters) >
+                total_polyline_points(smooth.external_perimeters));
+        require_no_centerline_crossings(painted.external_perimeters);
+        require_fuzzy_segments_return_to_old_centerline(smooth, painted);
+        require_centerline_inside_envelope(smooth, painted, scale_d(0.35));
+    }
+
+    SECTION("Blocker facets remove fuzzy skin from an otherwise fuzzy layer")
+    {
+        // The region setting enables fuzzy everywhere, then the painted blocker
+        // covers the same side facets. The post-process should keep the perimeter
+        // printable but leave it as smooth as the no-fuzzy baseline.
+        const PerimeterRunCapture smooth =
+            run_perimeter_case(smooth_config, {SIMPLE_PERIMETER_GENERATOR}, area, layer_idx);
+        const PerimeterRunCapture blocked =
+            run_perimeter_and_post_case_with_generic_facet_painting(
+                fuzzy_config_all,
+                {SIMPLE_PERIMETER_GENERATOR},
+                {FUZZY_SKIN},
+                area,
+                layer_idx,
+                {{k_fuzzy_skin_painting_key, EnforcerBlockerType::BLOCKER, side_facets}});
+
+        REQUIRE(total_polyline_points(blocked.external_perimeters) ==
+                total_polyline_points(smooth.external_perimeters));
+        require_no_centerline_crossings(blocked.external_perimeters);
+        require_fuzzy_segments_return_to_old_centerline(smooth, blocked);
+        require_centerline_inside_envelope(smooth, blocked, scale_d(0.02));
+    }
 }
 
 TEST_CASE("Fuzzy skin post-process is a no-op when no perimeters exist", "[plugins][perimeter]")
