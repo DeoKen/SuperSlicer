@@ -3,12 +3,12 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#ifndef plugins_surface_createemptysurface_hpp_
-#define plugins_surface_createemptysurface_hpp_
+#ifndef plugins_surface_initialtypedsurfacebuilder_hpp_
+#define plugins_surface_initialtypedsurfacebuilder_hpp_
 
 #include "libslic3r/Api/plugin/cpp/PluginBase.hpp"
 
-namespace slic3r_api { namespace SurfaceGeneration { namespace CreateEmptySurfacePlugin {
+namespace slic3r_api { namespace SurfaceGeneration { namespace InitialTypedSurfaceBuilderPlugin {
 
 // Baseline STEP_SURFACE_GENERATION plugin.
 //
@@ -16,13 +16,13 @@ namespace slic3r_api { namespace SurfaceGeneration { namespace CreateEmptySurfac
 // first surface-generation pass: it creates the initial LayerRegionIsland
 // surfaces and classifies each area as bottom, internal, or top by comparing it
 // with the layer islands immediately below and above.
-class CreateEmptySurface : public PluginBase
+class InitialTypedSurfaceBuilder : public PluginBase
 {
 public:
-    static CreateEmptySurface &instance(orchestrator_handle *orch);
+    static InitialTypedSurfaceBuilder &instance(orchestrator_handle *orch);
 
 private:
-    CreateEmptySurface(orchestrator_handle *orch) : PluginBase(orch) {}
+    InitialTypedSurfaceBuilder(orchestrator_handle *orch) : PluginBase(orch) {}
 
     const char *id_impl() const noexcept override;
     const char *name_impl() const noexcept override;
@@ -38,8 +38,8 @@ private:
     void run_impl(const plugin_run_context *run_ctx) const override;
 };
 
-void register_create_empty_surface_plugin(orchestrator_handle *orch);
+void register_initial_typed_surface_builder_plugin(orchestrator_handle *orch);
 
-}}} // namespace slic3r_api::SurfaceGeneration::CreateEmptySurfacePlugin
+}}} // namespace slic3r_api::SurfaceGeneration::InitialTypedSurfaceBuilderPlugin
 
-#endif // plugins_surface_createemptysurface_hpp_
+#endif // plugins_surface_initialtypedsurfacebuilder_hpp_

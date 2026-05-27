@@ -171,8 +171,8 @@ set(SLIC3R_SOURCES
 	Plugins/SliceVolume.hpp
 	Plugins/StandardLayerHeightGenerator.cpp
 	Plugins/StandardLayerHeightGenerator.hpp
-	Plugins/Surface/CreateEmptySurface.cpp
-	Plugins/Surface/CreateEmptySurface.hpp
+	Plugins/Surface/InitialTypedSurfaceBuilder.cpp
+	Plugins/Surface/InitialTypedSurfaceBuilder.hpp
 	Plugins/Support/SupportDemandBridgeRemoval.cpp
 	Plugins/Support/SupportDemandBridgeRemoval.hpp
 	Plugins/Support/SupportDemandModifiers.cpp

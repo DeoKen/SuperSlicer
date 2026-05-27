@@ -47,7 +47,7 @@
 #include "libslic3r/Plugins/Perimeter/SimplePerimeterGenerator.hpp"
 #include "libslic3r/Plugins/SliceVolume.hpp"
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
-#include "libslic3r/Plugins/Surface/CreateEmptySurface.hpp"
+#include "libslic3r/Plugins/Surface/InitialTypedSurfaceBuilder.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
 #include "libslic3r/Steps/StepPipeline.hpp"
 #include "libslic3r/Utils.hpp"
@@ -361,8 +361,8 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::Perimeter::ArachnePerimeterGeneratorPlugin::register_arachne_perimeter_generator_plugin);
     register_builtin_plugin(orchestrator, "perimeter.generator.simple",
         slic3r_api::Perimeter::SimplePerimeterGeneratorPlugin::register_simple_perimeter_generator_plugin);
-    register_builtin_plugin(orchestrator, "surface.create_empty",
-        slic3r_api::SurfaceGeneration::CreateEmptySurfacePlugin::register_create_empty_surface_plugin);
+    register_builtin_plugin(orchestrator, "surface.initial_typed_surface_builder",
+        slic3r_api::SurfaceGeneration::InitialTypedSurfaceBuilderPlugin::register_initial_typed_surface_builder_plugin);
     register_builtin_plugin(orchestrator, "support_demand_bridge_removal",
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin);
 }

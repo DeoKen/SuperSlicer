@@ -95,8 +95,8 @@ if (Python3_FOUND)
             "${CMAKE_CURRENT_SOURCE_DIR}/perimeter/simple_perimeter_generator.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/simple_perimeter_generator.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/surface/create_empty_surface.py"
-            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/create_empty_surface.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/surface/initial_typed_surface_builder.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/initial_typed_surface_builder.py"
         COMMENT "Copying Python plugin helper and examples"
         VERBATIM
     )

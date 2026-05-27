@@ -4,11 +4,12 @@
 #/|/
 
 """
-CreateEmptySurface STEP_SURFACE_GENERATION plugin implemented in Python.
+InitialTypedSurfaceBuilder STEP_SURFACE_GENERATION plugin implemented in Python.
 
-This is intentionally close to the native CreateEmptySurface plugin. It exists
-mostly as an integration example: when both this plugin and the native one are
-active, the GUI exposes one exclusive-group selector for STEP_SURFACE_GENERATION.
+This is intentionally close to the native InitialTypedSurfaceBuilder plugin.
+It exists mostly as an integration example: when both this plugin and the native
+one are active, the GUI exposes one exclusive-group selector for
+STEP_SURFACE_GENERATION.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from slic3r_api import (
 from slic3r_geometry_views import StoredExPolygonCollection
 
 
-PLUGIN_ID = "python.surface.create_empty"
+PLUGIN_ID = "python.surface.initial_typed_surface_builder"
 SURFACE_GENERATION_GROUP = "step_surface_generation_plugin"
 BOTTOM_SURFACE = RAW_SURFACE_TYPE_POS_BOTTOM | RAW_SURFACE_TYPE_DENS_SOLID
 INTERNAL_SURFACE = RAW_SURFACE_TYPE_POS_INTERNAL | RAW_SURFACE_TYPE_DENS_SPARSE
@@ -150,12 +151,12 @@ def _free_surface_groups(groups) -> None:
         areas.free_from_storage()
 
 
-class PythonCreateEmptySurfacePlugin(PluginBase):
+class PythonInitialTypedSurfaceBuilderPlugin(PluginBase):
     def __init__(self, api):
         super().__init__(
             PLUGIN_ID,
             STEP_SURFACE_GENERATION,
-            name="Python create empty surfaces",
+            name="Python initial typed surface builder",
             description="Python example that creates initial bottom, internal, and top infill surfaces.",
             priority=10,
             exclusive_group=SURFACE_GENERATION_GROUP,
@@ -172,7 +173,7 @@ class PythonCreateEmptySurfacePlugin(PluginBase):
         try:
             self._run_surface_generation(ctx)
         except Exception as exc:
-            ctx.report_error(f"Python create empty surfaces failed: {exc}")
+            ctx.report_error(f"Python initial typed surface builder failed: {exc}")
 
     def _run_surface_generation(self, ctx) -> None:
         storage = ctx.plugin_storage()
@@ -214,4 +215,4 @@ class PythonCreateEmptySurfacePlugin(PluginBase):
 
 
 def register_plugin(api):
-    return PythonCreateEmptySurfacePlugin(api)
+    return PythonInitialTypedSurfaceBuilderPlugin(api)

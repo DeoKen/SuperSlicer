@@ -129,7 +129,7 @@ void require_no_positive_overlap(const SurfaceCollection &surfaces)
     require_no_positive_overlap(surface_expolygons(surfaces));
 }
 
-void require_create_empty_surface_types(const SurfaceCollection &surfaces)
+void require_initial_typed_surface_builder_types(const SurfaceCollection &surfaces)
 {
     for (const Surface &surface : surfaces) {
         const bool known_type = surface.surface_type == (stPosBottom | stDensSolid) ||
@@ -179,10 +179,11 @@ const LayerRegionIsland &region_island_for(const LayerSliceIsland &island,
 
 void require_surface_contract(const SurfaceCollection &surfaces, const ExPolygons &expected_areas)
 {
-    // CreateEmptySurface may split one fill area into several typed surfaces,
-    // but it must not change the total fillable area. Later infill code relies
-    // on this partition having no positive overlaps and no missing pieces.
-    require_create_empty_surface_types(surfaces);
+    // InitialTypedSurfaceBuilder may split one fill area into several typed
+    // surfaces, but it must not change the total fillable area. Later infill
+    // code relies on this partition having no positive overlaps and no missing
+    // pieces.
+    require_initial_typed_surface_builder_types(surfaces);
     require_no_positive_overlap(surfaces);
     require_same_union(surface_expolygons(surfaces), expected_areas);
 }
@@ -259,7 +260,7 @@ void run_perimeter_and_surface_steps(Print &print)
 
 } // namespace
 
-TEST_CASE("CreateEmptySurface converts island infill areas to typed region-island surfaces",
+TEST_CASE("InitialTypedSurfaceBuilder converts island infill areas to typed region-island surfaces",
           "[plugins][surface-generation]")
 {
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
@@ -267,7 +268,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
     SECTION("normal island")
     {
         // The first layer has no material below, but the next layer covers the
-        // same XY area. CreateEmptySurface should therefore publish bottom
+        // same XY area. InitialTypedSurfaceBuilder should therefore publish bottom
         // surfaces for the island fill area and keep the total area unchanged.
         PreparedPerimeterPrint prepared;
         prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
@@ -276,7 +277,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(layer, rectangle_expolygon(-10., -10., 10., 10.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -298,7 +299,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(layer, rectangle_expolygon(-10., -10., 10., 10.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -318,7 +319,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(layer, rectangle_expolygon(-10., -10., 10., 10.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -340,7 +341,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(object.layer(2), rectangle_expolygon(30., -10., 50., 10.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = object.layer(1).island(0);
@@ -380,7 +381,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
             replace_layer_island(object.layer(1), rectangle_expolygon(30., -10., 50., 10.));
             rebuild_island_overlap_graph(object);
 
-            ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+            ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
             run_perimeter_and_surface_steps(prepared.print);
 
             const LayerSliceIsland &island = object.layer(0).island(0);
@@ -406,7 +407,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(object.layer(2), rectangle_expolygon(-10., -10., 0., 10.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = object.layer(1).island(0);
@@ -431,7 +432,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(layer, rectangle_expolygon(-0.1, -8., 0.1, 8.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -453,7 +454,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(layer, island_area.front());
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -476,7 +477,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island_with_two_infill_extruders(prepared, layer, island_area);
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -511,7 +512,7 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         replace_layer_island(layer, island_area);
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);

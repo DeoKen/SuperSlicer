@@ -3,7 +3,7 @@
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 
-#include "CreateEmptySurface.hpp"
+#include "InitialTypedSurfaceBuilder.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -15,10 +15,10 @@
 #include "libslic3r/Api/plugin/cpp/ClipperViews.hpp"
 #include "libslic3r/Api/plugin/cpp/DataTreeViews.hpp"
 
-namespace slic3r_api { namespace SurfaceGeneration { namespace CreateEmptySurfacePlugin {
+namespace slic3r_api { namespace SurfaceGeneration { namespace InitialTypedSurfaceBuilderPlugin {
 namespace {
 
-const char *k_create_empty_surface_id = "surface.create_empty";
+const char *k_initial_typed_surface_builder_id = "surface.initial_typed_surface_builder";
 const char *k_surface_generation_group = "step_surface_generation_plugin";
 const char *k_no_dependencies[] = { nullptr };
 constexpr raw_surface_type k_bottom_surface = RAW_SURFACE_TYPE_POS_BOTTOM | RAW_SURFACE_TYPE_DENS_SOLID;
@@ -262,64 +262,64 @@ void build_island_surfaces(const run_ctx_surface_generation &ctx,
 
 } // namespace
 
-CreateEmptySurface &
-CreateEmptySurface::instance(orchestrator_handle *orch)
+InitialTypedSurfaceBuilder &
+InitialTypedSurfaceBuilder::instance(orchestrator_handle *orch)
 {
-    static CreateEmptySurface s_instance(orch);
+    static InitialTypedSurfaceBuilder s_instance(orch);
     return s_instance;
 }
 
-const char *CreateEmptySurface::id_impl() const noexcept
+const char *InitialTypedSurfaceBuilder::id_impl() const noexcept
 {
-    return k_create_empty_surface_id;
+    return k_initial_typed_surface_builder_id;
 }
 
-const char *CreateEmptySurface::name_impl() const noexcept
+const char *InitialTypedSurfaceBuilder::name_impl() const noexcept
 {
-    return "Create empty surfaces";
+    return "Initial typed surface builder";
 }
 
-const char *CreateEmptySurface::description_impl() const noexcept
+const char *InitialTypedSurfaceBuilder::description_impl() const noexcept
 {
     return "Creates initial infill surfaces from perimeter fill areas and classifies them as bottom, internal, or top.";
 }
 
-const char *CreateEmptySurface::exclusive_group_impl() const noexcept
+const char *InitialTypedSurfaceBuilder::exclusive_group_impl() const noexcept
 {
     return k_surface_generation_group;
 }
 
-const char *CreateEmptySurface::exclusive_group_label_impl() const noexcept
+const char *InitialTypedSurfaceBuilder::exclusive_group_label_impl() const noexcept
 {
     return "Surface generation plugin";
 }
 
-const char *CreateEmptySurface::exclusive_group_tooltip_impl() const noexcept
+const char *InitialTypedSurfaceBuilder::exclusive_group_tooltip_impl() const noexcept
 {
     return "Choose which active plugin converts perimeter fill areas into infill surfaces.";
 }
 
-slicing_step_t CreateEmptySurface::step_impl() const noexcept
+slicing_step_t InitialTypedSurfaceBuilder::step_impl() const noexcept
 {
     return STEP_SURFACE_GENERATION;
 }
 
-const char *const *CreateEmptySurface::dependencies_impl() const noexcept
+const char *const *InitialTypedSurfaceBuilder::dependencies_impl() const noexcept
 {
     return k_no_dependencies;
 }
 
-int32_t CreateEmptySurface::priority_impl() const noexcept
+int32_t InitialTypedSurfaceBuilder::priority_impl() const noexcept
 {
     return 0;
 }
 
-const char *CreateEmptySurface::progress_message_format_impl() const noexcept
+const char *InitialTypedSurfaceBuilder::progress_message_format_impl() const noexcept
 {
-    return "Create empty surfaces: %u / %u layers";
+    return "Build initial typed surfaces: %u / %u layers";
 }
 
-void CreateEmptySurface::setup_run_impl(const plugin_run_context *run_ctx) const
+void InitialTypedSurfaceBuilder::setup_run_impl(const plugin_run_context *run_ctx) const
 {
     const run_ctx_surface_generation *ctx = plugin_ctx_as_surface_generation(run_ctx);
     if (ctx != nullptr && ctx->object != nullptr) {
@@ -328,7 +328,7 @@ void CreateEmptySurface::setup_run_impl(const plugin_run_context *run_ctx) const
     }
 }
 
-void CreateEmptySurface::run_impl(const plugin_run_context *run_ctx) const
+void InitialTypedSurfaceBuilder::run_impl(const plugin_run_context *run_ctx) const
 {
     const run_ctx_surface_generation *ctx = plugin_ctx_as_surface_generation(run_ctx);
     if (ctx == nullptr || ctx->object == nullptr || run_ctx == nullptr || run_ctx->plugin_storage == nullptr)
@@ -347,16 +347,16 @@ void CreateEmptySurface::run_impl(const plugin_run_context *run_ctx) const
     }
 }
 
-void register_create_empty_surface_plugin(orchestrator_handle *orch)
+void register_initial_typed_surface_builder_plugin(orchestrator_handle *orch)
 {
-    orchestrator_register_plugin(orch, CreateEmptySurface::instance(orch).c_instance());
+    orchestrator_register_plugin(orch, InitialTypedSurfaceBuilder::instance(orch).c_instance());
 }
 
-}}} // namespace slic3r_api::SurfaceGeneration::CreateEmptySurfacePlugin
+}}} // namespace slic3r_api::SurfaceGeneration::InitialTypedSurfaceBuilderPlugin
 
-#ifdef CREATE_EMPTY_SURFACE_PLUGIN_DLL
+#ifdef INITIAL_TYPED_SURFACE_BUILDER_PLUGIN_DLL
 extern "C" void register_plugin(orchestrator_handle *orch)
 {
-    slic3r_api::SurfaceGeneration::CreateEmptySurfacePlugin::register_create_empty_surface_plugin(orch);
+    slic3r_api::SurfaceGeneration::InitialTypedSurfaceBuilderPlugin::register_initial_typed_surface_builder_plugin(orch);
 }
-#endif // CREATE_EMPTY_SURFACE_PLUGIN_DLL
+#endif // INITIAL_TYPED_SURFACE_BUILDER_PLUGIN_DLL
