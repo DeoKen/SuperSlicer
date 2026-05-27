@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstddef>
 #include <fstream>
+#include <initializer_list>
 #include <set>
 #include <sstream>
 #include <string>
@@ -343,6 +344,220 @@ size_t occurrence_count(const std::string &text, const std::string &needle)
     return count;
 }
 
+const char *const k_no_dependencies[] = { nullptr };
+const char *const k_duplicate_polyhole_key[] = { "hole_to_polyhole" };
+const char *const k_duplicate_builtin_key[] = { "layer_height" };
+
+struct DuplicateOptionPluginState
+{
+    const char *id = nullptr;
+    const char *exclusive_group = nullptr;
+    const char *const *defined_keys = nullptr;
+    size_t defined_key_count = 0;
+    bool create_polyhole_option = false;
+};
+
+DuplicateOptionPluginState g_same_group_duplicate {
+    "test.polyholes.duplicate.same_group",
+    "polyholes",
+    k_duplicate_polyhole_key,
+    1,
+    false
+};
+
+DuplicateOptionPluginState g_other_group_duplicate {
+    "test.polyholes.duplicate.other_group",
+    "other_polyholes",
+    k_duplicate_polyhole_key,
+    1,
+    false
+};
+
+DuplicateOptionPluginState g_builtin_duplicate {
+    "test.polyholes.duplicate.builtin",
+    "polyholes",
+    k_duplicate_builtin_key,
+    1,
+    false
+};
+
+DuplicateOptionPluginState g_same_group_initializer {
+    "test.polyholes.initializer.same_group",
+    "polyholes",
+    k_duplicate_polyhole_key,
+    1,
+    true
+};
+
+DuplicateOptionPluginState g_other_group_initializer {
+    "test.polyholes.initializer.other_group",
+    "other_polyholes",
+    k_duplicate_polyhole_key,
+    1,
+    true
+};
+
+const char *duplicate_plugin_id(void *plugin_ctx)
+{
+    return static_cast<DuplicateOptionPluginState *>(plugin_ctx)->id;
+}
+
+const char *duplicate_plugin_name(void *plugin_ctx)
+{
+    return static_cast<DuplicateOptionPluginState *>(plugin_ctx)->id;
+}
+
+const char *duplicate_plugin_description(void *)
+{
+    return "Test plugin for duplicate config option ownership.";
+}
+
+const char *duplicate_plugin_exclusive_group(void *plugin_ctx)
+{
+    return static_cast<DuplicateOptionPluginState *>(plugin_ctx)->exclusive_group;
+}
+
+const char *duplicate_plugin_exclusive_group_text(void *)
+{
+    return "";
+}
+
+slicing_step_t duplicate_plugin_step(void *)
+{
+    return STEP_POST_SLICING;
+}
+
+const_strings_t duplicate_plugin_dependencies(void *)
+{
+    const_strings_t out = {};
+    out.items = k_no_dependencies;
+    out.size = 0;
+    return out;
+}
+
+int32_t duplicate_plugin_priority(void *)
+{
+    return 1000;
+}
+
+int32_t duplicate_plugin_no_keys(void *, const char **)
+{
+    return 0;
+}
+
+int32_t duplicate_plugin_defined_keys(void *plugin_ctx, const char **keys)
+{
+    const DuplicateOptionPluginState &state = *static_cast<DuplicateOptionPluginState *>(plugin_ctx);
+    if (keys != nullptr)
+        for (size_t idx = 0; idx < state.defined_key_count; ++idx)
+            keys[idx] = state.defined_keys[idx];
+    return int32_t(state.defined_key_count);
+}
+
+raw_config_option_def duplicate_polyhole_option_def()
+{
+    raw_config_option_def def = raw_config_option_def_init();
+    def.opt_key = "hole_to_polyhole";
+    def.type = RAW_CO_BOOL;
+    def.container_type = RAW_CONTAINER_TYPE_REGION;
+    def.option_preset_type = RAW_PRESET_TYPE_FFF_PRINT;
+    def.printer_technology = RAW_PT_FFF;
+    def.label = "Convert round holes to polyholes";
+    def.full_label = "Convert round holes to polyholes";
+    def.category = RAW_OPTION_CATEGORY_SLICING;
+    def.invalidates_step = STEP_SLICING;
+    def.tooltip = ("Search for almost-circular holes that span more than one layer and convert the geometry to polyholes."
+        " Use the nozzle size and the (biggest) diameter to compute the polyhole."
+        "\nSee http://hydraraptor.blogspot.com/2011/02/polyholes.html");
+    def.mode = RAW_CONFIG_OPTION_MODE_ADV_EXP | RAW_CONFIG_OPTION_MODE_SUSI;
+    def.default_serialized_value = "0";
+    return def;
+}
+
+void duplicate_plugin_initialize(void *plugin_ctx, storage_handle *)
+{
+    const DuplicateOptionPluginState &state = *static_cast<DuplicateOptionPluginState *>(plugin_ctx);
+    if (!state.create_polyhole_option)
+        return;
+
+    raw_config_option_def def = duplicate_polyhole_option_def();
+    orchestrator_create_option_def(reinterpret_cast<orchestrator_handle *>(&Orchestrator::instance()), &def);
+}
+
+void duplicate_plugin_setup(void *, const plugin_run_context *, uint32_t) {}
+void duplicate_plugin_setup_run(void *, const plugin_run_context *) {}
+void duplicate_plugin_run(void *, const plugin_run_context *) {}
+
+const plugin_vtable *duplicate_option_plugin_vtable()
+{
+    static const plugin_vtable vt = {
+        SLIC3R_PLUGIN_ABI_VERSION,
+        &duplicate_plugin_id,
+        &duplicate_plugin_name,
+        &duplicate_plugin_description,
+        &duplicate_plugin_exclusive_group,
+        &duplicate_plugin_exclusive_group_text,
+        &duplicate_plugin_exclusive_group_text,
+        &duplicate_plugin_step,
+        &duplicate_plugin_dependencies,
+        &duplicate_plugin_priority,
+        &duplicate_plugin_no_keys,
+        &duplicate_plugin_defined_keys,
+        &duplicate_plugin_initialize,
+        &duplicate_plugin_setup,
+        &duplicate_plugin_setup_run,
+        &duplicate_plugin_run
+    };
+    return &vt;
+}
+
+void register_duplicate_option_plugin(DuplicateOptionPluginState &state)
+{
+    Orchestrator &orchestrator = Orchestrator::instance();
+    if (orchestrator.get_plugin(state.id) != nullptr)
+        return;
+
+    plugin_instance instance = {};
+    instance.ctx = &state;
+    instance.vt = duplicate_option_plugin_vtable();
+    REQUIRE(orchestrator.register_plugin(instance));
+}
+
+void register_duplicate_option_plugins()
+{
+    register_duplicate_option_plugin(g_same_group_duplicate);
+    register_duplicate_option_plugin(g_other_group_duplicate);
+    register_duplicate_option_plugin(g_builtin_duplicate);
+    register_duplicate_option_plugin(g_same_group_initializer);
+    register_duplicate_option_plugin(g_other_group_initializer);
+}
+
+class ScopedActivePluginSet
+{
+public:
+    explicit ScopedActivePluginSet(std::initializer_list<const char *> plugin_ids)
+        : m_orchestrator(Orchestrator::instance())
+    {
+        for (Plugin *plugin : m_orchestrator.active_plugins())
+            m_previous_active_plugins.push_back(plugin);
+
+        m_orchestrator.clear_active_plugins();
+        for (const char *plugin_id : plugin_ids)
+            REQUIRE(m_orchestrator.set_plugin_active(plugin_id, true));
+    }
+
+    ~ScopedActivePluginSet()
+    {
+        m_orchestrator.clear_active_plugins();
+        for (Plugin *plugin : m_previous_active_plugins)
+            m_orchestrator.set_plugin_active(plugin, true);
+    }
+
+private:
+    Orchestrator &m_orchestrator;
+    std::vector<Plugin *> m_previous_active_plugins;
+};
+
 } // namespace
 
 TEST_CASE("Polyholes converts round holes to polygons with the expected point count", "[plugins][polyholes]")
@@ -454,6 +669,58 @@ TEST_CASE("Polyhole UI fragments are stable when C++ and Python register the sam
     REQUIRE(polyholes_pos != std::string::npos);
     CHECK(selector_pos < polyholes_pos);
     CHECK(angle_pos < twist_pos);
+}
+
+TEST_CASE("Exclusive-group option ownership validates plugin activation early", "[plugins][polyholes][config]")
+{
+    Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
+    register_duplicate_option_plugins();
+
+    std::string error_message;
+    CHECK(Orchestrator::instance().validate_plugin_activation(
+        {g_same_group_duplicate.id},
+        error_message));
+
+    // A plugin may not claim a setting that is already owned by another
+    // exclusive group, even if the full definition would otherwise be
+    // compatible. This is the cheap GUI-side check before a restart.
+    error_message.clear();
+    CHECK_FALSE(Orchestrator::instance().validate_plugin_activation(
+        {g_other_group_duplicate.id},
+        error_message));
+    CHECK(error_message.find("hole_to_polyhole") != std::string::npos);
+
+    // Existing application settings have no plugin owner. A plugin must define
+    // its own setting key instead of silently attaching itself to them.
+    error_message.clear();
+    CHECK_FALSE(Orchestrator::instance().validate_plugin_activation(
+        {g_builtin_duplicate.id},
+        error_message));
+    CHECK(error_message.find("layer_height") != std::string::npos);
+}
+
+TEST_CASE("Exclusive-group option ownership rejects wrong-group definitions during initialization", "[plugins][polyholes][config]")
+{
+    Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
+    register_duplicate_option_plugins();
+    Orchestrator &orchestrator = Orchestrator::instance();
+
+    {
+        // The duplicate definition is accepted because the plugin declares the
+        // same exclusive group as the original Polyholes implementation.
+        ScopedActivePluginSet active({g_same_group_initializer.id});
+        orchestrator.initialize_plugins();
+        CHECK(orchestrator.is_plugin_active(g_same_group_initializer.id));
+    }
+
+    {
+        // The full create_new_print_config() validation is still authoritative:
+        // if a plugin lies or was enabled without the GUI precheck, it is
+        // disabled as soon as it tries to register a foreign setting key.
+        ScopedActivePluginSet active({g_other_group_initializer.id});
+        orchestrator.initialize_plugins();
+        CHECK_FALSE(orchestrator.is_plugin_active(g_other_group_initializer.id));
+    }
 }
 
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS

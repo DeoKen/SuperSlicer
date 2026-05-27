@@ -32,6 +32,8 @@ const char *k_used_config_keys[] = {
     "hole_to_polyhole_twisted"
 };
 constexpr size_t k_used_config_key_count = sizeof(k_used_config_keys) / sizeof(k_used_config_keys[0]);
+const char *const *k_defined_config_keys = k_used_config_keys;
+constexpr size_t k_defined_config_key_count = k_used_config_key_count;
 
 enum ProgressPhase : uint32_t
 {
@@ -353,6 +355,14 @@ int32_t Polyholes::used_config_keys(const char **keys) const noexcept
         for (size_t idx = 0; idx < k_used_config_key_count; ++idx)
             keys[idx] = k_used_config_keys[idx];
     return int32_t(k_used_config_key_count);
+}
+
+int32_t Polyholes::defined_config_keys(const char **keys) const noexcept
+{
+    if (keys != nullptr)
+        for (size_t idx = 0; idx < k_defined_config_key_count; ++idx)
+            keys[idx] = k_defined_config_keys[idx];
+    return int32_t(k_defined_config_key_count);
 }
 
 const char *Polyholes::progress_message_format_impl() const noexcept

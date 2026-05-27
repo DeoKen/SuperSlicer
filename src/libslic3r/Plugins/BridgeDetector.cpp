@@ -175,6 +175,7 @@ plugin_vtable default_plugin_vtable = {
     &BridgeDetector::get_dependencies_bridge,
     &BridgeDetector::get_priority_bridge,
     &BridgeDetector::used_config_keys_bridge,
+    &BridgeDetector::defined_config_keys_bridge,
     &BridgeDetector::initialize_bridge,
     &BridgeDetector::setup_bridge,
     &BridgeDetector::setup_run_bridge,
@@ -320,6 +321,11 @@ int32_t BridgeDetector::get_priority_bridge(void *plugin_ctx)
 }
 
 int32_t BridgeDetector::used_config_keys_bridge(void *, const char **)
+{
+    return 0;
+}
+
+int32_t BridgeDetector::defined_config_keys_bridge(void *, const char **)
 {
     return 0;
 }

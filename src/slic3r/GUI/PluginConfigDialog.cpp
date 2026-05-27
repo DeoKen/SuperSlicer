@@ -221,6 +221,17 @@ bool PluginConfigDialog::write_active_plugins(std::string &error_message) const
 
     const boost::filesystem::path config_path = active_plugin_config_path();
     try {
+        std::set<std::string> active_ids = m_original_active_plugin_ids;
+        for (const PluginRow &row : m_rows) {
+            active_ids.erase(row.id);
+            if (row.checkbox != nullptr && row.checkbox->GetValue())
+                active_ids.insert(row.id);
+        }
+
+        std::vector<std::string> selected_plugin_ids(active_ids.begin(), active_ids.end());
+        if (!Orchestrator::instance().validate_plugin_activation(selected_plugin_ids, error_message))
+            return false;
+
         boost::filesystem::create_directories(config_path.parent_path());
         boost::nowide::ofstream stream(config_path.string(), std::ios::out | std::ios::trunc);
         if (!stream) {
@@ -230,13 +241,6 @@ bool PluginConfigDialog::write_active_plugins(std::string &error_message) const
 
         stream << "[activated]\n";
         stream << "; Plugin ids enabled by the user.\n";
-        std::set<std::string> active_ids = m_original_active_plugin_ids;
-        for (const PluginRow &row : m_rows) {
-            active_ids.erase(row.id);
-            if (row.checkbox != nullptr && row.checkbox->GetValue())
-                active_ids.insert(row.id);
-        }
-
         for (const std::string &plugin_id : active_ids)
             stream << plugin_id << " = 1\n";
     } catch (const std::exception &error) {

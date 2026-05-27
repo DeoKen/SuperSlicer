@@ -20,6 +20,12 @@ namespace {
 
 const char *k_max_overhang_threshold_id = "max_overhang_threshold";
 const char *k_no_dependencies[] = {nullptr};
+const char *k_defined_config_keys[] = {
+    "overhangs_bridge_threshold",
+    "overhangs_bridge_upper_layers",
+    "overhangs_max_slope"
+};
+constexpr size_t k_defined_config_key_count = sizeof(k_defined_config_keys) / sizeof(k_defined_config_keys[0]);
 
 uint32_t layer_work_count(const Object &object)
 {
@@ -506,6 +512,14 @@ slicing_step_t MaxOverhangThreshold::step_impl() const noexcept { return STEP_PO
 const char *const *MaxOverhangThreshold::dependencies_impl() const noexcept { return k_no_dependencies; }
 
 int32_t MaxOverhangThreshold::priority_impl() const noexcept { return 0; }
+
+int32_t MaxOverhangThreshold::defined_config_keys(const char **keys) const noexcept
+{
+    if (keys != nullptr)
+        for (size_t idx = 0; idx < k_defined_config_key_count; ++idx)
+            keys[idx] = k_defined_config_keys[idx];
+    return int32_t(k_defined_config_key_count);
+}
 
 const char *MaxOverhangThreshold::progress_message_format_impl() const noexcept
 {

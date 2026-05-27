@@ -177,6 +177,7 @@ class PluginBase:
         priority: int = 0,
         dependencies: Iterable[str] = (),
         used_config_keys: Iterable[str] = (),
+        defined_config_keys: Iterable[str] = (),
         exclusive_group: str = "",
         exclusive_group_label: str = "",
         exclusive_group_tooltip: str = "",
@@ -191,6 +192,7 @@ class PluginBase:
         self.priority = int(priority)
         self.dependencies = list(dependencies)
         self.used_config_keys = list(used_config_keys)
+        self.defined_config_keys = list(defined_config_keys)
 
     def initialize(self, storage_address: int) -> None:
         pass

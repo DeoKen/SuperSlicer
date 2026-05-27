@@ -153,6 +153,12 @@ class PythonPolyholesPlugin(PluginBase):
                 POLYHOLES_TWISTED_KEY,
                 POLYHOLES_ANGLE_START_KEY,
             ],
+            defined_config_keys=[
+                POLYHOLES_KEY,
+                POLYHOLES_THRESHOLD_KEY,
+                POLYHOLES_TWISTED_KEY,
+                POLYHOLES_ANGLE_START_KEY,
+            ],
         )
         self.api = api
 

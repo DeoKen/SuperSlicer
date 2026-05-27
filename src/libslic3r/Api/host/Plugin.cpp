@@ -11,7 +11,7 @@ namespace Slic3r {
 
 namespace {
 
-const int32_t MAX_USED_CONFIG_KEYS = 1024;
+const int32_t MAX_PLUGIN_CONFIG_KEYS = 1024;
 
 void validate_plugin_instance(const plugin_instance &c_api)
 {
@@ -29,9 +29,37 @@ void validate_plugin_instance(const plugin_instance &c_api)
         c_api.vt->get_exclusive_group_tooltip == nullptr ||
         c_api.vt->get_step == nullptr ||
         c_api.vt->get_dependencies == nullptr || c_api.vt->get_priority == nullptr ||
+        c_api.vt->used_config_keys == nullptr || c_api.vt->defined_config_keys == nullptr ||
         c_api.vt->initialize == nullptr || c_api.vt->setup == nullptr ||
         c_api.vt->setup_run == nullptr || c_api.vt->run == nullptr)
         throw std::runtime_error("Plugin vtable has missing callbacks.");
+}
+
+void read_plugin_key_list(const plugin_instance &c_api,
+                          plugin_used_config_keys_fn callback,
+                          const char *callback_name,
+                          std::vector<std::string> &out)
+{
+    // Plugin key lists use a C-style double-call convention: the first call
+    // reports the needed buffer size, the second one writes stable C strings.
+    // The cap prevents a broken plugin from reserving an arbitrary amount of
+    // memory during application startup.
+    const int32_t key_count = callback(c_api.ctx, nullptr);
+    if (key_count < 0 || key_count > MAX_PLUGIN_CONFIG_KEYS)
+        throw std::runtime_error(std::string("Plugin returned an invalid ") + callback_name + " count.");
+
+    if (key_count == 0)
+        return;
+
+    std::vector<const char *> keys;
+    keys.assign(size_t(key_count), nullptr);
+    const int32_t written_count = callback(c_api.ctx, keys.data());
+    if (written_count < 0 || written_count > key_count)
+        throw std::runtime_error(std::string("Plugin wrote an invalid ") + callback_name + " count.");
+
+    for (int32_t i = 0; i < written_count; ++i)
+        if (keys[size_t(i)] != nullptr)
+            out.emplace_back(keys[size_t(i)]);
 }
 
 } // namespace
@@ -60,23 +88,8 @@ Plugin::Plugin(plugin_instance c_api) : m_c_api(c_api) {
         }
     }
 
-    const int32_t used_config_key_count = c_api.vt->used_config_keys != nullptr ?
-        c_api.vt->used_config_keys(c_api.ctx, nullptr) :
-        0;
-    if (used_config_key_count < 0 || used_config_key_count > MAX_USED_CONFIG_KEYS)
-        throw std::runtime_error("Plugin returned an invalid used_config_keys count.");
-
-    if (used_config_key_count > 0) {
-        std::vector<const char *> used_config_keys;
-        used_config_keys.assign(size_t(used_config_key_count), nullptr);
-        const int32_t written_count = c_api.vt->used_config_keys(c_api.ctx, used_config_keys.data());
-        if (written_count < 0 || written_count > used_config_key_count)
-            throw std::runtime_error("Plugin wrote an invalid used_config_keys count.");
-
-        for (int32_t i = 0; i < written_count; ++i)
-            if (used_config_keys[size_t(i)] != nullptr)
-                m_used_config_keys.emplace_back(used_config_keys[size_t(i)]);
-    }
+    read_plugin_key_list(c_api, c_api.vt->used_config_keys, "used_config_keys", m_used_config_keys);
+    read_plugin_key_list(c_api, c_api.vt->defined_config_keys, "defined_config_keys", m_defined_config_keys);
 }
 
 } // namespace Slic3r

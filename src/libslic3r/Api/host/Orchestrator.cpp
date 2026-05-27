@@ -10,6 +10,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -150,6 +151,19 @@ static bool config_option_def_compatible(const ConfigOptionDef &existing,
         return fail("default_value");
 
     return true;
+}
+
+static bool same_option_ownership_scope(const Orchestrator::ConfigOptionOwner &existing,
+                                        const Plugin &candidate)
+{
+    // A config key may be re-declared by the same plugin, or by another plugin
+    // in the same non-empty exclusive group. Every other duplicate key would
+    // make preset/GUI ownership ambiguous.
+    if (existing.plugin_id == candidate.get_id())
+        return true;
+
+    return !existing.exclusive_group.empty() &&
+           existing.exclusive_group == candidate.get_exclusive_group();
 }
 
 static void populate_config_option_def_from_raw(ConfigOptionDef &out, const raw_config_option_def *def)
@@ -511,23 +525,86 @@ void Orchestrator::request_plugin_cancel() { m_plugin_cancel_requested.store(tru
 
 void Orchestrator::reset_plugin_cancel() { m_plugin_cancel_requested.store(false, std::memory_order_relaxed); }
 
+bool Orchestrator::validate_plugin_activation(const std::vector<std::string> &plugin_ids,
+                                              std::string &error_message) const
+{
+    // This preflight is intentionally key-only. It is cheap enough to run from
+    // the plugin selection dialog before writing activated.ini, while the full
+    // raw_config_option_def compatibility check still runs during plugin
+    // initialization.
+    std::set<std::string> selected_ids(plugin_ids.begin(), plugin_ids.end());
+    std::map<std::string, ConfigOptionOwner> future_owners = m_config_option_owners;
+
+    for (const std::string &plugin_id : selected_ids) {
+        const Plugin *plugin = this->get_plugin(plugin_id);
+        if (plugin == nullptr) {
+            error_message = "Plugin '" + plugin_id + "' is not loaded.";
+            return false;
+        }
+
+        for (const std::string &key : plugin->get_defined_config_keys()) {
+            const std::map<std::string, ConfigOptionOwner>::const_iterator existing_owner = future_owners.find(key);
+            if (existing_owner != future_owners.end()) {
+                if (same_option_ownership_scope(existing_owner->second, *plugin))
+                    continue;
+
+                error_message = "Plugin '" + plugin->get_id() + "' defines option '" + key +
+                    "', but that option is already owned by plugin '" + existing_owner->second.plugin_id + "'.";
+                return false;
+            }
+
+            if (PrintConfigDef::instance().get(key) != nullptr) {
+                error_message = "Plugin '" + plugin->get_id() + "' defines option '" + key +
+                    "', but that option already exists outside its exclusive group.";
+                return false;
+            }
+
+            future_owners.emplace(key, ConfigOptionOwner{plugin->get_id(), plugin->get_exclusive_group()});
+        }
+    }
+
+    return true;
+}
+
 option_def_error_code Orchestrator::create_new_print_config(const raw_config_option_def *def) {
     //PrintOptionPresetType preset_type = static_cast<PrintOptionPresetType>(def->option_preset_type);
     //PrintOptionContainer container = static_cast<PrintOptionContainer>(def->container_type);
     const ConfigOptionType type = config_option_type(def->type);
     assert(type != coNone);
 
-    // Several alternative plugins may publish the same setting. Treat an
-    // identical second definition as a no-op, but reject incompatible reuse of
-    // the key so the GUI and presets cannot silently depend on whichever plugin
-    // happened to initialize last.
+    // Several alternative plugins may publish the same setting, but only when
+    // they are explicit alternatives in the same exclusive group. A compatible
+    // duplicate from another group is still an error: otherwise a plugin could
+    // silently depend on a setting owned by unrelated code.
     if (const ConfigOptionDef *existing = PrintConfigDef::instance().get(def->opt_key)) {
         ConfigOptionDef candidate;
         populate_config_option_def_from_raw(candidate, def);
 
         std::string reason;
-        if (config_option_def_compatible(*existing, candidate, &reason))
-            return OPTION_DEF_ERROR_OK;
+        if (config_option_def_compatible(*existing, candidate, &reason)) {
+            if (m_initializing_plugin == nullptr)
+                return OPTION_DEF_ERROR_OK;
+
+            const std::map<std::string, ConfigOptionOwner>::const_iterator owner_it =
+                m_config_option_owners.find(def->opt_key);
+            if (owner_it != m_config_option_owners.end() &&
+                same_option_ownership_scope(owner_it->second, *m_initializing_plugin))
+                return OPTION_DEF_ERROR_OK;
+
+            std::ostringstream message;
+            message << "Plugin config option '" << def->opt_key
+                    << "' is already defined outside exclusive group '"
+                    << m_initializing_plugin->get_exclusive_group() << "'.";
+            if (owner_it != m_config_option_owners.end())
+                message << " Existing owner is plugin '" << owner_it->second.plugin_id << "'.";
+            else
+                message << " Existing definition is not owned by a plugin in this group.";
+            message << " Plugin '" << m_initializing_plugin->get_id() << "' will be disabled.";
+            BOOST_LOG_TRIVIAL(error) << message.str();
+            m_initializing_plugin_failed = true;
+            m_initializing_plugin_failure = message.str();
+            return OPTION_DEF_ERROR_ALREADY_EXISTS;
+        }
 
         std::ostringstream message;
         message << "Plugin config option '" << def->opt_key
@@ -563,6 +640,11 @@ option_def_error_code Orchestrator::create_new_print_config(const raw_config_opt
         PrintConfigDef::instance_mutable().option_keys(RAW_PRESET_TYPE_FFF_PRINTER).insert(out.opt_key);
     }
     add_to_prusa_export_to_remove_keys(out.opt_key);
+    if (m_initializing_plugin != nullptr)
+        m_config_option_owners[out.opt_key] = ConfigOptionOwner{
+            m_initializing_plugin->get_id(),
+            m_initializing_plugin->get_exclusive_group()
+        };
     return OPTION_DEF_ERROR_OK;
 }
 

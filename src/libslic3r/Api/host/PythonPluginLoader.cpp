@@ -245,12 +245,15 @@ public:
         , m_priority(int_attribute(plugin, "priority", 0))
         , m_dependencies(string_list_attribute(plugin, "dependencies"))
         , m_used_config_keys(string_list_attribute(plugin, "used_config_keys"))
+        , m_defined_config_keys(string_list_attribute(plugin, "defined_config_keys"))
     {
         Py_INCREF(m_plugin);
         for (const std::string &dependency : m_dependencies)
             m_dependency_ptrs.push_back(dependency.c_str());
         for (const std::string &key : m_used_config_keys)
             m_used_config_key_ptrs.push_back(key.c_str());
+        for (const std::string &key : m_defined_config_keys)
+            m_defined_config_key_ptrs.push_back(key.c_str());
     }
 
     ~PythonPlugin()
@@ -326,6 +329,16 @@ private:
                 keys[i] = plugin->m_used_config_key_ptrs[i];
         }
         return int32_t(plugin->m_used_config_key_ptrs.size());
+    }
+
+    static int32_t defined_config_keys_bridge(void *plugin_ctx, const char **keys)
+    {
+        PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
+        if (keys != nullptr) {
+            for (size_t i = 0; i < plugin->m_defined_config_key_ptrs.size(); ++i)
+                keys[i] = plugin->m_defined_config_key_ptrs[i];
+        }
+        return int32_t(plugin->m_defined_config_key_ptrs.size());
     }
 
     static void initialize_bridge(void *plugin_ctx, storage_handle *storage)
@@ -408,6 +421,7 @@ private:
             &PythonPlugin::get_dependencies_bridge,
             &PythonPlugin::get_priority_bridge,
             &PythonPlugin::used_config_keys_bridge,
+            &PythonPlugin::defined_config_keys_bridge,
             &PythonPlugin::initialize_bridge,
             &PythonPlugin::setup_bridge,
             &PythonPlugin::setup_run_bridge,
@@ -429,6 +443,8 @@ private:
     std::vector<const char *> m_dependency_ptrs;
     std::vector<std::string> m_used_config_keys;
     std::vector<const char *> m_used_config_key_ptrs;
+    std::vector<std::string> m_defined_config_keys;
+    std::vector<const char *> m_defined_config_key_ptrs;
 };
 
 OrchestratorRegisterPluginFn resolve_register_plugin(const boost::filesystem::path &host_library_path)

@@ -46,6 +46,7 @@ public:
     static const_strings_t get_dependencies_bridge(void *plugin_ctx);
     static int32_t get_priority_bridge(void *plugin_ctx);
     static int32_t used_config_keys_bridge(void *plugin_ctx, const char **keys);
+    static int32_t defined_config_keys_bridge(void *plugin_ctx, const char **keys);
     static void initialize_bridge(void *plugin_ctx, storage_handle *storage);
     static void setup_bridge(void *plugin_ctx, const plugin_run_context *run_ctx, uint32_t run_count);
     static void setup_run_bridge(void *plugin_ctx, const plugin_run_context *run_ctx);

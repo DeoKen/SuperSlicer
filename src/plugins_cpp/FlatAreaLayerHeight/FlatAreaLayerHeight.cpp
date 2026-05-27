@@ -622,6 +622,13 @@ int32_t FlatAreaLayerHeight::used_config_keys(const char **keys) const noexcept
     return 1;
 }
 
+int32_t FlatAreaLayerHeight::defined_config_keys(const char **keys) const noexcept
+{
+    if (keys != nullptr)
+        keys[0] = k_used_config_keys[0];
+    return 1;
+}
+
 const char *FlatAreaLayerHeight::progress_message_format_impl() const noexcept
 {
     return "Scanning flat surfaces: %u / %u volumes";

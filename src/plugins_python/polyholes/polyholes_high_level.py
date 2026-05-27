@@ -137,6 +137,11 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
                 POLYHOLES_THRESHOLD_KEY,
                 POLYHOLES_TWISTED_KEY,
             ],
+            defined_config_keys=[
+                POLYHOLES_KEY,
+                POLYHOLES_THRESHOLD_KEY,
+                POLYHOLES_TWISTED_KEY,
+            ],
         )
         self.api = api
 

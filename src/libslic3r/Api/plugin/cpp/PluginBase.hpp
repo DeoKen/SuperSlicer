@@ -406,6 +406,15 @@ protected:
         return 0;
     }
 
+    // Configuration option keys created by this plugin. The host uses this
+    // declaration for early activation checks; orchestrator_create_option_def()
+    // still performs the full definition compatibility validation.
+    virtual int32_t defined_config_keys(const char **keys) const noexcept
+    {
+        (void)keys;
+        return 0;
+    }
+
     // Optional: message format used by PluginProgress when increment() reports
     // progress. It receives two unsigned integers: completed work and total
     // expected work. Override for clearer plugin-specific messages.
@@ -549,6 +558,11 @@ private:
         return static_cast<PluginBase *>(plugin_ctx)->used_config_keys(keys);
     }
 
+    static int32_t defined_config_keys_bridge(void *plugin_ctx, const char **keys)
+    {
+        return static_cast<PluginBase *>(plugin_ctx)->defined_config_keys(keys);
+    }
+
     static void initialize_bridge(void *plugin_ctx, storage_handle *storage)
     {
         static_cast<PluginBase *>(plugin_ctx)->initialize_safe(storage);
@@ -583,6 +597,7 @@ private:
             &PluginBase::get_dependencies_bridge,
             &PluginBase::get_priority_bridge,
             &PluginBase::used_config_keys_bridge,
+            &PluginBase::defined_config_keys_bridge,
             &PluginBase::initialize_bridge,
             &PluginBase::setup_bridge,
             &PluginBase::setup_run_bridge,

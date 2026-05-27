@@ -134,6 +134,11 @@ int32_t recording_used_config_keys(void *, const char **)
     return 0;
 }
 
+int32_t recording_defined_config_keys(void *, const char **)
+{
+    return 0;
+}
+
 void recording_initialize(void *, storage_handle *) {}
 
 void fill_payload_event(const plugin_run_context *run_ctx, RecordedEvent &event)
@@ -215,6 +220,7 @@ const plugin_vtable *recording_vtable()
         &recording_get_dependencies,
         &recording_get_priority,
         &recording_used_config_keys,
+        &recording_defined_config_keys,
         &recording_initialize,
         &recording_setup,
         &recording_setup_run,

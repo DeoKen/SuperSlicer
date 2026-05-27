@@ -85,6 +85,12 @@ public:
         int32_t condition_int_value = 0;
     };
 
+    struct ConfigOptionOwner
+    {
+        std::string plugin_id;
+        std::string exclusive_group;
+    };
+
     static Orchestrator &instance();
 
     std::vector<Plugin *> registered_plugins() const;
@@ -100,6 +106,8 @@ public:
     bool set_plugin_active(Plugin *plugin, bool active);
     bool set_plugin_active(const std::string &plugin_id, bool active);
     const std::unordered_set<Plugin *> &active_plugins() const { return m_active_plugins; }
+    bool validate_plugin_activation(const std::vector<std::string> &plugin_ids,
+                                    std::string &error_message) const;
 
 
     //config def
@@ -154,6 +162,7 @@ private:
     std::vector<PluginUiFragment> m_ui_fragments;
     uint64_t m_next_ui_fragment_order { 0 };
     std::vector<PluginGuiRule> m_gui_rules;
+    std::map<std::string, ConfigOptionOwner> m_config_option_owners;
     std::vector<CustomExtrusionPropertyInfo> m_custom_extrusion_property_infos;
     extrusion_property_type m_next_custom_extrusion_property_type { extrusion_property_type(0x80000000u) };
     std::atomic_bool m_plugin_cancel_requested { false };

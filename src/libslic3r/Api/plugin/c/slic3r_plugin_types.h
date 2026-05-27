@@ -35,7 +35,7 @@
 #include "steps/slic3r_step_surface_type.h"
 #include "steps/slic3r_step_wipetower.h"
 
-#define SLIC3R_PLUGIN_ABI_VERSION 4u
+#define SLIC3R_PLUGIN_ABI_VERSION 5u
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,6 +66,18 @@ The host uses this list to enable/disable GUI fields when several plugins are
 available for an exclusive step and a project selects one of them.
 */
 typedef int32_t (*plugin_used_config_keys_fn)(void *plugin_ctx, const char **keys);
+
+/*
+Return the configuration option keys defined by this plugin.
+
+This is a lightweight declaration used for early validation before a plugin is
+enabled from the GUI. The authoritative check still happens when the plugin
+calls orchestrator_create_option_def(), because only that call contains the full
+definition to compare.
+
+Use the same double-call convention as plugin_used_config_keys_fn.
+*/
+typedef int32_t (*plugin_defined_config_keys_fn)(void *plugin_ctx, const char **keys);
 
 /* ========================= PLUGIN VTABLE ========================= */
 
@@ -142,6 +154,8 @@ typedef struct plugin_vtable {
     int32_t (*get_priority)(void *plugin_ctx);
 
     plugin_used_config_keys_fn used_config_keys;
+
+    plugin_defined_config_keys_fn defined_config_keys;
 
     /**
      * Called once at startup, to be able to setup settings, via orchestrator_create_option_def

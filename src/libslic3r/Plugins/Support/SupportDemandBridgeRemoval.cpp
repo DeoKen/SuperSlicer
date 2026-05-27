@@ -21,6 +21,7 @@ namespace {
 
 const char *k_support_demand_bridge_removal_id = "support.demand.bridge_removal";
 const char *k_dependencies[] = { nullptr };
+const char *k_defined_config_keys[] = { "dont_support_bridges" };
 
 struct BridgeRemovalConfig
 {
@@ -314,6 +315,13 @@ const char *const *SupportDemandBridgeRemoval::dependencies_impl() const noexcep
 int32_t SupportDemandBridgeRemoval::priority_impl() const noexcept
 {
     return 15;
+}
+
+int32_t SupportDemandBridgeRemoval::defined_config_keys(const char **keys) const noexcept
+{
+    if (keys != nullptr)
+        keys[0] = k_defined_config_keys[0];
+    return 1;
 }
 
 const char *SupportDemandBridgeRemoval::progress_message_format_impl() const noexcept

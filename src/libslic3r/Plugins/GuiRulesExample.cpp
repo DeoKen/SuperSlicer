@@ -17,6 +17,23 @@ namespace {
 
 const char *k_gui_rules_example_id = "gui_rules_example";
 const char *k_no_dependencies[] = { nullptr };
+const char *k_defined_config_keys[] = {
+    "plugin_gui_rule_test_bool_true_condition",
+    "plugin_gui_rule_test_bool_true_target",
+    "plugin_gui_rule_test_bool_false_condition",
+    "plugin_gui_rule_test_bool_false_target",
+    "plugin_gui_rule_test_value_nonzero_condition",
+    "plugin_gui_rule_test_value_nonzero_target",
+    "plugin_gui_rule_test_option_enabled_condition",
+    "plugin_gui_rule_test_option_enabled_target",
+    "plugin_gui_rule_test_option_disabled_condition",
+    "plugin_gui_rule_test_option_disabled_target",
+    "plugin_gui_rule_test_int_equals_target",
+    "plugin_gui_rule_test_int_not_equals_target",
+    "plugin_gui_rule_test_thin_walls",
+    "plugin_gui_rule_test_thin_walls_min_width"
+};
+constexpr size_t k_defined_config_key_count = sizeof(k_defined_config_keys) / sizeof(k_defined_config_keys[0]);
 
 void create_rule_test_option(orchestrator_handle *orchestrator,
                              const char *key,
@@ -93,6 +110,14 @@ const char *const *GuiRulesExample::dependencies_impl() const noexcept
 int32_t GuiRulesExample::priority_impl() const noexcept
 {
     return 0;
+}
+
+int32_t GuiRulesExample::defined_config_keys(const char **keys) const noexcept
+{
+    if (keys != nullptr)
+        for (size_t idx = 0; idx < k_defined_config_key_count; ++idx)
+            keys[idx] = k_defined_config_keys[idx];
+    return int32_t(k_defined_config_key_count);
 }
 
 const char *GuiRulesExample::print_ui_fragment() noexcept
