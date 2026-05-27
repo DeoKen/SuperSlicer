@@ -25,6 +25,15 @@ constexpr raw_surface_type k_bottom_surface = RAW_SURFACE_TYPE_POS_BOTTOM | RAW_
 constexpr raw_surface_type k_internal_surface = RAW_SURFACE_TYPE_POS_INTERNAL | RAW_SURFACE_TYPE_DENS_SPARSE;
 constexpr raw_surface_type k_top_surface = RAW_SURFACE_TYPE_POS_TOP | RAW_SURFACE_TYPE_DENS_SOLID;
 
+raw_surface_type bottom_surface_type(const bool is_first_layer)
+{
+    // A bottom surface on the first object layer is supported by the build
+    // plate or raft. Bottom surfaces higher in the object are unsupported from
+    // below and must carry the bridge modifier so bridge-specific surface
+    // plugins and infill code can detect them without recomputing exposure.
+    return is_first_layer ? k_bottom_surface : raw_surface_type(k_bottom_surface | RAW_SURFACE_TYPE_MOD_BRIDGE);
+}
+
 int32_t region_infill_extruder_id(const LayerRegion &region)
 {
     // Config extruders are user-facing 1-based values. LayerRegionIsland stores
@@ -181,6 +190,7 @@ void append_surface_group(StoredSurfaceCollection &surfaces,
 StoredSurfaceCollection classify_areas(storage_handle *storage,
                                        const LayerIsland &island,
                                        const ExPolygonCollection &areas,
+                                       const bool is_first_layer,
                                        const bool first_layer_top_priority)
 {
     assert(storage != nullptr);
@@ -210,7 +220,7 @@ StoredSurfaceCollection classify_areas(storage_handle *storage,
     StoredExPolygonCollection internal = subtract_areas(storage, areas, occupied.readonly());
 
     StoredSurfaceCollection surfaces(storage);
-    append_surface_group(surfaces, bottom.readonly(), k_bottom_surface);
+    append_surface_group(surfaces, bottom.readonly(), bottom_surface_type(is_first_layer));
     append_surface_group(surfaces, internal.readonly(), k_internal_surface);
     append_surface_group(surfaces, top.readonly(), k_top_surface);
     return surfaces;
@@ -248,14 +258,14 @@ void build_island_surfaces(const run_ctx_surface_generation &ctx,
 
         if (single_group) {
             StoredSurfaceCollection surfaces =
-                classify_areas(storage, island, island.infill_areas(), first_layer_top_priority);
+                classify_areas(storage, island, island.infill_areas(), is_first_layer, first_layer_top_priority);
             set_region_island_surfaces(ctx, region_island, surfaces);
             continue;
         }
 
         StoredExPolygonCollection clipped_areas = clip_infill_areas_to_regions(storage, island, entry.second);
         StoredSurfaceCollection surfaces =
-            classify_areas(storage, island, clipped_areas.readonly(), first_layer_top_priority);
+            classify_areas(storage, island, clipped_areas.readonly(), is_first_layer, first_layer_top_priority);
         set_region_island_surfaces(ctx, region_island, surfaces);
     }
 }

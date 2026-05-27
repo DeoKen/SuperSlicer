@@ -133,6 +133,7 @@ void require_initial_typed_surface_builder_types(const SurfaceCollection &surfac
 {
     for (const Surface &surface : surfaces) {
         const bool known_type = surface.surface_type == (stPosBottom | stDensSolid) ||
+                                surface.surface_type == (stPosBottom | stDensSolid | stModBridge) ||
                                 surface.surface_type == (stPosInternal | stDensSparse) ||
                                 surface.surface_type == (stPosTop | stDensSolid);
         CHECK(known_type);
@@ -270,6 +271,7 @@ TEST_CASE("InitialTypedSurfaceBuilder converts island infill areas to typed regi
         // The first layer has no material below, but the next layer covers the
         // same XY area. InitialTypedSurfaceBuilder should therefore publish bottom
         // surfaces for the island fill area and keep the total area unchanged.
+        // Because this bottom is on the first layer, it is not a bridge.
         PreparedPerimeterPrint prepared;
         prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
         PrintObject &object = prepared.print.object(0);
@@ -332,6 +334,7 @@ TEST_CASE("InitialTypedSurfaceBuilder converts island infill areas to typed regi
         // If a non-first layer has no overlapping island below or above, the
         // area is both exposed below and above. The baseline rule gives that
         // overlap to bottom surfaces so the same area is not emitted twice.
+        // Since this bottom is not on the first layer, it is also a bridge.
         PreparedPerimeterPrint prepared;
         prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
         PrintObject &object = prepared.print.object(0);
@@ -346,7 +349,9 @@ TEST_CASE("InitialTypedSurfaceBuilder converts island infill areas to typed regi
 
         const LayerSliceIsland &island = object.layer(1).island(0);
         REQUIRE_FALSE(island.infill_areas().empty());
-        require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosBottom | stDensSolid, island.infill_areas());
+        require_only_surface_type(whole_region_island(island).fill_surfaces(),
+                                  stPosBottom | stDensSolid | stModBridge,
+                                  island.infill_areas());
     }
 
     SECTION("isolated first layer resolves bottom/top overlap from raft setting")
