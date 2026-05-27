@@ -67,9 +67,16 @@ public:
 
     struct PluginUiFragment
     {
+        // One plugin contribution to a .ui file.
+        //
+        // fragment_id is the de-duplication key inside target_file. This is
+        // deliberately separate from plugin_id: alternative plugins may expose
+        // the same logical controls and therefore share one fragment id.
         std::string target_file;
         std::string fragment_id;
         std::string content;
+        std::string plugin_id;
+        std::string exclusive_group;
         int32_t priority = 0;
         uint64_t order = 0;
     };
@@ -87,6 +94,11 @@ public:
 
     struct ConfigOptionOwner
     {
+        // Tracks which plugin first introduced a dynamic option key.
+        //
+        // The owner is not about memory ownership. It is a compatibility rule:
+        // another plugin may re-declare the same key only when it is the same
+        // plugin or a plugin from the same non-empty exclusive group.
         std::string plugin_id;
         std::string exclusive_group;
     };
@@ -106,14 +118,31 @@ public:
     bool set_plugin_active(Plugin *plugin, bool active);
     bool set_plugin_active(const std::string &plugin_id, bool active);
     const std::unordered_set<Plugin *> &active_plugins() const { return m_active_plugins; }
+
+    // Preflight a future active-plugin set before it is written to disk by the
+    // plugin configuration dialog.
+    //
+    // This catches option-key ownership conflicts early enough to show a GUI
+    // error without restarting. It intentionally does not replace plugin
+    // initialization: the full raw_config_option_def compatibility check still
+    // happens when an active plugin actually registers its options.
     bool validate_plugin_activation(const std::vector<std::string> &plugin_ids,
                                     std::string &error_message) const;
 
 
-    //config def
+    // Register a dynamic print option provided by a plugin.
+    //
+    // This is the commit point for plugin settings. Compatible duplicate
+    // definitions are accepted only inside the same exclusive group, where
+    // several alternative plugins intentionally publish the same option.
     option_def_error_code create_new_print_config(const raw_config_option_def *def);
 
     bool register_plugin(plugin_instance plugin);
+
+    // Add one plugin UI fragment to a target .ui file.
+    //
+    // target_file + fragment_id is de-duplicated so an installed layout or an
+    // alternative plugin can say "this logical fragment is already provided".
     bool add_ui_fragment(const char *target_file,
                          const char *fragment_id,
                          const char *content,

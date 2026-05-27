@@ -37,8 +37,10 @@ target_file is the base UI file the fragment applies to, for example
 
 fragment_id identifies this contribution inside target_file. If the same
 target_file + fragment_id pair is registered twice, the second registration is
-ignored. This lets a plugin safely register the same UI fragment once, and it
-also leaves room for future global UI files to reserve the same fragment id.
+ignored. Identical duplicate content is expected when alternative plugins in
+the same exclusive group expose the same settings. If the duplicate content is
+different, the host keeps the first fragment and logs a warning because those
+plugins no longer agree on the UI hidden behind that shared id.
 
 ui_fragment is a small .ui document using the normal UI layout syntax. During
 GUI construction, the host parses the base UI file and this fragment, then

@@ -156,9 +156,14 @@ static bool config_option_def_compatible(const ConfigOptionDef &existing,
 static bool same_option_ownership_scope(const Orchestrator::ConfigOptionOwner &existing,
                                         const Plugin &candidate)
 {
-    // A config key may be re-declared by the same plugin, or by another plugin
-    // in the same non-empty exclusive group. Every other duplicate key would
-    // make preset/GUI ownership ambiguous.
+    // Dynamic config keys are global once they enter PrintConfigDef. Without a
+    // small ownership rule, two unrelated plugins could accidentally share a
+    // key and then disagree about its type, default value, GUI placement or
+    // invalidation behavior.
+    //
+    // The one intentional exception is an exclusive group: those plugins are
+    // alternatives for the same job, so sharing a compatible key is how they
+    // expose a stable setting regardless of which implementation is selected.
     if (existing.plugin_id == candidate.get_id())
         return true;
 
@@ -364,13 +369,40 @@ bool Orchestrator::add_ui_fragment(const char *target_file,
         return false;
 
     for (const PluginUiFragment &fragment : m_ui_fragments)
-        if (fragment.target_file == target_file && fragment.fragment_id == fragment_id)
+        if (fragment.target_file == target_file && fragment.fragment_id == fragment_id) {
+            // The fragment id names the logical UI slot, not the plugin that
+            // registered it. This lets a built-in layout or one plugin say "the
+            // controls for this feature are already present" and suppress later
+            // copies. If the second copy is different, the application can still
+            // run with the first fragment, but developers need a warning: two
+            // providers now disagree on the controls hidden behind one id.
+            if (fragment.content != content) {
+                std::ostringstream message;
+                message << "UI fragment '" << fragment_id << "' for '" << target_file
+                        << "' was already registered with different content";
+                if (!fragment.plugin_id.empty())
+                    message << " by plugin '" << fragment.plugin_id << "'";
+                if (m_initializing_plugin != nullptr)
+                    message << "; plugin '" << m_initializing_plugin->get_id()
+                            << "' attempted to register another version";
+                if (m_initializing_plugin != nullptr && !m_initializing_plugin->get_exclusive_group().empty())
+                    message << " from exclusive group '" << m_initializing_plugin->get_exclusive_group() << "'";
+                if (!fragment.exclusive_group.empty())
+                    message << " while the kept fragment belongs to exclusive group '" << fragment.exclusive_group << "'";
+                message << ". The first fragment is kept.";
+                BOOST_LOG_TRIVIAL(warning) << message.str();
+            }
             return false;
+        }
 
     PluginUiFragment fragment;
     fragment.target_file = target_file;
     fragment.fragment_id = fragment_id;
     fragment.content = content;
+    if (m_initializing_plugin != nullptr) {
+        fragment.plugin_id = m_initializing_plugin->get_id();
+        fragment.exclusive_group = m_initializing_plugin->get_exclusive_group();
+    }
     fragment.priority = priority;
     fragment.order = m_next_ui_fragment_order++;
     m_ui_fragments.emplace_back(std::move(fragment));
@@ -528,10 +560,21 @@ void Orchestrator::reset_plugin_cancel() { m_plugin_cancel_requested.store(false
 bool Orchestrator::validate_plugin_activation(const std::vector<std::string> &plugin_ids,
                                               std::string &error_message) const
 {
-    // This preflight is intentionally key-only. It is cheap enough to run from
-    // the plugin selection dialog before writing activated.ini, while the full
-    // raw_config_option_def compatibility check still runs during plugin
-    // initialization.
+    // The plugin dialog needs to reject a bad activation set before it writes
+    // activated.ini and asks the user to restart. At that moment the plugins
+    // are loaded but not initialized, so their real raw_config_option_def
+    // objects may not exist yet. The only contract available cheaply is the
+    // declared list of keys returned by defined_config_keys().
+    //
+    // Therefore this is a purposefully narrow ownership preflight:
+    // - it verifies that every requested plugin is loaded;
+    // - it rejects a key already owned by an unrelated plugin;
+    // - it rejects a key already present in the built-in/global config unless
+    //   it was introduced by the same compatible exclusive group.
+    //
+    // It does not decide whether the definitions are byte-for-byte compatible.
+    // That stricter validation still happens in create_new_print_config() while
+    // the active plugin initializes and publishes the actual option definition.
     std::set<std::string> selected_ids(plugin_ids.begin(), plugin_ids.end());
     std::map<std::string, ConfigOptionOwner> future_owners = m_config_option_owners;
 
@@ -572,10 +615,16 @@ option_def_error_code Orchestrator::create_new_print_config(const raw_config_opt
     const ConfigOptionType type = config_option_type(def->type);
     assert(type != coNone);
 
+    // This function is the definitive validation point for plugin settings.
+    // Unlike validate_plugin_activation(), it sees the whole raw_config_option_def
+    // and can compare every user-visible and serialization-relevant field.
+    //
     // Several alternative plugins may publish the same setting, but only when
     // they are explicit alternatives in the same exclusive group. A compatible
-    // duplicate from another group is still an error: otherwise a plugin could
-    // silently depend on a setting owned by unrelated code.
+    // duplicate from another group is still an error: a plugin may depend on
+    // an option owned by another plugin, but it must not re-declare that
+    // option. The dependency should provide the option definition; the
+    // dependent plugin should only read the already-owned key.
     if (const ConfigOptionDef *existing = PrintConfigDef::instance().get(def->opt_key)) {
         ConfigOptionDef candidate;
         populate_config_option_def_from_raw(candidate, def);
@@ -780,6 +829,11 @@ void Orchestrator::initialize_plugins() {
     for (const std::unique_ptr<Plugin> &plugin_ptr : m_registered_plugins) {
         if (this->is_plugin_active(plugin_ptr.get())) {
             const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+            // Plugin initialization is allowed to register dynamic options,
+            // GUI fragments and GUI rules. Keep the current plugin in the
+            // orchestrator so those registration paths can attach diagnostics
+            // to the responsible plugin and, for option definitions, disable
+            // only that plugin if validation fails.
             m_initializing_plugin = plugin_ptr.get();
             m_initializing_plugin_failed = false;
             m_initializing_plugin_failure.clear();

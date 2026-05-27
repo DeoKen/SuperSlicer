@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 using namespace Slic3r;
 using namespace Slic3r::Test;
@@ -177,6 +178,42 @@ TEST_CASE("Implemented plugin UI fragments are skipped during layout merge", "[A
     const std::string merged_with_fragment_skipped =
         orchestrator.merged_ui_layout(target_file, base, implemented_fragment_ids);
     REQUIRE(merged_with_fragment_skipped == base);
+}
+
+TEST_CASE("Duplicate plugin UI fragment ids keep the first registered content", "[Api][UiLayout]")
+{
+    ensure_api_test_runtime_initialized();
+    Orchestrator &orchestrator = Orchestrator::instance();
+    const char *target_file = "test_duplicate_fragment_warning.ui";
+    const char *fragment_id = "test.duplicate.fragment";
+    const char *first_content =
+        "page:Notes\n"
+        "group:Inserted group\n"
+        "line:first_line\n"
+        "setting:first_setting\n"
+        "end_line\n";
+    const char *different_content =
+        "page:Notes\n"
+        "group:Inserted group\n"
+        "line:second_line\n"
+        "setting:second_setting\n"
+        "end_line\n";
+
+    REQUIRE(orchestrator.add_ui_fragment(target_file, fragment_id, first_content, 0));
+    CHECK_FALSE(orchestrator.add_ui_fragment(target_file, fragment_id, first_content, 0));
+
+    // A different second fragment with the same id is expected to log a warning.
+    // The safety rule is that the already accepted fragment still owns the id,
+    // so the visible UI cannot depend on plugin initialization order.
+    CHECK_FALSE(orchestrator.add_ui_fragment(target_file, fragment_id, different_content, 0));
+
+    const std::vector<Orchestrator::PluginUiFragment> fragments = orchestrator.ui_fragments_for_file(target_file);
+    REQUIRE(fragments.size() == 1);
+    CHECK(fragments.front().content == first_content);
+
+    const std::string merged = orchestrator.merged_ui_layout(target_file, "page:Notes\n");
+    CHECK(merged.find("first_setting") != std::string::npos);
+    CHECK(merged.find("second_setting") == std::string::npos);
 }
 
 SCENARIO("PrintObject: Perimeter generation") {

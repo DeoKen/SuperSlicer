@@ -343,6 +343,11 @@ void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
                                            const Steps::StepExclusiveGroup &group,
                                            const std::vector<Plugin *> &plugins)
 {
+    // An exclusive group exposes one enum selector whose values are plugin ids.
+    // Settings declared as "used" by a plugin should only be editable when
+    // that plugin is the selected implementation. These generated rules keep
+    // old plugin-specific options visible in the preset but avoid presenting
+    // inactive implementation details as active controls.
     for (size_t plugin_idx = 0; plugin_idx < plugins.size(); ++plugin_idx) {
         const Plugin *plugin = plugins[plugin_idx];
         for (const std::string &setting_key : plugin->get_used_config_keys()) {
@@ -360,6 +365,9 @@ void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
 void register_exclusive_step_group_options_impl(Orchestrator &orchestrator)
 {
     for (Steps::StepExclusivePluginGroup plugin_group : Steps::active_exclusive_plugin_groups(orchestrator)) {
+        // The selector must use the stable plugin id as the stored enum value,
+        // while showing the user-facing plugin name in the GUI. This lets a
+        // preset survive a label change without changing its serialized value.
         std::vector<std::pair<std::string, std::string>> plugin_ids_and_labels;
         plugin_ids_and_labels.reserve(plugin_group.plugins.size());
         for (const Plugin *plugin : plugin_group.plugins)
@@ -413,6 +421,9 @@ void load_plugins()
     register_builtin_plugins(orchestrator_handle_ptr);
     load_plugins_from_repository(Slic3r::install_path() / "plugins", orchestrator_handle_ptr);
 
+    // Loading and activation are intentionally separate. A disabled plugin is
+    // still registered so the configuration dialog can show it, but it cannot
+    // publish settings or run until its id appears in activated.ini.
     bool active_plugins_loaded_from_user_config = false;
     const boost::filesystem::path config_dir = has_data_dir() ? boost::filesystem::path(data_dir()) :
                                                                 boost::filesystem::path();
