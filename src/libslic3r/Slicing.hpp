@@ -55,7 +55,9 @@ struct SlicingParameters
     size_t      raft_layers() const { return base_raft_layers + interface_raft_layers; }
 
     // Is the 1st object layer height fixed, or could it be varied?
-    bool        first_object_layer_height_fixed()  const { return ! has_raft() || first_object_layer_bridging; }
+    // Object layers are planned independently from raft/support layers, so a
+    // raft does not make the first object layer variable.
+    bool        first_object_layer_height_fixed()  const { return true; }
 
     // Height of the object to be printed. This value does not contain the raft height.
     double      object_print_z_height() const { return object_print_z_max - object_print_z_min; }
@@ -92,12 +94,12 @@ struct SlicingParameters
     // or for the first layer of the print.
     double      first_print_layer_height { 0 };
 
-    // Thickness of the first layer. This is either the first print layer thickness if printed without a raft,
-    // or a bridging flow thickness if printed over a non-soluble raft,
-    // or a normal layer height if printed over a soluble raft.
+    // Thickness of the first object layer. This is object-local and is not
+    // changed by raft generation.
     double      first_object_layer_height { 0 };
 
-    // If the object is printed over a non-soluble raft, the first layer may be printed with a briding flow.
+    // If the object is printed over a non-soluble raft, support generation may
+    // still need to know about bridge-like contact behavior.
     bool 		first_object_layer_bridging { false };
 
     // Soluble interface? (PLA soluble in water, HIPS soluble in lemonen)
@@ -110,9 +112,9 @@ struct SlicingParameters
     // Gap when placing object over support.
     double      gap_support_object { 0 };
 
-    // Bottom and top of the printed object.
-    // If printed without a raft, object_print_z_min = 0 and object_print_z_max = object height.
-    // Otherwise object_print_z_min is equal to the raft height.
+    // Physical placement offset used by raft/support code. Object layers
+    // themselves stay object-local; a raft must not change their bottom Z,
+    // top Z, height, or ids.
     double      raft_base_top_z { 0 };
     double      raft_interface_top_z { 0 };
     double      raft_contact_top_z { 0 };

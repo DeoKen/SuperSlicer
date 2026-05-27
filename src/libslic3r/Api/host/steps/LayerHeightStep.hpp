@@ -19,7 +19,7 @@ namespace ApiHost::Steps {
 
 struct LayerHeightRunContext
 {
-    std::vector<coord_t> layer_z_profile;
+    std::vector<coord_t> enforced_layer_profile;
     std::vector<c_layer_config_range> layer_config_ranges;
     run_ctx_layer_height_generation context_step = {};
 };

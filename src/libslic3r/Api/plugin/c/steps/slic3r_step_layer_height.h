@@ -14,8 +14,12 @@ extern "C" {
 /*
 Payload for STEP_LAYER_HEIGHT.
 
-The plugin receives one object and returns the full layer height profile through
-set_layer_height_profile. z values are scaled coordinates.
+The plugin receives one object and returns explicit object-local layer
+descriptors through set_layer_height_profile(). The descriptor array is encoded
+as [layer_top_z, layer_height, ...]. Later steps create one Layer for every
+pair. Keeping height explicit allows a plugin to leave a deliberate empty Z
+interval below a layer. Z values are scaled coordinates and do not include
+raft/support layers.
 */
 
 /*
@@ -32,20 +36,23 @@ typedef struct c_layer_config_range {
     const config_handle *config;
 } c_layer_config_range;
 
-// Set the layers to these heights.
-typedef void (*set_layer_height_profile_fn)(const object_handle *object, coord_t* layer_zs, uint32_t layer_zs_size);
+// Set object layers as [layer_top_z, layer_height, ...] pairs.
+typedef void (*set_layer_height_profile_fn)(const object_handle *object,
+                                            coord_t *layer_descriptors,
+                                            uint32_t descriptor_count);
 
 typedef struct run_ctx_layer_height_generation {
     const print_handle *print;
     const object_handle *object;
-    // input from the gui, containing the layers set by the variable layer height feature. is empty if the feature is not used.
-    coord_t* enforce_layer_zs;
+    // Input from the GUI, containing [layer_top_z, layer_height] pairs set by
+    // the variable layer height feature. Empty when the feature is not used.
+    coord_t *enforce_layer_zs;
     uint32_t enforce_layer_zs_size;
     // Object layer-specific config overrides, borrowed from the host object layer ranges.
     // The array and its config handles are read-only and valid only for this setup_run()/run() call.
     const c_layer_config_range *layer_config_ranges;
     uint32_t layer_config_ranges_size;
-    // you have to call that to give back your updated layer heights.
+    // You have to call this to give back the final explicit layer descriptors.
     set_layer_height_profile_fn set_layer_height_profile;
     // Maximum z of the object (from the platter, in the 3D view).
     coord_t max_z;

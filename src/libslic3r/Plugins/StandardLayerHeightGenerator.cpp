@@ -6,6 +6,7 @@
 #include "StandardLayerHeightGenerator.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <set>
@@ -46,6 +47,8 @@ struct LayerHeightSlicingParameters
     coord_t object_print_z_height = 0;
     coord_t z_step = 0;
     coord_t layer_height = 0;
+    coord_t min_layer_height = 0;
+    coord_t max_layer_height = 0;
 };
 
 bool append_mismatch(std::ostringstream &out, const char *name, coord_t calculated, coord_t native)
@@ -190,11 +193,11 @@ LayerHeightSlicingParameters make_layer_height_slicing_parameters(Print print, O
     coord_t max_layer_height = std::numeric_limits<coord_t>::max();
 
     const bool has_support = object_config.get("support_material").get_bool() ||
-        object_config.get("raft_layers").get_int() > 0 ||
         object_config.get("support_material_enforce_layers").get_int() > 0;
     if (has_support) {
         // Support extruders constrain the layer height even if they are not part
-        // of the object's printable model extruder set.
+        // of the object's printable model extruder set. Raft alone is excluded:
+        // it is generated outside the object layer plan.
         const int support_extruder = object_config.get("support_material_extruder").get_int();
         const int support_interface_extruder = object_config.get("support_material_interface_extruder").get_int();
         if (support_extruder > 0) {
@@ -226,13 +229,71 @@ LayerHeightSlicingParameters make_layer_height_slicing_parameters(Print print, O
     if (min_layer_height == 0)
         min_layer_height = out.layer_height;
 
-    out.layer_height = std::clamp(out.layer_height, check_z_step(min_layer_height, out.z_step),
-                                  check_z_step(max_layer_height, out.z_step));
+    out.min_layer_height = check_z_step(min_layer_height, out.z_step);
+    out.max_layer_height = check_z_step(max_layer_height, out.z_step);
+    if (out.max_layer_height < out.min_layer_height)
+        out.max_layer_height = out.min_layer_height;
+    out.layer_height = std::clamp(out.layer_height, out.min_layer_height, out.max_layer_height);
 
-    const int raft_layers = object_config.get("raft_layers").get_int();
-    if (raft_layers > 0)
-        out.first_object_layer_height = out.layer_height;
-    out.first_object_layer_height_fixed = raft_layers == 0;
+    // STEP_LAYER_HEIGHT emits object-local layers. Raft generation must not
+    // change the object first-layer height or whether it is fixed.
+    out.first_object_layer_height_fixed = true;
+
+    return out;
+}
+
+std::vector<coord_t> layer_descriptors_from_height_profile(const LayerHeightSlicingParameters &slicing_params,
+                                                           const std::vector<coord_t> &layer_height_profile)
+{
+    // Expand the compact [z, height] profile produced by this plugin into the
+    // explicit [layer_top_z, layer_height] pairs consumed by STEP_SLICING. This
+    // keeps the old profile interpolation local to the default layer-height
+    // generator instead of letting slicing re-run the profile expansion.
+    std::vector<coord_t> out;
+    if (layer_height_profile.empty())
+        return out;
+
+    coord_t print_z = 0;
+    if (slicing_params.first_object_layer_height_fixed) {
+        print_z = slicing_params.first_object_layer_height;
+        out.push_back(print_z);
+        out.push_back(slicing_params.first_object_layer_height);
+    }
+
+    size_t idx_layer_height_profile = 0;
+    coord_t slice_z = print_z + slicing_params.min_layer_height / 2;
+    while (slice_z < slicing_params.object_print_z_height) {
+        coord_t height = slicing_params.min_layer_height;
+        if (idx_layer_height_profile < layer_height_profile.size()) {
+            size_t next = idx_layer_height_profile + 2;
+            for (;;) {
+                if (next >= layer_height_profile.size() || slice_z < layer_height_profile[next])
+                    break;
+                idx_layer_height_profile = next;
+                next += 2;
+            }
+
+            height = layer_height_profile[idx_layer_height_profile + 1];
+            if (next < layer_height_profile.size()) {
+                const coord_t z1 = layer_height_profile[idx_layer_height_profile];
+                const coord_t h1 = layer_height_profile[idx_layer_height_profile + 1];
+                const coord_t z2 = layer_height_profile[next];
+                const coord_t h2 = layer_height_profile[next + 1];
+                const double t = z2 == z1 ? 0.0 : double(slice_z - z1) / double(z2 - z1);
+                height = coord_t(std::llround(double(h1) + (double(h2) - double(h1)) * t));
+            }
+            height = check_z_step(height, slicing_params.z_step);
+        }
+
+        slice_z = print_z + height / 2;
+        if (slice_z >= slicing_params.object_print_z_height)
+            break;
+
+        print_z += height;
+        out.push_back(print_z);
+        out.push_back(height);
+        slice_z = print_z + slicing_params.min_layer_height / 2;
+    }
 
     return out;
 }
@@ -344,7 +405,10 @@ void StandardLayerHeightGenerator::run_impl(const plugin_run_context *run_ctx) c
         LayerConfigRanges layer_config_ranges(ctx);
         std::vector<coord_t> layer_height_profile = layer_height_profile_from_ranges(print,object, layer_config_ranges);
         if (!layer_height_profile.empty()) {
-            ctx.set_layer_height_profile(ctx.object, layer_height_profile.data(), layer_height_profile.size());
+            std::vector<coord_t> layer_descriptors = layer_descriptors_from_height_profile(
+                make_layer_height_slicing_parameters(print, object),
+                layer_height_profile);
+            ctx.set_layer_height_profile(ctx.object, layer_descriptors.data(), layer_descriptors.size());
         } else {
             ctx.set_layer_height_profile(ctx.object, nullptr, 0);
         }
@@ -362,7 +426,7 @@ const char *StandardLayerHeightGenerator::name_impl() const noexcept { return "S
 
 const char *StandardLayerHeightGenerator::description_impl() const noexcept
 {
-    return "Generate the usual layer height profile from object settings and enforced layer positions.";
+    return "Generate the usual object layer descriptors from object settings and enforced layer positions.";
 }
 
 slicing_step_t StandardLayerHeightGenerator::step_impl() const noexcept { return STEP_LAYER_HEIGHT; }

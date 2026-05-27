@@ -586,12 +586,27 @@ void assert_same(DebugPrintProcessComparator &comparator, const char *label)
     throw std::runtime_error(error);
 }
 
-std::vector<double> to_unscaled_layer_height_profile(const std::vector<coord_t> &layer_profile)
+std::vector<coord_t> layer_profile_from_object_layers(const std::vector<double> &object_layers)
+{
+    std::vector<coord_t> out;
+    out.reserve(object_layers.size());
+    for (size_t idx = 1; idx < object_layers.size(); idx += 2) {
+        out.push_back(scale_i(object_layers[idx]));
+        out.push_back(scale_i(object_layers[idx] - object_layers[idx - 1]));
+    }
+    return out;
+}
+
+std::vector<double> object_layers_from_layer_profile(const std::vector<coord_t> &layer_profile)
 {
     std::vector<double> out;
     out.reserve(layer_profile.size());
-    for (coord_t value : layer_profile)
-        out.push_back(unscaled(value));
+    for (size_t idx = 0; idx + 1 < layer_profile.size(); idx += 2) {
+        const double z = unscaled(layer_profile[idx]);
+        const double height = unscaled(layer_profile[idx + 1]);
+        out.push_back(z - height);
+        out.push_back(z);
+    }
     return out;
 }
 
@@ -680,18 +695,14 @@ void StepPipeline::run_native_layer_height_generation_object(PrintObject &object
     std::vector<coordf_t> layer_height_profile;
     PrintObject::update_layer_height_profile(*object.model_object(), *object.m_slicing_params, layer_height_profile);
 
-    std::vector<coord_t> scaled_profile;
-    scaled_profile.reserve(layer_height_profile.size());
-    for (coordf_t value : layer_height_profile)
-        scaled_profile.push_back(scale_i(value));
-    ApiInternal::PrintObjectAccess::set_layer_profile(object, std::move(scaled_profile));
+    ApiInternal::PrintObjectAccess::set_layer_profile(
+        object,
+        layer_profile_from_object_layers(generate_object_layers(object.slicing_parameters(), layer_height_profile)));
 }
 
 void StepPipeline::run_native_slicing_object(PrintObject &object)
 {
-    LayerUPtrs object_layers =
-        new_layers(&object, generate_object_layers(object.slicing_parameters(),
-                                                   to_unscaled_layer_height_profile(object.layer_profile())));
+    LayerUPtrs object_layers = new_layers(&object, object_layers_from_layer_profile(object.layer_profile()));
     for (std::unique_ptr<Layer> &layer : object_layers)
         ApiInternal::LayerAccess::init_regions_from_object(*layer);
 

@@ -72,7 +72,45 @@ bool validate_pre(const Print &print, std::string &out_error)
     return true;
 }
 
-bool validate_post(const Print &, std::string &) { return true; }
+bool validate_post(const Print &print, std::string &out_error)
+{
+    for (size_t object_idx = 0; object_idx < print.objects().size(); ++object_idx) {
+        const PrintObject &object = print.objects()[object_idx];
+        const std::vector<coord_t> &layer_profile = object.layer_profile();
+        if (layer_profile.empty()) {
+            std::ostringstream msg;
+            msg << "Error: layer-height plugin returned no layer descriptors for object " << object_idx;
+            out_error += msg.str();
+            return false;
+        }
+
+        if ((layer_profile.size() & 1) != 0) {
+            std::ostringstream msg;
+            msg << "Error: layer-height plugin returned an odd descriptor count for object "
+                << object_idx;
+            out_error += msg.str();
+            return false;
+        }
+
+        coord_t previous_hi = 0;
+        for (size_t idx = 0; idx + 1 < layer_profile.size(); idx += 2) {
+            const size_t layer_idx = idx / 2;
+            const coord_t hi = layer_profile[idx];
+            const coord_t height = layer_profile[idx + 1];
+            const coord_t lo = hi - height;
+            if (height <= 0 || lo < 0 || lo < previous_hi) {
+                std::ostringstream msg;
+                msg << "Error: layer-height plugin returned an invalid interval for object "
+                    << object_idx << " at layer " << layer_idx;
+                out_error += msg.str();
+                return false;
+            }
+            previous_hi = hi;
+        }
+    }
+
+    return true;
+}
 
 void run_step(Orchestrator &orchestrator, Print &print) {
     Detail::validate_or_report(validate_pre, print, "Layer-height pre-step validation");

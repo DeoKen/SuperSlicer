@@ -32,7 +32,7 @@ const raw_used_config_key k_used_config_keys[] = {
 const char *k_defined_config_keys[] = { "layer_height_min_flat_area" };
 
 // Keep a physical lower bound even if printer settings allow zero or extremely
-// small layer heights. The generated profile must remain usable by later FFF
+// small layer heights. The generated layer plan must remain usable by later FFF
 // steps that expect positive layer thicknesses.
 #define MIN_LAYER_HEIGHT 0.005
 
@@ -203,10 +203,10 @@ LayerHeightSlicingParameters make_layer_height_slicing_parameters(Print print, O
     coord_t max_layer_height = std::numeric_limits<coord_t>::max();
 
     // Supports may use extruders that are not otherwise referenced by object
-    // regions. Include them so the generated profile is compatible with
-    // support material emitted for this object.
+    // regions. Include them so the generated layer plan is compatible with
+    // support material emitted for this object. A raft alone is not object
+    // geometry, so it must not change the object's layer plan.
     const bool has_support = object_config.get("support_material").get_bool() ||
-        object_config.get("raft_layers").get_int() > 0 ||
         object_config.get("support_material_enforce_layers").get_int() > 0;
     if (has_support) {
         const int support_extruder = object_config.get("support_material_extruder").get_int();
@@ -224,7 +224,7 @@ LayerHeightSlicingParameters make_layer_height_slicing_parameters(Print print, O
     }
 
     if (extruders.empty()) {
-        // Empty printable regions are still sliced with a valid default profile.
+        // Empty printable regions are still sliced with a valid default plan.
         // Use extruder 0 as the least surprising fallback.
         min_layer_height = std::max(min_layer_height, min_layer_height_from_nozzle(print_config, 0));
         max_layer_height = std::min(max_layer_height, max_layer_height_from_nozzle(print_config, 0));
@@ -246,12 +246,9 @@ LayerHeightSlicingParameters make_layer_height_slicing_parameters(Print print, O
     out.max_layer_height = check_z_step(max_layer_height, out.z_step);
     out.layer_height = std::clamp(out.layer_height, out.min_layer_height, out.max_layer_height);
 
-    const int raft_layers = object_config.get("raft_layers").get_int();
-    if (raft_layers > 0)
-        out.first_object_layer_height = out.layer_height;
-    // Raft layers make the object first layer part of a generated raft stack,
-    // so the plugin should not force a special first object layer height.
-    out.first_object_layer_height_fixed = raft_layers == 0;
+    // The layer-height step plans object-local layers only. Raft generation is
+    // a separate support concern and must not alter the first object layer.
+    out.first_object_layer_height_fixed = true;
 
     return out;
 }
@@ -389,7 +386,7 @@ bool interval_can_be_layered(coord_t lo, coord_t hi, const LayerHeightSlicingPar
     // Test whether an interval between two mandatory Z anchors can be filled by
     // at least one integer number of layers inside the configured min/max
     // height range. This is the key guard that keeps candidate anchors from
-    // making the final profile impossible.
+    // making the final layer plan impossible.
     if (hi <= lo)
         return true;
     if (interval_is_fixed_first_layer(lo, hi, params))
@@ -504,7 +501,7 @@ std::vector<coord_t> make_layer_boundaries(const std::vector<coord_t> &anchors,
 {
     // Convert mandatory anchors into the full sorted list of layer boundary Zs.
     // Each interval is independent, so every selected flat surface remains an
-    // exact layer boundary in the final profile.
+    // exact layer boundary in the final layer plan.
     std::vector<coord_t> boundaries;
     boundaries.reserve(anchors.size() * 2);
     boundaries.push_back(anchors.front());
@@ -514,68 +511,51 @@ std::vector<coord_t> make_layer_boundaries(const std::vector<coord_t> &anchors,
     return boundaries;
 }
 
-void layer_height_profile_append(std::vector<coord_t> &profile, coord_t z, coord_t layer_height)
+std::vector<coord_t> layer_descriptors_from_boundaries(const std::vector<coord_t> &boundaries,
+                                                       const LayerHeightSlicingParameters &params)
 {
-    // The host expects a compact profile encoded as pairs:
-    //   [z0, height_at_z0, z1, height_at_z1, ...]
-    // Consecutive segments with the same height can be merged by extending the
-    // previous end Z, which keeps the profile small.
-    if (profile.size() > 1) {
-        const bool last_z_matches = (*(profile.end() - 2) == z);
-        const bool last_h_matches = (profile.back() == layer_height);
-        if (last_h_matches) {
-            if (last_z_matches)
-                return;
-            if (profile.size() >= 4 && (*(profile.end() - 3) == layer_height)) {
-                *(profile.end() - 2) = z;
-                return;
-            }
-        }
-    }
-    profile.push_back(z);
-    profile.push_back(layer_height);
-}
-
-std::vector<coord_t> layer_height_profile_from_boundaries(const std::vector<coord_t> &boundaries,
-                                                          const LayerHeightSlicingParameters &params)
-{
-    // Translate explicit boundaries into the compact host profile. If no useful
-    // boundary was produced, fall back to a constant layer height profile rather
-    // than returning an unusable empty result.
-    std::vector<coord_t> profile;
-    if (boundaries.size() < 2) {
-        layer_height_profile_append(profile, 0, params.layer_height);
-        layer_height_profile_append(profile, params.object_print_z_height, params.layer_height);
-        return profile;
+    // Translate explicit layer boundaries into the STEP_LAYER_HEIGHT payload:
+    // [layer_top_z, layer_height, ...]. Boundaries normally contain at least
+    // the bed and the object top because select_flat_surface_anchors() always
+    // seeds both. The fallback keeps the plugin usable even if a future caller
+    // passes an empty or collapsed boundary list.
+    std::vector<coord_t> usable_boundaries = boundaries;
+    if (usable_boundaries.size() < 2) {
+        usable_boundaries.clear();
+        usable_boundaries.push_back(0);
+        append_interval_layers(usable_boundaries, 0, params.object_print_z_height, params);
     }
 
-    for (size_t idx = 1; idx < boundaries.size(); ++idx) {
-        const coord_t lo = boundaries[idx - 1];
-        const coord_t hi = boundaries[idx];
+    std::vector<coord_t> descriptors;
+    descriptors.reserve(usable_boundaries.size() * 2);
+    for (size_t idx = 1; idx < usable_boundaries.size(); ++idx) {
+        const coord_t lo = usable_boundaries[idx - 1];
+        const coord_t hi = usable_boundaries[idx];
         const coord_t height = hi - lo;
         if (height <= 0)
             continue;
-        layer_height_profile_append(profile, lo, height);
-        layer_height_profile_append(profile, hi, height);
+        descriptors.push_back(hi);
+        descriptors.push_back(height);
     }
-
-    return profile;
+    return descriptors;
 }
 
-std::vector<coord_t> make_flat_area_layer_height_profile(Object object,
-                                                         const LayerHeightSlicingParameters &params,
-                                                         double min_flat_area,
-                                                         PluginProgress &progress)
+std::vector<coord_t> make_flat_area_layer_descriptors(Object object,
+                                                      const LayerHeightSlicingParameters &params,
+                                                      double min_flat_area,
+                                                      PluginProgress &progress)
 {
     // Main algorithm:
     // 1. collect horizontal surface candidates from model volumes;
     // 2. greedily keep the largest candidates that still allow valid layers;
-    // 3. fill every accepted interval with legal layer heights;
-    // 4. encode the result as the profile consumed by the host.
+    // 3. fill every accepted interval with legal layer heights.
+    // The host receives explicit [layer_top_z, layer_height] pairs. This keeps
+    // enough information to represent non-contiguous layers if a future
+    // generator needs to leave an empty interval.
     std::vector<FlatSurface> flat_surfaces = collect_flat_surfaces(object, params, min_flat_area, progress);
     std::vector<coord_t> anchors = select_flat_surface_anchors(flat_surfaces, params);
     std::vector<coord_t> boundaries = make_layer_boundaries(anchors, params);
-    return layer_height_profile_from_boundaries(boundaries, params);
+    return layer_descriptors_from_boundaries(boundaries, params);
 }
 
 } // namespace
@@ -709,13 +689,14 @@ void FlatAreaLayerHeight::run_impl(const plugin_run_context *run_ctx) const
     const Config print_config = print.config();
     const double min_flat_area = print_config.get("layer_height_min_flat_area").get_float();
     const LayerHeightSlicingParameters params = make_layer_height_slicing_parameters(print, object, ctx->max_z);
-    std::vector<coord_t> profile = make_flat_area_layer_height_profile(object, params, min_flat_area, progress());
+    std::vector<coord_t> layer_descriptors =
+        make_flat_area_layer_descriptors(object, params, min_flat_area, progress());
 
-    // A non-empty profile is transferred as borrowed memory for the duration of
-    // the callback only; the host copies it before returning from
+    // A non-empty descriptor list is transferred as borrowed memory for the
+    // duration of the callback only; the host copies it before returning from
     // set_layer_height_profile().
-    if (!profile.empty())
-        ctx->set_layer_height_profile(ctx->object, profile.data(), uint32_t(profile.size()));
+    if (!layer_descriptors.empty())
+        ctx->set_layer_height_profile(ctx->object, layer_descriptors.data(), uint32_t(layer_descriptors.size()));
     else
         ctx->set_layer_height_profile(ctx->object, nullptr, 0);
 

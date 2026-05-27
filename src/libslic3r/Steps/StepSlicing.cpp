@@ -19,7 +19,6 @@
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintObject.hpp"
-#include "libslic3r/Slicing.hpp"
 #include "libslic3r/Steps/StepPipeline.hpp"
 #include "libslic3r/SurfaceCollection.hpp"
 #include "libslic3r/Thread.hpp"
@@ -33,21 +32,26 @@ LayerUPtrs new_layers(PrintObject *print_object, const std::vector<double> &obje
 namespace Slic3r::Steps::StepSlicing {
 namespace {
 
-std::vector<double> to_unscaled_layer_height_profile(const std::vector<coord_t> &layer_profile)
+std::vector<double> object_layers_from_layer_profile(const std::vector<coord_t> &layer_profile)
 {
+    // STEP_LAYER_HEIGHT returns explicit object-local layer descriptors:
+    // [layer_top_z, layer_height, ...]. Keeping the height next to the top Z
+    // allows a plugin to leave a deliberate empty Z interval below a layer.
     std::vector<double> out;
     out.reserve(layer_profile.size());
-    for (coord_t value : layer_profile)
-        out.push_back(unscaled(value));
+    for (size_t idx = 0; idx + 1 < layer_profile.size(); idx += 2) {
+        const double z = unscaled(layer_profile[idx]);
+        const double height = unscaled(layer_profile[idx + 1]);
+        out.push_back(z - height);
+        out.push_back(z);
+    }
     return out;
 }
 
 void recreate_object_layers(PrintObject &object)
 {
-    std::vector<double> layer_height_profile =
-        to_unscaled_layer_height_profile(object.layer_profile());
     LayerUPtrs object_layers =
-        new_layers(&object, generate_object_layers(object.slicing_parameters(), layer_height_profile));
+        new_layers(&object, object_layers_from_layer_profile(object.layer_profile()));
     for (std::unique_ptr<Layer> &layer : object_layers) {
         ApiInternal::LayerAccess::init_regions_from_object(*layer);
     }
@@ -91,7 +95,7 @@ bool validate_pre(const Print &print, std::string &out_error)
         if (layer_profile.empty()) {
             ok = false;
             std::ostringstream msg;
-            msg << "object " << object_idx << ": layer height profile is empty";
+            msg << "object " << object_idx << ": layer profile is empty";
             out_error += msg.str();
             continue;
         }
@@ -99,8 +103,46 @@ bool validate_pre(const Print &print, std::string &out_error)
         if ((layer_profile.size() & 1) != 0) {
             ok = false;
             std::ostringstream msg;
-            msg << "object " << object_idx << ": layer height profile has an odd element count";
+            msg << "object " << object_idx << ": layer profile has an odd element count";
             out_error += msg.str();
+            continue;
+        }
+
+        double previous_hi = 0.;
+        const double object_top_z = object.slicing_parameters().object_print_z_height();
+        for (size_t idx = 0; idx + 1 < layer_profile.size(); idx += 2) {
+            const size_t layer_idx = idx / 2;
+            const double hi = unscaled(layer_profile[idx]);
+            const double height = unscaled(layer_profile[idx + 1]);
+            const double lo = hi - height;
+            if (height <= EPSILON) {
+                ok = false;
+                std::ostringstream msg;
+                msg << "object " << object_idx << ", layer " << layer_idx
+                    << ": layer height is not positive";
+                out_error += msg.str();
+                break;
+            }
+
+            if (lo < -EPSILON || lo + EPSILON < previous_hi) {
+                ok = false;
+                std::ostringstream msg;
+                msg << "object " << object_idx << ", layer " << layer_idx
+                    << ": layer interval overlaps the previous layer";
+                out_error += msg.str();
+                break;
+            }
+
+            const double slice_z = 0.5 * (lo + hi);
+            if (slice_z >= object_top_z + EPSILON) {
+                ok = false;
+                std::ostringstream msg;
+                msg << "object " << object_idx << ", layer " << layer_idx
+                    << ": slice z is outside the object height";
+                out_error += msg.str();
+                break;
+            }
+            previous_hi = hi;
         }
     }
 

@@ -34,15 +34,17 @@ LayerUPtrs new_layers(
 {
     LayerUPtrs out;
     out.reserve(object_layers.size());
-    auto     id   = int(print_object->slicing_parameters().raft_layers());
-    double zmin = print_object->slicing_parameters().object_print_z_min;
+    auto     id   = int(0);
     Layer   *prev = nullptr;
     for (size_t i_layer = 0; i_layer < object_layers.size(); i_layer += 2) {
         double lo = object_layers[i_layer];
         double hi = object_layers[i_layer + 1];
         double slice_z = 0.5 * (lo + hi);
+        // Layers are stored in object-local coordinates. Raft/support code can
+        // use object_print_z_min when it needs the physical print offset, but
+        // raft settings must not change object layer ids or Z coordinates.
         Layer *layer = new Layer(id++, print_object, scale_to_layer_coord(hi - lo),
-                                 scale_to_layer_coord(hi + zmin), slice_z, true);
+                                 scale_to_layer_coord(hi), slice_z, true);
         out.emplace_back(layer);
         if (prev != nullptr) {
             prev->upper_layer = layer;

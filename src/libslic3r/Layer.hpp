@@ -126,7 +126,7 @@ class Layer : public ExtraDataContainer
     coord_t             m_height;        // layer height
     coord_t             m_print_z;       // Z used for printing
 public:
-    // Sequential index of this layer in PrintObject::m_layers, offsetted by the number of raft layers.
+    // Sequential index of this layer in PrintObject::m_layers.
     size_t              id() const          { return m_id; }
     void                set_id(size_t id)   { m_id = id; }
     PrintObject*        object()            { return m_object; }

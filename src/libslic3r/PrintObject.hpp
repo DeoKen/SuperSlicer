@@ -305,7 +305,9 @@ private:
     // filled by prepare_lightning_infill_data() (in bridge_over_infill() in prepare_infill()) and used in infill()
     FillLightning::GeneratorPtr m_lightning_generator;
 
-    // Result of LayerHeightGeneration. It stores pairs of layer z / layer height, so its size is 2 * layer_count.
+    // Result of STEP_LAYER_HEIGHT. It stores explicit object-local
+    // [layer_top_z, layer_height] pairs, one pair per object layer.
+    // Raft/support layers are not part of this list.
     std::vector<coord_t> m_layer_profile;
 
 };

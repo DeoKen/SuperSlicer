@@ -176,7 +176,7 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
     params.max_suport_layer_height = 0;
     params.min_suport_layer_height = 0;
     // params.exact_last_layer_height = object_config.exact_last_layer_height.value;
-    if (object_config.support_material.value || params.base_raft_layers > 0 || object_config.support_material_enforce_layers > 0) {
+    if (object_config.support_material.value || object_config.support_material_enforce_layers > 0) {
         // Has some form of support. Add the support layers to the minimum / maximum layer height limits.
         if (object_config.support_material_extruder > 0)
             params.min_layer_height = std::max(params.min_layer_height, min_support_material_height);
@@ -318,7 +318,6 @@ std::shared_ptr<SlicingParameters> SlicingParameters::create_from_config(
                 object_config.raft_interface_layer_height.get_effective_value(support_material_interface_extruder_dmr)));
         }
         params.contact_raft_layer_height = check_z_step(params.contact_raft_layer_height, params.z_step);
-        params.first_object_layer_height    = params.layer_height;
     }
 
     if (params.has_raft()) {

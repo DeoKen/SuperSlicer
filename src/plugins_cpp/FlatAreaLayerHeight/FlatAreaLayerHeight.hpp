@@ -14,9 +14,10 @@ namespace slic3r_api { namespace FlatAreaLayerHeightPlugin {
 // horizontal mesh surfaces while staying inside the configured min/max layer
 // height range.
 //
-// The plugin does not directly create Layer objects. It only returns a layer
-// height profile to the host through run_ctx_layer_height_generation. The next
-// slicing step consumes that profile and builds the actual object layers.
+// The plugin does not directly create Layer objects. It only returns explicit
+// [layer_top_z, layer_height] descriptors to the host through
+// run_ctx_layer_height_generation. The next slicing step consumes those
+// descriptors and builds the actual object layers.
 class FlatAreaLayerHeight : public PluginBase
 {
 public:
