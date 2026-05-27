@@ -42,6 +42,7 @@
 #include "libslic3r/Plugins/SliceVolume.hpp"
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Surface/InitialTypedSurfaceBuilder.hpp"
+#include "libslic3r/Plugins/Surface/SolidShells.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandModifiers.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandOverhangs.hpp"
@@ -195,6 +196,8 @@ void ensure_plugin_test_runtime_initialized()
         slic3r_api::Perimeter::FuzzySkinPlugin::register_fuzzy_skin_plugin(orchestrator_handle_value);
         slic3r_api::SurfaceGeneration::InitialTypedSurfaceBuilderPlugin::register_initial_typed_surface_builder_plugin(
             orchestrator_handle_value);
+        slic3r_api::SurfaceGeneration::SolidShellsPlugin::register_solid_shells_plugin(
+            orchestrator_handle_value);
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
                                   orchestrator.get_plugin("python.polyholes") != nullptr &&
@@ -222,6 +225,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "perimeter.module.remove_gap_fill_on_overhangs");
         activate_plugin_or_fail(orchestrator, "perimeter.post_process.fuzzy_skin");
         activate_plugin_or_fail(orchestrator, "surface.initial_typed_surface_builder");
+        activate_plugin_or_fail(orchestrator, "surface.solid_shells");
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         if (g_python_plugins_loaded) {
             activate_plugin_or_fail(orchestrator, "python.polyholes");

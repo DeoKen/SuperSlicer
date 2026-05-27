@@ -48,6 +48,7 @@
 #include "libslic3r/Plugins/SliceVolume.hpp"
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Surface/InitialTypedSurfaceBuilder.hpp"
+#include "libslic3r/Plugins/Surface/SolidShells.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
 #include "libslic3r/Steps/StepPipeline.hpp"
 #include "libslic3r/Utils.hpp"
@@ -363,6 +364,8 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::Perimeter::SimplePerimeterGeneratorPlugin::register_simple_perimeter_generator_plugin);
     register_builtin_plugin(orchestrator, "surface.initial_typed_surface_builder",
         slic3r_api::SurfaceGeneration::InitialTypedSurfaceBuilderPlugin::register_initial_typed_surface_builder_plugin);
+    register_builtin_plugin(orchestrator, "surface.solid_shells",
+        slic3r_api::SurfaceGeneration::SolidShellsPlugin::register_solid_shells_plugin);
     register_builtin_plugin(orchestrator, "support_demand_bridge_removal",
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin);
 }

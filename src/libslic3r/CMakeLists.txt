@@ -173,6 +173,8 @@ set(SLIC3R_SOURCES
 	Plugins/StandardLayerHeightGenerator.hpp
 	Plugins/Surface/InitialTypedSurfaceBuilder.cpp
 	Plugins/Surface/InitialTypedSurfaceBuilder.hpp
+	Plugins/Surface/SolidShells.cpp
+	Plugins/Surface/SolidShells.hpp
 	Plugins/Support/SupportDemandBridgeRemoval.cpp
 	Plugins/Support/SupportDemandBridgeRemoval.hpp
 	Plugins/Support/SupportDemandModifiers.cpp

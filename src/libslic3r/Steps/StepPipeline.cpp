@@ -290,7 +290,6 @@ const std::map<slicing_step_t, StepExclusiveGroup> &get_exclusive_steps()
         {STEP_LAYER_HEIGHT,       make_exclusive_step_group(STEP_LAYER_HEIGHT,       "step_layer_height_plugin",       "Layer height plugin",       RAW_OPTION_CATEGORY_SLICING,   "Layer height step plugin")},
         {STEP_SLICING,            make_exclusive_step_group(STEP_SLICING,            "step_slicing_plugin",            "Slicing plugin",            RAW_OPTION_CATEGORY_SLICING,   "Slicing step plugin")},
         {STEP_PERIMETER,          make_exclusive_step_group(STEP_PERIMETER,          "step_perimeter_plugin",          "Perimeter plugin",          RAW_OPTION_CATEGORY_PERIMETER, "Perimeter step plugin")},
-        {STEP_SURFACE_GENERATION, make_exclusive_step_group(STEP_SURFACE_GENERATION, "step_surface_generation_plugin", "Surface generation plugin", RAW_OPTION_CATEGORY_SLICING,   "Surface generation step plugin")},
         {STEP_SURFACE_TYPE,       make_exclusive_step_group(STEP_SURFACE_TYPE,       "step_surface_type_plugin",       "Surface type plugin",       RAW_OPTION_CATEGORY_SLICING,   "Surface type step plugin")},
         {STEP_INFILL_GROUP,       make_exclusive_step_group(STEP_INFILL_GROUP,       "step_infill_group_plugin",       "Infill grouping plugin",    RAW_OPTION_CATEGORY_INFILL,    "Infill grouping step plugin")},
         {STEP_INFILL,             make_exclusive_step_group(STEP_INFILL,             "step_infill_plugin",             "Infill plugin",             RAW_OPTION_CATEGORY_INFILL,    "Infill step plugin")},

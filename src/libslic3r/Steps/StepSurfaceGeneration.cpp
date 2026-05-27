@@ -51,6 +51,9 @@ LayerRegionSetCPtrs region_set_from_handles(const layer_region_handle *const *re
                                              uint32_t region_count,
                                              const LayerSliceIsland &island)
 {
+    // Plugins usually ask for "the whole island" by passing no explicit region
+    // list. In that case the callback uses the island's current region set,
+    // which was computed by slicing and is stable for this step.
     LayerRegionSetCPtrs regions;
     if (region_handles == nullptr || region_count == 0)
         return island.regions();
@@ -65,6 +68,9 @@ LayerRegionSetCPtrs region_set_from_handles(const layer_region_handle *const *re
 
 uint16_t infill_extruder_id(const LayerRegionSetCPtrs &regions)
 {
+    // LayerRegionIsland groups surfaces that can be filled together. The
+    // current grouping is keyed by the infill extruder of the first region; more
+    // detailed splitting can be added by later surface-generation plugins.
     if (regions.empty())
         return uint16_t(-1);
 
@@ -77,6 +83,9 @@ layer_region_island_handle *get_or_create_region_island_callback(const layer_isl
                                                                  const layer_region_handle *const *region_handles,
                                                                  uint32_t region_count)
 {
+    // This is the host-owned write entry point for surface-generation plugins:
+    // a plugin can request a region island for a subset of regions, but it never
+    // mutates the LayerSliceIsland geometry itself.
     LayerSliceIsland *island = to_layer_island(island_handle);
     if (island == nullptr)
         return nullptr;
@@ -92,6 +101,9 @@ layer_region_island_handle *get_or_create_region_island_callback(const layer_isl
 int32_t set_region_island_fill_surfaces_callback(layer_region_island_handle *region_island_handle,
                                                  surface_collection_handle *surfaces_handle)
 {
+    // Replace the complete fill-surface collection. A whole-collection move is
+    // easier to reason about than incremental append/remove callbacks and keeps
+    // surface ownership on the host side of the C API boundary.
     LayerRegionIsland *region_island = to_layer_region_island(region_island_handle);
     if (region_island == nullptr)
         return 0;
@@ -130,19 +142,14 @@ bool validate_post(const Print &, std::string *)
 
 void run_step(Orchestrator &orchestrator, Print &print)
 {
-    // STEP_SURFACE_GENERATION is exclusive: one active generator converts the
-    // perimeter step's island fill areas into the first set of infill surfaces.
-    Plugin *plugin = selected_or_active_plugin_for_step(orchestrator,
-                                                        STEP_SURFACE_GENERATION,
-                                                        &print.full_print_config());
-    if (plugin == nullptr)
-        return;
-
-    Detail::run_object_step_plugin(
+    // Surface generation is a small pipeline. One plugin usually creates the
+    // initial surfaces from perimeter fill areas, and later plugins refine their
+    // type or geometry before infill consumes them.
+    Detail::run_object_step_plugins(
         orchestrator,
         print,
         STEP_SURFACE_GENERATION,
-        *plugin,
+        &print.full_print_config(),
         print.objects().size(),
         [&print](const size_t object_idx) {
             run_ctx_surface_generation payload = {};

@@ -486,6 +486,7 @@ const char *const SEPARATE_HOLE_CONTOUR = "perimeter.module.separate_hole_contou
 const char *const REMOVE_GAP_FILL_ON_OVERHANGS = "perimeter.module.remove_gap_fill_on_overhangs";
 const char *const FUZZY_SKIN = "perimeter.post_process.fuzzy_skin";
 const char *const INITIAL_TYPED_SURFACE_BUILDER = "surface.initial_typed_surface_builder";
+const char *const SOLID_SHELLS = "surface.solid_shells";
 
 ExPolygon rectangle_expolygon(const double min_x, const double min_y, const double max_x, const double max_y)
 {
