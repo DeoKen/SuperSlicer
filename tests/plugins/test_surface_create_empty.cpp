@@ -348,25 +348,47 @@ TEST_CASE("CreateEmptySurface converts island infill areas to typed region-islan
         require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosBottom | stDensSolid, island.infill_areas());
     }
 
-    SECTION("isolated first layer without raft is top")
+    SECTION("isolated first layer resolves bottom/top overlap from raft setting")
     {
-        // A single first-layer island with raft_layers=0 is both bottom and top.
-        // This special case is treated as top skin because there is no raft
-        // underneath and the exposed face is the visible first-layer surface.
-        PreparedPerimeterPrint prepared;
-        prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}, {"raft_layers", "0"}}));
-        PrintObject &object = prepared.print.object(0);
-        REQUIRE(object.layer_count() > 1);
-        replace_layer_island(object.layer(0), rectangle_expolygon(-10., -10., 10., 10.));
-        replace_layer_island(object.layer(1), rectangle_expolygon(30., -10., 50., 10.));
-        rebuild_island_overlap_graph(object);
+        // This island has no object material below or above, so the same fill
+        // area is both bottom and top. The general rule gives that overlap to
+        // bottom surfaces. The first layer is the only exception: with no raft
+        // it is visible top skin, while with raft it keeps the bottom result
+        // because the raft handles the external support-facing side.
+        struct RaftCase
+        {
+            int         raft_layers;
+            SurfaceType expected_surface_type;
+        };
+        const RaftCase cases[] = {
+            { 0, stPosTop | stDensSolid },
+            { 1, stPosBottom | stDensSolid },
+            { 3, stPosBottom | stDensSolid }
+        };
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
-        run_perimeter_and_surface_steps(prepared.print);
+        for (const RaftCase &raft_case : cases) {
+            CAPTURE(raft_case.raft_layers);
 
-        const LayerSliceIsland &island = object.layer(0).island(0);
-        REQUIRE_FALSE(island.infill_areas().empty());
-        require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosTop | stDensSolid, island.infill_areas());
+            PreparedPerimeterPrint prepared;
+            prepare_cube_print(prepared, perimeter_config({
+                {"perimeters", "1"},
+                {"raft_layers", std::to_string(raft_case.raft_layers)}
+            }));
+            PrintObject &object = prepared.print.object(0);
+            REQUIRE(object.layer_count() > 1);
+            replace_layer_island(object.layer(0), rectangle_expolygon(-10., -10., 10., 10.));
+            replace_layer_island(object.layer(1), rectangle_expolygon(30., -10., 50., 10.));
+            rebuild_island_overlap_graph(object);
+
+            ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+            run_perimeter_and_surface_steps(prepared.print);
+
+            const LayerSliceIsland &island = object.layer(0).island(0);
+            REQUIRE_FALSE(island.infill_areas().empty());
+            require_only_surface_type(whole_region_island(island).fill_surfaces(),
+                                      raft_case.expected_surface_type,
+                                      island.infill_areas());
+        }
     }
 
     SECTION("partially covered middle layer splits top and internal areas")
