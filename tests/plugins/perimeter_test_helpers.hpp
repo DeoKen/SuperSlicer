@@ -29,6 +29,7 @@ extern const char *const ONLY_ONE_PERIMETER_FIRST_LAYER;
 extern const char *const ONLY_ONE_PERIMETER_ON_TOP;
 extern const char *const SEPARATE_HOLE_CONTOUR;
 extern const char *const REMOVE_GAP_FILL_ON_OVERHANGS;
+extern const char *const FUZZY_SKIN;
 extern const char *const DEFAULT_SURFACE_GENERATOR;
 
 struct PerimeterRunCapture
@@ -71,6 +72,12 @@ struct PreparedPerimeterPrint
     std::vector<std::unique_ptr<PrintRegion>> extra_regions;
 };
 
+struct PerimeterRegionOverride
+{
+    ExPolygon area;
+    std::vector<std::pair<std::string, std::string>> settings;
+};
+
 ExPolygon rectangle_expolygon(double min_x, double min_y, double max_x, double max_y);
 ExPolygon rectangle_with_hole_expolygon();
 DynamicPrintConfig perimeter_config(std::initializer_list<std::pair<std::string, std::string>> overrides);
@@ -86,6 +93,23 @@ PerimeterRunCapture run_perimeter_case(
     std::initializer_list<std::pair<std::string, std::string>> region_overrides = {},
     const ExPolygon *region_area = nullptr);
 
+PerimeterRunCapture run_perimeter_and_post_case(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> perimeter_plugins,
+    std::initializer_list<const char *> post_plugins,
+    const ExPolygon &area,
+    size_t layer_idx,
+    std::initializer_list<std::pair<std::string, std::string>> region_overrides = {},
+    const ExPolygon *region_area = nullptr);
+
+PerimeterRunCapture run_perimeter_and_post_case_with_regions(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> perimeter_plugins,
+    std::initializer_list<const char *> post_plugins,
+    const ExPolygon &area,
+    size_t layer_idx,
+    const std::vector<PerimeterRegionOverride> &region_overrides);
+
 PerimeterMultiIslandRunCapture run_perimeter_multi_island_case(
     const DynamicPrintConfig &config,
     std::initializer_list<const char *> active_plugins,
@@ -95,6 +119,7 @@ PerimeterMultiIslandRunCapture run_perimeter_multi_island_case(
 size_t external_perimeter_count(const PerimeterRunCapture &capture);
 const ExtrusionEntityCollection &external_perimeters(const PerimeterRunCapture &capture);
 double extrusion_length(const ExtrusionEntity &entity);
+size_t total_polyline_points(const ExtrusionEntity &entity);
 size_t count_loops_with_role(const ExtrusionEntity &entity, ExtrusionLoopRole role_mask);
 VerticalSplitCounts vertical_split_counts(const ExtrusionEntity &entity, coord_t split_x);
 void require_leaf_fill_area_consistency(const PerimeterRunCapture &capture);

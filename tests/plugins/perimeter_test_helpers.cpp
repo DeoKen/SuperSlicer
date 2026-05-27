@@ -17,6 +17,7 @@
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Steps/StepGeneratePerimeter.hpp"
 #include "libslic3r/Steps/StepLayerHeightGeneration.hpp"
+#include "libslic3r/Steps/StepPostPerimeterGeneration.hpp"
 #include "libslic3r/Steps/StepPostSlicing.hpp"
 #include "libslic3r/Steps/StepSlicing.hpp"
 #include "libslic3r/TriangleMesh.hpp"
@@ -143,8 +144,7 @@ void rebuild_island_overlap_graph(PrintObject &object)
 void add_partitioned_region(PreparedPerimeterPrint &prepared,
                             Layer &layer,
                             const ExPolygon &area,
-                            const std::string &key,
-                            const std::string &value)
+                            const std::vector<std::pair<std::string, std::string>> &settings)
 {
     LayerRegion &default_region = layer.region(0);
     const ExPolygons default_areas = ApiInternal::LayerRegionAccess::slices_mutable(default_region);
@@ -156,13 +156,23 @@ void add_partitioned_region(PreparedPerimeterPrint &prepared,
     set_region_areas(default_region, diff_ex(default_areas, area));
 
     PrintRegionConfig config = layer.region(0).region().config();
-    config.set_deserialize_strict({{key, value}});
+    for (const std::pair<std::string, std::string> &entry : settings)
+        config.set_deserialize_strict(entry.first, entry.second);
     prepared.extra_regions.push_back(std::make_unique<PrintRegion>(config));
     ApiInternal::LayerAccess::add_region(layer, *prepared.extra_regions.back());
 
     LayerRegion &region = layer.region(layer.region_count() - 1);
     set_region_areas(region, std::move(override_areas));
     layer.island(0).fill_regions(layer);
+}
+
+void add_partitioned_region(PreparedPerimeterPrint &prepared,
+                            Layer &layer,
+                            const ExPolygon &area,
+                            const std::string &key,
+                            const std::string &value)
+{
+    add_partitioned_region(prepared, layer, area, std::vector<std::pair<std::string, std::string>>{{key, value}});
 }
 
 PerimeterRunCapture capture_perimeter_outputs(const LayerSliceIsland &island)
@@ -449,6 +459,7 @@ const char *const ONLY_ONE_PERIMETER_FIRST_LAYER = "perimeter.module.only_one_pe
 const char *const ONLY_ONE_PERIMETER_ON_TOP = "perimeter.module.only_one_perimeter_on_top";
 const char *const SEPARATE_HOLE_CONTOUR = "perimeter.module.separate_hole_contour";
 const char *const REMOVE_GAP_FILL_ON_OVERHANGS = "perimeter.module.remove_gap_fill_on_overhangs";
+const char *const FUZZY_SKIN = "perimeter.post_process.fuzzy_skin";
 const char *const DEFAULT_SURFACE_GENERATOR = "surface.generator.default";
 
 ExPolygon rectangle_expolygon(const double min_x, const double min_y, const double max_x, const double max_y)
@@ -544,6 +555,77 @@ PerimeterRunCapture run_perimeter_case(
     return run_active_perimeter_plugins(prepared.print, layer.island(0));
 }
 
+PerimeterRunCapture run_perimeter_and_post_case(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> perimeter_plugins,
+    std::initializer_list<const char *> post_plugins,
+    const ExPolygon &area,
+    const size_t layer_idx,
+    std::initializer_list<std::pair<std::string, std::string>> region_overrides,
+    const ExPolygon *region_area)
+{
+    PreparedPerimeterPrint prepared;
+    prepare_cube_print(prepared, config);
+    PrintObject &object = prepared.print.object(0);
+    REQUIRE(layer_idx < object.layer_count());
+    Layer &layer = object.layer(layer_idx);
+    replace_layer_island(layer, area);
+    rebuild_island_overlap_graph(object);
+
+    if (region_overrides.size() > 0) {
+        const ExPolygon default_region_area = rectangle_expolygon(-6., -6., 6., 6.);
+        const ExPolygon &override_area = region_area != nullptr ? *region_area : default_region_area;
+        for (const std::pair<std::string, std::string> &entry : region_overrides)
+            add_partitioned_region(prepared, layer, override_area, entry.first, entry.second);
+    }
+
+    {
+        ScopedActivePlugins active_scope(perimeter_plugins);
+        Steps::StepGeneratePerimeter::clean_and_prepare(prepared.print);
+        Steps::StepGeneratePerimeter::run_step(Orchestrator::instance(), prepared.print);
+    }
+
+    {
+        ScopedActivePlugins active_scope(post_plugins);
+        Steps::StepPostPerimeterGeneration::run_step(Orchestrator::instance(), prepared.print);
+    }
+
+    return capture_perimeter_outputs(layer.island(0));
+}
+
+PerimeterRunCapture run_perimeter_and_post_case_with_regions(
+    const DynamicPrintConfig &config,
+    std::initializer_list<const char *> perimeter_plugins,
+    std::initializer_list<const char *> post_plugins,
+    const ExPolygon &area,
+    const size_t layer_idx,
+    const std::vector<PerimeterRegionOverride> &region_overrides)
+{
+    PreparedPerimeterPrint prepared;
+    prepare_cube_print(prepared, config);
+    PrintObject &object = prepared.print.object(0);
+    REQUIRE(layer_idx < object.layer_count());
+    Layer &layer = object.layer(layer_idx);
+    replace_layer_island(layer, area);
+    rebuild_island_overlap_graph(object);
+
+    for (const PerimeterRegionOverride &override_region : region_overrides)
+        add_partitioned_region(prepared, layer, override_region.area, override_region.settings);
+
+    {
+        ScopedActivePlugins active_scope(perimeter_plugins);
+        Steps::StepGeneratePerimeter::clean_and_prepare(prepared.print);
+        Steps::StepGeneratePerimeter::run_step(Orchestrator::instance(), prepared.print);
+    }
+
+    {
+        ScopedActivePlugins active_scope(post_plugins);
+        Steps::StepPostPerimeterGeneration::run_step(Orchestrator::instance(), prepared.print);
+    }
+
+    return capture_perimeter_outputs(layer.island(0));
+}
+
 PerimeterMultiIslandRunCapture run_perimeter_multi_island_case(
     const DynamicPrintConfig &config,
     std::initializer_list<const char *> active_plugins,
@@ -591,6 +673,22 @@ double extrusion_length(const ExtrusionEntity &entity)
     for (size_t child_idx = 0; child_idx < entity.child_count(); ++child_idx)
         length += extrusion_length(entity.child(child_idx));
     return length;
+}
+
+size_t total_polyline_points(const ExtrusionEntity &entity)
+{
+    if (entity.is_nop())
+        return 0;
+    if (entity.is_leaf()) {
+        Points points;
+        entity.collect_points(points);
+        return points.size();
+    }
+
+    size_t count = 0;
+    for (size_t child_idx = 0; child_idx < entity.child_count(); ++child_idx)
+        count += total_polyline_points(entity.child(child_idx));
+    return count;
 }
 
 size_t count_loops_with_role(const ExtrusionEntity &entity, const ExtrusionLoopRole role_mask)

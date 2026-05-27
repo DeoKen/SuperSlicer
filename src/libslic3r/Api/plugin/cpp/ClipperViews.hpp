@@ -440,6 +440,13 @@ inline StoredPolylineCollection clipper_diff_polyline_expolygons(storage_handle 
     return StoredPolylineCollection::adopt(storage, ::clipper_diff_polyline_expolygons(storage, subject.handle(), clip.handle()));
 }
 
+inline StoredPolylineCollection clipper_intersection_polyline_expolygons(storage_handle *storage,
+                                                                         const Polyline &subject,
+                                                                         const ExPolygonCollection &clip)
+{
+    return StoredPolylineCollection::adopt(storage, ::clipper_intersection_polyline_expolygons(storage, subject.handle(), clip.handle()));
+}
+
 // context utility method to shorten 'ClipperOperand(storage_handler, bridged_other_layers_area))' to a
 // 'clip(bridged_other_layers_area)' if you define ClipperContext clip(my_storage_handler)
 class ClipperContext

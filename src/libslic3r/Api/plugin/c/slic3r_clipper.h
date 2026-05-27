@@ -228,6 +228,23 @@ SLIC3R_HOST_API polyline_collection_handle *clipper_diff_polyline_expolygons(sto
                                                                              const polyline_handle *subject,
                                                                              const expolygon_collection_handle *clip);
 
+/*
+Clip an open polyline by polygonal areas and return the pieces inside clip.
+
+This is the polyline equivalent of subject intersection clip. It is mostly used
+by post-process plugins that need to split one extrusion into "inside this
+region setting" and "outside this region setting" fragments while keeping the
+original extrusion order.
+
+clip == NULL or an empty collection returns an empty collection: there is no
+area where the polyline is accepted. The returned polyline collection is owned
+by storage and must be released with storage_free() when no longer needed.
+*/
+SLIC3R_HOST_API polyline_collection_handle *clipper_intersection_polyline_expolygons(
+    storage_handle *storage,
+    const polyline_handle *subject,
+    const expolygon_collection_handle *clip);
+
 #ifdef __cplusplus
 }
 #endif

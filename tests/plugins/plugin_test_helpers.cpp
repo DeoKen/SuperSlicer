@@ -33,6 +33,7 @@
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterCount.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterOddLayer.hpp"
+#include "libslic3r/Plugins/Perimeter/FuzzySkin.hpp"
 #include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterFirstLayer.hpp"
 #include "libslic3r/Plugins/Perimeter/OnlyOnePerimeterOnTop.hpp"
 #include "libslic3r/Plugins/Perimeter/RemoveGapFillOnOverhangs.hpp"
@@ -191,6 +192,7 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::Perimeter::RemoveGapFillOnOverhangsPlugin::register_remove_gap_fill_on_overhangs_plugin(
             orchestrator_handle_value);
+        slic3r_api::Perimeter::FuzzySkinPlugin::register_fuzzy_skin_plugin(orchestrator_handle_value);
         slic3r_api::SurfaceGeneration::DefaultSurfaceGeneratorPlugin::register_default_surface_generator_plugin(
             orchestrator_handle_value);
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
@@ -218,6 +220,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "perimeter.module.only_one_perimeter_on_top");
         activate_plugin_or_fail(orchestrator, "perimeter.module.separate_hole_contour");
         activate_plugin_or_fail(orchestrator, "perimeter.module.remove_gap_fill_on_overhangs");
+        activate_plugin_or_fail(orchestrator, "perimeter.post_process.fuzzy_skin");
         activate_plugin_or_fail(orchestrator, "surface.generator.default");
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         if (g_python_plugins_loaded) {

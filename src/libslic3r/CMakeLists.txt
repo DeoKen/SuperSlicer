@@ -153,6 +153,8 @@ set(SLIC3R_SOURCES
 	Plugins/Perimeter/ExtraPerimeterCount.hpp
 	Plugins/Perimeter/ExtraPerimeterOddLayer.cpp
 	Plugins/Perimeter/ExtraPerimeterOddLayer.hpp
+	Plugins/Perimeter/FuzzySkin.cpp
+	Plugins/Perimeter/FuzzySkin.hpp
 	Plugins/Perimeter/OnlyOnePerimeterFirstLayer.cpp
 	Plugins/Perimeter/OnlyOnePerimeterFirstLayer.hpp
 	Plugins/Perimeter/OnlyOnePerimeterOnTop.cpp
