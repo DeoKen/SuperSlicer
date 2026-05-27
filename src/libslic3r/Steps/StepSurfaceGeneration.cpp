@@ -6,11 +6,14 @@
 #include "StepSurfaceGeneration.hpp"
 
 #include <cassert>
+#include <cmath>
+#include <sstream>
 #include <utility>
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/Plugin.hpp"
 #include "libslic3r/Api/plugin/c/steps/slic3r_step_surface_generation.h"
+#include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/DataTreeFwd.hpp"
 #include "libslic3r/ExPolygon.hpp"
 #include "libslic3r/Layer.hpp"
@@ -45,6 +48,94 @@ LayerRegionIsland *to_layer_region_island(layer_region_island_handle *handle)
 SurfaceCollection *to_surface_collection(surface_collection_handle *handle)
 {
     return reinterpret_cast<SurfaceCollection *>(handle);
+}
+
+double area_sum(const ExPolygons &areas)
+{
+    double out = 0.;
+    for (const ExPolygon &area : areas)
+        out += std::abs(area.area());
+    return out;
+}
+
+double surface_area_sum(const ExPolygons &surfaces)
+{
+    double out = 0.;
+    for (const ExPolygon &surface : surfaces)
+        out += std::abs(surface.area());
+    return out;
+}
+
+double validation_area_tolerance()
+{
+    return double(SCALED_EPSILON) * double(SCALED_EPSILON);
+}
+
+void append_island_surfaces(ExPolygons &out, const LayerSliceIsland &island)
+{
+    // Surface-generation plugins may split an island into multiple
+    // LayerRegionIsland groups. The post-condition is island-wide: infill
+    // later consumes the union of those groups, so overlaps between two groups
+    // are just as invalid as overlaps inside one group.
+    for (const LayerRegionIsland &region_island : island.regions_islands())
+        for (const Surface &surface : region_island.fill_surfaces())
+            if (!surface.empty())
+                out.push_back(surface.expolygon);
+}
+
+bool validate_island_surface_partition(const LayerSliceIsland &island,
+                                       const size_t object_idx,
+                                       const size_t layer_idx,
+                                       const size_t island_idx,
+                                       std::string *error)
+{
+    ExPolygons surfaces;
+    append_island_surfaces(surfaces, island);
+
+    const double tolerance = validation_area_tolerance();
+    const double raw_surface_area = surface_area_sum(surfaces);
+    const ExPolygons surface_union = union_ex(surfaces);
+    const double union_area = area_sum(surface_union);
+
+    // If surfaces overlap, the sum of their individual areas becomes larger
+    // than their union. Boundary-only contact may create tiny numerical dust;
+    // the epsilon-squared tolerance accepts only that dust, not real overlap.
+    if (raw_surface_area - union_area > tolerance) {
+        if (error != nullptr) {
+            std::ostringstream stream;
+            stream << "Surface-generation post-condition failed for object " << object_idx
+                   << ", layer " << layer_idx
+                   << ", island " << island_idx
+                   << ": fill surfaces overlap by area " << raw_surface_area - union_area
+                   << " scaled^2, tolerance " << tolerance << ".";
+            *error = stream.str();
+        }
+        return false;
+    }
+
+    const ExPolygons missing = diff_ex(island.infill_areas(), surface_union);
+    const ExPolygons extra = diff_ex(surface_union, island.infill_areas());
+    const double missing_area = area_sum(missing);
+    const double extra_area = area_sum(extra);
+
+    // The surface partition should cover exactly the fillable area produced by
+    // perimeter generation. Missing area would leave holes for infill, while
+    // extra area would make infill escape the island or reuse perimeter space.
+    if (missing_area > tolerance || extra_area > tolerance) {
+        if (error != nullptr) {
+            std::ostringstream stream;
+            stream << "Surface-generation post-condition failed for object " << object_idx
+                   << ", layer " << layer_idx
+                   << ", island " << island_idx
+                   << ": fill surfaces do not match infill_areas. Missing area "
+                   << missing_area << " scaled^2, extra area " << extra_area
+                   << " scaled^2, tolerance " << tolerance << ".";
+            *error = stream.str();
+        }
+        return false;
+    }
+
+    return true;
 }
 
 LayerRegionSetCPtrs region_set_from_handles(const layer_region_handle *const *region_handles,
@@ -135,8 +226,21 @@ bool validate_pre(const Print &, std::string *)
     return true;
 }
 
-bool validate_post(const Print &, std::string *)
+bool validate_post(const Print &print, std::string *error)
 {
+    for (size_t object_idx = 0; object_idx < print.objects().size(); ++object_idx) {
+        const PrintObject &object = print.object(object_idx);
+        for (size_t layer_idx = 0; layer_idx < object.layer_count(); ++layer_idx) {
+            const Layer &layer = object.layer(layer_idx);
+            for (size_t island_idx = 0; island_idx < layer.islands().size(); ++island_idx)
+                if (!validate_island_surface_partition(layer.island(island_idx),
+                                                       object_idx,
+                                                       layer_idx,
+                                                       island_idx,
+                                                       error))
+                    return false;
+        }
+    }
     return true;
 }
 

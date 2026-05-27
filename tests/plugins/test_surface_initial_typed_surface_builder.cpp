@@ -257,6 +257,11 @@ void run_perimeter_and_surface_steps(Print &print)
     Steps::StepGeneratePerimeter::run_step(orchestrator, print);
     Steps::StepSurfaceGeneration::clean_and_prepare(print);
     Steps::StepSurfaceGeneration::run_step(orchestrator, print);
+
+    std::string validation_error;
+    const bool valid_surface_tree = Steps::StepSurfaceGeneration::validate_post(print, &validation_error);
+    INFO("Surface-generation post validation: " << validation_error);
+    REQUIRE(valid_surface_tree);
 }
 
 } // namespace

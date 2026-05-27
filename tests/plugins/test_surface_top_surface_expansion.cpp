@@ -191,6 +191,11 @@ void run_surface_pipeline(PreparedPerimeterPrint &prepared, const bool include_t
     Steps::StepGeneratePerimeter::run_step(orchestrator, prepared.print);
     Steps::StepSurfaceGeneration::clean_and_prepare(prepared.print);
     Steps::StepSurfaceGeneration::run_step(orchestrator, prepared.print);
+
+    std::string validation_error;
+    const bool valid_surface_tree = Steps::StepSurfaceGeneration::validate_post(prepared.print, &validation_error);
+    INFO("Surface-generation post validation: " << validation_error);
+    REQUIRE(valid_surface_tree);
 }
 
 DynamicPrintConfig top_expansion_config(std::initializer_list<std::pair<std::string, std::string>> overrides)

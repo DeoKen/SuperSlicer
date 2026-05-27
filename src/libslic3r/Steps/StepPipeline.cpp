@@ -35,6 +35,7 @@
 #include "libslic3r/Steps/StepPrepareGcode.hpp"
 #include "libslic3r/Steps/StepPrepareInfill.hpp"
 #include "libslic3r/Steps/StepSlicing.hpp"
+#include "libslic3r/Steps/StepRunner.hpp"
 #include "libslic3r/Steps/StepSupportDemand.hpp"
 #include "libslic3r/Steps/StepSurfaceGeneration.hpp"
 #include "libslic3r/SurfaceCollection.hpp"
@@ -489,7 +490,13 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
 
     begin_step(print, STEP_SURFACE_GENERATION, L("Generating surfaces"), path);
     StepSurfaceGeneration::clean_and_prepare(print);
+#ifdef _DEBUG
+    Detail::validate_or_report(StepSurfaceGeneration::validate_pre, print, "Surface-generation pre-step validation");
+#endif
     StepSurfaceGeneration::run_step(orchestrator, print);
+#ifdef _DEBUG
+    Detail::validate_or_report(StepSurfaceGeneration::validate_post, print, "Surface-generation post-step validation");
+#endif
     if (stop_after(STEP_SURFACE_GENERATION, until)) return;
 
     begin_step(print, STEP_SURFACE_TYPE, L("Detecting surface types"), path);

@@ -184,13 +184,20 @@ void rebuild_island_overlap_graph(PrintObject &object)
         Layer::build_up_down_graph(object.layer(layer_idx - 1), object.layer(layer_idx));
 }
 
-void run_perimeter_and_surface_steps(Print &print)
+void run_perimeter_and_surface_steps(Print &print, const bool validate_surface_post = true)
 {
     Orchestrator &orchestrator = Orchestrator::instance();
     Steps::StepGeneratePerimeter::clean_and_prepare(print);
     Steps::StepGeneratePerimeter::run_step(orchestrator, print);
     Steps::StepSurfaceGeneration::clean_and_prepare(print);
     Steps::StepSurfaceGeneration::run_step(orchestrator, print);
+
+    if (validate_surface_post) {
+        std::string validation_error;
+        const bool valid_surface_tree = Steps::StepSurfaceGeneration::validate_post(print, &validation_error);
+        INFO("Surface-generation post validation: " << validation_error);
+        REQUIRE(valid_surface_tree);
+    }
 }
 
 void run_solid_shell_surface_case(PreparedPerimeterPrint &prepared)
@@ -360,7 +367,7 @@ TEST_CASE("SolidShells refuses to run before typed surfaces exist",
 
     {
         ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, SOLID_SHELLS});
-        run_perimeter_and_surface_steps(prepared.print);
+        run_perimeter_and_surface_steps(prepared.print, false);
     }
 
     const std::vector<Orchestrator::PluginMessage> messages = orchestrator.consume_plugin_messages();

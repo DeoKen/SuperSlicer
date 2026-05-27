@@ -43,6 +43,18 @@ inline void validate_or_report(bool (*validator)(const Print &, std::string &),
     assert(false && "Step data tree validation failed");
 }
 
+inline void validate_or_report(bool (*validator)(const Print &, std::string *),
+                               const Print &print,
+                               const char *validation_name)
+{
+    std::string error;
+    if (validator(print, &error))
+        return;
+
+    BOOST_LOG_TRIVIAL(error) << validation_name << " failed:\n" << error;
+    assert(false && "Step data tree validation failed");
+}
+
 template<class PayloadFactory>
 void run_object_step_plugin(Orchestrator &orchestrator,
                             Print &print,
