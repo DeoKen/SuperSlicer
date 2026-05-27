@@ -256,6 +256,20 @@ TEST_CASE("FlatAreaLayerHeight filters small flat cube surfaces", "[plugins][fla
     REQUIRE_FALSE(contains_z(filtered_flat_area_zs, 8.05));
 }
 
+TEST_CASE("Plugin option definitions default invalidation to plugin step", "[plugins][flat-area-layer-height][config]")
+{
+    // FlatAreaLayerHeight intentionally leaves raw_config_option_def::invalidates_step
+    // at the raw initializer default. The orchestrator resolves that missing
+    // value while the plugin initializes, so the stored ConfigOptionDef should
+    // invalidate at STEP_LAYER_HEIGHT without every plugin setting having to
+    // repeat its own step.
+    Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
+
+    const ConfigOptionDef *def = PrintConfigDef::instance().get("layer_height_min_flat_area");
+    REQUIRE(def != nullptr);
+    CHECK(def->invalidates_step == STEP_LAYER_HEIGHT);
+}
+
 TEST_CASE("FlatAreaLayerHeight does not add flat-area anchors without internal flat polygons", "[plugins][flat-area-layer-height]")
 {
     // This contrasts the multi-cube mesh with a single continuous cube. The

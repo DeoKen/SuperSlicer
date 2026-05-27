@@ -18,8 +18,12 @@ extensions without renumbering the existing API values.
 typedef enum slicing_step_t : uint16_t
 {
     /*
-    Explicitly no slicing invalidation.
-    This is only for options consumed outside the slicing state.
+    No explicit slicing invalidation step.
+
+    For plugin-created option definitions this is also the default/unset value:
+    the host resolves it to the plugin's own slicing step while the plugin is
+    initialized. In already-resolved host definitions, it means that changing
+    the value does not invalidate slicing.
     */
     STEP_NONE                      = 0,
 

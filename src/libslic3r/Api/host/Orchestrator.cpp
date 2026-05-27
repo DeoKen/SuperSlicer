@@ -288,6 +288,21 @@ static void populate_config_option_def_from_raw(ConfigOptionDef &out, const raw_
     out.set_default_value(temp_default_option);
 }
 
+static raw_config_option_def config_option_def_with_resolved_invalidation(const raw_config_option_def &def,
+                                                                          const Plugin *plugin)
+{
+    raw_config_option_def resolved = def;
+
+    // raw_config_option_def_init() leaves invalidates_step at STEP_NONE. During
+    // plugin initialization this means "use the plugin's own pipeline step" so
+    // plugin authors only need to override options that invalidate an earlier
+    // step or intentionally use STEP_ANY for full invalidation.
+    if (plugin != nullptr && resolved.invalidates_step == STEP_NONE)
+        resolved.invalidates_step = plugin->get_step();
+
+    return resolved;
+}
+
 static bool validate_used_config_key_definition(const Plugin &plugin,
                                                 const Plugin::UsedConfigKey &used_key,
                                                 std::string &error_message)
@@ -743,6 +758,10 @@ bool Orchestrator::validate_plugin_activation(const std::vector<std::string> &pl
 }
 
 option_def_error_code Orchestrator::create_new_print_config(const raw_config_option_def *def) {
+    const raw_config_option_def resolved_def =
+        config_option_def_with_resolved_invalidation(*def, m_initializing_plugin);
+    def = &resolved_def;
+
     //PrintOptionPresetType preset_type = static_cast<PrintOptionPresetType>(def->option_preset_type);
     //PrintOptionContainer container = static_cast<PrintOptionContainer>(def->container_type);
     const ConfigOptionType type = config_option_type(def->type);

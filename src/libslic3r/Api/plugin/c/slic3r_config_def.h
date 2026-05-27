@@ -171,9 +171,10 @@ typedef struct raw_config_option_def {
 
     /*
     Earliest slicing step invalidated when this option changes.
-    Use STEP_ANY when the option does not declare a more precise step; the
-    host will conservatively invalidate the full slicing state. Use STEP_NONE
-    only when changing this option must not invalidate slicing.
+    The default STEP_NONE means "not filled" for plugin-created options: while
+    a plugin is initialized, the host replaces it with the plugin's own step.
+    Use STEP_ANY to force conservative full invalidation. Outside plugin option
+    registration, STEP_NONE still means no slicing invalidation.
     */
     slicing_step_t invalidates_step;
 
@@ -319,8 +320,9 @@ typedef enum option_def_error_code {
 
 /*
 Initialize a config option definition with safe defaults.
-Notably, invalidates_step defaults to STEP_ANY: unless the plugin declares a
-more precise step, changing the option will invalidate the full slicing state.
+invalidates_step defaults to STEP_NONE. During plugin initialization the host
+interprets that default as "use the plugin's own slicing step". Set STEP_ANY
+explicitly if an option must invalidate the whole slicing state.
 */
 static inline raw_config_option_def raw_config_option_def_init()
 {
@@ -329,7 +331,7 @@ static inline raw_config_option_def raw_config_option_def_init()
     def.width = -1;
     def.label_width = -1;
     def.sidetext_width = -1;
-    def.invalidates_step = STEP_ANY;
+    def.invalidates_step = STEP_NONE;
     return def;
 }
 

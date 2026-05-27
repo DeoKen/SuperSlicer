@@ -641,7 +641,6 @@ void FlatAreaLayerHeight::inilialize_impl(storage_handle *) const
     def.full_label = "Minimum flat area for layer matching";
     def.category = RAW_OPTION_CATEGORY_SLICING;
     def.level = RAW_OPTION_LEVEL_ADVANCED;
-    def.invalidates_step = STEP_LAYER_HEIGHT;
     def.tooltip = "Horizontal mesh surfaces whose total area at a Z is below this value are ignored by the flat-area layer height plugin.";
     def.sidetext = "mm2";
     def.has_min = 1;
