@@ -78,12 +78,13 @@ bool ini_value_is_enabled(const std::string &value)
            boost::algorithm::iequals(value, "enabled");
 }
 
-std::vector<std::string> read_active_plugin_ini(const boost::filesystem::path &config_path)
+bool read_plugin_activation_ini(const boost::filesystem::path &config_path,
+                                std::map<std::string, bool> &plugin_states)
 {
     boost::nowide::ifstream stream(config_path.string());
     if (!stream) {
         BOOST_LOG_TRIVIAL(warning) << "Cannot read active plugin configuration '" << config_path.string() << "'.";
-        return {};
+        return false;
     }
 
     boost::property_tree::ptree tree;
@@ -92,7 +93,7 @@ std::vector<std::string> read_active_plugin_ini(const boost::filesystem::path &c
     } catch (const boost::property_tree::ini_parser_error &error) {
         BOOST_LOG_TRIVIAL(warning) << "Cannot parse active plugin configuration '" << config_path.string()
                                    << "': " << error.what();
-        return {};
+        return false;
     }
 
     const boost::property_tree::ptree &const_tree = tree;
@@ -100,16 +101,24 @@ std::vector<std::string> read_active_plugin_ini(const boost::filesystem::path &c
     if (!activated) {
         BOOST_LOG_TRIVIAL(warning) << "Active plugin configuration '" << config_path.string()
                                    << "' has no [activated] section.";
-        return {};
+        return false;
     }
 
-    std::vector<std::string> plugin_ids;
     for (const boost::property_tree::ptree::value_type &entry : *activated) {
         const std::string plugin_id = boost::algorithm::trim_copy(entry.first);
-        if (!plugin_id.empty() && ini_value_is_enabled(entry.second.get_value<std::string>()))
-            plugin_ids.push_back(plugin_id);
+        if (!plugin_id.empty())
+            plugin_states[plugin_id] = ini_value_is_enabled(entry.second.get_value<std::string>());
     }
 
+    return true;
+}
+
+std::vector<std::string> enabled_plugin_ids(const std::map<std::string, bool> &plugin_states)
+{
+    std::vector<std::string> plugin_ids;
+    for (const std::pair<const std::string, bool> &entry : plugin_states)
+        if (entry.second)
+            plugin_ids.push_back(entry.first);
     return plugin_ids;
 }
 
@@ -158,7 +167,23 @@ std::vector<std::string> read_active_plugin_ids(const boost::filesystem::path &c
                                                 bool &from_user_config)
 {
     const boost::filesystem::path config_path = ensure_active_plugin_config(config_dir, from_user_config);
-    return read_active_plugin_ini(config_path);
+    std::map<std::string, bool> plugin_states;
+    if (!read_plugin_activation_ini(config_path, plugin_states))
+        return {};
+
+    if (from_user_config) {
+        // Existing user profiles may have been created before newer built-in
+        // plugins existed. Merge newly-added default-active plugins into the
+        // effective activation set, while keeping an explicit "plugin = 0" in
+        // the user file as a real opt-out.
+        std::map<std::string, bool> default_plugin_states;
+        if (read_plugin_activation_ini(default_active_plugin_config_path(), default_plugin_states))
+            for (const std::pair<const std::string, bool> &entry : default_plugin_states)
+                if (entry.second && plugin_states.find(entry.first) == plugin_states.end())
+                    plugin_states.emplace(entry.first, true);
+    }
+
+    return enabled_plugin_ids(plugin_states);
 }
 
 void activate_plugins_from_ids(Orchestrator &orchestrator,
