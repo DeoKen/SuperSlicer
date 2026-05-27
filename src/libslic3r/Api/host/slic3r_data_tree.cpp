@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
+#include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/internal/LayerIslandAccess.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_data_tree.h"
 #include "libslic3r/ConfigDef.hpp"
@@ -19,6 +20,7 @@
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/Surface.hpp"
+#include "libslic3r/SurfaceCollection.hpp"
 
 namespace Slic3r {
 
@@ -190,6 +192,32 @@ void surface_set_flag(surface_handle *me, raw_surface_type flag, int32_t enabled
     surface_set_type(me, type);
 }
 
+surface_collection_handle *surface_collection_create(storage_handle *me)
+{
+    Slic3r::PluginStorage *storage = reinterpret_cast<Slic3r::PluginStorage *>(me);
+    if (storage == nullptr)
+        return nullptr;
+    surface_collection_handle *out =
+        reinterpret_cast<surface_collection_handle *>(&storage->surface_collections.emplace_back());
+    storage->generic_storage.insert(out);
+    return out;
+}
+
+void surface_collection_clear(surface_collection_handle *me)
+{
+    if (me != nullptr)
+        Slic3r::to_surface_collection(me)->clear();
+}
+
+void surface_collection_append(surface_collection_handle *me,
+                               const expolygon_collection_handle *areas,
+                               raw_surface_type surface_type)
+{
+    if (me != nullptr && areas != nullptr)
+        Slic3r::to_surface_collection(me)->append(*Slic3r::to_expolygons(areas),
+                                                  static_cast<Slic3r::SurfaceType>(surface_type));
+}
+
 uint32_t surface_collection_size(const surface_collection_handle *me)
 {
     return me == nullptr ? 0u : uint32_t(Slic3r::to_surface_collection(me)->size());
@@ -332,56 +360,6 @@ const expolygon_collection_handle *layer_region_get_slices(const layer_region_ha
 c_bounding_box layer_region_get_bounding_box(const layer_region_handle *me)
 {
     return me == nullptr ? c_bounding_box{} : Slic3r::to_c_bounding_box(Slic3r::get_extents(*Slic3r::to_layer_region(me)));
-}
-
-surface_collection_handle *layer_region_get_surfaces_mutable(layer_region_handle *me)
-{
-    return me == nullptr ? nullptr : reinterpret_cast<surface_collection_handle *>(&Slic3r::to_layer_region(me)->m_slices);
-}
-
-const surface_collection_handle *layer_region_get_surfaces(const layer_region_handle *me)
-{
-    return me == nullptr ? nullptr : reinterpret_cast<const surface_collection_handle *>(&Slic3r::to_layer_region(me)->slices());
-}
-
-uint32_t layer_region_count_surface(const layer_region_handle *me)
-{
-    return surface_collection_size(layer_region_get_surfaces(me));
-}
-
-surface_handle *layer_region_get_surface_mutable(layer_region_handle *me, uint32_t idx)
-{
-    return surface_collection_at_mutable(layer_region_get_surfaces_mutable(me), idx);
-}
-
-const surface_handle *layer_region_get_surface(const layer_region_handle *me, uint32_t idx)
-{
-    return surface_collection_at(layer_region_get_surfaces(me), idx);
-}
-
-surface_collection_handle *layer_region_get_fill_surfaces_mutable(layer_region_handle *me)
-{
-    return me == nullptr ? nullptr : reinterpret_cast<surface_collection_handle *>(&Slic3r::to_layer_region(me)->set_fill_surfaces());
-}
-
-const surface_collection_handle *layer_region_get_fill_surfaces(const layer_region_handle *me)
-{
-    return me == nullptr ? nullptr : reinterpret_cast<const surface_collection_handle *>(&Slic3r::to_layer_region(me)->fill_surfaces());
-}
-
-uint32_t layer_region_count_fill_surface(const layer_region_handle *me)
-{
-    return surface_collection_size(layer_region_get_fill_surfaces(me));
-}
-
-surface_handle *layer_region_get_fill_surface_mutable(layer_region_handle *me, uint32_t idx)
-{
-    return surface_collection_at_mutable(layer_region_get_fill_surfaces_mutable(me), idx);
-}
-
-const surface_handle *layer_region_get_fill_surface(const layer_region_handle *me, uint32_t idx)
-{
-    return surface_collection_at(layer_region_get_fill_surfaces(me), idx);
 }
 
 const layer_handle *layer_region_get_layer(const layer_region_handle *me)
@@ -556,6 +534,23 @@ const extrusion_entity_handle *layer_region_island_get_extrusion(const layer_reg
     if (me == nullptr || !Slic3r::to_layer_region_island(me)->has_extrusion(Slic3r::to_extrusion_role(role)))
         return nullptr;
     return reinterpret_cast<const extrusion_entity_handle*>(&Slic3r::to_layer_region_island(me)->extrusion(Slic3r::to_extrusion_role(role)));
+}
+
+const surface_collection_handle *layer_region_island_get_fill_surfaces(const layer_region_island_handle *me)
+{
+    return me == nullptr ?
+               nullptr :
+               reinterpret_cast<const surface_collection_handle *>(&Slic3r::to_layer_region_island(me)->fill_surfaces());
+}
+
+uint32_t layer_region_island_count_fill_surface(const layer_region_island_handle *me)
+{
+    return surface_collection_size(layer_region_island_get_fill_surfaces(me));
+}
+
+const surface_handle *layer_region_island_get_fill_surface(const layer_region_island_handle *me, uint32_t idx)
+{
+    return surface_collection_at(layer_region_island_get_fill_surfaces(me), idx);
 }
 
 void layer_region_island_set_tag(layer_region_island_handle *me, const char *tag, double value)

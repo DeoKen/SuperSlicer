@@ -34,6 +34,7 @@ class MultiPoint;
 class Polyline;
 class Polygon;
 class ExPolygon;
+class SurfaceCollection;
 class ExtrusionEntity;
 class PluginStorage;
 namespace ApiClipper { class ClipperShapes; }
@@ -311,6 +312,7 @@ public:
     StableOwnedVector<std::vector<Polyline>> polyline_collections;
     StableOwnedVector<Polygons> polygon_collections;
     StableOwnedVector<std::vector<ExPolygon>> expolygon_collections;
+    StableOwnedVector<SurfaceCollection> surface_collections;
     StableOwnedVector<ExtrusionEntity> extrusions;
     std::vector<std::unique_ptr<ApiClipper::ClipperShapes>> clipper_shapes;
     std::unordered_set<void *> generic_storage;

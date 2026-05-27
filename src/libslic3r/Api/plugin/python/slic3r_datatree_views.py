@@ -445,30 +445,6 @@ class LayerRegion(DataTreeView):
     def bounding_box(self):
         return self.api.host.layer_region_get_bounding_box(self.c_handle())
 
-    def surfaces_collection(self) -> SurfaceCollection:
-        return SurfaceCollection(self.api, self.api.host.layer_region_get_surfaces(self.c_handle()))
-
-    def surface_count(self) -> int:
-        return int(self.api.host.layer_region_count_surface(self.c_handle()))
-
-    def surface(self, idx: int) -> Surface:
-        return Surface(self.api, self.api.host.layer_region_get_surface(self.c_handle(), int(idx)))
-
-    def surfaces(self) -> list[Surface]:
-        return [self.surface(idx) for idx in range(self.surface_count())]
-
-    def fill_surfaces_collection(self) -> SurfaceCollection:
-        return SurfaceCollection(self.api, self.api.host.layer_region_get_fill_surfaces(self.c_handle()))
-
-    def fill_surface_count(self) -> int:
-        return int(self.api.host.layer_region_count_fill_surface(self.c_handle()))
-
-    def fill_surface(self, idx: int) -> Surface:
-        return Surface(self.api, self.api.host.layer_region_get_fill_surface(self.c_handle(), int(idx)))
-
-    def fill_surfaces(self) -> list[Surface]:
-        return [self.fill_surface(idx) for idx in range(self.fill_surface_count())]
-
     def print_region(self) -> PrintRegion:
         return PrintRegion(self.api, self.api.host.layer_region_get_print_region(self.c_handle()))
 
@@ -482,18 +458,6 @@ class MutableLayerRegion(LayerRegion):
 
     def set_tag(self, tag: str, value: float) -> None:
         self.api.host.layer_region_set_tag(self.mutable_c_handle(), _as_bytes(tag), float(value))
-
-    def surfaces_collection_mutable(self) -> MutableSurfaceCollection:
-        return MutableSurfaceCollection(self.api, self.api.host.layer_region_get_surfaces_mutable(self.mutable_c_handle()))
-
-    def surface_mutable(self, idx: int) -> MutableSurface:
-        return MutableSurface(self.api, self.api.host.layer_region_get_surface_mutable(self.mutable_c_handle(), int(idx)))
-
-    def fill_surfaces_collection_mutable(self) -> MutableSurfaceCollection:
-        return MutableSurfaceCollection(self.api, self.api.host.layer_region_get_fill_surfaces_mutable(self.mutable_c_handle()))
-
-    def fill_surface_mutable(self, idx: int) -> MutableSurface:
-        return MutableSurface(self.api, self.api.host.layer_region_get_fill_surface_mutable(self.mutable_c_handle(), int(idx)))
 
 
 # Borrowed layer-region island view. It is the usual entry point for extrusion
@@ -513,6 +477,18 @@ class LayerRegionIsland(DataTreeView):
 
     def get_tag(self, tag: str) -> float:
         return float(self.api.host.layer_region_island_get_tag(self.c_handle(), _as_bytes(tag)))
+
+    def fill_surfaces_collection(self) -> SurfaceCollection:
+        return SurfaceCollection(self.api, self.api.host.layer_region_island_get_fill_surfaces(self.c_handle()))
+
+    def fill_surface_count(self) -> int:
+        return int(self.api.host.layer_region_island_count_fill_surface(self.c_handle()))
+
+    def fill_surface(self, idx: int) -> Surface:
+        return Surface(self.api, self.api.host.layer_region_island_get_fill_surface(self.c_handle(), int(idx)))
+
+    def fill_surfaces(self) -> list[Surface]:
+        return [self.fill_surface(idx) for idx in range(self.fill_surface_count())]
 
     def region_island_count(self) -> int:
         return int(self.api.host.layer_region_island_count_region_island(self.c_handle()))

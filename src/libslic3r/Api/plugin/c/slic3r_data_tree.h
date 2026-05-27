@@ -110,6 +110,11 @@ SLIC3R_HOST_API int32_t surface_get_flag(const surface_handle *me, raw_surface_t
 SLIC3R_HOST_API void surface_set_flag(surface_handle *me, raw_surface_type flag, int32_t enabled);
 
 /* Surface collection view. The collection owns its Surface elements. */
+SLIC3R_HOST_API surface_collection_handle *surface_collection_create(storage_handle *storage);
+SLIC3R_HOST_API void surface_collection_clear(surface_collection_handle *me);
+SLIC3R_HOST_API void surface_collection_append(surface_collection_handle *me,
+                                               const expolygon_collection_handle *areas,
+                                               raw_surface_type surface_type);
 SLIC3R_HOST_API uint32_t surface_collection_size(const surface_collection_handle *me);
 SLIC3R_HOST_API surface_handle *surface_collection_at_mutable(surface_collection_handle *me, uint32_t idx);
 SLIC3R_HOST_API const surface_handle *surface_collection_at(const surface_collection_handle *me, uint32_t idx);
@@ -152,20 +157,6 @@ SLIC3R_HOST_API double layer_region_get_tag(const layer_region_handle *me, const
 SLIC3R_HOST_API c_flow layer_region_get_flow(const layer_region_handle *me, raw_extrusion_role flow_role);
 SLIC3R_HOST_API const expolygon_collection_handle *layer_region_get_slices(const layer_region_handle *me);
 SLIC3R_HOST_API c_bounding_box layer_region_get_bounding_box(const layer_region_handle *me);
-
-/* ---- processed surfaces ---- */
-SLIC3R_HOST_API surface_collection_handle *layer_region_get_surfaces_mutable(layer_region_handle *me);
-SLIC3R_HOST_API const surface_collection_handle *layer_region_get_surfaces(const layer_region_handle *me);
-SLIC3R_HOST_API uint32_t layer_region_count_surface(const layer_region_handle *me);
-SLIC3R_HOST_API surface_handle *layer_region_get_surface_mutable(layer_region_handle *me, uint32_t idx);
-SLIC3R_HOST_API const surface_handle *layer_region_get_surface(const layer_region_handle *me, uint32_t idx);
-
-/* ---- processed surfaces for infill ---- */
-SLIC3R_HOST_API surface_collection_handle *layer_region_get_fill_surfaces_mutable(layer_region_handle *me);
-SLIC3R_HOST_API const surface_collection_handle *layer_region_get_fill_surfaces(const layer_region_handle *me);
-SLIC3R_HOST_API uint32_t layer_region_count_fill_surface(const layer_region_handle *me);
-SLIC3R_HOST_API surface_handle *layer_region_get_fill_surface_mutable(layer_region_handle *me, uint32_t idx);
-SLIC3R_HOST_API const surface_handle *layer_region_get_fill_surface(const layer_region_handle *me, uint32_t idx);
 
 SLIC3R_HOST_API const layer_handle *layer_region_get_layer(const layer_region_handle *me);
 SLIC3R_HOST_API const print_region_handle *layer_region_get_print_region(const layer_region_handle *me);
@@ -216,6 +207,16 @@ SLIC3R_HOST_API int32_t layer_region_island_has_extrusion(const layer_region_isl
 SLIC3R_HOST_API extrusion_entity_handle *layer_region_island_get_mutable_extrusion(layer_region_island_handle *me, raw_extrusion_role role);
 SLIC3R_HOST_API const extrusion_entity_handle *layer_region_island_get_extrusion(const layer_region_island_handle *me,
                                                           raw_extrusion_role role);
+
+/*
+Island-level fill surfaces produced by STEP_SURFACE_GENERATION and refined by
+later surface-processing steps. LayerRegion no longer exposes these caches in
+the plugin ABI; plugins should read/write fill surfaces through the
+LayerRegionIsland that owns the infill work.
+*/
+SLIC3R_HOST_API const surface_collection_handle *layer_region_island_get_fill_surfaces(const layer_region_island_handle *me);
+SLIC3R_HOST_API uint32_t layer_region_island_count_fill_surface(const layer_region_island_handle *me);
+SLIC3R_HOST_API const surface_handle *layer_region_island_get_fill_surface(const layer_region_island_handle *me, uint32_t idx);
 
 /* tag that can be used by processed to store some information */
 SLIC3R_HOST_API void layer_region_island_set_tag(layer_region_island_handle *me, const char *tag, double value);

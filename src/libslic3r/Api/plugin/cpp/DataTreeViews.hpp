@@ -278,6 +278,86 @@ public:
     iterator end() const { return iterator(this, size()); }
 };
 
+// Storage-owned SurfaceCollection used by steps that publish full surface
+// results through a callback. The collection itself is temporary plugin
+// storage; the host may move its content into the data tree.
+class StoredSurfaceCollection
+{
+public:
+    explicit StoredSurfaceCollection(storage_handle *storage) :
+        m_storage(storage), m_handle(surface_collection_create(storage)) {
+        assert(m_storage != nullptr);
+        assert(m_handle != nullptr);
+    }
+
+    StoredSurfaceCollection(const StoredSurfaceCollection &) = delete;
+    StoredSurfaceCollection &operator=(const StoredSurfaceCollection &) = delete;
+
+    StoredSurfaceCollection(StoredSurfaceCollection &&other) noexcept :
+        m_storage(other.m_storage), m_handle(other.m_handle) {
+        other.m_storage = nullptr;
+        other.m_handle = nullptr;
+    }
+
+    StoredSurfaceCollection &operator=(StoredSurfaceCollection &&other) noexcept {
+        if (this == &other)
+            return *this;
+        reset();
+        m_storage = other.m_storage;
+        m_handle = other.m_handle;
+        other.m_storage = nullptr;
+        other.m_handle = nullptr;
+        return *this;
+    }
+
+    ~StoredSurfaceCollection() { reset(); }
+
+    surface_collection_handle *mutable_handle() const {
+        assert(m_handle != nullptr);
+        return m_handle;
+    }
+
+    const surface_collection_handle *handle() const {
+        assert(m_handle != nullptr);
+        return m_handle;
+    }
+
+    storage_handle *storage() const {
+        assert(m_storage != nullptr);
+        return m_storage;
+    }
+
+    operator SurfaceCollection() const & { return readonly(); }
+    operator SurfaceCollection() && = delete;
+
+    SurfaceCollection readonly() const & { return SurfaceCollection(handle()); }
+    SurfaceCollection readonly() && = delete;
+
+    uint32_t size() const { return surface_collection_size(handle()); }
+    bool empty() const { return size() == 0; }
+    void clear() { surface_collection_clear(mutable_handle()); }
+
+    void append(const ExPolygonCollection &areas, raw_surface_type surface_type) {
+        surface_collection_append(mutable_handle(), areas.handle(), surface_type);
+    }
+
+    bool free_from_storage() { return reset(); }
+
+private:
+    bool reset() {
+        if (m_storage == nullptr || m_handle == nullptr)
+            return false;
+        const bool freed = storage_free(m_storage, m_handle) != 0;
+        assert(freed);
+        m_storage = nullptr;
+        m_handle = nullptr;
+        return freed;
+    }
+
+    storage_handle *m_storage = nullptr;
+    surface_collection_handle *m_handle = nullptr;
+};
+
 // as Surface, but it has the ownership of the expolygon.
 class StoredSurface
 {
@@ -333,46 +413,6 @@ public:
 
     c_bounding_box bounding_box() const { return layer_region_get_bounding_box(handle()); }
 
-    SurfaceCollection surfaces_collection() const {
-        return SurfaceCollection(layer_region_get_surfaces(handle()));
-    }
-
-    uint32_t surface_count() const { return surfaces_collection().size(); }
-
-    Surface surface(uint32_t idx) const {
-        return Surface(layer_region_get_surface(handle(), idx));
-    }
-
-    std::vector<Surface> surfaces() const {
-        std::vector<Surface> result;
-        uint32_t count = surface_count();
-        result.reserve(count);
-        for (uint32_t i = 0; i < count; ++i) {
-            result.emplace_back(layer_region_get_surface(handle(), i));
-        }
-        return result;
-    }
-
-    SurfaceCollection fill_surfaces_collection() const {
-        return SurfaceCollection(layer_region_get_fill_surfaces(handle()));
-    }
-
-    uint32_t fill_surface_count() const { return fill_surfaces_collection().size(); }
-
-    Surface fill_surface(uint32_t idx) const {
-        return Surface(layer_region_get_fill_surface(handle(), idx));
-    }
-
-    std::vector<Surface> fill_surfaces() const {
-        std::vector<Surface> result;
-        uint32_t count = fill_surface_count();
-        result.reserve(count);
-        for (uint32_t i = 0; i < count; ++i) {
-            result.emplace_back(layer_region_get_fill_surface(handle(), i));
-        }
-        return result;
-    }
-
     PrintRegion print_region() const {
         return PrintRegion(layer_region_get_print_region(handle()));
     }
@@ -396,6 +436,25 @@ public:
     double get_tag(const char *tag) const { return layer_region_island_get_tag(handle(), tag); }
     uint32_t region_island_count() const { return layer_region_island_count_region_island(handle()); }
 
+    SurfaceCollection fill_surfaces_collection() const {
+        return SurfaceCollection(layer_region_island_get_fill_surfaces(handle()));
+    }
+
+    uint32_t fill_surface_count() const { return fill_surfaces_collection().size(); }
+
+    Surface fill_surface(uint32_t idx) const {
+        return Surface(layer_region_island_get_fill_surface(handle(), idx));
+    }
+
+    std::vector<Surface> fill_surfaces() const {
+        std::vector<Surface> result;
+        const uint32_t count = fill_surface_count();
+        result.reserve(count);
+        for (uint32_t i = 0; i < count; ++i)
+            result.emplace_back(layer_region_island_get_fill_surface(handle(), i));
+        return result;
+    }
+
     LayerRegionIsland region_island(uint32_t idx) const {
         return LayerRegionIsland(layer_region_island_get_region_island(handle(), idx));
     }
@@ -409,8 +468,12 @@ public:
     ExPolygon slice() const { return ExPolygon(layer_island_get_slice(handle())); }
     c_bounding_box bounding_box() const { return layer_island_get_bounding_box(handle()); }
     ExPolygon infill_slice() const { return ExPolygon(layer_island_get_infill_slice(handle())); }
+    ExPolygonCollection infill_areas() const { return ExPolygonCollection(layer_island_get_infill_areas(handle())); }
     c_bounding_box infill_bounding_box() const { return layer_island_get_infill_bounding_box(handle()); }
     ExPolygon infill_no_overlap_slice() const { return ExPolygon(layer_island_get_infill_no_overlap_slice(handle())); }
+    ExPolygonCollection infill_no_overlap_areas() const {
+        return ExPolygonCollection(layer_island_get_infill_no_overlap_areas(handle()));
+    }
 
     double get_tag(const char *tag) const { return layer_island_get_tag(handle(), tag); }
     uint32_t region_count() const { return layer_island_count_region(handle()); }

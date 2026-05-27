@@ -21,8 +21,9 @@ Normal usage:
 - iterate object -> layers -> islands with the data-tree API;
 - group island regions that can share the same fill surfaces;
 - call get_or_create_region_island() for each group;
-- call set_region_island_fill_surfaces() with the ExPolygons to convert into
-  sparse/internal Surface entries.
+- build a storage-owned SurfaceCollection;
+- call set_region_island_fill_surfaces() to move that collection into the
+  LayerRegionIsland.
 
 The plugin should not write deprecated LayerRegion fill surface caches here.
 The new infill pipeline reads LayerRegionIsland surfaces.
@@ -33,16 +34,19 @@ typedef layer_region_island_handle *(*surface_generation_get_or_create_region_is
     uint32_t region_count);
 
 /*
-Replace the fill surfaces of a LayerRegionIsland.
+Replace the fill surfaces of a LayerRegionIsland by moving a complete
+SurfaceCollection into it.
 
-areas is borrowed from the caller. The host copies its ExPolygons into Surface
-objects and assigns surface_type to every created surface. Passing areas == NULL
-clears the destination collection.
+surfaces must be a storage-owned collection built with surface_collection_create()
+and filled before the callback is called. The host moves the collection content
+into the LayerRegionIsland; after a successful call, the source collection is
+valid but empty. Passing surfaces == NULL clears the destination collection.
+This keeps ownership transfer explicit and avoids exposing mutable
+LayerRegionIsland internals in the general data-tree API.
 */
 typedef int32_t (*surface_generation_set_region_island_fill_surfaces_fn)(
     layer_region_island_handle *region_island,
-    const expolygon_collection_handle *areas,
-    raw_surface_type surface_type);
+    surface_collection_handle *surfaces);
 
 typedef struct run_ctx_surface_generation {
     const print_handle *print;

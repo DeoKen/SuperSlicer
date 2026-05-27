@@ -15,7 +15,7 @@ namespace slic3r_api { namespace SurfaceGeneration { namespace DefaultSurfaceGen
 // Perimeter generation now publishes island-level fill areas. This plugin is
 // the boundary that converts those areas into LayerRegionIsland fill surfaces.
 // It creates one sparse internal Surface per island fill ExPolygon, leaving
-// top/bottom/bridge classification to STEP_SURFACE_TYPE.
+// top/bottom/bridge classification to later surface-processing plugins.
 class DefaultSurfaceGenerator : public PluginBase
 {
 public:

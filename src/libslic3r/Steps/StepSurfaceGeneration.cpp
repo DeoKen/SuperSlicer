@@ -6,6 +6,7 @@
 #include "StepSurfaceGeneration.hpp"
 
 #include <cassert>
+#include <utility>
 
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/host/Plugin.hpp"
@@ -41,9 +42,9 @@ LayerRegionIsland *to_layer_region_island(layer_region_island_handle *handle)
     return reinterpret_cast<LayerRegionIsland *>(handle);
 }
 
-const ExPolygons *to_expolygons(const expolygon_collection_handle *handle)
+SurfaceCollection *to_surface_collection(surface_collection_handle *handle)
 {
-    return reinterpret_cast<const ExPolygons *>(handle);
+    return reinterpret_cast<SurfaceCollection *>(handle);
 }
 
 LayerRegionSetCPtrs region_set_from_handles(const layer_region_handle *const *region_handles,
@@ -89,17 +90,17 @@ layer_region_island_handle *get_or_create_region_island_callback(const layer_isl
 }
 
 int32_t set_region_island_fill_surfaces_callback(layer_region_island_handle *region_island_handle,
-                                                 const expolygon_collection_handle *areas_handle,
-                                                 raw_surface_type surface_type)
+                                                 surface_collection_handle *surfaces_handle)
 {
     LayerRegionIsland *region_island = to_layer_region_island(region_island_handle);
     if (region_island == nullptr)
         return 0;
 
     SurfaceCollection &surfaces = region_island->set_fill_surfaces();
-    surfaces.clear();
-    if (areas_handle != nullptr)
-        surfaces.append(*to_expolygons(areas_handle), SurfaceType(surface_type));
+    if (surfaces_handle == nullptr)
+        surfaces.clear();
+    else
+        surfaces.set(std::move(*to_surface_collection(surfaces_handle)));
     return 1;
 }
 

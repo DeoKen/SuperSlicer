@@ -25,6 +25,7 @@
 #include "libslic3r/Polygon.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Steps/StepPipeline.hpp"
+#include "libslic3r/SurfaceCollection.hpp"
 #include "libslic3r/UiLayoutMerger.hpp"
 
 #include "ClipperShapes.hpp"
@@ -1025,6 +1026,7 @@ void PluginStorage::clear() {
     polyline_collections.clear();
     polygon_collections.clear();
     expolygon_collections.clear();
+    surface_collections.clear();
     extrusions.clear();
     clipper_shapes.clear();
     generic_storage.clear();
@@ -1085,6 +1087,14 @@ bool PluginStorage::free(void *ptr) {
     for (auto it = expolygon_collections.begin(); it != expolygon_collections.end(); ++it) {
         if (ptr == static_cast<void *>(it->get())) {
             expolygon_collections.erase(it);
+            generic_storage.erase(ptr);
+            return true;
+        }
+    }
+
+    for (auto it = surface_collections.begin(); it != surface_collections.end(); ++it) {
+        if (ptr == static_cast<void *>(it->get())) {
+            surface_collections.erase(it);
             generic_storage.erase(ptr);
             return true;
         }

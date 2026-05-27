@@ -23,9 +23,10 @@ Typical use
             ctx.set_fill_surfaces(region_island, island.infill_areas(),
                                   RAW_SURFACE_TYPE_POS_INTERNAL | RAW_SURFACE_TYPE_DENS_SPARSE)
 
-The callbacks copy geometry into the host data tree. The source ExPolygon
-collection may be borrowed or storage-owned; it only needs to stay alive until
-set_fill_surfaces() returns.
+set_fill_surfaces() builds a temporary SurfaceCollection in plugin storage and
+asks the host callback to move it into the LayerRegionIsland. The source
+ExPolygon collection may be borrowed or storage-owned; it only needs to stay
+alive until set_fill_surfaces() returns.
 """
 
 from __future__ import annotations
@@ -156,11 +157,18 @@ class SurfaceGenerationContext:
         return None if not handle else LayerRegionIsland(self.api, handle)
 
     def set_fill_surfaces(self, region_island: LayerRegionIsland, areas, surface_type: int) -> bool:
-        return bool(self.payload.set_region_island_fill_surfaces(
-            region_island.c_handle(),
-            _void_p(_areas_handle(areas)),
-            int(surface_type),
-        ))
+        if areas is None:
+            return bool(self.payload.set_region_island_fill_surfaces(region_island.c_handle(), None))
+
+        storage = _void_p(self.plugin_storage())
+        surfaces = self.api.host.surface_collection_create(storage)
+        if not surfaces:
+            return False
+        try:
+            self.api.host.surface_collection_append(surfaces, _void_p(_areas_handle(areas)), int(surface_type))
+            return bool(self.payload.set_region_island_fill_surfaces(region_island.c_handle(), surfaces))
+        finally:
+            self.api.host.storage_free(storage, surfaces)
 
 
 __all__ = [
