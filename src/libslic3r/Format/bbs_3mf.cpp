@@ -4819,21 +4819,27 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             // recreate custom supports, seam and mmu segmentation from previously loaded attribute
             {
                 volume->supported_facets.reserve(triangles_count);
-                volume->seam_facets.reserve(triangles_count);
                 volume->mm_segmentation_facets.reserve(triangles_count);
+                FacetsAnnotation *seam_facets = nullptr;
                 for (size_t i=0; i<triangles_count; ++i) {
                     assert(i < sub_object->geometry.custom_supports.size());
                     assert(i < sub_object->geometry.custom_seam.size());
                     assert(i < sub_object->geometry.mmu_segmentation.size());
                     if (! sub_object->geometry.custom_supports[i].empty())
                         volume->supported_facets.set_triangle_from_string(i, sub_object->geometry.custom_supports[i]);
-                    if (! sub_object->geometry.custom_seam[i].empty())
-                        volume->seam_facets.set_triangle_from_string(i, sub_object->geometry.custom_seam[i]);
+                    if (! sub_object->geometry.custom_seam[i].empty()) {
+                        if (seam_facets == nullptr) {
+                            seam_facets = &volume->facets_annotation_mutable("builtin:seam");
+                            seam_facets->reserve(triangles_count);
+                        }
+                        seam_facets->set_triangle_from_string(i, sub_object->geometry.custom_seam[i]);
+                    }
                     if (! sub_object->geometry.mmu_segmentation[i].empty())
                         volume->mm_segmentation_facets.set_triangle_from_string(i, sub_object->geometry.mmu_segmentation[i]);
                 }
                 volume->supported_facets.shrink_to_fit();
-                volume->seam_facets.shrink_to_fit();
+                if (seam_facets != nullptr)
+                    seam_facets->shrink_to_fit();
                 volume->mm_segmentation_facets.shrink_to_fit();
                 volume->mm_segmentation_facets.touch();
             }
@@ -4989,8 +4995,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
             // recreate custom supports, seam and mmu segmentation from previously loaded attribute
             volume->supported_facets.reserve(triangles_count);
-            volume->seam_facets.reserve(triangles_count);
             volume->mmu_segmentation_facets.reserve(triangles_count);
+            FacetsAnnotation *seam_facets = nullptr;
             for (size_t i=0; i<triangles_count; ++i) {
                 size_t index = volume_data.first_triangle_id + i;
                 assert(index < geometry.custom_supports.size());
@@ -4998,13 +5004,19 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 assert(index < geometry.mmu_segmentation.size());
                 if (! geometry.custom_supports[index].empty())
                     volume->supported_facets.set_triangle_from_string(i, geometry.custom_supports[index]);
-                if (! geometry.custom_seam[index].empty())
-                    volume->seam_facets.set_triangle_from_string(i, geometry.custom_seam[index]);
+                if (! geometry.custom_seam[index].empty()) {
+                    if (seam_facets == nullptr) {
+                        seam_facets = &volume->facets_annotation_mutable("builtin:seam");
+                        seam_facets->reserve(triangles_count);
+                    }
+                    seam_facets->set_triangle_from_string(i, geometry.custom_seam[index]);
+                }
                 if (! geometry.mmu_segmentation[index].empty())
                     volume->mmu_segmentation_facets.set_triangle_from_string(i, geometry.mmu_segmentation[index]);
             }
             volume->supported_facets.shrink_to_fit();
-            volume->seam_facets.shrink_to_fit();
+            if (seam_facets != nullptr)
+                seam_facets->shrink_to_fit();
             volume->mmu_segmentation_facets.shrink_to_fit();
 
             volume->set_type(volume_data.part_type);

@@ -31,6 +31,13 @@
 #include "OG_CustomCtrl.hpp"
 #include "Plater.hpp"
 #include "slic3r/Utils/MacDarkMode.hpp"
+
+static Slic3r::GUI::BitmapCache& bitmap_cache()
+{
+    static Slic3r::GUI::BitmapCache cache;
+    return cache;
+}
+
 #ifndef __linux__
 // msw_menuitem_bitmaps is used for MSW and OSX
 static std::map<int, std::string> msw_menuitem_bitmaps;
@@ -487,13 +494,19 @@ wxBitmapBundle *get_bmp_bundle(const std::string &bmp_name_in, int width, int he
         height *= scale();
 #endif // __WXGTK2__
 
-    static Slic3r::GUI::BitmapCache cache;
+    Slic3r::GUI::BitmapCache &cache = bitmap_cache();
 
     std::string bmp_name = bmp_name_in;
     boost::replace_last(bmp_name, ".png", "");
 
     if (height < 0)
         height = width;
+
+    // Plugin-provided icons are inserted directly into the bitmap cache under
+    // their stable paint key. Exact cache hits are returned before resource
+    // lookup so get_bmp_bundle(key) works even when there is no file on disk.
+    if (wxBitmapBundle *cached_bmp = cache.find_bndl(bmp_name))
+        return cached_bmp;
 
     if (Slic3r::GUI::wxGetApp().dark_mode()) {
         new_colors_rgb.add("#808080", "#FFFFFF");
@@ -509,6 +522,21 @@ wxBitmapBundle *get_bmp_bundle(const std::string &bmp_name_in, int width, int he
         throw Slic3r::RuntimeError("Could not load bitmap: " + bmp_name);
     }
     return bmp;
+}
+
+wxBitmapBundle* insert_svg_bmp_bundle(const std::string& bmp_name, const std::string& svg_data, int width, int height)
+{
+    if (bmp_name.empty() || svg_data.empty())
+        return nullptr;
+
+    if (height < 0)
+        height = width;
+    if (width <= 0 || height <= 0)
+        return nullptr;
+
+    // The cache owns the wxBitmapBundle. Callers pass only UTF-8 SVG text, and
+    // wxWidgets handles DPI-specific bitmap extraction from the bundle later.
+    return bitmap_cache().insert_bndl(bmp_name, svg_data.c_str(), size_t(width), size_t(height));
 }
 
 wxBitmapBundle* get_empty_bmp_bundle(int width, int height)

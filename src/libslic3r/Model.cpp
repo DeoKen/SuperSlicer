@@ -933,6 +933,59 @@ bool ModelObject::is_mm_painted() const
     return std::any_of(this->volumes.cbegin(), this->volumes.cend(), [](const ModelVolume *mv) { return mv->is_mm_painted(); });
 }
 
+bool ModelVolume::has_facets_annotation(const std::string &key) const
+{
+    const FacetsAnnotation *annotation = this->facets_annotation(key);
+    return annotation != nullptr && !annotation->empty();
+}
+
+const FacetsAnnotation *ModelVolume::facets_annotation(const std::string &key) const
+{
+    const std::map<std::string, FacetsAnnotation>::const_iterator it = m_generic_facets_annotations.find(key);
+    return it == m_generic_facets_annotations.end() ? nullptr : &it->second;
+}
+
+FacetsAnnotation &ModelVolume::facets_annotation_mutable(const std::string &key)
+{
+    // Access through this helper is the only place that creates a generic
+    // facet annotation. A missing key means "no annotation yet"; once the GUI
+    // or a loader needs to write data, the map entry receives its own ObjectID
+    // so undo/redo can track changes independently from the ModelVolume.
+    return m_generic_facets_annotations[key];
+}
+
+void ModelVolume::reset_facets_annotation(const std::string &key)
+{
+    std::map<std::string, FacetsAnnotation>::iterator it = m_generic_facets_annotations.find(key);
+    if (it != m_generic_facets_annotations.end())
+        it->second.reset();
+}
+
+void ModelVolume::assign_generic_facets_annotations(const ModelVolume &rhs)
+{
+    // Assigning the whole map preserves the annotation ObjectIDs. This is the
+    // same rule used by the fixed support/MMU annotations: background copies
+    // and reloads must keep IDs stable when they still refer to the same mesh
+    // triangles.
+    m_generic_facets_annotations = rhs.m_generic_facets_annotations;
+}
+
+bool ModelVolume::facets_annotation_timestamp_matches(const ModelVolume &rhs, const std::string &key) const
+{
+    const FacetsAnnotation *lhs_annotation = this->facets_annotation(key);
+    const FacetsAnnotation *rhs_annotation = rhs.facets_annotation(key);
+    if (lhs_annotation != nullptr && rhs_annotation != nullptr)
+        return lhs_annotation->timestamp_matches(*rhs_annotation);
+    if (lhs_annotation == nullptr && rhs_annotation == nullptr)
+        return true;
+
+    // Missing and empty both mean "no user-visible paint". This keeps the
+    // change detector quiet when one side has never opened the generic painter
+    // while the other side only owns an empty annotation entry.
+    const FacetsAnnotation *existing_annotation = lhs_annotation != nullptr ? lhs_annotation : rhs_annotation;
+    return existing_annotation->empty();
+}
+
 bool ModelObject::is_text() const
 {
     return this->volumes.size() == 1 && this->volumes[0]->is_text();
@@ -1354,7 +1407,7 @@ void ModelObject::convert_units(ModelObjectPtrs& new_objects, ConversionType con
             vol->source.is_from_builtin_objects = volume->source.is_from_builtin_objects;
 
             vol->supported_facets.assign(volume->supported_facets);
-            vol->seam_facets.assign(volume->seam_facets);
+            vol->assign_generic_facets_annotations(*volume);
             vol->mm_segmentation_facets.assign(volume->mm_segmentation_facets);
 
             // Perform conversion only if the target "imperial" state is different from the current one.
@@ -1466,7 +1519,8 @@ bool ModelVolume::is_the_only_one_part() const
 void ModelVolume::reset_extra_facets()
 {
     this->supported_facets.reset();
-    this->seam_facets.reset();
+    for (std::pair<const std::string, FacetsAnnotation> &kvp : m_generic_facets_annotations)
+        kvp.second.reset();
     this->mm_segmentation_facets.reset();
 }
 
@@ -2055,8 +2109,9 @@ void ModelVolume::assign_new_unique_ids_recursive()
     ObjectBase::set_new_unique_id();
     config.set_new_unique_id();
     supported_facets.set_new_unique_id();
-    seam_facets.set_new_unique_id();
     mm_segmentation_facets.set_new_unique_id();
+    for (std::pair<const std::string, FacetsAnnotation> &kvp : m_generic_facets_annotations)
+        kvp.second.set_new_unique_id();
 }
 
 void ModelVolume::rotate(double angle, Axis axis)
@@ -2375,7 +2430,9 @@ bool model_custom_seam_data_changed(const ModelObject& mo, const ModelObject& mo
 {
     return model_property_changed(mo, mo_new, 
         [](const ModelVolumeType t) { return t == ModelVolumeType::MODEL_PART; }, 
-        [](const ModelVolume &mv_old, const ModelVolume &mv_new){ return mv_old.seam_facets.timestamp_matches(mv_new.seam_facets); });
+        [](const ModelVolume &mv_old, const ModelVolume &mv_new) {
+            return mv_old.facets_annotation_timestamp_matches(mv_new, "builtin:seam");
+        });
 }
 
 bool model_mmu_segmentation_data_changed(const ModelObject& mo, const ModelObject& mo_new)

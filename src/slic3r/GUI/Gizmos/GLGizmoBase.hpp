@@ -125,6 +125,7 @@ protected:
     EState m_state;
     int m_shortcut_key;
     std::string m_icon_filename;
+    std::string m_icon_svg_data;
     unsigned int m_sprite_id;
     int m_hover_id{ -1 };
     bool m_dragging{ false };
@@ -152,6 +153,8 @@ public:
     int get_shortcut_key() const { return m_shortcut_key; }
 
     const std::string& get_icon_filename() const { return m_icon_filename; }
+    const std::string& get_icon_svg_data() const { return m_icon_svg_data; }
+    void set_icon_svg_data(const std::string &svg_data) { m_icon_svg_data = svg_data; }
 
     bool is_activable() const { return on_is_activable(); }
     bool is_selectable() const { return on_is_selectable(); }

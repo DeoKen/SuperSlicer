@@ -4006,7 +4006,7 @@ bool Plater::priv::replace_volume_with_stl(int object_idx, int volume_idx, const
         // This function is called both from reload_from_disk and replace_with_stl.
         // We need to make sure that the painted data point to existing triangles.
         new_volume->supported_facets.assign(old_volume->supported_facets);
-        new_volume->seam_facets.assign(old_volume->seam_facets);
+        new_volume->assign_generic_facets_annotations(*old_volume);
         new_volume->mm_segmentation_facets.assign(old_volume->mm_segmentation_facets);
     }
     std::swap(old_model_object->volumes[volume_idx], old_model_object->volumes.back());
@@ -8698,9 +8698,9 @@ void Plater::clear_before_change_mesh(int obj_idx, const std::string &notificati
     // may be different and they would make no sense.
     bool paint_removed = false;
     for (ModelVolume* mv : mo->volumes) {
-        paint_removed |= ! mv->supported_facets.empty() || ! mv->seam_facets.empty() || ! mv->mm_segmentation_facets.empty();
+        paint_removed |= ! mv->supported_facets.empty() || mv->is_seam_painted() || ! mv->mm_segmentation_facets.empty();
         mv->supported_facets.reset();
-        mv->seam_facets.reset();
+        mv->reset_facets_annotation("builtin:seam");
         mv->mm_segmentation_facets.reset();
     }
     if (paint_removed) {

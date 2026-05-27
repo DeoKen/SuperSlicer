@@ -1943,7 +1943,7 @@ void ObjectList::del_info_item(const int obj_idx, InfoItemType type)
         cnv->get_gizmos_manager().reset_all_states();
         Plater::TakeSnapshot(plater, _L("Remove paint-on seam"));
         for (ModelVolume* mv : m_model->objects()[obj_idx].volumes)
-            mv->seam_facets.reset();
+            mv->reset_facets_annotation("builtin:seam");
         break;
 
     case InfoItemType::CutConnectors:
@@ -2980,7 +2980,7 @@ void ObjectList::update_info_items(size_t obj_idx, wxDataViewItemArray* selectio
                        && std::any_of(model_object->volumes.begin(), model_object->volumes.end(),
                                       [type](const ModelVolume *mv) {
                                           return !(type == InfoItemType::CustomSupports ? mv->supported_facets.empty() :
-                                                   type == InfoItemType::CustomSeam     ? mv->seam_facets.empty() :
+                                                   type == InfoItemType::CustomSeam     ? !mv->is_seam_painted() :
                                                                                           mv->mm_segmentation_facets.empty());
                                       });
             break;

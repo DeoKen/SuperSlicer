@@ -4913,32 +4913,52 @@ static void project_triangles_to_slabs(RefView<Layer, LayerPtrContainer> layers,
 std::vector<Polygons> PrintObject::project_and_append_custom_facets(
         bool seam, EnforcerBlockerType type) const
 {
+    if (seam)
+        return this->project_and_append_custom_facets("builtin:seam", type);
+
     std::vector<Polygons> out;
     for (const ModelVolume* mv : this->model_object()->volumes) {
         if (mv->is_model_part()) {
-            const indexed_triangle_set custom_facets = seam
-                    ? mv->seam_facets.get_facets_strict(*mv, type)
-                    : mv->supported_facets.get_facets_strict(*mv, type);
+            const indexed_triangle_set custom_facets = mv->supported_facets.get_facets_strict(*mv, type);
             if (! custom_facets.indices.empty()) {
-                if (seam)
-                    project_triangles_to_slabs(this->layers(), custom_facets,
-                        (this->trafo_centered() * mv->get_matrix()).cast<float>(),
-                        seam, out);
-                else {
-                    std::vector<Polygons> projected;
-                    // Support blockers or enforcers. Project downward facing painted areas upwards to their respective slicing plane.
-                    slice_mesh_slabs(custom_facets, slice_z_from_layers(this->layers()), this->trafo_centered() * mv->get_matrix(), nullptr, &projected, [](){});
-                    // Merge these projections with the output, layer by layer.
-                    assert(! projected.empty());
-                    assert(out.empty() || out.size() == projected.size());
-                    if (out.empty())
-                        out = std::move(projected);
-                    else
-                        for (size_t i = 0; i < out.size(); ++ i)
-                            append(out[i], std::move(projected[i]));
-                }
+                std::vector<Polygons> projected;
+                // Support blockers or enforcers. Project downward facing painted areas upwards to their respective slicing plane.
+                slice_mesh_slabs(custom_facets, slice_z_from_layers(this->layers()), this->trafo_centered() * mv->get_matrix(), nullptr, &projected, [](){});
+                // Merge these projections with the output, layer by layer.
+                assert(! projected.empty());
+                assert(out.empty() || out.size() == projected.size());
+                if (out.empty())
+                    out = std::move(projected);
+                else
+                    for (size_t i = 0; i < out.size(); ++ i)
+                        append(out[i], std::move(projected[i]));
             }
         }
+    }
+    return out;
+}
+
+std::vector<Polygons> PrintObject::project_and_append_custom_facets(
+        const std::string &painting_key, EnforcerBlockerType type) const
+{
+    std::vector<Polygons> out;
+    for (const ModelVolume *mv : this->model_object()->volumes) {
+        if (!mv->is_model_part())
+            continue;
+
+        const FacetsAnnotation *annotation = mv->facets_annotation(painting_key);
+        if (annotation == nullptr)
+            continue;
+
+        // Generic facet annotations use the same geometric meaning as seam
+        // painting: selected mesh triangles are projected through all touched
+        // layer slabs. Plugins can then interpret the produced polygons inside
+        // their own slicing step without needing to know TriangleSelector.
+        const indexed_triangle_set custom_facets = annotation->get_facets_strict(*mv, type);
+        if (!custom_facets.indices.empty())
+            project_triangles_to_slabs(this->layers(), custom_facets,
+                (this->trafo_centered() * mv->get_matrix()).cast<float>(),
+                true, out);
     }
     return out;
 }

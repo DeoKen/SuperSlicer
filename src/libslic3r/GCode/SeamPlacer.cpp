@@ -935,12 +935,14 @@ void gather_enforcers_blockers(GlobalModelInfo &result, const PrintObject *po) {
     for (const ModelVolume *mv : po->model_object()->volumes) {
         if (mv->is_seam_painted()) {
             auto model_transformation = obj_transform * mv->get_matrix();
+            const FacetsAnnotation *seam_facets = mv->facets_annotation("builtin:seam");
+            assert(seam_facets != nullptr);
 
-            indexed_triangle_set enforcers = mv->seam_facets.get_facets(*mv, EnforcerBlockerType::ENFORCER);
+            indexed_triangle_set enforcers = seam_facets->get_facets(*mv, EnforcerBlockerType::ENFORCER);
             its_transform(enforcers, model_transformation);
             its_merge(result.enforcers, enforcers);
 
-            indexed_triangle_set blockers = mv->seam_facets.get_facets(*mv, EnforcerBlockerType::BLOCKER);
+            indexed_triangle_set blockers = seam_facets->get_facets(*mv, EnforcerBlockerType::BLOCKER);
             its_transform(blockers, model_transformation);
             its_merge(result.blockers, blockers);
         }

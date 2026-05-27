@@ -92,7 +92,7 @@ public:
         Measure,
         Svg,
         Simplify,
-        Undefined
+        Undefined = 255
     };
 
 private:
@@ -166,8 +166,8 @@ public:
         // it does nothing in case the gizmo is already activated
         // it can safely be called for Undefined gizmo
         activate_gizmo(new_current);
-        if (m_current != Undefined)
-            m_gizmos[m_current]->load(ar);
+        if (GLGizmoBase *current = get_current())
+            current->load(ar);
     }
 
     template<class Archive>
@@ -178,8 +178,8 @@ public:
 
         ar(m_current);
 
-        if (m_current != Undefined && !m_gizmos.empty())
-            m_gizmos[m_current]->save(ar);
+        if (GLGizmoBase *current = get_current())
+            current->save(ar);
     }
 
     bool is_enabled() const { return m_enabled; }
@@ -207,6 +207,7 @@ public:
     EType get_gizmo_from_name(const std::string& gizmo_name) const;
 
     bool is_running() const;
+    bool is_current_painter() const;
     bool handle_shortcut(int key);
 
     bool is_dragging() const;

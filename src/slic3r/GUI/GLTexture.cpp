@@ -12,6 +12,7 @@
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
@@ -171,16 +172,47 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
                                                      const std::vector<std::pair<int, bool>> &states,
                                                      unsigned int sprite_size_px,
                                                      bool compress) {
+    std::vector<SvgSource> sources;
+    sources.reserve(filenames.size());
+    for (const std::string &filename : filenames)
+        sources.emplace_back(filename, SvgSource::EType::File);
+    return load_from_svg_sources_as_sprites_array(sources, states, sprite_size_px, compress);
+}
+
+static NSVGimage* parse_svg_sprite_source(const GLTexture::SvgSource &source, const Slic3r::ColorReplaces &replaces)
+{
+    if (source.type == GLTexture::SvgSource::EType::File) {
+        if (!boost::filesystem::exists(source.value) || !boost::algorithm::iends_with(source.value, ".svg"))
+            return nullptr;
+        return BitmapCache::nsvgParseFromFileWithReplace(source.value.c_str(), "px", 96.0f, replaces);
+    }
+
+    if (source.value.empty())
+        return nullptr;
+
+    // Plugin icons arrive as complete SVG documents. Apply the same color
+    // replacements used for resource icons so theme colors and dark platter
+    // contrast stay consistent for built-in and plugin toolbar buttons.
+    std::string svg_data = source.value;
+    for (const Slic3r::ColorReplace &replace : replaces.changes)
+        boost::replace_all(svg_data, replace.color_to_replace_str, replace.new_color_str);
+    return nsvgParse(svg_data.data(), "px", 96.0f);
+}
+
+bool GLTexture::load_from_svg_sources_as_sprites_array(const std::vector<SvgSource> &sources,
+                                                       const std::vector<std::pair<int, bool>> &states,
+                                                       unsigned int sprite_size_px,
+                                                       bool compress) {
     reset();
 
-    if (filenames.empty() || states.empty() || sprite_size_px == 0)
+    if (sources.empty() || states.empty() || sprite_size_px == 0)
         return false;
 
     // every tile needs to have a 1px border around it to avoid artifacts when linear sampling on its edges
     unsigned int sprite_size_px_ex = sprite_size_px + 1;
 
     m_width = 1 + (int)(sprite_size_px_ex * states.size());
-    m_height = 1 + (int)(sprite_size_px_ex * filenames.size());
+    m_height = 1 + (int)(sprite_size_px_ex * sources.size());
 
     int n_pixels = m_width * m_height;
     int sprite_n_pixels = sprite_size_px_ex * sprite_size_px_ex;
@@ -205,14 +237,8 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
     }
 
     int sprite_id = -1;
-    for (const std::string& filename : filenames) {
+    for (const SvgSource &source : sources) {
         ++sprite_id;
-
-        if (!boost::filesystem::exists(filename))
-            continue;
-
-        if (!boost::algorithm::iends_with(filename, ".svg"))
-            continue;
         
         Slic3r::ColorReplaces replaces;
         uint32_t color_int = Slic3r::GUI::wxGetApp().app_config->create_color(0.86f, 0.93f, AppConfig::EAppColorType::Platter);
@@ -222,7 +248,7 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
         replaces.add("#2172eb", color_int);
         // as the platter is quite dark, then this replacment is always active
         replaces.add("#808080", "#FFFFFF");
-        NSVGimage* image = BitmapCache::nsvgParseFromFileWithReplace(filename.c_str(), "px", 96.0f, replaces);
+        NSVGimage* image = parse_svg_sprite_source(source, replaces);
         if (image == nullptr)
             continue;
 
@@ -316,7 +342,7 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
 
     glsafe(::glBindTexture(GL_TEXTURE_2D, 0));
 
-    m_source = filenames.front();
+    m_source = sources.front().type == SvgSource::EType::File ? sources.front().value : "<svg-data>";
     
 #if 0
     // debug output

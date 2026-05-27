@@ -60,7 +60,6 @@ TYPE_ALIASES = {
     "raw_config_option_type": "int",
     "raw_container_type": "int",
     "raw_extrusion_arc_orientation": "int",
-    "raw_facet_painting_type": "int",
     "raw_facet_painting_value": "int",
     "raw_gui_rule_action": "int",
     "raw_gui_rule_condition": "int",
@@ -232,7 +231,7 @@ def sanitize_expr(expr: str) -> str:
     return expr.strip()
 
 
-def try_eval(expr: str, values: dict[str, int | float]) -> int | float | None:
+def try_eval(expr: str, values: dict[str, int | float | str]) -> int | float | str | None:
     expr = sanitize_expr(expr)
     if not expr:
         return None
@@ -243,8 +242,8 @@ def try_eval(expr: str, values: dict[str, int | float]) -> int | float | None:
         return None
 
 
-def parse_constants(text: str) -> list[tuple[str, int | float]]:
-    values: dict[str, int | float] = {}
+def parse_constants(text: str) -> list[tuple[str, int | float | str]]:
+    values: dict[str, int | float | str] = {}
     ordered: list[str] = []
 
     for match in re.finditer(r"^\s*#define\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.+?)$", text, flags=re.M):

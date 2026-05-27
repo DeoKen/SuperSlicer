@@ -14,6 +14,7 @@
 
 #include "libslic3r/format.hpp"
 #include "libslic3r/libslic3r.h"
+#include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/SLAPrint.hpp"
@@ -24,6 +25,7 @@
 #include "slic3r/GUI/Gizmos/GLGizmoEmboss.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoFdmSupports.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoFlatten.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoGenericFacetPainting.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoHollow.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoMeasure.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp"
@@ -40,6 +42,7 @@
 #include "slic3r/GUI/GUI_ObjectManipulation.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/wxExtensions.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 namespace Slic3r {
 namespace GUI {
@@ -61,9 +64,36 @@ std::vector<size_t> GLGizmosManager::get_selectable_idxs() const
 {
     std::vector<size_t> out;
     out.reserve(m_gizmos.size());
-    for (size_t i=0; i<m_gizmos.size(); ++i)
-        if (m_gizmos[i]->is_selectable())
-            out.push_back(i);
+
+    std::vector<size_t> plugin_painting_idxs;
+    plugin_painting_idxs.reserve(m_gizmos.size());
+    size_t plugin_painting_insert_pos = size_t(-1);
+
+    for (size_t i=0; i<m_gizmos.size(); ++i) {
+        if (!m_gizmos[i]->is_selectable())
+            continue;
+
+        // Built-in gizmos keep fixed vector indices because EType is used as
+        // an index in several places. Plugin facet painters are appended after
+        // the fixed gizmos internally, then displayed next to the other paint
+        // tools in the toolbar.
+        if (i > size_t(EType::Simplify)) {
+            plugin_painting_idxs.push_back(i);
+            continue;
+        }
+
+        out.push_back(i);
+        if (i <= size_t(EType::MmuSegmentation))
+            plugin_painting_insert_pos = out.size();
+    }
+
+    if (!plugin_painting_idxs.empty()) {
+        if (plugin_painting_insert_pos == size_t(-1))
+            plugin_painting_insert_pos = out.size();
+        out.insert(out.begin() + plugin_painting_insert_pos,
+                   plugin_painting_idxs.begin(), plugin_painting_idxs.end());
+    }
+
     return out;
 }
 
@@ -122,6 +152,21 @@ bool GLGizmosManager::init()
     m_gizmos.emplace_back(new GLGizmoMeasure(m_parent, "measure.svg", EType::Measure)); assert(m_gizmos.back()->get_sprite_id() == m_gizmos.size() - 1);
     m_gizmos.emplace_back(new GLGizmoSVG(m_parent)); assert(EType::Svg == m_gizmos.size() - 1);
     m_gizmos.emplace_back(new GLGizmoSimplify(m_parent)); assert(EType::Simplify == m_gizmos.size() - 1);
+    for (const GenericFacetsAnnotationDefinition &definition : Orchestrator::instance().generic_facets_annotations()) {
+        if (definition.key == "builtin:seam")
+            continue;
+
+        // Plugin generic paintings reuse the same simple seam-like painter.
+        // Their SVG is registered in the wx bitmap cache under the stable paint
+        // key. This lets normal GUI code use get_bmp_bundle(key), while the
+        // OpenGL toolbar still reads the same SVG data from the gizmo.
+        std::string icon_filename = definition.icon_filename.empty() ? "seam.svg" : definition.icon_filename;
+        if (!definition.icon_svg.empty()) {
+            insert_svg_bmp_bundle(definition.key, definition.icon_svg, int(Default_Icons_Size), int(Default_Icons_Size));
+            icon_filename = definition.key;
+        }
+        m_gizmos.emplace_back(new GLGizmoGenericFacetPainting(m_parent, icon_filename, unsigned(m_gizmos.size()), definition));
+    }
 
     m_common_gizmos_data.reset(new CommonGizmosDataPool(&m_parent));
 
@@ -173,7 +218,8 @@ void GLGizmosManager::refresh_on_off_state()
         return;
 
     // FS: Why update data after Undefined gizmo activation?
-    if (!m_gizmos[m_current]->is_activable() && activate_gizmo(Undefined))
+    GLGizmoBase *current = this->get_current();
+    if (current != nullptr && !current->is_activable() && activate_gizmo(Undefined))
         update_data(); 
 }
 
@@ -193,10 +239,15 @@ void GLGizmosManager::reset_all_states()
 
 bool GLGizmosManager::open_gizmo(EType type, bool is_action)
 {
-    int idx = static_cast<int>(type);
-
     // re-open same type cause closing
     if (m_current == type) type = Undefined;
+
+    if (type == Undefined)
+        return activate_gizmo(Undefined);
+
+    const int idx = static_cast<int>(type);
+    if (idx < 0 || size_t(idx) >= m_gizmos.size())
+        return false;
 
     if (is_action && m_gizmos[idx]->is_actionable()) {
         m_gizmos[idx]->trigger_action();
@@ -232,7 +283,8 @@ void GLGizmosManager::set_hover_id(int id)
     if (!m_enabled || m_current == Undefined)
         return;
 
-    m_gizmos[m_current]->set_hover_id(id);
+    if (GLGizmoBase *current = this->get_current())
+        current->set_hover_id(id);
 }
 
 void GLGizmosManager::update_data()
@@ -242,7 +294,8 @@ void GLGizmosManager::update_data()
         m_common_gizmos_data->update(get_current()
                                    ? get_current()->get_requirements()
                                    : CommonGizmosDataID(0));
-    if (m_current != Undefined) m_gizmos[m_current]->data_changed(m_serializing);
+    if (GLGizmoBase *current = this->get_current())
+        current->data_changed(m_serializing);
 }
 
 bool GLGizmosManager::is_running() const
@@ -253,6 +306,11 @@ bool GLGizmosManager::is_running() const
     //GLGizmoBase* curr = get_current();
     //return (curr != nullptr) ? (curr->get_state() == GLGizmoBase::On) : false;
     return m_current != Undefined;
+}
+
+bool GLGizmosManager::is_current_painter() const
+{
+    return dynamic_cast<GLGizmoPainterBase *>(this->get_current()) != nullptr;
 }
 
 bool GLGizmosManager::handle_shortcut(int key)
@@ -288,7 +346,8 @@ bool GLGizmosManager::is_dragging() const
     if (! m_enabled || m_current == Undefined)
         return false;
 
-    return m_gizmos[m_current]->is_dragging();
+    const GLGizmoBase *current = this->get_current();
+    return current != nullptr && current->is_dragging();
 }
 
 // Returns true if the gizmo used the event to do something, false otherwise.
@@ -301,12 +360,8 @@ bool GLGizmosManager::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_p
         return dynamic_cast<GLGizmoSlaSupports*>(m_gizmos[SlaSupports].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
     else if (m_current == Hollow)
         return dynamic_cast<GLGizmoHollow*>(m_gizmos[Hollow].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
-    else if (m_current == FdmSupports)
-        return dynamic_cast<GLGizmoFdmSupports*>(m_gizmos[FdmSupports].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
-    else if (m_current == Seam)
-        return dynamic_cast<GLGizmoSeam*>(m_gizmos[Seam].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
-    else if (m_current == MmuSegmentation)
-        return dynamic_cast<GLGizmoMmuSegmentation*>(m_gizmos[MmuSegmentation].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
+    else if (GLGizmoPainterBase *painter = dynamic_cast<GLGizmoPainterBase *>(this->get_current()))
+        return painter->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
     else if (m_current == Measure)
         return dynamic_cast<GLGizmoMeasure*>(m_gizmos[Measure].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
     else if (m_current == Cut)
@@ -338,7 +393,8 @@ void GLGizmosManager::render_current_gizmo() const
     if (!m_enabled || m_current == Undefined)
         return;
 
-    m_gizmos[m_current]->render();
+    if (GLGizmoBase *current = this->get_current())
+        current->render();
 }
 
 void GLGizmosManager::render_painter_gizmo()
@@ -378,7 +434,7 @@ bool GLGizmosManager::on_mouse_wheel(const wxMouseEvent &evt)
 {
     bool processed = false;
 
-    if (m_current == SlaSupports || m_current == Hollow || m_current == FdmSupports || m_current == Seam || m_current == MmuSegmentation) {
+    if (m_current == SlaSupports || m_current == Hollow || is_current_painter()) {
         float rot = (float)evt.GetWheelRotation() / (float)evt.GetWheelDelta();
         if (gizmo_event((rot > 0.f ? SLAGizmoEventType::MouseWheelUp : SLAGizmoEventType::MouseWheelDown), Vec2d::Zero(), evt.ShiftDown(), evt.AltDown(), evt.ControlDown()))
             processed = true;
@@ -488,10 +544,11 @@ bool GLGizmosManager::on_mouse(const wxMouseEvent &mouse_event)
     if (gizmos_toolbar_on_mouse(mouse_event)) return true;
 
     // current gizmo wants to use event?
-    if (m_current != Undefined &&
+    GLGizmoBase *current = this->get_current();
+    if (current != nullptr &&
         // check if gizmo override method could be slower than simple call virtual function
         // &m_gizmos[m_current]->on_mouse != &GLGizmoBase::on_mouse &&
-        m_gizmos[m_current]->on_mouse(mouse_event))
+        current->on_mouse(mouse_event))
         return true;
         
     return false;
@@ -551,7 +608,7 @@ bool GLGizmosManager::on_char(wxKeyEvent& evt)
         case 'r' :
         case 'R' :
         {
-            if ((m_current == SlaSupports || m_current == Hollow || m_current == FdmSupports || m_current == Seam || m_current == MmuSegmentation) && gizmo_event(SLAGizmoEventType::ResetClippingPlane))
+            if ((m_current == SlaSupports || m_current == Hollow || is_current_painter()) && gizmo_event(SLAGizmoEventType::ResetClippingPlane))
                 processed = true;
 
             break;
@@ -863,7 +920,8 @@ void GLGizmosManager::do_render_overlay() const
     }
 
     if (m_current != Undefined)
-        m_gizmos[m_current]->render_input_window(get_scaled_total_width(), current_y, cnv_h - wxGetApp().plater()->get_view_toolbar().get_height());
+        if (GLGizmoBase *current = this->get_current())
+            current->render_input_window(get_scaled_total_width(), current_y, cnv_h - wxGetApp().plater()->get_view_toolbar().get_height());
 }
 
 float GLGizmosManager::get_scaled_total_height() const
@@ -878,12 +936,14 @@ float GLGizmosManager::get_scaled_total_width() const
 
 GLGizmoBase* GLGizmosManager::get_current() const
 {
-    return ((m_current == Undefined) || m_gizmos.empty()) ? nullptr : m_gizmos[m_current].get();
+    const size_t idx = static_cast<size_t>(m_current);
+    return ((m_current == Undefined) || m_gizmos.empty() || idx >= m_gizmos.size()) ? nullptr : m_gizmos[idx].get();
 }
 
 GLGizmoBase* GLGizmosManager::get_gizmo(GLGizmosManager::EType type) const
 {
-    return ((type == Undefined) || m_gizmos.empty()) ? nullptr : m_gizmos[type].get();
+    const size_t idx = static_cast<size_t>(type);
+    return ((type == Undefined) || m_gizmos.empty() || idx >= m_gizmos.size()) ? nullptr : m_gizmos[idx].get();
 }
 
 GLGizmosManager::EType GLGizmosManager::get_gizmo_from_name(const std::string& gizmo_name) const
@@ -902,15 +962,18 @@ GLGizmosManager::EType GLGizmosManager::get_gizmo_from_name(const std::string& g
 bool GLGizmosManager::generate_icons_texture()
 {
     std::string path = resources_dir() + "/icons/";
-    std::vector<std::string> filenames;
+    std::vector<GLTexture::SvgSource> icon_sources;
     for (size_t idx=0; idx<m_gizmos.size(); ++idx)
     {
-        auto &gizmo = m_gizmos[idx];
+        std::unique_ptr<GLGizmoBase> &gizmo = m_gizmos[idx];
         if (gizmo != nullptr)
         {
+            const std::string& icon_svg_data = gizmo->get_icon_svg_data();
             const std::string& icon_filename = gizmo->get_icon_filename();
-            if (!icon_filename.empty())
-                filenames.push_back(path + icon_filename);
+            if (!icon_svg_data.empty())
+                icon_sources.emplace_back(icon_svg_data, GLTexture::SvgSource::EType::Data);
+            else if (!icon_filename.empty())
+                icon_sources.emplace_back(path + icon_filename, GLTexture::SvgSource::EType::File);
         }
     }
 
@@ -927,7 +990,7 @@ bool GLGizmosManager::generate_icons_texture()
 //    if (sprite_size_px % 2 != 0)
 //        sprite_size_px += 1;
 
-    bool res = m_icons_texture.load_from_svg_files_as_sprites_array(filenames, states, sprite_size_px, false);
+    bool res = m_icons_texture.load_from_svg_sources_as_sprites_array(icon_sources, states, sprite_size_px, false);
     if (res)
         m_icons_texture_dirty = false;
 
@@ -943,7 +1006,14 @@ void GLGizmosManager::update_hover_state(const EType &type)
         return;
     }
 
-    const GLGizmoBase &hovered_gizmo = *m_gizmos[type];
+    const size_t idx = static_cast<size_t>(type);
+    if (idx >= m_gizmos.size()) {
+        m_hover = Undefined;
+        m_tooltip.clear();
+        return;
+    }
+
+    const GLGizmoBase &hovered_gizmo = *m_gizmos[idx];
     m_hover = hovered_gizmo.is_activable() ? type : Undefined;    
     m_tooltip = hovered_gizmo.get_name();
 }
@@ -955,13 +1025,15 @@ void GLGizmosManager::update_hover_state(const EType &type)
 bool GLGizmosManager::activate_gizmo(EType type)
 {
     assert(!m_gizmos.empty());
+    if (type != Undefined && static_cast<size_t>(type) >= m_gizmos.size())
+        type = Undefined;
 
     // already activated
     if (m_current == type) return true;
 
     if (m_current != Undefined) {
         // clean up previous gizmo
-        GLGizmoBase &old_gizmo = *m_gizmos[m_current];
+        GLGizmoBase &old_gizmo = *m_gizmos[static_cast<size_t>(m_current)];
         old_gizmo.set_state(GLGizmoBase::Off);
         if (old_gizmo.get_state() != GLGizmoBase::Off)
             return false; // gizmo refused to be turned off, do nothing.
@@ -984,7 +1056,7 @@ bool GLGizmosManager::activate_gizmo(EType type)
     }
 
     // set up new gizmo
-    GLGizmoBase& new_gizmo = *m_gizmos[type];
+    GLGizmoBase& new_gizmo = *m_gizmos[static_cast<size_t>(type)];
     if (!new_gizmo.is_activable()) return false;
 
     if (!m_serializing && new_gizmo.wants_enter_leave_snapshots())

@@ -84,6 +84,21 @@ namespace GUI {
 
         static Quad_UVs FullTextureUVs;
 
+        struct SvgSource
+        {
+            enum class EType
+            {
+                File,
+                Data
+            };
+
+            std::string value;
+            EType type{ EType::File };
+
+            SvgSource() = default;
+            SvgSource(std::string value, EType type) : value(std::move(value)), type(type) {}
+        };
+
     protected:
         unsigned int m_id{ 0 };
         int m_width{ 0 };
@@ -109,6 +124,10 @@ namespace GUI {
                                                   const std::vector<std::pair<int, bool>> &states,
                                                   unsigned int sprite_size_px,
                                                   bool compress);
+        bool load_from_svg_sources_as_sprites_array(const std::vector<SvgSource> &sources,
+                                                    const std::vector<std::pair<int, bool>> &states,
+                                                    unsigned int sprite_size_px,
+                                                    bool compress);
         void reset();
 
         unsigned int get_id() const { return m_id; }

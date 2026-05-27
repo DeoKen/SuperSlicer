@@ -367,6 +367,15 @@ option_def_error_code orchestrator_create_option_def(orchestrator_handle *me, co
 
 namespace Slic3r {
 
+Orchestrator::Orchestrator()
+{
+    // Built-in seam painting is registered in the same table as plugin generic
+    // facet annotations. The GUI still creates a fixed toolbar button for seam
+    // today, but using the registry keeps the storage key and future plugin
+    // path identical from the model's point of view.
+    m_generic_facets_annotations.emplace_back(builtin_seam_facets_annotation_definition());
+}
+
 Orchestrator &Orchestrator::instance() {
     static Orchestrator s_instance;
     static bool s_default_bridge_detector_registered = []() {
@@ -559,6 +568,40 @@ extrusion_property_type Orchestrator::register_custom_extrusion_property(const c
     info.alignment = alignment;
     m_custom_extrusion_property_infos.emplace_back(std::move(info));
     return m_custom_extrusion_property_infos.back().type;
+}
+
+bool Orchestrator::register_generic_facets_annotation(GenericFacetsAnnotationDefinition def)
+{
+    if (def.key.empty() || def.label.empty() || def.enforce_label.empty() || def.block_label.empty())
+        return false;
+
+    if (def.icon_filename.empty() && def.icon_svg.empty())
+        return false;
+
+    // Duplicate keys are allowed only when they describe the same painting, so
+    // a plugin can call registration more than once without changing the GUI or
+    // model storage associated with that stable key.
+    for (const GenericFacetsAnnotationDefinition &existing : m_generic_facets_annotations) {
+        if (existing.key != def.key)
+            continue;
+
+        if (existing.label == def.label &&
+            existing.enforce_label == def.enforce_label &&
+            existing.block_label == def.block_label &&
+            existing.icon_filename == def.icon_filename &&
+            existing.icon_svg == def.icon_svg)
+            return true;
+
+        if (m_initializing_plugin != nullptr) {
+            m_initializing_plugin_failed = true;
+            m_initializing_plugin_failure = "Generic facet annotation '" + def.key +
+                "' was already registered with different labels.";
+        }
+        return false;
+    }
+
+    m_generic_facets_annotations.emplace_back(std::move(def));
+    return true;
 }
 
 const Orchestrator::CustomExtrusionPropertyInfo*

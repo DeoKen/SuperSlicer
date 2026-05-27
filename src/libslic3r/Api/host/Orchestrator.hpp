@@ -55,6 +55,42 @@ struct plugin_host_context
 
 namespace Slic3r {
 
+struct GenericFacetsAnnotationDefinition
+{
+    // The key is the stable identity of a facet annotation kind. Project files,
+    // Model data and plugin API calls use this key instead of runtime indexes.
+    std::string key;
+
+    // User-facing text used by the generic seam-like annotation tool. Built-in GUI
+    // classes may replace these with translated strings, while plugins provide
+    // plain UTF-8 labels through the C API.
+    std::string label;
+    std::string enforce_label;
+    std::string block_label;
+
+    // Built-in tools may point to an icon stored in resources/icons. This stays
+    // separate from plugin icons so libslic3r does not need to know how wx code
+    // stores or rasterizes GUI bitmaps.
+    std::string icon_filename;
+
+    // Plugins provide SVG source code directly. The GUI registers this string
+    // in BitmapCache under key, so normal wx code can later call
+    // get_bmp_bundle(key). The OpenGL toolbar also reads this data directly
+    // when it builds its sprite atlas.
+    std::string icon_svg;
+};
+
+inline GenericFacetsAnnotationDefinition builtin_seam_facets_annotation_definition()
+{
+    GenericFacetsAnnotationDefinition def;
+    def.key = "builtin:seam";
+    def.label = "Seam painting";
+    def.enforce_label = "Enforce seam";
+    def.block_label = "Block seam";
+    def.icon_filename = "seam.svg";
+    return def;
+}
+
 class Orchestrator
 {
 public:
@@ -204,9 +240,11 @@ public:
                                                                uint32_t alignment);
     const CustomExtrusionPropertyInfo *custom_extrusion_property_info(extrusion_property_type type) const;
     const CustomExtrusionPropertyInfo *custom_extrusion_property_info(const char *namespaced_name) const;
+    bool register_generic_facets_annotation(GenericFacetsAnnotationDefinition def);
+    const std::vector<GenericFacetsAnnotationDefinition> &generic_facets_annotations() const { return m_generic_facets_annotations; }
 
 private:
-    Orchestrator() = default;
+    Orchestrator();
 
     std::vector<std::unique_ptr<Plugin>> m_registered_plugins;
     std::unordered_set<Plugin *> m_active_plugins;
@@ -218,6 +256,7 @@ private:
     std::map<std::string, ConfigOptionOwner> m_config_option_owners;
     std::vector<CustomExtrusionPropertyInfo> m_custom_extrusion_property_infos;
     extrusion_property_type m_next_custom_extrusion_property_type { extrusion_property_type(0x80000000u) };
+    std::vector<GenericFacetsAnnotationDefinition> m_generic_facets_annotations;
     std::atomic_bool m_plugin_cancel_requested { false };
     std::mutex m_plugin_messages_mutex;
     std::vector<PluginMessage> m_plugin_messages;

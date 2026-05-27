@@ -2,6 +2,8 @@
 ///|/
 ///|/ SuperSlicer is released under the terms of the AGPLv3 or higher
 ///|/
+#include <cstring>
+
 #include "libslic3r/Api/host/ApiHostUtils.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_volume.h"
 #include "libslic3r/ClipperUtils.hpp"
@@ -77,21 +79,27 @@ static EnforcerBlockerType to_enforcer_blocker_type(int32_t value)
     return static_cast<EnforcerBlockerType>(value);
 }
 
-static bool volume_has_painting(const ModelVolume *volume, raw_facet_painting_type paint_type)
+static bool paint_key_equals(const char *paint_key, const char *known_key)
 {
-    if (volume == nullptr)
+    return paint_key != nullptr && std::strcmp(paint_key, known_key) == 0;
+}
+
+static bool volume_has_painting(const ModelVolume *volume, const char *paint_key)
+{
+    if (volume == nullptr || paint_key == nullptr)
         return false;
 
-    switch (paint_type) {
-    case RAW_FACET_PAINTING_FDM_SUPPORT:
+    if (paint_key_equals(paint_key, RAW_FACET_PAINTING_FDM_SUPPORT))
         return volume->is_fdm_support_painted();
-    case RAW_FACET_PAINTING_SEAM:
+    if (paint_key_equals(paint_key, RAW_FACET_PAINTING_SEAM))
         return volume->is_seam_painted();
-    case RAW_FACET_PAINTING_MMU_SEGMENTATION:
+    if (paint_key_equals(paint_key, RAW_FACET_PAINTING_MMU_SEGMENTATION))
         return volume->is_mm_painted();
-    default:
-        return false;
-    }
+
+    // Non-builtin keys are generic seam-like plugin paintings. They all share
+    // the same ModelVolume map lookup, so plugins can use the same public API
+    // for built-in and registered paint keys.
+    return volume->has_facets_annotation(paint_key);
 }
 
 static void append_projected_by_layer(std::vector<Polygons> &&src, std::vector<Polygons> &dst)
@@ -237,31 +245,36 @@ c_matrix4d volume_get_matrix_no_offset(const volume_handle *volume)
     return native == nullptr ? c_matrix4d{} : to_c_matrix4d(native->get_matrix_no_offset());
 }
 
-int volume_has_painting(const volume_handle *volume, raw_facet_painting_type paint_type)
+int volume_has_painting(const volume_handle *volume, const char *paint_key)
 {
     const ModelVolume *native = to_volume(volume);
-    return Slic3r::volume_has_painting(native, paint_type);
+    return Slic3r::volume_has_painting(native, paint_key) ? 1 : 0;
 }
 
 void object_project_painting_to_polygons(const object_handle *object,
-                                         raw_facet_painting_type paint_type,
+                                         const char *paint_key,
                                          int32_t painting_value,
                                          polygon_collection_handle **out_by_layer,
                                          uint32_t layer_count)
 {
     const PrintObject *native = to_object(object);
-    if (native == nullptr || native->model_object() == nullptr || out_by_layer == nullptr) {
+    if (native == nullptr || native->model_object() == nullptr || paint_key == nullptr || out_by_layer == nullptr) {
         write_projected_polygons_to_c_handles({}, out_by_layer, layer_count);
         return;
     }
 
     std::vector<Polygons> projected;
-    if (paint_type == RAW_FACET_PAINTING_FDM_SUPPORT) {
+    if (paint_key_equals(paint_key, RAW_FACET_PAINTING_FDM_SUPPORT)) {
         projected = native->project_and_append_custom_facets(false, to_enforcer_blocker_type(painting_value));
-    } else if (paint_type == RAW_FACET_PAINTING_SEAM) {
+    } else if (paint_key_equals(paint_key, RAW_FACET_PAINTING_SEAM)) {
         projected = native->project_and_append_custom_facets(true, to_enforcer_blocker_type(painting_value));
-    } else if (paint_type == RAW_FACET_PAINTING_MMU_SEGMENTATION) {
+    } else if (paint_key_equals(paint_key, RAW_FACET_PAINTING_MMU_SEGMENTATION)) {
         projected = project_mmu_painting_to_polygons(*native, to_enforcer_blocker_type(painting_value));
+    } else {
+        // Any other key is a registered generic seam-like painting. Projection
+        // is deliberately the same as seam projection so plugin slicers can ask
+        // for polygons without caring about the underlying storage class.
+        projected = native->project_and_append_custom_facets(std::string(paint_key), to_enforcer_blocker_type(painting_value));
     }
 
     write_projected_polygons_to_c_handles(std::move(projected), out_by_layer, layer_count);
@@ -350,18 +363,18 @@ c_matrix4d volume_get_matrix_no_offset(const volume_handle *volume)
     return Slic3r::volume_get_matrix_no_offset(volume);
 }
 
-int volume_has_painting(const volume_handle *volume, raw_facet_painting_type paint_type)
+int volume_has_painting(const volume_handle *volume, const char *paint_key)
 {
-    return Slic3r::volume_has_painting(volume, paint_type);
+    return Slic3r::volume_has_painting(volume, paint_key);
 }
 
 void object_project_painting_to_polygons(const object_handle *object,
-                                         raw_facet_painting_type paint_type,
+                                         const char *paint_key,
                                          int32_t painting_value,
                                          polygon_collection_handle **out_by_layer,
                                          uint32_t layer_count)
 {
-    Slic3r::object_project_painting_to_polygons(object, paint_type, painting_value, out_by_layer, layer_count);
+    Slic3r::object_project_painting_to_polygons(object, paint_key, painting_value, out_by_layer, layer_count);
 }
 
 const triangle_mesh_handle *volume_get_mesh(const volume_handle *volume)

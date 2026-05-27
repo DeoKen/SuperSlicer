@@ -83,18 +83,24 @@ typedef enum raw_volume_type {
 /*
 Painting stored on a model volume facet selection.
 
-FDM support painting and seam painting both use RAW_FACET_PAINTING_ENFORCER /
-RAW_FACET_PAINTING_BLOCKER as values.
+Every painting kind is identified by a stable UTF-8 key. Built-in paintings
+use the three keys below; plugin FacetsAnnotation kinds use the key passed to
+orchestrator_register_generic_facets_annotation().
+
+The host decides internally whether a key maps to older hardcoded storage
+(supports / MMU) or to generic plugin-style storage. Plugin code does not need
+separate APIs for those cases.
+
+FDM support painting, seam painting and plugin FacetsAnnotation kinds use
+RAW_FACET_PAINTING_ENFORCER / RAW_FACET_PAINTING_BLOCKER as values.
 
 MMU painting uses the value as a 1-based extruder selector:
 1 means the first extruder, 2 means the second extruder, and so on. Passing
 RAW_FACET_PAINTING_NONE returns no painted facets.
 */
-typedef enum raw_facet_painting_type {
-    RAW_FACET_PAINTING_FDM_SUPPORT      = 0,
-    RAW_FACET_PAINTING_SEAM             = 1,
-    RAW_FACET_PAINTING_MMU_SEGMENTATION = 2
-} raw_facet_painting_type;
+#define RAW_FACET_PAINTING_FDM_SUPPORT      "builtin:fdm_support"
+#define RAW_FACET_PAINTING_SEAM             "builtin:seam"
+#define RAW_FACET_PAINTING_MMU_SEGMENTATION "builtin:mmu_segmentation"
 
 typedef enum raw_facet_painting_value {
     RAW_FACET_PAINTING_NONE     = 0,
@@ -125,8 +131,13 @@ SLIC3R_HOST_API int32_t volume_get_extruder_id(const volume_handle *volume);
 SLIC3R_HOST_API c_matrix4d volume_get_matrix(const volume_handle *volume);
 SLIC3R_HOST_API c_matrix4d volume_get_matrix_no_offset(const volume_handle *volume);
 
-/* Returns non-zero if the volume has any painted facets of the requested type. */
-SLIC3R_HOST_API int volume_has_painting(const volume_handle *volume, raw_facet_painting_type paint_type);
+/*
+Returns non-zero if the volume has any painted facets for paint_key.
+
+paint_key may be one of RAW_FACET_PAINTING_* or a plugin key registered with
+orchestrator_register_generic_facets_annotation().
+*/
+SLIC3R_HOST_API int volume_has_painting(const volume_handle *volume, const char *paint_key);
 
 /*
 Project painted facets from all model-part volumes of an Object to its layers.
@@ -136,23 +147,23 @@ objects, usually created by the plugin in its storage. Every destination
 collection is cleared first, then replaced by the projected polygons for the
 matching layer.
 
-For RAW_FACET_PAINTING_FDM_SUPPORT:
+For paint_key RAW_FACET_PAINTING_FDM_SUPPORT:
     painting_value is RAW_FACET_PAINTING_ENFORCER or RAW_FACET_PAINTING_BLOCKER.
     Downward facing painted facets are projected upward to the slicing planes,
     matching the native support painting behavior.
 
-For RAW_FACET_PAINTING_SEAM:
+For paint_key RAW_FACET_PAINTING_SEAM or a plugin generic painting key:
     painting_value is RAW_FACET_PAINTING_ENFORCER or RAW_FACET_PAINTING_BLOCKER.
     Painted facets are projected through the touched layer slabs, matching the
     native seam painting behavior.
 
-For RAW_FACET_PAINTING_MMU_SEGMENTATION:
+For paint_key RAW_FACET_PAINTING_MMU_SEGMENTATION:
     painting_value is a 1-based extruder index. The host projects both top and
     bottom painted facet slabs into the output. This is a raw geometric helper;
     it does not perform the full native MMU segmentation refinement.
 */
 SLIC3R_HOST_API void object_project_painting_to_polygons(const object_handle *object,
-                                                         raw_facet_painting_type paint_type,
+                                                         const char *paint_key,
                                                          int32_t painting_value,
                                                          polygon_collection_handle **out_by_layer,
                                                          uint32_t layer_count);

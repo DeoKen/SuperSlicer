@@ -1767,14 +1767,11 @@ void GLCanvas3D::toggle_model_objects_visibility(bool visible, const ModelObject
                 } else {
                     const GLGizmosManager& gm = get_gizmos_manager();
                     auto gizmo_type = gm.get_current_type();
-                    if (  (gizmo_type == GLGizmosManager::FdmSupports
-                        || gizmo_type == GLGizmosManager::Seam
-                        || gizmo_type == GLGizmosManager::Cut)
-                        && !vol->is_modifier) {
+                    if (gizmo_type == GLGizmosManager::MmuSegmentation)
+                        vol->is_active = false;
+                    else if ((gm.is_current_painter() || gizmo_type == GLGizmosManager::Cut) && !vol->is_modifier) {
                         vol->force_neutral_color = true;
                     }
-                    else if (gizmo_type == GLGizmosManager::MmuSegmentation)
-                        vol->is_active = false;
                     else
                         vol->force_native_color = true;
                 }
@@ -3947,11 +3944,9 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
             const bool rectangle_selection_dragging = m_rectangle_selection.is_dragging();
             if (evt.LeftDown() && (evt.ShiftDown() || evt.AltDown()) && m_picking_enabled) {
                 if (m_gizmos.get_current_type() != GLGizmosManager::SlaSupports &&
-                    m_gizmos.get_current_type() != GLGizmosManager::FdmSupports &&
-                    m_gizmos.get_current_type() != GLGizmosManager::Seam &&
+                    !m_gizmos.is_current_painter() &&
                     m_gizmos.get_current_type() != GLGizmosManager::Cut &&
-                    m_gizmos.get_current_type() != GLGizmosManager::Measure &&
-                    m_gizmos.get_current_type() != GLGizmosManager::MmuSegmentation) {
+                    m_gizmos.get_current_type() != GLGizmosManager::Measure) {
                     m_rectangle_selection.start_dragging(m_mouse.position, evt.ShiftDown() ? GLSelectionRectangle::EState::Select : GLSelectionRectangle::EState::Deselect);
                     m_dirty = true;
                 }
@@ -6593,10 +6588,9 @@ void GLCanvas3D::_render_bed(const Transform3d& view_matrix, const Transform3d& 
 #endif // ENABLE_RETINA_GL
 
     bool show_texture = ! bottom ||
-            (m_gizmos.get_current_type() != GLGizmosManager::FdmSupports
+            (!m_gizmos.is_current_painter()
           && m_gizmos.get_current_type() != GLGizmosManager::SlaSupports
           && m_gizmos.get_current_type() != GLGizmosManager::Hollow
-          && m_gizmos.get_current_type() != GLGizmosManager::Seam
           && m_gizmos.get_current_type() != GLGizmosManager::MmuSegmentation);
 
     double show_xy_plane = 0.;
@@ -6803,16 +6797,17 @@ void GLCanvas3D::_render_sequential_clearance()
     if (m_layers_editing.is_enabled())
         return;
 
+    if (m_gizmos.is_current_painter())
+        return;
+
     switch (m_gizmos.get_current_type())
     {
     case GLGizmosManager::EType::Flatten:
     case GLGizmosManager::EType::Cut:
-    case GLGizmosManager::EType::MmuSegmentation:
     case GLGizmosManager::EType::Measure:
     case GLGizmosManager::EType::Emboss:
     case GLGizmosManager::EType::Simplify:
-    case GLGizmosManager::EType::FdmSupports:
-    case GLGizmosManager::EType::Seam: { return; }
+    { return; }
     default: { break; }
     }
  

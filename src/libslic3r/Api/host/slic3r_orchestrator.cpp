@@ -4,6 +4,7 @@
 ///|/
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/log/trivial.hpp>
@@ -32,6 +33,33 @@ bridge_detector_instance orchestrator_create_bridge_detector(orchestrator_handle
     Slic3r::Orchestrator *orchestrator = orch == nullptr ? &Slic3r::Orchestrator::instance() :
                                                            reinterpret_cast<Slic3r::Orchestrator *>(orch);
     return orchestrator == nullptr ? out : orchestrator->create_bridge_detector(*input);
+}
+
+int32_t orchestrator_register_generic_facets_annotation(
+    orchestrator_handle *orch,
+    const raw_generic_facets_annotation_def *def)
+{
+    if (def == nullptr || def->key == nullptr || def->label == nullptr ||
+        def->enforce_label == nullptr || def->block_label == nullptr ||
+        def->icon_svg == nullptr || def->icon_svg[0] == '\0')
+        return -1;
+
+    try {
+        Slic3r::Orchestrator *orchestrator = orch == nullptr ? &Slic3r::Orchestrator::instance() :
+                                                               reinterpret_cast<Slic3r::Orchestrator *>(orch);
+        if (orchestrator == nullptr)
+            return -1;
+
+        Slic3r::GenericFacetsAnnotationDefinition native_def;
+        native_def.key = def->key;
+        native_def.label = def->label;
+        native_def.enforce_label = def->enforce_label;
+        native_def.block_label = def->block_label;
+        native_def.icon_svg = def->icon_svg;
+        return orchestrator->register_generic_facets_annotation(std::move(native_def)) ? 1 : -2;
+    } catch (...) {
+        return -3;
+    }
 }
 
 int32_t orchestrator_add_ui_fragment(orchestrator_handle *orch,

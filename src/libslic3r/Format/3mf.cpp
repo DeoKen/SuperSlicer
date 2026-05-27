@@ -2578,8 +2578,8 @@ namespace Slic3r {
 
             // recreate custom supports, seam and mm segmentation from previously loaded attribute
             volume->supported_facets.reserve(triangles_count);
-            volume->seam_facets.reserve(triangles_count);
             volume->mm_segmentation_facets.reserve(triangles_count);
+            FacetsAnnotation *seam_facets = nullptr;
             for (size_t i=0; i<triangles_count; ++i) {
                 size_t index = volume_data.first_triangle_id + i;
                 assert(index < geometry.custom_supports.size());
@@ -2587,13 +2587,19 @@ namespace Slic3r {
                 assert(index < geometry.mm_segmentation.size());
                 if (! geometry.custom_supports[index].empty())
                     volume->supported_facets.set_triangle_from_string(i, geometry.custom_supports[index]);
-                if (! geometry.custom_seam[index].empty())
-                    volume->seam_facets.set_triangle_from_string(i, geometry.custom_seam[index]);
+                if (! geometry.custom_seam[index].empty()) {
+                    if (seam_facets == nullptr) {
+                        seam_facets = &volume->facets_annotation_mutable("builtin:seam");
+                        seam_facets->reserve(triangles_count);
+                    }
+                    seam_facets->set_triangle_from_string(i, geometry.custom_seam[index]);
+                }
                 if (! geometry.mm_segmentation[index].empty())
                     volume->mm_segmentation_facets.set_triangle_from_string(i, geometry.mm_segmentation[index]);
             }
             volume->supported_facets.shrink_to_fit();
-            volume->seam_facets.shrink_to_fit();
+            if (seam_facets != nullptr)
+                seam_facets->shrink_to_fit();
             volume->mm_segmentation_facets.shrink_to_fit();
 
             if (auto &es = volume_data.shape_configuration; es.has_value())
@@ -3296,7 +3302,8 @@ namespace Slic3r {
                     output_buffer += "\"";
                 }
 
-                std::string custom_seam_data_string = volume->seam_facets.get_triangle_as_string(i);
+                const FacetsAnnotation *seam_facets = volume->facets_annotation("builtin:seam");
+                std::string custom_seam_data_string = seam_facets == nullptr ? std::string() : seam_facets->get_triangle_as_string(i);
                 if (! custom_seam_data_string.empty()) {
                     output_buffer += " ";
                     output_buffer += CUSTOM_SEAM_ATTR;

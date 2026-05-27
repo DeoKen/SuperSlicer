@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include <cereal/types/map.hpp>
+
 #include "CustomGCode.hpp"
 #include "DataTreeFwd.hpp"
 #include "EmbossShape.hpp"
@@ -731,8 +733,10 @@ public:
     // After deserializing the last triangle, shrink data to fit.
     void shrink_to_fit() { m_data.first.shrink_to_fit(); m_data.second.shrink_to_fit(); }
 
-private:
-    // Constructors to be only called by derived classes.
+    // FacetsAnnotation used to be stored only as three fixed ModelVolume
+    // members. Generic seam-like painting stores it inside standard containers,
+    // so the constructors are public to let std::map copy, move and deserialize
+    // entries normally.
     // Default constructor to assign a unique ID.
     explicit FacetsAnnotation() = default;
     // Constructor with ignored int parameter to assign an invalid ID, to be replaced
@@ -747,6 +751,7 @@ private:
     FacetsAnnotation& operator=(const FacetsAnnotation &rhs) = default;
     FacetsAnnotation& operator=(FacetsAnnotation &&rhs) = default;
 
+private:
     friend class cereal::access;
     friend class UndoRedo::StackImpl;
 
@@ -840,9 +845,6 @@ public:
 
     // List of mesh facets to be supported/unsupported.
     FacetsAnnotation    supported_facets;
-
-    // List of seam enforcers/blockers.
-    FacetsAnnotation    seam_facets;
 
     // List of mesh facets painted for MM segmentation.
     FacetsAnnotation    mm_segmentation_facets;
@@ -953,13 +955,25 @@ public:
         ObjectBase::set_new_unique_id();
         this->config.set_new_unique_id();
         this->supported_facets.set_new_unique_id();
-        this->seam_facets.set_new_unique_id();
         this->mm_segmentation_facets.set_new_unique_id();
+        for (std::pair<const std::string, FacetsAnnotation> &kvp : m_generic_facets_annotations)
+            kvp.second.set_new_unique_id();
     }
 
     bool is_fdm_support_painted() const { return !this->supported_facets.empty(); }
-    bool is_seam_painted() const { return !this->seam_facets.empty(); }
+    bool is_seam_painted() const { return this->has_facets_annotation("builtin:seam"); }
     bool is_mm_painted() const { return !this->mm_segmentation_facets.empty(); }
+
+    // Generic facet annotations cover seam-like tools: two meaningful values
+    // (enforcer/blocker) plus no selection. The stable string key is stored
+    // with the model so a plugin annotation can still be recognized even if
+    // plugin load order changes between application runs.
+    bool has_facets_annotation(const std::string &key) const;
+    const FacetsAnnotation *facets_annotation(const std::string &key) const;
+    FacetsAnnotation &facets_annotation_mutable(const std::string &key);
+    void reset_facets_annotation(const std::string &key);
+    void assign_generic_facets_annotations(const ModelVolume &rhs);
+    bool facets_annotation_timestamp_matches(const ModelVolume &rhs, const std::string &key) const;
 
     bool operator!=(const ModelVolume& mm) const;
 
@@ -994,17 +1008,18 @@ private:
     //      0   ->   is not splittable
     //      1   ->   is splittable
     mutable int               		m_is_splittable{ -1 };
+    std::map<std::string, FacetsAnnotation> m_generic_facets_annotations;
 
     inline bool check() {
         assert(this->id().valid());
         assert(this->config.id().valid());
         assert(this->supported_facets.id().valid());
-        assert(this->seam_facets.id().valid());
         assert(this->mm_segmentation_facets.id().valid());
         assert(this->id() != this->config.id());
         assert(this->id() != this->supported_facets.id());
-        assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mm_segmentation_facets.id());
+        for (const std::pair<const std::string, FacetsAnnotation> &kvp : m_generic_facets_annotations)
+            assert(this->id() != kvp.second.id());
         return true;
     }
 
@@ -1030,22 +1045,20 @@ private:
         ObjectBase(other),
         name(other.name), source(other.source), m_mesh(other.m_mesh), m_convex_hull(other.m_convex_hull),
         config(other.config), m_type(other.m_type), object(object), m_transformation(other.m_transformation),
-        supported_facets(other.supported_facets), seam_facets(other.seam_facets), mm_segmentation_facets(other.mm_segmentation_facets),
+        supported_facets(other.supported_facets), mm_segmentation_facets(other.mm_segmentation_facets),
+        m_generic_facets_annotations(other.m_generic_facets_annotations),
         cut_info(other.cut_info), text_configuration(other.text_configuration), emboss_shape(other.emboss_shape)
     {
-		assert(this->id().valid()); 
+        assert(this->id().valid());
         assert(this->config.id().valid()); 
         assert(this->supported_facets.id().valid());
-        assert(this->seam_facets.id().valid());
         assert(this->mm_segmentation_facets.id().valid());
         assert(this->id() != this->config.id());
         assert(this->id() != this->supported_facets.id());
-        assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mm_segmentation_facets.id());
 		assert(this->id() == other.id());
         assert(this->config.id() == other.config.id());
         assert(this->supported_facets.id() == other.supported_facets.id());
-        assert(this->seam_facets.id() == other.seam_facets.id());
         assert(this->mm_segmentation_facets.id() == other.mm_segmentation_facets.id());
         this->set_material_id(other.material_id());
     }
@@ -1054,14 +1067,12 @@ private:
         name(other.name), source(other.source), config(other.config), object(object), m_mesh(new TriangleMesh(std::move(mesh))), m_type(other.m_type), m_transformation(other.m_transformation),
         cut_info(other.cut_info), text_configuration(other.text_configuration), emboss_shape(other.emboss_shape)
     {
-		assert(this->id().valid()); 
-        assert(this->config.id().valid()); 
+        assert(this->id().valid());
+        assert(this->config.id().valid());
         assert(this->supported_facets.id().valid());
-        assert(this->seam_facets.id().valid());
         assert(this->mm_segmentation_facets.id().valid());
         assert(this->id() != this->config.id());
         assert(this->id() != this->supported_facets.id());
-        assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mm_segmentation_facets.id());
 		assert(this->id() != other.id());
         assert(this->config.id() == other.config.id());
@@ -1072,11 +1083,10 @@ private:
 		assert(this->config.id().valid()); 
         assert(this->config.id() != other.config.id()); 
         assert(this->supported_facets.id() != other.supported_facets.id());
-        assert(this->seam_facets.id() != other.seam_facets.id());
         assert(this->mm_segmentation_facets.id() != other.mm_segmentation_facets.id());
         assert(this->id() != this->config.id());
         assert(this->supported_facets.empty());
-        assert(this->seam_facets.empty());
+        assert(this->m_generic_facets_annotations.empty());
         assert(this->mm_segmentation_facets.empty());
     }
 
@@ -1085,22 +1095,25 @@ private:
 	friend class cereal::access;
 	friend class UndoRedo::StackImpl;
 	// Used for deserialization, therefore no IDs are allocated.
-	ModelVolume() : ObjectBase(-1), config(-1), supported_facets(-1), seam_facets(-1), mm_segmentation_facets(-1), object(nullptr) {
+	ModelVolume() : ObjectBase(-1), config(-1), supported_facets(-1), mm_segmentation_facets(-1), object(nullptr) {
 		assert(this->id().invalid());
         assert(this->config.id().invalid());
         assert(this->supported_facets.id().invalid());
-        assert(this->seam_facets.id().invalid());
         assert(this->mm_segmentation_facets.id().invalid());
 	}
 	template<class Archive> void load(Archive &ar) {
 		bool has_convex_hull;
+        FacetsAnnotation legacy_seam_facets(-1);
         ar(name, source, m_mesh, m_type, m_material_id, m_transformation, m_is_splittable, has_convex_hull, cut_info);
         cereal::load_by_value(ar, supported_facets);
-        cereal::load_by_value(ar, seam_facets);
+        cereal::load_by_value(ar, legacy_seam_facets);
         cereal::load_by_value(ar, mm_segmentation_facets);
         cereal::load_by_value(ar, config);
         cereal::load(ar, text_configuration);
         cereal::load(ar, emboss_shape);
+        cereal::load(ar, m_generic_facets_annotations);
+        if (!legacy_seam_facets.empty() && this->facets_annotation("builtin:seam") == nullptr)
+            this->facets_annotation_mutable("builtin:seam").assign(std::move(legacy_seam_facets));
 		assert(m_mesh);
 		if (has_convex_hull) {
 			cereal::load_optional(ar, m_convex_hull);
@@ -1112,13 +1125,16 @@ private:
 	}
 	template<class Archive> void save(Archive &ar) const {
 		bool has_convex_hull = m_convex_hull.get() != nullptr;
+        FacetsAnnotation empty_seam_facets;
+        const FacetsAnnotation *seam_facets = this->facets_annotation("builtin:seam");
         ar(name, source, m_mesh, m_type, m_material_id, m_transformation, m_is_splittable, has_convex_hull, cut_info);
         cereal::save_by_value(ar, supported_facets);
-        cereal::save_by_value(ar, seam_facets);
+        cereal::save_by_value(ar, seam_facets != nullptr ? *seam_facets : empty_seam_facets);
         cereal::save_by_value(ar, mm_segmentation_facets);
         cereal::save_by_value(ar, config);
         cereal::save(ar, text_configuration);
         cereal::save(ar, emboss_shape);
+        cereal::save(ar, m_generic_facets_annotations);
 		if (has_convex_hull)
 			cereal::save_optional(ar, m_convex_hull);
 	}

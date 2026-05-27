@@ -26,6 +26,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -185,6 +186,7 @@ public:
 
     // Helpers to project custom facets on slices
     std::vector<Polygons> project_and_append_custom_facets(bool seam, EnforcerBlockerType type) const;
+    std::vector<Polygons> project_and_append_custom_facets(const std::string &painting_key, EnforcerBlockerType type) const;
 
     /// skirts if done per copy and not per platter
     const std::optional<ExtrusionEntityCollection>& skirt_first_layer() const { return m_skirt_first_layer; }

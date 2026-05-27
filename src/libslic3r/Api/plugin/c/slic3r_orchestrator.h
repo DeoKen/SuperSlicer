@@ -7,6 +7,7 @@
 
 ///
 
+#include <stdint.h>
 
 #include "slic3r_plugin_types.h"
 
@@ -27,6 +28,42 @@ SLIC3R_HOST_API void orchestrator_register_plugin(
 SLIC3R_HOST_API bridge_detector_instance orchestrator_create_bridge_detector(
     orchestrator_handle *orch,
     const bridge_detector_create_input *input
+);
+
+/*
+Register a simple seam-like FacetsAnnotation kind.
+
+This is intentionally a small declaration API, not a custom GUI API. The host
+creates the toolbar button, brush controls, left/right mouse behavior and model
+storage. The plugin only provides stable identity and labels:
+
+- key is the persistent identity, for example "com.example.plugin:paint_name".
+  It is saved with the model; do not use a translated label as a key.
+- label is the painter window/tool name.
+- enforce_label is the left-click action label.
+- block_label is the right-click action label.
+- icon_svg is a complete SVG document stored as UTF-8 text. The host registers
+  it in the GUI bitmap cache under key, then uses it to build the toolbar icon.
+
+Call this during plugin registration/initialization. The GUI builds its toolbar
+from the orchestrator registry, so annotation tools registered after the toolbar
+exists may not be visible until the GUI is recreated.
+*/
+typedef struct raw_generic_facets_annotation_def {
+    const char *key;
+    const char *label;
+    const char *enforce_label;
+    const char *block_label;
+    const char *icon_svg;
+} raw_generic_facets_annotation_def;
+
+/*
+Returns 1 when the definition is accepted, or a negative value on invalid
+arguments or internal failure.
+*/
+SLIC3R_HOST_API int32_t orchestrator_register_generic_facets_annotation(
+    orchestrator_handle *orch,
+    const raw_generic_facets_annotation_def *def
 );
 
 /*
