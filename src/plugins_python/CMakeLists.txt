@@ -51,6 +51,7 @@ if (Python3_FOUND)
         COMMAND "${CMAKE_COMMAND}" -E rm -f
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_python.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/polyholes_views.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/default_surface_generator.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/slic3r_api.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/slic3r_api.py"
@@ -94,8 +95,8 @@ if (Python3_FOUND)
             "${CMAKE_CURRENT_SOURCE_DIR}/perimeter/simple_perimeter_generator.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/simple_perimeter_generator.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/surface/default_surface_generator.py"
-            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/default_surface_generator.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/surface/create_empty_surface.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/create_empty_surface.py"
         COMMENT "Copying Python plugin helper and examples"
         VERBATIM
     )

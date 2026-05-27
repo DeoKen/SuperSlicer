@@ -22,7 +22,7 @@ add_executable(${_TEST_NAME}_tests
     test_polyholes.cpp
     test_support_demand_modifiers.cpp
     test_support_demand_overhangs.cpp
-    test_surface_generation_default.cpp
+    test_surface_create_empty.cpp
     )
 
 target_link_libraries(${_TEST_NAME}_tests test_common test_common_data libslic3r)
@@ -45,6 +45,8 @@ if (TARGET python_plugin_loader)
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
             "$<TARGET_FILE_DIR:python_plugin_loader>/python"
             "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/plugins/python"
+        COMMAND "${CMAKE_COMMAND}" -E rm -f
+            "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/plugins/python/plugins/default_surface_generator.py"
         COMMAND "${CMAKE_COMMAND}" -E rm -f
             "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/Slic3r.dll"
         COMMENT "Copy Python plugin runtime to plugin tests"

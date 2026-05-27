@@ -80,6 +80,16 @@ ExPolygons surface_expolygons(const SurfaceCollection &surfaces)
     return out;
 }
 
+ExPolygons surface_expolygons_of_type(const SurfaceCollection &surfaces, const SurfaceType surface_type)
+{
+    ExPolygons out;
+    out.reserve(surfaces.size());
+    for (const Surface &surface : surfaces)
+        if (!surface.empty() && surface.surface_type == surface_type)
+            out.push_back(surface.expolygon);
+    return out;
+}
+
 ExPolygons dumbbell_expolygon()
 {
     ExPolygons parts;
@@ -119,10 +129,14 @@ void require_no_positive_overlap(const SurfaceCollection &surfaces)
     require_no_positive_overlap(surface_expolygons(surfaces));
 }
 
-void require_sparse_internal_surfaces(const SurfaceCollection &surfaces)
+void require_create_empty_surface_types(const SurfaceCollection &surfaces)
 {
-    for (const Surface &surface : surfaces)
-        CHECK(surface.surface_type == (stPosInternal | stDensSparse));
+    for (const Surface &surface : surfaces) {
+        const bool known_type = surface.surface_type == (stPosBottom | stDensSolid) ||
+                                surface.surface_type == (stPosInternal | stDensSparse) ||
+                                surface.surface_type == (stPosTop | stDensSolid);
+        CHECK(known_type);
+    }
 }
 
 const LayerRegionIsland &whole_region_island(const LayerSliceIsland &island)
@@ -165,13 +179,20 @@ const LayerRegionIsland &region_island_for(const LayerSliceIsland &island,
 
 void require_surface_contract(const SurfaceCollection &surfaces, const ExPolygons &expected_areas)
 {
-    // The default generator is deliberately a thin conversion step: perimeter
-    // generation owns the island fill areas, and this step creates exactly one
-    // sparse internal Surface for each resulting ExPolygon.
-    REQUIRE(surfaces.size() == expected_areas.size());
-    require_sparse_internal_surfaces(surfaces);
+    // CreateEmptySurface may split one fill area into several typed surfaces,
+    // but it must not change the total fillable area. Later infill code relies
+    // on this partition having no positive overlaps and no missing pieces.
+    require_create_empty_surface_types(surfaces);
     require_no_positive_overlap(surfaces);
     require_same_union(surface_expolygons(surfaces), expected_areas);
+}
+
+void require_only_surface_type(const SurfaceCollection &surfaces,
+                               const SurfaceType surface_type,
+                               const ExPolygons &expected_areas)
+{
+    require_surface_contract(surfaces, expected_areas);
+    require_same_union(surface_expolygons_of_type(surfaces, surface_type), expected_areas);
 }
 
 void require_surface_contract(const LayerSliceIsland &island)
@@ -238,16 +259,16 @@ void run_perimeter_and_surface_steps(Print &print)
 
 } // namespace
 
-TEST_CASE("Default surface generator converts island infill areas to region-island surfaces",
+TEST_CASE("CreateEmptySurface converts island infill areas to typed region-island surfaces",
           "[plugins][surface-generation]")
 {
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
 
     SECTION("normal island")
     {
-        // A normal rectangular island still has an inner fill area after one
-        // perimeter. Surface generation must copy that island-level area into
-        // the matching LayerRegionIsland without splitting or losing coverage.
+        // The first layer has no material below, but the next layer covers the
+        // same XY area. CreateEmptySurface should therefore publish bottom
+        // surfaces for the island fill area and keep the total area unchanged.
         PreparedPerimeterPrint prepared;
         prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
         PrintObject &object = prepared.print.object(0);
@@ -255,12 +276,124 @@ TEST_CASE("Default surface generator converts island infill areas to region-isla
         replace_layer_island(layer, rectangle_expolygon(-10., -10., 10., 10.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, DEFAULT_SURFACE_GENERATOR});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
         REQUIRE_FALSE(island.infill_areas().empty());
         require_surface_contract(island);
+        require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosBottom | stDensSolid, island.infill_areas());
+    }
+
+    SECTION("middle layer covered above and below becomes internal")
+    {
+        // On a fully covered middle layer, every fill point has model material
+        // on the adjacent lower and upper layers. It is therefore a regular
+        // internal sparse surface, not top or bottom skin.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
+        PrintObject &object = prepared.print.object(0);
+        REQUIRE(object.layer_count() > 2);
+        Layer &layer = object.layer(1);
+        replace_layer_island(layer, rectangle_expolygon(-10., -10., 10., 10.));
+        rebuild_island_overlap_graph(object);
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        run_perimeter_and_surface_steps(prepared.print);
+
+        const LayerSliceIsland &island = layer.island(0);
+        REQUIRE_FALSE(island.infill_areas().empty());
+        require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosInternal | stDensSparse, island.infill_areas());
+    }
+
+    SECTION("top layer uncovered above becomes top")
+    {
+        // The last model layer is covered by the layer below and has no model
+        // material above. Its fill area is top solid skin.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
+        PrintObject &object = prepared.print.object(0);
+        const size_t top_layer_idx = layer_index_for_top(object);
+        Layer &layer = object.layer(top_layer_idx);
+        replace_layer_island(layer, rectangle_expolygon(-10., -10., 10., 10.));
+        rebuild_island_overlap_graph(object);
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        run_perimeter_and_surface_steps(prepared.print);
+
+        const LayerSliceIsland &island = layer.island(0);
+        REQUIRE_FALSE(island.infill_areas().empty());
+        require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosTop | stDensSolid, island.infill_areas());
+    }
+
+    SECTION("isolated middle island is bottom when it is both bottom and top")
+    {
+        // If a non-first layer has no overlapping island below or above, the
+        // area is both exposed below and above. The baseline rule gives that
+        // overlap to bottom surfaces so the same area is not emitted twice.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
+        PrintObject &object = prepared.print.object(0);
+        REQUIRE(object.layer_count() > 2);
+        replace_layer_island(object.layer(0), rectangle_expolygon(30., -10., 50., 10.));
+        replace_layer_island(object.layer(1), rectangle_expolygon(-10., -10., 10., 10.));
+        replace_layer_island(object.layer(2), rectangle_expolygon(30., -10., 50., 10.));
+        rebuild_island_overlap_graph(object);
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        run_perimeter_and_surface_steps(prepared.print);
+
+        const LayerSliceIsland &island = object.layer(1).island(0);
+        REQUIRE_FALSE(island.infill_areas().empty());
+        require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosBottom | stDensSolid, island.infill_areas());
+    }
+
+    SECTION("isolated first layer without raft is top")
+    {
+        // A single first-layer island with raft_layers=0 is both bottom and top.
+        // This special case is treated as top skin because there is no raft
+        // underneath and the exposed face is the visible first-layer surface.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}, {"raft_layers", "0"}}));
+        PrintObject &object = prepared.print.object(0);
+        REQUIRE(object.layer_count() > 1);
+        replace_layer_island(object.layer(0), rectangle_expolygon(-10., -10., 10., 10.));
+        replace_layer_island(object.layer(1), rectangle_expolygon(30., -10., 50., 10.));
+        rebuild_island_overlap_graph(object);
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        run_perimeter_and_surface_steps(prepared.print);
+
+        const LayerSliceIsland &island = object.layer(0).island(0);
+        REQUIRE_FALSE(island.infill_areas().empty());
+        require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosTop | stDensSolid, island.infill_areas());
+    }
+
+    SECTION("partially covered middle layer splits top and internal areas")
+    {
+        // The layer below covers the whole island while the layer above covers
+        // only the left half. The uncovered right half must become top skin and
+        // the still-covered left half must remain internal sparse infill.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({{"perimeters", "0"}}));
+        PrintObject &object = prepared.print.object(0);
+        REQUIRE(object.layer_count() > 2);
+        const ExPolygon full_area = rectangle_expolygon(-10., -10., 10., 10.);
+        replace_layer_island(object.layer(0), full_area);
+        replace_layer_island(object.layer(1), full_area);
+        replace_layer_island(object.layer(2), rectangle_expolygon(-10., -10., 0., 10.));
+        rebuild_island_overlap_graph(object);
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
+        run_perimeter_and_surface_steps(prepared.print);
+
+        const LayerSliceIsland &island = object.layer(1).island(0);
+        const SurfaceCollection &surfaces = whole_region_island(island).fill_surfaces();
+        require_surface_contract(surfaces, island.infill_areas());
+        require_same_union(surface_expolygons_of_type(surfaces, stPosTop | stDensSolid),
+                           diff_ex(island.infill_areas(), ExPolygons{object.layer(2).island(0).get_slice()}));
+        require_same_union(surface_expolygons_of_type(surfaces, stPosInternal | stDensSparse),
+                           intersection_ex(island.infill_areas(), ExPolygons{object.layer(2).island(0).get_slice()}));
     }
 
     SECTION("perimeters consumed the whole island")
@@ -276,7 +409,7 @@ TEST_CASE("Default surface generator converts island infill areas to region-isla
         replace_layer_island(layer, rectangle_expolygon(-0.1, -8., 0.1, 8.));
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, DEFAULT_SURFACE_GENERATOR});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -298,7 +431,7 @@ TEST_CASE("Default surface generator converts island infill areas to region-isla
         replace_layer_island(layer, island_area.front());
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, DEFAULT_SURFACE_GENERATOR});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -321,7 +454,7 @@ TEST_CASE("Default surface generator converts island infill areas to region-isla
         replace_layer_island_with_two_infill_extruders(prepared, layer, island_area);
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, DEFAULT_SURFACE_GENERATOR});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);
@@ -356,7 +489,7 @@ TEST_CASE("Default surface generator converts island infill areas to region-isla
         replace_layer_island(layer, island_area);
         rebuild_island_overlap_graph(object);
 
-        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, DEFAULT_SURFACE_GENERATOR});
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, CREATE_EMPTY_SURFACE});
         run_perimeter_and_surface_steps(prepared.print);
 
         const LayerSliceIsland &island = layer.island(0);

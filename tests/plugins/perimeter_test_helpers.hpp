@@ -30,7 +30,7 @@ extern const char *const ONLY_ONE_PERIMETER_ON_TOP;
 extern const char *const SEPARATE_HOLE_CONTOUR;
 extern const char *const REMOVE_GAP_FILL_ON_OVERHANGS;
 extern const char *const FUZZY_SKIN;
-extern const char *const DEFAULT_SURFACE_GENERATOR;
+extern const char *const CREATE_EMPTY_SURFACE;
 
 struct PerimeterRunCapture
 {

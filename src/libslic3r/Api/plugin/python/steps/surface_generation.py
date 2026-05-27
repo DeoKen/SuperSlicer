@@ -157,18 +157,33 @@ class SurfaceGenerationContext:
         return None if not handle else LayerRegionIsland(self.api, handle)
 
     def set_fill_surfaces(self, region_island: LayerRegionIsland, areas, surface_type: int) -> bool:
-        if areas is None:
-            return bool(self.payload.set_region_island_fill_surfaces(region_island.c_handle(), None))
+        return self.set_fill_surface_groups(region_island, [(areas, surface_type)])
 
+    def set_fill_surface_groups(self, region_island: LayerRegionIsland, groups) -> bool:
+        """
+        Move a complete SurfaceCollection into a LayerRegionIsland.
+
+        ``groups`` is an iterable of ``(areas, surface_type)`` pairs. All groups
+        are appended to one temporary collection before the callback is called,
+        so top/bottom/internal classification does not overwrite itself.
+        """
         storage = _void_p(self.plugin_storage())
         surfaces = self.api.host.surface_collection_create(storage)
         if not surfaces:
             return False
         try:
-            self.api.host.surface_collection_append(surfaces, _void_p(_areas_handle(areas)), int(surface_type))
+            for areas, surface_type in groups:
+                if areas is None:
+                    continue
+                if hasattr(areas, "empty") and areas.empty():
+                    continue
+                self.api.host.surface_collection_append(surfaces, _void_p(_areas_handle(areas)), int(surface_type))
             return bool(self.payload.set_region_island_fill_surfaces(region_island.c_handle(), surfaces))
         finally:
             self.api.host.storage_free(storage, surfaces)
+
+    def clear_fill_surfaces(self, region_island: LayerRegionIsland) -> bool:
+        return bool(self.payload.set_region_island_fill_surfaces(region_island.c_handle(), None))
 
 
 __all__ = [
