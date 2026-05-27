@@ -10,6 +10,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <sstream>
 #include <string>
@@ -440,7 +441,13 @@ bool Orchestrator::add_ui_fragment(const char *target_file,
                 if (!fragment.exclusive_group.empty())
                     message << " while the kept fragment belongs to exclusive group '" << fragment.exclusive_group << "'";
                 message << ". The first fragment is kept.";
-                BOOST_LOG_TRIVIAL(warning) << message.str();
+                const std::string message_text = message.str();
+                BOOST_LOG_TRIVIAL(warning) << message_text;
+                if (m_initializing_plugin != nullptr)
+                    this->add_plugin_message(PluginMessageLevel::Warning,
+                                             m_initializing_plugin,
+                                             STEP_NONE,
+                                             message_text.c_str());
             }
             return false;
         }
@@ -601,6 +608,38 @@ plugin_run_context Orchestrator::prepare_plugin_run_context(slicing_step_t step,
     return context;
 }
 
+void Orchestrator::add_plugin_message(PluginMessageLevel level,
+                                      const Plugin *plugin,
+                                      slicing_step_t step,
+                                      const char *message)
+{
+    // Plugins can report messages while slicing runs on a worker thread, while
+    // the Plater consumes them later from the UI thread. The queue keeps only
+    // copied strings, so plugin-owned buffers may disappear immediately after
+    // the callback returns.
+    PluginMessage plugin_message;
+    plugin_message.level = level;
+    plugin_message.plugin_id = plugin != nullptr ? plugin->get_id() : "<unknown>";
+    plugin_message.step = step;
+    plugin_message.message = message != nullptr && message[0] != '\0' ?
+        message :
+        "(empty plugin message)";
+
+    std::lock_guard<std::mutex> lock(m_plugin_messages_mutex);
+    m_plugin_messages.emplace_back(std::move(plugin_message));
+}
+
+std::vector<Orchestrator::PluginMessage> Orchestrator::consume_plugin_messages()
+{
+    // The GUI drains the queue instead of peeking at it so each plugin message
+    // is displayed exactly once, even if several status updates arrive for the
+    // same slicing step.
+    std::lock_guard<std::mutex> lock(m_plugin_messages_mutex);
+    std::vector<PluginMessage> messages;
+    messages.swap(m_plugin_messages);
+    return messages;
+}
+
 bool Orchestrator::is_plugin_cancelled() const { return m_plugin_cancel_requested.load(std::memory_order_relaxed); }
 
 void Orchestrator::request_plugin_cancel() { m_plugin_cancel_requested.store(true, std::memory_order_relaxed); }
@@ -699,9 +738,14 @@ option_def_error_code Orchestrator::create_new_print_config(const raw_config_opt
             else
                 message << " Existing definition is not owned by a plugin in this group.";
             message << " Plugin '" << m_initializing_plugin->get_id() << "' will be disabled.";
-            BOOST_LOG_TRIVIAL(error) << message.str();
+            const std::string message_text = message.str();
+            BOOST_LOG_TRIVIAL(error) << message_text;
+            this->add_plugin_message(PluginMessageLevel::Error,
+                                     m_initializing_plugin,
+                                     STEP_NONE,
+                                     message_text.c_str());
             m_initializing_plugin_failed = true;
-            m_initializing_plugin_failure = message.str();
+            m_initializing_plugin_failure = message_text;
             return OPTION_DEF_ERROR_ALREADY_EXISTS;
         }
 
@@ -710,10 +754,15 @@ option_def_error_code Orchestrator::create_new_print_config(const raw_config_opt
                 << "' is already defined with incompatible " << reason << ".";
         if (m_initializing_plugin != nullptr)
             message << " Plugin '" << m_initializing_plugin->get_id() << "' will be disabled.";
-        BOOST_LOG_TRIVIAL(error) << message.str();
+        const std::string message_text = message.str();
+        BOOST_LOG_TRIVIAL(error) << message_text;
         if (m_initializing_plugin != nullptr) {
+            this->add_plugin_message(PluginMessageLevel::Error,
+                                     m_initializing_plugin,
+                                     STEP_NONE,
+                                     message_text.c_str());
             m_initializing_plugin_failed = true;
-            m_initializing_plugin_failure = message.str();
+            m_initializing_plugin_failure = message_text;
         }
         return OPTION_DEF_ERROR_ALREADY_EXISTS;
     }

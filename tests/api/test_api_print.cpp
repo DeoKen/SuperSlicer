@@ -216,6 +216,43 @@ TEST_CASE("Duplicate plugin UI fragment ids keep the first registered content", 
     CHECK(merged.find("second_setting") == std::string::npos);
 }
 
+TEST_CASE("Plugin warning and error callbacks queue GUI notifications", "[Api][Plugins]")
+{
+    ensure_api_test_runtime_initialized();
+    Orchestrator &orchestrator = Orchestrator::instance();
+    const std::vector<Orchestrator::PluginMessage> stale_messages = orchestrator.consume_plugin_messages();
+    (void)stale_messages;
+
+    Plugin *plugin = orchestrator.get_plugin("polyholes");
+    REQUIRE(plugin != nullptr);
+
+    // The C callbacks are used by both native and foreign-language plugins.
+    // They must copy the message into the host queue because the GUI consumes
+    // it later, after the plugin callback has already returned.
+    plugin_host_context host_context =
+        orchestrator.prepare_plugin_host_context(STEP_POST_SLICING, plugin, nullptr);
+    orchestrator.reset_plugin_cancel();
+
+    orchestrator_plugin_report_warning(&host_context, "queued warning");
+    orchestrator_plugin_report_error(&host_context, "queued error");
+
+    CHECK(orchestrator.is_plugin_cancelled());
+
+    const std::vector<Orchestrator::PluginMessage> messages = orchestrator.consume_plugin_messages();
+    REQUIRE(messages.size() == 2);
+    CHECK(messages[0].level == Orchestrator::PluginMessageLevel::Warning);
+    CHECK(messages[0].plugin_id == "polyholes");
+    CHECK(messages[0].step == STEP_POST_SLICING);
+    CHECK(messages[0].message == "queued warning");
+    CHECK(messages[1].level == Orchestrator::PluginMessageLevel::Error);
+    CHECK(messages[1].plugin_id == "polyholes");
+    CHECK(messages[1].step == STEP_POST_SLICING);
+    CHECK(messages[1].message == "queued error");
+    CHECK(orchestrator.consume_plugin_messages().empty());
+
+    orchestrator.reset_plugin_cancel();
+}
+
 SCENARIO("PrintObject: Perimeter generation") {
     GIVEN("20mm cube and default config & 0.3 layer height") {
         ensure_api_test_runtime_initialized();

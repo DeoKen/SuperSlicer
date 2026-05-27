@@ -152,6 +152,11 @@ SLIC3R_HOST_API int32_t orchestrator_add_gui_rule(
 Default host callbacks used to populate plugin_run_context.
 Plugins normally call these through the function pointers stored in the run
 context instead of calling them directly.
+
+report_warning and report_error copy the message into the host diagnostic queue.
+The GUI later drains that queue and displays the text as Plater notifications.
+report_error also requests cancellation for the current plugin-driven slicing
+run, so the plugin should reserve it for errors that make the result unsafe.
 */
 SLIC3R_HOST_API int orchestrator_plugin_is_cancelled(plugin_host_context *host_context);
 SLIC3R_HOST_API void orchestrator_plugin_report_warning(plugin_host_context *host_context, const char *message);

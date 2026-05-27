@@ -65,6 +65,7 @@
 
 #include <LibBGCode/convert/convert.hpp>
 
+#include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/libslic3r.h"
@@ -2152,6 +2153,7 @@ struct Plater::priv
 
 	void clear_warnings();
 	void add_warning(const Slic3r::PrintStateBase::Warning &warning, size_t oid);
+    void display_plugin_messages();
     // Update notification manager with the current state of warnings produced by the background process (slicing).
 	void actualize_slicing_warnings(const PrintBase &print);
     void actualize_object_warnings(const PrintBase& print);
@@ -4514,6 +4516,8 @@ void Plater::priv::on_select_preset(wxCommandEvent &evt)
 
 void Plater::priv::on_slicing_update(SlicingStatusEvent &evt)
 {
+    display_plugin_messages();
+
     //update dirty flags
 
     if (0 != (evt.status.flags & Slic3r::PrintBase::SlicingStatus::FlagBits::GCODE_ENDED)) {
@@ -4664,6 +4668,31 @@ void Plater::priv::add_warning(const Slic3r::PrintStateBase::Warning& warning, s
 	}
 	current_warnings.emplace_back(std::pair<Slic3r::PrintStateBase::Warning, size_t>(warning, oid));
 }
+
+void Plater::priv::display_plugin_messages()
+{
+    if (!notification_manager)
+        return;
+
+    const std::vector<Orchestrator::PluginMessage> messages =
+        Orchestrator::instance().consume_plugin_messages();
+
+    for (const Orchestrator::PluginMessage &message : messages) {
+        // Plugin messages are intentionally shown as transient Plater
+        // notifications only. They are not copied into current_warnings, so
+        // they cannot reopen the modal slicing warnings dialog later.
+        std::string text = "Plugin";
+        if (!message.plugin_id.empty())
+            text += " '" + message.plugin_id + "'";
+        text += ": " + message.message;
+
+        if (message.level == Orchestrator::PluginMessageLevel::Error)
+            notification_manager->push_slicing_error_notification(text);
+        else
+            notification_manager->push_slicing_warning_notification(text, false, 0, int(message.step));
+    }
+}
+
 void Plater::priv::actualize_slicing_warnings(const PrintBase &print)
 {
     std::vector<ObjectID> ids = print.print_object_ids();
@@ -4724,6 +4753,7 @@ void Plater::priv::on_process_completed(SlicingProcessCompletedEvent &evt)
     // At this point of time the thread should be either finished or canceled,
     // so the following call just confirms, that the produced data were consumed.
     this->background_process.stop();
+    display_plugin_messages();
 //    this->statusbar()->reset_cancel_callback();
 //    this->statusbar()->stop_busy();
     notification_manager->set_slicing_progress_export_possible();
@@ -5024,6 +5054,7 @@ void Plater::priv::init_notification_manager()
     notification_manager->init_slicing_progress_notification(cancel_callback);
     notification_manager->set_fff(printer_technology == ptFFF);
     notification_manager->init_progress_indicator();
+    display_plugin_messages();
 }
 
 void Plater::priv::set_current_canvas_as_dirty()

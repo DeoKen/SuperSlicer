@@ -9,6 +9,7 @@
 #include <cassert>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <stddef.h>
 #include <stdint.h>
 #include <string>
@@ -103,6 +104,20 @@ public:
         std::string exclusive_group;
     };
 
+    enum class PluginMessageLevel
+    {
+        Warning,
+        Error
+    };
+
+    struct PluginMessage
+    {
+        PluginMessageLevel level = PluginMessageLevel::Warning;
+        std::string plugin_id;
+        slicing_step_t step = STEP_NONE;
+        std::string message;
+    };
+
     static Orchestrator &instance();
 
     std::vector<Plugin *> registered_plugins() const;
@@ -171,6 +186,15 @@ public:
     plugin_run_context prepare_plugin_run_context(slicing_step_t step,
                                                   Plugin *plugin,
                                                   plugin_host_context *host_context = nullptr);
+    // Queue a plugin diagnostic for the GUI thread. The message is copied so C,
+    // C++ and Python plugins may pass temporary buffers safely.
+    void add_plugin_message(PluginMessageLevel level,
+                            const Plugin *plugin,
+                            slicing_step_t step,
+                            const char *message);
+    // Drain queued plugin diagnostics. The Plater uses this to turn plugin
+    // warnings and errors into ImGui notifications without opening modal dialogs.
+    std::vector<PluginMessage> consume_plugin_messages();
     bool is_plugin_cancelled() const;
     void request_plugin_cancel();
     void reset_plugin_cancel();
@@ -195,6 +219,8 @@ private:
     std::vector<CustomExtrusionPropertyInfo> m_custom_extrusion_property_infos;
     extrusion_property_type m_next_custom_extrusion_property_type { extrusion_property_type(0x80000000u) };
     std::atomic_bool m_plugin_cancel_requested { false };
+    std::mutex m_plugin_messages_mutex;
+    std::vector<PluginMessage> m_plugin_messages;
     Plugin *m_initializing_plugin { nullptr };
     bool m_initializing_plugin_failed { false };
     std::string m_initializing_plugin_failure;

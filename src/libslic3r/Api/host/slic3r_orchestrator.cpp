@@ -84,6 +84,12 @@ void orchestrator_plugin_report_warning(plugin_host_context *host_context, const
                                 host_context->plugin->get_id().c_str() :
                                 "<unknown>";
     BOOST_LOG_TRIVIAL(warning) << "Plugin warning from " << plugin_id << ": " << (message != nullptr ? message : "");
+
+    if (host_context != nullptr && host_context->orchestrator != nullptr)
+        host_context->orchestrator->add_plugin_message(Slic3r::Orchestrator::PluginMessageLevel::Warning,
+                                                       host_context->plugin,
+                                                       host_context->step,
+                                                       message);
 }
 
 void orchestrator_plugin_report_error(plugin_host_context *host_context, const char *message)
@@ -93,8 +99,13 @@ void orchestrator_plugin_report_error(plugin_host_context *host_context, const c
                                 "<unknown>";
     BOOST_LOG_TRIVIAL(error) << "Plugin error from " << plugin_id << ": " << (message != nullptr ? message : "");
 
-    if (host_context != nullptr && host_context->orchestrator != nullptr)
+    if (host_context != nullptr && host_context->orchestrator != nullptr) {
+        host_context->orchestrator->add_plugin_message(Slic3r::Orchestrator::PluginMessageLevel::Error,
+                                                       host_context->plugin,
+                                                       host_context->step,
+                                                       message);
         host_context->orchestrator->request_plugin_cancel();
+    }
 }
 
 void orchestrator_plugin_report_progress(plugin_host_context *host_context, double progress, const char *message)
