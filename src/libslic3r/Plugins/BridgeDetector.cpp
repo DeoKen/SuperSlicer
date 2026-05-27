@@ -320,7 +320,7 @@ int32_t BridgeDetector::get_priority_bridge(void *plugin_ctx)
     return static_cast<BridgeDetector *>(plugin_ctx)->priority();
 }
 
-int32_t BridgeDetector::used_config_keys_bridge(void *, const char **)
+int32_t BridgeDetector::used_config_keys_bridge(void *, raw_used_config_key *)
 {
     return 0;
 }

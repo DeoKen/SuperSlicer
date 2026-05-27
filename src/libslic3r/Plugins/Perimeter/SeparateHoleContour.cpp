@@ -23,7 +23,10 @@ namespace {
 
 const char *k_separate_hole_contour_id = "perimeter.module.separate_hole_contour";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = { "perimeters_hole", "perimeters" };
+const raw_used_config_key k_used_config_keys[] = {
+    { "perimeters_hole", RAW_CO_INT, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE },
+    { "perimeters", RAW_CO_INT, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE }
+};
 const char *k_perimeters_hole_key = "perimeters_hole";
 const char *k_perimeters_key = "perimeters";
 
@@ -539,7 +542,7 @@ int32_t SeparateHoleContour::priority_impl() const noexcept
     return 6;
 }
 
-int32_t SeparateHoleContour::used_config_keys(const char **keys) const noexcept
+int32_t SeparateHoleContour::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         for (uint32_t idx = 0; idx < sizeof(k_used_config_keys) / sizeof(k_used_config_keys[0]); ++idx)

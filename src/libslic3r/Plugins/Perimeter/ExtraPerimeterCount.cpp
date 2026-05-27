@@ -21,7 +21,9 @@ namespace {
 
 const char *k_extra_perimeter_count_id = "perimeter.module.extra_perimeter_count";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = { "extra_perimeters_count" };
+const raw_used_config_key k_used_config_keys[] = {
+    { "extra_perimeters_count", RAW_CO_INT, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE }
+};
 const char *k_extra_perimeter_count_key = "extra_perimeters_count";
 
 class ModuleState
@@ -246,7 +248,7 @@ int32_t ExtraPerimeterCount::priority_impl() const noexcept
     return -20;
 }
 
-int32_t ExtraPerimeterCount::used_config_keys(const char **keys) const noexcept
+int32_t ExtraPerimeterCount::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         keys[0] = k_used_config_keys[0];

@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/filesystem.hpp>
@@ -40,6 +41,14 @@ namespace {
 using OrchestratorRegisterPluginFn = void (*)(orchestrator_handle *, plugin_instance);
 
 std::vector<std::unique_ptr<class PythonPlugin>> s_python_plugins;
+
+struct PythonUsedConfigKey
+{
+    std::string key;
+    raw_config_option_type type = RAW_CO_NONE;
+    raw_container_type container_type = RAW_CONTAINER_TYPE_NONE;
+    raw_option_preset_type option_preset_type = RAW_PRESET_TYPE_NONE;
+};
 
 boost::filesystem::path current_module_path()
 {
@@ -168,6 +177,21 @@ int int_attribute(PyObject *object, const char *name, int fallback)
     return int(value);
 }
 
+bool py_object_to_long(PyObject *object, long &out)
+{
+    if (object == nullptr)
+        return false;
+
+    const long value = PyLong_AsLong(object);
+    if (PyErr_Occurred()) {
+        PyErr_Clear();
+        return false;
+    }
+
+    out = value;
+    return true;
+}
+
 std::vector<std::string> string_list_attribute(PyObject *object, const char *name)
 {
     std::vector<std::string> out;
@@ -189,6 +213,96 @@ std::vector<std::string> string_list_attribute(PyObject *object, const char *nam
         if (item == nullptr)
             break;
         out.emplace_back(py_object_to_string(item));
+        Py_DECREF(item);
+    }
+    if (PyErr_Occurred())
+        PyErr_Clear();
+
+    Py_DECREF(iterator);
+    return out;
+}
+
+PythonUsedConfigKey used_config_key_from_sequence(PyObject *item)
+{
+    PythonUsedConfigKey out;
+    const Py_ssize_t size = PySequence_Size(item);
+    if (size < 2) {
+        PyErr_Clear();
+        return out;
+    }
+
+    PyObject *key = PySequence_GetItem(item, 0);
+    PyObject *type = PySequence_GetItem(item, 1);
+    PyObject *container = size > 2 ? PySequence_GetItem(item, 2) : nullptr;
+    PyObject *preset = size > 3 ? PySequence_GetItem(item, 3) : nullptr;
+
+    out.key = py_object_to_string(key);
+    long value = 0;
+    if (py_object_to_long(type, value))
+        out.type = raw_config_option_type(value);
+    if (py_object_to_long(container, value))
+        out.container_type = raw_container_type(value);
+    if (py_object_to_long(preset, value))
+        out.option_preset_type = raw_option_preset_type(value);
+
+    Py_XDECREF(key);
+    Py_XDECREF(type);
+    Py_XDECREF(container);
+    Py_XDECREF(preset);
+    return out;
+}
+
+PythonUsedConfigKey used_config_key_from_dict(PyObject *item)
+{
+    PythonUsedConfigKey out;
+    PyObject *key = PyDict_GetItemString(item, "key");
+    PyObject *type = PyDict_GetItemString(item, "type");
+    PyObject *container = PyDict_GetItemString(item, "container_type");
+    PyObject *preset = PyDict_GetItemString(item, "option_preset_type");
+
+    out.key = py_object_to_string(key);
+    long value = 0;
+    if (py_object_to_long(type, value))
+        out.type = raw_config_option_type(value);
+    if (py_object_to_long(container, value))
+        out.container_type = raw_container_type(value);
+    if (py_object_to_long(preset, value))
+        out.option_preset_type = raw_option_preset_type(value);
+    return out;
+}
+
+std::vector<PythonUsedConfigKey> used_config_key_list_attribute(PyObject *object, const char *name)
+{
+    std::vector<PythonUsedConfigKey> out;
+    PyObject *attr = PyObject_GetAttrString(object, name);
+    if (attr == nullptr) {
+        PyErr_Clear();
+        return out;
+    }
+
+    PyObject *iterator = PyObject_GetIter(attr);
+    Py_DECREF(attr);
+    if (iterator == nullptr) {
+        PyErr_Clear();
+        return out;
+    }
+
+    for (;;) {
+        PyObject *item = PyIter_Next(iterator);
+        if (item == nullptr)
+            break;
+
+        if (PyDict_Check(item)) {
+            out.emplace_back(used_config_key_from_dict(item));
+        } else if (PySequence_Check(item) && !PyUnicode_Check(item)) {
+            out.emplace_back(used_config_key_from_sequence(item));
+        } else {
+            // Old string-only declarations are not enough for the typed ABI.
+            // Keep the key so the host can report the offending plugin/key.
+            PythonUsedConfigKey key;
+            key.key = py_object_to_string(item);
+            out.emplace_back(std::move(key));
+        }
         Py_DECREF(item);
     }
     if (PyErr_Occurred())
@@ -244,14 +358,20 @@ public:
         , m_step(slicing_step_t(int_attribute(plugin, "step", STEP_POST_SLICING)))
         , m_priority(int_attribute(plugin, "priority", 0))
         , m_dependencies(string_list_attribute(plugin, "dependencies"))
-        , m_used_config_keys(string_list_attribute(plugin, "used_config_keys"))
+        , m_used_config_keys(used_config_key_list_attribute(plugin, "used_config_keys"))
         , m_defined_config_keys(string_list_attribute(plugin, "defined_config_keys"))
     {
         Py_INCREF(m_plugin);
         for (const std::string &dependency : m_dependencies)
             m_dependency_ptrs.push_back(dependency.c_str());
-        for (const std::string &key : m_used_config_keys)
-            m_used_config_key_ptrs.push_back(key.c_str());
+        for (const PythonUsedConfigKey &key : m_used_config_keys) {
+            raw_used_config_key view = {};
+            view.key = key.key.c_str();
+            view.type = key.type;
+            view.container_type = key.container_type;
+            view.option_preset_type = key.option_preset_type;
+            m_used_config_key_views.push_back(view);
+        }
         for (const std::string &key : m_defined_config_keys)
             m_defined_config_key_ptrs.push_back(key.c_str());
     }
@@ -321,14 +441,14 @@ private:
         return static_cast<PythonPlugin *>(plugin_ctx)->m_priority;
     }
 
-    static int32_t used_config_keys_bridge(void *plugin_ctx, const char **keys)
+    static int32_t used_config_keys_bridge(void *plugin_ctx, raw_used_config_key *keys)
     {
         PythonPlugin *plugin = static_cast<PythonPlugin *>(plugin_ctx);
         if (keys != nullptr) {
-            for (size_t i = 0; i < plugin->m_used_config_key_ptrs.size(); ++i)
-                keys[i] = plugin->m_used_config_key_ptrs[i];
+            for (size_t i = 0; i < plugin->m_used_config_key_views.size(); ++i)
+                keys[i] = plugin->m_used_config_key_views[i];
         }
-        return int32_t(plugin->m_used_config_key_ptrs.size());
+        return int32_t(plugin->m_used_config_key_views.size());
     }
 
     static int32_t defined_config_keys_bridge(void *plugin_ctx, const char **keys)
@@ -441,8 +561,8 @@ private:
     int32_t m_priority = 0;
     std::vector<std::string> m_dependencies;
     std::vector<const char *> m_dependency_ptrs;
-    std::vector<std::string> m_used_config_keys;
-    std::vector<const char *> m_used_config_key_ptrs;
+    std::vector<PythonUsedConfigKey> m_used_config_keys;
+    std::vector<raw_used_config_key> m_used_config_key_views;
     std::vector<std::string> m_defined_config_keys;
     std::vector<const char *> m_defined_config_key_ptrs;
 };

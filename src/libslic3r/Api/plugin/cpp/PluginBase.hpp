@@ -397,10 +397,10 @@ protected:
     // Lower priority runs first inside a step.
     virtual int32_t priority_impl() const noexcept = 0;
 
-    // Configuration option keys read by this plugin. The default is empty.
+    // Configuration options read by this plugin. The default is empty.
     // Return the required entry count when keys is nullptr, otherwise fill the
-    // caller-provided array with borrowed string pointers and return the count.
-    virtual int32_t used_config_keys(const char **keys) const noexcept
+    // caller-provided array with borrowed key pointers and type expectations.
+    virtual int32_t used_config_keys(raw_used_config_key *keys) const noexcept
     {
         (void)keys;
         return 0;
@@ -553,7 +553,7 @@ private:
         return static_cast<PluginBase *>(plugin_ctx)->priority_impl();
     }
 
-    static int32_t used_config_keys_bridge(void *plugin_ctx, const char **keys)
+    static int32_t used_config_keys_bridge(void *plugin_ctx, raw_used_config_key *keys)
     {
         return static_cast<PluginBase *>(plugin_ctx)->used_config_keys(keys);
     }

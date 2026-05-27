@@ -23,12 +23,12 @@ namespace {
 
 const char *k_only_one_perimeter_on_top_id = "perimeter.module.only_one_perimeter_on_top";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = {
-    "only_one_perimeter_top",
-    "min_width_top_surface",
-    "only_one_perimeter_top_other_algo",
-    "external_infill_margin",
-    "bridged_infill_margin"
+const raw_used_config_key k_used_config_keys[] = {
+    { "only_one_perimeter_top", RAW_CO_BOOL, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE },
+    { "min_width_top_surface", RAW_CO_FLOAT_OR_PERCENT, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE },
+    { "only_one_perimeter_top_other_algo", RAW_CO_BOOL, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE },
+    { "external_infill_margin", RAW_CO_FLOAT_OR_PERCENT, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE },
+    { "bridged_infill_margin", RAW_CO_FLOAT_OR_PERCENT, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE }
 };
 const char *k_only_one_perimeter_top_key = "only_one_perimeter_top";
 const char *k_min_width_top_surface_key = "min_width_top_surface";
@@ -738,7 +738,7 @@ int32_t OnlyOnePerimeterOnTop::priority_impl() const noexcept
     return 5;
 }
 
-int32_t OnlyOnePerimeterOnTop::used_config_keys(const char **keys) const noexcept
+int32_t OnlyOnePerimeterOnTop::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         for (uint32_t idx = 0; idx < sizeof(k_used_config_keys) / sizeof(k_used_config_keys[0]); ++idx)

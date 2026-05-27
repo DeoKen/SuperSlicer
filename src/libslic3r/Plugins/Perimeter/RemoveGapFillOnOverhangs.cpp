@@ -21,7 +21,9 @@ namespace {
 
 const char *k_remove_gap_fill_on_overhangs_id = "perimeter.module.remove_gap_fill_on_overhangs";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = { "gap_fill_no_overhang" };
+const raw_used_config_key k_used_config_keys[] = {
+    { "gap_fill_no_overhang", RAW_CO_BOOL, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE }
+};
 const char *k_gap_fill_no_overhang_key = "gap_fill_no_overhang";
 
 StoredExPolygonCollection lower_slice_coverage(storage_handle *storage, const LayerIsland &island);
@@ -329,7 +331,7 @@ int32_t RemoveGapFillOnOverhangs::priority_impl() const noexcept
     return 10;
 }
 
-int32_t RemoveGapFillOnOverhangs::used_config_keys(const char **keys) const noexcept
+int32_t RemoveGapFillOnOverhangs::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         for (uint32_t idx = 0; idx < sizeof(k_used_config_keys) / sizeof(k_used_config_keys[0]); ++idx)

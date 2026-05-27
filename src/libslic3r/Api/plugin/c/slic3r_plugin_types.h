@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include "slic3r_config_types.h"
 #include "slic3r_plugin_run_context.h"
 #include "slic3r_slicing_step.h"
 #include "slic3r_utils.h"
@@ -35,7 +36,7 @@
 #include "steps/slic3r_step_surface_type.h"
 #include "steps/slic3r_step_wipetower.h"
 
-#define SLIC3R_PLUGIN_ABI_VERSION 5u
+#define SLIC3R_PLUGIN_ABI_VERSION 6u
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,17 +56,35 @@ typedef void (*plugin_setup_run_fn)(void *plugin_ctx, const plugin_run_context *
 typedef void (*plugin_run_fn)(void *plugin_ctx, const plugin_run_context *run_ctx);
 
 /*
-Return the configuration option keys read by this plugin.
+One configuration option read by a plugin.
+
+type is mandatory and must not be RAW_CO_NONE. It lets the host verify that the
+plugin and the option owner agree on the value representation.
+
+container_type and option_preset_type are optional filters. Use *_NONE when the
+plugin only cares about the value type and key, for example when a setting may
+legitimately live in several preset buckets.
+*/
+typedef struct raw_used_config_key {
+    const char *key;
+    raw_config_option_type type;
+    raw_container_type container_type;
+    raw_option_preset_type option_preset_type;
+} raw_used_config_key;
+
+/*
+Return the configuration options read by this plugin.
 
 This uses the usual C double-call pattern:
 - call with keys == NULL to get the number of entries to allocate;
-- call again with an array of that size to receive borrowed const char*
-  pointers owned by the plugin.
+- call again with an array of that size to receive borrowed key pointers and
+  value expectations owned by the plugin.
 
-The host uses this list to enable/disable GUI fields when several plugins are
-available for an exclusive step and a project selects one of them.
+The host uses this list to validate plugin contracts and to enable/disable GUI
+fields when several plugins are available for an exclusive step and a project
+selects one of them.
 */
-typedef int32_t (*plugin_used_config_keys_fn)(void *plugin_ctx, const char **keys);
+typedef int32_t (*plugin_used_config_keys_fn)(void *plugin_ctx, raw_used_config_key *keys);
 
 /*
 Return the configuration option keys defined by this plugin.

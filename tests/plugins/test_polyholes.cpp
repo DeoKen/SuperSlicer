@@ -440,7 +440,7 @@ int32_t duplicate_plugin_priority(void *)
     return 1000;
 }
 
-int32_t duplicate_plugin_no_keys(void *, const char **)
+int32_t duplicate_plugin_no_keys(void *, raw_used_config_key *)
 {
     return 0;
 }

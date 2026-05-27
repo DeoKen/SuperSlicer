@@ -15,6 +15,15 @@ namespace Slic3r {
 
 class Plugin
 {
+public:
+    struct UsedConfigKey
+    {
+        std::string key;
+        raw_config_option_type type = RAW_CO_NONE;
+        raw_container_type container_type = RAW_CONTAINER_TYPE_NONE;
+        raw_option_preset_type option_preset_type = RAW_PRESET_TYPE_NONE;
+    };
+
 protected:
     plugin_instance m_c_api;
     std::string m_id;
@@ -25,7 +34,7 @@ protected:
     std::string m_exclusive_group_tooltip;
     slicing_step_t m_step;
     std::vector<std::string> m_dependencies;
-    std::vector<std::string> m_used_config_keys;
+    std::vector<UsedConfigKey> m_used_config_keys;
     std::vector<std::string> m_defined_config_keys;
     int m_priority;
 
@@ -40,7 +49,7 @@ public:
     const std::string& get_exclusive_group_tooltip() const noexcept { return m_exclusive_group_tooltip; }
     slicing_step_t get_step() const noexcept { return m_step; }
     const std::vector<std::string>& get_dependencies() const noexcept { return m_dependencies; }
-    const std::vector<std::string>& get_used_config_keys() const noexcept { return m_used_config_keys; }
+    const std::vector<UsedConfigKey>& get_used_config_keys() const noexcept { return m_used_config_keys; }
     const std::vector<std::string>& get_defined_config_keys() const noexcept { return m_defined_config_keys; }
     int get_priority() const noexcept { return m_priority; }
     void initialize(storage_handle *storage) const {

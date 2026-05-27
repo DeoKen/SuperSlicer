@@ -26,13 +26,17 @@ const char *k_polyholes_id = "polyholes";
 const char *k_polyholes_exclusive_group = "polyholes";
 const char *k_polyholes_settings_fragment_id = "polyholes_settings";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = {
+const raw_used_config_key k_used_config_keys[] = {
+    { "hole_to_polyhole", RAW_CO_BOOL, RAW_CONTAINER_TYPE_REGION, RAW_PRESET_TYPE_FFF_PRINT },
+    { "hole_to_polyhole_threshold", RAW_CO_FLOAT_OR_PERCENT, RAW_CONTAINER_TYPE_REGION, RAW_PRESET_TYPE_FFF_PRINT },
+    { "hole_to_polyhole_twisted", RAW_CO_BOOL, RAW_CONTAINER_TYPE_REGION, RAW_PRESET_TYPE_FFF_PRINT }
+};
+constexpr size_t k_used_config_key_count = sizeof(k_used_config_keys) / sizeof(k_used_config_keys[0]);
+const char *k_defined_config_keys[] = {
     "hole_to_polyhole",
     "hole_to_polyhole_threshold",
     "hole_to_polyhole_twisted"
 };
-constexpr size_t k_used_config_key_count = sizeof(k_used_config_keys) / sizeof(k_used_config_keys[0]);
-const char *const *k_defined_config_keys = k_used_config_keys;
 constexpr size_t k_defined_config_key_count = k_used_config_key_count;
 
 enum ProgressPhase : uint32_t
@@ -349,7 +353,7 @@ int32_t Polyholes::priority_impl() const noexcept
     return 0;
 }
 
-int32_t Polyholes::used_config_keys(const char **keys) const noexcept
+int32_t Polyholes::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         for (size_t idx = 0; idx < k_used_config_key_count; ++idx)

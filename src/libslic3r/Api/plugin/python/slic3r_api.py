@@ -148,15 +148,34 @@ def report_progress(run_ctx_address: int, progress: float, message: Optional[str
         PLUGIN_REPORT_PROGRESS(ctx.report_progress)(ctx.host_context, progress, _as_bytes(message))
 
 
+def used_config_key(
+    key: str,
+    type: int,
+    container_type: int = RAW_CONTAINER_TYPE_NONE,
+    option_preset_type: int = RAW_PRESET_TYPE_NONE,
+) -> tuple[str, int, int, int]:
+    """
+    Declare one setting read by a Python plugin.
+
+    The type is mandatory because the host validates that the setting provider
+    and the reader agree on the ConfigOption representation. container_type and
+    option_preset_type are optional filters; leave them at *_NONE when the key
+    may legitimately come from several places.
+    """
+    return (key, int(type), int(container_type), int(option_preset_type))
+
+
 class PluginBase:
     """
     Base class for Python plugins.
 
     Set plugin_id, name, description, step, priority, dependencies and
-    used_config_keys in __init__ by calling the base constructor. If several
-    plugins are alternatives for the same work, give them the same
-    exclusive_group so the host can expose a selector and run only one of them.
-    Override initialize/setup/setup_run/run as needed.
+    used_config_keys in __init__ by calling the base constructor. Entries in
+    used_config_keys should be created with used_config_key(...), so the host
+    can validate the expected option type. If several plugins are alternatives
+    for the same work, give them the same exclusive_group so the host can expose
+    a selector and run only one of them. Override initialize/setup/setup_run/run
+    as needed.
 
     Callback arguments are raw C pointer addresses represented as Python int:
     - initialize(storage_address)
@@ -176,7 +195,7 @@ class PluginBase:
         description: str = "",
         priority: int = 0,
         dependencies: Iterable[str] = (),
-        used_config_keys: Iterable[str] = (),
+        used_config_keys: Iterable[object] = (),
         defined_config_keys: Iterable[str] = (),
         exclusive_group: str = "",
         exclusive_group_label: str = "",

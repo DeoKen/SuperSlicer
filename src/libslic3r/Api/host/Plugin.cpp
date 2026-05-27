@@ -35,18 +35,48 @@ void validate_plugin_instance(const plugin_instance &c_api)
         throw std::runtime_error("Plugin vtable has missing callbacks.");
 }
 
-void read_plugin_key_list(const plugin_instance &c_api,
-                          plugin_used_config_keys_fn callback,
-                          const char *callback_name,
-                          std::vector<std::string> &out)
+void read_plugin_used_config_keys(const plugin_instance &c_api,
+                                  plugin_used_config_keys_fn callback,
+                                  std::vector<Plugin::UsedConfigKey> &out)
 {
-    // Plugin key lists use a C-style double-call convention: the first call
-    // reports the needed buffer size, the second one writes stable C strings.
-    // The cap prevents a broken plugin from reserving an arbitrary amount of
-    // memory during application startup.
+    // Plugin key lists use a C-style double-call convention. The cap prevents a
+    // broken plugin from reserving an arbitrary amount of memory during startup.
     const int32_t key_count = callback(c_api.ctx, nullptr);
     if (key_count < 0 || key_count > MAX_PLUGIN_CONFIG_KEYS)
-        throw std::runtime_error(std::string("Plugin returned an invalid ") + callback_name + " count.");
+        throw std::runtime_error("Plugin returned an invalid used_config_keys count.");
+
+    if (key_count == 0)
+        return;
+
+    std::vector<raw_used_config_key> keys;
+    keys.assign(size_t(key_count), raw_used_config_key{});
+    const int32_t written_count = callback(c_api.ctx, keys.data());
+    if (written_count < 0 || written_count > key_count)
+        throw std::runtime_error("Plugin wrote an invalid used_config_keys count.");
+
+    for (int32_t i = 0; i < written_count; ++i) {
+        const raw_used_config_key &key = keys[size_t(i)];
+        if (key.key == nullptr)
+            continue;
+        if (key.type == RAW_CO_NONE)
+            throw std::runtime_error(std::string("Plugin declares used config key '") + key.key +
+                                     "' without a value type.");
+        out.push_back(Plugin::UsedConfigKey{
+            key.key,
+            key.type,
+            key.container_type,
+            key.option_preset_type
+        });
+    }
+}
+
+void read_plugin_defined_config_keys(const plugin_instance &c_api,
+                                     plugin_defined_config_keys_fn callback,
+                                     std::vector<std::string> &out)
+{
+    const int32_t key_count = callback(c_api.ctx, nullptr);
+    if (key_count < 0 || key_count > MAX_PLUGIN_CONFIG_KEYS)
+        throw std::runtime_error("Plugin returned an invalid defined_config_keys count.");
 
     if (key_count == 0)
         return;
@@ -55,7 +85,7 @@ void read_plugin_key_list(const plugin_instance &c_api,
     keys.assign(size_t(key_count), nullptr);
     const int32_t written_count = callback(c_api.ctx, keys.data());
     if (written_count < 0 || written_count > key_count)
-        throw std::runtime_error(std::string("Plugin wrote an invalid ") + callback_name + " count.");
+        throw std::runtime_error("Plugin wrote an invalid defined_config_keys count.");
 
     for (int32_t i = 0; i < written_count; ++i)
         if (keys[size_t(i)] != nullptr)
@@ -88,8 +118,8 @@ Plugin::Plugin(plugin_instance c_api) : m_c_api(c_api) {
         }
     }
 
-    read_plugin_key_list(c_api, c_api.vt->used_config_keys, "used_config_keys", m_used_config_keys);
-    read_plugin_key_list(c_api, c_api.vt->defined_config_keys, "defined_config_keys", m_defined_config_keys);
+    read_plugin_used_config_keys(c_api, c_api.vt->used_config_keys, m_used_config_keys);
+    read_plugin_defined_config_keys(c_api, c_api.vt->defined_config_keys, m_defined_config_keys);
 }
 
 } // namespace Slic3r

@@ -19,6 +19,7 @@ HEADER_ORDER = [
     "slic3r_utils.h",
     "slic3r_geometry.h",
     "slic3r_config_option_type.h",
+    "slic3r_config_types.h",
     "slic3r_config_option.h",
     "slic3r_slicing_step.h",
     "slic3r_plugin_run_context.h",
@@ -142,6 +143,7 @@ CLASS_NAME_OVERRIDES = {
     "c_triangle_indices": "CTriangleIndices",
     "c_mesh_slicing_params": "CMeshSlicingParams",
     "raw_gui_rule": "RawGuiRule",
+    "raw_used_config_key": "RawUsedConfigKey",
 }
 
 

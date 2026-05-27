@@ -350,11 +350,11 @@ void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
     // inactive implementation details as active controls.
     for (size_t plugin_idx = 0; plugin_idx < plugins.size(); ++plugin_idx) {
         const Plugin *plugin = plugins[plugin_idx];
-        for (const std::string &setting_key : plugin->get_used_config_keys()) {
+        for (const Plugin::UsedConfigKey &setting : plugin->get_used_config_keys()) {
             raw_gui_rule rule = raw_gui_rule_init();
             rule.action = RAW_GUI_RULE_ACTION_ENABLE_ANY;
             rule.condition = RAW_GUI_RULE_CONDITION_INT_EQUALS;
-            rule.target_key = setting_key.c_str();
+            rule.target_key = setting.key.c_str();
             rule.condition_key = group.option_def.opt_key;
             rule.condition_int_value = int32_t(plugin_idx);
             orchestrator.add_gui_rule(&rule);

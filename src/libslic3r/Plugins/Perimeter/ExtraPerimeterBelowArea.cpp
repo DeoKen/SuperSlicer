@@ -21,7 +21,9 @@ namespace {
 
 const char *k_extra_perimeter_below_area_id = "perimeter.module.extra_perimeter_below_area";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = { "extra_perimeters_below_area" };
+const raw_used_config_key k_used_config_keys[] = {
+    { "extra_perimeters_below_area", RAW_CO_FLOAT_OR_PERCENT, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE }
+};
 const char *k_extra_perimeter_below_area_key = "extra_perimeters_below_area";
 // This module does not know how many extra rings will be needed to consume the
 // small area. Instead it asks the host loop to keep trying until the generator
@@ -246,7 +248,7 @@ int32_t ExtraPerimeterBelowArea::priority_impl() const noexcept
     return -10;
 }
 
-int32_t ExtraPerimeterBelowArea::used_config_keys(const char **keys) const noexcept
+int32_t ExtraPerimeterBelowArea::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         keys[0] = k_used_config_keys[0];

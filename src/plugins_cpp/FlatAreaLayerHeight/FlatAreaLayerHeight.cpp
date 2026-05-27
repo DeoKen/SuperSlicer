@@ -26,7 +26,10 @@ namespace {
 
 const char *k_flat_area_layer_height_id = "flat_area_layer_height";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = { "layer_height_min_flat_area" };
+const raw_used_config_key k_used_config_keys[] = {
+    { "layer_height_min_flat_area", RAW_CO_FLOAT, RAW_CONTAINER_TYPE_PROJECT, RAW_PRESET_TYPE_FFF_PRINT }
+};
+const char *k_defined_config_keys[] = { "layer_height_min_flat_area" };
 
 // Keep a physical lower bound even if printer settings allow zero or extremely
 // small layer heights. The generated profile must remain usable by later FFF
@@ -613,7 +616,7 @@ int32_t FlatAreaLayerHeight::priority_impl() const noexcept
     return 10;
 }
 
-int32_t FlatAreaLayerHeight::used_config_keys(const char **keys) const noexcept
+int32_t FlatAreaLayerHeight::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     // The exclusive-step GUI uses this list to disable settings that are only
     // meaningful when this layer-height plugin is selected.
@@ -625,7 +628,7 @@ int32_t FlatAreaLayerHeight::used_config_keys(const char **keys) const noexcept
 int32_t FlatAreaLayerHeight::defined_config_keys(const char **keys) const noexcept
 {
     if (keys != nullptr)
-        keys[0] = k_used_config_keys[0];
+        keys[0] = k_defined_config_keys[0];
     return 1;
 }
 

@@ -129,7 +129,7 @@ int32_t recording_get_priority(void *plugin_ctx)
     return static_cast<RecordingPluginState *>(plugin_ctx)->priority;
 }
 
-int32_t recording_used_config_keys(void *, const char **)
+int32_t recording_used_config_keys(void *, raw_used_config_key *)
 {
     return 0;
 }

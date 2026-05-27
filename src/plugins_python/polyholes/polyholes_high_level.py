@@ -41,6 +41,7 @@ from slic3r_api import (
     round_coord,
     scale_i,
     unscaled,
+    used_config_key,
 )
 
 
@@ -133,9 +134,9 @@ class PythonPolyholesHighLevelPlugin(PluginBase):
             exclusive_group_label="Polyholes plugin",
             exclusive_group_tooltip="Choose which active plugin converts round vertical holes to polyholes.",
             used_config_keys=[
-                POLYHOLES_KEY,
-                POLYHOLES_THRESHOLD_KEY,
-                POLYHOLES_TWISTED_KEY,
+                used_config_key(POLYHOLES_KEY, RAW_CO_BOOL, RAW_CONTAINER_TYPE_REGION, RAW_PRESET_TYPE_FFF_PRINT),
+                used_config_key(POLYHOLES_THRESHOLD_KEY, RAW_CO_FLOAT_OR_PERCENT, RAW_CONTAINER_TYPE_REGION, RAW_PRESET_TYPE_FFF_PRINT),
+                used_config_key(POLYHOLES_TWISTED_KEY, RAW_CO_BOOL, RAW_CONTAINER_TYPE_REGION, RAW_PRESET_TYPE_FFF_PRINT),
             ],
             defined_config_keys=[
                 POLYHOLES_KEY,

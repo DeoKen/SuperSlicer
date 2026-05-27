@@ -21,7 +21,9 @@ namespace {
 
 const char *k_only_one_perimeter_first_layer_id = "perimeter.module.only_one_perimeter_first_layer";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = { "only_one_perimeter_first_layer" };
+const raw_used_config_key k_used_config_keys[] = {
+    { "only_one_perimeter_first_layer", RAW_CO_BOOL, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE }
+};
 const char *k_only_one_perimeter_first_layer_key = "only_one_perimeter_first_layer";
 
 class ModuleState
@@ -204,7 +206,7 @@ int32_t OnlyOnePerimeterFirstLayer::priority_impl() const noexcept
     return 7;
 }
 
-int32_t OnlyOnePerimeterFirstLayer::used_config_keys(const char **keys) const noexcept
+int32_t OnlyOnePerimeterFirstLayer::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         keys[0] = k_used_config_keys[0];

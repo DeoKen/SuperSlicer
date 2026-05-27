@@ -286,6 +286,56 @@ static void populate_config_option_def_from_raw(ConfigOptionDef &out, const raw_
     out.set_default_value(temp_default_option);
 }
 
+static bool validate_used_config_key_definition(const Plugin &plugin,
+                                                const Plugin::UsedConfigKey &used_key,
+                                                std::string &error_message)
+{
+    // used_config_keys() is the plugin's read-side contract. The plugin may
+    // read a built-in option or an option created by a dependency, but it must
+    // describe the value representation it expects. This catches stale plugins
+    // before they run with a ConfigOption subclass they do not understand.
+    if (used_key.key.empty()) {
+        error_message = "Plugin '" + plugin.get_id() + "' declares an empty used config key.";
+        return false;
+    }
+
+    const ConfigOptionType expected_type = config_option_type(used_key.type);
+    if (expected_type == coNone) {
+        error_message = "Plugin '" + plugin.get_id() + "' declares used option '" + used_key.key +
+                        "' without a supported value type.";
+        return false;
+    }
+
+    const ConfigOptionDef *def = PrintConfigDef::instance().get(used_key.key);
+    if (def == nullptr) {
+        error_message = "Plugin '" + plugin.get_id() + "' uses option '" + used_key.key +
+                        "', but no active plugin or built-in config defines it.";
+        return false;
+    }
+
+    if (def->type != expected_type) {
+        error_message = "Plugin '" + plugin.get_id() + "' expects option '" + used_key.key +
+                        "' to have a different value type.";
+        return false;
+    }
+
+    if (used_key.container_type != RAW_CONTAINER_TYPE_NONE &&
+        def->container_type != config_option_container_type(used_key.container_type)) {
+        error_message = "Plugin '" + plugin.get_id() + "' expects option '" + used_key.key +
+                        "' to live in a different config container.";
+        return false;
+    }
+
+    if (used_key.option_preset_type != RAW_PRESET_TYPE_NONE &&
+        def->option_preset_type != uint32_t(used_key.option_preset_type)) {
+        error_message = "Plugin '" + plugin.get_id() + "' expects option '" + used_key.key +
+                        "' to belong to a different preset type.";
+        return false;
+    }
+
+    return true;
+}
+
 static std::chrono::milliseconds elapsed_ms(const std::chrono::steady_clock::time_point &start)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
@@ -850,6 +900,25 @@ void Orchestrator::initialize_plugins() {
             m_initializing_plugin = nullptr;
             m_initializing_plugin_failed = false;
             m_initializing_plugin_failure.clear();
+        }
+    }
+
+    for (const std::unique_ptr<Plugin> &plugin_ptr : m_registered_plugins) {
+        if (!this->is_plugin_active(plugin_ptr.get()))
+            continue;
+
+        // Validate read-side config contracts after every active plugin had a
+        // chance to publish its option definitions. This allows a plugin to
+        // depend on settings created by another active plugin without owning or
+        // re-declaring those settings itself.
+        for (const Plugin::UsedConfigKey &used_key : plugin_ptr->get_used_config_keys()) {
+            std::string failure;
+            if (!validate_used_config_key_definition(*plugin_ptr, used_key, failure)) {
+                this->set_plugin_active(plugin_ptr.get(), false);
+                BOOST_LOG_TRIVIAL(error) << failure << " Plugin '" << plugin_ptr->get_id()
+                                         << "' will be disabled.";
+                break;
+            }
         }
     }
 }

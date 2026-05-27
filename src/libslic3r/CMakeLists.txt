@@ -85,6 +85,7 @@ set(SLIC3R_SOURCES
 	Api/plugin/c/slic3r_config_def.h
 	Api/plugin/c/slic3r_config_option.h
 	Api/plugin/c/slic3r_config_option_type.h
+	Api/plugin/c/slic3r_config_types.h
 	Api/plugin/c/slic3r_data_tree.h
 	Api/plugin/c/slic3r_def.h
 	Api/plugin/c/slic3r_extrusion_entity.h

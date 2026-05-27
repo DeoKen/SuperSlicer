@@ -21,7 +21,9 @@ namespace {
 
 const char *k_extra_perimeter_odd_layer_id = "perimeter.module.extra_perimeter_odd_layer";
 const char *k_no_dependencies[] = { nullptr };
-const char *k_used_config_keys[] = { "extra_perimeters_odd_layers" };
+const raw_used_config_key k_used_config_keys[] = {
+    { "extra_perimeters_odd_layers", RAW_CO_BOOL, RAW_CONTAINER_TYPE_NONE, RAW_PRESET_TYPE_NONE }
+};
 const char *k_extra_perimeter_odd_layer_key = "extra_perimeters_odd_layers";
 
 class ModuleState
@@ -219,7 +221,7 @@ int32_t ExtraPerimeterOddLayer::priority_impl() const noexcept
     return 0;
 }
 
-int32_t ExtraPerimeterOddLayer::used_config_keys(const char **keys) const noexcept
+int32_t ExtraPerimeterOddLayer::used_config_keys(raw_used_config_key *keys) const noexcept
 {
     if (keys != nullptr)
         keys[0] = k_used_config_keys[0];
