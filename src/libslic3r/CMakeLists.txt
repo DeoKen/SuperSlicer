@@ -143,6 +143,12 @@ set(SLIC3R_SOURCES
 	Plugins/BridgeDetector.hpp
 	Plugins/GuiRulesExample.cpp
 	Plugins/GuiRulesExample.hpp
+	Plugins/Infill/DefaultInfillGenerator.cpp
+	Plugins/Infill/DefaultInfillGenerator.hpp
+	Plugins/Infill/LegacyInfillPatterns.cpp
+	Plugins/Infill/LegacyInfillPatterns.hpp
+	Plugins/Infill/PostInfillGapFill.cpp
+	Plugins/Infill/PostInfillGapFill.hpp
 	Plugins/MaxOverhangThreshold.cpp
 	Plugins/MaxOverhangThreshold.hpp
 	Plugins/Perimeter/ArachnePerimeterGenerator.cpp

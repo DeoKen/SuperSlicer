@@ -12,13 +12,122 @@ extern "C" {
 #endif
 
 /*
+Parameters prepared by STEP_INFILL before it calls one INFILL_PATTERN plugin.
+
+The pattern plugin should treat this struct as the complete per-surface recipe:
+the host has already resolved the selected pattern id, role, flow, density,
+angle, overlap and gap-fill flags from the print/object/region settings.
+
+All distances stored as coord_t are scaled integer coordinates. All double or
+float distances are unscaled millimeters unless the field comment says
+otherwise. Angles are radians.
+*/
+typedef struct raw_infill_pattern_params {
+    /*
+    Stable plugin id selected by the matching infill pattern setting.
+    It is the serialized enum value, for example "rectilinear" or "line".
+    */
+    const char *pattern_id;
+
+    raw_surface_type surface_type;
+    raw_extrusion_role extrusion_role;
+    c_flow flow;
+
+    float density;
+    float flow_mult;
+    int32_t connection;
+
+    /*
+    add_gap_fill is the exact per-surface decision that old FillParams exposed:
+    a solid/full pattern may split its own area into normal infill plus a gap
+    fill pass. gap_fill_enabled is the broader pipeline state, useful to
+    pattern implementations that want to leave narrow residuals for a later
+    post-process instead of trying to cover every sliver themselves.
+    */
+    int32_t add_gap_fill;
+    int32_t gap_fill_enabled;
+
+    int32_t dont_adjust;
+    int32_t monotonic;
+    int32_t fill_exactly;
+    int32_t complete;
+    int32_t use_arachne;
+    int32_t can_angle_cross;
+
+    uint32_t extruder;
+    int32_t priority;
+
+    double spacing;
+    double angle;
+    double bridge_angle;
+    int32_t bridge_type;
+    double layer_height;
+    double z;
+    uint32_t layer_id;
+    double overlap;
+
+    coord_t bridge_offset;
+    coord_t fill_resolution;
+    coord_t link_max_length;
+    coord_t loop_clipping;
+    float anchor_length;
+    float anchor_length_max;
+    float max_sparse_infill_spacing;
+} raw_infill_pattern_params;
+
+/*
+Generate one surface with the INFILL_PATTERN plugin selected by pattern_id.
+
+STEP_INFILL plugins should call this instead of directly looking up pattern
+plugins. The host owns plugin selection, stale-pattern fallback, per-pattern
+setup_run(), progress plumbing and error reporting. output must be an empty
+mutable extrusion entity owned by the caller for the duration of the call; the
+selected pattern writes its generated paths into it.
+*/
+typedef int32_t (*infill_generate_pattern_fn)(
+    const struct run_ctx_generate_infill *ctx,
+    const char *pattern_id,
+    const layer_handle *layer,
+    const layer_island_handle *island,
+    const layer_region_island_handle *region_island,
+    const layer_region_handle *primary_region,
+    const surface_handle *surface,
+    const expolygon_collection_handle *no_overlap_areas,
+    const raw_infill_pattern_params *params,
+    extrusion_entity_handle *output);
+
+/*
+Move generated extrusion into the LayerRegionIsland bucket matching role.
+
+The host receives ownership by moving children out of extrusion. The caller may
+reuse or destroy extrusion after the function returns, but must not expect it to
+still contain the moved paths.
+*/
+typedef int32_t (*infill_append_region_island_extrusion_fn)(
+    layer_region_island_handle *region_island,
+    raw_extrusion_role role,
+    extrusion_entity_handle *extrusion);
+
+/*
 Payload for STEP_INFILL.
 
-This step generates infill extrusion for one object.
+Normal usage:
+- iterate the object layers, islands, region islands and fill surfaces;
+- build one raw_infill_pattern_params for each fill surface to generate;
+- call generate_pattern() to delegate line creation to the selected
+  INFILL_PATTERN plugin;
+- call append_region_island_extrusion() to publish non-empty output.
+
+host_context is an opaque pointer reserved for the host callbacks. Plugins must
+pass the original run_ctx_generate_infill pointer back to callbacks and must not
+inspect or store host_context.
 */
 typedef struct run_ctx_generate_infill {
     const print_handle *print;
     const object_handle *object;
+    void *host_context;
+    infill_generate_pattern_fn generate_pattern;
+    infill_append_region_island_extrusion_fn append_region_island_extrusion;
 } run_ctx_generate_infill;
 
 static inline const run_ctx_generate_infill *
@@ -27,6 +136,41 @@ plugin_ctx_as_generate_infill(const plugin_run_context *ctx)
     if (!ctx || ctx->step != STEP_INFILL)
         return NULL;
     return (const run_ctx_generate_infill *)ctx->data;
+}
+
+/*
+Payload for INFILL_PATTERN service plugins.
+
+Normal usage:
+- read surface and no_overlap_areas as the geometry to fill;
+- read params as the already-resolved process settings;
+- write generated extrusion into output;
+- return with output empty when this surface produces no extrusion.
+
+output is a mutable, storage-independent extrusion entity borrowed from the
+host. It starts empty for each call and is valid only during the call. The host
+moves its children under the LayerRegionIsland infill root if the plugin writes
+anything into it.
+*/
+typedef struct run_ctx_infill_pattern {
+    const print_handle *print;
+    const object_handle *object;
+    const layer_handle *layer;
+    const layer_island_handle *island;
+    const layer_region_island_handle *region_island;
+    const layer_region_handle *primary_region;
+    const surface_handle *surface;
+    const expolygon_collection_handle *no_overlap_areas;
+    const raw_infill_pattern_params *params;
+    extrusion_entity_handle *output;
+} run_ctx_infill_pattern;
+
+static inline const run_ctx_infill_pattern *
+plugin_ctx_as_infill_pattern(const plugin_run_context *ctx)
+{
+    if (!ctx || ctx->step != INFILL_PATTERN)
+        return NULL;
+    return (const run_ctx_infill_pattern *)ctx->data;
 }
 
 #ifdef __cplusplus

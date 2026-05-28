@@ -19,6 +19,7 @@
 
 #include <chrono>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,6 +35,11 @@
 #include "libslic3r/Api/host/Orchestrator.hpp"
 #include "libslic3r/Api/plugin/c/slic3r_plugin.h"
 #include "libslic3r/Api/plugin/c/slic3r_orchestrator.h"
+#include "libslic3r/FFFPrintConfig.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Plugins/Infill/DefaultInfillGenerator.hpp"
+#include "libslic3r/Plugins/Infill/LegacyInfillPatterns.hpp"
+#include "libslic3r/Plugins/Infill/PostInfillGapFill.hpp"
 #include "libslic3r/Plugins/MaxOverhangThreshold.hpp"
 #include "libslic3r/Plugins/Perimeter/ArachnePerimeterGenerator.hpp"
 #include "libslic3r/Plugins/Perimeter/ExtraPerimeterBelowArea.hpp"
@@ -344,6 +350,12 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::SliceVolumePlugin::register_slice_volume_plugin);
     register_builtin_plugin(orchestrator, "max_overhang_threshold",
         slic3r_api::MaxOverhangThresholdPlugin::register_max_overhang_threshold_plugin);
+    register_builtin_plugin(orchestrator, "infill.generator.default",
+        slic3r_api::Infill::DefaultInfillGeneratorPlugin::register_default_infill_generator_plugin);
+    register_builtin_plugin(orchestrator, "legacy_infill_patterns",
+        slic3r_api::Infill::LegacyInfillPatternsPlugin::register_legacy_infill_pattern_plugins);
+    register_builtin_plugin(orchestrator, "infill.post_process.gap_fill",
+        slic3r_api::Infill::PostInfillGapFillPlugin::register_post_infill_gap_fill_plugin);
     register_builtin_plugin(orchestrator, "perimeter.module.extra_perimeter_count",
         slic3r_api::Perimeter::ExtraPerimeterCountPlugin::register_extra_perimeter_count_plugin);
     register_builtin_plugin(orchestrator, "perimeter.module.extra_perimeter_below_area",
@@ -374,6 +386,66 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::SurfaceGeneration::CleanInfillSurfacesPlugin::register_clean_infill_surfaces_plugin);
     register_builtin_plugin(orchestrator, "support_demand_bridge_removal",
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin);
+}
+
+std::vector<std::pair<std::string, std::string>> active_infill_pattern_choices(Orchestrator &orchestrator)
+{
+    std::vector<std::pair<std::string, std::string>> choices;
+    std::set<std::string> seen_ids;
+
+    for (const Plugin *plugin : orchestrator.get_active_plugins_for_step(INFILL_PATTERN)) {
+        Slic3r::InfillPattern typed_value = Slic3r::ipCount;
+        if (!Slic3r::ConfigOptionEnum<Slic3r::InfillPattern>::from_string(plugin->get_id(), typed_value)) {
+            BOOST_LOG_TRIVIAL(warning)
+                << "Active infill pattern plugin '" << plugin->get_id()
+                << "' cannot be exposed yet because fill pattern options still use the static InfillPattern enum.";
+            continue;
+        }
+
+        if (seen_ids.insert(plugin->get_id()).second)
+            choices.emplace_back(plugin->get_id(), plugin->get_name());
+    }
+
+    return choices;
+}
+
+void apply_infill_pattern_choices_to_option(ConfigOptionDef &def,
+                                            const std::vector<std::pair<std::string, std::string>> &choices,
+                                            const std::string &default_id)
+{
+    // The GUI list is dynamic, but the stored option is still
+    // ConfigOptionEnum<InfillPattern>. set_enum<InfillPattern>() therefore
+    // keeps the existing string-to-enum map while restricting the visible
+    // choices to active INFILL_PATTERN plugins.
+    def.set_enum<InfillPattern>(choices);
+
+    InfillPattern default_pattern = ipRectilinear;
+    if (!ConfigOptionEnum<InfillPattern>::from_string(default_id, default_pattern))
+        ConfigOptionEnum<InfillPattern>::from_string(choices.front().first, default_pattern);
+    def.set_default_value(new ConfigOptionEnum<InfillPattern>(default_pattern));
+}
+
+void register_infill_pattern_config_choices(Orchestrator &orchestrator)
+{
+    const std::vector<std::pair<std::string, std::string>> choices =
+        active_infill_pattern_choices(orchestrator);
+    if (choices.empty())
+        return;
+
+    ConfigDef &definition = PrintConfigDef::instance_mutable();
+    const char *const option_keys[] = {
+        "fill_pattern",
+        "top_fill_pattern",
+        "bottom_fill_pattern",
+        "solid_fill_pattern",
+        "bridge_fill_pattern"
+    };
+
+    for (const char *option_key : option_keys) {
+        t_optiondef_map::iterator option = definition.options.find(option_key);
+        if (option != definition.options.end())
+            apply_infill_pattern_choices_to_option(option->second, choices, "rectilinear");
+    }
 }
 
 void add_exclusive_step_used_setting_rules(Orchestrator &orchestrator,
@@ -470,6 +542,7 @@ void load_plugins()
                             << (active_plugins_loaded_from_user_config ? active_plugin_config_path(config_dir).string() :
                                 default_active_plugin_config_path().string()) << ".";
     activate_plugins_from_ids(orchestrator, active_plugin_ids, active_plugins_loaded_from_user_config);
+    register_infill_pattern_config_choices(orchestrator);
     register_exclusive_step_group_options_impl(orchestrator);
 
     orchestrator.initialize_plugins();

@@ -450,6 +450,12 @@ public:
         enum_def->set_enum_map<EnumType>();
     }
 
+    template<typename EnumType>
+    void set_enum(const std::vector<std::pair<std::string, std::string>> &il) {
+        this->set_enum_values(il);
+        enum_def->set_enum_map<EnumType>();
+    }
+
     template<typename EnumType, typename Values, typename Labels>
     void set_enum(Values &&values, Labels &&labels) {
         this->set_enum_values(std::move(values), std::move(labels));

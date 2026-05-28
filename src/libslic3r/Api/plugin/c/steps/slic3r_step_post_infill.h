@@ -14,7 +14,16 @@ extern "C" {
 /*
 Payload for STEP_POST_INFILL.
 
-Runs after infill generation for one object.
+Runs after STEP_INFILL for one object.
+
+Normal usage:
+- inspect the LayerRegionIsland extrusion buckets produced by infill patterns;
+- add cleanup, gap-fill, ironing preparation, or other residual infill passes;
+- leave the object unchanged when no residual work is required.
+
+This payload is intentionally small for now. As post-infill plugins need more
+host-owned mutations, add explicit callbacks here instead of letting plugins
+write unrelated data-tree state directly.
 */
 typedef struct run_ctx_post_infill_generation {
     const print_handle *print;
