@@ -5,6 +5,7 @@
 
 #include "StepSurfaceGeneration.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <sstream>
@@ -45,9 +46,19 @@ LayerRegionIsland *to_layer_region_island(layer_region_island_handle *handle)
     return reinterpret_cast<LayerRegionIsland *>(handle);
 }
 
+const Surface *to_surface(const surface_handle *handle)
+{
+    return reinterpret_cast<const Surface *>(handle);
+}
+
 SurfaceCollection *to_surface_collection(surface_collection_handle *handle)
 {
     return reinterpret_cast<SurfaceCollection *>(handle);
+}
+
+const ExPolygons *to_expolygons(const expolygon_collection_handle *handle)
+{
+    return reinterpret_cast<const ExPolygons *>(handle);
 }
 
 double area_sum(const ExPolygons &areas)
@@ -207,6 +218,40 @@ int32_t set_region_island_fill_surfaces_callback(layer_region_island_handle *reg
     return 1;
 }
 
+void append_surface_like_callback(surface_collection_handle *dst_handle,
+                                  const surface_handle *source_handle,
+                                  const expolygon_collection_handle *areas_handle)
+{
+    // A Surface contains more than its ExPolygon and type bitmask. When a
+    // plugin splits an existing Surface, this callback lets the host preserve
+    // all metadata while replacing only the geometry pieces.
+    if (dst_handle != nullptr && source_handle != nullptr && areas_handle != nullptr)
+        to_surface_collection(dst_handle)->append(*to_expolygons(areas_handle), *to_surface(source_handle));
+}
+
+void remove_empty_region_islands(Print &print)
+{
+    // Surface plugins are allowed to split one LayerRegionIsland into several
+    // more specific groups. They clear the old group through the API, but they
+    // cannot erase it immediately because that would invalidate handles while a
+    // plugin is still traversing the data tree. The host removes empty groups
+    // only after a plugin run has fully returned.
+    for (PrintObject &object : print.objects())
+        for (Layer &layer : object.layers())
+            for (LayerSliceIsland &island : layer.islands()) {
+                LayerRegionIslandUPtrs &region_islands = island.mutable_regions_islands();
+                region_islands.erase(
+                    std::remove_if(region_islands.begin(),
+                                   region_islands.end(),
+                                   [](const LayerRegionIslandUPtr &region_island) {
+                                       return region_island != nullptr &&
+                                              region_island->fill_surfaces().empty() &&
+                                              !region_island->has_extrusions();
+                                   }),
+                    region_islands.end());
+            }
+}
+
 } // namespace
 
 void clean_and_prepare(Print &print)
@@ -249,20 +294,29 @@ void run_step(Orchestrator &orchestrator, Print &print)
     // Surface generation is a small pipeline. One plugin usually creates the
     // initial surfaces from perimeter fill areas, and later plugins refine their
     // type or geometry before infill consumes them.
-    Detail::run_object_step_plugins(
-        orchestrator,
-        print,
-        STEP_SURFACE_GENERATION,
-        &print.full_print_config(),
-        print.objects().size(),
-        [&print](const size_t object_idx) {
+    std::vector<Plugin *> plugins =
+        selected_or_active_plugins_for_step(orchestrator, STEP_SURFACE_GENERATION, &print.full_print_config());
+    for (Plugin *plugin : plugins) {
+        if (plugin == nullptr)
+            continue;
+
+        Detail::run_object_step_plugin(
+            orchestrator,
+            print,
+            STEP_SURFACE_GENERATION,
+            *plugin,
+            print.objects().size(),
+            [&print](const size_t object_idx) {
             run_ctx_surface_generation payload = {};
             payload.print = reinterpret_cast<const print_handle *>(&print);
             payload.object = reinterpret_cast<const object_handle *>(&print.object(object_idx));
             payload.get_or_create_region_island = &get_or_create_region_island_callback;
             payload.set_region_island_fill_surfaces = &set_region_island_fill_surfaces_callback;
+            payload.append_surface_like = &append_surface_like_callback;
             return payload;
         });
+        remove_empty_region_islands(print);
+    }
 }
 
 } // namespace Slic3r::Steps::StepSurfaceGeneration

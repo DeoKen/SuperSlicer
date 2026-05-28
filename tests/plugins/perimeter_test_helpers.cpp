@@ -489,6 +489,7 @@ const char *const INITIAL_TYPED_SURFACE_BUILDER = "surface.initial_typed_surface
 const char *const SOLID_SHELLS = "surface.solid_shells";
 const char *const TOP_SURFACE_EXPANSION = "surface.top_surface_expansion";
 const char *const CLEAN_INFILL_SURFACES = "surface.clean_infill_surfaces";
+const char *const INFILL_REGION_COMPATIBILITY_SPLITTER = "surface.infill_region_compatibility_splitter";
 
 ExPolygon rectangle_expolygon(const double min_x, const double min_y, const double max_x, const double max_y)
 {

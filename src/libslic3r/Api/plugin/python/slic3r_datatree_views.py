@@ -490,16 +490,6 @@ class LayerRegionIsland(DataTreeView):
     def fill_surfaces(self) -> list[Surface]:
         return [self.fill_surface(idx) for idx in range(self.fill_surface_count())]
 
-    def region_island_count(self) -> int:
-        return int(self.api.host.layer_region_island_count_region_island(self.c_handle()))
-
-    def region_island(self, idx: int) -> "LayerRegionIsland":
-        return LayerRegionIsland(self.api, self.api.host.layer_region_island_get_region_island(self.c_handle(), int(idx)))
-
-    def region_islands(self) -> Iterator["LayerRegionIsland"]:
-        for idx in range(self.region_island_count()):
-            yield self.region_island(idx)
-
 
 class MutableLayerRegionIsland(LayerRegionIsland):
     def mutable_c_handle(self) -> ctypes.c_void_p:
@@ -514,12 +504,6 @@ class MutableLayerRegionIsland(LayerRegionIsland):
 
     def set_tag(self, tag: str, value: float) -> None:
         self.api.host.layer_region_island_set_tag(self.mutable_c_handle(), _as_bytes(tag), float(value))
-
-    def region_island_mutable(self, idx: int) -> "MutableLayerRegionIsland":
-        return MutableLayerRegionIsland(
-            self.api,
-            self.api.host.layer_region_island_get_region_island_mutable(self.mutable_c_handle(), int(idx)),
-        )
 
 
 # Borrowed layer island view.

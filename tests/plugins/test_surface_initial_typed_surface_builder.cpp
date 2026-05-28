@@ -432,9 +432,9 @@ TEST_CASE("InitialTypedSurfaceBuilder converts island infill areas to typed regi
     SECTION("perimeters consumed the whole island")
     {
         // This very narrow island can receive a perimeter line, but its inner
-        // area disappears after the perimeter offset. The surface step should
-        // therefore keep the LayerRegionIsland present but with no fill
-        // surfaces, instead of resurrecting the original island as infill.
+        // area disappears after the perimeter offset. Surface generation must
+        // not resurrect the original island as infill; after host cleanup there
+        // may be no fill-only LayerRegionIsland left at all.
         PreparedPerimeterPrint prepared;
         prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}}));
         PrintObject &object = prepared.print.object(0);
@@ -447,7 +447,8 @@ TEST_CASE("InitialTypedSurfaceBuilder converts island infill areas to typed regi
 
         const LayerSliceIsland &island = layer.island(0);
         CHECK(island.infill_areas().empty());
-        require_surface_contract(island);
+        for (const LayerRegionIsland &region_island : island.regions_islands())
+            CHECK(region_island.fill_surfaces().empty());
     }
 
     SECTION("one island split into multiple fill expolygons")

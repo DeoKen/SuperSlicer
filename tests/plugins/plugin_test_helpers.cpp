@@ -43,6 +43,7 @@
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Surface/CleanInfillSurfaces.hpp"
 #include "libslic3r/Plugins/Surface/InitialTypedSurfaceBuilder.hpp"
+#include "libslic3r/Plugins/Surface/InfillRegionCompatibilitySplitter.hpp"
 #include "libslic3r/Plugins/Surface/SolidShells.hpp"
 #include "libslic3r/Plugins/Surface/TopSurfaceExpansion.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
@@ -204,6 +205,8 @@ void ensure_plugin_test_runtime_initialized()
             orchestrator_handle_value);
         slic3r_api::SurfaceGeneration::CleanInfillSurfacesPlugin::register_clean_infill_surfaces_plugin(
             orchestrator_handle_value);
+        slic3r_api::SurfaceGeneration::InfillRegionCompatibilitySplitterPlugin::
+            register_infill_region_compatibility_splitter_plugin(orchestrator_handle_value);
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         g_python_plugins_loaded = load_python_plugins_for_tests(orchestrator_handle_value) &&
                                   orchestrator.get_plugin("python.polyholes") != nullptr &&
@@ -234,6 +237,7 @@ void ensure_plugin_test_runtime_initialized()
         activate_plugin_or_fail(orchestrator, "surface.solid_shells");
         activate_plugin_or_fail(orchestrator, "surface.top_surface_expansion");
         activate_plugin_or_fail(orchestrator, "surface.clean_infill_surfaces");
+        activate_plugin_or_fail(orchestrator, "surface.infill_region_compatibility_splitter");
 #ifdef SLIC3R_TEST_PYTHON_PLUGINS
         if (g_python_plugins_loaded) {
             activate_plugin_or_fail(orchestrator, "python.polyholes");

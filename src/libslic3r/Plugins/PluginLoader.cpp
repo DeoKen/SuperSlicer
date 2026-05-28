@@ -55,6 +55,7 @@
 #include "libslic3r/Plugins/StandardLayerHeightGenerator.hpp"
 #include "libslic3r/Plugins/Surface/CleanInfillSurfaces.hpp"
 #include "libslic3r/Plugins/Surface/InitialTypedSurfaceBuilder.hpp"
+#include "libslic3r/Plugins/Surface/InfillRegionCompatibilitySplitter.hpp"
 #include "libslic3r/Plugins/Surface/SolidShells.hpp"
 #include "libslic3r/Plugins/Surface/TopSurfaceExpansion.hpp"
 #include "libslic3r/Plugins/Support/SupportDemandBridgeRemoval.hpp"
@@ -384,6 +385,9 @@ void register_builtin_plugins(orchestrator_handle *orchestrator)
         slic3r_api::SurfaceGeneration::TopSurfaceExpansionPlugin::register_top_surface_expansion_plugin);
     register_builtin_plugin(orchestrator, "surface.clean_infill_surfaces",
         slic3r_api::SurfaceGeneration::CleanInfillSurfacesPlugin::register_clean_infill_surfaces_plugin);
+    register_builtin_plugin(orchestrator, "surface.infill_region_compatibility_splitter",
+        slic3r_api::SurfaceGeneration::InfillRegionCompatibilitySplitterPlugin::
+            register_infill_region_compatibility_splitter_plugin);
     register_builtin_plugin(orchestrator, "support_demand_bridge_removal",
         slic3r_api::Support::SupportDemandBridgeRemovalPlugin::register_support_demand_bridge_removal_plugin);
 }

@@ -42,7 +42,7 @@ from slic3r_api_generated import (
     RunCtxSurfaceGeneration,
     STEP_SURFACE_GENERATION,
 )
-from slic3r_datatree_views import LayerIsland, LayerRegion, LayerRegionIsland, Object, Print
+from slic3r_datatree_views import LayerIsland, LayerRegion, LayerRegionIsland, Object, Print, Surface
 from slic3r_geometry_views import ExPolygonCollection
 
 
@@ -108,7 +108,9 @@ class SurfaceGenerationContext:
         payload = payload_ptr.contents
         if not payload.print or not payload.object:
             return None
-        if not payload.get_or_create_region_island or not payload.set_region_island_fill_surfaces:
+        if (not payload.get_or_create_region_island or
+                not payload.set_region_island_fill_surfaces or
+                not payload.append_surface_like):
             return None
         return cls(api, common, payload_ptr)
 
@@ -181,6 +183,24 @@ class SurfaceGenerationContext:
             return bool(self.payload.set_region_island_fill_surfaces(region_island.c_handle(), surfaces))
         finally:
             self.api.host.storage_free(storage, surfaces)
+
+    def append_surface_like(self, surface_collection, source: Surface, areas) -> None:
+        """
+        Append clipped pieces of an existing Surface to a temporary collection.
+
+        Use this when a surface-generation plugin splits an existing Surface and
+        must keep the host-side metadata attached to it. New surfaces with only
+        a type bitmask should use surface_collection_append() instead.
+        """
+        if areas is None:
+            return
+        if hasattr(areas, "empty") and areas.empty():
+            return
+        self.payload.append_surface_like(
+            _void_p(surface_collection),
+            source.c_handle(),
+            _void_p(_areas_handle(areas)),
+        )
 
     def clear_fill_surfaces(self, region_island: LayerRegionIsland) -> bool:
         return bool(self.payload.set_region_island_fill_surfaces(region_island.c_handle(), None))

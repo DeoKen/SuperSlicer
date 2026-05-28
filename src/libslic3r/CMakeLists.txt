@@ -181,6 +181,8 @@ set(SLIC3R_SOURCES
 	Plugins/Surface/CleanInfillSurfaces.hpp
 	Plugins/Surface/InitialTypedSurfaceBuilder.cpp
 	Plugins/Surface/InitialTypedSurfaceBuilder.hpp
+	Plugins/Surface/InfillRegionCompatibilitySplitter.cpp
+	Plugins/Surface/InfillRegionCompatibilitySplitter.hpp
 	Plugins/Surface/SolidShells.cpp
 	Plugins/Surface/SolidShells.hpp
 	Plugins/Surface/TopSurfaceExpansion.cpp

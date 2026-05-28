@@ -48,12 +48,28 @@ typedef int32_t (*surface_generation_set_region_island_fill_surfaces_fn)(
     layer_region_island_handle *region_island,
     surface_collection_handle *surfaces);
 
+/*
+Append one Surface per ExPolygon into a temporary SurfaceCollection, copying
+all non-geometry fields from source.
+
+This helper belongs to STEP_SURFACE_GENERATION because it is mainly useful
+when a surface plugin clips an existing Surface and must preserve its host-side
+metadata: bridge angle, thickness, priority, dense-infill hints, and any future
+fields that are not represented by the small C surface type bitmask. Newly
+created surfaces can still use surface_collection_append().
+*/
+typedef void (*surface_generation_append_surface_like_fn)(
+    surface_collection_handle *dst,
+    const surface_handle *source,
+    const expolygon_collection_handle *areas);
+
 typedef struct run_ctx_surface_generation {
     const print_handle *print;
     const object_handle *object;
 
     surface_generation_get_or_create_region_island_fn get_or_create_region_island;
     surface_generation_set_region_island_fill_surfaces_fn set_region_island_fill_surfaces;
+    surface_generation_append_surface_like_fn append_surface_like;
 } run_ctx_surface_generation;
 
 static inline const run_ctx_surface_generation *
