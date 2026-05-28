@@ -12,6 +12,7 @@
 #include "libslic3r/LayerRegion.hpp"
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/Steps/StepGeneratePerimeter.hpp"
+#include "libslic3r/Steps/StepPostSlicing.hpp"
 #include "libslic3r/Steps/StepSurfaceGeneration.hpp"
 #include "libslic3r/Surface.hpp"
 #include "libslic3r/SurfaceCollection.hpp"
@@ -212,6 +213,52 @@ TEST_CASE("SolidShells promotes sparse surface areas required by top and bottom 
           "[plugins][surface-generation][solid-shells]")
 {
     Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
+
+    SECTION("vertical cube keeps a sparse core between configured solid shells")
+    {
+        // This mirrors a real cube slice: the post-slicing step owns the
+        // upper/lower island graph, and no test helper rebuilds it afterward.
+        // With three top and bottom solid layers, only the two internal layers
+        // near each exposed side should become solid. A middle layer must stay
+        // sparse and must not be classified as an unsupported bridge bottom.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({
+            {"perimeters", "1"},
+            {"raft_layers", "0"},
+            {"top_solid_layers", "3"},
+            {"bottom_solid_layers", "3"},
+            {"top_solid_min_thickness", "0"},
+            {"bottom_solid_min_thickness", "0"},
+            {"solid_over_perimeters", "0"}
+        }));
+        PrintObject &object = prepared.print.object(0);
+        REQUIRE(object.layer_count() > 7);
+
+        {
+            ScopedActivePlugins no_post_slicing_plugins({});
+            Steps::StepPostSlicing::run_step(Orchestrator::instance(), prepared.print);
+        }
+
+        run_solid_shell_surface_case(prepared);
+
+        const LayerSliceIsland &bottom_shell_island = object.layer(1).island(0);
+        const LayerSliceIsland &core_island = object.layer(3).island(0);
+        const LayerSliceIsland &top_shell_island = object.layer(layer_index_for_top(object) - 1).island(0);
+        const SurfaceType bridge_bottom = stPosBottom | stDensSolid | stModBridge;
+
+        require_same_union(surface_expolygons_of_type(whole_region_island(bottom_shell_island).fill_surfaces(),
+                                                      stPosInternal | stDensSolid),
+                           bottom_shell_island.infill_areas());
+        require_same_union(surface_expolygons_of_type(whole_region_island(top_shell_island).fill_surfaces(),
+                                                      stPosInternal | stDensSolid),
+                           top_shell_island.infill_areas());
+
+        CHECK(surface_area(core_island, bridge_bottom) <= area_tolerance());
+        CHECK(surface_area(core_island, stPosInternal | stDensSolid) <= area_tolerance());
+        require_same_union(surface_expolygons_of_type(whole_region_island(core_island).fill_surfaces(),
+                                                      stPosInternal | stDensSparse),
+                           core_island.infill_areas());
+    }
 
     SECTION("top_solid_layers promotes the layer directly below a top surface")
     {

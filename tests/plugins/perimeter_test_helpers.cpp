@@ -93,11 +93,23 @@ TriangleMesh make_box(const Box &box)
     return TriangleMesh(std::move(vertices), std::move(faces));
 }
 
+void rebuild_island_overlap_graph(PrintObject &object);
+
 void run_until_perimeter_input(Orchestrator &orchestrator, Print &print)
 {
     Steps::StepLayerHeightGeneration::run_step(orchestrator, print);
     Steps::StepSlicing::run_step(orchestrator, print);
-    Steps::StepPostSlicing::run_step(orchestrator, print);
+
+    // Most perimeter tests edit LayerSliceIsland geometry directly after the
+    // base cube is sliced. StepPostSlicing finalizes and locks islands, so the
+    // mutable fixture attaches regions and rebuilds the upper/lower graph
+    // without taking that final production lock.
+    for (PrintObject &object : print.objects()) {
+        for (Layer &layer : object.layers())
+            for (LayerSliceIsland &island : layer.islands())
+                island.fill_regions(layer);
+        rebuild_island_overlap_graph(object);
+    }
 }
 
 void set_region_areas(LayerRegion &region, ExPolygons areas)

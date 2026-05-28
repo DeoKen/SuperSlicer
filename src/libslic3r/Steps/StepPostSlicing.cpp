@@ -161,6 +161,25 @@ void attach_regions_to_islands(Print &print)
             layer.add_regions_to_islands();
 }
 
+void rebuild_island_overlap_graph(Print &print)
+{
+    // Surface classification and several perimeter modules ask an island for
+    // its direct upper/lower neighbors. Those links are not implied by the raw
+    // slice polygons; they must be rebuilt after the final post-slicing edit
+    // has finished changing island geometry.
+    for (PrintObject &object : print.objects()) {
+        for (Layer &layer : object.layers()) {
+            for (LayerSliceIsland &island : layer.islands()) {
+                island.overlaps_above.clear();
+                island.overlaps_below.clear();
+            }
+        }
+
+        for (size_t layer_idx = 1; layer_idx < object.layer_count(); ++layer_idx)
+            Layer::build_up_down_graph(object.layer(layer_idx - 1), object.layer(layer_idx));
+    }
+}
+
 void run_step(Orchestrator &orchestrator, Print &print)
 {
     Detail::validate_or_report(validate_pre, print, "Post-slicing pre-step validation");
@@ -203,6 +222,7 @@ void run_step(Orchestrator &orchestrator, Print &print)
     }
 
     attach_regions_to_islands(print);
+    rebuild_island_overlap_graph(print);
 
     //old post-clicing, replaced by plugins
 //    this->_max_overhang_threshold();

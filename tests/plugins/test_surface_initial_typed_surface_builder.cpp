@@ -13,6 +13,7 @@
 #include "libslic3r/PrintObject.hpp"
 #include "libslic3r/PrintRegion.hpp"
 #include "libslic3r/Steps/StepGeneratePerimeter.hpp"
+#include "libslic3r/Steps/StepPostSlicing.hpp"
 #include "libslic3r/Steps/StepSurfaceGeneration.hpp"
 #include "libslic3r/Surface.hpp"
 #include "libslic3r/SurfaceCollection.hpp"
@@ -312,6 +313,46 @@ TEST_CASE("InitialTypedSurfaceBuilder converts island infill areas to typed regi
         const LayerSliceIsland &island = layer.island(0);
         REQUIRE_FALSE(island.infill_areas().empty());
         require_only_surface_type(whole_region_island(island).fill_surfaces(), stPosInternal | stDensSparse, island.infill_areas());
+    }
+
+    SECTION("untouched cube uses the post-slicing upper/lower island graph")
+    {
+        // This is the production-shaped case: StepSlicing and StepPostSlicing
+        // created the islands, and the test does not rebuild overlap links by
+        // hand. A vertical cube must have bottom skin on the first layer,
+        // sparse internal middle layers, and top skin only on the last layer.
+        // If the upper/lower graph is missing, every layer looks isolated and
+        // the classifier turns the first layer into top and all other layers
+        // into bottom bridges.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({{"perimeters", "1"}, {"raft_layers", "0"}}));
+        PrintObject &object = prepared.print.object(0);
+        REQUIRE(object.layer_count() > 2);
+
+        {
+            ScopedActivePlugins no_post_slicing_plugins({});
+            Steps::StepPostSlicing::run_step(Orchestrator::instance(), prepared.print);
+        }
+
+        ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
+        run_perimeter_and_surface_steps(prepared.print);
+
+        const LayerSliceIsland &first_island = object.layer(0).island(0);
+        const LayerSliceIsland &middle_island = object.layer(1).island(0);
+        const LayerSliceIsland &top_island = object.layer(layer_index_for_top(object)).island(0);
+
+        REQUIRE_FALSE(first_island.infill_areas().empty());
+        REQUIRE_FALSE(middle_island.infill_areas().empty());
+        REQUIRE_FALSE(top_island.infill_areas().empty());
+        require_only_surface_type(whole_region_island(first_island).fill_surfaces(),
+                                  stPosBottom | stDensSolid,
+                                  first_island.infill_areas());
+        require_only_surface_type(whole_region_island(middle_island).fill_surfaces(),
+                                  stPosInternal | stDensSparse,
+                                  middle_island.infill_areas());
+        require_only_surface_type(whole_region_island(top_island).fill_surfaces(),
+                                  stPosTop | stDensSolid,
+                                  top_island.infill_areas());
     }
 
     SECTION("top layer uncovered above becomes top")
