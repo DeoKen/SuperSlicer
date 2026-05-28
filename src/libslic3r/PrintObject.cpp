@@ -4738,6 +4738,29 @@ static void project_triangles_to_slabs(RefView<Layer, LayerPtrContainer> layers,
             pts.emplace_back(Point::new_scale(pt));
             assert(pts.size() <= 5);
         }
+
+        bool normalize_for_polygon()
+        {
+            // A slab boundary may pass exactly through a triangle vertex. In
+            // that case the projection builder can append the same scaled
+            // coordinate twice, including as an explicit closing point.
+            // Polygon stores a closed contour implicitly, so remove those
+            // duplicate coordinates before constructing the Polygon object.
+            size_t dst_idx = 0;
+            for (size_t src_idx = 0; src_idx < pts.size(); ++src_idx) {
+                if (dst_idx == 0 || !pts[src_idx].coincides_with_epsilon(pts[dst_idx - 1])) {
+                    if (dst_idx != src_idx)
+                        pts[dst_idx] = pts[src_idx];
+                    ++dst_idx;
+                }
+            }
+            pts.resize(dst_idx);
+
+            if (pts.size() > 1 && pts.front().coincides_with_epsilon(pts.back()))
+                pts.pop_back();
+
+            return pts.size() >= 3;
+        }
     };
 
     // Structure to collect projected polygons. One element for each triangle.
@@ -4891,7 +4914,8 @@ static void project_triangles_to_slabs(RefView<Layer, LayerPtrContainer> layers,
 //                if (cross2(Vec2d((poly.pts[1] - poly.pts[0]).cast<double>()), Vec2d((poly.pts[2] - poly.pts[1]).cast<double>())) < 0)
 //                    std::swap(poly.pts.front(), poly.pts.back());
                 
-            out[layer_id].emplace_back(std::move(poly.pts));
+            if (poly.normalize_for_polygon())
+                out[layer_id].emplace_back(std::move(poly.pts));
             ++layer_id;
         }
     }
