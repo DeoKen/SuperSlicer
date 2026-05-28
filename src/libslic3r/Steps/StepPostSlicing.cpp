@@ -149,6 +149,18 @@ bool validate_post(const Print &print, std::string &error)
     return validate_pre(print, error);
 }
 
+void attach_regions_to_islands(Print &print)
+{
+    // Slicing and post-slicing plugins own the raw LayerRegion slices and may
+    // rebuild the geometric LayerSliceIsland list. The perimeter and surface
+    // steps then need each island to know which LayerRegions intersect it, so
+    // this finalizes that relation once all post-slicing geometry edits are
+    // finished.
+    for (PrintObject &object : print.objects())
+        for (Layer &layer : object.layers())
+            layer.add_regions_to_islands();
+}
+
 void run_step(Orchestrator &orchestrator, Print &print)
 {
     Detail::validate_or_report(validate_pre, print, "Post-slicing pre-step validation");
@@ -189,6 +201,8 @@ void run_step(Orchestrator &orchestrator, Print &print)
 
         Detail::validate_or_report(validate_post, print, "Post-slicing post-plugin validation");
     }
+
+    attach_regions_to_islands(print);
 
     //old post-clicing, replaced by plugins
 //    this->_max_overhang_threshold();
