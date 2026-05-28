@@ -234,6 +234,7 @@ class RegionSettings
 public:
     using OptionKeyGroup = std::vector<std::string>;
     using AreaMap = std::map<RegionSettingsValue, RegionSettingsClip>;
+    using RegionMap = std::map<RegionSettingsValue, std::vector<LayerRegion>>;
 
     RegionSettings(storage_handle *storage,
                    const Config &default_config,
@@ -270,6 +271,7 @@ public:
 
     void segregate(const ExPolygon &area) {
         m_key_areas.clear();
+        m_key_regions.clear();
         ClipperContext clip(m_storage);
 
         for (const OptionKeyGroup &group : m_option_groups) {
@@ -278,6 +280,7 @@ public:
 
             const std::string &primary_key = group.front();
             AreaMap areas;
+            RegionMap regions;
             const RegionSettingsValue default_value =
                 RegionSettingsValue::create(m_default_config, m_default_config, group);
 
@@ -295,6 +298,7 @@ public:
                 for (const LayerRegion &region : m_regions) {
                     const RegionSettingsValue region_value =
                         RegionSettingsValue::create(m_default_config, region.print_region().config(), group);
+                    regions[region_value].push_back(region);
                     std::pair<AreaMap::iterator, bool> inserted =
                         areas.emplace(std::piecewise_construct,
                                       std::forward_as_tuple(region_value),
@@ -326,9 +330,11 @@ public:
                 areas.emplace(std::piecewise_construct,
                               std::forward_as_tuple(default_value),
                               std::forward_as_tuple(m_storage));
+                regions[default_value] = m_regions;
             }
 
             m_key_areas.emplace(primary_key, std::move(areas));
+            m_key_regions.emplace(primary_key, std::move(regions));
         }
     }
 
@@ -341,6 +347,20 @@ public:
         const AreaMap *areas = find_areas(key);
         assert(areas != nullptr);
         return *areas;
+    }
+
+    const std::vector<LayerRegion> &get_regions(const char *key,
+                                                const RegionSettingsValue &value) const
+    {
+        // get_areas() tells an algorithm where one value applies. get_regions()
+        // answers the companion question: which source regions produced that
+        // value. This is useful when a plugin must move clipped geometry into a
+        // new LayerRegionIsland with the matching region ownership.
+        const std::map<std::string, RegionMap>::const_iterator key_it = m_key_regions.find(key);
+        assert(key_it != m_key_regions.end());
+        const RegionMap::const_iterator value_it = key_it->second.find(value);
+        assert(value_it != key_it->second.end());
+        return value_it->second;
     }
 
     const RegionSettingsValue &get_solo_config(const char *key) const {
@@ -382,6 +402,7 @@ private:
     std::vector<OptionKeyGroup> m_option_groups;
     std::vector<LayerRegion> m_regions;
     std::map<std::string, AreaMap> m_key_areas;
+    std::map<std::string, RegionMap> m_key_regions;
 };
 
 } // namespace slic3r_api
