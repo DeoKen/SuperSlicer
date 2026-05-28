@@ -171,6 +171,8 @@ set(SLIC3R_SOURCES
 	Plugins/SliceVolume.hpp
 	Plugins/StandardLayerHeightGenerator.cpp
 	Plugins/StandardLayerHeightGenerator.hpp
+	Plugins/Surface/CleanInfillSurfaces.cpp
+	Plugins/Surface/CleanInfillSurfaces.hpp
 	Plugins/Surface/InitialTypedSurfaceBuilder.cpp
 	Plugins/Surface/InitialTypedSurfaceBuilder.hpp
 	Plugins/Surface/SolidShells.cpp

@@ -22,6 +22,7 @@ add_executable(${_TEST_NAME}_tests
     test_polyholes.cpp
     test_support_demand_modifiers.cpp
     test_support_demand_overhangs.cpp
+    test_surface_clean_infill_surfaces.cpp
     test_surface_initial_typed_surface_builder.cpp
     test_surface_solid_shells.cpp
     test_surface_top_surface_expansion.cpp

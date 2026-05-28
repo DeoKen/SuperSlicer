@@ -488,6 +488,7 @@ const char *const FUZZY_SKIN = "perimeter.post_process.fuzzy_skin";
 const char *const INITIAL_TYPED_SURFACE_BUILDER = "surface.initial_typed_surface_builder";
 const char *const SOLID_SHELLS = "surface.solid_shells";
 const char *const TOP_SURFACE_EXPANSION = "surface.top_surface_expansion";
+const char *const CLEAN_INFILL_SURFACES = "surface.clean_infill_surfaces";
 
 ExPolygon rectangle_expolygon(const double min_x, const double min_y, const double max_x, const double max_y)
 {

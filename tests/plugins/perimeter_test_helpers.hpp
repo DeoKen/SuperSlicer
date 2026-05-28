@@ -33,6 +33,7 @@ extern const char *const FUZZY_SKIN;
 extern const char *const INITIAL_TYPED_SURFACE_BUILDER;
 extern const char *const SOLID_SHELLS;
 extern const char *const TOP_SURFACE_EXPANSION;
+extern const char *const CLEAN_INFILL_SURFACES;
 
 struct PerimeterRunCapture
 {
