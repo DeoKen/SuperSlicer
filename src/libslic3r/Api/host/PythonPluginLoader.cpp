@@ -50,6 +50,24 @@ struct PythonUsedConfigKey
     raw_option_preset_type option_preset_type = RAW_PRESET_TYPE_NONE;
 };
 
+bool ensure_python_initialized_for_plugins()
+{
+    if (Py_IsInitialized())
+        return true;
+
+    Py_Initialize();
+    if (!Py_IsInitialized())
+        return false;
+
+    // Py_Initialize() leaves the startup thread holding the Python GIL. Plugin
+    // callbacks run later from slicing/background threads and use
+    // PyGILState_Ensure() before entering Python. If the startup thread keeps
+    // the initial GIL, those callbacks block forever. Release it once here; all
+    // later Python entry points explicitly acquire and release the GIL.
+    PyEval_SaveThread();
+    return true;
+}
+
 boost::filesystem::path current_module_path()
 {
 #ifdef _WIN32
@@ -751,9 +769,7 @@ void load_python_plugins(orchestrator_handle *orchestrator)
     if (register_plugin_fn == nullptr)
         return;
 
-    if (!Py_IsInitialized())
-        Py_Initialize();
-    if (!Py_IsInitialized()) {
+    if (!ensure_python_initialized_for_plugins()) {
         BOOST_LOG_TRIVIAL(error) << "Cannot initialize Python runtime for plugins.";
         return;
     }
