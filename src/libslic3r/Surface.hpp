@@ -82,14 +82,18 @@ class Surface
 public:
     SurfaceType     surface_type;
     ExPolygon       expolygon;
+    // @Deprecated
     uint16_t        thickness_layers{1_u}; // in layers
     void    set_scaled_thickness(coord_t layer_height) { m_thickness = layer_height; assert(layer_height > 100); }
     coord_t scaled_thickness() const { return m_thickness; }
     double  unscaled_thickness() const { return unscaled(m_thickness); }
+    // @Deprecated
     double          bridge_angle     { -1. }; // in radians, ccw, 0 = East, only 0+ (negative means undefined)
+    // @Deprecated
     uint16_t        extra_perimeters{0_u};
     //for dense infill
     uint16_t        maxNbSolidLayersOnTop { uint16_t(-1) };
+    //for dense infill
     uint16_t        priority              {  0_u };
     
     Surface(const Surface &rhs) :
