@@ -1484,6 +1484,35 @@ void _3DScene::thick_lines_to_verts(
     thick_lines_to_geometry(lines, widths, heights, closed, geometry);
 }
 
+static void extrusionentity_polyline_to_verts(const ExtrusionEntity &entity,
+                                              float print_z,
+                                              const Point &copy,
+                                              GUI::GLModel::Geometry &geometry)
+{
+    const ArcPolyline *arc_polyline = entity.polyline_or_null();
+    const ExtrusionAttributes *attributes = entity.get_property<ExtrusionAttributes>();
+    if (arc_polyline == nullptr || attributes == nullptr)
+        return;
+
+    // New pipeline entities may be plain ExtrusionEntity leaves instead of the
+    // historical ExtrusionPath subclass. They still carry the same ArcPolyline
+    // and ExtrusionAttributes, which is enough to build the preview mesh.
+    Polyline polyline = arc_polyline->to_polyline();
+    polyline.remove_duplicate_points();
+    if (polyline.points.size() < 2)
+        return;
+
+    polyline.translate(copy);
+    const Lines lines = polyline.lines();
+    if (lines.empty())
+        return;
+
+    std::vector<double> widths(lines.size(), attributes->width);
+    std::vector<double> heights(lines.size(), attributes->height);
+    const bool closed = entity.is_loop() || polyline.points.front() == polyline.points.back();
+    _3DScene::thick_lines_to_verts(lines, widths, heights, closed, print_z, geometry);
+}
+
 // Fill in the qverts and tverts with quads and triangles for the extrusion_path.
 void _3DScene::extrusionentity_to_verts(const ExtrusionPath& extrusion_path, float print_z, const Point& copy, GUI::GLModel::Geometry& geometry)
 {
@@ -1553,7 +1582,9 @@ void ExtrusionToVert::default_use(const ExtrusionEntity &entity)
     } else if (const ExtrusionLoop *loop = dynamic_cast<const ExtrusionLoop*>(&entity)) {
         _3DScene::extrusionentity_to_verts(*loop, print_z, copy, geometry);
     } else {
-        if (!entity.is_leaf())
+        if (entity.polyline_or_null() != nullptr)
+            extrusionentity_polyline_to_verts(entity, print_z, copy, geometry);
+        else if (!entity.is_leaf())
             for (const ExtrusionEntityUPtr &child : entity.children())
                 if (child)
                     child->visit(*this);
@@ -1565,7 +1596,9 @@ void ExtrusionToVertMap::default_use(const ExtrusionEntity& entity)
     if (const ExtrusionPath *path = dynamic_cast<const ExtrusionPath*>(&entity)) {
         _3DScene::extrusionentity_to_verts(*path, print_z, copy, get_geometry(*path));
     } else {
-        if (!entity.is_leaf())
+        if (entity.polyline_or_null() != nullptr)
+            extrusionentity_polyline_to_verts(entity, print_z, copy, get_geometry(entity));
+        else if (!entity.is_leaf())
             for (const ExtrusionEntityUPtr &child : entity.children())
                 if (child)
                     child->visit(*this);

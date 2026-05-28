@@ -453,6 +453,17 @@ bool stop_after(slicing_step_t current, slicing_step_t until)
     return current == until;
 }
 
+void mark_legacy_step_done(Print &print, slicing_step_t step)
+{
+    // The new plugin pipeline writes the same data that the legacy GUI expects,
+    // but the GUI still asks the historical Print/PrintObject state machine
+    // whether slices, perimeters or infill are available. Mark only those
+    // compatibility milestones that really correspond to finished data.
+    Print::StatusMonitor status(print);
+    if (status.set_started(step))
+        status.set_done(step);
+}
+
 void run_layer_height_generation(Orchestrator &orchestrator, Print &print, const std::string &path)
 {
     begin_step(print, STEP_LAYER_HEIGHT, L("Creating the layer height"), path);
@@ -464,6 +475,7 @@ void run_slicing(Orchestrator &orchestrator, Print &print, const std::string &pa
 {
     begin_step(print, STEP_SLICING, L("StepSlicing"), path);
     StepSlicing::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posSlice);
 }
 
 void run_post_slicing(Orchestrator &orchestrator, Print &print, const std::string &path)
@@ -490,6 +502,7 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     begin_step(print, STEP_PERIMETER, L("Generating perimeters"), path);
     StepGeneratePerimeter::clean_and_prepare(print);
     StepGeneratePerimeter::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posPerimeters);
     if (stop_after(STEP_PERIMETER, until)) return;
     
     begin_step(print, STEP_POST_PERIMETER, L("Post-processing perimeters"), path);
@@ -516,6 +529,7 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     begin_step(print, STEP_PRE_INFILL, L("Preparing infill"), path);
     StepPrepareInfill::clean_and_prepare(print);
     StepPrepareInfill::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posPrepareInfill);
     if (stop_after(STEP_PRE_INFILL, until)) return;
 
     begin_step(print, STEP_INFILL_GROUP, L("Grouping infill regions"), path);
@@ -526,11 +540,13 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     begin_step(print, STEP_INFILL, L("Generating infill"), path);
     StepGenerateInfill::clean_and_prepare(print);
     StepGenerateInfill::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posInfill);
     if (stop_after(STEP_INFILL, until)) return;
 
     begin_step(print, STEP_POST_INFILL, L("Post-processing infill"), path);
     StepPostInfillGeneration::clean_and_prepare(print);
     StepPostInfillGeneration::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posIroning);
     if (stop_after(STEP_POST_INFILL, until)) return;
 
     begin_step(print, STEP_SUPPORT_DEMAND, L("Detecting support demand"), path);
@@ -541,6 +557,7 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     begin_step(print, STEP_SUPPORT, L("Generating support material"), path);
     StepGenerateSupport::clean_and_prepare(print);
     StepGenerateSupport::run_step(orchestrator, print, support_demand);
+    mark_legacy_step_done(print, posSupportMaterial);
     if (stop_after(STEP_SUPPORT, until)) return;
 
     begin_step(print, STEP_PRE_GCODE, L("Preparing G-code"), path);
@@ -561,11 +578,13 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     begin_step(print, STEP_SUPPORT_SPOT, L("Detecting support spots"), path);
     StepDetectSupportSpots::clean_and_prepare(print);
     StepDetectSupportSpots::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posSupportSpotsSearch);
     if (stop_after(STEP_SUPPORT_SPOT, until)) return;
 
     begin_step(print, STEP_LAYER_EXTRUSION_EDIT, L("Editing layers extrusions"), path);
     StepLayerExtrusionEdition::clean_and_prepare(print);
     StepLayerExtrusionEdition::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posEstimateCurledExtrusions);
     if (stop_after(STEP_LAYER_EXTRUSION_EDIT, until)) return;
 
     begin_step(print, STEP_LAYER_STICHING, L("Stitching layers"), path);
@@ -576,11 +595,13 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     begin_step(print, STEP_EXTRUSION_EDIT, L("Editing extrusions"), path);
     StepExtrusionEdition::clean_and_prepare(print);
     StepExtrusionEdition::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posCalculateOverhangingPerimeters);
     if (stop_after(STEP_EXTRUSION_EDIT, until)) return;
 
     begin_step(print, STEP_EXTRUSION_SIMPLIFICATION, L("Simplifying extrusions"), path);
     StepExtrusionSimplification::clean_and_prepare(print);
     StepExtrusionSimplification::run_step(orchestrator, print);
+    mark_legacy_step_done(print, posSimplifyPath);
     if (stop_after(STEP_EXTRUSION_SIMPLIFICATION, until)) return;
 }
 

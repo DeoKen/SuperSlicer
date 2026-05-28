@@ -2904,7 +2904,11 @@ void GLCanvas3D::load_gcode_shells()
 }
 
 bool GLCanvas3D::is_gcode_preview_dirty(const GCodeProcessorResult& gcode_result) {
-    return last_showned_gcode != gcode_result.computed_timestamp;
+    // computed_timestamp has one-second granularity, while an interactive slice
+    // can produce two different G-code results inside the same second. The
+    // processor result id is the reliable identity used by GCodeViewer::load().
+    return last_showned_gcode != gcode_result.computed_timestamp ||
+           !m_gcode_viewer.is_loaded(gcode_result);
 }
 
 void GLCanvas3D::load_gcode_preview(const GCodeProcessorResult     &gcode_result,

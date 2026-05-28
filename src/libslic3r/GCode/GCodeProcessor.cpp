@@ -1434,9 +1434,11 @@ void GCodeProcessor::initialize(const std::string& filename)
     m_start_time = std::chrono::high_resolution_clock::now();
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
 
-    // process gcode
+    // G-code export reuses one processor instance and then moves the previous
+    // result to the GUI. Reset the parser and result container before every
+    // streamed export so the preview gets a fresh id and the dummy first move.
+    this->reset();
     m_result.filename = filename;
-    m_result.id = ++s_result_id;
 }
 
 void GCodeProcessor::process_buffer(const std::string &buffer)
