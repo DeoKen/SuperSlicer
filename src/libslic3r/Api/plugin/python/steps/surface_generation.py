@@ -11,6 +11,22 @@ computed island-level infill areas; a surface generator turns those areas into
 LayerRegionIsland fill surfaces that later steps classify as top, bottom,
 bridge, sparse, solid, and so on.
 
+Context contents
+----------------
+
+SurfaceGenerationContext exposes:
+
+* read-only print() and object() views; the plugin iterates layers, islands, and
+  LayerRegionIslands through the data-tree views;
+* get_or_create_region_island(), which returns the LayerRegionIsland associated
+  with one island and a compatible set of LayerRegions;
+* set_fill_surfaces() and set_fill_surface_groups(), which build host-owned
+  Surface objects from ExPolygon areas and move them into a LayerRegionIsland;
+* append_surface_like(), for copying the non-geometric attributes of an
+  existing Surface while replacing its geometry;
+* clear_fill_surfaces(), plugin_storage(), cancellation, progress, warning, and
+  error helpers.
+
 Typical use
 -----------
 

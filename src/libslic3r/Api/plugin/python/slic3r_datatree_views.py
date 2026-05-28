@@ -49,6 +49,7 @@ from slic3r_api_generated import (
     CFloatOrPercent,
     CMatrix4d,
     CSurface,
+    CTriangleIndices,
     RAW_SURFACE_TYPE_DENS_SOLID,
     RAW_SURFACE_TYPE_DENS_SPARSE,
     RAW_SURFACE_TYPE_DENS_VOID,
@@ -417,6 +418,61 @@ class MutableSurfaceCollection(SurfaceCollection):
         return MutableSurface(self.api, self.api.host.surface_collection_at_mutable(self.mutable_c_handle(), int(idx)))
 
 
+class TriangleMesh(DataTreeView):
+    """
+    Borrowed read-only triangle mesh view.
+
+    Mesh vertices use unscaled millimeters, unlike most 2D geometry in the
+    slicing data tree. Slicing plugins usually get this through Volume.mesh().
+    """
+
+    def vertex_count(self) -> int:
+        return int(self.api.host.triangle_mesh_vertex_count(self.c_handle()))
+
+    def triangle_count(self) -> int:
+        return int(self.api.host.triangle_mesh_triangle_count(self.c_handle()))
+
+    def vertex_at(self, idx: int):
+        return self.api.host.triangle_mesh_vertex_at(self.c_handle(), int(idx))
+
+    def triangle_at(self, idx: int) -> CTriangleIndices:
+        return self.api.host.triangle_mesh_triangle_at(self.c_handle(), int(idx))
+
+
+class Volume(DataTreeView):
+    """
+    Borrowed read-only model volume view.
+
+    Volumes are the raw model inputs used by STEP_SLICING. They expose the mesh,
+    transform and volume-level config needed to decide how a slicing plugin
+    should write layer-region polygons.
+    """
+
+    def type(self) -> int:
+        return int(self.api.host.volume_get_type(self.c_handle()))
+
+    def id(self) -> int:
+        return int(self.api.host.volume_get_id(self.c_handle()))
+
+    def config(self) -> Config:
+        return Config(self.api, self.api.host.volume_get_config(self.c_handle()))
+
+    def extruder_id(self) -> int:
+        return int(self.api.host.volume_get_extruder_id(self.c_handle()))
+
+    def matrix(self) -> CMatrix4d:
+        return self.api.host.volume_get_matrix(self.c_handle())
+
+    def matrix_no_offset(self) -> CMatrix4d:
+        return self.api.host.volume_get_matrix_no_offset(self.c_handle())
+
+    def has_painting(self, paint_key: str) -> bool:
+        return bool(self.api.host.volume_has_painting(self.c_handle(), _as_bytes(paint_key)))
+
+    def mesh(self) -> TriangleMesh:
+        return TriangleMesh(self.api, self.api.host.volume_get_mesh(self.c_handle()))
+
+
 # Borrowed print-region view.
 class PrintRegion(DataTreeView):
     def config(self) -> Config:
@@ -692,6 +748,16 @@ class Object(DataTreeView):
         for idx in range(self.layer_count()):
             yield self.layer(idx)
 
+    def volume_count(self) -> int:
+        return int(self.api.host.object_volume_count(self.c_handle()))
+
+    def volume(self, idx: int) -> Volume:
+        return Volume(self.api, self.api.host.object_volume_at(self.c_handle(), int(idx)))
+
+    def volumes(self) -> Iterator[Volume]:
+        for idx in range(self.volume_count()):
+            yield self.volume(idx)
+
     def print_region_count(self) -> int:
         return int(self.api.host.object_count_region(self.c_handle()))
 
@@ -769,6 +835,8 @@ __all__ = [
     "Surface",
     "SurfaceCollection",
     "SurfaceTypeBuilder",
+    "TriangleMesh",
+    "Volume",
     "srf_type",
     "unscaled",
 ]

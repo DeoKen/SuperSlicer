@@ -12,6 +12,28 @@ run_region_group(). The host owns the perimeter-node tree, calls registered
 perimeter modules before/after each generated ring, and publishes the final
 extrusions and fill areas back into the layer data tree.
 
+Context contents
+----------------
+
+PerimeterContext exposes:
+
+* read-only print(), object(), layer(), and island() views for the island being
+  processed;
+* get_or_create_region_island(), which selects the LayerRegionIsland receiving
+  output for a compatible set of LayerRegions;
+* set_region_island_extrusion(), which publishes a generated extrusion tree to
+  the selected LayerRegionIsland;
+* run_region_group(), the host-managed perimeter loop. The plugin provides a
+  synchronous node callback and the host calls active perimeter modules around
+  each generated node.
+
+PerimeterGenerationContextView is passed to the node callback and to perimeter
+modules. It exposes the temporary root node, current LayerRegionIsland,
+plugin_storage(), layer index, and callbacks to split a node or rebuild its
+children. PerimeterNodeView exposes the node area, fill area, mutable extrusion
+bucket, perimeter indexes, parent/children, and helpers for requesting more
+perimeters.
+
 Typical use
 -----------
 
@@ -46,13 +68,14 @@ from slic3r_api_generated import (
     PLUGIN_REPORT_PROGRESS,
     PerimeterGenerationContext,
     PerimeterNode,
+    PerimeterNodeSpan,
     PluginRunContext,
     RunCtxGeneratePerimeter,
     STEP_PERIMETER,
 )
 from slic3r_datatree_views import Layer, LayerIsland, LayerRegion, LayerRegionIsland, Object, Print
-from slic3r_extrusion_views import MutableExtrusionEntity
-from slic3r_geometry_views import ExPolygon, MutableExPolygonCollection
+from slic3r_extrusion_views import ExtrusionEntity, MutableExtrusionEntity
+from slic3r_geometry_views import ExPolygon, ExPolygonCollection, MutableExPolygonCollection
 
 
 def _address(handle) -> int:
@@ -60,6 +83,8 @@ def _address(handle) -> int:
         return 0
     if isinstance(handle, ctypes.c_void_p):
         return int(handle.value or 0)
+    if hasattr(handle, "c_handle"):
+        return _address(handle.c_handle())
     if hasattr(handle, "handle"):
         return _address(handle.handle())
     return int(handle)
@@ -89,6 +114,22 @@ def _expolygon_handle(expolygon) -> int:
     if isinstance(expolygon, ExPolygon):
         return expolygon.address
     return _address(expolygon)
+
+
+def _expolygon_collection_handle(collection) -> int:
+    if collection is None:
+        return 0
+    if isinstance(collection, ExPolygonCollection):
+        return collection.address
+    return _address(collection)
+
+
+def _extrusion_handle(extrusion) -> int:
+    if extrusion is None:
+        return 0
+    if isinstance(extrusion, ExtrusionEntity):
+        return extrusion.address
+    return _address(extrusion)
 
 
 class PerimeterNodeView:
@@ -126,6 +167,46 @@ class PerimeterNodeView:
 
     def set_perimeter_needed(self, value: int) -> None:
         self.raw.perimeter_needed = int(value)
+
+    def parent(self) -> "PerimeterNodeView | None":
+        return None if not self.raw.parent else PerimeterNodeView(
+            self.api,
+            ctypes.cast(self.raw.parent, ctypes.POINTER(PerimeterNode)),
+        )
+
+    def child_count(self) -> int:
+        return int(self.raw.child_count)
+
+    def child(self, idx: int) -> "PerimeterNodeView":
+        if idx < 0 or idx >= self.child_count():
+            raise IndexError(idx)
+        if not self.raw.children:
+            raise IndexError(idx)
+        child_ptr = ctypes.cast(self.raw.children[idx], ctypes.POINTER(PerimeterNode))
+        return PerimeterNodeView(self.api, child_ptr)
+
+    def children_snapshot(self) -> list["PerimeterNodeView"]:
+        """
+        Copy child node pointers before a loop that may structurally edit them.
+
+        split_node() and rebuild_children() may replace the parent child array.
+        The returned views point to nodes, not to array slots, so the snapshot
+        remains useful for the common split workflow.
+        """
+        return [self.child(idx) for idx in range(self.child_count())]
+
+    def needs_more_perimeters(self) -> bool:
+        return self.perimeter_needed() > 0 and self.perimeter_idx() < self.perimeter_needed()
+
+    def is_last_perimeter(self) -> bool:
+        return self.perimeter_needed() == 0 or self.perimeter_idx() + 1 >= self.perimeter_needed()
+
+    def add_perimeters(self, count: int) -> None:
+        if count > 0:
+            self.raw.perimeter_needed = int(self.raw.perimeter_needed) + int(count)
+
+    def request_current_perimeter(self) -> None:
+        self.raw.perimeter_needed = max(int(self.raw.perimeter_needed), int(self.raw.perimeter_idx) + 1)
 
 
 class PerimeterGenerationContextView:
@@ -165,6 +246,53 @@ class PerimeterGenerationContextView:
 
     def region_island(self) -> LayerRegionIsland:
         return LayerRegionIsland(self.api, self.raw.region_island)
+
+    def root(self) -> PerimeterNodeView:
+        return PerimeterNodeView(self.api, self.raw.root)
+
+    def layer_id_from_object(self) -> int:
+        current_layer = self.layer()
+        for layer_idx, layer in enumerate(self.object().layers()):
+            if layer.same_handle(current_layer):
+                return layer_idx
+        return -1
+
+    def split_node(self, node: PerimeterNodeView, clip) -> list[PerimeterNodeView]:
+        """
+        Split a node with a clip ExPolygonCollection and return inside nodes.
+
+        clip may be None to mean "accept all". Structural edits are owned by
+        the host perimeter loop; callers should refresh child snapshots after
+        calling this helper.
+        """
+        if clip is None:
+            return [node]
+        if not self.raw.split_node:
+            return []
+
+        span = PerimeterNodeSpan()
+        self.raw.split_node(
+            self._ptr,
+            node._ptr,
+            _void_p(_expolygon_collection_handle(clip)),
+            ctypes.byref(span),
+        )
+        out: list[PerimeterNodeView] = []
+        for idx in range(int(span.count)):
+            if span.items and span.items[idx]:
+                out.append(PerimeterNodeView(self.api, ctypes.cast(span.items[idx], ctypes.POINTER(PerimeterNode))))
+        return out
+
+    def rebuild_children(self, node: PerimeterNodeView, areas, fill_areas=None) -> bool:
+        if not self.raw.rebuild_children:
+            return False
+        self.raw.rebuild_children(
+            self._ptr,
+            node._ptr,
+            _void_p(_expolygon_collection_handle(areas)),
+            _void_p(_expolygon_collection_handle(fill_areas)),
+        )
+        return True
 
 
 class PerimeterContext:
@@ -213,6 +341,34 @@ class PerimeterContext:
 
     def island(self) -> LayerIsland:
         return LayerIsland(self.api, self.payload.island)
+
+    def get_or_create_region_island(
+        self,
+        island: LayerIsland,
+        regions: Iterable[LayerRegion],
+    ) -> LayerRegionIsland | None:
+        if not self.payload.get_or_create_region_island:
+            return None
+        region_addresses = [_region_handle(region) for region in regions]
+        region_array = None
+        if region_addresses:
+            region_array = (ctypes.c_void_p * len(region_addresses))(*region_addresses)
+        handle = self.payload.get_or_create_region_island(island.c_handle(), region_array, len(region_addresses))
+        return None if not handle else LayerRegionIsland(self.api, handle)
+
+    def set_region_island_extrusion(
+        self,
+        region_island: LayerRegionIsland,
+        role: int,
+        extrusion,
+    ) -> bool:
+        if not self.payload.set_region_island_extrusion:
+            return False
+        return bool(self.payload.set_region_island_extrusion(
+            region_island.c_handle(),
+            int(role),
+            _void_p(_extrusion_handle(extrusion)),
+        ))
 
     def is_cancelled(self) -> bool:
         if not self.common.is_cancelled:

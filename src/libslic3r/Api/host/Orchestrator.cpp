@@ -305,7 +305,7 @@ static raw_config_option_def config_option_def_with_resolved_invalidation(const 
     return resolved;
 }
 
-static bool validate_used_config_key_definition(const Plugin &plugin,
+static bool validate_used_config_key_definition(const Plugin &,
                                                 const Plugin::UsedConfigKey &used_key,
                                                 std::string &error_message)
 {
@@ -314,40 +314,40 @@ static bool validate_used_config_key_definition(const Plugin &plugin,
     // describe the value representation it expects. This catches stale plugins
     // before they run with a ConfigOption subclass they do not understand.
     if (used_key.key.empty()) {
-        error_message = "Plugin '" + plugin.get_id() + "' declares an empty used config key.";
+        error_message = "declares an empty used config key.";
         return false;
     }
 
     const ConfigOptionType expected_type = config_option_type(used_key.type);
     if (expected_type == coNone) {
-        error_message = "Plugin '" + plugin.get_id() + "' declares used option '" + used_key.key +
+        error_message = "declares used option '" + used_key.key +
                         "' without a supported value type.";
         return false;
     }
 
     const ConfigOptionDef *def = PrintConfigDef::instance().get(used_key.key);
     if (def == nullptr) {
-        error_message = "Plugin '" + plugin.get_id() + "' uses option '" + used_key.key +
+        error_message = "uses option '" + used_key.key +
                         "', but no active plugin or built-in config defines it.";
         return false;
     }
 
     if (def->type != expected_type) {
-        error_message = "Plugin '" + plugin.get_id() + "' expects option '" + used_key.key +
+        error_message = "expects option '" + used_key.key +
                         "' to have a different value type.";
         return false;
     }
 
     if (used_key.container_type != RAW_CONTAINER_TYPE_NONE &&
         def->container_type != config_option_container_type(used_key.container_type)) {
-        error_message = "Plugin '" + plugin.get_id() + "' expects option '" + used_key.key +
+        error_message = "expects option '" + used_key.key +
                         "' to live in a different config container.";
         return false;
     }
 
     if (used_key.option_preset_type != RAW_PRESET_TYPE_NONE &&
         def->option_preset_type != uint32_t(used_key.option_preset_type)) {
-        error_message = "Plugin '" + plugin.get_id() + "' expects option '" + used_key.key +
+        error_message = "expects option '" + used_key.key +
                         "' to belong to a different preset type.";
         return false;
     }
@@ -1075,8 +1075,15 @@ void Orchestrator::initialize_plugins() {
             std::string failure;
             if (!validate_used_config_key_definition(*plugin_ptr, used_key, failure)) {
                 this->set_plugin_active(plugin_ptr.get(), false);
-                BOOST_LOG_TRIVIAL(error) << failure << " Plugin '" << plugin_ptr->get_id()
-                                         << "' will be disabled.";
+                const std::string message = failure + " Plugin will be disabled.";
+                BOOST_LOG_TRIVIAL(error) << "Plugin '" << plugin_ptr->get_id() << "': " << message;
+                // This validation runs after plugin initialization, so plugin
+                // code cannot report the failure itself. Queue the diagnostic
+                // here to make the automatic deactivation visible in the GUI.
+                this->add_plugin_message(PluginMessageLevel::Error,
+                                         plugin_ptr.get(),
+                                         plugin_ptr->get_step(),
+                                         message.c_str());
                 break;
             }
         }

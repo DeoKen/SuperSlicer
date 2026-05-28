@@ -71,11 +71,23 @@ if (Python3_FOUND)
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/__init__.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/__init__.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/layer_height.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/layer_height.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/slicing.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/slicing.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/post_slicing.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/post_slicing.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/perimeter.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/perimeter.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/perimeter_module.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/perimeter_module.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/post_perimeter.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/post_perimeter.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/../libslic3r/Api/plugin/python/steps/surface_generation.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/steps/surface_generation.py"
@@ -94,6 +106,9 @@ if (Python3_FOUND)
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/perimeter/simple_perimeter_generator.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/simple_perimeter_generator.py"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/perimeter/hairy_object.py"
+            "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/hairy_object.py"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/surface/initial_typed_surface_builder.py"
             "$<TARGET_FILE_DIR:python_plugin_loader>/python/plugins/initial_typed_surface_builder.py"

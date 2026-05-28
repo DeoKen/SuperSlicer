@@ -11,6 +11,23 @@ editing layer-region slices. Normal plugin code should create this context from
 the run context address passed to PluginBase.run_impl(), then use the view
 objects returned here instead of manually casting the raw payload.
 
+Context contents
+----------------
+
+PostSlicingContext exposes:
+
+* mutable print() and object() views because this step is allowed to edit the
+  freshly produced layer slices;
+* mutable_layer(), plus borrowed layer, LayerRegion, and LayerIsland polygon
+  views for targeted edits;
+* assign_islands_by_moving_contents(), for replacing a layer's islands from a
+  storage-owned ExPolygon collection;
+* recompute_slices_from_islands() and
+  recompute_slices_and_islands_from_layer_region(), the host callbacks that
+  rebuild derived caches after polygon edits;
+* plugin_storage(), temporary storage cleanup, cancellation, progress, warning,
+  and error helpers.
+
 Typical use
 -----------
 
@@ -44,8 +61,8 @@ from slic3r_api_generated import (
     RunCtxPostSlicing,
     STEP_POST_SLICING,
 )
-from slic3r_datatree_views import MutableLayer, MutableLayerRegion, MutableObject, MutablePrint
-from slic3r_geometry_views import MutableExPolygonCollection
+from slic3r_datatree_views import MutableLayer, MutableLayerIsland, MutableLayerRegion, MutableObject, MutablePrint
+from slic3r_geometry_views import ExPolygonCollection, MutableExPolygonCollection, MutableExPolygon
 
 
 def _address(handle) -> int:
@@ -96,9 +113,40 @@ class PostSlicingContext:
     def object(self) -> MutableObject:
         return MutableObject(self.api, self.payload.object)
 
+    def mutable_layer(self, idx: int) -> MutableLayer:
+        """
+        Borrow one mutable object layer through the step callback.
+
+        The object handle in the payload is const, so this callback is the
+        explicit permission granted by STEP_POST_SLICING to edit a layer.
+        """
+        if not self.payload.object_borrow_mutable_layer:
+            raise RuntimeError("STEP_POST_SLICING did not expose mutable layer access.")
+        return MutableLayer(self.api, self.payload.object_borrow_mutable_layer(self.payload.object, int(idx)))
+
+    def borrow_layer_slices(self, layer: MutableLayer) -> MutableExPolygonCollection:
+        handle = self.payload.layer_borrow_mutable_slices(layer.mutable_c_handle())
+        return MutableExPolygonCollection(self.api, handle)
+
     def borrow_layer_region_slices(self, layer_region: MutableLayerRegion) -> MutableExPolygonCollection:
         handle = self.payload.layer_region_borrow_mutable_slices(layer_region.mutable_c_handle())
         return MutableExPolygonCollection(self.api, handle)
+
+    def borrow_layer_island_slice(self, island: MutableLayerIsland) -> MutableExPolygon:
+        handle = self.payload.layer_island_borrow_mutable_slice(island.mutable_c_handle())
+        return MutableExPolygon(self.api, handle)
+
+    def assign_islands_by_moving_contents(self, layer: MutableLayer, islands: ExPolygonCollection) -> None:
+        """
+        Replace a layer's islands from a mutable ExPolygonCollection.
+
+        The host moves contents out of islands. Use a storage-owned collection
+        when you want to transfer ownership, then consider the source empty.
+        """
+        self.payload.layer_assign_islands_by_moving_contents(layer.mutable_c_handle(), islands.c_handle())
+
+    def recompute_slices_from_islands(self, layer: MutableLayer) -> None:
+        self.payload.layer_recompute_slices_from_islands(layer.mutable_c_handle())
 
     def recompute_slices_and_islands_from_layer_region(self, layer: MutableLayer) -> None:
         self.payload.layer_recompute_slices_and_islands_from_layer_region(layer.mutable_c_handle())

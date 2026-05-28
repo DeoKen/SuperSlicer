@@ -85,8 +85,12 @@ from slic3r_geometry_views import *
 from slic3r_extrusion_views import *
 from slic3r_datatree_views import *
 from slic3r_clipper_views import *
+from steps.layer_height import *
+from steps.slicing import *
 from steps.post_slicing import *
 from steps.perimeter import *
+from steps.perimeter_module import *
+from steps.post_perimeter import *
 from steps.surface_generation import *
 
 
@@ -299,6 +303,24 @@ class Slic3rAPI:
             raise RuntimeError(f"Cannot register config option '{option_key}': error {result}")
         return result
 
+    def register_generic_facets_annotation(
+        self,
+        *,
+        key: str,
+        label: str,
+        enforce_label: str,
+        block_label: str,
+        icon_svg: str,
+    ) -> int:
+        defn = RawGenericFacetsAnnotationDef(
+            _as_bytes(key),
+            _as_bytes(label),
+            _as_bytes(enforce_label),
+            _as_bytes(block_label),
+            _as_bytes(icon_svg),
+        )
+        return int(self.host.orchestrator_register_generic_facets_annotation(self.orchestrator, ctypes.byref(defn)))
+
     def storage_new_polygon(self, storage_address: int) -> int:
         return int(self.host.storage_new_polygon(ctypes.c_void_p(storage_address)) or 0)
 
@@ -431,11 +453,29 @@ class Slic3rAPI:
     def mutable_print_region(self, handle: int) -> MutablePrintRegion:
         return MutablePrintRegion(self, handle)
 
+    def volume(self, handle: int) -> Volume:
+        return Volume(self, handle)
+
+    def triangle_mesh(self, handle: int) -> TriangleMesh:
+        return TriangleMesh(self, handle)
+
+    def layer_height(self, run_ctx_address: int) -> LayerHeightContext | None:
+        return LayerHeightContext.from_run_context(self, run_ctx_address)
+
+    def slicing(self, run_ctx_address: int) -> SlicingContext | None:
+        return SlicingContext.from_run_context(self, run_ctx_address)
+
     def post_slicing(self, run_ctx_address: int) -> PostSlicingContext | None:
         return PostSlicingContext.from_run_context(self, run_ctx_address)
 
+    def post_perimeter(self, run_ctx_address: int) -> PostPerimeterContext | None:
+        return PostPerimeterContext.from_run_context(self, run_ctx_address)
+
     def perimeter(self, run_ctx_address: int) -> PerimeterContext | None:
         return PerimeterContext.from_run_context(self, run_ctx_address)
+
+    def perimeter_module(self, run_ctx_address: int) -> PerimeterModuleContext | None:
+        return PerimeterModuleContext.from_run_context(self, run_ctx_address)
 
     def surface_generation(self, run_ctx_address: int) -> SurfaceGenerationContext | None:
         return SurfaceGenerationContext.from_run_context(self, run_ctx_address)
