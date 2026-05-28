@@ -439,7 +439,13 @@ namespace {
 
 void begin_step(Print &print, slicing_step_t step, const std::string &message, const std::string &path)
 {
-    print.set_status(slicingstep_2_percent[step], message, {path});
+    // Status arguments are consumed through boost::format by the GUI. Passing
+    // even one unused argument to a message without a placeholder throws, so the
+    // optional path is forwarded only when there is real text to display.
+    if (path.empty())
+        print.set_status(slicingstep_2_percent[step], message);
+    else
+        print.set_status(slicingstep_2_percent[step], message, {path});
     print.secondary_status_counter_reset();
 }
 
