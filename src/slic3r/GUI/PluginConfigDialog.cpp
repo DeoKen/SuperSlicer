@@ -162,7 +162,9 @@ void PluginConfigDialog::build()
         return lhs->get_priority() < rhs->get_priority();
     });
 
+    std::set<std::string> loaded_plugin_ids;
     for (Plugin *plugin : plugins) {
+        loaded_plugin_ids.insert(plugin->get_id());
         const wxString plugin_tooltip = plugin->get_description().empty() ?
             from_u8(plugin->get_id()) :
             from_u8(plugin->get_description());
@@ -187,7 +189,42 @@ void PluginConfigDialog::build()
         m_rows.push_back({ plugin->get_id(), checkbox });
     }
 
-    if (plugins.empty()) {
+    for (const std::string &plugin_id : m_original_active_plugin_ids) {
+        if (loaded_plugin_ids.find(plugin_id) != loaded_plugin_ids.end())
+            continue;
+
+        // activated.ini may name a plugin whose DLL failed to load, for example
+        // after an ABI bump. Show it as a disabled, unchecked row so saving the
+        // dialog removes the stale id instead of trapping the user behind a
+        // validation error for a plugin that cannot be unchecked elsewhere.
+        const wxString plugin_tooltip = format_wxstr(
+            _L("Plugin '%1%' is enabled in the configuration file, but it was not loaded. "
+               "This usually means the plugin file is missing or was built for another plugin API version. "
+               "Saving this dialog will remove it from the active plugin list."),
+            from_u8(plugin_id));
+
+        wxCheckBox *checkbox = new wxCheckBox(scrolled, wxID_ANY, wxEmptyString);
+        checkbox->SetValue(false);
+        checkbox->Enable(false);
+        checkbox->SetToolTip(plugin_tooltip);
+
+        wxStaticText *name_label = new wxStaticText(scrolled, wxID_ANY,
+                                                    format_wxstr(_L("%1% (not loaded)"), from_u8(plugin_id)));
+        wxStaticText *step_label = new wxStaticText(scrolled, wxID_ANY, _L("Not loaded"));
+        wxStaticText *priority_label = new wxStaticText(scrolled, wxID_ANY, wxEmptyString);
+        name_label->SetToolTip(plugin_tooltip);
+        step_label->SetToolTip(plugin_tooltip);
+        priority_label->SetToolTip(plugin_tooltip);
+
+        grid->Add(checkbox, 0, wxALIGN_CENTER_VERTICAL);
+        grid->Add(name_label, 0, wxALIGN_CENTER_VERTICAL);
+        grid->Add(step_label, 0, wxALIGN_CENTER_VERTICAL);
+        grid->Add(priority_label, 0, wxALIGN_CENTER_VERTICAL);
+
+        m_rows.push_back({ plugin_id, checkbox });
+    }
+
+    if (m_rows.empty()) {
         grid->Add(new wxStaticText(scrolled, wxID_ANY, _L("No plugin is loaded.")), 0, wxALIGN_CENTER_VERTICAL);
         grid->AddSpacer(0);
         grid->AddSpacer(0);
