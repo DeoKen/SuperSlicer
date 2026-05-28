@@ -1495,24 +1495,11 @@ bool PrintObject::invalidate_state_by_config_options(
     if (opt_keys.empty())
         return false;
 
-    bool invalidated = false;
-    for (const t_config_option_key &opt_key : opt_keys) {
-        const ConfigOptionDef *def = PrintConfigDef::instance().get(opt_key);
-        if (def == nullptr) {
-            invalidated |= this->invalidate_all_steps();
-            continue;
-        }
-        if (def->invalidates_step == STEP_NONE) {
-            continue;
-        }
-        if (def->invalidates_step == STEP_ANY) {
-            invalidated |= this->invalidate_all_steps();
-            continue;
-        }
-        invalidated |= is_print_step(def->invalidates_step) ? m_print->invalidate_step(def->invalidates_step) :
-                                                              this->invalidate_step(def->invalidates_step);
-    }
-    return invalidated;
+    // Temporary during the step-pipeline migration: object, region and plugin
+    // settings may feed several migrated steps at once. Full invalidation avoids
+    // reusing stale layer/perimeter/surface data until each option has one clear
+    // pipeline owner.
+    return m_print->invalidate_all_steps();
 }
 
 bool PrintObject::invalidate_step(slicing_step_t step)

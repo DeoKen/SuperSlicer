@@ -19,7 +19,6 @@
 #include "libslic3r/Steps/StepExtrusionEdition.hpp"
 #include "libslic3r/Steps/StepExtrusionOrdering.hpp"
 #include "libslic3r/Steps/StepExtrusionSimplification.hpp"
-#include "libslic3r/Steps/StepGenerateGcode.hpp"
 #include "libslic3r/Steps/StepGenerateInfill.hpp"
 #include "libslic3r/Steps/StepGeneratePerimeter.hpp"
 #include "libslic3r/Steps/StepGenerateSupport.hpp"
@@ -476,7 +475,11 @@ void run_post_slicing(Orchestrator &orchestrator, Print &print, const std::strin
 
 void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::string &path, slicing_step_t until = STEP_GCODE)
 {
-// not yet implemented
+    // The pipeline currently builds the complete print tree used by G-code export,
+    // but the actual G-code generation still runs through the legacy
+    // Print::export_gcode() entry point. Keeping that boundary explicit makes the
+    // migration easier to reason about while GUI and CLI callers still export
+    // G-code in the usual place.
     StepSupportDemand::State support_demand;
 
     begin_step(print, STEP_PRE_PERIMETER, L("Preparing perimeters"), path);
@@ -579,10 +582,6 @@ void run_remaining_steps(Orchestrator &orchestrator, Print &print, const std::st
     StepExtrusionSimplification::clean_and_prepare(print);
     StepExtrusionSimplification::run_step(orchestrator, print);
     if (stop_after(STEP_EXTRUSION_SIMPLIFICATION, until)) return;
-
-    begin_step(print, STEP_GCODE, L("Generating G-code"), path);
-    StepGenerateGcode::clean_and_prepare(print);
-    StepGenerateGcode::run_step(orchestrator, print);
 }
 
 #ifdef _DEBUG

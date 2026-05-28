@@ -38,6 +38,7 @@
 #include <oneapi/tbb/parallel_for.h>
 
 #include "BoundingBox.hpp"
+#include "Api/host/Orchestrator.hpp"
 #include "Brim.hpp"
 #include "BuildVolume.hpp"
 #include <clipper/clipper_z.hpp>
@@ -296,6 +297,11 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
     if (opt_keys.empty())
         return false;
 
+    // Temporary during the step-pipeline migration: plugin steps and legacy
+    // caches still overlap, so any print-level configuration change invalidates
+    // the whole slicing pipeline until step ownership is precise again.
+    const bool invalidated = this->invalidate_all_steps();
+#if 0
     bool invalidated = false;
     for (const t_config_option_key &opt_key : opt_keys) {
         const ConfigOptionDef *def = PrintConfigDef::instance().get(opt_key);
@@ -308,7 +314,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         invalidated |= def->invalidates_step == STEP_ANY ? this->invalidate_all_steps() :
                                                            this->invalidate_step(def->invalidates_step);
     }
-
+#endif
     if (invalidated)
         m_timestamp_last_change = std::time(0);
     return invalidated;
@@ -1211,31 +1217,121 @@ public:
 };
 #endif
 
-#ifdef _DEBUG
-    struct PointAssertVisitor : public ExtrusionVisitorRecursiveConst {
-        virtual void default_use(const ExtrusionEntity& entity) override {
-            if (!entity.is_leaf()) {
-                Point last_pt = entity.last_point();
-                for (const ExtrusionEntityUPtr &child : entity.children()) {
-                    if (!child)
-                        continue;
-                    if (entity.is_loop() || entity.is_continuous())
-                        assert(child->first_point() == last_pt);
-                    child->visit(*this);
-                    last_pt = child->last_point();
-                }
-                if (entity.is_loop())
-                    assert(entity.first_point() == entity.last_point());
-                return;
-            }
-            const ArcPolyline *polyline = entity.polyline_or_null();
-            if (polyline == nullptr)
-                return;
-            for (size_t idx = 1; idx < polyline->size(); ++idx)
-                assert(!polyline->get_point(idx - 1).coincides_with_epsilon(polyline->get_point(idx)));
+#if 1
+void Print::process() {
+    m_timestamp_last_change = std::time(0);
+    name_tbb_thread_pool_threads_set_locale();
+    BOOST_LOG_TRIVIAL(info) << "Starting the step pipeline slicing process." << log_memory_info();
+    secondary_status_counter_reset();
+
+    // Print::process() is the GUI and CLI entry point for preparing all slicing
+    // data. G-code export is intentionally left to Print::export_gcode(), which
+    // still uses the legacy generator and is called separately by the existing
+    // GUI/background process.
+    Orchestrator::instance().slice(*this);
+
+    // bits not already moved by the new pipeline
+    
+    // Tool ordering
+    if (this->set_started(psWipeTower)) {
+        //m_ordering.clear();
+        //if (this->config().complete_objects.value || config().parallel_objects_step.value > 0) {
+        //    //an ordering per object
+        //}
+        //ml_ordering.
+
+        //m_wipe_tower_data.clear();
+        m_tool_orderings.clear();
+        //if (this->has_wipe_tower()) {
+        //    assert(!this->config().complete_objects.value && config().parallel_objects_step.value == 0);
+        //    this->set_status(printstep_percent(psWipeTower), _u8L("Generating wipe tower"));
+        //    // Let the Toolordering class know there will be initial priming extrusions at the start of the print.
+        //    m_tool_orderings.emplace_back(*this, (uint16_t) -1, true);
+        //    this->_make_wipe_tower();
+        //    m_tool_orderings.back().assign_custom_gcodes(*this);
+        //} else
+        bool is_separate_objects = this->config().complete_objects.value || config().parallel_objects_step.value > 0;
+        if (config().parallel_objects_step.value > 0 && config().parallel_islands.value && m_default_object_config.wipe_tower && m_objects.size() == 1) {
+            is_separate_objects = false;
         }
-    } ptvisitor;
-#endif
+        if (is_separate_objects) {
+            //throw new std::exception();
+            // FIXME: parallel_objects_step: end extruder on each pass isn't computed correctly.
+            // TODO: add extruder-switch minimizing option.
+            // Order object instances for sequential print.
+            std::vector<const PrintInstance *> instances_ordering;
+            if (config().complete_objects_sort.value == cosObject)
+                instances_ordering = this->sort_object_instances_by_model_order();
+            else if (config().complete_objects_sort.value == cosZ)
+                instances_ordering = this->sort_object_instances_by_max_z();
+            else if (config().complete_objects_sort.value == cosY)
+                instances_ordering = this->sort_object_instances_by_max_y();
+            else if (config().complete_objects_sort.value == cosNearest)
+                instances_ordering = chain_print_object_instances(*this);
+            // Find the 1st printing object, find its tool ordering and the initial extruder ID.
+            uint16_t previous_final_extruder = -1;
+            for (auto it = instances_ordering.begin(); it != instances_ordering.end(); ++it) {
+                m_tool_orderings.emplace_back(*(*it)->print_object, previous_final_extruder);
+                // last_extruder == -1 => nothign to print, so skip
+                if (m_tool_orderings.back().last_extruder() != uint16_t(-1)) {
+                    previous_final_extruder = m_tool_orderings.back().last_extruder();
+                }
+            }
+            this->m_wipe_tower2.reset(new WipeTower2());
+        } else {
+            // Initialize the tool ordering, so it could be used by the G-code preview slider for planning tool
+            // changes and filament switches.
+            m_tool_orderings.emplace_back(*this, -1, /*prime_mmu*/ true /*false*/);
+            if (m_tool_orderings.empty() || m_tool_orderings.back().last_extruder() == uint16_t(-1))
+                throw Slic3r::SlicingError(
+                    "The print is empty. The model is not printable with current print settings.");
+
+            // add colorchange/pause/custom
+            m_tool_orderings.back().assign_custom_gcodes(*this);
+
+            // now create the wipe tower to move from extruder to the next one.
+            this->m_wipe_tower2.reset(new WipeTower2());
+            if (m_default_object_config.wipe_tower) {
+                this->m_wipe_tower2->set_config(&this->config(), &this->default_object_config(),
+                                                &this->default_region_config());
+
+                assert(m_tool_orderings.size() == 1);
+                PrintObjectPtrs objects;
+                objects.reserve(m_objects.size());
+                for (const PrintObjectUPtr &object : m_objects)
+                    objects.emplace_back(object.get());
+                this->m_wipe_tower2->init(this, objects, this->m_tool_orderings.back());
+
+                this->set_done(psWipeTower);
+                // fill wtdata
+                {
+                    std::scoped_lock<std::mutex> lock(m_wipe_tower_data_mutex);
+                    m_wipe_tower_data.height = -1;
+                    m_wipe_tower_data.z_and_depth_pairs.clear();
+                    for (auto &wt_layer : this->m_wipe_tower2->m_WTLayer_data) {
+                        m_wipe_tower_data.height = std::max(m_wipe_tower_data.height,
+                                                            (float) unscaled(wt_layer->extrusion_z));
+                        m_wipe_tower_data.z_and_depth_pairs.emplace_back((float) unscaled(wt_layer->extrusion_z),
+                                                                         (float) unscaled(
+                                                                             wt_layer->estimated_wipe_tower_length));
+                    }
+                    std::sort(m_wipe_tower_data.z_and_depth_pairs.begin(), m_wipe_tower_data.z_and_depth_pairs.end(),
+                              [](std::pair<float, float> &e1, std::pair<float, float> &e2) {
+                                  return e1.first < e2.first;
+                              });
+                }
+            }
+        }
+    }
+    
+    secondary_status_counter_reset();
+    _make_skirt_brim();
+
+    m_timestamp_last_change = std::time(0);
+    BOOST_LOG_TRIVIAL(info) << "Step pipeline slicing process finished." << log_memory_info();
+    this->set_status(printstep_percent(psGCodeExport), L("Slicing done"), SlicingStatus::FlagBits::SLICING_ENDED);
+}
+#else
 // Slicing process, running at a background thread.
 void Print::process()
 {
@@ -1504,6 +1600,7 @@ void Print::process()
         this->set_status(printstep_percent(psGCodeExport), L("Slicing done"),
                          SlicingStatus::FlagBits::SLICING_ENDED);
 }
+#endif
 
 // G-code export process, running at a background thread.
 // The export_gcode may die for various reasons (fails to process output_filename_format,
