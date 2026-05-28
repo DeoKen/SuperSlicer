@@ -47,8 +47,6 @@ constexpr raw_surface_type k_internal_sparse = RAW_SURFACE_TYPE_POS_INTERNAL | R
 struct SurfacePrerequisites
 {
     bool has_surfaces = false;
-    bool has_top = false;
-    bool has_bottom = false;
 };
 
 bool has_flag(raw_surface_type type, raw_surface_type flag)
@@ -83,20 +81,15 @@ StoredExPolygonCollection collection_from_expolygon(storage_handle *storage, con
 
 void scan_surface_prerequisites(SurfacePrerequisites &out, const SurfaceCollection &surfaces)
 {
-    // SolidShells runs after the initial surface classifier. If that classifier
-    // did not run, every surface would look like an untyped internal area and
-    // this plugin would silently do the wrong thing. The scan is deliberately
-    // object-wide: an individual layer may have only top, only bottom, or only
-    // internal surfaces, but the object must contain the typed anchors used for
-    // shell projection.
+    // SolidShells runs after the initial surface classifier. The object may
+    // legitimately have only top anchors, only bottom anchors, or neither on a
+    // particular layer. The hard failure is reserved for the real pipeline
+    // error: no LayerRegionIsland fill surfaces were produced at all.
     for (const Surface surface : surfaces) {
         if (surface.expolygon().contour().empty())
             continue;
 
         out.has_surfaces = true;
-        const raw_surface_type type = surface.type();
-        out.has_top = out.has_top || has_flag(type, RAW_SURFACE_TYPE_POS_TOP);
-        out.has_bottom = out.has_bottom || has_flag(type, RAW_SURFACE_TYPE_POS_BOTTOM);
     }
 }
 
@@ -117,19 +110,12 @@ SurfacePrerequisites scan_object_surface_prerequisites(const Object &object)
 bool validate_surface_prerequisites(const plugin_run_context *run_ctx, const Object &object)
 {
     const SurfacePrerequisites prerequisites = scan_object_surface_prerequisites(object);
-    if (prerequisites.has_surfaces && prerequisites.has_top && prerequisites.has_bottom)
+    if (prerequisites.has_surfaces)
         return true;
 
     std::string message =
         "Solid shell surfaces requires typed fill surfaces from the initial surface builder before it can run.";
-    if (!prerequisites.has_surfaces)
-        message += " No LayerRegionIsland fill surfaces were found.";
-    else {
-        if (!prerequisites.has_top)
-            message += " No top surfaces were found.";
-        if (!prerequisites.has_bottom)
-            message += " No bottom surfaces were found.";
-    }
+    message += " No LayerRegionIsland fill surfaces were found.";
     report_error(run_ctx, message.c_str());
     return false;
 }

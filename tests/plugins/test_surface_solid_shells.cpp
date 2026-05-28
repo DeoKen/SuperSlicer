@@ -153,6 +153,27 @@ double surface_area(const LayerSliceIsland &island, const SurfaceType surface_ty
     return area_sum(surface_expolygons_of_type(whole_region_island(island).fill_surfaces(), surface_type));
 }
 
+void replace_surface_position_with_sparse_internal(Print &print, const SurfaceType position_flag)
+{
+    // This helper keeps the surface geometry intact and changes only one
+    // position family. It lets the test exercise SolidShells' prerequisite
+    // check directly: a typed object may legitimately have no top anchors or
+    // no bottom anchors, and the plugin should then project only the anchors
+    // that remain.
+    bool replaced = false;
+    for (PrintObject &object : print.objects())
+        for (Layer &layer : object.layers())
+            for (LayerSliceIsland &island : layer.islands())
+                for (LayerRegionIsland &region_island : island.regions_islands())
+                    for (Surface &surface : region_island.set_fill_surfaces()) {
+                        if ((surface.surface_type & position_flag) == stNone)
+                            continue;
+                        surface.surface_type = stPosInternal | stDensSparse;
+                        replaced = true;
+                    }
+    REQUIRE(replaced);
+}
+
 void set_region_area(LayerRegion &region, const ExPolygon &area)
 {
     ExPolygons &region_slices = ApiInternal::LayerRegionAccess::slices_mutable(region);
@@ -205,6 +226,34 @@ void run_solid_shell_surface_case(PreparedPerimeterPrint &prepared)
 {
     ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER, SOLID_SHELLS});
     run_perimeter_and_surface_steps(prepared.print);
+}
+
+void run_solid_shells_on_existing_surfaces(Print &print)
+{
+    // Some tests first create typed surfaces, then edit only their tags. Running
+    // StepSurfaceGeneration without clean_and_prepare() preserves that prepared
+    // input and exercises SolidShells as a standalone refinement pass.
+    ScopedActivePlugins active({SOLID_SHELLS});
+    Steps::StepSurfaceGeneration::run_step(Orchestrator::instance(), print);
+
+    std::string validation_error;
+    const bool valid_surface_tree = Steps::StepSurfaceGeneration::validate_post(print, &validation_error);
+    INFO("Surface-generation post validation: " << validation_error);
+    REQUIRE(valid_surface_tree);
+}
+
+void require_no_solid_shell_prerequisite_error(Orchestrator &orchestrator)
+{
+    const std::vector<Orchestrator::PluginMessage> messages = orchestrator.consume_plugin_messages();
+    for (const Orchestrator::PluginMessage &message : messages) {
+        INFO("Plugin message: " << message.message);
+        const bool is_prerequisite_error =
+            message.level == Orchestrator::PluginMessageLevel::Error &&
+            message.plugin_id == SOLID_SHELLS &&
+            message.message.find("requires typed fill surfaces") != std::string::npos;
+        CHECK_FALSE(is_prerequisite_error);
+    }
+    orchestrator.reset_plugin_cancel();
 }
 
 } // namespace
@@ -429,6 +478,54 @@ TEST_CASE("SolidShells refuses to run before typed surfaces exist",
 
     CHECK(found_error);
     orchestrator.reset_plugin_cancel();
+}
+
+TEST_CASE("SolidShells accepts typed surfaces when one exposed side is absent",
+          "[plugins][surface-generation][solid-shells]")
+{
+    Slic3r::Test::Plugins::ensure_plugin_test_runtime_initialized();
+
+    struct MissingAnchorCase
+    {
+        const char *name;
+        SurfaceType removed_position;
+    };
+    const MissingAnchorCase cases[] = {
+        { "no top surfaces", stPosTop },
+        { "no bottom surfaces", stPosBottom }
+    };
+
+    for (const MissingAnchorCase &test_case : cases) {
+        CAPTURE(test_case.name);
+
+        Orchestrator &orchestrator = Orchestrator::instance();
+        orchestrator.reset_plugin_cancel();
+        orchestrator.consume_plugin_messages();
+
+        // A real sliced object can have no top anchors or no bottom anchors in
+        // the typed fill-surface stream, for example with sloped geometry or a
+        // later plugin that consumes one family. That is still a valid input for
+        // SolidShells: it should project the anchors that exist and skip the
+        // missing side without reporting a pipeline error.
+        PreparedPerimeterPrint prepared;
+        prepare_cube_print(prepared, perimeter_config({
+            {"perimeters", "1"},
+            {"top_solid_layers", "2"},
+            {"bottom_solid_layers", "2"},
+            {"top_solid_min_thickness", "0"},
+            {"bottom_solid_min_thickness", "0"},
+            {"solid_over_perimeters", "0"}
+        }));
+
+        {
+            ScopedActivePlugins active({SIMPLE_PERIMETER_GENERATOR, INITIAL_TYPED_SURFACE_BUILDER});
+            run_perimeter_and_surface_steps(prepared.print);
+        }
+
+        replace_surface_position_with_sparse_internal(prepared.print, test_case.removed_position);
+        run_solid_shells_on_existing_surfaces(prepared.print);
+        require_no_solid_shell_prerequisite_error(orchestrator);
+    }
 }
 
 TEST_CASE("SolidShells keeps fully perimeter-covered shell candidates sparse",
