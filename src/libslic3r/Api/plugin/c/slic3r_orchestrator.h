@@ -17,6 +17,8 @@ extern "C" {
 
 /* ========================= REGISTRATION ========================= */
 
+typedef struct config_handle config_handle;
+
 /*
 Register a plugin instance.
 */
@@ -183,6 +185,33 @@ registered, and a negative value on invalid arguments or internal failure.
 SLIC3R_HOST_API int32_t orchestrator_add_gui_rule(
     orchestrator_handle *orch,
     const raw_gui_rule *rule
+);
+
+/*
+Return the config keys used by the plugin or plugins currently active for a
+step.
+
+This is mainly for plugins that need to mirror another plugin's compatibility
+rules. For example, a surface-generation plugin may need to split regions by
+the settings used by the selected STEP_PERIMETER plugin when concentric infill
+delegates line generation to the perimeter generator.
+
+For exclusive steps, config is the project/full config that contains the
+exclusive-step selector option, such as "step_perimeter_plugin"; the function
+returns the selected plugin's keys. For non-exclusive steps, no selection exists,
+so the function returns the de-duplicated union of every active plugin's keys.
+If a selector option does not exist because only one plugin is active, the host
+falls back to that active plugin.
+
+The function uses the usual double-call convention:
+- call with keys == NULL to get the number of entries;
+- call again with an array of that size to receive borrowed key pointers.
+*/
+SLIC3R_HOST_API int32_t orchestrator_selected_plugin_used_config_keys(
+    orchestrator_handle *orch,
+    const config_handle *config,
+    slicing_step_t step,
+    raw_used_config_key *keys
 );
 
 /*

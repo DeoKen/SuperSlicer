@@ -19,6 +19,7 @@ typedef enum raw_config_option_type {
     RAW_CO_BOOL,
     RAW_CO_INT,
     RAW_CO_FLOAT,
+    RAW_CO_PERCENT,
     RAW_CO_FLOAT_OR_PERCENT,
     RAW_CO_STRING,
     RAW_CO_POINT,
@@ -27,11 +28,12 @@ typedef enum raw_config_option_type {
     RAW_CO_VECTOR_BOOL,
     RAW_CO_VECTOR_INT,
     RAW_CO_VECTOR_FLOAT,
+    RAW_CO_VECTOR_PERCENT,
     RAW_CO_VECTOR_FLOAT_OR_PERCENT,
     RAW_CO_VECTOR_STRING,
     RAW_CO_VECTOR_POINT,
     RAW_CO_VECTOR_ENUM,
-    RAW_CO_VECTOR_GRAPH
+    RAW_CO_VECTOR_GRAPH,
 } raw_config_option_type;
 
 /* Where the option instance is stored */

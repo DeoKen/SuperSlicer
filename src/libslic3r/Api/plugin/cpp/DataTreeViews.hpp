@@ -82,6 +82,18 @@ public:
     }
     bool is_enabled(uint32_t idx = 0) const { return config_option_is_enabled(handle(), idx) != 0; }
     bool is_vector() const { return config_option_is_vector(handle()) != 0; }
+
+    // Serialized values are the stable comparison form used by config diffs
+    // and by plugin selectors. They are useful when the C++ enum type is not
+    // available on the plugin side.
+    std::string serialize() const {
+        const uint32_t needed = config_option_serialize(handle(), nullptr, 0);
+        std::string out(needed + 1, '\0');
+        if (needed > 0)
+            config_option_serialize(handle(), &out[0], needed + 1);
+        out.resize(needed);
+        return out;
+    }
 };
 
 class Config : public ConstDataTreeHandleView<config_handle>
@@ -98,6 +110,13 @@ public:
                 out.emplace_back(c_keys.items[idx]);
         }
         return out;
+    }
+
+    // Test whether an optional setting exists before reading it. Some plugin
+    // steps can be reused in contexts where a dynamic option or selector was
+    // not generated because only one implementation is active.
+    bool has(const char *key) const {
+        return config_get(handle(), key) != nullptr;
     }
 
     ConfigOption get(const char *key) const {
@@ -434,7 +453,26 @@ public:
     }
 
     double get_tag(const char *tag) const { return layer_region_island_get_tag(handle(), tag); }
-    uint32_t region_island_count() const { return layer_region_island_count_region_island(handle()); }
+    uint32_t region_count() const { return layer_region_island_count_region(handle()); }
+
+    // Regions owned by this LayerRegionIsland. Surface-generation plugins use
+    // this when they refine an existing group instead of starting again from
+    // the whole LayerIsland.
+    LayerRegion region(uint32_t idx) const {
+        return LayerRegion(layer_region_island_get_region(handle(), idx));
+    }
+
+    std::vector<LayerRegion> regions() const {
+        std::vector<LayerRegion> result;
+        const uint32_t count = region_count();
+        result.reserve(count);
+        for (uint32_t idx = 0; idx < count; ++idx) {
+            const layer_region_handle *region = layer_region_island_get_region(handle(), idx);
+            if (region != nullptr)
+                result.emplace_back(region);
+        }
+        return result;
+    }
 
     SurfaceCollection fill_surfaces_collection() const {
         return SurfaceCollection(layer_region_island_get_fill_surfaces(handle()));
@@ -455,9 +493,6 @@ public:
         return result;
     }
 
-    LayerRegionIsland region_island(uint32_t idx) const {
-        return LayerRegionIsland(layer_region_island_get_region_island(handle(), idx));
-    }
 };
 
 class LayerIsland : public ConstDataTreeHandleView<layer_island_handle>

@@ -28,6 +28,7 @@
 #include "libslic3r/SurfaceCollection.hpp"
 #include "libslic3r/UiLayoutMerger.hpp"
 
+#include "ApiHostUtils.hpp"
 #include "ClipperShapes.hpp"
 #include "Plugin.hpp"
 
@@ -62,6 +63,7 @@ static ConfigOptionType config_option_type(raw_config_option_type type)
     case RAW_CO_INT:                     return coInt;
     case RAW_CO_FLOAT:                   return coFloat;
     case RAW_CO_FLOAT_OR_PERCENT:        return coFloatOrPercent;
+    case RAW_CO_PERCENT:                 return coPercent;
     case RAW_CO_STRING:                  return coString;
     case RAW_CO_POINT:                   return coPoint;
     case RAW_CO_ENUM:                    return coEnum;
@@ -378,6 +380,52 @@ option_def_error_code orchestrator_create_option_def(orchestrator_handle *me, co
     try {
         return Slic3r::orchestrator_from_handle(me)->create_new_print_config(def);
     } catch (...) { return OPTION_DEF_ERROR_INTERNAL; }
+}
+
+int32_t orchestrator_selected_plugin_used_config_keys(orchestrator_handle *me,
+                                                      const config_handle *config,
+                                                      slicing_step_t step,
+                                                      raw_used_config_key *keys)
+{
+    Slic3r::Orchestrator *orchestrator = Slic3r::orchestrator_from_handle(me);
+    const Slic3r::ConfigBase *config_base = Slic3r::ApiHost::to_config(config);
+    const std::vector<Slic3r::Plugin *> plugins =
+        Slic3r::Steps::selected_or_active_plugins_for_step(*orchestrator, step, config_base);
+
+    // Exclusive steps yield one selected plugin; non-exclusive steps yield all
+    // active plugins. Build one stable union so callers do not have to care
+    // which execution model the queried step uses.
+    std::vector<const Slic3r::Plugin::UsedConfigKey *> used_keys;
+    for (const Slic3r::Plugin *plugin : plugins) {
+        if (plugin == nullptr)
+            continue;
+
+        const std::vector<Slic3r::Plugin::UsedConfigKey> &plugin_keys = plugin->get_used_config_keys();
+        for (const Slic3r::Plugin::UsedConfigKey &candidate : plugin_keys) {
+            const std::vector<const Slic3r::Plugin::UsedConfigKey *>::const_iterator found =
+                std::find_if(used_keys.begin(),
+                             used_keys.end(),
+                             [&candidate](const Slic3r::Plugin::UsedConfigKey *existing) {
+                                 return existing != nullptr &&
+                                        existing->key == candidate.key &&
+                                        existing->type == candidate.type &&
+                                        existing->container_type == candidate.container_type &&
+                                        existing->option_preset_type == candidate.option_preset_type;
+                             });
+            if (found == used_keys.end())
+                used_keys.push_back(&candidate);
+        }
+    }
+
+    if (keys != nullptr) {
+        for (size_t idx = 0; idx < used_keys.size(); ++idx) {
+            keys[idx].key = used_keys[idx]->key.c_str();
+            keys[idx].type = used_keys[idx]->type;
+            keys[idx].container_type = used_keys[idx]->container_type;
+            keys[idx].option_preset_type = used_keys[idx]->option_preset_type;
+        }
+    }
+    return int32_t(used_keys.size());
 }
 }
 

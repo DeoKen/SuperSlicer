@@ -222,10 +222,16 @@ SLIC3R_HOST_API const surface_handle *layer_region_island_get_fill_surface(const
 SLIC3R_HOST_API void layer_region_island_set_tag(layer_region_island_handle *me, const char *tag, double value);
 SLIC3R_HOST_API double layer_region_island_get_tag(const layer_region_island_handle *me, const char *tag);
 
-SLIC3R_HOST_API uint32_t layer_region_island_count_region_island(const layer_region_island_handle *me);
-SLIC3R_HOST_API layer_region_island_handle *layer_region_island_get_region_island_mutable(layer_region_island_handle *me, uint32_t idx);
-SLIC3R_HOST_API const layer_region_island_handle *layer_region_island_get_region_island(const layer_region_island_handle *me,
-                                                                        uint32_t idx);
+/*
+Regions owned by this LayerRegionIsland.
+
+Surface-generation plugins use this to refine an existing group without
+falling back to the whole LayerIsland. The returned region handles are borrowed
+from the host data tree and remain valid during the current step run.
+*/
+SLIC3R_HOST_API uint32_t layer_region_island_count_region(const layer_region_island_handle *me);
+SLIC3R_HOST_API const layer_region_handle *layer_region_island_get_region(const layer_region_island_handle *me,
+                                                                          uint32_t idx);
 
 /* ========================= PRINT REGION ========================= */
 

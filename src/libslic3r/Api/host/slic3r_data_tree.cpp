@@ -564,24 +564,19 @@ double layer_region_island_get_tag(const layer_region_island_handle *me, const c
     return (me == nullptr || tag == nullptr) ? 0.0 : Slic3r::to_layer_region_island(me)->get_tag(tag);
 }
 
-uint32_t layer_region_island_count_region_island(const layer_region_island_handle *me)
+uint32_t layer_region_island_count_region(const layer_region_island_handle *me)
 {
-    (void)me;
-    return 0;
+    return me == nullptr ? 0 : uint32_t(Slic3r::to_layer_region_island(me)->regions().size());
 }
 
-layer_region_island_handle *layer_region_island_get_region_island_mutable(layer_region_island_handle *me, uint32_t idx)
+const layer_region_handle *layer_region_island_get_region(const layer_region_island_handle *me, uint32_t idx)
 {
-    (void)me;
-    (void)idx;
-    return nullptr;
-}
+    if (me == nullptr || idx >= layer_region_island_count_region(me))
+        return nullptr;
 
-const layer_region_island_handle *layer_region_island_get_region_island(const layer_region_island_handle *me, uint32_t idx)
-{
-    (void)me;
-    (void)idx;
-    return nullptr;
+    Slic3r::LayerRegionSetCPtrs::const_iterator it = Slic3r::to_layer_region_island(me)->regions().begin();
+    std::advance(it, idx);
+    return reinterpret_cast<const layer_region_handle *>(*it);
 }
 
 config_handle *print_region_get_config_mutable(print_region_handle *me)
