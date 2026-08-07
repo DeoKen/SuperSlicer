@@ -1528,6 +1528,49 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
                              "\"Avoid front corner keep-out zones\"."));
             }
         }
+
+        // Skirt and brim are extrusions, so they cannot be rerouted the way a
+        // travel can; reaching into a zone has to abort the slice too.
+        //
+        // The print wide skirt and brim are emitted with set_origin(0., 0.), so
+        // their points are already in bed coordinates. Per object skirts and
+        // brims are stored relative to the object and are emitted with the
+        // instance shift applied, so they need the same shift here.
+        class ZoneVisitor : public ExtrusionVisitorRecursiveConst
+        {
+        public:
+            const NotchAvoidance *avoidance { nullptr };
+            Point                 offset { 0, 0 };
+            bool                  hit { false };
+            void use(const ExtrusionPath &path) override { this->test(path.polyline.to_polyline()); }
+            void use(const ExtrusionPath3D &path3D) override { this->test(path3D.polyline.to_polyline()); }
+            void test(Polyline pl)
+            {
+                if (hit)
+                    return;
+                if (offset != Point(0, 0))
+                    pl.translate(offset);
+                hit = avoidance->intersects(pl);
+            }
+        } zone_visitor;
+        zone_visitor.avoidance = &this->m_notch_avoidance;
+        print.skirt().visit(zone_visitor);
+        if (print.skirt_first_layer().has_value())
+            print.skirt_first_layer()->visit(zone_visitor);
+        print.brim().visit(zone_visitor);
+        for (const PrintObject *object : print.objects())
+            for (const PrintInstance &instance : object->instances()) {
+                zone_visitor.offset = instance.shift;
+                object->skirt().visit(zone_visitor);
+                if (object->skirt_first_layer().has_value())
+                    object->skirt_first_layer()->visit(zone_visitor);
+                object->brim().visit(zone_visitor);
+            }
+        if (zone_visitor.hit)
+            throw Slic3r::SlicingError(
+                _u8L("The skirt or brim reaches into a front corner keep-out zone. Move the objects "
+                     "further from the front corners, reduce the skirt distance or loops, or turn "
+                     "off \"Avoid front corner keep-out zones\"."));
     }
 
     if (!export_to_binary_gcode)

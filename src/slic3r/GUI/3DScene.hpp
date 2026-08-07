@@ -358,8 +358,17 @@ public:
 
     struct PrintVolume
     {
-        // see: Bed3D::EShapeType
-        int type{ 0 };
+        // Shader side type codes, see gouraud.fs. This is the shader's own
+        // numbering and is deliberately not BuildVolume::Type: the shader only
+        // implements the shapes it can test per fragment, everything else is
+        // passed through as unsupported and gets no tint.
+        enum EType : int {
+            Rectangle           = 0,
+            Circle              = 1,
+            // Rectangle minus up to two axis aligned keep-out zones.
+            RectangleWithKeepOut = 2,
+        };
+        int type{ Rectangle };
         // data contains:
         // Rectangle:
         //   [0] = min.x, [1] = min.y, [2] = max.x, [3] = max.y
@@ -368,6 +377,12 @@ public:
         std::array<float, 4> data;
         //   [0] = min z, [1] = max z
         std::array<float, 2> zs;
+        // Keep-out zones, only read for type RectangleWithKeepOut.
+        //   [0] = min.x, [1] = min.y, [2] = max.x, [3] = max.y
+        // An unused slot is left inverted (min > max) so it contains nothing.
+        static constexpr std::array<float, 4> no_keep_out { 1.0f, 1.0f, -1.0f, -1.0f };
+        std::array<float, 4> keep_out_0 = no_keep_out;
+        std::array<float, 4> keep_out_1 = no_keep_out;
     };
 
 private:

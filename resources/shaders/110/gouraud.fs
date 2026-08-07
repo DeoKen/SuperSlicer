@@ -5,7 +5,8 @@ const float EPSILON = 0.0001;
 
 struct PrintVolumeDetection
 {
-	// 0 = rectangle, 1 = circle, 2 = custom, 3 = invalid
+	// 0 = rectangle, 1 = circle, 2 = rectangle with keep-out zones.
+	// Anything else is a shape the shader cannot test, and gets no tint.
 	int type;
     // type = 0 (rectangle):
     // x = min.x, y = min.y, z = max.x, w = max.y
@@ -14,6 +15,11 @@ struct PrintVolumeDetection
 	vec4 xy_data;
     // x = min z, y = max z
 	vec2 z_data;
+    // type = 2 (rectangle with keep-out zones): two axis aligned zones,
+    // x = min.x, y = min.y, z = max.x, w = max.y each. An unused zone is
+    // passed inverted (min > max) so it can never contain a fragment.
+	vec4 xy_keep_out_0;
+	vec4 xy_keep_out_1;
 };
 
 struct SlopeDetection
@@ -46,6 +52,13 @@ varying vec4 world_pos;
 varying float world_normal_z;
 varying vec3 eye_normal;
 
+
+bool inside_keep_out(vec4 zone)
+{
+	return world_pos.x > zone.x && world_pos.x < zone.z &&
+	       world_pos.y > zone.y && world_pos.y < zone.w;
+}
+
 void main()
 {
     if (any(lessThan(clipping_planes_dots, ZERO)))
@@ -67,10 +80,13 @@ void main()
     // if the fragment is outside the print volume -> use darker color
 	vec3 pv_check_min = ZERO;
 	vec3 pv_check_max = ZERO;
-    if (print_volume.type == 0) {
-		// rectangle
+	bool pv_keep_out = false;
+    if (print_volume.type == 0 || print_volume.type == 2) {
+		// rectangle, optionally minus keep-out zones
 		pv_check_min = world_pos.xyz - vec3(print_volume.xy_data.x, print_volume.xy_data.y, print_volume.z_data.x);
 		pv_check_max = world_pos.xyz - vec3(print_volume.xy_data.z, print_volume.xy_data.w, print_volume.z_data.y);
+		if (print_volume.type == 2)
+			pv_keep_out = inside_keep_out(print_volume.xy_keep_out_0) || inside_keep_out(print_volume.xy_keep_out_1);
 	}
 	else if (print_volume.type == 1) {
 		// circle
@@ -78,7 +94,7 @@ void main()
 		pv_check_min = vec3(delta_radius, 0.0, world_pos.z - print_volume.z_data.x);
 		pv_check_max = vec3(0.0, 0.0, world_pos.z - print_volume.z_data.y);
 	}
-	color.rgb = (any(lessThan(pv_check_min, ZERO)) || any(greaterThan(pv_check_max, ZERO))) ? mix(color.rgb, ZERO, 0.3333) : color.rgb;
+	color.rgb = (pv_keep_out || any(lessThan(pv_check_min, ZERO)) || any(greaterThan(pv_check_max, ZERO))) ? mix(color.rgb, ZERO, 0.3333) : color.rgb;
 	
 #ifdef ENABLE_ENVIRONMENT_MAP
     if (use_environment_tex)

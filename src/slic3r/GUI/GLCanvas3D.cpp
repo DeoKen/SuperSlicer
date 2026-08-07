@@ -65,6 +65,7 @@
 // Print now includes tbb, and tbb includes Windows. This breaks compilation of wxWidgets if included before wx.
 #include "libslic3r/Print.hpp"
 #include "libslic3r/SLAPrint.hpp"
+#include "libslic3r/GCode/NotchAvoidance.hpp"
 
 #include "wxExtensions.hpp"
 
@@ -1635,6 +1636,44 @@ void GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes) const
     check_volumes_outside_state(volumes, nullptr, false);
 }
 
+// The front corner keep-out zones, but only when the print profile asks for
+// them. Empty otherwise, so every call site collapses to an empty() test.
+static const std::vector<BoundingBoxf>& active_keep_out_zones(const Print *print)
+{
+    static const std::vector<BoundingBoxf> none;
+    return (print != nullptr && print->config().avoid_bed_notches) ? NotchAvoidance::zone_boxes() : none;
+}
+
+// Fold the keep-out zones into an outside-of-bed result.
+//
+// Deliberately a bounding box test, matching what volume_state_bbox already
+// does for a rectangular bed rather than the per-vertex precision the Custom
+// bed path uses. That keeps this O(1) per volume: the whole point is to get
+// keep-out feedback without moving the plater onto the Custom code path, which
+// is two to three orders of magnitude more expensive and -- because it tests
+// against the bed's convex hull -- cannot see a notch anyway.
+//
+// Being bbox based makes it conservative: an object whose bounding box clips a
+// zone but whose geometry misses it reads as colliding. That is exactly the
+// existing behaviour for rectangular beds, which the source already flags.
+static BuildVolume::ObjectState keep_out_state(const std::vector<BoundingBoxf> &zones,
+                                               const BoundingBoxf3             &volume_bbox,
+                                               BuildVolume::ObjectState         state)
+{
+    // Only ever make the verdict stricter, never rescue a volume the build
+    // volume test already rejected.
+    if (zones.empty() || state != BuildVolume::ObjectState::Inside)
+        return state;
+    const BoundingBoxf bb2(to_2d(volume_bbox.min), to_2d(volume_bbox.max));
+    for (const BoundingBoxf &zone : zones) {
+        if (zone.contains(bb2))
+            return BuildVolume::ObjectState::Outside;
+        if (zone.overlap(bb2))
+            state = BuildVolume::ObjectState::Colliding;
+    }
+    return state;
+}
+
 bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelInstanceEPrintVolumeState* out_state, bool selection_only) const
 {
     auto                volume_below = [](GLVolume& volume) -> bool
@@ -1666,6 +1705,9 @@ bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelI
     bool contained_min_one = false;
 
     const Slic3r::BuildVolume& build_volume = m_bed.build_volume();
+    // Read the config once, not once per volume.
+    const std::vector<BoundingBoxf>& keep_out_zones =
+        active_keep_out_zones(current_printer_technology() == ptFFF ? fff_print() : nullptr);
 
     const std::vector<unsigned int> volumes_idxs = volumes_to_process_idxs();
     for (unsigned int vol_idx : volumes_idxs) {
@@ -1676,10 +1718,15 @@ bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelI
                 state = BuildVolume::ObjectState::Below;
             else {
                 switch (build_volume.type()) {
-                case BuildVolume::Type::Rectangle:
+                case BuildVolume::Type::Rectangle: {
                     //FIXME this test does not evaluate collision of a build volume bounding box with non-convex objects.
-                    state = build_volume.volume_state_bbox(volume_bbox(*volume));
+                    // Evaluated once: for a sinking volume this is the non-sinking
+                    // bounding box, which is not memoized.
+                    const BoundingBoxf3 bbox = volume_bbox(*volume);
+                    state = build_volume.volume_state_bbox(bbox);
+                    state = keep_out_state(keep_out_zones, bbox, state);
                     break;
+                }
                 case BuildVolume::Type::Circle:
                 case BuildVolume::Type::Convex:
                 //FIXME doing test on convex hull until we learn to do test on non-convex polygons efficiently.
@@ -6661,9 +6708,24 @@ void GLCanvas3D::_render_objects(GLVolumeCollection::ERenderType type)
         switch (build_volume.type()) {
         case BuildVolume::Type::Rectangle: {
             const BoundingBox3Base<Vec3d> bed_bb = build_volume.bounding_volume().inflated(BuildVolume::SceneEpsilon);
-            m_volumes.set_print_volume({ 0, // circle
+            GLVolumeCollection::PrintVolume pv{ GLVolumeCollection::PrintVolume::Rectangle,
                 { float(bed_bb.min.x()), float(bed_bb.min.y()), float(bed_bb.max.x()), float(bed_bb.max.y()) },
-                { 0.0f, float(build_volume.max_print_height()) } });
+                { 0.0f, float(build_volume.max_print_height()) } };
+            // Shade the keep-out zones per fragment on the GPU. Costs two
+            // rectangle tests per fragment and keeps the bed rectangular, so
+            // none of the Custom bed slow paths are touched.
+            const std::vector<BoundingBoxf>& zones =
+                active_keep_out_zones(current_printer_technology() == ptFFF ? fff_print() : nullptr);
+            if (! zones.empty()) {
+                pv.type = GLVolumeCollection::PrintVolume::RectangleWithKeepOut;
+                // The shader carries two slots; any further zone would need a
+                // slot of its own there before it could be shown.
+                std::array<float, 4>* const slots[2] = { &pv.keep_out_0, &pv.keep_out_1 };
+                for (size_t i = 0; i < zones.size() && i < 2; ++ i)
+                    *slots[i] = { float(zones[i].min.x()), float(zones[i].min.y()),
+                                  float(zones[i].max.x()), float(zones[i].max.y()) };
+            }
+            m_volumes.set_print_volume(pv);
             break;
         }
         case BuildVolume::Type::Circle: {

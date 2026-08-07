@@ -803,6 +803,8 @@ void GLVolumeCollection::render(GLVolumeCollection::ERenderType type, bool disab
         shader->set_uniform("print_volume.type", static_cast<int>(m_print_volume.type));
         shader->set_uniform("print_volume.xy_data", m_print_volume.data);
         shader->set_uniform("print_volume.z_data", m_print_volume.zs);
+        shader->set_uniform("print_volume.xy_keep_out_0", m_print_volume.keep_out_0);
+        shader->set_uniform("print_volume.xy_keep_out_1", m_print_volume.keep_out_1);
         shader->set_uniform("volume_world_matrix", world_matrix);
         shader->set_uniform("slope.actived", m_slope.active && !volume.first->is_modifier && !volume.first->is_wipe_tower);
         shader->set_uniform("slope.volume_world_normal_matrix", static_cast<Matrix3f>(world_matrix.matrix().block(0, 0, 3, 3).inverse().transpose().cast<float>()));

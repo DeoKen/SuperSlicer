@@ -6,9 +6,12 @@
 #define slic3r_GCode_NotchAvoidance_hpp_
 
 #include "../libslic3r.h"
+#include "../BoundingBox.hpp"
 #include "../Point.hpp"
 #include "../Polygon.hpp"
 #include "../Polyline.hpp"
+
+#include <vector>
 
 namespace Slic3r {
 
@@ -47,8 +50,18 @@ public:
     // that enters a zone. False if some segment cannot be routed.
     bool        reroute_polyline(const Polyline &in, Polyline &out) const;
 
+    // True if any part of the polyline lies inside a zone. Used for extrusions
+    // that cannot be rerouted, so a hit has to abort the slice.
+    bool        intersects(const Polyline &pl) const;
+
     // The zones as polygons, for the object placement check.
     static Polygons zone_polygons();
+
+    // The zones as unscaled axis aligned boxes in bed coordinates. Used by the
+    // plater's outside-of-bed test and by the print volume shader, both of
+    // which work in unscaled world coordinates. Independent of m_enabled, so
+    // callers gate on their own config read.
+    static const std::vector<BoundingBoxf>& zone_boxes();
 
 private:
     bool m_enabled { false };

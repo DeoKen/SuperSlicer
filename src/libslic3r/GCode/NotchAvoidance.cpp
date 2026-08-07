@@ -171,6 +171,16 @@ bool NotchAvoidance::reroute_polyline(const Polyline &in, Polyline &out) const
     return true;
 }
 
+bool NotchAvoidance::intersects(const Polyline &pl) const
+{
+    if (! m_enabled || pl.size() < 2)
+        return false;
+    for (size_t i = 1; i < pl.points.size(); ++ i)
+        if (this->crosses(pl.points[i - 1], pl.points[i]))
+            return true;
+    return false;
+}
+
 Polygons NotchAvoidance::zone_polygons()
 {
     Polygons out;
@@ -182,6 +192,18 @@ Polygons NotchAvoidance::zone_polygons()
         out.emplace_back(std::move(p));
     }
     return out;
+}
+
+const std::vector<BoundingBoxf>& NotchAvoidance::zone_boxes()
+{
+    static const std::vector<BoundingBoxf> boxes = []() {
+        std::vector<BoundingBoxf> out;
+        out.reserve(ZONES.size());
+        for (const Zone &z : ZONES)
+            out.emplace_back(Vec2d(z.x0, z.y0), Vec2d(z.x1, z.y1));
+        return out;
+    }();
+    return boxes;
 }
 
 } // namespace Slic3r
