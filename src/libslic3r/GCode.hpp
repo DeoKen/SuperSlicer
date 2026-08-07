@@ -27,6 +27,7 @@
 #include "PrintConfig.hpp"
 #include "Geometry/ArcWelder.hpp"
 #include "GCode/AvoidCrossingPerimeters.hpp"
+#include "GCode/NotchAvoidance.hpp"
 #include "GCode/CoolingBuffer.hpp"
 #include "GCode/FanMover.hpp"
 #include "GCode/FindReplace.hpp"
@@ -445,6 +446,8 @@ private:
     GCode::Wipe                         m_wipe;
     GCode::LabelObjects                 m_label_objects;
     AvoidCrossingPerimeters             m_avoid_crossing_perimeters;
+    // Front corner keep-out zones. Inert unless avoid_bed_notches is set.
+    NotchAvoidance                      m_notch_avoidance;
     JPSPathFinder                       m_avoid_crossing_curled_overhangs;
     RetractWhenCrossingPerimeters       m_retract_when_crossing_perimeters;
     GCode::TravelObstacleTracker        m_travel_obstacle_tracker;

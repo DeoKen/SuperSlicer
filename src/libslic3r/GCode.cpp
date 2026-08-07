@@ -1489,6 +1489,47 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
         this->m_avoid_crossing_curled_overhangs.init_bed_shape(get_bed_shape(print.config()));
     }
 
+    this->m_notch_avoidance.set_enabled(print.config().avoid_bed_notches);
+    if (this->m_notch_avoidance.is_active()) {
+        // Refuse the job outright when something is parked in a keep-out zone.
+        // Extrusions cannot be rerouted, only travels can, so this is the only
+        // way that case can be handled.
+        const Polygons zones = NotchAvoidance::zone_polygons();
+        for (const PrintObject *object : print.objects()) {
+            const ModelObject *model_object = object->model_object();
+            if (model_object == nullptr || model_object->instances.empty())
+                continue;
+            const ModelInstance *mi0 = model_object->instances.front();
+            Geometry::Transformation trafo = mi0->get_transformation();
+            trafo.set_offset(Vec3d{ 0., 0., mi0->get_offset().z() });
+            Points hull_pts;
+            for (const ModelVolume *vol : model_object->volumes)
+                if (vol->is_model_part())
+                    for (const stl_vertex &hv : vol->get_convex_hull().its.vertices) {
+                        const Vec3d w = trafo.get_matrix() * (vol->get_matrix() * hv.cast<double>());
+                        hull_pts.emplace_back(Point::new_scale(w.x(), w.y()));
+                    }
+            if (hull_pts.empty())
+                continue;
+            const Polygon footprint0 = Geometry::convex_hull(std::move(hull_pts));
+            if (footprint0.points.empty())
+                continue;
+            for (const PrintInstance &instance : object->instances()) {
+                Polygon footprint = footprint0;
+                const double z_diff = Geometry::rotation_diff_z(
+                    mi0->get_matrix(), instance.model_instance->get_matrix());
+                if (std::abs(z_diff) > EPSILON)
+                    footprint.rotate(z_diff);
+                footprint.translate(instance.shift);
+                if (! intersection(Polygons{ footprint }, zones).empty())
+                    throw Slic3r::SlicingError(
+                        _u8L("An object sits in one of the front corner keep-out zones and cannot "
+                             "be printed. Move it clear of the front corners, or turn off "
+                             "\"Avoid front corner keep-out zones\"."));
+            }
+        }
+    }
+
     if (!export_to_binary_gcode)
         // Write information on the generator.
         file.write_format("; %s\n\n", Slic3r::header_slic3r_generated().c_str());
@@ -7605,6 +7646,31 @@ Polyline GCodeGenerator::travel_to(std::string &gcode, const Point &point, Extru
             assert(travel.size() > 1);
             for (size_t i = 1; i < travel.size(); i++)
                 assert(!travel.points[i - 1].coincides_with_epsilon(travel.points[i]));
+        }
+    }
+
+    // Last say on where this travel goes: run after avoid_crossing_perimeters
+    // so its route is corrected too, and before the retraction decision so the
+    // detour length is what gets judged.
+    //
+    // `travel` is in print coordinates, which are relative to the active object
+    // instance (set_origin() is called with the instance shift and
+    // point_to_gcode() adds m_origin to reach bed coordinates), while the zones
+    // are in bed coordinates. Lift the travel into bed space to test it and
+    // bring the result back down.
+    if (this->last_pos_defined() && this->m_notch_avoidance.is_active()) {
+        const Point origin_shift = Point::new_scale(m_origin.x(), m_origin.y());
+        Polyline in_bed = travel;
+        in_bed.translate(origin_shift);
+        Polyline rerouted;
+        if (! this->m_notch_avoidance.reroute_polyline(in_bed, rerouted))
+            throw Slic3r::SlicingError(
+                _u8L("A travel move has to cross a front corner keep-out zone and no way around it "
+                     "was found. Rearrange the plate, or turn off \"Avoid front corner keep-out "
+                     "zones\"."));
+        if (rerouted.size() != travel.size()) {
+            rerouted.translate(- origin_shift);
+            travel = std::move(rerouted);
         }
     }
 

@@ -210,6 +210,8 @@ set(SLIC3R_SOURCES
     GCode/GCodeProcessor.hpp
     GCode/AvoidCrossingPerimeters.cpp
     GCode/AvoidCrossingPerimeters.hpp
+    GCode/NotchAvoidance.cpp
+    GCode/NotchAvoidance.hpp
     GCode/Travels.cpp
     GCode/Travels.hpp
     GCode.cpp

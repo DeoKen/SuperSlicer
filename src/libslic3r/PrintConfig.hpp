@@ -1276,6 +1276,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionBool,                 avoid_crossing_perimeters))
     ((ConfigOptionBool,                 avoid_crossing_not_first_layer))
     ((ConfigOptionFloatOrPercent,       avoid_crossing_perimeters_max_detour))
+    ((ConfigOptionBool,                 avoid_bed_notches))
     ((ConfigOptionPoints,               bed_shape))
     ((ConfigOptionInts,                 bed_temperature))
     ((ConfigOptionInts,                 bridge_fan_speed))

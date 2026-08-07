@@ -90,6 +90,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver& /* ne
         "autospeed_min_thin_flow",
         "avoid_crossing_perimeters",
         "avoid_crossing_perimeters_max_detour",
+        "avoid_bed_notches",
         "avoid_crossing_not_first_layer",
         "bed_shape",
         "bed_temperature",

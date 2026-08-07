@@ -739,6 +739,18 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvancedE | comPrusa;
     def->set_default_value(new ConfigOptionBool(false));
 
+    def = this->add("avoid_bed_notches", coBool);
+    def->label = L("Avoid front corner keep-out zones");
+    def->full_label = L("Avoid front corner keep-out zones");
+    def->category = OptionCategory::output;
+    def->tooltip = L("Route travel moves around two 40 mm squares at the front corners of a 350 mm "
+        "bed, the space taken by the AWD stepper mounts, and refuse to slice when an object sits in "
+        "one of them. The zones are fixed in the code, so the printer profile keeps a plain "
+        "rectangular bed and the rest of the application is unaffected. Only applied while G-code "
+        "is generated.");
+    def->mode = comAdvancedE | comSuSi | comPrusa;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("avoid_crossing_not_first_layer", coBool);
     def->label = L("Don't avoid crossing on 1st layer");
     def->full_label = L("Don't avoid crossing on 1st layer");

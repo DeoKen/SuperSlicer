@@ -622,6 +622,7 @@ static std::vector<std::string> s_Preset_print_options {
         "only_one_perimeter_top_other_algo",
         "allow_empty_layers",
         "avoid_crossing_perimeters", 
+        "avoid_bed_notches",
         "avoid_crossing_not_first_layer",
         "avoid_crossing_top",
         "avoid_travel_island",

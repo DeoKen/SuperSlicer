@@ -605,6 +605,8 @@ group:Sequential printing
 		setting:width$6:extruder_clearance_radius
 		setting:width$6:extruder_clearance_height
 	end_line
+group:Keep-out zones
+	setting:avoid_bed_notches
 group:Output file
 	setting:gcode_comments
 	setting:gcode_label_objects
