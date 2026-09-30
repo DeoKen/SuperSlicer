@@ -265,6 +265,10 @@ arr2::SceneBuilder build_scene(Plater &plater, ArrangeSelectionMode mode)
     if (plater.config()) {
         const Vec2crd gap{s_multiple_beds.get_bed_gap()};
         builder.set_bed(*plater.config(), gap);
+        if (plater.printer_technology() == ptFFF)
+            // Bed keep-out zones are fixed obstacles on every bed.
+            for (AnyPtr<arr2::WipeTowerHandler> &handler : arr2::bed_keep_out_handlers(*plater.config(), s_multiple_beds.get_max_beds()))
+                handlers.push_back(std::move(handler));
     }
 
     builder.set_wipe_tower_handlers(std::move(handlers));

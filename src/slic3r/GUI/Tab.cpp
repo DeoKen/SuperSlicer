@@ -2718,6 +2718,7 @@ void TabPrinter::build_fff()
         create_line_with_widget(optgroup.get(), "bed_shape", "custom-svg-and-png-bed-textures_124612", [this](wxWindow* parent) {
             return 	create_bed_shape_widget(parent);
         });
+        optgroup->append_single_option_line("bed_keep_out_zones");
 
         optgroup->append_single_option_line("max_print_height");
         optgroup->append_single_option_line("z_offset");

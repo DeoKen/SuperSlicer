@@ -720,6 +720,11 @@ public:
     void apply_duplicates();
 };
 
+// Bed keep-out zones (bed_keep_out_zones) as fixed, never moved obstacles on beds 0 to bed_count - 1. The scene only
+// offers the wipe tower handlers as a hook for extra fixed items, so they are presented as such. The bed itself stays
+// a plain rectangle (see BedKeepOut). Empty if the config has no zones.
+std::vector<AnyPtr<WipeTowerHandler>> bed_keep_out_handlers(const DynamicPrintConfig &config, int bed_count);
+
 } // namespace arr2
 } // namespace Slic3r
 

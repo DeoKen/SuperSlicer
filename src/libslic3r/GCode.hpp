@@ -41,6 +41,7 @@
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/GCode/ThumbnailData.hpp"
 #include "libslic3r/GCode/Travels.hpp"
+#include "libslic3r/GCode/BedKeepOut.hpp"
 #include "EdgeGrid.hpp"
 #include "tcbspan/span.hpp"
 
@@ -358,6 +359,9 @@ private:
     );
 
     std::string travel_to_first_position(const Vec3crd& point, const double from_z, const ExtrusionRole role, const std::function<std::string()>& insert_gcode);
+    // Travel waypoints around the bed keep-out zones for a direct move to `to` (G-code coordinates), starting at the
+    // last known position or, if unknown, at the last XY a custom G-code moved to. Empty if no detour is needed.
+    std::string keep_out_detour_to(const Vec2d &to, const std::string &comment);
 
     bool            needs_retraction(const Polyline &travel, ExtrusionRole role = ExtrusionRole::None);
 
@@ -412,6 +416,10 @@ private:
     GCode::LabelObjects                 m_label_objects;
     AvoidCrossingPerimeters             m_avoid_crossing_perimeters;
     JPSPathFinder                       m_avoid_crossing_curled_overhangs;
+    // Bed keep-out zones (bed_keep_out_zones): travels are routed around them.
+    BedKeepOut                          m_bed_keep_out;
+    // Last absolute XY a custom G-code moved to (for example the end of a purge line), only tracked with keep-out zones.
+    std::optional<Vec2d>                m_custom_gcode_last_xy;
     RetractWhenCrossingPerimeters       m_retract_when_crossing_perimeters;
     GCode::TravelObstacleTracker        m_travel_obstacle_tracker;
     bool                                m_enable_loop_clipping;

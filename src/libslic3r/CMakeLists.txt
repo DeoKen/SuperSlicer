@@ -224,6 +224,8 @@ set(SLIC3R_SOURCES
     GCode/GCodeProcessor.cpp
     GCode/GCodeProcessor.hpp
     GCode/AvoidCrossingPerimeters.cpp
+    GCode/BedKeepOut.cpp
+    GCode/BedKeepOut.hpp
     GCode/AvoidCrossingPerimeters.hpp
     GCode/Travels.cpp
     GCode/Travels.hpp

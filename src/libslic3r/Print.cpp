@@ -22,6 +22,7 @@
 ///|/
 #include "Exception.hpp"
 #include "Print.hpp"
+#include "GCode/BedKeepOut.hpp"
 #include "BoundingBox.hpp"
 #include "Brim.hpp"
 #include "ClipperUtils.hpp"
@@ -86,6 +87,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "avoid_crossing_perimeters",
         "avoid_crossing_perimeters_max_detour",
         "bed_shape",
+        "bed_keep_out_zones",
         "bed_temperature",
         "before_layer_gcode",
         "between_objects_gcode",
@@ -467,6 +469,13 @@ boost::regex regex_g92e0 { "^[ \\t]*[gG]92[ \\t]*[eE](0(\\.0*)?|\\.0+)[ \\t]*(;.
 std::string Print::validate(std::vector<std::string>* warnings) const
 {
     std::vector<unsigned int> extruders = this->extruders();
+
+    {
+        std::vector<BoundingBoxf> zones;
+        std::string               error;
+        if (! BedKeepOut::parse(m_config.bed_keep_out_zones.value, zones, &error))
+            return error;
+    }
 
     if (warnings) {
         if (m_config.bed_temperature_extruder == 0) {

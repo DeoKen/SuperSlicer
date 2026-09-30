@@ -1097,3 +1097,67 @@ TEST_CASE("Testing duplicate function to really duplicate the whole Model",
     REQUIRE(is_collision_free(range(task->selected)));
 }
 
+
+// Bed keep-out zones (bed_keep_out_zones) are fixed obstacles for the arrangement.
+static int instances_in_keep_out_zones(const Slic3r::Model &model, const std::vector<Slic3r::BoundingBoxf> &zones, int &on_bed)
+{
+    using namespace Slic3r;
+    const BoundingBoxf bed(Vec2d(0., 0.), Vec2d(350., 350.));
+    int in_zones = 0;
+    on_bed = 0;
+    for (const ModelObject *mo : model.objects)
+        for (size_t i = 0; i < mo->instances.size(); ++ i) {
+            const BoundingBoxf3 bb3 = mo->instance_bounding_box(i);
+            const BoundingBoxf  bb(to_2d(bb3.min), to_2d(bb3.max));
+            // Only the physical bed, arranged items spilling over land on virtual beds next to it.
+            if (! bed.contains(bb.center()))
+                continue;
+            ++ on_bed;
+            for (const BoundingBoxf &zone : zones)
+                if (zone.overlap(bb) && bb.max.x() > zone.min.x() && bb.min.x() < zone.max.x() && bb.max.y() > zone.min.y() && bb.min.y() < zone.max.y())
+                    ++ in_zones;
+        }
+    return in_zones;
+}
+
+TEST_CASE("Arrangement keeps objects out of the bed keep-out zones", "[arrange2][integration][KeepOut]")
+{
+    using namespace Slic3r;
+
+    // Enough 40 mm cubes to fill the bed, so the arrangement has to use its corners.
+    Model model;
+    for (int i = 0; i < 64; ++ i) {
+        ModelObject *mo = model.add_object();
+        mo->name = "cube";
+        mo->add_volume(TriangleMesh(its_make_cube(40., 40., 10.)));
+        mo->add_instance();
+    }
+    DynamicPrintConfig cfg = DynamicPrintConfig::full_print_config();
+    cfg.set_deserialize_strict({ { "bed_shape", "0x0,350x0,350x350,0x350" }, { "bed_keep_out_zones", "0,0,40,40;310,0,350,40" } });
+    const std::vector<BoundingBoxf> zones { BoundingBoxf(Vec2d(0, 0), Vec2d(40, 40)), BoundingBoxf(Vec2d(310, 0), Vec2d(350, 40)) };
+
+    auto strategy = GENERATE(arr2::ArrangeSettingsView::asAuto, arr2::ArrangeSettingsView::asPullToCenter);
+    INFO("Strategy = " << strategy);
+    const bool with_zones = GENERATE(false, true);
+    INFO("With zones = " << with_zones);
+
+    auto settings = arr2::ArrangeSettings{}.set_distance_from_objects(2.).set_arrange_strategy(strategy);
+    arr2::SceneBuilder builder = arr2::SceneBuilder{}.set_model(model).set_arrange_settings(settings).set_bed(cfg, Point::new_scale(10, 10));
+    if (with_zones)
+        builder.set_wipe_tower_handlers(arr2::bed_keep_out_handlers(cfg, 4));
+    arr2::Scene scene{ std::move(builder) };
+
+    auto task   = arr2::ArrangeTask<arr2::ArrangeItem>::create(scene);
+    auto result = task->process_native(arr2::DummyCtl{});
+    REQUIRE(result);
+    REQUIRE(result->apply_on(scene.model()));
+
+    int on_bed = 0;
+    const int in_zones = instances_in_keep_out_zones(model, zones, on_bed);
+    CHECK(on_bed > 0);
+    if (with_zones)
+        CHECK(in_zones == 0);
+    else
+        // Sanity check of the test itself: without the zones the corners are used.
+        CHECK(in_zones > 0);
+}

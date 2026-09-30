@@ -16,7 +16,18 @@ struct PrintVolumeDetection
 	vec4 xy_data;
     // x = min z, y = max z
 	vec2 z_data;
+    // type = 0 (rectangle): bed keep-out zones, tinted like the outside of the print volume.
+    // x = min.x, y = min.y, z = max.x, w = max.y. An unused zone is inverted (min > max).
+	vec4 xy_keep_out_0;
+	vec4 xy_keep_out_1;
+	vec4 xy_keep_out_2;
+	vec4 xy_keep_out_3;
 };
+
+bool inside_keep_out(vec4 zone, vec3 pos)
+{
+	return pos.x > zone.x && pos.x < zone.z && pos.y > zone.y && pos.y < zone.w;
+}
 
 struct SlopeDetection
 {
@@ -80,7 +91,10 @@ void main()
 		pv_check_min = vec3(delta_radius, 0.0, world_pos.z - print_volume.z_data.x);
 		pv_check_max = vec3(0.0, 0.0, world_pos.z - print_volume.z_data.y);
 	}	
-	color.rgb = (any(lessThan(pv_check_min, ZERO)) || any(greaterThan(pv_check_max, ZERO))) ? mix(color.rgb, ZERO, 0.3333) : color.rgb;
+	bool pv_keep_out = print_volume.type == 0 &&
+		(inside_keep_out(print_volume.xy_keep_out_0, world_pos.xyz) || inside_keep_out(print_volume.xy_keep_out_1, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_2, world_pos.xyz) || inside_keep_out(print_volume.xy_keep_out_3, world_pos.xyz));
+	color.rgb = (pv_keep_out || any(lessThan(pv_check_min, ZERO)) || any(greaterThan(pv_check_max, ZERO))) ? mix(color.rgb, ZERO, 0.3333) : color.rgb;
 	
 #ifdef ENABLE_ENVIRONMENT_MAP
     if (use_environment_tex)

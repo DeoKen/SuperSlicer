@@ -24,6 +24,8 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/GCode/ThumbnailData.hpp"
+#include "libslic3r/GCode/BedKeepOut.hpp"
+#include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Layer.hpp"
@@ -1436,6 +1438,17 @@ ModelInstanceEPrintVolumeState GLCanvas3D::check_volumes_outside_state(bool sele
     return state;
 }
 
+// Bed keep-out zones of the current printer (bed coordinates, grown by the clearance the slicer uses), empty if none.
+static BedKeepOut bed_keep_out(const DynamicPrintConfig *config, const BuildVolume &build_volume)
+{
+    BedKeepOut keep_out;
+    if (config != nullptr && config->has("bed_keep_out_zones")) {
+        const BoundingBox3Base<Vec3d> &bed = build_volume.bounding_volume();
+        keep_out.init(BedKeepOut::parse(config->opt_string("bed_keep_out_zones")), BoundingBoxf(to_2d(bed.min), to_2d(bed.max)));
+    }
+    return keep_out;
+}
+
 bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelInstanceEPrintVolumeState* out_state, bool selection_only) const
 {
     auto                volume_below = [](GLVolume& volume) -> bool
@@ -1467,6 +1480,36 @@ bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelI
     bool contained_min_one = false;
 
     const Slic3r::BuildVolume& build_volume = m_bed.build_volume();
+    // Parsed once, not per volume.
+    const BedKeepOut keep_out = build_volume.type() == BuildVolume::Type::Rectangle ? bed_keep_out(m_config, build_volume) : BedKeepOut();
+
+    // Make an "inside" verdict stricter when the volume reaches into a bed keep-out zone of the bed it is on.
+    // The cheap bounding box test first; only a volume whose bounding box touches a zone gets the exact test
+    // of its convex hull, so this stays O(1) for everything away from the zones.
+    auto keep_out_state = [&keep_out, &volume_bbox, &volume_convex_mesh](GLVolume &volume, int bed_idx, BuildVolume::ObjectState state) {
+        if (! keep_out.is_active() || state != BuildVolume::ObjectState::Inside || bed_idx < 0)
+            return state;
+        const Vec2d        shift = to_2d(s_multiple_beds.get_bed_translation(bed_idx));
+        const BoundingBoxf3 bbox3 = volume_bbox(volume);
+        const BoundingBoxf bbox(to_2d(bbox3.min) - shift, to_2d(bbox3.max) - shift);
+        bool near_zone = false;
+        for (const BoundingBoxf &zone : keep_out.zones())
+            if (zone.overlap(bbox)) {
+                if (zone.contains(bbox.min) && zone.contains(bbox.max))
+                    return BuildVolume::ObjectState::Outside;
+                near_zone = true;
+            }
+        if (! near_zone)
+            return state;
+        const Transform3d &trafo = volume.world_matrix();
+        Points pts;
+        for (const stl_vertex &v : volume_convex_mesh(volume).its.vertices) {
+            const Vec3d w = trafo * v.cast<double>();
+            pts.emplace_back(Point::new_scale(w.x() - shift.x(), w.y() - shift.y()));
+        }
+        const Polygon hull = Geometry::convex_hull(std::move(pts));
+        return keep_out.intersects(ExPolygons{ ExPolygon(hull) }) ? BuildVolume::ObjectState::Colliding : state;
+    };
 
     const std::vector<unsigned int> volumes_idxs = volumes_to_process_idxs();
     for (unsigned int vol_idx : volumes_idxs) {
@@ -1481,6 +1524,7 @@ bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelI
                 case BuildVolume::Type::Rectangle:
                     //FIXME this test does not evaluate collision of a build volume bounding box with non-convex objects.
                     state = build_volume.volume_state_bbox(volume_bbox(*volume), true, &bed_idx);
+                    state = keep_out_state(*volume, bed_idx, state);
                     break;
                 case BuildVolume::Type::Circle:
                 case BuildVolume::Type::Convex:
@@ -6172,10 +6216,18 @@ void GLCanvas3D::_render_objects(GLVolumeCollection::ERenderType type)
       switch (build_volume.type()) {
         case BuildVolume::Type::Rectangle: {
             const BoundingBox3Base<Vec3d> bed_bb = build_volume.bounding_volume().inflated(BuildVolume::SceneEpsilon);
-            m_volumes.set_print_volume({ 0, // rectangle
+            GLVolumeCollection::PrintVolume print_volume { 0, // rectangle
                 { float(bed_bb.min.x() + bed_offset.x()), float(bed_bb.min.y() + bed_offset.y()),
                   float(bed_bb.max.x() + bed_offset.x()), float(bed_bb.max.y() + bed_offset.y()) },
-                { float(0.0 + bed_offset.z()), float(build_volume.max_print_height() + bed_offset.z()) } });
+                { float(0.0 + bed_offset.z()), float(build_volume.max_print_height() + bed_offset.z()) } };
+            // Tint the bed keep-out zones like the outside of the print volume.
+            const BedKeepOut keep_out = bed_keep_out(m_config, build_volume);
+            for (size_t i = 0; i < std::min(keep_out.zones().size(), GLVolumeCollection::PrintVolume::MaxKeepOutZones); ++ i) {
+                const BoundingBoxf &zone = keep_out.zones()[i];
+                print_volume.keep_out[i] = { float(zone.min.x() + bed_offset.x()), float(zone.min.y() + bed_offset.y()),
+                                             float(zone.max.x() + bed_offset.x()), float(zone.max.y() + bed_offset.y()) };
+            }
+            m_volumes.set_print_volume(print_volume);
             break;
         }
         case BuildVolume::Type::Circle: {

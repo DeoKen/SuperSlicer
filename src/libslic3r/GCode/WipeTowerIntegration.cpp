@@ -77,6 +77,7 @@ std::string WipeTowerIntegration::append_tcr(GCodeGenerator &gcodegen, const Wip
                     from, to, ExtrusionRole::Mixed, comment, [](){return "";}
                 );
             } else {
+                gcode += gcodegen.keep_out_detour_to(gcodegen.point_to_gcode(xy_point), comment);
                 gcode += gcodegen.writer().travel_to_xy(gcodegen.point_to_gcode(xy_point), comment);
                 gcode += gcodegen.writer().travel_to_z_force(z, comment);
             }

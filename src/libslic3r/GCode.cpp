@@ -57,6 +57,7 @@
 #include <string_view>
 
 #include <boost/algorithm/string.hpp>
+#include <sstream>
 #include <boost/algorithm/string/find.hpp>
 #include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
@@ -954,6 +955,70 @@ static inline std::optional<std::string> find_M84(const std::string &gcode) {
     return std::nullopt;
 }
 
+static void check_bed_keep_out(const Print &print, const BedKeepOut &keep_out);
+
+// Track the last absolute XY position a custom G-code moves the toolhead to. Relative moves (G91) make it unknown.
+static void update_last_xy_from_custom_gcode(const std::string &gcode, std::optional<Vec2d> &last_xy)
+{
+    bool relative = false;
+    std::istringstream in(gcode);
+    std::string line;
+    while (std::getline(in, line)) {
+        const std::string code = boost::trim_copy(line.substr(0, line.find(';')));
+        if (code.empty())
+            continue;
+        if (boost::istarts_with(code, "G91") && (code.size() == 3 || ! std::isdigit(code[3]))) {
+            relative = true;
+            last_xy.reset();
+        } else if (boost::istarts_with(code, "G90") && (code.size() == 3 || ! std::isdigit(code[3]))) {
+            relative = false;
+        } else if (! relative && (boost::istarts_with(code, "G0") || boost::istarts_with(code, "G1") ||
+                                  boost::istarts_with(code, "G2") || boost::istarts_with(code, "G3")) &&
+                   (code.size() == 2 || code[2] == ' ')) {
+            std::optional<double> x, y;
+            std::istringstream words(code.substr(2));
+            std::string word;
+            while (words >> word)
+                if (word.size() > 1 && (word[0] == 'X' || word[0] == 'x'))
+                    x = std::atof(word.c_str() + 1);
+                else if (word.size() > 1 && (word[0] == 'Y' || word[0] == 'y'))
+                    y = std::atof(word.c_str() + 1);
+            if (x || y) {
+                if (! last_xy && ! (x && y))
+                    continue;   // only one axis of an unknown position
+                Vec2d p = last_xy ? *last_xy : Vec2d::Zero();
+                if (x) p.x() = *x;
+                if (y) p.y() = *y;
+                last_xy = p;
+            }
+        }
+    }
+}
+
+std::string GCodeGenerator::keep_out_detour_to(const Vec2d &to, const std::string &comment)
+{
+    std::string gcode;
+    if (! m_bed_keep_out.is_active())
+        return gcode;
+    std::optional<Vec2d> from;
+    if (this->last_position)
+        from = this->point_to_gcode(*this->last_position);
+    else
+        from = m_custom_gcode_last_xy;
+    if (! from)
+        return gcode;
+    const Polyline path{ Point::new_scale(from->x(), from->y()), Point::new_scale(to.x(), to.y()) };
+    if (! m_bed_keep_out.intersects(path))
+        return gcode;
+    Polyline rerouted;
+    if (! m_bed_keep_out.reroute(path, rerouted))
+        throw Slic3r::SlicingError(_u8L("A travel move has to cross a bed keep-out zone and no way around it was found. "
+                                        "Rearrange the plate or check \"Bed keep-out zones\" in the printer settings."));
+    for (size_t i = 1; i + 1 < rerouted.size(); ++ i)
+        gcode += m_writer.travel_to_xy(unscaled<double>(rerouted.points[i]), comment);
+    return gcode;
+}
+
 void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb)
 {
     const bool export_to_binary_gcode = print.full_print_config().option<ConfigOptionBool>("binary_gcode")->value;
@@ -1063,6 +1128,18 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
 
     if (print.config().avoid_crossing_curled_overhangs){
         this->m_avoid_crossing_curled_overhangs.init_bed_shape(get_bed_shape(print.config()));
+    }
+
+    {
+        // Bed keep-out zones: travels are routed around them, anything printed inside refuses the job.
+        std::vector<BoundingBoxf> zones;
+        std::string               error;
+        if (! BedKeepOut::parse(print.config().bed_keep_out_zones.value, zones, &error))
+            throw Slic3r::SlicingError(error);
+        this->m_bed_keep_out.init(zones, BoundingBoxf(print.config().bed_shape.values));
+        this->m_custom_gcode_last_xy.reset();
+        if (this->m_bed_keep_out.is_active())
+            check_bed_keep_out(print, this->m_bed_keep_out);
     }
 
     if (!export_to_binary_gcode) {
@@ -1771,6 +1848,9 @@ std::string GCodeGenerator::placeholder_parser_process(
         ppi.update_from_gcodewriter(m_writer, m_print->wipe_tower_data());
         std::string output = ppi.parser.process(templ, current_extruder_id, config_override, &ppi.output_config, &ppi.context);
         ppi.validate_output_vector_variables();
+
+        if (m_bed_keep_out.is_active())
+            update_last_xy_from_custom_gcode(output, m_custom_gcode_last_xy);
 
         if (const std::vector<double> &pos = ppi.opt_position->values; ppi.position != pos) {
             // Update G-code writer.
@@ -3088,6 +3168,74 @@ std::string GCodeGenerator::change_layer(
     return gcode;
 }
 
+// Refuse the job when something has to be printed inside a bed keep-out zone: extrusions cannot be rerouted.
+// Tests what is actually printed (layer outlines, support, skirt, brim, wipe tower), not convex hulls.
+static void check_bed_keep_out(const Print &print, const BedKeepOut &keep_out)
+{
+    auto refuse = [](const std::string &what) {
+        throw Slic3r::SlicingError(Slic3r::format(_u8L("%1% reaches into a bed keep-out zone and cannot be printed. "
+                                               "Move it away from the zone or check \"Bed keep-out zones\" in the printer settings."), what));
+    };
+    auto intersects = [&keep_out](const ExtrusionEntityCollection &collection, const Point &shift) {
+        for (const ExtrusionEntity *ee : collection.flatten().entities)
+            if (keep_out.intersects(ee->as_polyline(), shift))
+                return true;
+        return false;
+    };
+    // Scaled zones for the cheap bounding box rejects. Support and its base may extend past the object's bounding box.
+    const coord_t margin = scaled<coord_t>(10.);
+    std::vector<BoundingBox> zones;
+    for (const BoundingBoxf &z : keep_out.zones())
+        zones.emplace_back(Point::new_scale(z.min.x(), z.min.y()), Point::new_scale(z.max.x(), z.max.y()));
+    auto near_zone = [&zones](const BoundingBox &bbox) {
+        for (const BoundingBox &z : zones)
+            if (z.overlap(bbox))
+                return true;
+        return false;
+    };
+
+    for (const PrintObject *object : print.objects())
+        for (const PrintInstance &instance : object->instances()) {
+            BoundingBox bbox = object->bounding_box();
+            bbox.translate(instance.shift);
+            bbox.offset(margin);
+            if (! near_zone(bbox))
+                continue;
+            const std::string name = object->model_object()->name;
+            for (const Layer *layer : object->layers()) {
+                BoundingBox layer_bbox = get_extents(layer->lslices);
+                if (! layer_bbox.defined)
+                    continue;
+                layer_bbox.translate(instance.shift);
+                if (near_zone(layer_bbox)) {
+                    ExPolygons slices = layer->lslices;
+                    for (ExPolygon &expoly : slices)
+                        expoly.translate(instance.shift);
+                    if (keep_out.intersects(slices))
+                        refuse(Slic3r::format(_u8L("Object \"%1%\""), name));
+                }
+            }
+            for (const SupportLayer *layer : object->support_layers())
+                if (intersects(layer->support_fills, instance.shift))
+                    refuse(Slic3r::format(_u8L("The support of object \"%1%\""), name));
+        }
+    // Skirt and brim are in bed coordinates.
+    if (intersects(print.skirt(), Point(0, 0)))
+        refuse(_u8L("The skirt"));
+    if (intersects(print.brim(), Point(0, 0)))
+        refuse(_u8L("The brim"));
+    if (print.has_wipe_tower()) {
+        const WipeTowerData &wt = print.wipe_tower_data();
+        const double b = wt.brim_width;
+        Polygon footprint { Point::new_scale(-b, -b), Point::new_scale(wt.width + b, -b),
+                            Point::new_scale(wt.width + b, wt.depth + b), Point::new_scale(-b, wt.depth + b) };
+        footprint.rotate(Geometry::deg2rad(wt.rotation_angle));
+        footprint.translate(Point::new_scale(wt.position.x(), wt.position.y()));
+        if (keep_out.intersects(ExPolygons{ ExPolygon(footprint) }))
+            refuse(_u8L("The wipe tower"));
+    }
+}
+
 // Extrusion role carried by the _FEATURE_FAN_START / _FEATURE_FAN_END markers, which let the CoolingBuffer apply a per-feature fan speed.
 static GCodeExtrusionRole feature_fan_role(const ExtrusionRole role)
 {
@@ -3346,6 +3494,7 @@ std::string GCodeGenerator::travel_to_first_position(const Vec3crd& point, const
         const std::string comment{"move to first layer point"};
 
         gcode += insert_gcode();
+        gcode += this->keep_out_detour_to(gcode_point.head<2>(), comment);
         gcode += this->writer().travel_to_xy_force(gcode_point.head<2>(), comment);
         gcode += this->writer().travel_to_z_force(gcode_point.z(), comment);
 
@@ -3402,6 +3551,7 @@ std::string GCodeGenerator::_extrude(
         const std::string comment{"move to print after unknown position"};
         gcode += this->retract_and_wipe();
         gcode += m_writer.multiple_extruders ? "" : m_label_objects.maybe_change_instance(m_writer);
+        gcode += this->keep_out_detour_to(this->point_to_gcode(path.front().point), comment);
         gcode += this->m_writer.travel_to_xy(this->point_to_gcode(path.front().point), comment);
         gcode += this->m_writer.travel_to_z_force(z, comment);
     } else if ( this->last_position != path.front().point) {
@@ -3811,6 +3961,20 @@ Polyline GCodeGenerator::generate_travel_xy_path(
         && avoid_crossing_perimeters
     ) {
         xy_path = this->m_avoid_crossing_perimeters.travel_to(*this, end_point, &could_be_wipe_disabled);
+    }
+
+    // Last say on where the travel goes: after avoid crossing perimeters so that its route is corrected too,
+    // and before the retraction decision in travel_to(), so that the detour is what gets judged.
+    // The travel is in print coordinates, the zones in bed coordinates.
+    if (this->m_bed_keep_out.is_active() && this->m_bed_keep_out.intersects(xy_path, scaled_origin)) {
+        Polyline in_bed = xy_path;
+        in_bed.translate(scaled_origin);
+        Polyline rerouted;
+        if (! this->m_bed_keep_out.reroute(in_bed, rerouted))
+            throw Slic3r::SlicingError(_u8L("A travel move has to cross a bed keep-out zone and no way around it was found. "
+                                            "Rearrange the plate or check \"Bed keep-out zones\" in the printer settings."));
+        rerouted.translate(- scaled_origin);
+        xy_path = std::move(rerouted);
     }
 
     return xy_path;

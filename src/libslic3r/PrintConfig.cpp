@@ -416,6 +416,17 @@ void PrintConfigDef::init_common_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionString(""));
 
+    def = this->add("bed_keep_out_zones", coString);
+    def->label = L("Bed keep-out zones");
+    def->tooltip = L("Rectangles of the bed the toolhead cannot reach at any height, for example the corners taken by "
+                     "stepper mounts. Each zone is given by its corners in bed coordinates (mm) as x0,y0,x1,y1, "
+                     "zones are separated by ';', for example 0,0,40,40;310,0,350,40. "
+                     "Travel moves are routed around the zones with 1 mm of clearance, slicing is refused when something "
+                     "has to be printed inside a zone, and arrange keeps objects out of them. "
+                     "The bed itself stays rectangular.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString(""));
+
     def = this->add("elefant_foot_compensation", coFloat);
     def->label = L("Elephant foot compensation");
     def->category = L("Advanced");

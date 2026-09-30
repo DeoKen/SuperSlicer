@@ -686,7 +686,7 @@ Plater::priv::priv(Plater* q, MainFrame* main_frame)
     : q(q)
     , main_frame(main_frame)
     , config(Slic3r::DynamicPrintConfig::new_from_defaults_keys({
-        "bed_shape", "bed_custom_texture", "bed_custom_model", "complete_objects", "duplicate_distance", "extruder_clearance_radius", "extruder_clearance_height", "skirts", "skirt_distance",
+        "bed_shape", "bed_custom_texture", "bed_custom_model", "bed_keep_out_zones", "complete_objects", "duplicate_distance", "extruder_clearance_radius", "extruder_clearance_height", "skirts", "skirt_distance",
         "brim_width", "brim_separation", "brim_type", "variable_layer_height", "nozzle_diameter", "single_extruder_multi_material",
         "wipe_tower", "wipe_tower_width", "wipe_tower_brim_width", "wipe_tower_cone_angle", "wipe_tower_extra_spacing", "wipe_tower_extra_flow", "wipe_tower_extruder",
         "extruder_colour", "filament_colour", "material_colour", "max_print_height", "printer_model", "printer_notes", "printer_technology",
@@ -7033,6 +7033,12 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
         }
         else if (opt_key == "bed_shape" || opt_key == "bed_custom_texture" || opt_key == "bed_custom_model") {
             bed_shape_changed = true;
+            update_scheduled = true;
+        }
+        else if (opt_key == "bed_keep_out_zones") {
+            // The bed itself does not change: re-evaluate which objects reach into a zone and redraw the tint.
+            p->view3D->get_canvas3d()->requires_check_outside_state();
+            p->view3D->get_canvas3d()->set_as_dirty();
             update_scheduled = true;
         }
         else if (boost::starts_with(opt_key, "wipe_tower") ||

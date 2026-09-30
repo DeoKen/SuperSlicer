@@ -19,6 +19,7 @@
 #include <libslic3r/ClipperUtils.hpp>
 #include <libslic3r/Geometry.hpp>
 #include <libslic3r/PrintConfig.hpp>
+#include <libslic3r/GCode/BedKeepOut.hpp>
 #include <libslic3r/SLA/Pad.hpp>
 #include <libslic3r/TriangleMesh.hpp>
 #include <libslic3r/TriangleMeshSlicer.hpp>
@@ -983,6 +984,77 @@ std::unique_ptr<VirtualBedHandler> VirtualBedHandler::create(const ExtendedBed &
     }
 
     return ret;
+}
+
+namespace {
+
+struct KeepOutId : public ObjectBase
+{
+    // Need to inherit because ObjectBase destructor is protected.
+    using ObjectBase::ObjectBase;
+};
+
+ObjectID keep_out_id(size_t idx)
+{
+    static std::vector<KeepOutId> ids;
+    if (idx >= ids.size())
+        ids.resize(idx + 1);
+    return ids[idx].id();
+}
+
+class ArrangeableKeepOut : public Arrangeable
+{
+    ObjectID m_id;
+    Polygon  m_poly;
+    int      m_bed_idx;
+
+public:
+    ArrangeableKeepOut(const ObjectID &id, Polygon poly, int bed_idx) : m_id{id}, m_poly{std::move(poly)}, m_bed_idx{bed_idx} {}
+
+    ObjectID           id() const override { return m_id; }
+    ObjectID           geometry_id() const override { return {}; }
+    ExPolygons         full_outline() const override { return { ExPolygon(m_poly) }; }
+    Polygon            convex_outline() const override { return m_poly; }
+    void               transform(const Vec2d &, double) override {}
+    // Never moved by the arrangement.
+    bool               is_selected() const override { return false; }
+    std::optional<int> bed_constraint() const override { return m_bed_idx; }
+    int                get_bed_index() const override { return m_bed_idx; }
+    bool               assign_bed(int bed_idx) override { return bed_idx == m_bed_idx; }
+};
+
+// One handler per zone and bed, so that looking an item up by its id finds exactly that item.
+struct KeepOutHandler : public WipeTowerHandler
+{
+    ArrangeableKeepOut item;
+
+    explicit KeepOutHandler(ArrangeableKeepOut &&item) : item{std::move(item)} {}
+
+    void     visit(std::function<void(Arrangeable &)> fn) override { fn(item); }
+    void     visit(std::function<void(const Arrangeable &)> fn) const override { fn(item); }
+    void     set_selection_predicate(SelectionPredicate) override {}
+    ObjectID get_id() const override { return item.id(); }
+};
+
+} // namespace
+
+std::vector<AnyPtr<WipeTowerHandler>> bed_keep_out_handlers(const DynamicPrintConfig &config, int bed_count)
+{
+    std::vector<AnyPtr<WipeTowerHandler>> handlers;
+    if (! config.has("bed_keep_out_zones") || ! config.has("bed_shape"))
+        return handlers;
+    BedKeepOut keep_out;
+    keep_out.init(BedKeepOut::parse(config.opt_string("bed_keep_out_zones")),
+                  BoundingBoxf(config.option<ConfigOptionPoints>("bed_shape")->values));
+    size_t idx = 0;
+    for (int bed_idx = 0; bed_idx < bed_count; ++ bed_idx)
+        for (const BoundingBoxf &zone : keep_out.zones()) {
+            // The zones include the clearance the slicer keeps from them.
+            Polygon poly { Point::new_scale(zone.min.x(), zone.min.y()), Point::new_scale(zone.max.x(), zone.min.y()),
+                           Point::new_scale(zone.max.x(), zone.max.y()), Point::new_scale(zone.min.x(), zone.max.y()) };
+            handlers.push_back(std::make_unique<KeepOutHandler>(ArrangeableKeepOut{ keep_out_id(idx ++), std::move(poly), bed_idx }));
+        }
+    return handlers;
 }
 
 }} // namespace Slic3r::arr2
