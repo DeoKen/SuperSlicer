@@ -731,6 +731,7 @@ namespace DoExport {
 	                    region.config().get_abs_value("solid_infill_speed") == 0 ||
 	                    region.config().get_abs_value("top_solid_infill_speed") == 0 ||
                         region.config().get_abs_value("bridge_speed") == 0 ||
+                        region.config().get_abs_value("internal_bridge_speed") == 0 ||
                         region.config().get_abs_value("over_bridge_speed") == 0)
                     {
                         // Minimal volumetric flow should not be calculated over ironing extrusions.
@@ -3087,6 +3088,13 @@ std::string GCodeGenerator::change_layer(
     return gcode;
 }
 
+// Extrusion role carried by the _FEATURE_FAN_START marker, which lets the CoolingBuffer apply a per-feature fan speed.
+// GCodeExtrusionRole::None if the extrusion has no feature fan: those are only bridges (including overhang perimeters) for now.
+static GCodeExtrusionRole feature_fan_role(const ExtrusionRole role)
+{
+    return role.is_bridge() ? extrusion_role_to_gcode_extrusion_role(role) : GCodeExtrusionRole::None;
+}
+
 std::string GCodeGenerator::extrude_smooth_path(
     const GCode::SmoothPath &smooth_path,
     const bool is_loop,
@@ -3097,25 +3105,25 @@ std::string GCodeGenerator::extrude_smooth_path(
     std::string gcode;
 
     // Extrude along the smooth path.
-    bool          is_bridge_extruded = false;
-    EmitModifiers emit_modifiers     = EmitModifiers::create_with_disabled_emits();
+    GCodeExtrusionRole last_fan_role  = GCodeExtrusionRole::None;
+    EmitModifiers      emit_modifiers = EmitModifiers::create_with_disabled_emits();
     for (auto el_it = smooth_path.begin(); el_it != smooth_path.end(); ++el_it) {
         const auto next_el_it = next(el_it);
 
-        // By default, GCodeGenerator::_extrude() emit markers _BRIDGE_FAN_START, _BRIDGE_FAN_END and _RESET_FAN_SPEED for every extrusion.
+        // By default, GCodeGenerator::_extrude() emit markers _FEATURE_FAN_START, _FEATURE_FAN_END and _RESET_FAN_SPEED for every extrusion.
         // Together with split extrusions because of different ExtrusionAttributes, this could flood g-code with those markers and then
         // produce an unnecessary number of duplicity M106.
-        // To prevent this, we control when each marker should be emitted by EmitModifiers, which allows determining when a bridge starts and ends,
+        // To prevent this, we control when each marker should be emitted by EmitModifiers, which allows determining when a feature starts and ends,
         // even when it is split into several extrusions.
-        if (el_it->path_attributes.role.is_bridge()) {
-            emit_modifiers.emit_bridge_fan_start = !is_bridge_extruded;
-            emit_modifiers.emit_bridge_fan_end   = next_el_it == smooth_path.end() || !next_el_it->path_attributes.role.is_bridge();
-            is_bridge_extruded                   = true;
-        } else if (is_bridge_extruded) {
-            emit_modifiers.emit_bridge_fan_start = false;
-            emit_modifiers.emit_bridge_fan_end   = false;
-            is_bridge_extruded                   = false;
+        const GCodeExtrusionRole fan_role = feature_fan_role(el_it->path_attributes.role);
+        if (fan_role != GCodeExtrusionRole::None) {
+            emit_modifiers.emit_feature_fan_start = fan_role != last_fan_role;
+            emit_modifiers.emit_feature_fan_end   = next_el_it == smooth_path.end() || feature_fan_role(next_el_it->path_attributes.role) != fan_role;
+        } else {
+            emit_modifiers.emit_feature_fan_start = false;
+            emit_modifiers.emit_feature_fan_end   = false;
         }
+        last_fan_role = fan_role;
 
         // Ensure that just for the last extrusion from the smooth path, the fan speed will be reset back
         // to the value calculated by the CoolingBuffer.
@@ -3430,6 +3438,8 @@ std::string GCodeGenerator::_extrude(
             acceleration = m_config.first_layer_acceleration.value;
         } else if (this->object_layer_over_raft() && m_config.first_layer_acceleration_over_raft.value > 0) {
             acceleration = m_config.first_layer_acceleration_over_raft.value;
+        } else if (m_config.internal_bridge_acceleration.value > 0 && path_attr.role == ExtrusionRole::InternalBridgeInfill) {
+            acceleration = m_config.internal_bridge_acceleration.value;
         } else if (m_config.bridge_acceleration.value > 0 && path_attr.role.is_bridge()) {
             acceleration = m_config.bridge_acceleration.value;
         } else if (m_config.top_solid_infill_acceleration > 0 && path_attr.role == ExtrusionRole::TopSolidInfill) {
@@ -3461,8 +3471,11 @@ std::string GCodeGenerator::_extrude(
         } else if (path_attr.role == ExtrusionRole::ExternalPerimeter) {
             speed = m_config.get_abs_value("external_perimeter_speed");
         } else if (path_attr.role.is_bridge()) {
-            assert(path_attr.role.is_perimeter() || path_attr.role == ExtrusionRole::BridgeInfill);
+            assert(path_attr.role.is_perimeter() || path_attr.role == ExtrusionRole::BridgeInfill || path_attr.role == ExtrusionRole::InternalBridgeInfill);
             speed = m_config.get_abs_value("bridge_speed");
+            if (path_attr.role == ExtrusionRole::InternalBridgeInfill)
+                // Percentage is relative to bridge_speed.
+                speed = m_config.get_abs_value("internal_bridge_speed", speed);
         } else if (path_attr.role == ExtrusionRole::InternalInfill) {
             speed = m_config.get_abs_value("infill_speed");
         } else if (path_attr.role == ExtrusionRole::SolidInfill) {
@@ -3563,9 +3576,10 @@ std::string GCodeGenerator::_extrude(
 
     std::string cooling_marker_setspeed_comments;
     if (m_enable_cooling_markers) {
-        if (path_attr.role.is_bridge() && emit_modifiers.emit_bridge_fan_start) {
-            gcode += ";_BRIDGE_FAN_START\n";
-        } else if (!path_attr.role.is_bridge()) {
+        if (const GCodeExtrusionRole fan_role = feature_fan_role(path_attr.role); fan_role != GCodeExtrusionRole::None) {
+            if (emit_modifiers.emit_feature_fan_start)
+                gcode += ";_FEATURE_FAN_START" + std::to_string(int(fan_role)) + "\n";
+        } else {
             cooling_marker_setspeed_comments = ";_EXTRUDE_SET_SPEED";
         }
 
@@ -3649,9 +3663,10 @@ std::string GCodeGenerator::_extrude(
     }
 
     if (m_enable_cooling_markers) {
-        if (path_attr.role.is_bridge() && emit_modifiers.emit_bridge_fan_end) {
-            gcode += ";_BRIDGE_FAN_END\n";
-        } else if (!path_attr.role.is_bridge()) {
+        if (feature_fan_role(path_attr.role) != GCodeExtrusionRole::None) {
+            if (emit_modifiers.emit_feature_fan_end)
+                gcode += ";_FEATURE_FAN_END" + std::to_string(int(feature_fan_role(path_attr.role))) + "\n";
+        } else {
             gcode += ";_EXTRUDE_END\n";
         }
     }

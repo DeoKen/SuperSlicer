@@ -184,7 +184,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer)
 		            continue;
 
 		        if (is_bridge) {
-		            params.extrusion_role = ExtrusionRole::BridgeInfill;
+		            params.extrusion_role = surface.surface_type == stInternalBridge ? ExtrusionRole::InternalBridgeInfill : ExtrusionRole::BridgeInfill;
                 } else {
                     if (surface.is_solid()) {
                         if (surface.is_top()) {

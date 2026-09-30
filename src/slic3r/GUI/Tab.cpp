@@ -1605,6 +1605,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("support_material_interface_speed");
         optgroup->append_single_option_line("bridge_speed");
         optgroup->append_single_option_line("over_bridge_speed");
+        optgroup->append_single_option_line("internal_bridge_speed");
         optgroup->append_single_option_line("gap_fill_speed");
         optgroup->append_single_option_line("ironing_speed");
 
@@ -1631,6 +1632,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("solid_infill_acceleration");
         optgroup->append_single_option_line("infill_acceleration");
         optgroup->append_single_option_line("bridge_acceleration");
+        optgroup->append_single_option_line("internal_bridge_acceleration");
         optgroup->append_single_option_line("first_layer_acceleration");
         optgroup->append_single_option_line("first_layer_acceleration_over_raft");
         optgroup->append_single_option_line("wipe_tower_acceleration");
@@ -2270,6 +2272,7 @@ void TabFilament::build()
         optgroup->append_line(line);
 
         optgroup->append_single_option_line("bridge_fan_speed", category_path + "fan-settings");
+        optgroup->append_single_option_line("internal_bridge_fan_speed", category_path + "fan-settings");
         optgroup->append_single_option_line("disable_fan_first_layers", category_path + "fan-settings");
         optgroup->append_single_option_line("full_fan_speed_layer", category_path + "fan-settings");
 

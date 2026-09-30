@@ -69,7 +69,8 @@ struct ExtrusionRole : public ExtrusionRoleModifiers
     static constexpr const ExtrusionRoleModifiers Ironing{ ExtrusionRoleModifier::Infill | ExtrusionRoleModifier::Solid | ExtrusionRoleModifier::Ironing | ExtrusionRoleModifier::External };
     // Visible bridging infill at the bottom of an object.
     static constexpr const ExtrusionRoleModifiers BridgeInfill{ ExtrusionRoleModifier::Infill | ExtrusionRoleModifier::Solid | ExtrusionRoleModifier::Bridge | ExtrusionRoleModifier::External };
-//    static constexpr const ExtrusionRoleModifiers InternalBridgeInfill{ ExtrusionRoleModifier::Infill | ExtrusionRoleModifier::Solid | ExtrusionRoleModifier::Bridge };
+    // Bridging infill inside an object (over sparse infill), not visible from outside.
+    static constexpr const ExtrusionRoleModifiers InternalBridgeInfill{ ExtrusionRoleModifier::Infill | ExtrusionRoleModifier::Solid | ExtrusionRoleModifier::Bridge };
     // Gap fill extrusion, currently used for any variable width extrusion: Thin walls outside of the outer extrusion,
     // gap fill in between perimeters, gap fill between the inner perimeter and infill.
     //FIXME revise GapFill and ThinWall types, split Gap Fill to Gap Fill and ThinWall.
@@ -129,6 +130,8 @@ enum class GCodeExtrusionRole : uint8_t {
     WipeTower,
     // Custom (user defined) G-code block, for example start / end G-code.
     Custom,
+    // Appended after Custom to keep the ordinals above stable (G-code viewer colours, visibility flags).
+    InternalBridgeInfill,
     // Stopper to count number of enums.
     Count
 };

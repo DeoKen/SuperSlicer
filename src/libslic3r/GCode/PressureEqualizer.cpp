@@ -678,7 +678,7 @@ void PressureEqualizer::adjust_volumetric_rate(const size_t first_line_idx, cons
                 rate_end = rate_succ;
 
             // Don't alter the flow rate for these extrusion types.
-            if (!line.adjustable_flow || line.extrusion_role == GCodeExtrusionRole::BridgeInfill || line.extrusion_role == GCodeExtrusionRole::Ironing) {
+            if (!line.adjustable_flow || line.extrusion_role == GCodeExtrusionRole::BridgeInfill || line.extrusion_role == GCodeExtrusionRole::InternalBridgeInfill || line.extrusion_role == GCodeExtrusionRole::Ironing) {
                 rate_end = line.volumetric_extrusion_rate_end;
             } else if (line.volumetric_extrusion_rate_end > rate_end) {
                 line.volumetric_extrusion_rate_end = rate_end;
@@ -733,7 +733,7 @@ void PressureEqualizer::adjust_volumetric_rate(const size_t first_line_idx, cons
 
             float rate_start = feedrate_per_extrusion_role[iRole];
             // Don't alter the flow rate for these extrusion types.
-            if (!line.adjustable_flow || line.extrusion_role == GCodeExtrusionRole::BridgeInfill || line.extrusion_role == GCodeExtrusionRole::Ironing) {
+            if (!line.adjustable_flow || line.extrusion_role == GCodeExtrusionRole::BridgeInfill || line.extrusion_role == GCodeExtrusionRole::InternalBridgeInfill || line.extrusion_role == GCodeExtrusionRole::Ironing) {
                 rate_start = line.volumetric_extrusion_rate_start;
             } else if (iRole == size_t(line.extrusion_role) && rate_prec < rate_start)
                 rate_start = rate_prec;

@@ -370,7 +370,7 @@ public:
         EGCodeExtrusionRole::InternalInfill, EGCodeExtrusionRole::SolidInfill, EGCodeExtrusionRole::TopSolidInfill,
         EGCodeExtrusionRole::Ironing, EGCodeExtrusionRole::BridgeInfill, EGCodeExtrusionRole::GapFill,
         EGCodeExtrusionRole::Skirt, EGCodeExtrusionRole::SupportMaterial, EGCodeExtrusionRole::SupportMaterialInterface,
-        EGCodeExtrusionRole::WipeTower, EGCodeExtrusionRole::Custom }) const;
+        EGCodeExtrusionRole::WipeTower, EGCodeExtrusionRole::Custom, EGCodeExtrusionRole::InternalBridgeInfill }) const;
     //
     // Return the size of the used cpu memory, in bytes
     //

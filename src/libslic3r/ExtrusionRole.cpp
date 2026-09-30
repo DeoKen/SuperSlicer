@@ -27,6 +27,7 @@ GCodeExtrusionRole extrusion_role_to_gcode_extrusion_role(ExtrusionRole role)
     if (role == ExtrusionRole::TopSolidInfill)      return GCodeExtrusionRole::TopSolidInfill;
     if (role == ExtrusionRole::Ironing)             return GCodeExtrusionRole::Ironing;
     if (role == ExtrusionRole::BridgeInfill)        return GCodeExtrusionRole::BridgeInfill;
+    if (role == ExtrusionRole::InternalBridgeInfill) return GCodeExtrusionRole::InternalBridgeInfill;
     if (role == ExtrusionRole::GapFill)             return GCodeExtrusionRole::GapFill;
     if (role == ExtrusionRole::Skirt)               return GCodeExtrusionRole::Skirt;
     if (role == ExtrusionRole::SupportMaterial)     return GCodeExtrusionRole::SupportMaterial;
@@ -54,6 +55,7 @@ std::string gcode_extrusion_role_to_string(GCodeExtrusionRole role)
         case GCodeExtrusionRole::SupportMaterialInterface     : return L("Support material interface");
         case GCodeExtrusionRole::WipeTower                    : return L("Wipe tower");
         case GCodeExtrusionRole::Custom                       : return L("Custom");
+        case GCodeExtrusionRole::InternalBridgeInfill         : return L("Internal bridge infill");
         default                             : assert(false);
     }
     return {};
@@ -89,6 +91,8 @@ GCodeExtrusionRole string_to_gcode_extrusion_role(const std::string_view role)
         return GCodeExtrusionRole::WipeTower;
     else if (role == L("Custom"))
         return GCodeExtrusionRole::Custom;
+    else if (role == L("Internal bridge infill"))
+        return GCodeExtrusionRole::InternalBridgeInfill;
     else
         return GCodeExtrusionRole::None;
 }

@@ -793,6 +793,38 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
+    def = this->add("internal_bridge_speed", coFloatOrPercent);
+    def->label = L("Internal bridges");
+    def->category = L("Speed");
+    def->tooltip = L("Speed for printing internal bridges (bridges over sparse infill, supporting the top solid layers). "
+                    "If set as percentage, the speed is calculated over bridge speed.");
+    def->sidetext = L("mm/s or %");
+    def->ratio_over = "bridge_speed";
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
+
+    def = this->add("internal_bridge_acceleration", coFloat);
+    def->label = L("Internal bridge");
+    def->tooltip = L("This is the acceleration your printer will use for internal bridges. "
+                   "Set zero to use the bridge acceleration.");
+    def->sidetext = L("mm/s²");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0));
+
+    def = this->add("internal_bridge_fan_speed", coInts);
+    def->label = L("Internal bridges fan speed");
+    def->tooltip = L("This fan speed is enforced during internal bridges. It overrides the fan speed "
+                   "calculated from layer time, so it can also lower the fan. It is not applied on the layers "
+                   "where the fan is disabled (see \"Disable fan for the first\"). "
+                   "Set -1 to use the bridges fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
     def             = this->add("enable_dynamic_overhang_speeds", coBool);
     def->label      = L("Enable dynamic overhang speeds");
     def->category   = L("Speed");

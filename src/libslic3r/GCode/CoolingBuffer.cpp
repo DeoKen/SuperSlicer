@@ -12,6 +12,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/log/trivial.hpp>
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <iterator>
@@ -46,6 +47,9 @@ const constexpr float SEGMENT_SPLIT_EPSILON = 10. * GCodeFormatter::XYZ_EPSILON;
 
 const constexpr std::string_view TOOLCHANGE_TIME_TAG = ";_TOOLCHANGE_TIME";
 const constexpr std::string_view TOOLCHANGE_END_TAG  = ";_TOOLCHANGE_END";
+// Followed by the GCodeExtrusionRole ordinal.
+const constexpr std::string_view FEATURE_FAN_START_TAG = ";_FEATURE_FAN_START";
+const constexpr std::string_view FEATURE_FAN_END_TAG   = ";_FEATURE_FAN_END";
 
 static inline std::string_view lstrip_view(std::string_view s)
 {
@@ -100,8 +104,9 @@ struct CoolingLine
     enum Type : uint32_t {
         TYPE_SET_TOOL           = 1 << 0,
         TYPE_EXTRUDE_END        = 1 << 1,
-        TYPE_BRIDGE_FAN_START   = 1 << 2,
-        TYPE_BRIDGE_FAN_END     = 1 << 3,
+        // Start / end of a feature with its own fan speed (bridges for now), see feature_fan_role.
+        TYPE_FEATURE_FAN_START  = 1 << 2,
+        TYPE_FEATURE_FAN_END    = 1 << 3,
         TYPE_G0                 = 1 << 4,
         TYPE_G1                 = 1 << 5,
         // G2 or G3: Arc interpolation
@@ -179,6 +184,8 @@ struct CoolingLine
     float   adjustable_time_max;
     // Requested fan speed
     int     fan_speed;
+    // Extrusion role of TYPE_FEATURE_FAN_START / TYPE_FEATURE_FAN_END, selects the feature fan speed.
+    GCodeExtrusionRole feature_fan_role { GCodeExtrusionRole::None };
     // If marked with the "slowdown" flag, the line has been slowed down.
     bool    slowdown;
     // Set only for external and internal perimeters. The external perimeter has value 0, the first internal perimeter has 1, and so on.
@@ -844,10 +851,13 @@ std::vector<PerExtruderAdjustments> CoolingBuffer::parse_layer_gcode(const std::
                         BOOST_LOG_TRIVIAL(error) << "CoolingBuffer encountered an invalid toolchange, maybe from a custom gcode: " << sline;
                 }
             }
-        } else if (boost::starts_with(sline, ";_BRIDGE_FAN_START")) {
-            line.type = CoolingLine::TYPE_BRIDGE_FAN_START;
-        } else if (boost::starts_with(sline, ";_BRIDGE_FAN_END")) {
-            line.type = CoolingLine::TYPE_BRIDGE_FAN_END;
+        } else if (boost::starts_with(sline, FEATURE_FAN_START_TAG) || boost::starts_with(sline, FEATURE_FAN_END_TAG)) {
+            const bool start = boost::starts_with(sline, FEATURE_FAN_START_TAG);
+            const size_t tag_size = start ? FEATURE_FAN_START_TAG.size() : FEATURE_FAN_END_TAG.size();
+            int role = 0;
+            std::from_chars(sline.data() + tag_size, sline.data() + sline.size(), role);
+            line.type = start ? CoolingLine::TYPE_FEATURE_FAN_START : CoolingLine::TYPE_FEATURE_FAN_END;
+            line.feature_fan_role = role > 0 && role < int(GCodeExtrusionRole::Count) ? GCodeExtrusionRole(role) : GCodeExtrusionRole::None;
         } else if (boost::starts_with(sline, TOOLCHANGE_TIME_TAG)) {
             line.type = CoolingLine::TYPE_TOOLCHANGE_TIME;
             fast_float::from_chars(
@@ -1141,9 +1151,11 @@ std::string CoolingBuffer::apply_layer_cooldown(
     // Second generate the adjusted G-code.
     std::string new_gcode;
     new_gcode.reserve(gcode.size() * 2);
-    bool bridge_fan_control = false;
-    int  bridge_fan_speed   = 0;
-    auto change_extruder_set_fan = [this, layer_id, layer_time, &new_gcode, &bridge_fan_control, &bridge_fan_speed](const int requested_fan_speed = -1) {
+    // Fan speed of features marked by _FEATURE_FAN_START / _FEATURE_FAN_END, indexed by GCodeExtrusionRole.
+    // The fan speed is only changed for a feature when its feature_fan_control flag is set.
+    std::array<int,  size_t(GCodeExtrusionRole::Count)> feature_fan_speed {};
+    std::array<bool, size_t(GCodeExtrusionRole::Count)> feature_fan_control {};
+    auto change_extruder_set_fan = [this, layer_id, layer_time, &new_gcode, &feature_fan_speed, &feature_fan_control](const int requested_fan_speed = -1) {
 #define EXTRUDER_CONFIG(OPT) m_config.OPT.get_at(m_current_extruder)
         const int min_fan_speed            = EXTRUDER_CONFIG(min_fan_speed);
         // Is the fan speed ramp enabled?
@@ -1158,6 +1170,9 @@ std::string CoolingBuffer::apply_layer_cooldown(
         };
 
         FanSpeedRange requested_fan_speed_limits{fan_speed_new, 100};
+
+        feature_fan_speed.fill(0);
+        feature_fan_control.fill(false);
 
         if (disable_fan_first_layers <= 0 && full_fan_speed_layer > 0) {
             // When ramping up fan speed from disable_fan_first_layers to full_fan_speed_layer, force disable_fan_first_layers above zero,
@@ -1183,7 +1198,7 @@ std::string CoolingBuffer::apply_layer_cooldown(
                 }
             }
 
-            bridge_fan_speed = EXTRUDER_CONFIG(bridge_fan_speed);
+            int bridge_fan_speed = EXTRUDER_CONFIG(bridge_fan_speed);
             if (int(layer_id) >= disable_fan_first_layers && int(layer_id) + 1 < full_fan_speed_layer) {
                 // Ramp up the fan speed from disable_fan_first_layers to full_fan_speed_layer.
                 const float factor = float(int(layer_id + 1) - disable_fan_first_layers) / float(full_fan_speed_layer - disable_fan_first_layers);
@@ -1193,11 +1208,20 @@ std::string CoolingBuffer::apply_layer_cooldown(
                 requested_fan_speed_limits.max_speed = fan_speed_new;
             }
 
+            // Bridges and overhang perimeters: the bridge fan follows the full_fan_speed_layer ramp and it only raises the fan.
+            const bool bridge_fan_control = bridge_fan_speed > fan_speed_new;
+            for (const GCodeExtrusionRole role : { GCodeExtrusionRole::OverhangPerimeter, GCodeExtrusionRole::BridgeInfill, GCodeExtrusionRole::InternalBridgeInfill }) {
+                feature_fan_speed[size_t(role)]   = bridge_fan_speed;
+                feature_fan_control[size_t(role)] = bridge_fan_control;
+            }
+            // Internal bridges with their own fan speed: the value is applied as is from disable_fan_first_layers on (no ramp)
+            // and it overrides the fan speed calculated from the layer time, thus it may lower the fan as well.
+            if (const int internal_bridge_fan_speed = EXTRUDER_CONFIG(internal_bridge_fan_speed); internal_bridge_fan_speed >= 0) {
+                feature_fan_speed[size_t(GCodeExtrusionRole::InternalBridgeInfill)]   = internal_bridge_fan_speed;
+                feature_fan_control[size_t(GCodeExtrusionRole::InternalBridgeInfill)] = internal_bridge_fan_speed != fan_speed_new;
+            }
 #undef EXTRUDER_CONFIG
-            bridge_fan_control = bridge_fan_speed > fan_speed_new;
         } else { // fan disabled
-            bridge_fan_control                   = false;
-            bridge_fan_speed                     = 0;
             fan_speed_new                        = 0;
             requested_fan_speed_limits.max_speed = 0;
         }
@@ -1294,11 +1318,11 @@ std::string CoolingBuffer::apply_layer_cooldown(
             change_extruder_set_fan(line->fan_speed);
         } else if (line->type & CoolingLine::TYPE_RESET_FAN_SPEED){
             change_extruder_set_fan();
-        } else if (line->type & CoolingLine::TYPE_BRIDGE_FAN_START) {
-            if (bridge_fan_control)
-                new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_config.gcode_comments, bridge_fan_speed);
-        } else if (line->type & CoolingLine::TYPE_BRIDGE_FAN_END) {
-            if (bridge_fan_control)
+        } else if (line->type & CoolingLine::TYPE_FEATURE_FAN_START) {
+            if (feature_fan_control[size_t(line->feature_fan_role)])
+                new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_config.gcode_comments, feature_fan_speed[size_t(line->feature_fan_role)]);
+        } else if (line->type & CoolingLine::TYPE_FEATURE_FAN_END) {
+            if (feature_fan_control[size_t(line->feature_fan_role)])
                 new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_config.gcode_comments, m_fan_speed);
         } else if (line->type & CoolingLine::TYPE_TOOLCHANGE_END) {
             // Custom toolchange gcode may have changed fan speed via M106/M107 that CoolingBuffer

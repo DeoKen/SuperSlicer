@@ -273,7 +273,7 @@ PrecomputedSliceConnections precompute_slices_connections(const PrintObject *po)
 
 float get_flow_width(const LayerRegion *region, ExtrusionRole role)
 {
-    if (role == ExtrusionRole::BridgeInfill) return region->flow(FlowRole::frExternalPerimeter).width();
+    if (role == ExtrusionRole::BridgeInfill || role == ExtrusionRole::InternalBridgeInfill) return region->flow(FlowRole::frExternalPerimeter).width();
     if (role == ExtrusionRole::ExternalPerimeter) return region->flow(FlowRole::frExternalPerimeter).width();
     if (role == ExtrusionRole::GapFill) return region->flow(FlowRole::frInfill).width();
     if (role == ExtrusionRole::Perimeter) return region->flow(FlowRole::frPerimeter).width();
@@ -919,7 +919,7 @@ std::vector<EnitityToCheck> gather_entities_to_check(const Layer* layer) {
                 const LayerRegion *fill_region = layer->get_region(fill_range.region());
                 for (size_t fill_idx : fill_range) {
                     for (const ExtrusionEntity *e : get_flat_entities(fill_region->fills().entities[fill_idx])) {
-                        if (e->role() == ExtrusionRole::BridgeInfill) {
+                        if (e->role() == ExtrusionRole::BridgeInfill || e->role() == ExtrusionRole::InternalBridgeInfill) {
                             entities_to_check.push_back({e, fill_region, slice_idx});
                         }
                     }

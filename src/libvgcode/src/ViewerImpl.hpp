@@ -110,7 +110,7 @@ public:
         EGCodeExtrusionRole::InternalInfill, EGCodeExtrusionRole::SolidInfill, EGCodeExtrusionRole::TopSolidInfill,
         EGCodeExtrusionRole::Ironing, EGCodeExtrusionRole::BridgeInfill, EGCodeExtrusionRole::GapFill,
         EGCodeExtrusionRole::Skirt, EGCodeExtrusionRole::SupportMaterial, EGCodeExtrusionRole::SupportMaterialInterface,
-        EGCodeExtrusionRole::WipeTower, EGCodeExtrusionRole::Custom }) const;
+        EGCodeExtrusionRole::WipeTower, EGCodeExtrusionRole::Custom, EGCodeExtrusionRole::InternalBridgeInfill }) const;
 
     bool is_option_visible(EOptionType type) const;
     void toggle_option_visibility(EOptionType type);

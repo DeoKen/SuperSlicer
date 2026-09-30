@@ -422,6 +422,7 @@ static std::string to_string(libvgcode::EGCodeExtrusionRole role)
     case libvgcode::EGCodeExtrusionRole::SupportMaterialInterface: { return _u8L("Support material interface"); }
     case libvgcode::EGCodeExtrusionRole::WipeTower:                { return _u8L("Wipe tower"); }
     case libvgcode::EGCodeExtrusionRole::Custom:                   { return _u8L("Custom"); }
+    case libvgcode::EGCodeExtrusionRole::InternalBridgeInfill:     { return _u8L("Internal bridge infill"); }
     default:                                                       { return _u8L("Unknown"); }
     }
 }
@@ -1138,7 +1139,7 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
             libvgcode::EGCodeExtrusionRole::InternalInfill, libvgcode::EGCodeExtrusionRole::SolidInfill, libvgcode::EGCodeExtrusionRole::TopSolidInfill,
             libvgcode::EGCodeExtrusionRole::Ironing, libvgcode::EGCodeExtrusionRole::BridgeInfill, libvgcode::EGCodeExtrusionRole::GapFill,
             libvgcode::EGCodeExtrusionRole::Skirt, libvgcode::EGCodeExtrusionRole::SupportMaterial, libvgcode::EGCodeExtrusionRole::SupportMaterialInterface,
-            libvgcode::EGCodeExtrusionRole::WipeTower
+            libvgcode::EGCodeExtrusionRole::WipeTower, libvgcode::EGCodeExtrusionRole::InternalBridgeInfill
         });
     m_paths_bounding_box = BoundingBoxf3(libvgcode::convert(bbox[0]).cast<double>(), libvgcode::convert(bbox[1]).cast<double>());
 

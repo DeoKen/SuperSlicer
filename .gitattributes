@@ -1,0 +1,2 @@
+# Golden G-code is compared byte for byte by tests/fff_print/test_golden_gcode.cpp.
+tests/data/golden/*.gcode -text

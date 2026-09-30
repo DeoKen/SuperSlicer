@@ -416,7 +416,7 @@ private:
     GCode::TravelObstacleTracker        m_travel_obstacle_tracker;
     bool                                m_enable_loop_clipping;
     // If enabled, the G-code generator will put following comments at the ends
-    // of the G-code lines: _EXTRUDE_SET_SPEED, _WIPE, _BRIDGE_FAN_START, _BRIDGE_FAN_END
+    // of the G-code lines: _EXTRUDE_SET_SPEED, _WIPE, _FEATURE_FAN_START<role>, _FEATURE_FAN_END
     // Those comments are received and consumed (removed from the G-code) by the CoolingBuffer.pm Perl module.
     bool                                m_enable_cooling_markers;
     // Markers for the Pressure Equalizer to recognize the extrusion type.
@@ -477,8 +477,8 @@ private:
     const Print*                        m_print;
 
     struct EmitModifiers {
-        EmitModifiers(bool emit_fan_speed_reset, bool emit_bridge_fan_start, bool emit_bridge_fan_end)
-            : emit_fan_speed_reset(emit_fan_speed_reset), emit_bridge_fan_start(emit_bridge_fan_start), emit_bridge_fan_end(emit_bridge_fan_end) {}
+        EmitModifiers(bool emit_fan_speed_reset, bool emit_feature_fan_start, bool emit_feature_fan_end)
+            : emit_fan_speed_reset(emit_fan_speed_reset), emit_feature_fan_start(emit_feature_fan_start), emit_feature_fan_end(emit_feature_fan_end) {}
 
         EmitModifiers() : EmitModifiers(true, true, true) {};
 
@@ -488,8 +488,8 @@ private:
 
         bool emit_fan_speed_reset  = true;
 
-        bool emit_bridge_fan_start = true;
-        bool emit_bridge_fan_end   = true;
+        bool emit_feature_fan_start = true;
+        bool emit_feature_fan_end   = true;
     };
 
     std::string                         _extrude(const ExtrusionAttributes &attribs, const Geometry::ArcWelder::Path &path, std::string_view description, double speed, const EmitModifiers &emit_modifiers = EmitModifiers());

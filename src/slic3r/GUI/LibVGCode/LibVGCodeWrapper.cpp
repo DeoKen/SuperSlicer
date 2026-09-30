@@ -83,6 +83,7 @@ Slic3r::GCodeExtrusionRole convert(EGCodeExtrusionRole role)
     case EGCodeExtrusionRole::SupportMaterialInterface: { return Slic3r::GCodeExtrusionRole::SupportMaterialInterface; }
     case EGCodeExtrusionRole::WipeTower:                { return Slic3r::GCodeExtrusionRole::WipeTower; }
     case EGCodeExtrusionRole::Custom:                   { return Slic3r::GCodeExtrusionRole::Custom; }
+    case EGCodeExtrusionRole::InternalBridgeInfill:     { return Slic3r::GCodeExtrusionRole::InternalBridgeInfill; }
     default:                                            { return Slic3r::GCodeExtrusionRole::None; }
     }
 }
@@ -106,6 +107,7 @@ EGCodeExtrusionRole convert(Slic3r::GCodeExtrusionRole role)
     case Slic3r::GCodeExtrusionRole::SupportMaterialInterface: { return EGCodeExtrusionRole::SupportMaterialInterface; }
     case Slic3r::GCodeExtrusionRole::WipeTower:                { return EGCodeExtrusionRole::WipeTower; }
     case Slic3r::GCodeExtrusionRole::Custom:                   { return EGCodeExtrusionRole::Custom; }
+    case Slic3r::GCodeExtrusionRole::InternalBridgeInfill:     { return EGCodeExtrusionRole::InternalBridgeInfill; }
     default:                                                   { return EGCodeExtrusionRole::None; }
     }
 }

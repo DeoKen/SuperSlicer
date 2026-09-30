@@ -92,6 +92,8 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "binary_gcode",
         "bridge_acceleration",
         "bridge_fan_speed",
+        "internal_bridge_acceleration",
+        "internal_bridge_fan_speed",
         "enable_dynamic_fan_speeds",
         "overhang_fan_speed_0",
         "overhang_fan_speed_1",
