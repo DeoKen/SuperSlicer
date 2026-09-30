@@ -7,8 +7,8 @@
 
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Config.hpp"
-#include "libslic3r/GCodeReader.hpp"
 #include "test_data.hpp"
+#include "gcode_walk.hpp"
 
 using namespace Slic3r;
 using namespace Slic3r::Test;
@@ -16,47 +16,6 @@ using namespace Slic3r::Test;
 // Internal bridge infill as its own extrusion type with its own speed, acceleration and fan.
 
 namespace {
-
-// State of the printer at one extruding move.
-struct Extrusion
-{
-    int         layer;
-    std::string type;
-    int         fan;   // percent
-    int         accel; // mm/s^2
-    double      F;     // mm/min
-};
-
-std::vector<Extrusion> walk_gcode(const std::string &gcode)
-{
-    std::vector<Extrusion> out;
-    int         layer = -1;
-    std::string type;
-    int         fan   = 0;
-    int         accel = 0;
-    GCodeReader parser;
-    parser.parse_buffer(gcode, [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
-        const std::string &raw = line.raw();
-        if (boost::starts_with(raw, ";LAYER_CHANGE")) {
-            ++ layer;
-        } else if (boost::starts_with(raw, ";TYPE:")) {
-            type = raw.substr(6);
-        } else if (line.cmd_is("M106")) {
-            float s = 0;
-            line.has_value('S', s);
-            fan = int(std::round(s * 100.f / 255.f));
-        } else if (line.cmd_is("M107")) {
-            fan = 0;
-        } else if (line.cmd_is("M204")) {
-            float s = 0;
-            if (line.has_value('S', s) || line.has_value('P', s))
-                accel = int(std::round(s));
-        } else if ((line.cmd_is("G1") || line.cmd_is("G2") || line.cmd_is("G3")) && line.dist_E(self) > 0 && line.dist_XY(self) > 0) {
-            out.push_back({ layer, type, fan, accel, line.new_F(self) });
-        }
-    });
-    return out;
-}
 
 const std::string internal_bridge = "Internal bridge infill";
 const std::string bridge          = "Bridge infill";
@@ -83,15 +42,6 @@ DynamicPrintConfig base_config()
         { "bridge_speed",              40 },
         { "fill_density",              "15%" },
     });
-}
-
-size_t count_type(const std::vector<Extrusion> &extrusions, const std::string &type)
-{
-    size_t n = 0;
-    for (const Extrusion &e : extrusions)
-        if (e.type == type)
-            ++ n;
-    return n;
 }
 
 } // namespace
@@ -179,17 +129,29 @@ TEST_CASE("Internal bridge fan edge cases", "[InternalBridge]") {
             CHECK(e.fan == 0);
     }
 
-    SECTION("short layer auto-cooling is overridden inside internal bridges") {
-        // Every layer is shorter than slowdown_below_layer_time, so the cooling logic runs the fan at max_fan_speed.
-        config.set_deserialize_strict({ { "internal_bridge_fan_speed", { 21 } }, { "slowdown_below_layer_time", { 10000 } },
-                                        { "fan_below_layer_time", { 10000 } } });
-        const std::vector<Extrusion> extrusions = walk_gcode(Test::slice({ TestMesh::cube_20x20x20 }, config));
-        REQUIRE(count_type(extrusions, internal_bridge) > 0);
-        for (const Extrusion &e : extrusions)
-            if (e.layer >= 3) {
-                INFO("layer " << e.layer << " " << e.type);
-                CHECK(e.fan == (e.type == internal_bridge ? 21 : 35));
-            }
+    SECTION("short layers raise the internal bridge fan up to max_fan_speed (SuperSlicer)") {
+        // Every layer is shorter than slowdown_below_layer_time, so the cooling logic runs the fan at max_fan_speed (35).
+        config.set_deserialize_strict({ { "slowdown_below_layer_time", { 10000 } }, { "fan_below_layer_time", { 10000 } } });
+        SECTION("an internal bridge fan below max_fan_speed is raised") {
+            config.set_deserialize_strict({ { "internal_bridge_fan_speed", { 21 } } });
+            const std::vector<Extrusion> extrusions = walk_gcode(Test::slice({ TestMesh::cube_20x20x20 }, config));
+            REQUIRE(count_type(extrusions, internal_bridge) > 0);
+            for (const Extrusion &e : extrusions)
+                if (e.layer >= 3) {
+                    INFO("layer " << e.layer << " " << e.type);
+                    CHECK(e.fan == 35);
+                }
+        }
+        SECTION("an internal bridge fan above max_fan_speed is kept") {
+            config.set_deserialize_strict({ { "internal_bridge_fan_speed", { 50 } } });
+            const std::vector<Extrusion> extrusions = walk_gcode(Test::slice({ TestMesh::cube_20x20x20 }, config));
+            REQUIRE(count_type(extrusions, internal_bridge) > 0);
+            for (const Extrusion &e : extrusions)
+                if (e.layer >= 3) {
+                    INFO("layer " << e.layer << " " << e.type);
+                    CHECK(e.fan == (e.type == internal_bridge ? 50 : 35));
+                }
+        }
     }
 
     SECTION("fan already higher than the bridge fan") {

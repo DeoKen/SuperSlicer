@@ -1423,6 +1423,24 @@ static void validate_custom_parameters(Tab* tab, const t_config_option_key& opt_
     tab->on_value_change(opt_key, value);
 }
 
+// Append a line of several options with short labels, laid out as in SuperSlicer, for example
+// "Perimeter speed:  Internal: [ ] mm/s  External: [ ] mm/s".
+static void append_labelled_line(ConfigOptionsGroupShp optgroup, const char *label, std::initializer_list<std::pair<const char*, const char*>> options,
+                                 const std::string &label_path = std::string(), int field_width = 5)
+{
+    Line line = { label, "" };
+    line.label_path = label_path;
+    line.force_sublabels = true;
+    for (const auto &[opt_key, sublabel] : options) {
+        Option option = optgroup->get_option(opt_key);
+        option.opt.label = sublabel;
+        if (field_width > 0)
+            option.opt.width = field_width;
+        line.append_option(option);
+    }
+    optgroup->append_line(line);
+}
+
 void TabPrint::build()
 {
     m_presets = &m_preset_bundle->prints;
@@ -1594,20 +1612,15 @@ void TabPrint::build()
         optgroup->append_single_option_line("support_tree_top_rate", path);
 
     page = add_options_page(L("Speed"), "time");
+        // Laid out as in SuperSlicer: one line per feature group, short labels per field.
         optgroup = page->new_optgroup(L("Speed for print moves"));
-        optgroup->append_single_option_line("perimeter_speed");
-        optgroup->append_single_option_line("small_perimeter_speed");
-        optgroup->append_single_option_line("external_perimeter_speed");
-        optgroup->append_single_option_line("infill_speed");
-        optgroup->append_single_option_line("solid_infill_speed");
-        optgroup->append_single_option_line("top_solid_infill_speed");
-        optgroup->append_single_option_line("support_material_speed");
-        optgroup->append_single_option_line("support_material_interface_speed");
-        optgroup->append_single_option_line("bridge_speed");
-        optgroup->append_single_option_line("over_bridge_speed");
-        optgroup->append_single_option_line("internal_bridge_speed");
-        optgroup->append_single_option_line("gap_fill_speed");
-        optgroup->append_single_option_line("ironing_speed");
+        optgroup->sublabel_width = 7;
+        optgroup->sidetext_width = 7;
+        append_labelled_line(optgroup, L("Perimeter speed"),     { { "perimeter_speed", L("Internal") }, { "external_perimeter_speed", L("External") } });
+        append_labelled_line(optgroup, L("Infill speed"),        { { "solid_infill_speed", L("Solid") }, { "infill_speed", L("Sparse") }, { "top_solid_infill_speed", L("Top solid") } });
+        append_labelled_line(optgroup, L("Support speed"),       { { "support_material_speed", L("Default") }, { "support_material_interface_speed", L("Interface") } });
+        append_labelled_line(optgroup, L("Bridge infill speed"), { { "bridge_speed", L("External") }, { "internal_bridge_speed", L("Internal") }, { "over_bridge_speed", L("Over") } });
+        append_labelled_line(optgroup, L("Other speed"),         { { "gap_fill_speed", L("Gap fill") }, { "ironing_speed", L("Ironing") } });
 
         optgroup = page->new_optgroup(L("Dynamic overhang speed"));
         optgroup->append_single_option_line("enable_dynamic_overhang_speeds");
@@ -1617,28 +1630,26 @@ void TabPrint::build()
         optgroup->append_single_option_line("overhang_speed_3");
 
         optgroup = page->new_optgroup(L("Speed for non-print moves"));
-        optgroup->append_single_option_line("travel_speed");
-        optgroup->append_single_option_line("travel_speed_z");
+        optgroup->sublabel_width = 7;
+        optgroup->sidetext_width = 7;
+        append_labelled_line(optgroup, L("Travel speed"),        { { "travel_speed", L("XY") }, { "travel_speed_z", L("Z") } });
 
         optgroup = page->new_optgroup(L("Modifiers"));
-        optgroup->append_single_option_line("first_layer_speed");
-        optgroup->append_single_option_line("first_layer_infill_speed");
-        optgroup->append_single_option_line("first_layer_speed_over_raft");
+        optgroup->sublabel_width = 7;
+        optgroup->sidetext_width = 7;
+        append_labelled_line(optgroup, L("First layer speed"),   { { "first_layer_speed", L("Default") }, { "first_layer_infill_speed", L("Infill") }, { "first_layer_speed_over_raft", L("Over raft") } });
+        append_labelled_line(optgroup, L("Small perimeter speed"), { { "small_perimeter_speed", L("Speed") } });
 
         optgroup = page->new_optgroup(L("Acceleration control (advanced)"));
-        optgroup->append_single_option_line("external_perimeter_acceleration");
-        optgroup->append_single_option_line("perimeter_acceleration");
-        optgroup->append_single_option_line("top_solid_infill_acceleration");
-        optgroup->append_single_option_line("solid_infill_acceleration");
-        optgroup->append_single_option_line("infill_acceleration");
-        optgroup->append_single_option_line("bridge_acceleration");
-        optgroup->append_single_option_line("internal_bridge_acceleration");
-        optgroup->append_single_option_line("first_layer_acceleration");
-        optgroup->append_single_option_line("first_layer_acceleration_over_raft");
-        optgroup->append_single_option_line("wipe_tower_acceleration");
-        optgroup->append_single_option_line("travel_acceleration");
-        optgroup->append_single_option_line("travel_short_distance_acceleration");
-        optgroup->append_single_option_line("default_acceleration");
+        optgroup->sublabel_width = 7;
+        optgroup->sidetext_width = 7;
+        append_labelled_line(optgroup, L("Default acceleration"),     { { "default_acceleration", L("Default") } });
+        append_labelled_line(optgroup, L("Perimeter acceleration"),   { { "perimeter_acceleration", L("Internal") }, { "external_perimeter_acceleration", L("External") } });
+        append_labelled_line(optgroup, L("Infill acceleration"),      { { "solid_infill_acceleration", L("Solid") }, { "infill_acceleration", L("Sparse") }, { "top_solid_infill_acceleration", L("Top solid") } });
+        append_labelled_line(optgroup, L("Bridge acceleration"),      { { "bridge_acceleration", L("External") }, { "internal_bridge_acceleration", L("Internal") } });
+        append_labelled_line(optgroup, L("Travel acceleration"),      { { "travel_acceleration", L("Travel") }, { "travel_short_distance_acceleration", L("Short") } });
+        append_labelled_line(optgroup, L("First layer acceleration"), { { "first_layer_acceleration", L("Default") }, { "first_layer_acceleration_over_raft", L("Over raft") } });
+        append_labelled_line(optgroup, L("Wipe tower acceleration"),  { { "wipe_tower_acceleration", L("Wipe tower") } });
 
         optgroup = page->new_optgroup(L("Autospeed (advanced)"));
         optgroup->append_single_option_line("max_print_speed", "max-volumetric-speed_127176");
@@ -2265,14 +2276,18 @@ void TabFilament::build()
         optgroup->append_line(line);
 
         optgroup = page->new_optgroup(L("Fan settings"));
-        line = { L("Fan speed"), "" };
-        line.label_path = category_path + "fan-settings";
-        line.append_option(optgroup->get_option("min_fan_speed"));
-        line.append_option(optgroup->get_option("max_fan_speed"));
-        optgroup->append_line(line);
-
-        optgroup->append_single_option_line("bridge_fan_speed", category_path + "fan-settings");
-        optgroup->append_single_option_line("internal_bridge_fan_speed", category_path + "fan-settings");
+        // Per feature fan speeds laid out as in SuperSlicer: one line per feature group, short labels per field.
+        optgroup->sublabel_width = 7;
+        optgroup->append_single_option_line("default_fan_speed", category_path + "fan-settings");
+        optgroup->sidetext_width = 3;
+        append_labelled_line(optgroup, L("Fan speed"),                    { { "min_fan_speed", L("Min") }, { "max_fan_speed", L("Max") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Perimeter fan speed"),          { { "perimeter_fan_speed", L("Internal") }, { "external_perimeter_fan_speed", L("External") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Internal infill fan speed"),    { { "infill_fan_speed", L("Sparse") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Solid infill fan speed"),       { { "solid_infill_fan_speed", L("Solid") }, { "top_fan_speed", L("Top solid") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Support material fan speed"),   { { "support_material_fan_speed", L("Default") }, { "support_material_interface_fan_speed", L("Interface") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Bridge infill fan speed"),      { { "bridge_fan_speed", L("External") }, { "internal_bridge_fan_speed", L("Internal") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Overhang perimeter fan speed"), { { "overhangs_fan_speed", L("Overhangs") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Gap fill fan speed"),           { { "gap_fill_fan_speed", L("Gap fill") } }, category_path + "fan-settings");
         optgroup->append_single_option_line("disable_fan_first_layers", category_path + "fan-settings");
         optgroup->append_single_option_line("full_fan_speed_layer", category_path + "fan-settings");
 
@@ -2465,8 +2480,11 @@ void TabFilament::toggle_options()
         for (auto el : { "max_fan_speed", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed", "cooling_slowdown_logic" })
             toggle_option(el, cooling);
 
-        for (auto el : { "min_fan_speed", "disable_fan_first_layers", "full_fan_speed_layer" })
-            toggle_option(el, fan_always_on);
+        // default_fan_speed replaces "fan always on" + min_fan_speed when set.
+        const bool has_default_fan_speed = m_config->opt_int("default_fan_speed", 0) >= 0;
+        toggle_option("min_fan_speed", fan_always_on && ! has_default_fan_speed);
+        for (auto el : { "disable_fan_first_layers", "full_fan_speed_layer" })
+            toggle_option(el, fan_always_on || has_default_fan_speed);
 
         bool dynamic_fan_speeds = m_config->opt_bool("enable_dynamic_fan_speeds", 0);
         for (int i = 0; i < 4; i++) {

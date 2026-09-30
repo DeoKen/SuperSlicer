@@ -3088,11 +3088,10 @@ std::string GCodeGenerator::change_layer(
     return gcode;
 }
 
-// Extrusion role carried by the _FEATURE_FAN_START marker, which lets the CoolingBuffer apply a per-feature fan speed.
-// GCodeExtrusionRole::None if the extrusion has no feature fan: those are only bridges (including overhang perimeters) for now.
+// Extrusion role carried by the _FEATURE_FAN_START / _FEATURE_FAN_END markers, which let the CoolingBuffer apply a per-feature fan speed.
 static GCodeExtrusionRole feature_fan_role(const ExtrusionRole role)
 {
-    return role.is_bridge() ? extrusion_role_to_gcode_extrusion_role(role) : GCodeExtrusionRole::None;
+    return extrusion_role_to_gcode_extrusion_role(role);
 }
 
 std::string GCodeGenerator::extrude_smooth_path(
@@ -3576,12 +3575,11 @@ std::string GCodeGenerator::_extrude(
 
     std::string cooling_marker_setspeed_comments;
     if (m_enable_cooling_markers) {
-        if (const GCodeExtrusionRole fan_role = feature_fan_role(path_attr.role); fan_role != GCodeExtrusionRole::None) {
-            if (emit_modifiers.emit_feature_fan_start)
-                gcode += ";_FEATURE_FAN_START" + std::to_string(int(fan_role)) + "\n";
-        } else {
+        if (const GCodeExtrusionRole fan_role = feature_fan_role(path_attr.role); fan_role != GCodeExtrusionRole::None && emit_modifiers.emit_feature_fan_start)
+            gcode += ";_FEATURE_FAN_START" + std::to_string(int(fan_role)) + "\n";
+        // Bridges are not slowed down by the cooling logic.
+        if (! path_attr.role.is_bridge())
             cooling_marker_setspeed_comments = ";_EXTRUDE_SET_SPEED";
-        }
 
         if (path_attr.role.is_external_perimeter()) {
             cooling_marker_setspeed_comments += ";_EXTERNAL_PERIMETER";
@@ -3663,12 +3661,10 @@ std::string GCodeGenerator::_extrude(
     }
 
     if (m_enable_cooling_markers) {
-        if (feature_fan_role(path_attr.role) != GCodeExtrusionRole::None) {
-            if (emit_modifiers.emit_feature_fan_end)
-                gcode += ";_FEATURE_FAN_END" + std::to_string(int(feature_fan_role(path_attr.role))) + "\n";
-        } else {
+        if (! path_attr.role.is_bridge())
             gcode += ";_EXTRUDE_END\n";
-        }
+        if (const GCodeExtrusionRole fan_role = feature_fan_role(path_attr.role); fan_role != GCodeExtrusionRole::None && emit_modifiers.emit_feature_fan_end)
+            gcode += ";_FEATURE_FAN_END" + std::to_string(int(fan_role)) + "\n";
     }
 
     if (m_current_dynamic_fan_speed.has_value() && emit_modifiers.emit_fan_speed_reset) {

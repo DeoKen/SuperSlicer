@@ -169,7 +169,7 @@ wxPoint OG_CustomCtrl::get_pos(const Line& line, Field* field_in/* = nullptr*/)
                 break;
             }
 
-            bool is_multioption_line = option_set.size() > 1;
+            bool is_multioption_line = option_set.size() > 1 || line.force_sublabels;
             for (auto opt : option_set) {
                 Field* field = opt_group->get_field(opt.opt_id);
                 correct_line_height(ctrl_line.height, field->getWindow());
@@ -192,8 +192,9 @@ wxPoint OG_CustomCtrl::get_pos(const Line& line, Field* field_in/* = nullptr*/)
 #else
                     GetTextExtent(label, &label_w, &label_h, 0, 0, &m_font);
 #endif //__WXMSW__
-                    h_pos += label_w + m_h_gap;
-                }                
+                    // Same width as CtrlLine::render() -> draw_text() uses for the sub-label.
+                    h_pos += (opt_group->sublabel_width > 0 ? opt_group->sublabel_width * m_em_unit : label_w) + m_h_gap;
+                }
                 h_pos += (opt.opt.gui_type == ConfigOptionDef::GUIType::legend ? 1 : 3) * blinking_button_width;
                 
                 if (field == field_in) {
@@ -675,7 +676,7 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
     }
 
     size_t bmp_rect_id = 0;
-    bool is_multioption_line = option_set.size() > 1;
+    bool is_multioption_line = option_set.size() > 1 || og_line.force_sublabels;
     for (const Option& opt : option_set) {
         field = ctrl->opt_group->get_field(opt.opt_id);
         ConfigOptionDef option = opt.opt;

@@ -16,6 +16,8 @@ add_executable(${_TEST_NAME}_tests
 	test_gcode_travels.cpp
 	test_golden_gcode.cpp
 	test_internal_bridge.cpp
+	test_feature_fan.cpp
+	gcode_walk.hpp
     test_infill_above_bridges.cpp
     test_seam_perimeters.cpp
     test_seam_shells.cpp

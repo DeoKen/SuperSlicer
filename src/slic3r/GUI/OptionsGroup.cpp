@@ -457,7 +457,8 @@ void OptionsGroup::activate_line(Line& line)
 
 	// Set sidetext width for a better alignment of options in line
 	// "m_show_modified_btns==true" means that options groups are in tabs
-	if (option_set.size() > 1 && m_use_custom_ctrl) {
+	// Keep a sidetext width set explicitly for the group.
+	if (option_set.size() > 1 && m_use_custom_ctrl && sidetext_width < 0) {
 		sidetext_width = Field::def_width_thinner();
 	}
 

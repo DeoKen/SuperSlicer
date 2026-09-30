@@ -815,10 +815,99 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("internal_bridge_fan_speed", coInts);
     def->label = L("Internal bridges fan speed");
-    def->tooltip = L("This fan speed is enforced during internal bridges. It overrides the fan speed "
-                   "calculated from layer time, so it can also lower the fan. It is not applied on the layers "
-                   "where the fan is disabled (see \"Disable fan for the first\"). "
+    def->tooltip = L("This fan speed is enforced during internal bridges, even if it is lower than the current fan speed. "
+                   "Can be disabled by \"Disable fan for the first\" layers and increased by a short layer time. "
                    "Set -1 to use the bridges fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("default_fan_speed", coInts);
+    def->label = L("Default fan speed");
+    def->tooltip = L("Fan speed for the features that have no fan speed of their own. Set 0 to keep the fan off by default. Short layers speed the fan up from this value to the maximum fan speed. Set -1 to disable: the fan is then controlled by \"Keep fan always on\" and the minimum fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("perimeter_fan_speed", coInts);
+    def->label = L("Perimeter fan speed");
+    def->tooltip = L("This fan speed is enforced during all internal perimeters. Can be disabled by \"Disable fan for the first\" layers, slowed down by \"Full fan speed at layer\" and increased by a short layer time. Set -1 to use the default fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("external_perimeter_fan_speed", coInts);
+    def->label = L("External perimeter fan speed");
+    def->tooltip = L("This fan speed is enforced during all external (visible) perimeters. Can be disabled by \"Disable fan for the first\" layers, slowed down by \"Full fan speed at layer\" and increased by a short layer time. Set -1 to use the perimeter fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("overhangs_fan_speed", coInts);
+    def->label = L("Overhang perimeters fan speed");
+    def->tooltip = L("This fan speed is enforced during all overhang perimeters. Can be disabled by \"Disable fan for the first\" layers and increased by a short layer time. The dynamic fan speeds, when enabled, are applied on top of it. Set -1 to use the bridges fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("infill_fan_speed", coInts);
+    def->label = L("Infill fan speed");
+    def->tooltip = L("This fan speed is enforced during all sparse infill. Can be disabled by \"Disable fan for the first\" layers, slowed down by \"Full fan speed at layer\" and increased by a short layer time. Set -1 to use the default fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("solid_infill_fan_speed", coInts);
+    def->label = L("Solid infill fan speed");
+    def->tooltip = L("This fan speed is enforced during all solid infill. Can be disabled by \"Disable fan for the first\" layers, slowed down by \"Full fan speed at layer\" and increased by a short layer time. Set -1 to use the default fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("top_fan_speed", coInts);
+    def->label = L("Top solid infill fan speed");
+    def->tooltip = L("This fan speed is enforced during all top solid infill and ironing. Can be disabled by \"Disable fan for the first\" layers and slowed down by \"Full fan speed at layer\". Set -1 to use the solid infill fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("gap_fill_fan_speed", coInts);
+    def->label = L("Gap fill fan speed");
+    def->tooltip = L("This fan speed is enforced during all gap fill. Can be disabled by \"Disable fan for the first\" layers, slowed down by \"Full fan speed at layer\" and increased by a short layer time. Set -1 to use the default fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("support_material_fan_speed", coInts);
+    def->label = L("Support material fan speed");
+    def->tooltip = L("This fan speed is enforced during all support material. Can be disabled by \"Disable fan for the first\" layers and slowed down by \"Full fan speed at layer\". Set -1 to use the default fan speed.");
+    def->sidetext = L("%");
+    def->min = -1;
+    def->max = 100;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInts { -1 });
+
+    def = this->add("support_material_interface_fan_speed", coInts);
+    def->label = L("Support interface fan speed");
+    def->tooltip = L("This fan speed is enforced during all support interfaces, a high fan speed weakens their bonding to the object. Can only be disabled by \"Disable fan for the first\" layers. Set -1 to use the support material fan speed.");
     def->sidetext = L("%");
     def->min = -1;
     def->max = 100;

@@ -72,6 +72,8 @@ public:
 	std::string	label_path;
 
     size_t		full_width {0}; 
+    // Draw the option labels in front of the fields even for a single option (SuperSlicer like layout).
+    bool		force_sublabels {false};
     widget_t	widget {nullptr};
     std::function<wxWindow*(wxWindow*)>	near_label_widget{ nullptr };
 	wxWindow*	near_label_widget_win {nullptr};
