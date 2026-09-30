@@ -362,6 +362,10 @@ private:
     // Travel waypoints around the bed keep-out zones for a direct move to `to` (G-code coordinates), starting at the
     // last known position or, if unknown, at the last XY a custom G-code moved to. Empty if no detour is needed.
     std::string keep_out_detour_to(const Vec2d &to, const std::string &comment);
+    // Acceleration of a feature with its own acceleration setting (gap fill, support, ironing, brim...), 0 if not set.
+    double      feature_acceleration(const ExtrusionRole role) const;
+    // Speed of the brim and the skirt.
+    double      brim_speed() const;
 
     bool            needs_retraction(const Polyline &travel, ExtrusionRole role = ExtrusionRole::None);
 

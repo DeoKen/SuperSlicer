@@ -2910,7 +2910,7 @@ LayerResult GCodeGenerator::process_layer(
             m_avoid_crossing_perimeters.use_external_mp();
 
             for (const GCode::ExtrusionOrder::BrimPath &brim_path : extruder_extrusions.brim) {
-                gcode += this->extrude_smooth_path(brim_path.path, brim_path.is_loop, "brim", m_config.support_material_speed.value);
+                gcode += this->extrude_smooth_path(brim_path.path, brim_path.is_loop, "brim", this->brim_speed());
             }
             m_avoid_crossing_perimeters.use_external_mp(false);
             // Allow a straight travel move to the first object point.
@@ -3168,6 +3168,52 @@ std::string GCodeGenerator::change_layer(
     return gcode;
 }
 
+// Acceleration of the features with their own acceleration setting (gap fill, support, support interface, ironing,
+// brim and skirt), 0 if not set: the stock acceleration logic applies then. Percentages are taken over the
+// acceleration the parent feature actually gets.
+double GCodeGenerator::feature_acceleration(const ExtrusionRole role) const
+{
+    const double default_acceleration = m_config.default_acceleration.value;
+    auto resolve = [this](const ConfigOptionFloatOrPercent &opt, const double base) {
+        return opt.percent ? base * opt.value / 100. : opt.value;
+    };
+    // Support: 0 = default acceleration.
+    auto support_acceleration = [&]() {
+        const double a = resolve(m_config.support_material_acceleration, default_acceleration);
+        return a > 0 ? a : default_acceleration;
+    };
+    if (role == ExtrusionRole::GapFill) {
+        const double perimeter = m_config.perimeter_acceleration.value > 0 ? m_config.perimeter_acceleration.value : default_acceleration;
+        return resolve(m_config.gap_fill_acceleration, perimeter);
+    }
+    if (role == ExtrusionRole::SupportMaterial)
+        return resolve(m_config.support_material_acceleration, default_acceleration);
+    if (role == ExtrusionRole::SupportMaterialInterface) {
+        // 0 = the support acceleration, which is the default acceleration if not set either.
+        const double a = resolve(m_config.support_material_interface_acceleration, support_acceleration());
+        return a > 0 ? a : resolve(m_config.support_material_acceleration, default_acceleration);
+    }
+    if (role == ExtrusionRole::Ironing) {
+        // Stock ironing acceleration: solid infill, then infill, then default acceleration.
+        const double top = m_config.top_solid_infill_acceleration.value > 0 ? m_config.top_solid_infill_acceleration.value :
+                           m_config.solid_infill_acceleration.value > 0     ? m_config.solid_infill_acceleration.value :
+                           m_config.infill_acceleration.value > 0           ? m_config.infill_acceleration.value : default_acceleration;
+        return resolve(m_config.ironing_acceleration, top);
+    }
+    if (role.is_skirt())
+        return resolve(m_config.brim_acceleration, support_acceleration());
+    return 0.;
+}
+
+// Speed of the brim and the skirt: brim_speed, 0 = the support material speed (stock).
+double GCodeGenerator::brim_speed() const
+{
+    const double support_speed = m_config.support_material_speed.value;
+    const ConfigOptionFloatOrPercent &opt = m_config.brim_speed;
+    const double speed = opt.percent ? support_speed * opt.value / 100. : opt.value;
+    return speed > 0 ? speed : support_speed;
+}
+
 // Refuse the job when something has to be printed inside a bed keep-out zone: extrusions cannot be rerouted.
 // Tests what is actually printed (layer outlines, support, skirt, brim, wipe tower), not convex hulls.
 static void check_bed_keep_out(const Print &print, const BedKeepOut &keep_out)
@@ -3311,7 +3357,7 @@ std::string GCodeGenerator::extrude_skirt(
         el.path_attributes.height = extrusion_flow_override.height;
     }
 
-    gcode += this->extrude_smooth_path(smooth_path, true, "skirt"sv, m_config.support_material_speed.value);
+    gcode += this->extrude_smooth_path(smooth_path, true, "skirt"sv, this->brim_speed());
 
     return gcode;
 }
@@ -3587,6 +3633,8 @@ std::string GCodeGenerator::_extrude(
             acceleration = m_config.first_layer_acceleration.value;
         } else if (this->object_layer_over_raft() && m_config.first_layer_acceleration_over_raft.value > 0) {
             acceleration = m_config.first_layer_acceleration_over_raft.value;
+        } else if (const double feature_acceleration = this->feature_acceleration(path_attr.role); feature_acceleration > 0) {
+            acceleration = feature_acceleration;
         } else if (m_config.internal_bridge_acceleration.value > 0 && path_attr.role == ExtrusionRole::InternalBridgeInfill) {
             acceleration = m_config.internal_bridge_acceleration.value;
         } else if (m_config.bridge_acceleration.value > 0 && path_attr.role.is_bridge()) {

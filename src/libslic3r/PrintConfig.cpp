@@ -815,6 +815,67 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
 
+    def = this->add("gap_fill_acceleration", coFloatOrPercent);
+    def->label = L("Gap fill");
+    def->full_label = L("Gap fill acceleration");
+    def->tooltip = L("This is the acceleration your printer will use for gap fill. Can be a percentage of the perimeter acceleration. Set zero to use the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "perimeter_acceleration";
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("support_material_acceleration", coFloatOrPercent);
+    def->label = L("Support");
+    def->full_label = L("Support material acceleration");
+    def->tooltip = L("This is the acceleration your printer will use for support material. Can be a percentage of the default acceleration. Set zero to use the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("support_material_interface_acceleration", coFloatOrPercent);
+    def->label = L("Support interface");
+    def->full_label = L("Support material interface acceleration");
+    def->tooltip = L("This is the acceleration your printer will use for support material interfaces. Can be a percentage of the support material acceleration. Set zero to use the support material acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "support_material_acceleration";
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("ironing_acceleration", coFloatOrPercent);
+    def->label = L("Ironing");
+    def->full_label = L("Ironing acceleration");
+    def->tooltip = L("This is the acceleration your printer will use for ironing. Can be a percentage of the top solid infill acceleration. Set zero to use the solid infill acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "top_solid_infill_acceleration";
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("brim_acceleration", coFloatOrPercent);
+    def->label = L("Brim");
+    def->full_label = L("Brim and skirt acceleration");
+    def->tooltip = L("This is the acceleration your printer will use for the brim and the skirt. Can be a percentage of the support material acceleration. Set zero to use the default acceleration. The first layer acceleration takes precedence on the first layer.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "support_material_acceleration";
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("brim_speed", coFloatOrPercent);
+    def->label = L("Brim & skirt");
+    def->full_label = L("Brim and skirt speed");
+    def->category = L("Speed");
+    def->tooltip = L("Speed for printing the brim and the skirt. If expressed as percentage, it is calculated over the support material speed. Set zero to use the support material speed. The first layer speed takes precedence on the first layer.");
+    def->sidetext = L("mm/s or %");
+    def->ratio_over = "support_material_speed";
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
     def = this->add("internal_bridge_acceleration", coFloat);
     def->label = L("Internal bridge");
     def->tooltip = L("This is the acceleration your printer will use for internal bridges. "

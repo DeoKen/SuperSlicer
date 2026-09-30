@@ -333,7 +333,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     bool have_default_acceleration = config->opt_float("default_acceleration") > 0;
     for (auto el : { "perimeter_acceleration", "infill_acceleration", "top_solid_infill_acceleration",
                     "solid_infill_acceleration", "external_perimeter_acceleration",
-                    "bridge_acceleration", "internal_bridge_acceleration", "first_layer_acceleration", "wipe_tower_acceleration"})
+                    "bridge_acceleration", "internal_bridge_acceleration", "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration", "ironing_acceleration", "brim_acceleration", "first_layer_acceleration", "wipe_tower_acceleration"})
         toggle_field(el, have_default_acceleration);
 
     bool have_skirt = config->opt_int("skirts") > 0;

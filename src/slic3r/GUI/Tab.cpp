@@ -1618,7 +1618,7 @@ void TabPrint::build()
         optgroup->sidetext_width = 7;
         append_labelled_line(optgroup, L("Perimeter speed"),     { { "perimeter_speed", L("Internal") }, { "external_perimeter_speed", L("External") } });
         append_labelled_line(optgroup, L("Infill speed"),        { { "solid_infill_speed", L("Solid") }, { "infill_speed", L("Sparse") }, { "top_solid_infill_speed", L("Top solid") } });
-        append_labelled_line(optgroup, L("Support speed"),       { { "support_material_speed", L("Default") }, { "support_material_interface_speed", L("Interface") } });
+        append_labelled_line(optgroup, L("Support speed"),       { { "support_material_speed", L("Default") }, { "support_material_interface_speed", L("Interface") }, { "brim_speed", L("Brim & skirt") } });
         append_labelled_line(optgroup, L("Bridge infill speed"), { { "bridge_speed", L("External") }, { "internal_bridge_speed", L("Internal") }, { "over_bridge_speed", L("Over") } });
         append_labelled_line(optgroup, L("Other speed"),         { { "gap_fill_speed", L("Gap fill") }, { "ironing_speed", L("Ironing") } });
 
@@ -1646,7 +1646,9 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Default acceleration"),     { { "default_acceleration", L("Default") } });
         append_labelled_line(optgroup, L("Perimeter acceleration"),   { { "perimeter_acceleration", L("Internal") }, { "external_perimeter_acceleration", L("External") } });
         append_labelled_line(optgroup, L("Infill acceleration"),      { { "solid_infill_acceleration", L("Solid") }, { "infill_acceleration", L("Sparse") }, { "top_solid_infill_acceleration", L("Top solid") } });
+        append_labelled_line(optgroup, L("Support acceleration"),     { { "support_material_acceleration", L("Default") }, { "support_material_interface_acceleration", L("Interface") }, { "brim_acceleration", L("Brim & skirt") } });
         append_labelled_line(optgroup, L("Bridge acceleration"),      { { "bridge_acceleration", L("External") }, { "internal_bridge_acceleration", L("Internal") } });
+        append_labelled_line(optgroup, L("Other acceleration"),       { { "gap_fill_acceleration", L("Gap fill") }, { "ironing_acceleration", L("Ironing") } });
         append_labelled_line(optgroup, L("Travel acceleration"),      { { "travel_acceleration", L("Travel") }, { "travel_short_distance_acceleration", L("Short") } });
         append_labelled_line(optgroup, L("First layer acceleration"), { { "first_layer_acceleration", L("Default") }, { "first_layer_acceleration_over_raft", L("Over raft") } });
         append_labelled_line(optgroup, L("Wipe tower acceleration"),  { { "wipe_tower_acceleration", L("Wipe tower") } });

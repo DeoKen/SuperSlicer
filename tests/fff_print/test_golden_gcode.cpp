@@ -27,6 +27,8 @@ const std::vector<std::string> added_config_keys {
     "default_fan_speed", "perimeter_fan_speed", "external_perimeter_fan_speed", "overhangs_fan_speed", "infill_fan_speed",
     "solid_infill_fan_speed", "top_fan_speed", "gap_fill_fan_speed", "support_material_fan_speed", "support_material_interface_fan_speed",
     "bed_keep_out_zones",
+    "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration",
+    "ironing_acceleration", "brim_acceleration", "brim_speed",
 };
 
 bool is_added_config_line(const std::string &line)
