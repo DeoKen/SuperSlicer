@@ -441,6 +441,7 @@ void PrintConfigDef::init_common_params()
                      "zones are separated by ';', for example 0,0,40,40;310,0,350,40. "
                      "Travel moves are routed around the zones with 1 mm of clearance, slicing is refused when something "
                      "has to be printed inside a zone, and arrange keeps objects out of them. "
+                     "Only the first 4 zones are shaded on the bed in the 3D view; all zones are applied. "
                      "The bed itself stays rectangular.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionString(""));
@@ -826,7 +827,8 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Internal bridges");
     def->category = L("Speed");
     def->tooltip = L("Speed for printing internal bridges (bridges over sparse infill, supporting the top solid layers). "
-                    "If set as percentage, the speed is calculated over bridge speed.");
+                    "If set as percentage, the speed is calculated over bridge speed. "
+                    "Set zero for auto speed (from the maximum volumetric speed).");
     def->sidetext = L("mm/s or %");
     def->ratio_over = "bridge_speed";
     def->min = 0;

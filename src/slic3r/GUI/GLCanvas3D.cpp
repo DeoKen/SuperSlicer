@@ -26,7 +26,6 @@
 #include "libslic3r/GCode/ThumbnailData.hpp"
 #include "libslic3r/GCode/BedKeepOut.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
-#include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/MultipleBeds.hpp"

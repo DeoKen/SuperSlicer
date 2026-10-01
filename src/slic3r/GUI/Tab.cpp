@@ -3656,6 +3656,8 @@ void TabPrinter::toggle_options()
         bool is_marlin_flavor = flavor == gcfMarlinLegacy || flavor == gcfMarlinFirmware;
         // Disable silent mode for non-marlin firmwares.
         toggle_option("silent_mode", is_marlin_flavor);
+
+        toggle_option("fan_speedup_overhangs", m_config->opt_float("fan_speedup_time") > 0);
     }
 
     wxString extruder_number;

@@ -3222,7 +3222,8 @@ double GCodeGenerator::feature_acceleration(const ExtrusionRole role) const
         return a > 0 ? a : resolve(m_config.support_material_acceleration, default_acceleration);
     }
     if (role == ExtrusionRole::Ironing) {
-        // Stock ironing acceleration: solid infill, then infill, then default acceleration.
+        // Base of a percentage: top solid infill acceleration, falling back to solid infill, infill, default acceleration.
+        // At 0 the stock logic below applies (solid infill acceleration for ironing).
         const double top = m_config.top_solid_infill_acceleration.value > 0 ? m_config.top_solid_infill_acceleration.value :
                            m_config.solid_infill_acceleration.value > 0     ? m_config.solid_infill_acceleration.value :
                            m_config.infill_acceleration.value > 0           ? m_config.infill_acceleration.value : default_acceleration;
