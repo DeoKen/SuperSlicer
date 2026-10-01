@@ -4055,6 +4055,7 @@ Polyline GCodeGenerator::generate_travel_xy_path(
     const bool avoid_crossing_perimeters = (
         this->m_config.avoid_crossing_perimeters
         && !this->m_avoid_crossing_perimeters.disabled_once()
+        && !(this->m_config.avoid_crossing_not_first_layer && this->on_first_layer())
     );
 
     Polyline xy_path{start_point, end_point};

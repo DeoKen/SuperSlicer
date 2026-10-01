@@ -33,6 +33,7 @@ const std::vector<std::string> added_config_keys {
     "feature_gcode",
     "small_perimeter_min_length", "small_perimeter_max_length",
     "hole_size_compensation", "hole_size_threshold",
+    "avoid_crossing_not_first_layer", "avoid_crossing_top", "avoid_travel_island",
 };
 
 bool is_added_config_line(const std::string &line)

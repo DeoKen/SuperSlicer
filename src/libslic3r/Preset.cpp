@@ -479,7 +479,7 @@ static std::vector<std::string> s_Preset_print_options {
     "infill_every_layers", /*"infill_only_where_needed",*/ "solid_infill_every_layers", "fill_angle", "bridge_angle",
     "solid_infill_below_area", "only_retract_when_crossing_perimeters", "infill_first",
     "ironing", "ironing_type", "ironing_flowrate", "ironing_speed", "ironing_spacing",
-    "max_print_speed", "max_volumetric_speed", "avoid_crossing_perimeters_max_detour",
+    "max_print_speed", "max_volumetric_speed", "avoid_crossing_perimeters_max_detour", "avoid_crossing_not_first_layer", "avoid_crossing_top", "avoid_travel_island", "avoid_travel_island_weight",
     "fuzzy_skin", "fuzzy_skin_thickness", "fuzzy_skin_point_dist",
     "max_volumetric_extrusion_rate_slope_positive", "max_volumetric_extrusion_rate_slope_negative",
     "perimeter_speed", "small_perimeter_speed", "small_perimeter_min_length", "small_perimeter_max_length", "external_perimeter_speed", "infill_speed", "solid_infill_speed",

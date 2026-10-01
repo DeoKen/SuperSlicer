@@ -1488,6 +1488,8 @@ void TabPrint::build()
         optgroup->append_single_option_line("avoid_crossing_curled_overhangs", category_path + "avoid-crossing-curled-overhangs");
         optgroup->append_single_option_line("avoid_crossing_perimeters", category_path + "avoid-crossing-perimeters");
         optgroup->append_single_option_line("avoid_crossing_perimeters_max_detour", category_path + "avoid_crossing_perimeters_max_detour");
+        append_labelled_line(optgroup, L("Avoid crossing modifiers"), { { "avoid_crossing_not_first_layer", L("Not on first layer") }, { "avoid_crossing_top", L("Avoid top surfaces") } }, category_path + "avoid-crossing-perimeters", -1);
+        append_labelled_line(optgroup, L("Between islands"), { { "avoid_travel_island", L("Find smallest crossing") }, { "avoid_travel_island_weight", L("Weight") } }, category_path + "avoid-crossing-perimeters", -1);
         optgroup->append_single_option_line("thin_walls", category_path + "detect-thin-walls");
         optgroup->append_single_option_line("thick_bridges", category_path + "thick_bridges");
         optgroup->append_single_option_line("overhangs", category_path + "detect-bridging-perimeters");

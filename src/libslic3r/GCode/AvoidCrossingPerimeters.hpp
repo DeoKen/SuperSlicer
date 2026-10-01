@@ -5,6 +5,7 @@
 #ifndef slic3r_AvoidCrossingPerimeters_hpp_
 #define slic3r_AvoidCrossingPerimeters_hpp_
 
+#include <map>
 #include <vector>
 
 #include "libslic3r/libslic3r.h"
@@ -77,6 +78,12 @@ private:
     Boundary m_internal;
     // Store all needed data for travels outside object
     Boundary m_external;
+
+    // avoid_travel_island: travel between two islands crossing the gap where they are nearest.
+    Polyline travel_between_islands(const Layer &layer, const Point &start, const Point &end, double weight);
+    // Internal boundary polygons of each island (index into Layer::lslices) and their edge grid, built on demand.
+    std::vector<int>                                    m_internal_boundary_island;
+    std::map<int, std::pair<Polygons, EdgeGrid::Grid>>  m_island_boundaries;
 };
 
 } // namespace Slic3r

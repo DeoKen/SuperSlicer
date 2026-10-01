@@ -646,6 +646,44 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(false));
 
+    def = this->add("avoid_crossing_not_first_layer", coBool);
+    def->label = L("Not on first layer");
+    def->full_label = L("Don't avoid crossing perimeters on the first layer");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("Disable 'Avoid crossing perimeters' for the first layer.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("avoid_crossing_top", coBool);
+    def->label = L("Avoid top surfaces");
+    def->full_label = L("Avoid top surfaces for travels");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("When using 'Avoid crossing perimeters', don't travel over the top surfaces if possible. With perimeters "
+                     "and no ironing, a narrow lane along the edge of the top surfaces stays available for the travels. "
+                     "When off, travels may cross the top surfaces.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("avoid_travel_island", coBool);
+    def->label = L("Find smallest crossing");
+    def->full_label = L("Find smallest crossing between islands");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("When using 'Avoid crossing perimeters' and travelling between two islands, cross the gap between "
+                     "them where they are nearest to each other, to travel less over the void.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("avoid_travel_island_weight", coFloat);
+    def->label = L("Weight for internal travel");
+    def->full_label = L("Weight for internal distance while choosing island crossing");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("When finding the smallest crossing between islands, also count the distance travelled inside the islands "
+                     "to reach the crossing, multiplied by this weight. Set zero to always take the smallest crossing, "
+                     "a higher value to prefer a crossing nearer to the straight travel.");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.4));
+
     def = this->add("avoid_crossing_perimeters_max_detour", coFloatOrPercent);
     def->label = L("Avoid crossing perimeters - Max detour length");
     def->category = L("Layers and Perimeters");

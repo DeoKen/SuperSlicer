@@ -1070,7 +1070,7 @@ static ExPolygons inner_offset(const ExPolygons &ex_polygons, double offset)
 //#define INCLUDE_SUPPORTS_IN_BOUNDARY
 
 // called by AvoidCrossingPerimeters::travel_to()
-static ExPolygons get_boundary(const Layer &layer)
+static ExPolygons get_boundary(const Layer &layer, const bool avoid_crossing_top)
 {
     const float perimeter_spacing = get_perimeter_spacing(layer);
     const float perimeter_offset  = perimeter_spacing / 2.f;
@@ -1086,6 +1086,9 @@ static ExPolygons get_boundary(const Layer &layer)
         // After calling inner_offset it is necessary to call union_ex because of the possibility of intersection ExPolygons
         boundary = union_ex(boundary);
     }
+    if (! avoid_crossing_top)
+        return boundary;
+
     // Collect all top layers that will not be crossed.
     size_t      polygons_count    = 0;
     for (const LayerRegion *layer_region : layer.regions())
@@ -1095,12 +1098,20 @@ static ExPolygons get_boundary(const Layer &layer)
     if (polygons_count > 0) {
         ExPolygons top_layer_polygons;
         top_layer_polygons.reserve(polygons_count);
-        for (const LayerRegion *layer_region : layer.regions())
+        for (const LayerRegion *layer_region : layer.regions()) {
+            // As in SuperSlicer: with perimeters and no ironing, keep a lane along the edge of the top surfaces for the
+            // travels, a bit inside the top surface where the perimeters are.
+            const bool keep_lane = layer_region->region().config().perimeters > 0 && ! layer_region->region().config().ironing;
             for (const Surface &surface : layer_region->fill_surfaces())
-                if (surface.is_top()) top_layer_polygons.emplace_back(surface.expolygon);
+                if (surface.is_top()) {
+                    top_layer_polygons.emplace_back(surface.expolygon);
+                    if (keep_lane)
+                        append(boundary, diff_ex(offset_ex(surface.expolygon, perimeter_spacing / 4.f), offset_ex(surface.expolygon, -perimeter_offset)));
+                }
+        }
 
         top_layer_polygons = union_ex(top_layer_polygons);
-        return diff_ex(boundary, offset_ex(top_layer_polygons, -perimeter_offset));
+        return diff_ex(union_ex(boundary), offset_ex(top_layer_polygons, -perimeter_offset));
     }
 
     return boundary;
@@ -1205,13 +1216,17 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCodeGenerator &gcodegen, cons
     if (!use_external && (is_support_layer || (!m_lslices_offset.empty() && !any_expolygon_contains(m_lslices_offset, m_lslices_offset_bboxes, m_grid_lslices_offset, travel)))) {
         // Initialize m_internal only when it is necessary.
         if (m_internal.boundaries.empty())
-            init_boundary(&m_internal, to_polygons(get_boundary(*gcodegen.layer())));
+            init_boundary(&m_internal, to_polygons(get_boundary(*gcodegen.layer(), gcodegen.config().avoid_crossing_top)));
 
         // Trim the travel line by the bounding box.
         if (!m_internal.boundaries.empty() && Geometry::liang_barsky_line_clipping(startf, endf, m_internal.bbox)) {
             travel_intersection_count = avoid_perimeters(m_internal, startf.cast<coord_t>(), endf.cast<coord_t>(), *gcodegen.layer(), result_pl);
             result_pl.points.front()  = start;
             result_pl.points.back()   = end;
+            // Between two islands: cross the gap where they are nearest (avoid_travel_island, from SuperSlicer).
+            if (travel_intersection_count > 0 && ! is_support_layer && gcodegen.config().avoid_travel_island)
+                if (Polyline jump = this->travel_between_islands(*gcodegen.layer(), start, end, gcodegen.config().avoid_travel_island_weight.value); ! jump.empty())
+                    result_pl = std::move(jump);
         }
     } else if(use_external) {
         // Initialize m_external only when exist any external travel for the current layer.
@@ -1257,12 +1272,121 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCodeGenerator &gcodegen, cons
     return result_pl;
 }
 
+// avoid_travel_island, the idea ported from SuperSlicer: when the travel goes from one island of the layer to another, choose
+// where to leave the first island and where to enter the second one so that the cost
+//     weight * (travel inside the first island) + (gap crossed over the void) + weight * (travel inside the second island)
+// is minimal, the distances inside the islands estimated as straight lines. The candidates are the points of the internal
+// boundaries of both islands, every 1 mm, with the nearest point of the other island. The travels inside the islands are
+// planned as usual. Returns an empty polyline if the straight travel is as good (cost not below (1 + weight) * straight length).
+Polyline AvoidCrossingPerimeters::travel_between_islands(const Layer &layer, const Point &start, const Point &end, const double weight)
+{
+    auto island_of = [&layer](const Point &p) -> int {
+        for (size_t i = 0; i < layer.lslices.size() && i < layer.lslices_ex.size(); ++ i)
+            if (layer.lslices_ex[i].bbox.contains(p) && layer.lslices[i].contains(p))
+                return int(i);
+        return -1;
+    };
+    const int island_start = island_of(start);
+    const int island_end   = island_of(end);
+    if (island_start < 0 || island_end < 0 || island_start == island_end)
+        return {};
+
+    if (m_internal_boundary_island.empty()) {
+        m_internal_boundary_island.assign(m_internal.boundaries.size(), -1);
+        for (size_t i = 0; i < m_internal.boundaries.size(); ++ i)
+            if (! m_internal.boundaries[i].empty())
+                m_internal_boundary_island[i] = island_of(m_internal.boundaries[i].points.front());
+    }
+    auto island_boundary = [this](const int island) -> const std::pair<Polygons, EdgeGrid::Grid>& {
+        auto it = m_island_boundaries.find(island);
+        if (it == m_island_boundaries.end()) {
+            it = m_island_boundaries.emplace(island, std::pair<Polygons, EdgeGrid::Grid>()).first;
+            Polygons &polys = it->second.first;
+            for (size_t i = 0; i < m_internal.boundaries.size(); ++ i)
+                if (m_internal_boundary_island[i] == island)
+                    polys.emplace_back(m_internal.boundaries[i]);
+            if (! polys.empty()) {
+                BoundingBox bbox = get_extents(polys);
+                bbox.offset(SCALED_EPSILON);
+                it->second.second.set_bbox(bbox);
+                it->second.second.create(polys, coord_t(scale_(1.)));
+            }
+        }
+        return it->second;
+    };
+    const std::pair<Polygons, EdgeGrid::Grid> &boundary_start = island_boundary(island_start);
+    const std::pair<Polygons, EdgeGrid::Grid> &boundary_end   = island_boundary(island_end);
+    if (boundary_start.first.empty() || boundary_end.first.empty())
+        return {};
+
+    const double straight  = (end - start).cast<double>().norm();
+    double       best_cost = straight * (1. + weight);
+    // Crossing points and the boundary edges they lie on.
+    struct Crossing { Point point; Point edge_a; Point edge_b; };
+    Crossing best_leave, best_enter;
+    bool     found = false;
+
+    // Sample the boundary of one island, find the nearest point of the other one.
+    auto search = [&](const Polygons &sampled, const std::pair<Polygons, EdgeGrid::Grid> &other, const bool sampled_is_start) {
+        const double step = scale_(1.);
+        for (const Polygon &poly : sampled)
+            for (size_t i = 0; i < poly.size(); ++ i) {
+                const Point &a  = poly.points[i];
+                const Point &b  = poly.points[(i + 1) % poly.size()];
+                const Vec2d  ab = (b - a).cast<double>();
+                const size_t n  = std::max<size_t>(1, size_t(ab.norm() / step));
+                for (size_t k = 0; k < n; ++ k) {
+                    const Point q = a + (ab * (double(k) / double(n))).cast<coord_t>();
+                    const EdgeGrid::Grid::ClosestPointResult cp = other.second.closest_point_signed_distance(q, coord_t(std::min(best_cost, 1e9)));
+                    if (! cp.valid())
+                        continue;
+                    const Polygon &op = other.first[cp.contour_idx];
+                    const Point   &oa = op.points[cp.start_point_idx];
+                    const Point   &ob = op.points[(cp.start_point_idx + 1) % op.size()];
+                    const Point    o  = oa + ((ob - oa).cast<double>() * cp.t).cast<coord_t>();
+                    const Point &leave = sampled_is_start ? q : o;
+                    const Point &enter = sampled_is_start ? o : q;
+                    const double cost = weight * (leave - start).cast<double>().norm() + (enter - leave).cast<double>().norm() +
+                                        weight * (end - enter).cast<double>().norm();
+                    if (cost < best_cost) {
+                        best_cost  = cost;
+                        found      = true;
+                        best_leave = sampled_is_start ? Crossing{ q, a, b } : Crossing{ o, oa, ob };
+                        best_enter = sampled_is_start ? Crossing{ o, oa, ob } : Crossing{ q, a, b };
+                    }
+                }
+            }
+    };
+    search(boundary_start.first, boundary_end, true);
+    search(boundary_end.first, boundary_start, false);
+    if (! found)
+        return {};
+
+    // Move the crossing points a bit inside their boundary (inside is on the left of the boundary edges).
+    auto inside = [](const Crossing &c) {
+        const Vec2d dir = (c.edge_b - c.edge_a).cast<double>().normalized();
+        return c.point + (Vec2d(-dir.y(), dir.x()) * double(4 * SCALED_EPSILON)).cast<coord_t>();
+    };
+    Polyline to_leave, from_enter;
+    avoid_perimeters(m_internal, start, inside(best_leave), layer, to_leave);
+    avoid_perimeters(m_internal, inside(best_enter), end, layer, from_enter);
+    if (to_leave.empty() || from_enter.empty())
+        return {};
+    Polyline out = std::move(to_leave);
+    out.points.front() = start;
+    append(out.points, from_enter.points);
+    out.points.back() = end;
+    return out;
+}
+
 // ************************************* AvoidCrossingPerimeters::init_layer() *****************************************
 
 void AvoidCrossingPerimeters::init_layer(const Layer &layer)
 {
     m_internal.clear();
     m_external.clear();
+    m_internal_boundary_island.clear();
+    m_island_boundaries.clear();
     m_lslices_offset.clear();
     m_lslices_offset_bboxes.clear();
 

@@ -22,7 +22,8 @@ Contents:
 6. [Custom G-code at every extrusion type change](#6-custom-g-code-at-every-extrusion-type-change-feature_gcode)
 7. [Small perimeter min / max length](#7-small-perimeter-min--max-length)
 8. [Hole size compensation](#8-hole-size-compensation)
-9. [GUI layout](#9-gui-layout)
+9. [Avoid crossing perimeters options](#9-avoid-crossing-perimeters-options)
+10. [GUI layout](#10-gui-layout)
 9. [Testing](#testing)
 
 ---
@@ -238,7 +239,39 @@ with 0 and with e.g. -0.05 mm and measure the holes with pins or calipers.
 
 ---
 
-## 9. GUI layout
+## 9. Avoid crossing perimeters options
+
+**What it does.** Three options from SuperSlicer for "Avoid crossing perimeters" (Print > Layers and perimeters >
+Advanced). They only act when "Avoid crossing perimeters" is on (off by default), so stock output is unaffected; they
+default to on, as in SuperSlicer.
+
+| Setting | GUI row: label | Default | Meaning |
+|---|---|---|---|
+| `avoid_crossing_not_first_layer` | Avoid crossing modifiers: *Not on first layer* | on | No avoid crossing perimeters on the first layer. |
+| `avoid_crossing_top` | Avoid crossing modifiers: *Avoid top surfaces* | on | Don't travel over top surfaces (stock PrusaSlicer always avoids them). With perimeters and no ironing a narrow lane along the edge of the top surfaces stays usable for travels (SuperSlicer). Off: travels may cross top surfaces. |
+| `avoid_travel_island` | Between islands: *Find smallest crossing* | on | Travelling between two islands of a layer, cross the gap where they are nearest. |
+| `avoid_travel_island_weight` | Between islands: *Weight* | `0.4` | Weight of the travel inside the islands to reach the crossing. 0 = always the smallest crossing, higher = prefer a crossing nearer the straight travel. |
+
+Difference from SuperSlicer: these are print wide settings (in SuperSlicer, the top and island options can also be set
+in object modifiers).
+
+**How it works.** `GCode/AvoidCrossingPerimeters.cpp`:
+- not on first layer: `generate_travel_xy_path()` in `GCode.cpp` skips avoid crossing perimeters on the first layer.
+- top surfaces: `get_boundary()` removes the top surfaces (shrunk by half a perimeter spacing) from the area the travels
+  are planned in, and adds the lane along their edge.
+- islands: `travel_between_islands()`: when start and end are in different islands, the crossing minimising
+  `weight * (start to leave point) + gap + weight * (enter point to end)` is searched on the internal boundaries of both
+  islands (sampled every 1 mm, nearest point of the other island from an edge grid). It is used when its cost is below
+  `(1 + weight) * straight length` (as SuperSlicer); the parts inside the islands are planned as usual. This is a new
+  implementation of SuperSlicer's idea on PrusaSlicer's travel planner, not a line by line port.
+
+**How to test.** `fff_print_tests "[AvoidCrossing]"` (and PrusaSlicer's `"[AvoidCrossingPerimeters]"`). Manually: turn on
+avoid crossing perimeters, slice a plate of small parts close together as one object (or a part with separate islands)
+and look at the travel moves in the preview with "Find smallest crossing" on and off.
+
+---
+
+## 10. GUI layout
 
 Rows grouped as in SuperSlicer (several fields with short labels on one row) for Filament > Cooling > Fan settings and
 Print > Speed, plus single rows for new settings elsewhere. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),

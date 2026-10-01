@@ -401,6 +401,9 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
 
     bool have_avoid_crossing_perimeters = config->opt_bool("avoid_crossing_perimeters");
     toggle_field("avoid_crossing_perimeters_max_detour", have_avoid_crossing_perimeters);
+    for (auto el : { "avoid_crossing_not_first_layer", "avoid_crossing_top", "avoid_travel_island" })
+        toggle_field(el, have_avoid_crossing_perimeters);
+    toggle_field("avoid_travel_island_weight", have_avoid_crossing_perimeters && config->opt_bool("avoid_travel_island"));
 
     bool have_arachne = config->opt_enum<PerimeterGeneratorType>("perimeter_generator") == PerimeterGeneratorType::Arachne;
     toggle_field("wall_transition_length", have_arachne);
