@@ -714,6 +714,20 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionString(""));
 
+    def = this->add("feature_gcode", coString);
+    def->label = L("After extrusion type change G-code");
+    def->tooltip = L("This custom code is inserted at every extrusion type change, before the first extrusion of the new type. "
+                     "Note that you can use placeholder variables for all PrusaSlicer settings as well as [extrusion_role] "
+                     "(the new type), [last_extrusion_role] (the previous one), [layer_num] and [layer_z]. The types are named as "
+                     "in the ;TYPE: lines of the G-code: Perimeter, External perimeter, Overhang perimeter, Internal infill, Solid infill, Top solid infill, Ironing, Bridge infill, Internal bridge infill, Gap fill, Skirt/Brim, Support material, Support material interface, Wipe tower. "
+                     "[next_extrusion_role] and [previous_extrusion_role] are the same as [extrusion_role] and [last_extrusion_role]. "
+                     "The code should not move the print head.");
+    def->multiline = true;
+    def->full_width = true;
+    def->height = 5;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionString(""));
+
     def = this->add("between_objects_gcode", coString);
     def->label = L("Between objects G-code");
     def->tooltip = L("This code is inserted between objects when using sequential printing. By default extruder and bed temperature are reset using non-wait command; however if M104, M109, M140 or M190 are detected in this custom code, Slic3r will not add temperature commands. Note that you can use placeholder variables for all Slic3r settings, so you can put a \"M109 S[first_layer_temperature]\" command wherever you want.");
@@ -6754,6 +6768,7 @@ static std::map<t_custom_gcode_key, t_config_option_keys> s_CustomGcodeSpecificP
     {"end_gcode",               {"layer_num", "layer_z", "max_layer_z", "filament_extruder_id"}},
     {"before_layer_gcode",      {"layer_num", "layer_z", "max_layer_z"}},
     {"layer_gcode",             {"layer_num", "layer_z", "max_layer_z"}},
+    {"feature_gcode",           {"layer_num", "layer_z", "max_layer_z", "extrusion_role", "last_extrusion_role", "next_extrusion_role", "previous_extrusion_role"}},
     {"toolchange_gcode",        {"layer_num", "layer_z", "max_layer_z", "previous_extruder", "next_extruder", "toolchange_z"}},
     {"color_change_gcode",      {"color_change_extruder"}},
     {"pause_print_gcode",       {"color_change_extruder"}},
@@ -6795,6 +6810,22 @@ CustomGcodeSpecificConfigDef::CustomGcodeSpecificConfigDef()
     def = this->add("toolchange_z", coFloat);
     def->label = L("Toolchange Z");
     def->tooltip = L("Height above the print bed when the toolchange takes place. Usually the same as layer_z, but can be different.");
+
+    def = this->add("extrusion_role", coString);
+    def->label = L("Extrusion type");
+    def->tooltip = L("Type of the extrusions after the change, as in the ;TYPE: lines of the G-code.");
+
+    def = this->add("last_extrusion_role", coString);
+    def->label = L("Last extrusion type");
+    def->tooltip = L("Type of the extrusions before the change, as in the ;TYPE: lines of the G-code.");
+
+    def = this->add("next_extrusion_role", coString);
+    def->label = L("Next extrusion type");
+    def->tooltip = L("Same as extrusion_role.");
+
+    def = this->add("previous_extrusion_role", coString);
+    def->label = L("Previous extrusion type");
+    def->tooltip = L("Same as last_extrusion_role.");
 
     def = this->add("color_change_extruder", coInt);
     // TRN: This is a label in custom g-code editor dialog, belonging to color_change_extruder. Denoted index of the extruder for which color change is performed.

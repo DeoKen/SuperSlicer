@@ -557,6 +557,7 @@ namespace DoExport {
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("After layer change G-code"), config.layer_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Tool change G-code"), config.toolchange_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Between objects G-code (for sequential printing)"), config.between_objects_gcode.value);
+        if (ret.size() < MAX_TAGS_COUNT) check(_u8L("After extrusion type change G-code"), config.feature_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Color Change G-code"), config.color_change_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Pause Print G-code"), config.pause_print_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Template Custom G-code"), config.template_custom_gcode.value);
@@ -1144,6 +1145,7 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
             throw Slic3r::SlicingError(error);
         this->m_bed_keep_out.init(zones, BoundingBoxf(print.config().bed_shape.values));
         this->m_custom_gcode_last_xy.reset();
+        this->m_last_feature_gcode_role = GCodeExtrusionRole::None;
         if (this->m_bed_keep_out.is_active())
             check_bed_keep_out(print, this->m_bed_keep_out);
     }
@@ -3653,6 +3655,24 @@ std::string GCodeGenerator::_extrude(
         // There is G-Code that is due to be inserted before an extrusion starts. Insert it.
         gcode += m_pending_pre_extrusion_gcode;
         m_pending_pre_extrusion_gcode.clear();
+    }
+
+    // Custom G-code at every extrusion type change (feature_gcode, as in SuperSlicer).
+    if (const GCodeExtrusionRole role = extrusion_role_to_gcode_extrusion_role(path_attr.role); role != m_last_feature_gcode_role) {
+        if (! m_config.feature_gcode.value.empty()) {
+            DynamicConfig config;
+            config.set_key_value("layer_num",               new ConfigOptionInt(m_layer_index));
+            config.set_key_value("layer_z",                 new ConfigOptionFloat(m_last_layer_z));
+            config.set_key_value("max_layer_z",             new ConfigOptionFloat(m_max_layer_z));
+            config.set_key_value("extrusion_role",          new ConfigOptionString(gcode_extrusion_role_to_string(role)));
+            config.set_key_value("next_extrusion_role",     new ConfigOptionString(gcode_extrusion_role_to_string(role)));
+            config.set_key_value("last_extrusion_role",     new ConfigOptionString(gcode_extrusion_role_to_string(m_last_feature_gcode_role)));
+            config.set_key_value("previous_extrusion_role", new ConfigOptionString(gcode_extrusion_role_to_string(m_last_feature_gcode_role)));
+            gcode += this->placeholder_parser_process("feature_gcode", m_config.feature_gcode.value, m_writer.extruder()->id(), &config);
+            if (! gcode.empty() && gcode.back() != '\n')
+                gcode += '\n';
+        }
+        m_last_feature_gcode_role = role;
     }
 
     // adjust acceleration

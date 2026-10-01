@@ -113,7 +113,7 @@ void FanMover::print_in_middle_G1(BufferData &line_to_split, float nb_sec_from_i
         // Doesn't really need to be split, print it before (also when line_to_split.time == 0).
         m_process_output += line_to_write + eol;
         m_process_output += line_to_split.raw + "\n";
-    } else if (is_G1(line_to_split.raw)) {
+    } else if (is_G1(line_to_split.raw) && ! line_to_split.in_custom) {
         const float percent = nb_sec_from_item_start / line_to_split.time;
         std::string before = line_to_split.raw;
         std::string &after = line_to_split.raw;
@@ -219,6 +219,7 @@ void FanMover::process_gcode_line(GCodeReader &reader, const GCodeReader::GCodeL
 
     if (time >= 0) {
         BufferData &new_data = this->put_in_buffer(BufferData(line.raw(), float(time), fan_speed));
+        new_data.in_custom = m_is_custom_gcode;
         if (line.has(X)) {
             new_data.x  = reader.x();
             new_data.dx = line.dist_X(reader);

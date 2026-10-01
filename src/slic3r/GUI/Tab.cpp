@@ -2984,6 +2984,17 @@ void TabPrinter::build_fff()
         option.opt.height = gcode_field_height;//150;
         optgroup->append_single_option_line(option);
 
+        optgroup = page->new_optgroup(L("Between extrusion role change G-code"), 0);
+        optgroup->on_change = [this, &optgroup_title = optgroup->title](const t_config_option_key& opt_key, const boost::any& value) {
+            validate_custom_gcode_cb(this, optgroup_title, opt_key, value);
+        };
+        optgroup->edit_custom_gcode = [this](const t_config_option_key& opt_key) { edit_custom_gcode(opt_key); };
+        option = optgroup->get_option("feature_gcode");
+        option.opt.full_width = true;
+        option.opt.is_code = true;
+        option.opt.height = gcode_field_height;//150;
+        optgroup->append_single_option_line(option);
+
         optgroup = page->new_optgroup(L("Color Change G-code"), 0);
         optgroup->on_change = [this, &optgroup_title = optgroup->title](const t_config_option_key& opt_key, const boost::any& value) {
             validate_custom_gcode_cb(this, optgroup_title, opt_key, value);

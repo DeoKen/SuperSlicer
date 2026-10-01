@@ -42,6 +42,8 @@ private:
         // Start position and delta to the end position.
         float x = 0, y = 0, z = 0, e = 0;
         float dx = 0, dy = 0, dz = 0, de = 0;
+        // Line of a custom G-code: never split.
+        bool  in_custom = false;
 
         BufferData(std::string line, float time = 0, int16_t fan_speed = -1) : raw(std::move(line)), time(time), fan_speed(fan_speed)
         {

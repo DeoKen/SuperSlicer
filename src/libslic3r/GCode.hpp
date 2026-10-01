@@ -450,6 +450,8 @@ private:
     double                              m_volumetric_speed;
     // Support for the extrusion role markers. Which marker is active?
     GCodeExtrusionRole                  m_last_extrusion_role;
+    // Extrusion type of the last extrusion, for feature_gcode.
+    GCodeExtrusionRole                  m_last_feature_gcode_role { GCodeExtrusionRole::None };
     // Support for G-Code Processor
     float                               m_last_height{ 0.0f };
     float                               m_last_layer_z{ 0.0f };

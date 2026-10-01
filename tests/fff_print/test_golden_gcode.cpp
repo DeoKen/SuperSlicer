@@ -30,6 +30,7 @@ const std::vector<std::string> added_config_keys {
     "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration",
     "ironing_acceleration", "brim_acceleration", "brim_speed",
     "fan_speedup_time", "fan_speedup_overhangs",
+    "feature_gcode",
 };
 
 bool is_added_config_line(const std::string &line)

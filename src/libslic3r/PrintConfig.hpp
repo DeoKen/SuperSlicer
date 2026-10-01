@@ -854,6 +854,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt,                 bed_temperature_extruder))
     ((ConfigOptionString,              before_layer_gcode))
     ((ConfigOptionString,              between_objects_gcode))
+    ((ConfigOptionString,              feature_gcode))
     ((ConfigOptionBool,                binary_gcode))
     ((ConfigOptionFloats,              deretract_speed))
     ((ConfigOptionString,              end_gcode))
