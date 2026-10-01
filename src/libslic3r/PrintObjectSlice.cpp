@@ -868,6 +868,26 @@ void apply_fuzzy_skin_segmentation(PrintObject &print_object, ThrowOnCancel thro
 // Resulting expolygons of layer regions are marked as Internal.
 //
 // this should be idempotent
+// True if all corners of the hole are convex, seen from inside the hole, with a tolerance of 0.1 rad (as in SuperSlicer).
+static bool is_convex_hole(const Polygon &hole)
+{
+    const Points &pts = hole.points;
+    const size_t  n   = pts.size();
+    if (n < 3)
+        return false;
+    for (size_t i = 0; i < n; ++ i) {
+        const Vec2d p    = pts[i].cast<double>();
+        const Vec2d prev = pts[(i + n - 1) % n].cast<double>() - p;
+        const Vec2d next = pts[(i + 1) % n].cast<double>() - p;
+        double angle = std::atan2(cross2(prev, next), prev.dot(next));
+        if (angle < 0)
+            angle += 2. * PI;
+        if (angle > PI + 0.1)
+            return false;
+    }
+    return true;
+}
+
 void PrintObject::slice_volumes()
 {
     BOOST_LOG_TRIVIAL(info) << "Slicing volumes..." << log_memory_info();
@@ -963,11 +983,71 @@ void PrintObject::slice_volumes()
         	// Only enable Elephant foot compensation if printing directly on the print bed.
             float(scale_(m_config.elefant_foot_compensation.value)) :
         	0.f;
+        // Grow (compensation < 0) or shrink (compensation > 0) the convex holes of a layer, ported from SuperSlicer
+        // (hole_size_compensation, hole_size_threshold). The compensation applies fully to holes up to threshold mm² and fades
+        // out linearly up to four times that area. Holes are taken from the whole layer, so they work across regions.
+        auto apply_hole_size_compensation = [](Layer &layer, const double compensation, const double threshold) {
+            const double max_hole_area = scale_(scale_(threshold));
+            // Offsets of the holes seen as contours: a positive offset makes the hole bigger.
+            Polygons grown_holes;   // compensation < 0: area to remove
+            Polygons filled_rings;  // compensation > 0: area to add
+            const ExPolygons merged = layer.m_regions.size() == 1 ? to_expolygons(layer.m_regions.front()->slices().surfaces) :
+                                                                   layer.merged(float(SCALED_EPSILON));
+            for (const ExPolygon &expoly : merged)
+                for (const Polygon &hole : expoly.holes) {
+                    if (! is_convex_hole(hole))
+                        continue;
+                    double delta = compensation;
+                    const double area = std::abs(hole.area());
+                    if (max_hole_area > 0 && area > max_hole_area * 4)
+                        continue;
+                    if (max_hole_area > 0 && area > max_hole_area)
+                        // Not a hard threshold, to avoid artefacts on sloped holes.
+                        delta *= (max_hole_area * 4 - area) / (max_hole_area * 3);
+                    Polygon contour = hole;
+                    contour.make_counter_clockwise();
+                    if (delta < 0) {
+                        append(grown_holes, offset(contour, float(scale_(-delta))));
+                    } else if (delta > 0) {
+                        append(filled_rings, diff(Polygons{ contour }, offset(contour, float(scale_(-delta)))));
+                    }
+                }
+            if (! grown_holes.empty())
+                for (LayerRegion *layerm : layer.m_regions)
+                    layerm->m_slices.set(diff_ex(to_expolygons(layerm->slices().surfaces), grown_holes), stInternal);
+            if (! filled_rings.empty()) {
+                if (layer.m_regions.size() == 1) {
+                    LayerRegion *layerm = layer.m_regions.front();
+                    layerm->m_slices.set(union_ex(to_polygons(to_expolygons(layerm->slices().surfaces)), filled_rings), stInternal);
+                } else {
+                    // Give each ring to the region it borders the most.
+                    for (const Polygon &ring : filled_rings) {
+                        const Polygons around = offset(ring, float(scale_(compensation)));
+                        size_t best = 0;
+                        double best_area = -1;
+                        for (size_t i = 0; i < layer.m_regions.size(); ++ i) {
+                            const double a = area(intersection(to_polygons(layer.m_regions[i]->slices().surfaces), around));
+                            if (a > best_area) {
+                                best_area = a;
+                                best      = i;
+                            }
+                        }
+                        LayerRegion *layerm = layer.m_regions[best];
+                        Polygons polys = to_polygons(layerm->slices().surfaces);
+                        polys.emplace_back(ring);
+                        layerm->m_slices.set(union_ex(polys), stInternal);
+                    }
+                }
+            }
+        };
+
+        // Holes compensation (SuperSlicer), not combined with multi-material painting, as the XY compensation.
+        const double hole_compensation = (num_extruders > 1 && this->is_mm_painted()) ? 0. : m_config.hole_size_compensation.value;
         // Uncompensated slices for the first layer in case the Elephant foot compensation is applied.
 	    ExPolygons  lslices_1st_layer;
 	    tbb::parallel_for(
 	        tbb::blocked_range<size_t>(0, m_layers.size()),
-			[this, xy_compensation_scaled, elephant_foot_compensation_scaled, &lslices_1st_layer](const tbb::blocked_range<size_t>& range) {
+			[this, xy_compensation_scaled, elephant_foot_compensation_scaled, hole_compensation, &apply_hole_size_compensation, &lslices_1st_layer](const tbb::blocked_range<size_t>& range) {
 	            for (size_t layer_id = range.begin(); layer_id < range.end(); ++ layer_id) {
 	                m_print->throw_if_canceled();
 	                Layer *layer = m_layers[layer_id];
@@ -1015,6 +1095,8 @@ void PrintObject::slice_volumes()
 	                            layer->m_regions[region_id]->trim_surfaces(trimming);
 	                    }
 	                }
+	                if (hole_compensation != 0.)
+	                    apply_hole_size_compensation(*layer, hole_compensation, m_config.hole_size_threshold.value);
 	                // Merge all regions' slices to get islands sorted topologically, chain them by a shortest path in separate index list
 	                layer->make_slices();
 	            }

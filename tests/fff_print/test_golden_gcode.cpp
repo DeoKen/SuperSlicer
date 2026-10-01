@@ -32,6 +32,7 @@ const std::vector<std::string> added_config_keys {
     "fan_speedup_time", "fan_speedup_overhangs",
     "feature_gcode",
     "small_perimeter_min_length", "small_perimeter_max_length",
+    "hole_size_compensation", "hole_size_threshold",
 };
 
 bool is_added_config_line(const std::string &line)

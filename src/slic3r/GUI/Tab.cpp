@@ -1725,6 +1725,8 @@ void TabPrint::build()
         optgroup->append_single_option_line("gcode_resolution");
         optgroup->append_single_option_line("arc_fitting");
         optgroup->append_single_option_line("xy_size_compensation");
+        // As in SuperSlicer.
+        append_labelled_line(optgroup, L("XY holes compensation"), { { "hole_size_compensation", L("Size") }, { "hole_size_threshold", L("Threshold") } }, std::string(), -1);
         optgroup->append_single_option_line("elefant_foot_compensation", "elephant-foot-compensation_114487");
 
         optgroup = page->new_optgroup(L("Arachne perimeter generator"));

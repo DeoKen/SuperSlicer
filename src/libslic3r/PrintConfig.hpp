@@ -723,6 +723,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     // The rest
     ((ConfigOptionBool,                thick_bridges))
     ((ConfigOptionFloat,               xy_size_compensation))
+    ((ConfigOptionFloat,               hole_size_compensation))
+    ((ConfigOptionFloat,               hole_size_threshold))
     ((ConfigOptionBool,                wipe_into_objects))
 
     ((ConfigOptionBool,                interlocking_beam))

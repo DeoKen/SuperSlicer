@@ -21,7 +21,8 @@ Contents:
 5. [Fan mover (fan startup delay)](#5-fan-mover-fan-startup-delay)
 6. [Custom G-code at every extrusion type change](#6-custom-g-code-at-every-extrusion-type-change-feature_gcode)
 7. [Small perimeter min / max length](#7-small-perimeter-min--max-length)
-8. [GUI layout](#8-gui-layout)
+8. [Hole size compensation](#8-hole-size-compensation)
+9. [GUI layout](#9-gui-layout)
 9. [Testing](#testing)
 
 ---
@@ -215,10 +216,32 @@ path) by its length, as stock does.
 
 ---
 
-## 8. GUI layout
+## 8. Hole size compensation
+
+**What it does.** Grows or shrinks the convex holes of the object in XY, to fine-tune hole sizes (holes usually print a
+bit too small). The outer contour and the holes that are not convex are not changed (ported from SuperSlicer, only the
+hole part: PrusaSlicer has no separate inner XY compensation).
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `hole_size_compensation` | Print > Advanced > Slicing > XY holes compensation: *Size* | `0` | mm. Negative = the hole gets bigger, positive = smaller. 0 = off. |
+| `hole_size_threshold` | same row: *Threshold* | `100` | mm². Full compensation for holes up to this area, fading out to none at four times this area. 0 = full compensation for all holes. |
+
+**How it works.** In `PrintObject::slice_volumes()` (`PrintObjectSlice.cpp`), after the XY size and elephant foot
+compensation of each layer: the holes of the whole layer are found, a hole is convex when all its corners are convex
+seen from inside it (0.1 rad tolerance, as SuperSlicer), and the grown hole is cut out of every region (negative value) or
+the ring is added to the region bordering the hole most (positive value). Not applied to multi-material painted objects,
+like the XY size compensation.
+
+**How to test.** `fff_print_tests "[HoleCompensation]"`. Manually: a test plate with round holes of a few sizes, print it
+with 0 and with e.g. -0.05 mm and measure the holes with pins or calipers.
+
+---
+
+## 9. GUI layout
 
 Rows grouped as in SuperSlicer (several fields with short labels on one row) for Filament > Cooling > Fan settings and
-Print > Speed. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),
+Print > Speed, plus single rows for new settings elsewhere. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),
 `OG_CustomCtrl` places fields with the same label width it draws them with, and an options group keeps an explicitly set
 side text width. Regrouping the other pages is a TODO (see CLAUDE.md).
 

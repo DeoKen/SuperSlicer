@@ -3290,6 +3290,28 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionInts { 5 });
 
+    def = this->add("hole_size_compensation", coFloat);
+    def->label = L("XY compensation");
+    def->full_label = L("XY holes compensation");
+    def->category = L("Advanced");
+    def->tooltip = L("The convex holes are grown / shrunk in the XY plane by this value (negative = the hole gets bigger, "
+                     "positive = smaller). Holes usually print a bit too small, so the value is usually negative. "
+                     "Holes that are not convex (and the outer contour) are not changed. Set zero to disable.");
+    def->sidetext = L("mm");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0));
+
+    def = this->add("hole_size_threshold", coFloat);
+    def->label = L("Threshold");
+    def->full_label = L("XY holes threshold");
+    def->category = L("Advanced");
+    def->tooltip = L("Maximum area of a hole for which the holes compensation applies fully. Above it, the compensation "
+                     "decreases down to zero at four times this area. Set zero to apply it fully to all holes.");
+    def->sidetext = L("mm²");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(100));
+
     def = this->add("small_perimeter_min_length", coFloatOrPercent);
     def->label = L("Min length");
     def->full_label = L("Min small perimeters length");
