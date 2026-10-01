@@ -24,6 +24,7 @@ add_executable(${_TEST_NAME}_tests
 	test_small_perimeter.cpp
 	test_hole_compensation.cpp
 	test_avoid_crossing_ss.cpp
+	test_seam_notch.cpp
 	gcode_walk.hpp
     test_infill_above_bridges.cpp
     test_seam_perimeters.cpp

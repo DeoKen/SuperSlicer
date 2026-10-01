@@ -1498,6 +1498,8 @@ void TabPrint::build()
         optgroup->append_single_option_line("seam_position", category_path + "seam-position");
         optgroup->append_single_option_line("seam_gap_distance", category_path + "seam-gap-distance");
         optgroup->append_single_option_line("staggered_inner_seams", category_path + "staggered-inner-seams");
+        append_labelled_line(optgroup, L("Seam notch"), { { "seam_notch_all", L("All") }, { "seam_notch_inner", L("Round holes") }, { "seam_notch_outer", L("Round perimeters") } });
+        append_labelled_line(optgroup, L("Seam notch angle"), { { "seam_notch_angle", L("Max angle") } }, std::string(), -1);
 
         const std::string scarf_seam_path{"seam-position_151069#"};
         optgroup->append_single_option_line("scarf_seam_placement", scarf_seam_path + "scarf-joint-placement");

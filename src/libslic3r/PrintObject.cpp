@@ -917,6 +917,10 @@ bool PrintObject::invalidate_state_by_config_options(
         } else if (
                opt_key == "seam_position"
             || opt_key == "scarf_seam_placement"
+            || opt_key == "seam_notch_all"
+            || opt_key == "seam_notch_inner"
+            || opt_key == "seam_notch_outer"
+            || opt_key == "seam_notch_angle"
             || opt_key == "scarf_seam_only_on_smooth"
             || opt_key == "scarf_seam_start_height"
             || opt_key == "scarf_seam_entire_loop"

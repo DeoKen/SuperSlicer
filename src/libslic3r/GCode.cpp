@@ -3236,6 +3236,225 @@ double GCodeGenerator::feature_acceleration(const ExtrusionRole role) const
     return 0.;
 }
 
+// Seam notch, ported from SuperSlicer (seam_notch_all, seam_notch_inner, seam_notch_outer, seam_notch_angle):
+// the start and the end of an external perimeter loop are moved a bit inside the part, into a small cavity, to hide the
+// bulge of the seam. The first and the last 2 * notch of the loop are replaced by short segments curving in from / out to
+// a point one notch deep, with a reduced flow. Returns the number of path elements inserted before the original start
+// (to shift the wipe offset), or size_t(-1) if no notch applies to this loop.
+static size_t seam_notch(GCode::SmoothPath &path, const ExtrusionLoop &loop, const FullPrintConfig &config)
+{
+    constexpr size_t no_notch = size_t(-1);
+    if (path.empty() || path.front().path.size() < 2 || path.back().path.size() < 2)
+        return no_notch;
+    // Plain paths only: no arcs, no scarf seam, no overhangs at the seam.
+    for (const GCode::SmoothPathElement &el : path)
+        for (const Geometry::ArcWelder::Segment &seg : el.path)
+            if (! seg.linear() || seg.height_fraction != 1.f || seg.e_fraction != 1.f)
+                return no_notch;
+    if (! path.front().path_attributes.role.is_external_perimeter() || path.front().path_attributes.role.is_bridge() ||
+        ! path.back().path_attributes.role.is_external_perimeter() || path.back().path_attributes.role.is_bridge())
+        return no_notch;
+
+    const bool    is_hole = loop.is_clockwise();
+    const Polygon polygon = loop.polygon();
+    const double  width   = path.front().path_attributes.width;
+
+    // Round (convex) holes / perimeters: seam_notch_inner / seam_notch_outer.
+    coord_t notch = 0;
+    if ((is_hole ? config.seam_notch_inner.value : config.seam_notch_outer.value) > 0 && polygon.size() > 8) {
+        // Convex: all corners turn the same way, small opposite turns (up to PI - 3.07 rad) allowed for imprecise meshes.
+        const double orientation = polygon.is_counter_clockwise() ? 1. : -1.;
+        bool convex = true;
+        for (size_t i = 0; i < polygon.size() && convex; ++ i) {
+            const Vec2d a  = polygon.points[i].cast<double>();
+            const Vec2d e1 = a - polygon.points[(i + polygon.size() - 1) % polygon.size()].cast<double>();
+            const Vec2d e2 = polygon.points[(i + 1) % polygon.size()].cast<double>() - a;
+            const double turn = std::atan2(cross2(e1, e2), e1.dot(e2)) * orientation;
+            convex = turn > -(PI - 3.07);
+        }
+        if (convex) {
+            // Round enough: radius variation compared to 10 times the mean radius (as SuperSlicer, allows flat ellipses).
+            const Point center = polygon.centroid();
+            double rmin = std::numeric_limits<double>::max(), rmax = 0, rsum = 0, lmin = std::numeric_limits<double>::max(), lmax = 0;
+            for (size_t i = 0; i < polygon.size(); ++ i) {
+                const double r = (polygon.points[i] - center).cast<double>().norm();
+                rmin = std::min(rmin, r); rmax = std::max(rmax, r); rsum += r;
+                const Point mid = (polygon.points[i] + polygon.points[(i + 1) % polygon.size()]) / 2;
+                const double l = (mid - center).cast<double>().norm();
+                lmin = std::min(lmin, l); lmax = std::max(lmax, l);
+            }
+            const double max_variation = std::max(double(SCALED_EPSILON), 10. * rsum / double(polygon.size()));
+            if (rmax - rmin < max_variation * 2 && lmax - lmin < max_variation * 2)
+                notch = scaled<coord_t>((is_hole ? config.seam_notch_inner : config.seam_notch_outer).get_abs_value(width));
+        }
+    }
+    if (notch == 0)
+        notch = scaled<coord_t>(config.seam_notch_all.get_abs_value(width));
+    if (notch <= 0)
+        return no_notch;
+    const double notch_length = 2. * double(notch);
+    if (loop.length() < 4. * double(notch))
+        return no_notch;
+    // Don't go deeper than half the extrusion width.
+    notch = std::min(notch, scaled<coord_t>(width / 2.));
+
+    // Split a point list at a distance from its start: returns the point there and the index of the first point after it.
+    using Points_ = Points;
+    auto points_of = [](const Geometry::ArcWelder::Path &p) { Points_ out; for (const auto &seg : p) out.emplace_back(seg.point); return out; };
+    auto length_of = [](const Points_ &pts) { double l = 0; for (size_t i = 1; i < pts.size(); ++ i) l += (pts[i] - pts[i - 1]).cast<double>().norm(); return l; };
+    auto cut = [](const Points_ &pts, double dist, Points_ &before, Points_ &after) {
+        before = { pts.front() };
+        for (size_t i = 1; i < pts.size(); ++ i) {
+            const double seg = (pts[i] - pts[i - 1]).cast<double>().norm();
+            if (seg >= dist) {
+                const Point p = pts[i - 1] + ((pts[i] - pts[i - 1]).cast<double>() * (dist / seg)).cast<coord_t>();
+                before.emplace_back(p);
+                after = { p };
+                if (pts[i] != p)
+                    after.emplace_back(pts[i]);
+                after.insert(after.end(), pts.begin() + i + 1, pts.end());
+                return;
+            }
+            before.emplace_back(pts[i]);
+            dist -= seg;
+        }
+        after = { pts.back() };
+    };
+
+    // The start part and the end part of the loop.
+    Points_ first = points_of(path.front().path);
+    Points_ start_part, first_rest;
+    if (length_of(first) <= notch_length + SCALED_EPSILON)
+        return no_notch;
+    cut(first, notch_length, start_part, first_rest);
+    Points_ last = path.size() == 1 ? first_rest : points_of(path.back().path);
+    if (length_of(last) <= notch_length + SCALED_EPSILON)
+        return no_notch;
+    Points_ last_rest, end_part;
+    cut(last, length_of(last) - notch_length, last_rest, end_part);
+    if (first_rest.size() < 2 && path.size() > 1)
+        return no_notch;
+
+    const Point start_point = start_part.front();
+    const Point next_point  = start_part.back();
+    const Point prev_point  = end_part.front();
+    const Point end_point   = end_part.back();
+    if (next_point == start_point || prev_point == end_point)
+        return no_notch;
+
+    // Printing direction of the whole loop.
+    Points_ all;
+    for (const GCode::SmoothPathElement &el : path)
+        for (const auto &seg : el.path)
+            all.emplace_back(seg.point);
+    const bool loop_ccw = Polygon(all).is_counter_clockwise();
+
+    Vec2d vec_start = (next_point - start_point).cast<double>().normalized();
+    const Vec2d vec_end = (end_point - prev_point).cast<double>().normalized();
+    if (vec_start.dot(vec_end) < 0.2)
+        return no_notch;
+    vec_start = (vec_start + vec_end) / 2.;
+    double angle = PI / 2.;
+    if (is_hole ? loop_ccw : ! loop_ccw)
+        angle = -angle;
+    Point moved_start = (start_point.cast<double>() + vec_start * double(notch)).cast<coord_t>();
+    moved_start.rotate(angle, start_point);
+    Point moved_end = (end_point.cast<double>() + vec_start * double(notch)).cast<coord_t>();
+    moved_end.rotate(angle, end_point);
+
+    // Not when the corner at the seam is too sharp.
+    double min_angle = config.seam_notch_angle.value;
+    if (min_angle <= 179.9) min_angle -= 1;
+    if (min_angle >= 359.9) min_angle += 1;
+    min_angle *= PI / 180.;
+    auto abs_angle_ccw = [](const Vec2d &v1, const Vec2d &v2) {
+        double a = std::atan2(cross2(v1, v2), v1.dot(v2));
+        return a < 0 ? a + 2. * PI : a;
+    };
+    double check_angle;
+    if ((end_point - start_point).cast<double>().squaredNorm() < double(SCALED_EPSILON) * double(SCALED_EPSILON)) {
+        check_angle = abs_angle_ccw((prev_point - start_point).cast<double>(), (next_point - start_point).cast<double>());
+    } else {
+        check_angle = abs_angle_ccw((prev_point - end_point).cast<double>(), (start_point - end_point).cast<double>());
+        if ((is_hole ? -check_angle : check_angle) > min_angle)
+            return no_notch;
+        check_angle = abs_angle_ccw((end_point - start_point).cast<double>(), (next_point - start_point).cast<double>());
+    }
+    if ((is_hole ? -check_angle : check_angle) > min_angle)
+        return no_notch;
+    // The moved points have to be inside the material.
+    const bool inside = polygon.contains(moved_start) && polygon.contains(moved_end);
+    if (is_hole == inside)
+        return no_notch;
+
+    // Flow reduction of a new segment: its length projected on the original direction over its length.
+    struct Line_ { Point a, b; };
+    auto ratio_length = [](const Point &last_point, const Point &new_pt, Point &last_proj_point, const Line_ &projection_line) {
+        const Vec2d  dir       = (projection_line.b - projection_line.a).cast<double>().normalized();
+        const Point  new_proj  = projection_line.a + (dir * dir.dot((new_pt - projection_line.a).cast<double>())).cast<coord_t>();
+        const double dist_proj = (last_proj_point - new_proj).cast<double>().norm();
+        const double dist      = (last_point - new_pt).cast<double>().norm();
+        last_proj_point = new_proj;
+        return dist > 0 ? std::min(1., dist_proj / dist) : 0.;
+    };
+    auto element = [](const ExtrusionAttributes &model, double ratio, const Point &a, const Point &b) {
+        GCode::SmoothPathElement el{ model, {} };
+        el.path_attributes.width      = float(el.path_attributes.width * ratio);
+        el.path_attributes.mm3_per_mm = el.path_attributes.mm3_per_mm * ratio;
+        el.path.push_back({ a });
+        el.path.push_back({ b });
+        return el;
+    };
+    auto mid = [](const Point &a, const Point &b) { return Point((a + b) / 2); };
+    auto to_path = [](const Points_ &pts) { Geometry::ArcWelder::Path out; for (const Point &p : pts) out.push_back({ p }); return out; };
+
+    std::vector<GCode::SmoothPathElement> start_elements, end_elements;
+    // A gentle curve, if the replaced part is straight enough (otherwise it is kept as it was).
+    if (notch_length * notch_length < 1.4 * (next_point - start_point).cast<double>().squaredNorm()) {
+        const Point m  = mid(moved_start, next_point);
+        Point p1 = mid(moved_start, start_point); p1 = p1 + ((m - p1).cast<double>() * 0.3).cast<coord_t>();
+        Point p2 = mid(start_point, next_point);  p2 = p2 + ((m - p2).cast<double>() * 0.3).cast<coord_t>();
+        const Line_ projection{ start_point, next_point };
+        Point proj = start_point;
+        const ExtrusionAttributes &model = path.front().path_attributes;
+        // The flow is reduced even more, to leave a cavity.
+        start_elements.emplace_back(element(model, ratio_length(moved_start, p1, proj, projection) * 0.5, moved_start, p1));
+        start_elements.emplace_back(element(model, ratio_length(p1, p2, proj, projection) * 0.75, p1, p2));
+        start_elements.emplace_back(element(model, ratio_length(p2, next_point, proj, projection) * 0.9, p2, next_point));
+    } else {
+        start_elements.push_back({ path.front().path_attributes, to_path(start_part) });
+    }
+    if (notch_length * notch_length < 1.4 * (end_point - prev_point).cast<double>().squaredNorm()) {
+        const Point m  = mid(moved_end, prev_point);
+        Point p1 = mid(moved_end, end_point);  p1 = p1 + ((m - p1).cast<double>() * 0.3).cast<coord_t>();
+        Point p2 = mid(end_point, prev_point); p2 = p2 + ((m - p2).cast<double>() * 0.3).cast<coord_t>();
+        const Line_ projection{ prev_point, end_point };
+        Point proj = prev_point;
+        const ExtrusionAttributes &model = path.back().path_attributes;
+        end_elements.emplace_back(element(model, ratio_length(prev_point, p2, proj, projection) * 0.75, prev_point, p2));
+        end_elements.emplace_back(element(model, ratio_length(p2, p1, proj, projection) * 0.5, p2, p1));
+        end_elements.emplace_back(element(model, ratio_length(p1, moved_end, proj, projection) * 0.25, p1, moved_end));
+    } else {
+        end_elements.push_back({ path.back().path_attributes, to_path(end_part) });
+    }
+
+    // Assemble: start elements, the loop without its start and end parts, end elements.
+    GCode::SmoothPath out = std::move(start_elements);
+    const size_t inserted = out.size();
+    if (path.size() == 1) {
+        out.push_back({ path.front().path_attributes, to_path(last_rest) });
+    } else {
+        out.push_back({ path.front().path_attributes, to_path(first_rest) });
+        out.insert(out.end(), path.begin() + 1, path.end() - 1);
+        out.push_back({ path.back().path_attributes, to_path(last_rest) });
+    }
+    append(out, std::move(end_elements));
+    // Drop degenerated elements.
+    out.erase(std::remove_if(out.begin(), out.end(), [](const GCode::SmoothPathElement &el) { return el.path.size() < 2; }), out.end());
+    path = std::move(out);
+    return inserted;
+}
+
 // Speed of a perimeter: the small perimeter speed when it is short enough, otherwise -1 (the feature speed).
 // small_perimeter_min_length: perimeters up to it get the small perimeter speed, 0 = stock threshold (circle of 6.5 mm radius).
 // small_perimeter_max_length: between min and max length the speed goes linearly from the small perimeter speed up to the
@@ -3446,7 +3665,23 @@ std::string GCodeGenerator::extrude_perimeters(
     for (const GCode::ExtrusionOrder::Perimeter &perimeter : perimeters) {
         // Apply the small perimeter speed.
         const double speed = this->small_perimeter_speed(*perimeter.extrusion_entity);
-        gcode += this->extrude_smooth_path(perimeter.smooth_path, perimeter.extrusion_entity->is_loop(), comment_perimeter, speed, perimeter.wipe_offset);
+        // Seam notch (SuperSlicer) on the external perimeter loops.
+        GCode::SmoothPath notched;
+        size_t            notched_wipe_offset = 0;
+        if (const auto *loop = dynamic_cast<const ExtrusionLoop*>(perimeter.extrusion_entity);
+            loop != nullptr && loop->role().is_external_perimeter() &&
+            (m_config.seam_notch_all.value > 0 || m_config.seam_notch_inner.value > 0 || m_config.seam_notch_outer.value > 0)) {
+            notched = perimeter.smooth_path;
+            if (const size_t inserted = seam_notch(notched, *loop, m_config); inserted != size_t(-1))
+                // The first element of the original path became the inserted elements and its rest.
+                notched_wipe_offset = perimeter.wipe_offset == 0 ? 0 : perimeter.wipe_offset + inserted;
+            else
+                notched.clear();
+        }
+        if (! notched.empty())
+            gcode += this->extrude_smooth_path(notched, true, comment_perimeter, speed, notched_wipe_offset);
+        else
+            gcode += this->extrude_smooth_path(perimeter.smooth_path, perimeter.extrusion_entity->is_loop(), comment_perimeter, speed, perimeter.wipe_offset);
         this->m_travel_obstacle_tracker.mark_extruded(
             perimeter.extrusion_entity, print_instance.object_layer_to_print_id, print_instance.instance_id
         );

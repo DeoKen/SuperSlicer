@@ -23,8 +23,9 @@ Contents:
 7. [Small perimeter min / max length](#7-small-perimeter-min--max-length)
 8. [Hole size compensation](#8-hole-size-compensation)
 9. [Avoid crossing perimeters options](#9-avoid-crossing-perimeters-options)
-10. [GUI layout](#10-gui-layout)
-9. [Testing](#testing)
+10. [Seam notch](#10-seam-notch)
+11. [GUI layout](#11-gui-layout)
+12. [Testing](#testing)
 
 ---
 
@@ -271,7 +272,43 @@ and look at the travel moves in the preview with "Find smallest crossing" on and
 
 ---
 
-## 10. GUI layout
+## 10. Seam notch
+
+**What it does.** From SuperSlicer (Print > Layers and perimeters > Advanced, row "Seam notch"): the start and the end of
+the external perimeter loops are moved a little inside the part, into a small cavity, so the bulge of the seam sinks
+into the wall instead of sticking out. All sizes default to 0 (off), so stock output is unaffected.
+
+| Setting | GUI row: label | Default | Meaning |
+|---|---|---|---|
+| `seam_notch_all` | Seam notch: *All* | `0` | Notch depth for every external perimeter, mm or % of the external perimeter width. |
+| `seam_notch_inner` | Seam notch: *Round holes* | `0` | Depth for convex (round or oval) holes; takes precedence over *All* there. |
+| `seam_notch_outer` | Seam notch: *Round perimeters* | `0` | Depth for convex (round or oval) outer perimeters; takes precedence over *All* there. |
+| `seam_notch_angle` | Seam notch angle: *Max angle* | `250`° | No notch when the angle of the perimeter at the seam is above this (no room). 180 filters everything, 360 allows everything. |
+
+Seam notch and the scarf seam both reshape the seam: setting both is refused (error when slicing), pick one.
+
+**How it works.** `seam_notch()` in `GCode.cpp`, applied in `extrude_perimeters()` to external perimeter loops after the
+seam is placed (and after the seam gap clipping). As SuperSlicer:
+- round = more than 8 points and convex (SuperSlicer's roundness check is very loose: ellipses pass too);
+- `notch_length = 2 * depth`; loops shorter than `4 * depth` are skipped; the depth is capped at half the width;
+- the first and the last `notch_length` of the loop are cut off; the notch direction is the mean of the start and
+  end directions, turned 90° towards the material; no notch when these directions differ too much (a seam in a sharp
+  corner, e.g. a cube corner), when the angle exceeds `seam_notch_angle`, or when the notched points are not inside
+  the material;
+- if the cut part is straight enough it is replaced by three segments curving from the notched point back onto the
+  loop (and the end symmetrically), with the flow reduced by the projected-length ratio times 0.5 / 0.75 / 0.9 at the
+  start and 0.75 / 0.5 / 0.25 at the end, so a cavity is left.
+Differences from SuperSlicer: it is written for PrusaSlicer's smooth paths; a loop with arcs (arc fitting on), an
+overhang or bridge at the seam, or a scarf seam is left unchanged.
+
+**How to test.** `fff_print_tests "[SeamNotch]"`: off by default; a cylinder gets a notch on every layer, starting and
+ending 0.1-0.5 mm inside; angle 180 disables it; a cube's corner seams are not notched; round holes with *Round holes*;
+refused with scarf seam. Manually: slice a cylinder with *Round perimeters* at 50% and zoom on the seam in the preview
+(the start and end of the external perimeter dip inside); print it and compare the seam with notch off.
+
+---
+
+## 11. GUI layout
 
 Rows grouped as in SuperSlicer (several fields with short labels on one row) for Filament > Cooling > Fan settings and
 Print > Speed, plus single rows for new settings elsewhere. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),

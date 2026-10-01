@@ -808,6 +808,10 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                 only_one_perimeter_first_layer))
 
     ((ConfigOptionEnum<ScarfSeamPlacement>, scarf_seam_placement))
+    ((ConfigOptionFloatOrPercent,       seam_notch_all))
+    ((ConfigOptionFloatOrPercent,       seam_notch_inner))
+    ((ConfigOptionFloatOrPercent,       seam_notch_outer))
+    ((ConfigOptionFloat,                seam_notch_angle))
     ((ConfigOptionBool,                     scarf_seam_only_on_smooth))
     ((ConfigOptionPercent,                  scarf_seam_start_height))
     ((ConfigOptionBool,                     scarf_seam_entire_loop))

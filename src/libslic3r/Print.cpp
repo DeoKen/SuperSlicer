@@ -490,6 +490,15 @@ std::string Print::validate(std::vector<std::string>* warnings) const
             return error;
     }
 
+    // Seam notch (SuperSlicer) and scarf seam both reshape the seam: not combined.
+    for (const PrintObject *object : m_objects)
+        for (const PrintRegion &region : object->all_regions()) {
+            const PrintRegionConfig &cfg = region.config();
+            if (cfg.scarf_seam_placement != ScarfSeamPlacement::nowhere &&
+                (cfg.seam_notch_all.value > 0 || cfg.seam_notch_inner.value > 0 || cfg.seam_notch_outer.value > 0))
+                return _u8L("Seam notch and scarf seam cannot be combined. Disable one of them.");
+        }
+
     if (warnings) {
         if (m_config.bed_temperature_extruder == 0) {
             for (size_t a = 0; a < extruders.size(); ++a) {

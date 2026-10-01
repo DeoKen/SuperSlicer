@@ -3350,6 +3350,52 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloat(100));
 
+    def = this->add("seam_notch_all", coFloatOrPercent);
+    def->label = L("All");
+    def->full_label = L("Seam notch");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("Moves the seam of the external perimeters a bit inside the part, into a small cavity, to hide the bulge of "
+                     "the seam. The depth of the cavity is in mm or a percentage of the external perimeter width. The two other "
+                     "seam notch settings take precedence where they apply. Not combined with the scarf seam. Set zero to disable.");
+    def->sidetext = L("mm or %");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("seam_notch_inner", coFloatOrPercent);
+    def->label = L("Round holes");
+    def->full_label = L("Seam notch for round holes");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("Seam notch for the external perimeters of convex (round or oval) holes. In mm or a percentage of the "
+                     "external perimeter width. Set zero to disable.");
+    def->sidetext = L("mm or %");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("seam_notch_outer", coFloatOrPercent);
+    def->label = L("Round perimeters");
+    def->full_label = L("Seam notch for round perimeters");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("Seam notch for convex (round or oval) external perimeters. In mm or a percentage of the external "
+                     "perimeter width. Set zero to disable.");
+    def->sidetext = L("mm or %");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("seam_notch_angle", coFloat);
+    def->label = L("Max angle");
+    def->full_label = L("Seam notch maximum angle");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("No seam notch when the (external) angle of the perimeter at the seam is higher than this value: there "
+                     "is not enough room for it. 180 or less filters everything, 360 allows everything.");
+    def->sidetext = L("°");
+    def->min = 180;
+    def->max = 360;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(250));
+
     def = this->add("small_perimeter_min_length", coFloatOrPercent);
     def->label = L("Min length");
     def->full_label = L("Min small perimeters length");
