@@ -367,6 +367,8 @@ private:
     double      feature_acceleration(const ExtrusionRole role) const;
     // Speed of the brim and the skirt.
     double      brim_speed() const;
+    // Speed of a perimeter: the small perimeter speed when it is short enough, otherwise -1.
+    double      small_perimeter_speed(const ExtrusionEntity &perimeter) const;
 
     bool            needs_retraction(const Polyline &travel, ExtrusionRole role = ExtrusionRole::None);
 

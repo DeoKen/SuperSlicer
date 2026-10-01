@@ -31,6 +31,7 @@ const std::vector<std::string> added_config_keys {
     "ironing_acceleration", "brim_acceleration", "brim_speed",
     "fan_speedup_time", "fan_speedup_overhangs",
     "feature_gcode",
+    "small_perimeter_min_length", "small_perimeter_max_length",
 };
 
 bool is_added_config_line(const std::string &line)

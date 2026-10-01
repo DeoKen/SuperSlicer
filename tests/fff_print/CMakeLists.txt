@@ -21,6 +21,7 @@ add_executable(${_TEST_NAME}_tests
 	test_feature_accel.cpp
 	test_fan_mover.cpp
 	test_feature_gcode.cpp
+	test_small_perimeter.cpp
 	gcode_walk.hpp
     test_infill_above_bridges.cpp
     test_seam_perimeters.cpp

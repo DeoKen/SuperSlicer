@@ -3236,6 +3236,29 @@ double GCodeGenerator::feature_acceleration(const ExtrusionRole role) const
     return 0.;
 }
 
+// Speed of a perimeter: the small perimeter speed when it is short enough, otherwise -1 (the feature speed).
+// small_perimeter_min_length: perimeters up to it get the small perimeter speed, 0 = stock threshold (circle of 6.5 mm radius).
+// small_perimeter_max_length: between min and max length the speed goes linearly from the small perimeter speed up to the
+// speed of the perimeter (SuperSlicer), 0 = no ramp.
+double GCodeGenerator::small_perimeter_speed(const ExtrusionEntity &perimeter) const
+{
+    const double length       = perimeter.length();
+    const double nozzle       = m_config.nozzle_diameter.get_at(m_writer.extruder()->id());
+    const double min_length   = m_config.small_perimeter_min_length.value > 0 ? scaled<double>(m_config.small_perimeter_min_length.get_abs_value(nozzle)) : SMALL_PERIMETER_LENGTH;
+    const double max_length   = scaled<double>(m_config.small_perimeter_max_length.get_abs_value(nozzle));
+    const double small_speed  = m_config.small_perimeter_speed.get_abs_value(m_config.perimeter_speed);
+    if (length <= min_length)
+        return small_speed;
+    if (length < max_length && max_length > min_length && small_speed > 0) {
+        const double normal_speed = perimeter.role().is_external_perimeter() ? m_config.get_abs_value("external_perimeter_speed") : m_config.perimeter_speed.value;
+        if (normal_speed > 0) {
+            const double factor = (length - min_length) / (max_length - min_length);
+            return normal_speed * factor + small_speed * (1. - factor);
+        }
+    }
+    return -1;
+}
+
 // Speed of the brim and the skirt: brim_speed, 0 = the support material speed (stock).
 double GCodeGenerator::brim_speed() const
 {
@@ -3421,10 +3444,8 @@ std::string GCodeGenerator::extrude_perimeters(
     std::string gcode{};
 
     for (const GCode::ExtrusionOrder::Perimeter &perimeter : perimeters) {
-        double speed{-1};
         // Apply the small perimeter speed.
-        if (perimeter.extrusion_entity->length() <= SMALL_PERIMETER_LENGTH)
-            speed = m_config.small_perimeter_speed.get_abs_value(m_config.perimeter_speed);
+        const double speed = this->small_perimeter_speed(*perimeter.extrusion_entity);
         gcode += this->extrude_smooth_path(perimeter.smooth_path, perimeter.extrusion_entity->is_loop(), comment_perimeter, speed, perimeter.wipe_offset);
         this->m_travel_obstacle_tracker.mark_extruded(
             perimeter.extrusion_entity, print_instance.object_layer_to_print_id, print_instance.instance_id

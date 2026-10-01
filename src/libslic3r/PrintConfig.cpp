@@ -3290,6 +3290,32 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionInts { 5 });
 
+    def = this->add("small_perimeter_min_length", coFloatOrPercent);
+    def->label = L("Min length");
+    def->full_label = L("Min small perimeters length");
+    def->category = L("Speed");
+    def->tooltip = L("Perimeters shorter than this are printed at the small perimeter speed. "
+                     "Can be a mm value or a percentage of the nozzle diameter. "
+                     "Set zero for the default threshold: a circle of 6.5 mm radius (40.8 mm).");
+    def->sidetext = L("mm or %");
+    def->ratio_over = "nozzle_diameter";
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("small_perimeter_max_length", coFloatOrPercent);
+    def->label = L("Max length");
+    def->full_label = L("Max small perimeters length");
+    def->category = L("Speed");
+    def->tooltip = L("Perimeters shorter than this but longer than the min length are slowed down gradually, from their "
+                     "normal speed at this length down to the small perimeter speed at the min length. "
+                     "Can be a mm value or a percentage of the nozzle diameter. Set zero to disable this ramp.");
+    def->sidetext = L("mm or %");
+    def->ratio_over = "nozzle_diameter";
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
     def = this->add("small_perimeter_speed", coFloatOrPercent);
     def->label = L("Small perimeters");
     def->category = L("Speed");

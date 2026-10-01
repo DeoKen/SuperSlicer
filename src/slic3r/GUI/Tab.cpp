@@ -1638,7 +1638,7 @@ void TabPrint::build()
         optgroup->sublabel_width = 7;
         optgroup->sidetext_width = 7;
         append_labelled_line(optgroup, L("First layer speed"),   { { "first_layer_speed", L("Default") }, { "first_layer_infill_speed", L("Infill") }, { "first_layer_speed_over_raft", L("Over raft") } });
-        append_labelled_line(optgroup, L("Small perimeter speed"), { { "small_perimeter_speed", L("Speed") } });
+        append_labelled_line(optgroup, L("Small perimeter speed"), { { "small_perimeter_speed", L("Speed") }, { "small_perimeter_min_length", L("Min length") }, { "small_perimeter_max_length", L("Max length") } });
 
         optgroup = page->new_optgroup(L("Acceleration control (advanced)"));
         optgroup->sublabel_width = 7;
