@@ -416,6 +416,24 @@ void PrintConfigDef::init_common_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionString(""));
 
+    def = this->add("fan_speedup_time", coFloat);
+    def->label = L("Fan startup delay");
+    def->tooltip = L("Start the fan speed increases this many seconds earlier (you can use decimals), so that the fan has "
+                     "spun up when the feature that needs it starts. The time is estimated from the feed rates of the moves, "
+                     "ignoring acceleration. A fan command is not moved into the previous layer, and the fan commands of "
+                     "custom G-codes are not moved. Set zero to disable.");
+    def->sidetext = L("s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0));
+
+    def = this->add("fan_speedup_overhangs", coBool);
+    def->label = L("Only for overhangs");
+    def->full_label = L("Fan startup delay only for overhangs");
+    def->tooltip = L("Only start the fan earlier for overhang perimeters.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
     def = this->add("bed_keep_out_zones", coString);
     def->label = L("Bed keep-out zones");
     def->tooltip = L("Rectangles of the bed the toolhead cannot reach at any height, for example the corners taken by "

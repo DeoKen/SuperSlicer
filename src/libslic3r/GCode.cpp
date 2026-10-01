@@ -1126,6 +1126,12 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
         m_pressure_equalizer = make_unique<PressureEqualizer>(print.config());
     m_enable_extrusion_role_markers = (bool)m_pressure_equalizer;
 
+    // Fan mover (fan_speedup_time): fan speed increases are started earlier.
+    m_fan_mover.reset();
+    if (print.config().fan_speedup_time.value > 0)
+        m_fan_mover = make_unique<FanMover>(print.config().gcode_flavor.value, float(print.config().fan_speedup_time.value),
+                                            print.config().use_relative_e_distances.value, print.config().fan_speedup_overhangs.value);
+
     if (print.config().avoid_crossing_curled_overhangs){
         this->m_avoid_crossing_curled_overhangs.init_bed_shape(get_bed_shape(print.config()));
     }
@@ -1691,6 +1697,11 @@ void GCodeGenerator::process_layers(
 
              return cooling_buffer->process_layer(std::move(in.gcode), in.layer_id, in.cooling_buffer_flush);
         });
+    const auto fan_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
+        [fan_mover = this->m_fan_mover.get()](std::string s) -> std::string {
+            // Whole layers: the fan commands are not moved into the previous layer (as in SuperSlicer).
+            return fan_mover->process_gcode(s, true);
+        });
     const auto find_replace = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
         [find_replace = this->m_find_replace.get()](std::string s) -> std::string {
             return find_replace->process_layer(std::move(s));
@@ -1706,6 +1717,8 @@ void GCodeGenerator::process_layers(
         pipeline_to_layerresult = pipeline_to_layerresult & pressure_equalizer;
 
     tbb::filter<LayerResult, std::string> pipeline_to_string = cooling;
+    if (m_fan_mover)
+        pipeline_to_string = pipeline_to_string & fan_mover;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
@@ -1784,6 +1797,11 @@ void GCodeGenerator::process_layers(
                 return in.gcode;
             return cooling_buffer->process_layer(std::move(in.gcode), in.layer_id, in.cooling_buffer_flush);
         });
+    const auto fan_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
+        [fan_mover = this->m_fan_mover.get()](std::string s) -> std::string {
+            // Whole layers: the fan commands are not moved into the previous layer (as in SuperSlicer).
+            return fan_mover->process_gcode(s, true);
+        });
     const auto find_replace = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
         [find_replace = this->m_find_replace.get()](std::string s) -> std::string {
             return find_replace->process_layer(std::move(s));
@@ -1799,6 +1817,8 @@ void GCodeGenerator::process_layers(
         pipeline_to_layerresult = pipeline_to_layerresult & pressure_equalizer;
 
     tbb::filter<LayerResult, std::string> pipeline_to_string = cooling;
+    if (m_fan_mover)
+        pipeline_to_string = pipeline_to_string & fan_mover;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
@@ -1851,6 +1871,14 @@ std::string GCodeGenerator::placeholder_parser_process(
 
         if (m_bed_keep_out.is_active())
             update_last_xy_from_custom_gcode(output, m_custom_gcode_last_xy);
+
+        // Tag the custom G-code for the fan mover, which doesn't move its fan commands (as in SuperSlicer).
+        if (m_fan_mover && ! output.empty()) {
+            output = "; custom gcode: " + name + "\n" + output;
+            if (output.back() != '\n')
+                output += '\n';
+            output += "; custom gcode end: " + name + "\n";
+        }
 
         if (const std::vector<double> &pos = ppi.opt_position->values; ppi.position != pos) {
             // Update G-code writer.

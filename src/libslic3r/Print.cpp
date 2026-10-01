@@ -88,6 +88,8 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "avoid_crossing_perimeters_max_detour",
         "bed_shape",
         "bed_keep_out_zones",
+        "fan_speedup_time",
+        "fan_speedup_overhangs",
         "bed_temperature",
         "before_layer_gcode",
         "between_objects_gcode",

@@ -2897,6 +2897,10 @@ void TabPrinter::build_fff()
             });
         };
 
+        // As in SuperSlicer.
+        optgroup = page->new_optgroup(L("Cooling fan"));
+        append_labelled_line(optgroup, L("Speedup time"), { { "fan_speedup_time", "" }, { "fan_speedup_overhangs", L("Only for overhangs") } }, std::string(), -1);
+
         optgroup = page->new_optgroup(L("Advanced"));
         optgroup->append_single_option_line("use_relative_e_distances");
         optgroup->append_single_option_line("use_firmware_retraction");

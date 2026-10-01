@@ -966,6 +966,8 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloatOrPercent,     avoid_crossing_perimeters_max_detour))
     ((ConfigOptionPoints,             bed_shape))
     ((ConfigOptionString,             bed_keep_out_zones))
+    ((ConfigOptionFloat,              fan_speedup_time))
+    ((ConfigOptionBool,               fan_speedup_overhangs))
     ((ConfigOptionInts,               bed_temperature))
     ((ConfigOptionFloat,              bridge_acceleration))
     ((ConfigOptionInts,               bridge_fan_speed))
