@@ -2637,6 +2637,23 @@ std::vector<GCode::ExtrusionOrder::ExtruderExtrusions> GCodeGenerator::get_sorte
     const std::optional<Point> previous_position{
         this->last_position ? std::optional{scaled(this->point_to_gcode(*this->last_position))} :
                               std::nullopt};
+    // The shared brim with the first layer printed, the brim of an object with brim_per_object with its object.
+    std::vector<bool> brim_mask;
+    if (print.brim_owners().empty()) {
+        brim_mask.assign(print.brim().entities.size(), ! this->m_brim_done);
+    } else {
+        std::set<std::pair<const PrintObject*, size_t>> instances;
+        for (const InstanceToPrint &instance : instances_to_print)
+            instances.emplace(&instance.print_object, instance.instance_id);
+        brim_mask.assign(print.brim().entities.size(), false);
+        for (size_t i = 0; i < brim_mask.size() && i < print.brim_owners().size(); ++ i) {
+            const std::pair<const PrintObject*, size_t> &owner = print.brim_owners()[i];
+            brim_mask[i] = owner.first == nullptr ? ! this->m_brim_done :
+                instances.count(owner) > 0 && this->m_brim_instances_done.count(owner) == 0;
+        }
+        this->m_brim_instances_done.insert(instances.begin(), instances.end());
+    }
+
     std::vector<ExtruderExtrusions> extrusions{
         get_extrusions(
             print,
@@ -2648,7 +2665,7 @@ std::vector<GCode::ExtrusionOrder::ExtruderExtrusions> GCodeGenerator::get_sorte
             skirt_loops_per_extruder,
             this->m_writer.extruder()->id(),
             smooth_path,
-            !this->m_brim_done,
+            brim_mask,
             previous_position
         )
     };

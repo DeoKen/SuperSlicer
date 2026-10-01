@@ -24,8 +24,9 @@ Contents:
 8. [Hole size compensation](#8-hole-size-compensation)
 9. [Avoid crossing perimeters options](#9-avoid-crossing-perimeters-options)
 10. [Seam notch](#10-seam-notch)
-11. [GUI layout](#11-gui-layout)
-12. [Testing](#testing)
+11. [Brim ears and brim per object](#11-brim-ears-and-brim-per-object)
+12. [GUI layout](#12-gui-layout)
+13. [Testing](#testing)
 
 ---
 
@@ -308,7 +309,46 @@ refused with scarf seam. Manually: slice a cylinder with *Round perimeters* at 5
 
 ---
 
-## 11. GUI layout
+## 11. Brim ears and brim per object
+
+**What it does.** From SuperSlicer (Print > Skirt and brim > Brim). All off by default, so stock output is unaffected.
+They are object settings: they can also be set per object in the object list (right click > Add settings > Skirt and brim).
+
+| Setting | GUI row: label | Default | Meaning |
+|---|---|---|---|
+| `brim_ears` | Brim ears: *Brim ears* | off | Only print the outer brim around the sharp corners of the model ("mouse ears"). |
+| `brim_ears_max_angle` | Brim ears: *Max angle* | `125`° | Corners up to this angle get an ear. 0 = no brim at all, ~178 = everything but straight sections. |
+| `brim_ears_detection_length` | Brim ears: *Detection radius* | `1` mm | The outline is simplified with this tolerance before looking for corners (so small details and round shapes don't count as corners). 0 = not simplified. |
+| `brim_ears_pattern` | Brim ears: *Pattern* | concentric | Concentric: the brim loops cut to the ears. Rectilinear: a loop around each ear filled with lines. |
+| `brim_per_object` | Brim per object | off | One brim per object (and per instance) instead of one brim for the plate: brims of objects close to each other are not merged, and each brim is printed with its object (with sequential printing, just before the object). Where two brims would overlap, the one made first wins, so a brim may be truncated if objects are too close. |
+
+The brim width is PrusaSlicer's `brim_width` (measured from the brim separation gap; in SuperSlicer the width
+includes the gap). Brim inside holes (`brim_inside_holes`) is not ported.
+
+**How it works.** `Brim.cpp`:
+- ears: `brim_ear_points()` simplifies the outer contour of the first layer (offset by the brim separation) and keeps
+  the convex corners not wider than the max angle (SuperSlicer's `convex_points`); `top_level_outer_brim_area()` then
+  keeps the brim area only inside discs of radius `brim_width - one line spacing` around them. Concentric: the usual
+  brim loops are clipped to that area. Rectilinear: the area is filled by `emit_rectilinear_ears()` (one loop, then
+  rectilinear lines at 100%).
+- per object: `make_brim()` first makes the plate brim for the objects without `brim_per_object` (exactly as stock),
+  then one brim per instance of each object with it, its loops grown from that instance only and clipped by what is
+  already used. `Print::brim_owners()` records the object and instance of each brim entity; in `GCode.cpp`
+  (`get_sorted_extrusions()`) the shared brim is printed with the first layer as stock, and an object's brim when its
+  instance is printed for the first time.
+- Limitation: the inner brim (`brim_type` = inner / outer and inner) of an object with `brim_per_object` stays with the
+  plate brim, printed at the start.
+
+**How to test.** `fff_print_tests "[BrimSS]"`: ears only near the corners of a cube for both patterns, all four corners,
+less brim than a full brim; max angle 0 / 80° gives no brim on a cube and 100° gives ears; two close objects get
+merged brim loops with the plate brim but not with brim per object; with sequential printing, the second object's
+brim is printed after the first object; ears and per object together. Manually: slice a part with sharp corners with
+ears on and look at the first layer in the preview; place two parts a few mm apart with a wide brim and compare brim
+per object on and off.
+
+---
+
+## 12. GUI layout
 
 Rows grouped as in SuperSlicer (several fields with short labels on one row) for Filament > Cooling > Fan settings and
 Print > Speed, plus single rows for new settings elsewhere. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),

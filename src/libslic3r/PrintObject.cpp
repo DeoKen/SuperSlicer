@@ -723,6 +723,12 @@ bool PrintObject::invalidate_state_by_config_options(
             steps.emplace_back(posSupportSpotsSearch);
             // Brim is printed below supports, support invalidates brim and skirt.
             steps.emplace_back(posSupportMaterial);
+        } else if (opt_key == "brim_ears"
+            || opt_key == "brim_ears_max_angle"
+            || opt_key == "brim_ears_detection_length"
+            || opt_key == "brim_ears_pattern"
+            || opt_key == "brim_per_object") {
+            invalidated |= m_print->invalidate_step(psSkirtBrim);
         } else if (
                opt_key == "perimeters"
             || opt_key == "extra_perimeters"

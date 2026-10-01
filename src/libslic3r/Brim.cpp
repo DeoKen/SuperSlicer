@@ -23,6 +23,7 @@
 #include "EdgeGrid.hpp"
 #include "Layer.hpp"
 #include "Print.hpp"
+#include "Brim.hpp"
 #include "ShortestPath.hpp"
 #include "libslic3r.h"
 #include "libslic3r/BoundingBox.hpp"
@@ -30,6 +31,7 @@
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
 #include "libslic3r/ExtrusionRole.hpp"
+#include "libslic3r/Fill/FillBase.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/LayerRegion.hpp"
@@ -39,6 +41,7 @@
 #include "libslic3r/Polyline.hpp"
 #include "libslic3r/PrintBase.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Surface.hpp"
 
 #if defined(BRIM_DEBUG_TO_SVG)
     #include "SVG.hpp"
@@ -58,15 +61,6 @@ static void append_and_translate(Polygons &dst, const Polygons &src, const Print
     polygons_append(dst, src);
     for (; dst_idx < dst.size(); ++dst_idx)
         dst[dst_idx].translate(instance.shift.x(), instance.shift.y());
-}
-
-static float max_brim_width(const SpanOfConstPtrs<PrintObject> &objects)
-{
-    assert(!objects.empty());
-    return float(std::accumulate(objects.begin(), objects.end(), 0.,
-                                 [](double partial_result, const PrintObject *object) {
-                                     return std::max(partial_result, object->config().brim_type == btNoBrim ? 0. : object->config().brim_width.value);
-                                 }));
 }
 
 // Returns ExPolygons of the bottom layer of the print object after elephant foot compensation.
@@ -150,11 +144,19 @@ static ConstPrintObjectPtrs get_top_level_objects_with_brim(const Print &print, 
     return top_level_objects_with_brim;
 }
 
-static Polygons top_level_outer_brim_islands(const ConstPrintObjectPtrs &top_level_objects_with_brim, const double scaled_resolution)
+// brim_per_object (SuperSlicer): selects the brims made together. Without only_object, the objects without brim_per_object
+// (one brim for all of them, as stock), otherwise one instance of one object.
+static bool brim_object_selected(const PrintObject *object, const PrintObject *only_object)
+{
+    return only_object == nullptr ? ! object->config().brim_per_object.value : object == only_object;
+}
+
+static Polygons top_level_outer_brim_islands(const ConstPrintObjectPtrs &top_level_objects_with_brim, const double scaled_resolution,
+                                             const PrintObject *only_object = nullptr, size_t only_instance = 0)
 {
     Polygons islands;
     for (const PrintObject *object : top_level_objects_with_brim) {
-        if (!object->has_brim())
+        if (!object->has_brim() || ! brim_object_selected(object, only_object))
             continue;
 
         //FIXME how about the brim type?
@@ -168,16 +170,72 @@ static Polygons top_level_outer_brim_islands(const ConstPrintObjectPtrs &top_lev
             polygons_append(islands_object, std::move(contour_offset));
         }
 
-        for (const PrintInstance &instance : object->instances())
-            append_and_translate(islands, islands_object, instance);
+        for (size_t instance_idx = 0; instance_idx < object->instances().size(); ++ instance_idx)
+            if (only_object == nullptr || instance_idx == only_instance)
+                append_and_translate(islands, islands_object, object->instances()[instance_idx]);
     }
     return islands;
 }
 
+// Brim ears (SuperSlicer): the points of a contour where an ear is placed, the convex corners not wider than
+// brim_ears_max_angle, found on the contour decimated by brim_ears_detection_length.
+static Points brim_ear_points(const Polygon &contour, const PrintObjectConfig &config)
+{
+    Points points = contour.points;
+    if (const double detection = scale_(config.brim_ears_detection_length.value); detection > 0 && points.size() > 2) {
+        Points closed = points;
+        closed.push_back(closed.front());
+        Points decimated = MultiPoint::douglas_peucker(closed, detection);
+        // Not below 4 points, as SuperSlicer: the ears then cover everything anyway.
+        if (decimated.size() <= 4)
+            decimated = MultiPoint::douglas_peucker(closed, SCALED_EPSILON);
+        decimated.pop_back();
+        points = std::move(decimated);
+    }
+    Points out;
+    if (points.size() < 3)
+        return out;
+    const double max_angle = config.brim_ears_max_angle.value * PI / 180.;
+    const double max_dot   = - std::cos(max_angle);
+    for (size_t i = 0; i < points.size(); ++ i) {
+        const Vec2d v1 = (points[i] - points[(i + points.size() - 1) % points.size()]).cast<double>();
+        const Vec2d v2 = (points[(i + 1) % points.size()] - points[i]).cast<double>();
+        if (v1.squaredNorm() == 0 || v2.squaredNorm() == 0 || cross2(v1, v2) < 0)
+            continue; // concave corner (contours are counter-clockwise)
+        if (max_angle < PI - EPSILON && v1.normalized().dot(v2.normalized()) > max_dot)
+            continue; // too flat
+        out.push_back(points[i]);
+    }
+    return out;
+}
+
+// Discs of the brim ears around the corners of a contour (the contour already offset by the brim separation).
+static Polygons brim_ears_discs(const Polygons &contours, const PrintObjectConfig &config, const double radius)
+{
+    constexpr size_t sides = 36;
+    Polygon disc;
+    for (size_t i = 0; i < sides; ++ i) {
+        const double angle = 2. * PI * double(i) / double(sides);
+        disc.points.emplace_back(coord_t(radius * std::cos(angle)), coord_t(radius * std::sin(angle)));
+    }
+    Polygons discs;
+    for (const Polygon &contour : contours)
+        for (const Point &pt : brim_ear_points(contour, config)) {
+            discs.emplace_back(disc);
+            discs.back().translate(pt);
+        }
+    return discs;
+}
+
+// rectilinear_ears: area of the brim ears with the rectilinear pattern, not part of the returned area.
+// only_object / only_instance: see brim_object_selected().
 static ExPolygons top_level_outer_brim_area(const Print                   &print,
                                             const ConstPrintObjectPtrs    &top_level_objects_with_brim,
                                             const std::vector<ExPolygons> &bottom_layers_expolygons,
-                                            const float                    no_brim_offset)
+                                            const float                    no_brim_offset,
+                                            ExPolygons                    *rectilinear_ears = nullptr,
+                                            const PrintObject             *only_object = nullptr,
+                                            size_t                         only_instance = 0)
 {
     assert(print.objects().size() == bottom_layers_expolygons.size());
     std::unordered_set<size_t> top_level_objects_idx;
@@ -186,6 +244,7 @@ static ExPolygons top_level_outer_brim_area(const Print                   &print
         top_level_objects_idx.insert(object->id().id);
 
     ExPolygons brim_area;
+    ExPolygons rectilinear_area;
     ExPolygons no_brim_area;
     for(size_t print_object_idx = 0; print_object_idx < print.objects().size(); ++print_object_idx) {
         const PrintObject *object            = print.objects()[print_object_idx];
@@ -194,11 +253,26 @@ static ExPolygons top_level_outer_brim_area(const Print                   &print
         const float        brim_width        = scale_(object->config().brim_width.value);
         const bool         is_top_outer_brim = top_level_objects_idx.find(object->id().id) != top_level_objects_idx.end();
 
+        const bool         selected          = brim_object_selected(object, only_object);
+        const PrintObjectConfig &config      = object->config();
+
         ExPolygons brim_area_object;
+        ExPolygons rectilinear_area_object;
         ExPolygons no_brim_area_object;
         for (const ExPolygon &ex_poly : bottom_layers_expolygons[print_object_idx]) {
-            if ((brim_type == BrimType::btOuterOnly || brim_type == BrimType::btOuterAndInner) && is_top_outer_brim)
-                append(brim_area_object, diff_ex(offset(ex_poly.contour, brim_width + brim_separation, ClipperLib::jtSquare), offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare)));
+            if ((brim_type == BrimType::btOuterOnly || brim_type == BrimType::btOuterAndInner) && is_top_outer_brim && selected) {
+                ExPolygons ring = diff_ex(offset(ex_poly.contour, brim_width + brim_separation, ClipperLib::jtSquare), offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare));
+                if (config.brim_ears) {
+                    // Brim ears: the brim only around the sharp corners, discs of the brim width minus one line (SuperSlicer).
+                    const double radius = brim_width > 2. * no_brim_offset ? brim_width - no_brim_offset : brim_width;
+                    ring = intersection_ex(ring, brim_ears_discs(offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare), config, radius));
+                    if (config.brim_ears_pattern.value == ipRectilinear) {
+                        append(rectilinear_area_object, std::move(ring));
+                        ring.clear();
+                    }
+                }
+                append(brim_area_object, std::move(ring));
+            }
 
             // After 7ff76d07684858fd937ef2f5d863f105a10f798e offset and shrink don't work with CW polygons (holes), so let's make it CCW.
             Polygons ex_poly_holes_reversed = ex_poly.holes;
@@ -215,12 +289,18 @@ static ExPolygons top_level_outer_brim_area(const Print                   &print
             no_brim_area_object.emplace_back(ex_poly.contour);
         }
 
-        for (const PrintInstance &instance : object->instances()) {
-            append_and_translate(brim_area, brim_area_object, instance);
+        for (size_t instance_idx = 0; instance_idx < object->instances().size(); ++ instance_idx) {
+            const PrintInstance &instance = object->instances()[instance_idx];
+            if (only_object == nullptr || instance_idx == only_instance) {
+                append_and_translate(brim_area, brim_area_object, instance);
+                append_and_translate(rectilinear_area, rectilinear_area_object, instance);
+            }
             append_and_translate(no_brim_area, no_brim_area_object, instance);
         }
     }
 
+    if (rectilinear_ears != nullptr)
+        *rectilinear_ears = rectilinear_area.empty() ? ExPolygons() : diff_ex(rectilinear_area, no_brim_area);
     return diff_ex(brim_area, no_brim_area);
 }
 
@@ -519,73 +599,57 @@ static void make_inner_brim(const Print                   &print,
 
 // Produce brim lines around those objects, that have the brim enabled.
 // Collect islands_area to be merged into the final 1st layer convex hull.
-ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cancel, Polygons &islands_area)
+ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cancel, Polygons &islands_area, BrimOwners &owners)
 {
     const auto              scaled_resolution           = scaled<double>(print.config().gcode_resolution.value);
     Flow                    flow                        = print.brim_flow();
     std::vector<ExPolygons> bottom_layers_expolygons    = get_print_bottom_layers_expolygons(print);
     ConstPrintObjectPtrs    top_level_objects_with_brim = get_top_level_objects_with_brim(print, bottom_layers_expolygons);
     Polygons                islands                     = top_level_outer_brim_islands(top_level_objects_with_brim, scaled_resolution);
-    ExPolygons              islands_area_ex             = top_level_outer_brim_area(print, top_level_objects_with_brim, bottom_layers_expolygons, float(flow.scaled_spacing()));
-    islands_area                                        = to_polygons(islands_area_ex);
+    ExPolygons              rectilinear_ears;
+    ExPolygons              islands_area_ex             = top_level_outer_brim_area(print, top_level_objects_with_brim, bottom_layers_expolygons, float(flow.scaled_spacing()), &rectilinear_ears);
+    owners.clear();
 
-    Polygons        loops;
-    size_t          num_loops = size_t(floor(max_brim_width(print.objects()) / flow.spacing()));
-    for (size_t i = 0; i < num_loops; ++i) {
-        try_cancel();
-        islands = expand(islands, float(flow.scaled_spacing()), ClipperLib::jtSquare);
-        for (Polygon &poly : islands) 
-            poly.douglas_peucker(scaled_resolution);
-        polygons_append(loops, shrink(islands, 0.5f * float(flow.scaled_spacing())));
-    }
-    loops = union_pt_chained_outside_in(loops);
+    // Brim lines around the islands, clipped by the brim area, ordered and connected.
+    auto brim_lines = [&](Polygons islands, const ExPolygons &area_ex, const float max_width) {
+        const Polygons  area = to_polygons(area_ex);
+        Polygons        loops;
+        size_t          num_loops = size_t(floor(max_width / flow.spacing()));
+        for (size_t i = 0; i < num_loops; ++i) {
+            try_cancel();
+            islands = expand(islands, float(flow.scaled_spacing()), ClipperLib::jtSquare);
+            for (Polygon &poly : islands)
+                poly.douglas_peucker(scaled_resolution);
+            polygons_append(loops, shrink(islands, 0.5f * float(flow.scaled_spacing())));
+        }
+        loops = union_pt_chained_outside_in(loops);
 
-    std::vector<Polylines> loops_pl_by_levels;
-    {
-        Polylines              loops_pl = to_polylines(loops);
-        loops_pl_by_levels.assign(loops_pl.size(), Polylines());
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, loops_pl.size()),
-            [&loops_pl_by_levels, &loops_pl, &islands_area](const tbb::blocked_range<size_t> &range) {
-                for (size_t i = range.begin(); i < range.end(); ++i) {
-                    loops_pl_by_levels[i] = chain_polylines(intersection_pl({ std::move(loops_pl[i]) }, islands_area));
-                }
-            });
-    }
+        std::vector<Polylines> loops_pl_by_levels;
+        {
+            Polylines              loops_pl = to_polylines(loops);
+            loops_pl_by_levels.assign(loops_pl.size(), Polylines());
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, loops_pl.size()),
+                [&loops_pl_by_levels, &loops_pl, &area](const tbb::blocked_range<size_t> &range) {
+                    for (size_t i = range.begin(); i < range.end(); ++i) {
+                        loops_pl_by_levels[i] = chain_polylines(intersection_pl({ std::move(loops_pl[i]) }, area));
+                    }
+                });
+        }
+
+        // Reduce down to the ordered list of polylines.
+        Polylines all_loops;
+        for (Polylines &polylines : loops_pl_by_levels)
+            append(all_loops, std::move(polylines));
+        loops_pl_by_levels.clear();
+
+        // Flip orientation of open polylines to minimize travel distance.
+        optimize_polylines_by_reversing(&all_loops);
+
+        return connect_brim_lines(std::move(all_loops), offset(area_ex, float(SCALED_EPSILON)), float(flow.scaled_spacing()) * 2.f);
+    };
 
     // output
     ExtrusionEntityCollection brim;
-
-    // Reduce down to the ordered list of polylines.
-    Polylines all_loops;
-    for (Polylines &polylines : loops_pl_by_levels)
-        append(all_loops, std::move(polylines));
-    loops_pl_by_levels.clear();
-
-    // Flip orientation of open polylines to minimize travel distance.
-    optimize_polylines_by_reversing(&all_loops);
-
-#ifdef BRIM_DEBUG_TO_SVG
-    static int irun = 0;
-    ++ irun;
-
-    {
-        SVG svg(debug_out_path("brim-%d.svg", irun).c_str(), get_extents(all_loops));
-        svg.draw(union_ex(islands), "blue");
-        svg.draw(islands_area_ex, "green");
-        svg.draw(all_loops, "black", coord_t(scale_(0.1)));
-    }
-#endif // BRIM_DEBUG_TO_SVG
-
-    all_loops = connect_brim_lines(std::move(all_loops), offset(islands_area_ex, float(SCALED_EPSILON)), float(flow.scaled_spacing()) * 2.f);
-
-#ifdef BRIM_DEBUG_TO_SVG
-    {
-        SVG svg(debug_out_path("brim-connected-%d.svg", irun).c_str(), get_extents(all_loops));
-        svg.draw(union_ex(islands), "blue");
-        svg.draw(islands_area_ex, "green");
-        svg.draw(all_loops, "black", coord_t(scale_(0.1)));
-    }
-#endif // BRIM_DEBUG_TO_SVG
 
     const bool could_brim_intersects_skirt = std::any_of(print.objects().begin(), print.objects().end(), [&print](const PrintObject *object) {
         const BrimType &bt = object->config().brim_type;
@@ -594,7 +658,9 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
 
     const bool draft_shield = print.config().draft_shield != dsDisabled;
 
-
+    // Brim lines to extrusions.
+    auto emit_lines = [&](Polylines &&all_loops) {
+    // (body left at the stock indentation, to keep the patch small)
     // If there is a possibility that brim intersects skirt, go through loops and split those extrusions
     // The result is either the original Polygon or a list of Polylines
     if (draft_shield && ! print.skirt().empty() && could_brim_intersects_skirt)
@@ -730,8 +796,88 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
             ExtrusionAttributes{ ExtrusionRole::Skirt,
                 ExtrusionFlow{ float(flow.mm3_per_mm()), float(flow.width()), float(print.skirt_first_layer_height()) } });
     }
+    };
+
+    // Brim ears with the rectilinear pattern (SuperSlicer): a loop around each ear, filled with lines.
+    auto emit_rectilinear_ears = [&](const ExPolygons &ears) {
+        if (ears.empty())
+            return;
+        const ExtrusionAttributes attributes{ ExtrusionRole::Skirt,
+            ExtrusionFlow{ float(flow.mm3_per_mm()), float(flow.width()), float(print.skirt_first_layer_height()) } };
+        std::unique_ptr<Fill> filler(Fill::new_from_type(ipRectilinear));
+        filler->angle    = 0.f;
+        filler->layer_id = 0;
+        filler->z        = print.skirt_first_layer_height();
+        FillParams params;
+        params.density     = 1.f;
+        params.dont_adjust = false;
+        params.resolution  = print.config().gcode_resolution.value;
+        for (const ExPolygon &ear : union_ex(ears)) {
+            Polygons perimeter = to_polygons(shrink_ex({ ear }, 0.5f * float(flow.scaled_spacing()), ClipperLib::jtSquare));
+            if (perimeter.empty())
+                continue;
+            extrusion_entities_append_loops(brim.entities, std::move(perimeter), attributes);
+            for (const ExPolygon &inner : shrink_ex({ ear }, float(flow.scaled_spacing()), ClipperLib::jtSquare)) {
+                filler->set_bounding_box(get_extents(inner));
+                filler->spacing = flow.spacing();
+                Surface   surface(stInternalSolid, inner);
+                Polylines lines;
+                try {
+                    lines = filler->fill_surface(&surface, params);
+                } catch (InfillFailedException &) {
+                }
+                extrusion_entities_append_paths(brim.entities, std::move(lines), attributes);
+            }
+        }
+    };
+
+    // The brim shared by the objects without brim_per_object (stock PrusaSlicer brim).
+    float shared_width = 0.f;
+    for (const PrintObject *object : print.objects())
+        if (! object->config().brim_per_object && object->config().brim_type != btNoBrim)
+            shared_width = std::max(shared_width, float(object->config().brim_width.value));
+    emit_lines(brim_lines(islands, islands_area_ex, shared_width));
+    emit_rectilinear_ears(rectilinear_ears);
 
     make_inner_brim(print, top_level_objects_with_brim, bottom_layers_expolygons, brim);
+
+    // brim_per_object (SuperSlicer): one brim per object instance, not merged with the brims of the other objects, printed
+    // with its object. Where two brims overlap, the one made first wins (the brim may be truncated if objects are too close).
+    ExPolygons all_area = islands_area_ex;
+    append(all_area, rectilinear_ears);
+    ExPolygons used_area = all_area;
+    const size_t shared_count = brim.entities.size();
+    for (const PrintObject *object : print.objects()) {
+        if (! object->config().brim_per_object || ! object->has_brim() ||
+            std::find(top_level_objects_with_brim.begin(), top_level_objects_with_brim.end(), object) == top_level_objects_with_brim.end())
+            continue;
+        for (size_t instance_idx = 0; instance_idx < object->instances().size(); ++ instance_idx) {
+            try_cancel();
+            ExPolygons object_ears;
+            ExPolygons object_area = top_level_outer_brim_area(print, top_level_objects_with_brim, bottom_layers_expolygons,
+                                                               float(flow.scaled_spacing()), &object_ears, object, instance_idx);
+            if (! used_area.empty()) {
+                object_area = diff_ex(object_area, used_area);
+                object_ears = diff_ex(object_ears, used_area);
+            }
+            const size_t first = brim.entities.size();
+            emit_lines(brim_lines(top_level_outer_brim_islands(top_level_objects_with_brim, scaled_resolution, object, instance_idx),
+                                  object_area, float(object->config().brim_width.value)));
+            emit_rectilinear_ears(object_ears);
+            if (brim.entities.size() > first) {
+                owners.resize(first, { nullptr, 0 });
+                owners.resize(brim.entities.size(), { object, instance_idx });
+            }
+            append(used_area, object_area);
+            append(used_area, object_ears);
+            append(all_area, std::move(object_area));
+            append(all_area, std::move(object_ears));
+        }
+    }
+    // Shared entities first, owned by no object.
+    assert(owners.empty() || (owners.size() == brim.entities.size() && shared_count <= brim.entities.size()));
+    (void)shared_count;
+    islands_area = to_polygons(all_area);
     return brim;
 }
 

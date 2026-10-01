@@ -48,6 +48,7 @@
 
 #include <memory>
 #include <map>
+#include <set>
 #include <string>
 
 //#include "GCode/PressureEqualizer.hpp"
@@ -479,6 +480,8 @@ private:
     std::vector<coordf_t>               m_skirt_done;
     // Has the brim been extruded already? Brim is being extruded only for the first object of a multi-object print.
     bool                                m_brim_done;
+    // brim_per_object: the object instances whose brim has been extruded.
+    std::set<std::pair<const PrintObject*, size_t>> m_brim_instances_done;
     // Flag indicating whether the nozzle temperature changes from 1st to 2nd layer were performed.
     bool                                m_second_layer_things_done;
     // G-code that is due to be written before the next extrusion

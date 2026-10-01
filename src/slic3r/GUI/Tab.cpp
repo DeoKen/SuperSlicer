@@ -1569,6 +1569,8 @@ void TabPrint::build()
         optgroup->append_single_option_line("brim_type", category_path + "brim");
         optgroup->append_single_option_line("brim_width", category_path + "brim");
         optgroup->append_single_option_line("brim_separation", category_path + "brim");
+        append_labelled_line(optgroup, L("Brim ears"), { { "brim_ears", L("Brim ears") }, { "brim_ears_max_angle", L("Max angle") }, { "brim_ears_detection_length", L("Detection radius") }, { "brim_ears_pattern", L("Pattern") } }, category_path + "brim", -1);
+        optgroup->append_single_option_line("brim_per_object", category_path + "brim");
 
     page = add_options_page(L("Support material"), "support");
         category_path = "support-material_1698#";

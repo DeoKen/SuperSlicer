@@ -1166,6 +1166,59 @@ void PrintConfigDef::init_fff_params()
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionFloat(0));
 
+    def = this->add("brim_ears", coBool);
+    def->label = L("Brim ears");
+    def->full_label = L("Brim ears");
+    def->category = L("Skirt and brim");
+    def->tooltip = L("Only draw the outer brim over the sharp corners of the model.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("brim_ears_max_angle", coFloat);
+    def->label = L("Max angle");
+    def->full_label = L("Brim ear max angle");
+    def->category = L("Skirt and brim");
+    def->tooltip = L("Maximum angle of a corner to get a brim ear. If set to 0, no brim is created. "
+                     "If set to ~178, the brim is created on everything but straight sections.");
+    def->sidetext = L("°");
+    def->min = 0;
+    def->max = 180;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(125));
+
+    def = this->add("brim_ears_detection_length", coFloat);
+    def->label = L("Detection radius");
+    def->full_label = L("Brim ear detection length");
+    def->category = L("Skirt and brim");
+    def->tooltip = L("The geometry is decimated before detecting the sharp angles. This parameter is the minimum length of "
+                     "the deviation for the decimation. 0 to deactivate.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(1));
+
+    def = this->add("brim_ears_pattern", coEnum);
+    def->label = L("Pattern");
+    def->full_label = L("Ear pattern");
+    def->category = L("Skirt and brim");
+    def->tooltip = L("Pattern of the brim ears. Concentric is the default one. Rectilinear has a perimeter around it, "
+                     "try it if the concentric one has problems to stick to the build plate.");
+    def->set_enum<InfillPattern>({
+        { "concentric",  L("Concentric") },
+        { "rectilinear", L("Rectilinear") },
+    });
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionEnum<InfillPattern>(ipConcentric));
+
+    def = this->add("brim_per_object", coBool);
+    def->label = L("Brim per object");
+    def->category = L("Skirt and brim");
+    def->tooltip = L("Create a brim per object instead of one brim for the whole plate: the brims of objects close to each "
+                     "other are not merged, and each brim is printed with its object (with sequential printing, just before "
+                     "the object). The brim may be truncated if objects are too close together.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("brim_type", coEnum);
     def->label = L("Brim type");
     def->category = L("Skirt and brim");

@@ -342,8 +342,13 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
         toggle_field(el, have_skirt);
 
     bool have_brim = config->opt_enum<BrimType>("brim_type") != btNoBrim;
-    for (auto el : { "brim_width", "brim_separation" })
+    for (auto el : { "brim_width", "brim_separation", "brim_per_object" })
         toggle_field(el, have_brim);
+    // Brim ears: outer brim only.
+    const bool have_outer_brim = have_brim && config->opt_enum<BrimType>("brim_type") != btInnerOnly;
+    toggle_field("brim_ears", have_outer_brim);
+    for (auto el : { "brim_ears_max_angle", "brim_ears_detection_length", "brim_ears_pattern" })
+        toggle_field(el, have_outer_brim && config->opt_bool("brim_ears"));
     // perimeter_extruder uses the same logic as in Print::extruders()
     toggle_field("perimeter_extruder", have_perimeters || have_brim);
 

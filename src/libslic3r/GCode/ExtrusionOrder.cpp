@@ -542,9 +542,10 @@ std::vector<ExtruderExtrusions> get_extrusions(
     const std::map<unsigned int, std::pair<size_t, size_t>> &skirt_loops_per_extruder,
     unsigned current_extruder_id,
     const PathSmoothingFunction &smooth_path,
-    bool get_brim,
+    const std::vector<bool> &brim_mask,
     std::optional<Point> previous_position
 ) {
+    bool get_brim = std::find(brim_mask.begin(), brim_mask.end(), true) != brim_mask.end();
     unsigned toolchange_number{0};
 
     std::vector<ExtruderExtrusions> extrusions;
@@ -584,7 +585,10 @@ std::vector<ExtruderExtrusions> get_extrusions(
 
         // Extrude brim with the extruder of the 1st region.
         if (get_brim) {
-            for (const ExtrusionEntity *entity : print.brim().entities) {
+            for (size_t brim_idx = 0; brim_idx < print.brim().entities.size(); ++ brim_idx) {
+                if (brim_idx >= brim_mask.size() || ! brim_mask[brim_idx])
+                    continue;
+                const ExtrusionEntity *entity = print.brim().entities[brim_idx];
                 bool reverse{false};
                 bool is_loop{false};
                 if (auto loop = dynamic_cast<const ExtrusionLoop *>(entity)) {

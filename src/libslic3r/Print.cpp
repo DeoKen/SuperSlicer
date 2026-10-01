@@ -1005,10 +1005,11 @@ void Print::process()
         }
 
         m_brim.clear();
+        m_brim_owners.clear();
         m_first_layer_convex_hull.points.clear();
         if (this->has_brim()) {
             Polygons islands_area;
-            m_brim = make_brim(*this, this->make_try_cancel(), islands_area);
+            m_brim = make_brim(*this, this->make_try_cancel(), islands_area, m_brim_owners);
             for (Polygon &poly : union_(this->first_layer_islands(), islands_area))
                 append(m_first_layer_convex_hull.points, std::move(poly.points));
         }

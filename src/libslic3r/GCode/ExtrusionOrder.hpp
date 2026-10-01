@@ -156,7 +156,8 @@ std::vector<ExtruderExtrusions> get_extrusions(
     const std::map<unsigned int, std::pair<size_t, size_t>> &skirt_loops_per_extruder,
     unsigned current_extruder_id,
     const PathSmoothingFunction &smooth_path,
-    bool get_brim,
+    // Brim entities to print with this layer (print.brim().entities indices), all of them or none if no brim_per_object.
+    const std::vector<bool> &brim_mask,
     std::optional<Point> previous_position
 );
 
