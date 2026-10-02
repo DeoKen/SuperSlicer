@@ -66,7 +66,7 @@ class OG_CustomCtrl :public wxPanel
 
         void    render(wxDC& dc, wxCoord v_pos);
         wxCoord draw_mode_bmp(wxDC& dc, wxCoord v_pos);
-        wxCoord draw_text      (wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url = false);
+        wxCoord draw_text      (wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url = false, bool align_right = false);
         wxPoint draw_blinking_bmp(wxDC& dc, wxPoint pos, bool is_blinking);
         wxPoint draw_act_bmps(wxDC& dc, wxPoint pos, const wxBitmapBundle& bmp_undo_to_sys, const wxBitmapBundle& bmp_undo, bool is_blinking, size_t rect_id = 0);
         wxCoord draw_edit_bmp(wxDC& dc, wxPoint pos, const wxBitmapBundle* bmp_edit);
@@ -80,6 +80,23 @@ class OG_CustomCtrl :public wxPanel
     };
 
     std::vector<CtrlLine> ctrl_lines;
+
+    // Lines with several fields (or forced sub-labels) are laid out in columns shared by the whole group: the n-th
+    // sub-label, field and side text of every such line have the same width, so the fields are aligned.
+    struct Column {
+        wxCoord label { 0 };
+        wxCoord field { 0 };
+        wxCoord side  { 0 };
+    };
+    std::vector<Column> m_columns;
+    bool                m_columns_valid { false };
+    const std::vector<Column>& columns();
+    wxCoord             text_width(const wxString &text);
+    wxCoord             field_width(const Option &option, Field *field);
+public:
+    static bool         is_multioption_line(const Line &line);
+    static wxString     sublabel_text(const ConfigOptionDef &option);
+private:
 
 public:
     OG_CustomCtrl(  wxWindow* parent,

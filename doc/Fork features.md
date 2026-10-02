@@ -418,11 +418,23 @@ preview.
 
 ## 14. GUI layout
 
-Rows grouped as in SuperSlicer (several fields with short labels on one row) for Filament > Cooling > Fan settings and
-Print > Speed, plus single rows for new settings elsewhere. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),
-`OG_CustomCtrl` places fields with the same label width it draws them with, and an options group keeps an explicitly set
-side text width. Regrouping the other pages is a TODO (see CLAUDE.md).
-
+Related fields share one row with short labels, as in SuperSlicer (`resources/ui_layout/default/*.ui` of SuperSlicer),
+built with `append_labelled_line()` in `GUI/Tab.cpp`. PrusaSlicer's pages and groups are kept (options are not moved
+between pages); only the rows inside a group are combined:
+- Print: Layers and perimeters (extra perimeters, avoid crossing, seam, seam notch, scarf joint, fuzzy skin, only one
+  perimeter), Infill (sparse infill, anchor, solid patterns, ironing, infill angles), Skirt and brim (brim width and
+  gap, brim ears), Support material (raft, contact Z, pattern, interface, organic branches), Speed (all), Multiple
+  extruders (wipe tower, segmented regions, interlocking), Advanced (extrusion widths, Arachne).
+- Filament: Cooling (fan speeds, disable fan / full speed layer, dynamic fan speeds, layer time thresholds),
+  Advanced (max infill speeds, shrinkage, toolchange parameters, ramming, flush).
+- Printer: General (Z, firmware supports, extruder clearance, fan speedup), Extruder (layer height limits, retraction
+  speed, wipe, tool change retraction).
+Supporting GUI changes (`OG_CustomCtrl`): `Line::force_sublabels` shows a short label even for a single field; the
+lines with several fields of a group share columns (`OG_CustomCtrl::columns()`: each column is as wide as its widest
+sub-label, field and side text in the group), so the fields are aligned; sub-labels are right aligned up to the lock
+icon (over the slot of the search highlight arrow) and neither sub-labels nor side texts wrap. Lines with a single
+field are laid out as stock. Not regrouped: the machine limits page, the filament overrides page and the custom G-code
+pages.
 ---
 
 ## Testing

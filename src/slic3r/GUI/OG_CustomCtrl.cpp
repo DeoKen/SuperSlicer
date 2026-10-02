@@ -100,6 +100,84 @@ void OG_CustomCtrl::init_ctrl_lines()
     }
 }
 
+bool OG_CustomCtrl::is_multioption_line(const Line &line)
+{
+    return ! line.widget && line.get_extra_widgets().empty() && (line.get_options().size() > 1 || line.force_sublabels);
+}
+
+wxString OG_CustomCtrl::sublabel_text(const ConfigOptionDef &option)
+{
+    if (option.label.empty())
+        return wxString();
+    // those two parameter names require localization with context
+    wxString label = (option.label == "Top" || option.label == "Bottom") ? _CTX(option.label, "Layers") : _(option.label);
+    return label + ":";
+}
+
+wxCoord OG_CustomCtrl::text_width(const wxString &text)
+{
+    if (text.empty())
+        return 0;
+    wxCoord w, h;
+#ifdef __WXMSW__
+    // when we use 2 monitors with different DPIs, GetTextExtent() return value for the primary display
+    // so, use dc.GetMultiLineTextExtent on Windows
+    wxClientDC dc(this);
+    dc.SetFont(m_font);
+    dc.GetMultiLineTextExtent(text, &w, &h);
+#else
+    GetTextExtent(text, &w, &h, 0, 0, &m_font);
+#endif //__WXMSW__
+    return w;
+}
+
+wxCoord OG_CustomCtrl::field_width(const Option &option, Field *field)
+{
+    if (field == nullptr)
+        return 0;
+    if (field->getSizer()) {
+        wxCoord w = 0;
+        for (auto child : field->getSizer()->GetChildren())
+            if (child->IsWindow())
+                w += child->GetWindow()->GetSize().x + m_h_gap;
+        return std::max<wxCoord>(0, w - m_h_gap);
+    }
+    if (option.opt.width >= 0)
+        return option.opt.width * m_em_unit;
+    return field->getWindow() ? field->getWindow()->GetSize().x : 0;
+}
+
+const std::vector<OG_CustomCtrl::Column>& OG_CustomCtrl::columns()
+{
+    if (! m_columns_valid) {
+        m_columns.clear();
+        // All the lines, visible or not: the columns don't change with the mode and the lines are positioned one by one
+        // while their visibility is updated. Not cached until all the fields exist.
+        bool complete = true;
+        for (const CtrlLine &ctrl_line : ctrl_lines) {
+            const Line &line = ctrl_line.og_line;
+            if (ctrl_line.draw_just_act_buttons || line.is_separator() || ! is_multioption_line(line))
+                continue;
+            const std::vector<Option> &option_set = line.get_options();
+            if (m_columns.size() < option_set.size())
+                m_columns.resize(option_set.size());
+            for (size_t i = 0; i < option_set.size(); ++ i) {
+                const Option &opt = option_set[i];
+                Column &col = m_columns[i];
+                if (! opt.opt.label.empty())
+                    col.label = std::max({ col.label, text_width(sublabel_text(opt.opt)), wxCoord(opt_group->sublabel_width * m_em_unit) });
+                Field *field = opt_group->get_field(opt.opt_id);
+                complete &= field != nullptr;
+                col.field = std::max(col.field, field_width(opt, field));
+                if (! opt.opt.sidetext.empty() || opt_group->sidetext_width > 0)
+                    col.side = std::max({ col.side, text_width(_(opt.opt.sidetext)), wxCoord(opt_group->sidetext_width * m_em_unit) });
+            }
+        }
+        m_columns_valid = complete;
+    }
+    return m_columns;
+}
+
 int OG_CustomCtrl::get_height(const Line& line)
 {
     for (auto ctrl_line : ctrl_lines)
@@ -169,6 +247,28 @@ wxPoint OG_CustomCtrl::get_pos(const Line& line, Field* field_in/* = nullptr*/)
                 break;
             }
 
+            if (is_multioption_line(line)) {
+                // Columns shared by the group (see columns()).
+                const std::vector<Column> &cols = columns();
+                for (size_t i = 0; i < option_set.size() && i < cols.size(); ++ i) {
+                    const Option &opt = option_set[i];
+                    Field* field = opt_group->get_field(opt.opt_id);
+                    correct_line_height(ctrl_line.height, field->getWindow());
+                    if (cols[i].label > 0)
+                        h_pos += cols[i].label + m_h_gap;
+                    h_pos += 3 * blinking_button_width;
+                    if (field == field_in) {
+                        correct_horiz_pos(h_pos, field);
+                        break;
+                    }
+                    h_pos += cols[i].field + m_h_gap;
+                    if (cols[i].side > 0)
+                        h_pos += cols[i].side + m_h_gap;
+                    h_pos += lround(0.6 * m_em_unit);
+                }
+                break;
+            }
+
             bool is_multioption_line = option_set.size() > 1 || line.force_sublabels;
             for (auto opt : option_set) {
                 Field* field = opt_group->get_field(opt.opt_id);
@@ -192,8 +292,8 @@ wxPoint OG_CustomCtrl::get_pos(const Line& line, Field* field_in/* = nullptr*/)
 #else
                     GetTextExtent(label, &label_w, &label_h, 0, 0, &m_font);
 #endif //__WXMSW__
-                    // Same width as CtrlLine::render() -> draw_text() uses for the sub-label.
-                    h_pos += (opt_group->sublabel_width > 0 ? opt_group->sublabel_width * m_em_unit : label_w) + m_h_gap;
+                    // Same width as CtrlLine::render() -> draw_text() uses for the sub-label: the column, or the text if wider.
+                    h_pos += std::max<wxCoord>(opt_group->sublabel_width * m_em_unit, label_w) + m_h_gap;
                 }
                 h_pos += (opt.opt.gui_type == ConfigOptionDef::GUIType::legend ? 1 : 3) * blinking_button_width;
                 
@@ -210,8 +310,22 @@ wxPoint OG_CustomCtrl::get_pos(const Line& line, Field* field_in/* = nullptr*/)
                     break;
 
                 // add sidetext if any
-                if (!option.sidetext.empty() || opt_group->sidetext_width > 0)
-                    h_pos += opt_group->sidetext_width * m_em_unit + m_h_gap;
+                if (!option.sidetext.empty() || opt_group->sidetext_width > 0) {
+                    wxCoord side_w = opt_group->sidetext_width * m_em_unit;
+                    if (is_multioption_line && !option.sidetext.empty()) {
+                        // Not wrapped on lines with several fields (as CtrlLine::render()).
+                        wxCoord text_w, text_h;
+#ifdef __WXMSW__
+                        wxClientDC dc(this);
+                        dc.SetFont(m_font);
+                        dc.GetMultiLineTextExtent(_(option.sidetext), &text_w, &text_h);
+#else
+                        GetTextExtent(_(option.sidetext), &text_w, &text_h, 0, 0, &m_font);
+#endif //__WXMSW__
+                        side_w = std::max(side_w, text_w);
+                    }
+                    h_pos += side_w + m_h_gap;
+                }
 
                 if (opt.opt_id != option_set.back().opt_id) //! istead of (opt != option_set.back())
                     h_pos += lround(0.6 * m_em_unit);
@@ -234,6 +348,7 @@ void OG_CustomCtrl::OnPaint(wxPaintEvent&)
 
     wxPaintDC dc(this);
     dc.SetFont(m_font);
+    m_columns_valid = false;
 
     wxCoord v_pos = 0;
     for (CtrlLine& line : ctrl_lines) {
@@ -455,6 +570,7 @@ void OG_CustomCtrl::msw_rescale()
 #ifdef __WXOSX__
     return;
 #endif
+    m_columns_valid = false;
     m_font      = wxGetApp().normal_font();
     m_em_unit   = em_unit(m_parent);
     m_v_gap     = lround(1.0 * m_em_unit);
@@ -676,6 +792,39 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
     }
 
     size_t bmp_rect_id = 0;
+    if (OG_CustomCtrl::is_multioption_line(og_line)) {
+        // Columns shared by the group (see columns()): sub-labels right aligned against their field.
+        const std::vector<Column> &cols = ctrl->columns();
+        const int blinking_button_width = ctrl->m_bmp_blinking_sz.GetWidth() + ctrl->m_h_gap;
+        for (size_t i = 0; i < option_set.size() && i < cols.size(); ++ i) {
+            const Option &opt = option_set[i];
+            field = ctrl->opt_group->get_field(opt.opt_id);
+            if (cols[i].label > 0) {
+                const wxString sublabel = OG_CustomCtrl::sublabel_text(opt.opt);
+                if (! sublabel.empty()) {
+                    if (is_url_string)
+                        is_url_string = false;
+                    else if (i == 0)
+                        is_url_string = !suppress_hyperlinks && !og_line.label_path.empty();
+                    // Right aligned up to the lock icon: over the slot of the search highlight arrow, empty most of the time.
+                    draw_text(dc, wxPoint(h_pos, v_pos), sublabel, field ? field->label_color() : nullptr, cols[i].label + blinking_button_width, is_url_string, true);
+                }
+                h_pos += cols[i].label + ctrl->m_h_gap;
+            }
+            if (field && field->has_undo_ui())
+                draw_act_bmps(dc, wxPoint(h_pos, v_pos), field->undo_to_sys_bitmap(), field->undo_bitmap(), field->blink(), bmp_rect_id++);
+            h_pos += 3 * blinking_button_width;
+            h_pos += cols[i].field + ctrl->m_h_gap;
+            if (cols[i].side > 0) {
+                if (! opt.opt.sidetext.empty())
+                    draw_text(dc, wxPoint(h_pos, v_pos), _(opt.opt.sidetext), nullptr, cols[i].side);
+                h_pos += cols[i].side + ctrl->m_h_gap;
+            }
+            h_pos += lround(0.6 * ctrl->m_em_unit);
+        }
+        return;
+    }
+
     bool is_multioption_line = option_set.size() > 1 || og_line.force_sublabels;
     for (const Option& opt : option_set) {
         field = ctrl->opt_group->get_field(opt.opt_id);
@@ -691,7 +840,9 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
                 is_url_string = false;
             else if(opt == option_set.front())
                 is_url_string = !suppress_hyperlinks && !og_line.label_path.empty();
-            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), label, field ? field->label_color() : nullptr, ctrl->opt_group->sublabel_width * ctrl->m_em_unit, is_url_string);
+            // Right aligned against its field, in a column of sublabel_width or the text width if wider (not wrapped).
+            const wxCoord label_w = std::max<wxCoord>(ctrl->opt_group->sublabel_width * ctrl->m_em_unit, dc.GetMultiLineTextExtent(label).x);
+            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), label, field ? field->label_color() : nullptr, label_w, is_url_string, true);
         }
 
         if (field && field->has_undo_ui()) {
@@ -712,8 +863,13 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
             break;
 
         // add sidetext if any
-        if (!option.sidetext.empty() || ctrl->opt_group->sidetext_width > 0)
-            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), _(option.sidetext), nullptr, ctrl->opt_group->sidetext_width * ctrl->m_em_unit);
+        if (!option.sidetext.empty() || ctrl->opt_group->sidetext_width > 0) {
+            wxCoord side_w = ctrl->opt_group->sidetext_width * ctrl->m_em_unit;
+            if (is_multioption_line && !option.sidetext.empty())
+                // Not wrapped on lines with several fields: it would overlap the next sub-label.
+                side_w = std::max(side_w, dc.GetMultiLineTextExtent(_(option.sidetext)).x);
+            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), _(option.sidetext), nullptr, side_w);
+        }
 
         if (opt.opt_id != option_set.back().opt_id) //! istead of (opt != option_set.back())
             h_pos += lround(0.6 * ctrl->m_em_unit);
@@ -736,7 +892,7 @@ wxCoord OG_CustomCtrl::CtrlLine::draw_mode_bmp(wxDC& dc, wxCoord v_pos)
     return get_bitmap_size(bmp, ctrl).GetWidth() + ctrl->m_h_gap;
 }
 
-wxCoord    OG_CustomCtrl::CtrlLine::draw_text(wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url/* = false*/)
+wxCoord    OG_CustomCtrl::CtrlLine::draw_text(wxDC& dc, wxPoint pos, const wxString& text, const wxColour* color, int width, bool is_url/* = false*/, bool align_right/* = false*/)
 {
     wxString multiline_text;
     if (width > 0 && dc.GetTextExtent(text).x > width) {
@@ -769,8 +925,12 @@ wxCoord    OG_CustomCtrl::CtrlLine::draw_text(wxDC& dc, wxPoint pos, const wxStr
         dc.GetMultiLineTextExtent(out_text, &text_width, &text_height);
 
         pos.y = pos.y + lround((height - text_height) / 2);
+        // Right aligned in the given width: draw further right, the returned position doesn't change.
+        wxPoint draw_pos = pos;
+        if (align_right && width > text_width)
+            draw_pos.x += width - text_width;
         if (rect_label.GetWidth() == 0)
-            rect_label = wxRect(pos, wxSize(text_width, text_height));
+            rect_label = wxRect(draw_pos, wxSize(text_width, text_height));
 
         wxColour old_clr = dc.GetTextForeground();
         wxFont old_font = dc.GetFont();
@@ -782,7 +942,7 @@ wxCoord    OG_CustomCtrl::CtrlLine::draw_text(wxDC& dc, wxPoint pos, const wxStr
             dc.SetFont(old_font.Bold().Underlined());
 #endif            
         dc.SetTextForeground(color ? *color : wxGetApp().get_label_clr_default());
-        dc.DrawText(out_text, pos);
+        dc.DrawText(out_text, draw_pos);
         dc.SetTextForeground(old_clr);
         dc.SetFont(old_font);
 

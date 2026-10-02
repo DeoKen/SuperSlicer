@@ -1426,13 +1426,13 @@ static void validate_custom_parameters(Tab* tab, const t_config_option_key& opt_
 // Append a line of several options with short labels, laid out as in SuperSlicer, for example
 // "Perimeter speed:  Internal: [ ] mm/s  External: [ ] mm/s".
 static void append_labelled_line(ConfigOptionsGroupShp optgroup, const char *label, std::initializer_list<std::pair<const char*, const char*>> options,
-                                 const std::string &label_path = std::string(), int field_width = 5)
+                                 const std::string &label_path = std::string(), int field_width = 5, int opt_index = -1)
 {
     Line line = { label, "" };
     line.label_path = label_path;
     line.force_sublabels = true;
     for (const auto &[opt_key, sublabel] : options) {
-        Option option = optgroup->get_option(opt_key);
+        Option option = optgroup->get_option(opt_key, opt_index);
         option.opt.label = sublabel;
         if (field_width > 0)
             option.opt.width = field_width;
@@ -1482,12 +1482,11 @@ void TabPrint::build()
 	    optgroup->append_line(line);
 
         optgroup = page->new_optgroup(L("Quality (slower slicing)"));
-        optgroup->append_single_option_line("extra_perimeters", category_path + "extra-perimeters-if-needed");
-        optgroup->append_single_option_line("extra_perimeters_on_overhangs", category_path + "extra-perimeters-on-overhangs");
+        // Rows grouped as in SuperSlicer.
+        append_labelled_line(optgroup, L("Extra perimeters"), { { "extra_perimeters", L("If needed") }, { "extra_perimeters_on_overhangs", L("On overhangs") } }, category_path + "extra-perimeters-if-needed", -1);
         optgroup->append_single_option_line("ensure_vertical_shell_thickness", category_path + "ensure-vertical-shell-thickness");
         optgroup->append_single_option_line("avoid_crossing_curled_overhangs", category_path + "avoid-crossing-curled-overhangs");
-        optgroup->append_single_option_line("avoid_crossing_perimeters", category_path + "avoid-crossing-perimeters");
-        optgroup->append_single_option_line("avoid_crossing_perimeters_max_detour", category_path + "avoid_crossing_perimeters_max_detour");
+        append_labelled_line(optgroup, L("Avoid crossing perimeters"), { { "avoid_crossing_perimeters", "" }, { "avoid_crossing_perimeters_max_detour", L("Max detour") } }, category_path + "avoid-crossing-perimeters", -1);
         append_labelled_line(optgroup, L("Avoid crossing modifiers"), { { "avoid_crossing_not_first_layer", L("Not on first layer") }, { "avoid_crossing_top", L("Avoid top surfaces") } }, category_path + "avoid-crossing-perimeters", -1);
         append_labelled_line(optgroup, L("Between islands"), { { "avoid_travel_island", L("Find smallest crossing") }, { "avoid_travel_island_weight", L("Weight") } }, category_path + "avoid-crossing-perimeters", -1);
         optgroup->append_single_option_line("thin_walls", category_path + "detect-thin-walls");
@@ -1495,20 +1494,14 @@ void TabPrint::build()
         optgroup->append_single_option_line("overhangs", category_path + "detect-bridging-perimeters");
 
         optgroup = page->new_optgroup(L("Advanced"));
-        optgroup->append_single_option_line("seam_position", category_path + "seam-position");
-        optgroup->append_single_option_line("seam_gap_distance", category_path + "seam-gap-distance");
+        append_labelled_line(optgroup, L("Seam"), { { "seam_position", L("Position") }, { "seam_gap_distance", L("Gap") } }, category_path + "seam-position", -1);
         optgroup->append_single_option_line("staggered_inner_seams", category_path + "staggered-inner-seams");
-        append_labelled_line(optgroup, L("Seam notch"), { { "seam_notch_all", L("All") }, { "seam_notch_inner", L("Round holes") }, { "seam_notch_outer", L("Round perimeters") } });
-        append_labelled_line(optgroup, L("Seam notch angle"), { { "seam_notch_angle", L("Max angle") } }, std::string(), -1);
+        append_labelled_line(optgroup, L("Seam notch"), { { "seam_notch_inner", L("Round holes") }, { "seam_notch_outer", L("Round perimeters") }, { "seam_notch_all", L("All") }, { "seam_notch_angle", L("Max angle") } });
 
         const std::string scarf_seam_path{"seam-position_151069#"};
-        optgroup->append_single_option_line("scarf_seam_placement", scarf_seam_path + "scarf-joint-placement");
-        optgroup->append_single_option_line("scarf_seam_only_on_smooth", scarf_seam_path + "scarf-joint-only-on-smooth-perimeters");
-        optgroup->append_single_option_line("scarf_seam_start_height", scarf_seam_path + "scarf-start-height");
-        optgroup->append_single_option_line("scarf_seam_entire_loop", scarf_seam_path + "scarf-joint-around-entire-perimeter");
-        optgroup->append_single_option_line("scarf_seam_length", scarf_seam_path + "scarf-joint-length");
-        optgroup->append_single_option_line("scarf_seam_max_segment_length", scarf_seam_path + "max-scarf-joint-segment-length");
-        optgroup->append_single_option_line("scarf_seam_on_inner_perimeters", scarf_seam_path + "scarf-joint-on-inner-perimeters");
+        append_labelled_line(optgroup, L("Scarf joint"), { { "scarf_seam_placement", L("Placement") }, { "scarf_seam_only_on_smooth", L("Only on smooth perimeters") } }, scarf_seam_path + "scarf-joint-placement", -1);
+        append_labelled_line(optgroup, L("Scarf joint shape"), { { "scarf_seam_start_height", L("Start height") }, { "scarf_seam_length", L("Length") }, { "scarf_seam_max_segment_length", L("Max segment") } }, scarf_seam_path + "scarf-start-height");
+        append_labelled_line(optgroup, L("Scarf joint on"), { { "scarf_seam_entire_loop", L("Entire loop") }, { "scarf_seam_on_inner_perimeters", L("Inner perimeters") } }, scarf_seam_path + "scarf-joint-around-entire-perimeter", -1);
 
         optgroup->append_single_option_line("external_perimeters_first", category_path + "external-perimeters-first");
         optgroup->append_single_option_line("gap_fill_enabled", category_path + "fill-gaps");
@@ -1516,47 +1509,36 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(L("Fuzzy skin (experimental)"));
         category_path = "fuzzy-skin_246186/#";
-        optgroup->append_single_option_line("fuzzy_skin", category_path + "fuzzy-skin-type");
-        optgroup->append_single_option_line("fuzzy_skin_thickness", category_path + "fuzzy-skin-thickness");
-        optgroup->append_single_option_line("fuzzy_skin_point_dist", category_path + "fuzzy-skin-point-distance");
+        append_labelled_line(optgroup, L("Fuzzy skin"), { { "fuzzy_skin", "" }, { "fuzzy_skin_thickness", L("Thickness") }, { "fuzzy_skin_point_dist", L("Point distance") } }, category_path + "fuzzy-skin-type", -1);
 
         optgroup = page->new_optgroup(L("Only one perimeter"));
         category_path = "layers-and-perimeters_1748/#";
-        optgroup->append_single_option_line("top_one_perimeter_type", category_path + "top-one-perimeter-type");
-        optgroup->append_single_option_line("only_one_perimeter_first_layer", category_path + "only-one-perimeter-first-layer");
+        append_labelled_line(optgroup, L("Only one perimeter"), { { "top_one_perimeter_type", L("On top surfaces") }, { "only_one_perimeter_first_layer", L("On first layer") } }, category_path + "top-one-perimeter-type", -1);
 
     page = add_options_page(L("Infill"), "infill");
         category_path = "infill_42#";
         optgroup = page->new_optgroup(L("Infill"));
-        optgroup->append_single_option_line("fill_density", category_path + "fill-density");
-        optgroup->append_single_option_line("fill_pattern", category_path + "fill-pattern");
-        optgroup->append_single_option_line("infill_anchor", category_path + "fill-pattern");
-        optgroup->append_single_option_line("infill_anchor_max", category_path + "fill-pattern");
-        optgroup->append_single_option_line("top_fill_pattern", category_path + "top-fill-pattern");
-        optgroup->append_single_option_line("bottom_fill_pattern", category_path + "bottom-fill-pattern");
+        // Rows grouped as in SuperSlicer.
+        append_labelled_line(optgroup, L("Sparse infill"), { { "fill_density", L("Density") }, { "fill_pattern", L("Pattern") } }, category_path + "fill-density", -1);
+        append_labelled_line(optgroup, L("Infill anchor"), { { "infill_anchor", L("Length") }, { "infill_anchor_max", L("Maximum") } }, category_path + "fill-pattern", -1);
+        append_labelled_line(optgroup, L("Solid infill pattern"), { { "top_fill_pattern", L("Top") }, { "bottom_fill_pattern", L("Bottom") } }, category_path + "top-fill-pattern", -1);
 
         optgroup = page->new_optgroup(L("Ironing"));
         category_path = "ironing_177488#";
-        optgroup->append_single_option_line("ironing", category_path);
-        optgroup->append_single_option_line("ironing_type", category_path + "ironing-type");
-        optgroup->append_single_option_line("ironing_flowrate", category_path + "flow-rate");
-        optgroup->append_single_option_line("ironing_spacing", category_path + "spacing-between-ironing-passes");
+        append_labelled_line(optgroup, L("Ironing"), { { "ironing", "" }, { "ironing_type", L("Type") } }, category_path, -1);
+        append_labelled_line(optgroup, L("Ironing tuning"), { { "ironing_flowrate", L("Flow rate") }, { "ironing_spacing", L("Spacing") } }, category_path + "flow-rate");
 
         optgroup = page->new_optgroup(L("Reducing printing time"));
         category_path = "infill_42#";
-        optgroup->append_single_option_line("automatic_infill_combination");
-        optgroup->append_single_option_line("automatic_infill_combination_max_layer_height");
+        append_labelled_line(optgroup, L("Automatic infill combination"), { { "automatic_infill_combination", "" }, { "automatic_infill_combination_max_layer_height", L("Max layer height") } }, std::string(), -1);
         optgroup->append_single_option_line("infill_every_layers", category_path + "combine-infill-every-x-layers");
 
         optgroup = page->new_optgroup(L("Advanced"));
         optgroup->append_single_option_line("solid_infill_every_layers", category_path + "solid-infill-every-x-layers");
-        optgroup->append_single_option_line("fill_angle", category_path + "fill-angle");
-        // Infill directions from OrcaSlicer.
-        optgroup->append_single_option_line("solid_infill_direction");
-        optgroup->append_single_option_line("rotate_solid_infill_direction");
-        optgroup->append_single_option_line("align_infill_direction_to_model");
+        // Solid infill direction from OrcaSlicer.
+        append_labelled_line(optgroup, L("Infill angle"), { { "fill_angle", L("Sparse") }, { "solid_infill_direction", L("Solid") }, { "bridge_angle", L("Bridge") } }, category_path + "fill-angle");
+        append_labelled_line(optgroup, L("Infill angle modifiers"), { { "rotate_solid_infill_direction", L("Rotate solid infill") }, { "align_infill_direction_to_model", L("Align to model") } }, std::string(), -1);
         optgroup->append_single_option_line("solid_infill_below_area", category_path + "solid-infill-threshold-area");
-        optgroup->append_single_option_line("bridge_angle");
         optgroup->append_single_option_line("only_retract_when_crossing_perimeters");
         optgroup->append_single_option_line("infill_first");
 
@@ -1571,8 +1553,7 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(L("Brim"));
         optgroup->append_single_option_line("brim_type", category_path + "brim");
-        optgroup->append_single_option_line("brim_width", category_path + "brim");
-        optgroup->append_single_option_line("brim_separation", category_path + "brim");
+        append_labelled_line(optgroup, L("Brim"), { { "brim_width", L("Width") }, { "brim_separation", L("Separation gap") } }, category_path + "brim");
         append_labelled_line(optgroup, L("Brim ears"), { { "brim_ears", L("Brim ears") }, { "brim_ears_max_angle", L("Max angle") }, { "brim_ears_detection_length", L("Detection radius") }, { "brim_ears_pattern", L("Pattern") } }, category_path + "brim", -1);
         optgroup->append_single_option_line("brim_per_object", category_path + "brim");
 
@@ -1583,27 +1564,20 @@ void TabPrint::build()
         optgroup->append_single_option_line("support_material_auto", category_path + "auto-generated-supports");
         optgroup->append_single_option_line("support_material_threshold", category_path + "overhang-threshold");
         optgroup->append_single_option_line("support_material_enforce_layers", category_path + "enforce-support-for-the-first");
-        optgroup->append_single_option_line("raft_first_layer_density", category_path + "raft-first-layer-density");
-        optgroup->append_single_option_line("raft_first_layer_expansion", category_path + "raft-first-layer-expansion");
+        append_labelled_line(optgroup, L("Raft first layer"), { { "raft_first_layer_density", L("Density") }, { "raft_first_layer_expansion", L("Expansion") } }, category_path + "raft-first-layer-density");
 
         optgroup = page->new_optgroup(L("Raft"));
-        optgroup->append_single_option_line("raft_layers", category_path + "raft-layers");
-        optgroup->append_single_option_line("raft_contact_distance", category_path + "raft-layers");
+        append_labelled_line(optgroup, L("Raft"), { { "raft_layers", L("Layers") }, { "raft_contact_distance", L("Contact Z distance") } }, category_path + "raft-layers");
         optgroup->append_single_option_line("raft_expansion");
 
         optgroup = page->new_optgroup(L("Options for support material and raft"));
         optgroup->append_single_option_line("support_material_style", category_path + "style");
-        optgroup->append_single_option_line("support_material_contact_distance", category_path + "contact-z-distance");
-        optgroup->append_single_option_line("support_material_bottom_contact_distance", category_path + "contact-z-distance");
-        optgroup->append_single_option_line("support_material_pattern", category_path + "pattern");
+        append_labelled_line(optgroup, L("Contact Z distance"), { { "support_material_contact_distance", L("Top") }, { "support_material_bottom_contact_distance", L("Bottom") } }, category_path + "contact-z-distance", -1);
+        append_labelled_line(optgroup, L("Pattern"), { { "support_material_pattern", "" }, { "support_material_spacing", L("Spacing") }, { "support_material_angle", L("Angle") } }, category_path + "pattern", -1);
         optgroup->append_single_option_line("support_material_with_sheath", category_path + "with-sheath-around-the-support");
-        optgroup->append_single_option_line("support_material_spacing", category_path + "pattern-spacing-0-inf");
-        optgroup->append_single_option_line("support_material_angle", category_path + "pattern-angle");
         optgroup->append_single_option_line("support_material_closing_radius", category_path + "pattern-angle");
-        optgroup->append_single_option_line("support_material_interface_layers", category_path + "interface-layers");
-        optgroup->append_single_option_line("support_material_bottom_interface_layers", category_path + "interface-layers");
-        optgroup->append_single_option_line("support_material_interface_pattern", category_path + "interface-pattern");
-        optgroup->append_single_option_line("support_material_interface_spacing", category_path + "interface-pattern-spacing");
+        append_labelled_line(optgroup, L("Interface layers"), { { "support_material_interface_layers", L("Top") }, { "support_material_bottom_interface_layers", L("Bottom") } }, category_path + "interface-layers", -1);
+        append_labelled_line(optgroup, L("Interface pattern"), { { "support_material_interface_pattern", "" }, { "support_material_interface_spacing", L("Spacing") } }, category_path + "interface-pattern", -1);
         optgroup->append_single_option_line("support_material_interface_contact_loops", category_path + "interface-loops");
         optgroup->append_single_option_line("support_material_buildplate_only", category_path + "support-on-build-plate-only");
         optgroup->append_single_option_line("support_material_xy_spacing", category_path + "xy-separation-between-an-object-and-its-support");
@@ -1612,14 +1586,10 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(L("Organic supports"));
         const std::string path = "organic-supports_480131#organic-supports-settings";
-        optgroup->append_single_option_line("support_tree_angle", path);
-        optgroup->append_single_option_line("support_tree_angle_slow", path);
-        optgroup->append_single_option_line("support_tree_branch_diameter", path);
-        optgroup->append_single_option_line("support_tree_branch_diameter_angle", path);
+        append_labelled_line(optgroup, L("Branch angle"), { { "support_tree_angle", L("Maximum") }, { "support_tree_angle_slow", L("Preferred") } }, path);
+        append_labelled_line(optgroup, L("Branch diameter"), { { "support_tree_branch_diameter", "" }, { "support_tree_branch_diameter_angle", L("Angle") }, { "support_tree_tip_diameter", L("Tip") } }, path);
         optgroup->append_single_option_line("support_tree_branch_diameter_double_wall", path);
-        optgroup->append_single_option_line("support_tree_tip_diameter", path);
-        optgroup->append_single_option_line("support_tree_branch_distance", path);
-        optgroup->append_single_option_line("support_tree_top_rate", path);
+        append_labelled_line(optgroup, L("Branch"), { { "support_tree_branch_distance", L("Distance") }, { "support_tree_top_rate", L("Density") } }, path);
 
     page = add_options_page(L("Speed"), "time");
         // Laid out as in SuperSlicer: one line per feature group, short labels per field.
@@ -1634,10 +1604,7 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(L("Dynamic overhang speed"));
         optgroup->append_single_option_line("enable_dynamic_overhang_speeds");
-        optgroup->append_single_option_line("overhang_speed_0");
-        optgroup->append_single_option_line("overhang_speed_1");
-        optgroup->append_single_option_line("overhang_speed_2");
-        optgroup->append_single_option_line("overhang_speed_3");
+        append_labelled_line(optgroup, L("Speed for overlap"), { { "overhang_speed_0", L("0% (bridge)") }, { "overhang_speed_1", L("25%") }, { "overhang_speed_2", L("50%") }, { "overhang_speed_3", L("75%") } });
 
         optgroup = page->new_optgroup(L("Speed for non-print moves"));
         optgroup->sublabel_width = 7;
@@ -1687,12 +1654,9 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(L("Wipe tower"));
         optgroup->append_single_option_line("wipe_tower");
-        optgroup->append_single_option_line("wipe_tower_width");        
-        optgroup->append_single_option_line("wipe_tower_brim_width");
+        append_labelled_line(optgroup, L("Size"), { { "wipe_tower_width", L("Width") }, { "wipe_tower_brim_width", L("Brim width") }, { "wipe_tower_cone_angle", L("Stabilization cone") } });
         optgroup->append_single_option_line("wipe_tower_bridging");
-        optgroup->append_single_option_line("wipe_tower_cone_angle");
-        optgroup->append_single_option_line("wipe_tower_extra_spacing");
-        optgroup->append_single_option_line("wipe_tower_extra_flow");
+        append_labelled_line(optgroup, L("Purge lines"), { { "wipe_tower_extra_spacing", L("Spacing") }, { "wipe_tower_extra_flow", L("Flow") } });
         optgroup->append_single_option_line("wipe_tower_no_sparse_layers");
         optgroup->append_single_option_line("single_extruder_multi_material_priming");
 
@@ -1700,26 +1664,20 @@ void TabPrint::build()
         optgroup->append_single_option_line("toolchange_ordering");
 
         optgroup->append_single_option_line("interface_shells");
-        optgroup->append_single_option_line("mmu_segmented_region_max_width");
-        optgroup->append_single_option_line("mmu_segmented_region_interlocking_depth");
+        append_labelled_line(optgroup, L("Segmented regions"), { { "mmu_segmented_region_max_width", L("Max width") }, { "mmu_segmented_region_interlocking_depth", L("Interlocking depth") } });
 
         optgroup->append_single_option_line("interlocking_beam");
-        optgroup->append_single_option_line("interlocking_beam_width");
-        optgroup->append_single_option_line("interlocking_orientation");
-        optgroup->append_single_option_line("interlocking_beam_layer_count");
-        optgroup->append_single_option_line("interlocking_depth");
-        optgroup->append_single_option_line("interlocking_boundary_avoidance");
+        append_labelled_line(optgroup, L("Interlocking beam"), { { "interlocking_beam_width", L("Width") }, { "interlocking_orientation", L("Orientation") }, { "interlocking_beam_layer_count", L("Layers") } });
+        append_labelled_line(optgroup, L("Interlocking"), { { "interlocking_depth", L("Depth") }, { "interlocking_boundary_avoidance", L("Boundary avoidance") } });
 
     page = add_options_page(L("Advanced"), "wrench");
         optgroup = page->new_optgroup(L("Extrusion width"));
-        optgroup->append_single_option_line("extrusion_width");
-        optgroup->append_single_option_line("first_layer_extrusion_width");
-        optgroup->append_single_option_line("perimeter_extrusion_width");
-        optgroup->append_single_option_line("external_perimeter_extrusion_width");
-        optgroup->append_single_option_line("infill_extrusion_width");
-        optgroup->append_single_option_line("solid_infill_extrusion_width");
-        optgroup->append_single_option_line("top_infill_extrusion_width");
-        optgroup->append_single_option_line("support_material_extrusion_width");
+        // One row per feature group, as the Speed page.
+        optgroup->sublabel_width = 7;
+        append_labelled_line(optgroup, L("Default width"),   { { "extrusion_width", L("Default") }, { "first_layer_extrusion_width", L("First layer") } });
+        append_labelled_line(optgroup, L("Perimeter width"), { { "perimeter_extrusion_width", L("Internal") }, { "external_perimeter_extrusion_width", L("External") } });
+        append_labelled_line(optgroup, L("Infill width"),    { { "infill_extrusion_width", L("Sparse") }, { "solid_infill_extrusion_width", L("Solid") }, { "top_infill_extrusion_width", L("Top solid") } });
+        append_labelled_line(optgroup, L("Support width"),   { { "support_material_extrusion_width", L("Support") } });
         optgroup->append_single_option_line("automatic_extrusion_widths");
 
         optgroup = page->new_optgroup(L("Overlap"));
@@ -1740,12 +1698,9 @@ void TabPrint::build()
         optgroup->append_single_option_line("elefant_foot_compensation", "elephant-foot-compensation_114487");
 
         optgroup = page->new_optgroup(L("Arachne perimeter generator"));
-        optgroup->append_single_option_line("wall_transition_angle");
-        optgroup->append_single_option_line("wall_transition_filter_deviation");
-        optgroup->append_single_option_line("wall_transition_length");
+        append_labelled_line(optgroup, L("Wall transition"), { { "wall_transition_angle", L("Angle") }, { "wall_transition_filter_deviation", L("Distance margin") }, { "wall_transition_length", L("Length") } });
         optgroup->append_single_option_line("wall_distribution_count");
-        optgroup->append_single_option_line("min_bead_width");
-        optgroup->append_single_option_line("min_feature_size");
+        append_labelled_line(optgroup, L("Minimum"), { { "min_bead_width", L("Bead width") }, { "min_feature_size", L("Feature size") } });
 
         optgroup = page->new_optgroup(L("Custom parameters"), 0);
         auto option = optgroup->get_option("custom_parameters_print");
@@ -2303,19 +2258,14 @@ void TabFilament::build()
         append_labelled_line(optgroup, L("Overhang perimeter fan speed"), { { "overhangs_fan_speed", L("Overhangs") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Gap fill fan speed"),           { { "gap_fill_fan_speed", L("Gap fill") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Auxiliary fan speed"),          { { "additional_cooling_fan_speed", L("Speed") } }, category_path + "fan-settings");
-        optgroup->append_single_option_line("disable_fan_first_layers", category_path + "fan-settings");
-        optgroup->append_single_option_line("full_fan_speed_layer", category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Disable fan for the first"), { { "disable_fan_first_layers", "" }, { "full_fan_speed_layer", L("Full fan speed at layer") } }, category_path + "fan-settings", -1);
 
         optgroup = page->new_optgroup(L("Dynamic fan speeds"), 25);
         optgroup->append_single_option_line("enable_dynamic_fan_speeds", category_path + "dynamic-fan-speeds");
-        optgroup->append_single_option_line("overhang_fan_speed_0", category_path + "dynamic-fan-speeds");
-        optgroup->append_single_option_line("overhang_fan_speed_1", category_path + "dynamic-fan-speeds");
-        optgroup->append_single_option_line("overhang_fan_speed_2", category_path + "dynamic-fan-speeds");
-        optgroup->append_single_option_line("overhang_fan_speed_3", category_path + "dynamic-fan-speeds");
+        append_labelled_line(optgroup, L("Speed for overlap"), { { "overhang_fan_speed_0", L("0% (bridge)") }, { "overhang_fan_speed_1", L("25%") }, { "overhang_fan_speed_2", L("50%") }, { "overhang_fan_speed_3", L("75%") } }, category_path + "dynamic-fan-speeds");
 
         optgroup = page->new_optgroup(L("Cooling thresholds"), 25);
-        optgroup->append_single_option_line("fan_below_layer_time", category_path + "cooling-thresholds");
-        optgroup->append_single_option_line("slowdown_below_layer_time", category_path + "cooling-thresholds");
+        append_labelled_line(optgroup, L("Layer time below"), { { "fan_below_layer_time", L("Enable fan") }, { "slowdown_below_layer_time", L("Slow down") } }, category_path + "cooling-thresholds");
         optgroup->append_single_option_line("min_print_speed", category_path + "cooling-thresholds");
 
     page = add_options_page(L("Advanced"), "wrench");
@@ -2337,29 +2287,21 @@ void TabFilament::build()
         };
         optgroup->append_line(line);
 
-        optgroup->append_single_option_line("filament_infill_max_speed", "max-simple-infill-speed");
-        optgroup->append_single_option_line("filament_infill_max_crossing_speed", "max-crossing-infill-speed");
+        append_labelled_line(optgroup, L("Max infill speed"), { { "filament_infill_max_speed", L("Simple") }, { "filament_infill_max_crossing_speed", L("Crossing") } }, "max-simple-infill-speed");
 
         optgroup = page->new_optgroup(L("Shrinkage compensation"));
-        optgroup->append_single_option_line("filament_shrinkage_compensation_xy");
-        optgroup->append_single_option_line("filament_shrinkage_compensation_z");
+        append_labelled_line(optgroup, L("Shrinkage compensation"), { { "filament_shrinkage_compensation_xy", L("XY") }, { "filament_shrinkage_compensation_z", L("Z") } });
 
         optgroup = page->new_optgroup(L("Wipe tower parameters"));
         optgroup->append_single_option_line("filament_minimal_purge_on_wipe_tower");
 
         optgroup = page->new_optgroup(L("Toolchange parameters with single extruder MM printers"));
-        optgroup->append_single_option_line("filament_loading_speed_start");
-        optgroup->append_single_option_line("filament_loading_speed");
-        optgroup->append_single_option_line("filament_unloading_speed_start");
-        optgroup->append_single_option_line("filament_unloading_speed");
-        optgroup->append_single_option_line("filament_load_time");
-        optgroup->append_single_option_line("filament_unload_time");
-        optgroup->append_single_option_line("filament_toolchange_delay");
+        append_labelled_line(optgroup, L("Loading speed"),   { { "filament_loading_speed_start", L("Start") }, { "filament_loading_speed", L("Speed") } });
+        append_labelled_line(optgroup, L("Unloading speed"), { { "filament_unloading_speed_start", L("Start") }, { "filament_unloading_speed", L("Speed") } });
+        append_labelled_line(optgroup, L("Time"),            { { "filament_load_time", L("Load") }, { "filament_unload_time", L("Unload") }, { "filament_toolchange_delay", L("Delay") } });
         optgroup->append_single_option_line("filament_cooling_moves");
-        optgroup->append_single_option_line("filament_cooling_initial_speed");
-        optgroup->append_single_option_line("filament_cooling_final_speed");
-        optgroup->append_single_option_line("filament_stamping_loading_speed");
-        optgroup->append_single_option_line("filament_stamping_distance");
+        append_labelled_line(optgroup, L("Cooling speed"),   { { "filament_cooling_initial_speed", L("Initial") }, { "filament_cooling_final_speed", L("Final") } });
+        append_labelled_line(optgroup, L("Stamping"),        { { "filament_stamping_loading_speed", L("Speed") }, { "filament_stamping_distance", L("Distance") } });
         optgroup->append_single_option_line("filament_purge_multiplier");
 
         create_line_with_widget(optgroup.get(), "filament_ramming_parameters", "", [this](wxWindow* parent) {
@@ -2383,13 +2325,10 @@ void TabFilament::build()
 
 
         optgroup = page->new_optgroup(L("Toolchange parameters with multi extruder MM printers"));
-        optgroup->append_single_option_line("filament_multitool_ramming");
-        optgroup->append_single_option_line("filament_multitool_ramming_volume");
-        optgroup->append_single_option_line("filament_multitool_ramming_flow");
+        append_labelled_line(optgroup, L("Ramming"), { { "filament_multitool_ramming", "" }, { "filament_multitool_ramming_volume", L("Volume") }, { "filament_multitool_ramming_flow", L("Flow") } });
 
         optgroup = page->new_optgroup(L("Flush parameters (experimental)"));
-        optgroup->append_single_option_line("filament_flush_volume");
-        optgroup->append_single_option_line("filament_flush_speed");
+        append_labelled_line(optgroup, L("Flush"), { { "filament_flush_volume", L("Volume") }, { "filament_flush_speed", L("Speed") } });
 
 
     add_filament_overrides_page();
@@ -2739,8 +2678,7 @@ void TabPrinter::build_fff()
         });
         optgroup->append_single_option_line("bed_keep_out_zones");
 
-        optgroup->append_single_option_line("max_print_height");
-        optgroup->append_single_option_line("z_offset");
+        append_labelled_line(optgroup, L("Z"), { { "max_print_height", L("Max print height") }, { "z_offset", L("Z offset") } });
 
         optgroup = page->new_optgroup(L("Capabilities"));
         ConfigOptionDef def;
@@ -2830,9 +2768,8 @@ void TabPrinter::build_fff()
         option.opt.full_width = true;
         optgroup->append_single_option_line(option);
 
-        optgroup->append_single_option_line("silent_mode");
+        append_labelled_line(optgroup, L("Supports"), { { "silent_mode", L("Stealth mode") }, { "binary_gcode", L("Binary G-code") } }, std::string(), -1);
         optgroup->append_single_option_line("remaining_times");
-        optgroup->append_single_option_line("binary_gcode");
 
         optgroup->on_change = [this](t_config_option_key opt_key, boost::any value) {
             wxTheApp->CallAfter([this, opt_key, value]() {
@@ -2932,8 +2869,7 @@ void TabPrinter::build_fff()
         optgroup->append_single_option_line("prefer_clockwise_movements");
 
         optgroup = page->new_optgroup(L("Sequential printing limits"));
-        optgroup->append_single_option_line("extruder_clearance_radius");
-        optgroup->append_single_option_line("extruder_clearance_height");
+        append_labelled_line(optgroup, L("Extruder clearance"), { { "extruder_clearance_radius", L("Radius") }, { "extruder_clearance_height", L("Height") } });
 
     const int gcode_field_height = 15; // 150
     const int notes_field_height = 25; // 250
@@ -3471,8 +3407,7 @@ void TabPrinter::build_extruder_pages(size_t n_before_extruders)
         optgroup->append_line(line);
 
         optgroup = page->new_optgroup(L("Layer height limits"));
-        optgroup->append_single_option_line("min_layer_height", "", extruder_idx);
-        optgroup->append_single_option_line("max_layer_height", "", extruder_idx);
+        append_labelled_line(optgroup, L("Layer height limits"), { { "min_layer_height", L("Min") }, { "max_layer_height", L("Max") } }, std::string(), 5, int(extruder_idx));
 
         optgroup = page->new_optgroup(L("Position (for multi-extruder printers)"));
         optgroup->append_single_option_line("extruder_offset", "", extruder_idx);
@@ -3491,17 +3426,14 @@ void TabPrinter::build_extruder_pages(size_t n_before_extruders)
 
         optgroup = page->new_optgroup(L("Retraction"));
         optgroup->append_single_option_line("retract_length", "", extruder_idx);
-        optgroup->append_single_option_line("retract_speed", "", extruder_idx);
-        optgroup->append_single_option_line("deretract_speed", "", extruder_idx);
+        append_labelled_line(optgroup, L("Retraction speed"), { { "retract_speed", L("Retraction") }, { "deretract_speed", L("Deretraction") } }, std::string(), 5, int(extruder_idx));
         optgroup->append_single_option_line("retract_restart_extra", "", extruder_idx);
         optgroup->append_single_option_line("retract_before_travel", "", extruder_idx);
         optgroup->append_single_option_line("retract_layer_change", "", extruder_idx);
-        optgroup->append_single_option_line("wipe", "", extruder_idx);
-        optgroup->append_single_option_line("retract_before_wipe", "", extruder_idx);
+        append_labelled_line(optgroup, L("Wipe while retracting"), { { "wipe", "" }, { "retract_before_wipe", L("Retract amount before wipe") } }, std::string(), -1, int(extruder_idx));
 
         optgroup = page->new_optgroup(L("Retraction when tool is disabled (advanced settings for multi-extruder setups)"));
-        optgroup->append_single_option_line("retract_length_toolchange", "", extruder_idx);
-        optgroup->append_single_option_line("retract_restart_extra_toolchange", "", extruder_idx);
+        append_labelled_line(optgroup, L("Retraction on tool change"), { { "retract_length_toolchange", L("Length") }, { "retract_restart_extra_toolchange", L("Extra length on restart") } }, std::string(), 5, int(extruder_idx));
     }
 
     // # remove extra pages
