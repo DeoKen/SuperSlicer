@@ -434,6 +434,19 @@ void PrintConfigDef::init_common_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
 
+    def = this->add("auxiliary_fan_gcode", coString);
+    def->label = L("Auxiliary fan G-code");
+    def->tooltip = L("G-code setting the speed of an auxiliary part cooling fan, at the speed of the filament "
+                     "(\"Auxiliary fan speed\" in the filament cooling settings). Leave empty if the printer has no auxiliary fan. "
+                     "The fan is off for the layers with the fan disabled (\"Disable fan for the first\"), then runs at the filament speed, "
+                     "whatever the layer time, and it is turned off at the end of the print. "
+                     "Use [aux_fan_speed] for the speed in percent (0-100), for example with Klipper: "
+                     "SET_FAN_SPEED FAN=aux SPEED={aux_fan_speed/100.0} (write 100.0, not 100: a division of two integers "
+                     "is an integer division) or, with the M106 P2 command of OrcaSlicer: "
+                     "M106 P2 S{int(aux_fan_speed*2.55+0.5)}");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString(""));
+
     def = this->add("bed_keep_out_zones", coString);
     def->label = L("Bed keep-out zones");
     def->tooltip = L("Rectangles of the bed the toolhead cannot reach at any height, for example the corners taken by "
@@ -956,6 +969,17 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloat(0));
+
+    def = this->add("additional_cooling_fan_speed", coInts);
+    def->label = L("Auxiliary fan speed");
+    def->tooltip = L("Speed of the auxiliary part cooling fan (OrcaSlicer setting). The auxiliary fan runs at this speed during the print, "
+                     "except for the first layers set by \"Disable fan for the first\". It is not changed by the layer time or by the "
+                     "feature fan speeds. Needs the \"Auxiliary fan G-code\" of the printer settings.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInts { 0 });
 
     def = this->add("internal_bridge_fan_speed", coInts);
     def->label = L("Internal bridges fan speed");
@@ -6746,6 +6770,10 @@ OtherSlicingStatesConfigDef::OtherSlicingStatesConfigDef()
     def->label = L("Has wipe tower");
     def->tooltip = L("Whether or not wipe tower is being generated in the print.");
 
+    def = this->add("max_additional_fan", coFloat);
+    def->label = L("Maximal auxiliary fan speed");
+    def->tooltip = L("Highest auxiliary fan speed (additional_cooling_fan_speed) of the filaments used in this print, in percent.");
+
     def = this->add("initial_extruder", coInt);
     def->label = L("Initial extruder");
     def->tooltip = L("Zero-based index of the first extruder used in the print. Same as initial_tool.");
@@ -6954,6 +6982,7 @@ static std::map<t_custom_gcode_key, t_config_option_keys> s_CustomGcodeSpecificP
     {"before_layer_gcode",      {"layer_num", "layer_z", "max_layer_z"}},
     {"layer_gcode",             {"layer_num", "layer_z", "max_layer_z"}},
     {"feature_gcode",           {"layer_num", "layer_z", "max_layer_z", "extrusion_role", "last_extrusion_role", "next_extrusion_role", "previous_extrusion_role"}},
+    {"auxiliary_fan_gcode",     {"aux_fan_speed"}},
     {"toolchange_gcode",        {"layer_num", "layer_z", "max_layer_z", "previous_extruder", "next_extruder", "toolchange_z"}},
     {"color_change_gcode",      {"color_change_extruder"}},
     {"pause_print_gcode",       {"color_change_extruder"}},
@@ -7011,6 +7040,10 @@ CustomGcodeSpecificConfigDef::CustomGcodeSpecificConfigDef()
     def = this->add("previous_extrusion_role", coString);
     def->label = L("Previous extrusion type");
     def->tooltip = L("Same as last_extrusion_role.");
+
+    def = this->add("aux_fan_speed", coInt);
+    def->label = L("Auxiliary fan speed");
+    def->tooltip = L("Speed of the auxiliary fan to set, in percent (0-100).");
 
     def = this->add("color_change_extruder", coInt);
     // TRN: This is a label in custom g-code editor dialog, belonging to color_change_extruder. Denoted index of the extruder for which color change is performed.

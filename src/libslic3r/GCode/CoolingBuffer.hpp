@@ -42,6 +42,9 @@ public:
     CoolingBuffer(GCodeGenerator &gcodegen);
     void        reset(const Vec3d &position);
     void        set_current_extruder(unsigned int extruder_id) { m_current_extruder = extruder_id; }
+    // Auxiliary fan (auxiliary_fan_gcode): the G-code setting each speed (percent) the auxiliary fan may get, rendered
+    // by GCodeGenerator before the layers are processed. Empty if the printer has no auxiliary fan.
+    void        set_aux_fan_gcode(std::map<int, std::string> &&gcode) { m_aux_fan_gcode = std::move(gcode); }
     std::string process_layer(std::string &&gcode, size_t layer_id, bool flush);
     std::string process_layer(const std::string &gcode, size_t layer_id, bool flush)
         { return this->process_layer(std::string(gcode), layer_id, flush); }
@@ -64,6 +67,9 @@ private:
     std::array<float, 5>        m_current_pos;
     // Current known fan speed or -1 if not known yet.
     int                         m_fan_speed;
+    // Current auxiliary fan speed or -1 if not known yet.
+    int                         m_aux_fan_speed { -1 };
+    std::map<int, std::string>  m_aux_fan_gcode;
     // Cached from GCodeWriter.
     // Printing extruder IDs, zero based.
     std::vector<unsigned int>   m_extruder_ids;

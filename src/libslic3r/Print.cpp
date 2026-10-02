@@ -94,6 +94,8 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "bed_keep_out_zones",
         "fan_speedup_time",
         "fan_speedup_overhangs",
+        "auxiliary_fan_gcode",
+        "additional_cooling_fan_speed",
         "bed_temperature",
         "before_layer_gcode",
         "between_objects_gcode",

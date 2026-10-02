@@ -558,6 +558,7 @@ namespace DoExport {
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Tool change G-code"), config.toolchange_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Between objects G-code (for sequential printing)"), config.between_objects_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("After extrusion type change G-code"), config.feature_gcode.value);
+        if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Auxiliary fan G-code"), print.config().auxiliary_fan_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Color Change G-code"), config.color_change_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Pause Print G-code"), config.pause_print_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Template Custom G-code"), config.template_custom_gcode.value);
@@ -1341,6 +1342,34 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
             is_extruder_used[extruder_id] = true;
         this->placeholder_parser().set("is_extruder_used", new ConfigOptionBools(is_extruder_used));
     }
+    {
+        // Auxiliary fan (OrcaSlicer): highest speed of the used filaments, for the custom G-codes.
+        int max_additional_fan = 0;
+        for (unsigned int extruder_id : tool_ordering.all_extruders())
+            max_additional_fan = std::max(max_additional_fan, print.config().additional_cooling_fan_speed.get_at(extruder_id));
+        this->placeholder_parser().set("max_additional_fan", new ConfigOptionFloat(max_additional_fan));
+        // Render the auxiliary fan G-code for every speed it may get (off and the filament speeds) here, on this thread:
+        // the cooling buffer emits it while the layers are processed in parallel.
+        std::map<int, std::string> aux_fan_gcode;
+        if (! print.config().auxiliary_fan_gcode.value.empty()) {
+            auto render = [this, &print, &aux_fan_gcode](int speed, unsigned int extruder_id) {
+                speed = std::clamp(speed, 0, 100);
+                if (aux_fan_gcode.count(speed))
+                    return;
+                DynamicConfig config;
+                config.set_key_value("aux_fan_speed", new ConfigOptionInt(speed));
+                std::string gcode = this->placeholder_parser_process("auxiliary_fan_gcode", print.config().auxiliary_fan_gcode.value, extruder_id, &config, false);
+                if (! gcode.empty() && gcode.back() != '\n')
+                    gcode += '\n';
+                aux_fan_gcode.emplace(speed, std::move(gcode));
+            };
+            render(0, initial_extruder_id);
+            for (unsigned int extruder_id = 0; extruder_id < (unsigned int)print.config().nozzle_diameter.size(); ++ extruder_id)
+                render(print.config().additional_cooling_fan_speed.get_at(extruder_id), extruder_id);
+        }
+        m_aux_fan_off_gcode = aux_fan_gcode.empty() ? std::string() : aux_fan_gcode.at(0);
+        m_cooling_buffer->set_aux_fan_gcode(std::move(aux_fan_gcode));
+    }
 
     // Enable ooze prevention if configured so.
     DoExport::init_ooze_prevention(print, m_ooze_prevention);
@@ -1350,6 +1379,10 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
     this->_print_first_layer_chamber_temperature(file, print, start_gcode, config().chamber_temperature.get_at(initial_extruder_id), false, false);
     this->_print_first_layer_bed_temperature(file, print, start_gcode, initial_extruder_id, true);
     this->_print_first_layer_extruder_temperatures(file, print, start_gcode, initial_extruder_id, false);
+
+    // Auxiliary fan off before the start G-code if the first layers have the fan disabled, as in OrcaSlicer.
+    if (print.config().disable_fan_first_layers.get_at(initial_extruder_id) > 0)
+        file.write(m_aux_fan_off_gcode);
 
     // adds tag for processor
     file.write_format(";%s%s\n", GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Role).c_str(), gcode_extrusion_role_to_string(GCodeExtrusionRole::Custom).c_str());
@@ -1515,6 +1548,8 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
     // Write end commands to file.
     file.write(this->retract_and_wipe());
     file.write(m_writer.set_fan(0));
+    // Auxiliary fan off, as in OrcaSlicer.
+    file.write(m_aux_fan_off_gcode);
 
     // adds tag for processor
     file.write_format(";%s%s\n", GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Role).c_str(), gcode_extrusion_role_to_string(GCodeExtrusionRole::Custom).c_str());
@@ -1837,7 +1872,8 @@ std::string GCodeGenerator::placeholder_parser_process(
     const std::string   &name,
     const std::string   &templ,
     unsigned int         current_extruder_id,
-    const DynamicConfig *config_override)
+    const DynamicConfig *config_override,
+    bool                 tag_for_fan_mover)
 {
 #ifndef NDEBUG // CHECK_CUSTOM_GCODE_PLACEHOLDERS
     if (config_override) {
@@ -1875,7 +1911,7 @@ std::string GCodeGenerator::placeholder_parser_process(
             update_last_xy_from_custom_gcode(output, m_custom_gcode_last_xy);
 
         // Tag the custom G-code for the fan mover, which doesn't move its fan commands (as in SuperSlicer).
-        if (m_fan_mover && ! output.empty()) {
+        if (m_fan_mover && tag_for_fan_mover && ! output.empty()) {
             output = "; custom gcode: " + name + "\n" + output;
             if (output.back() != '\n')
                 output += '\n';

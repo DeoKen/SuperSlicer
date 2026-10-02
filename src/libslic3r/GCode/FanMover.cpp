@@ -53,6 +53,11 @@ static void change_axis_value(std::string &line, char axis, const float new_valu
 // Fan speed (0-255 scale, as written) set by the line, -1 if the line doesn't set the fan.
 static int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor)
 {
+    // M106 / M107 with a fan index other than 0 (P word, except for Mach3 / Machinekit where P is the speed) is another
+    // fan, for example the auxiliary fan (M106 P2): not the part cooling fan.
+    if (flavor != gcfMach3 && flavor != gcfMachinekit && (line.compare(0, 4, "M106") == 0 || line.compare(0, 4, "M107") == 0))
+        if (const float index = get_axis_value(line, 'P'); ! std::isnan(index) && index != 0.f)
+            return -1;
     if (line.compare(0, 4, "M106") == 0)
         return int16_t(get_axis_value(line, (flavor == gcfMach3 || flavor == gcfMachinekit) ? 'P' : 'S'));
     if (line.compare(0, 4, "M127") == 0 || line.compare(0, 4, "M107") == 0)

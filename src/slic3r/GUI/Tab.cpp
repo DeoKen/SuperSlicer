@@ -2298,6 +2298,7 @@ void TabFilament::build()
         append_labelled_line(optgroup, L("Bridge infill fan speed"),      { { "bridge_fan_speed", L("External") }, { "internal_bridge_fan_speed", L("Internal") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Overhang perimeter fan speed"), { { "overhangs_fan_speed", L("Overhangs") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Gap fill fan speed"),           { { "gap_fill_fan_speed", L("Gap fill") } }, category_path + "fan-settings");
+        append_labelled_line(optgroup, L("Auxiliary fan speed"),          { { "additional_cooling_fan_speed", L("Speed") } }, category_path + "fan-settings");
         optgroup->append_single_option_line("disable_fan_first_layers", category_path + "fan-settings");
         optgroup->append_single_option_line("full_fan_speed_layer", category_path + "fan-settings");
 
@@ -2500,6 +2501,10 @@ void TabFilament::toggle_options()
         for (int i = 0; i < 4; i++) {
             toggle_option("overhang_fan_speed_"+std::to_string(i),dynamic_fan_speeds);
         }
+
+        // The auxiliary fan speed needs the auxiliary fan G-code of the printer.
+        const DynamicPrintConfig &printer_config = m_preset_bundle->printers.get_edited_preset().config;
+        toggle_option("additional_cooling_fan_speed", printer_config.has("auxiliary_fan_gcode") && ! printer_config.opt_string("auxiliary_fan_gcode").empty());
 
         bool cooling_preserve_perimeters = cooling && static_cast<CoolingSlowdownLogicType>(m_config->option("cooling_slowdown_logic")->getInts().at(0)) == CoolingSlowdownLogicType::ConsistentSurface;
         toggle_option("cooling_perimeter_transition_distance", cooling_preserve_perimeters);
@@ -2908,6 +2913,12 @@ void TabPrinter::build_fff()
         // As in SuperSlicer.
         optgroup = page->new_optgroup(L("Cooling fan"));
         append_labelled_line(optgroup, L("Speedup time"), { { "fan_speedup_time", "" }, { "fan_speedup_overhangs", L("Only for overhangs") } }, std::string(), -1);
+        {
+            // Auxiliary part cooling fan (OrcaSlicer), with the G-code set by the user instead of a fixed M106 P2.
+            Option option = optgroup->get_option("auxiliary_fan_gcode");
+            option.opt.width = 40;
+            optgroup->append_single_option_line(option);
+        }
 
         optgroup = page->new_optgroup(L("Advanced"));
         optgroup->append_single_option_line("use_relative_e_distances");

@@ -1,7 +1,7 @@
 # Fork features (PrusaSlicer 2.9.6 + SuperSlicer ports)
 
 This branch (`claude/poc-per-feature-2.9.6`) is PrusaSlicer 2.9.6 with a small set of features ported from
-SuperSlicer 2.7 (and a few improvements). This document lists every feature added on top of stock PrusaSlicer:
+SuperSlicer 2.7 and OrcaSlicer (and a few improvements). This document lists every feature added on top of stock PrusaSlicer:
 what it does, its settings, how it works and how to test it. **Update it in the same commit as any new feature.**
 
 General rules followed by every feature:
@@ -25,8 +25,9 @@ Contents:
 9. [Avoid crossing perimeters options](#9-avoid-crossing-perimeters-options)
 10. [Seam notch](#10-seam-notch)
 11. [Brim ears and brim per object](#11-brim-ears-and-brim-per-object)
-12. [GUI layout](#12-gui-layout)
-13. [Testing](#testing)
+12. [Auxiliary fan (from OrcaSlicer)](#12-auxiliary-fan-from-orcaslicer)
+13. [GUI layout](#13-gui-layout)
+14. [Testing](#testing)
 
 ---
 
@@ -348,7 +349,46 @@ per object on and off.
 
 ---
 
-## 12. GUI layout
+## 12. Auxiliary fan (from OrcaSlicer)
+
+**What it does.** Drives an auxiliary part cooling fan (for example a side or chamber blower) as OrcaSlicer does: off
+for the layers with the fan disabled, then one speed per filament for the rest of the print, off at the end. The fan
+command is set in the printer settings instead of OrcaSlicer's fixed `M106 P2`, so it works with Klipper as is.
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `auxiliary_fan_gcode` | Printer > General > Cooling fan > Auxiliary fan G-code | empty | G-code setting the aux fan speed; `{aux_fan_speed}` = speed in % (0-100). Empty = no aux fan. |
+| `additional_cooling_fan_speed` | Filament > Cooling > Auxiliary fan speed (per filament) | `0` | % (OrcaSlicer name). Greyed out while the printer has no aux fan G-code. |
+
+Examples for the G-code:
+
+```
+SET_FAN_SPEED FAN=aux SPEED={aux_fan_speed/100.0}      ; Klipper [fan_generic aux]
+M106 P2 S{int(aux_fan_speed*2.55+0.5)}                 ; OrcaSlicer / Bambu style
+```
+
+Write `100.0`, not `100`: in the macro language a division of two integers is an integer division (`60/100` = 0).
+Custom G-code can also use `{additional_cooling_fan_speed[...]}` and `{max_additional_fan}` (highest aux fan speed of
+the filaments used), for example in the start G-code.
+
+**How it works.** Same rules as OrcaSlicer (checked against OrcaSlicer's source: `CoolingBuffer.cpp`
+`change_extruder_set_fan`, `GCode.cpp` start / end): the cooling buffer sets the aux fan at the start of every layer and
+at every filament change, and only writes it when the speed changes. The speed is 0 while the layer is below
+`disable_fan_first_layers` (the value as set), otherwise the filament's `additional_cooling_fan_speed`. The layer time,
+the `full_fan_speed_layer` ramp and the feature fan speeds don't change it. It is written again after custom tool change
+G-code (which may have changed it), off before the start G-code when the first layers have the fan disabled, and off
+after the print, before the end G-code. The G-code is rendered for every speed it may take before the layers are
+processed (`GCodeGenerator::_do_export`). The fan mover never moves it: an `M106` / `M107` with a fan index (`P`) other
+than 0 is not the part cooling fan for it. The G-code viewer only shows the part cooling fan (it ignores `M106 P...` and
+`SET_FAN_SPEED`). Not ported: OrcaSlicer's aux fan at 100% while waiting for the chamber temperature, and the fan
+direction used by its auto orientation.
+
+**How to test.** `fff_print_tests "[AuxFan]"`. Manually: set the G-code, set a filament speed, slice and search the
+G-code for the command: off at the start, on once at layer `disable_fan_first_layers` + 1, off at the end.
+
+---
+
+## 13. GUI layout
 
 Rows grouped as in SuperSlicer (several fields with short labels on one row) for Filament > Cooling > Fan settings and
 Print > Speed, plus single rows for new settings elsewhere. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),

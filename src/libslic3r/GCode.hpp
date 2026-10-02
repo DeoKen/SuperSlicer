@@ -158,7 +158,9 @@ public:
     const PlaceholderParser& placeholder_parser() const { return m_placeholder_parser_integration.parser; }
     // Process a template through the placeholder parser, collect error messages to be reported
     // inside the generated string and after the G-code export finishes.
-    std::string     placeholder_parser_process(const std::string &name, const std::string &templ, unsigned int current_extruder_id, const DynamicConfig *config_override = nullptr);
+    // tag_for_fan_mover: tag the output as custom G-code for the fan mover (if it is on).
+    std::string     placeholder_parser_process(const std::string &name, const std::string &templ, unsigned int current_extruder_id, const DynamicConfig *config_override = nullptr,
+                                               bool tag_for_fan_mover = true);
     bool            enable_cooling_markers() const { return m_enable_cooling_markers; }
 
     void            set_layer_count(unsigned int value) { m_layer_count = value; }
@@ -471,6 +473,8 @@ private:
     std::unique_ptr<GCodeFindReplace>   m_find_replace;
     std::unique_ptr<PressureEqualizer>  m_pressure_equalizer;
     std::unique_ptr<FanMover>           m_fan_mover;
+    // Auxiliary fan (auxiliary_fan_gcode) off, empty if the printer has no auxiliary fan.
+    std::string                         m_aux_fan_off_gcode;
     std::unique_ptr<GCode::WipeTowerIntegration> m_wipe_tower;
 
     // Current fan speed set by dynamic fan speed control.

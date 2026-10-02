@@ -77,6 +77,7 @@ void CoolingBuffer::reset(const Vec3d &position)
     m_current_pos[AxisIdx::E] = 0.f;
     m_current_pos[AxisIdx::F] = float(m_config.travel_speed.value);
     m_fan_speed = -1;
+    m_aux_fan_speed = -1;
 }
 
 enum class AdjustableFeatureType : uint32_t {
@@ -1241,7 +1242,7 @@ std::string CoolingBuffer::apply_layer_cooldown(
         current_fan_speed = fan_speed;
         new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_config.gcode_comments, fan_speed);
     };
-    auto change_extruder_set_fan = [this, layer_id, layer_time, &emit_fan, &feature_fan_speed, &feature_fan_control, &feature_fan_stock](const int requested_fan_speed = -1) {
+    auto change_extruder_set_fan = [this, layer_id, layer_time, &new_gcode, &emit_fan, &feature_fan_speed, &feature_fan_control, &feature_fan_stock](const int requested_fan_speed = -1) {
 #define EXTRUDER_CONFIG(OPT) m_config.OPT.get_at(m_current_extruder)
         const int min_fan_speed            = EXTRUDER_CONFIG(min_fan_speed);
         const int default_fan_speed        = EXTRUDER_CONFIG(default_fan_speed);
@@ -1359,6 +1360,19 @@ std::string CoolingBuffer::apply_layer_cooldown(
         if (fan_speed_new != m_fan_speed) {
             m_fan_speed = fan_speed_new;
             emit_fan(m_fan_speed);
+        }
+
+        // Auxiliary fan, as in OrcaSlicer: the filament speed, 0 for the layers with the fan disabled
+        // (disable_fan_first_layers as set, without the ramp adjustment above). Not changed by the layer time,
+        // the full_fan_speed_layer ramp or the feature fan speeds. Emitted only when it changes.
+        if (! m_aux_fan_gcode.empty()) {
+            const int aux_fan_speed = int(layer_id) >= m_config.disable_fan_first_layers.get_at(m_current_extruder) ?
+                std::clamp(m_config.additional_cooling_fan_speed.get_at(m_current_extruder), 0, 100) : 0;
+            if (aux_fan_speed != m_aux_fan_speed) {
+                m_aux_fan_speed = aux_fan_speed;
+                if (auto it = m_aux_fan_gcode.find(aux_fan_speed); it != m_aux_fan_gcode.end())
+                    new_gcode += it->second;
+            }
         }
     };
 
@@ -1484,8 +1498,9 @@ std::string CoolingBuffer::apply_layer_cooldown(
             }
         } else if (line->type & CoolingLine::TYPE_TOOLCHANGE_END) {
             // Custom toolchange gcode may have changed fan speed via M106/M107 that CoolingBuffer
-            // doesn't track. Force re-emission to restore the correct fan speed.
+            // doesn't track. Force re-emission to restore the correct fan speed (and the auxiliary fan, as OrcaSlicer does).
             m_fan_speed = -1;
+            m_aux_fan_speed = -1;
             change_extruder_set_fan();
         } else if (line->type & (CoolingLine::TYPE_EXTRUDE_END | CoolingLine::TYPE_TOOLCHANGE_TIME)) {
             // Just remove this comment.

@@ -523,7 +523,7 @@ static std::vector<std::string> s_Preset_filament_options {
     "filament_multitool_ramming", "filament_multitool_ramming_volume", "filament_multitool_ramming_flow", "filament_flush_volume", "filament_flush_speed",
     "temperature", "idle_temperature", "first_layer_temperature", "bed_temperature", "first_layer_bed_temperature", "fan_always_on", "cooling", "cooling_slowdown_logic",
     "cooling_perimeter_transition_distance", "min_fan_speed",
-    "max_fan_speed", "bridge_fan_speed", "internal_bridge_fan_speed", "default_fan_speed", "perimeter_fan_speed", "external_perimeter_fan_speed", "overhangs_fan_speed", "infill_fan_speed", "solid_infill_fan_speed", "top_fan_speed", "gap_fill_fan_speed", "support_material_fan_speed", "support_material_interface_fan_speed", "disable_fan_first_layers", "full_fan_speed_layer", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed",
+    "max_fan_speed", "bridge_fan_speed", "internal_bridge_fan_speed", "additional_cooling_fan_speed", "default_fan_speed", "perimeter_fan_speed", "external_perimeter_fan_speed", "overhangs_fan_speed", "infill_fan_speed", "solid_infill_fan_speed", "top_fan_speed", "gap_fill_fan_speed", "support_material_fan_speed", "support_material_interface_fan_speed", "disable_fan_first_layers", "full_fan_speed_layer", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed",
     "custom_parameters_filament", "start_filament_gcode", "end_filament_gcode", "enable_dynamic_fan_speeds", "chamber_temperature", "chamber_minimal_temperature",
     "overhang_fan_speed_0", "overhang_fan_speed_1", "overhang_fan_speed_2", "overhang_fan_speed_3",
     // Retract overrides
@@ -549,7 +549,7 @@ static std::vector<std::string> s_Preset_machine_limits_options {
 
 static std::vector<std::string> s_Preset_printer_options {
     "printer_technology", "autoemit_temperature_commands",
-    "bed_shape", "bed_custom_texture", "bed_custom_model", "bed_keep_out_zones", "fan_speedup_time", "fan_speedup_overhangs", "binary_gcode", "z_offset", "gcode_flavor", "use_relative_e_distances",
+    "bed_shape", "bed_custom_texture", "bed_custom_model", "bed_keep_out_zones", "fan_speedup_time", "fan_speedup_overhangs", "auxiliary_fan_gcode","binary_gcode", "z_offset", "gcode_flavor", "use_relative_e_distances",
     "use_firmware_retraction", "use_volumetric_e", "variable_layer_height", "prefer_clockwise_movements",
     //FIXME the print host keys are left here just for conversion from the Printer preset to Physical Printer preset.
     "host_type", "print_host", "printhost_apikey", "printhost_cafile",

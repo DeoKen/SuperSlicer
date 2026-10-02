@@ -36,6 +36,7 @@ const std::vector<std::string> added_config_keys {
     "avoid_crossing_not_first_layer", "avoid_crossing_top", "avoid_travel_island",
     "seam_notch_",
     "brim_ears", "brim_per_object",
+    "auxiliary_fan_gcode", "additional_cooling_fan_speed",
 };
 
 bool is_added_config_line(const std::string &line)
