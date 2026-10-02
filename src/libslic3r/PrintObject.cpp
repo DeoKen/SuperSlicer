@@ -851,13 +851,17 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "infill_extruder"
             || opt_key == "solid_infill_extruder"
             || opt_key == "infill_extrusion_width"
-            || opt_key == "bridge_angle") {
+            || opt_key == "bridge_angle"
+            // Rotates the bridging angle override too.
+            || opt_key == "align_infill_direction_to_model") {
             steps.emplace_back(posPrepareInfill);
         } else if (
                opt_key == "top_fill_pattern"
             || opt_key == "bottom_fill_pattern"
             || opt_key == "external_fill_link_max_length"
             || opt_key == "fill_angle"
+            || opt_key == "solid_infill_direction"
+            || opt_key == "rotate_solid_infill_direction"
             || opt_key == "infill_anchor"
             || opt_key == "infill_anchor_max"
             || opt_key == "top_infill_extrusion_width"

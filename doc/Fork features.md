@@ -26,8 +26,9 @@ Contents:
 10. [Seam notch](#10-seam-notch)
 11. [Brim ears and brim per object](#11-brim-ears-and-brim-per-object)
 12. [Auxiliary fan (from OrcaSlicer)](#12-auxiliary-fan-from-orcaslicer)
-13. [GUI layout](#13-gui-layout)
-14. [Testing](#testing)
+13. [Infill directions (from OrcaSlicer)](#13-infill-directions-from-orcaslicer)
+14. [GUI layout](#14-gui-layout)
+15. [Testing](#testing)
 
 ---
 
@@ -388,7 +389,34 @@ G-code for the command: off at the start, on once at layer `disable_fan_first_la
 
 ---
 
-## 13. GUI layout
+## 13. Infill directions (from OrcaSlicer)
+
+**What it does.** A separate angle for the solid infill, an option to stop the solid infill turning 90° every layer,
+and an option to turn the infill with the object when the object is rotated on the bed (OrcaSlicer's "Align directions
+to model"), so the infill keeps its direction relative to the part.
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `solid_infill_direction` | Print > Infill > Advanced | `-1` | Degrees. Angle of the solid, top, bottom infill and ironing. -1 = `fill_angle` (OrcaSlicer: 45, its fill angle default). |
+| `rotate_solid_infill_direction` | same | on | Off: the solid infill (and ironing) keeps the same angle on every layer. |
+| `align_infill_direction_to_model` | same | off | Add the object's rotation around Z on the bed to the infill angles, the ironing angle and the bridging angle override (`bridge_angle`). |
+
+**How it works.** As in OrcaSlicer (checked against its source: `Fill.cpp` group_fills / make_ironing,
+`LayerRegion.cpp` bridges): the sparse infill (`Internal infill`) uses `fill_angle`, everything else
+`solid_infill_direction`. "Rotate" off sets a `fixed_angle` flag on the filler, which skips the 90° layer alternation in
+`Fill::_infill_direction` (patterns that never alternate are unchanged). The object rotation is
+`PrintObject::z_rotation()`, from the object's transformation (PrusaSlicer slices every rotation of an object as its own
+print object). Automatically detected bridge directions are not changed (they follow the geometry), only the
+`bridge_angle` override is turned. Not ported: OrcaSlicer's rotation templates (`*_rotate_template`), top / bottom
+layer directions and its internal bridge angle setting.
+
+**How to test.** `fff_print_tests "[InfillDirection]"` measures the main direction of the extrusions per type and layer.
+Manually: rotate a part 30° on the bed, slice with and without "Align directions to model", compare the infill in the
+preview.
+
+---
+
+## 14. GUI layout
 
 Rows grouped as in SuperSlicer (several fields with short labels on one row) for Filament > Cooling > Fan settings and
 Print > Speed, plus single rows for new settings elsewhere. Supporting GUI changes: `Line::force_sublabels` (show a short label even for a single field),

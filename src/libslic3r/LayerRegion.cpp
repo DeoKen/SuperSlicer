@@ -51,6 +51,15 @@ Flow LayerRegion::flow(FlowRole role, double layer_height) const
     return m_region->flow(*m_layer->object(), role, layer_height, m_layer->id() == 0);
 }
 
+double LayerRegion::custom_bridge_angle(double angle) const
+{
+    if (! this->region().config().align_infill_direction_to_model)
+        return angle;
+    // A bridge angle has to stay >= 0 (negative = undefined).
+    angle = std::fmod(angle + this->layer()->object()->z_rotation(), 2. * PI);
+    return angle < 0. ? angle + 2. * PI : angle;
+}
+
 Flow LayerRegion::bridging_flow(FlowRole role, bool force_thick_bridges) const
 {
     const PrintRegion       &region         = this->region();
@@ -512,7 +521,7 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
         BOOST_LOG_TRIVIAL(trace) << "Processing external surface, detecting bridges. layer" << this->layer()->print_z;
         const double custom_angle = this->region().config().bridge_angle.value;
         bridges.surfaces = custom_angle > 0 ?
-            expand_merge_surfaces(m_fill_surfaces.surfaces, stBottomBridge, expansion_zones, closing_radius, Geometry::deg2rad(custom_angle)) :
+            expand_merge_surfaces(m_fill_surfaces.surfaces, stBottomBridge, expansion_zones, closing_radius, this->custom_bridge_angle(Geometry::deg2rad(custom_angle))) :
             expand_bridges_detect_orientations(m_fill_surfaces.surfaces, expansion_zones, closing_radius);
         BOOST_LOG_TRIVIAL(trace) << "Processing external surface, detecting bridges - done";
 #if 0
@@ -751,7 +760,7 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
                 // of very thin (but still working) anchors, the grown expolygon would go beyond them
                 double custom_angle = Geometry::deg2rad(this->region().config().bridge_angle.value);
                 if (custom_angle > 0.0) {
-                    bridges[idx_last].bridge_angle = custom_angle;
+                    bridges[idx_last].bridge_angle = this->custom_bridge_angle(custom_angle);
                 } else {
                     auto [bridging_dir, unsupported_dist] = detect_bridging_direction(to_polygons(initial), to_polygons(lower_layer->lslices));
                     bridges[idx_last].bridge_angle = PI + std::atan2(bridging_dir.y(), bridging_dir.x());

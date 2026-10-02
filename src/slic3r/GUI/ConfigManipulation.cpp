@@ -313,10 +313,10 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     bool has_solid_infill 		 = has_top_solid_infill || has_bottom_solid_infill;
     // solid_infill_extruder uses the same logic as in Print::extruders()
     for (auto el : { "top_fill_pattern", "bottom_fill_pattern", "infill_first", "solid_infill_extruder",
-                    "solid_infill_extrusion_width", "solid_infill_speed" })
+                    "solid_infill_extrusion_width", "solid_infill_speed", "solid_infill_direction", "rotate_solid_infill_direction" })
         toggle_field(el, has_solid_infill);
 
-    for (auto el : { "fill_angle", "bridge_angle", "infill_extrusion_width",
+    for (auto el : { "fill_angle", "bridge_angle", "align_infill_direction_to_model", "infill_extrusion_width",
                     "infill_speed", "bridge_speed", "over_bridge_speed", "internal_bridge_speed" })
         toggle_field(el, have_infill || has_solid_infill);
 

@@ -37,6 +37,7 @@ const std::vector<std::string> added_config_keys {
     "seam_notch_",
     "brim_ears", "brim_per_object",
     "auxiliary_fan_gcode", "additional_cooling_fan_speed",
+    "solid_infill_direction", "rotate_solid_infill_direction", "align_infill_direction_to_model",
 };
 
 bool is_added_config_line(const std::string &line)

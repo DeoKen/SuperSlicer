@@ -115,6 +115,8 @@ public:
     Flow    flow(FlowRole role) const;
     Flow    flow(FlowRole role, double layer_height) const;
     Flow    bridging_flow(FlowRole role, bool force_thick_bridges = false) const;
+    // Bridging angle override (radians), rotated with the object with align_infill_direction_to_model (OrcaSlicer).
+    double  custom_bridge_angle(double angle) const;
 
     void    slices_to_fill_surfaces_clipped();
     void    prepare_fill_surfaces();

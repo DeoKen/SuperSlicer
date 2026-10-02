@@ -69,6 +69,8 @@ struct SurfaceFillParams
 //    coordf_t    	overlap = 0.;
     // Angle as provided by the region config, in radians.
     float       	angle = 0.f;
+    // Don't alternate the angle from layer to layer (rotate_solid_infill_direction off).
+    bool            fixed_angle = false;
     // Is bridging used for this fill? Bridging parameters may be used even if this->flow.bridge() is not set.
     bool 			bridge;
     // Non-negative for a bridge.
@@ -109,6 +111,7 @@ struct SurfaceFillParams
 		RETURN_COMPARE_NON_EQUAL(spacing);
 //		RETURN_COMPARE_NON_EQUAL(overlap);
 		RETURN_COMPARE_NON_EQUAL(angle);
+		RETURN_COMPARE_NON_EQUAL_TYPED(unsigned, fixed_angle);
 		RETURN_COMPARE_NON_EQUAL(density);
 //		RETURN_COMPARE_NON_EQUAL_TYPED(unsigned, dont_adjust);
 		RETURN_COMPARE_NON_EQUAL(anchor_length);
@@ -126,6 +129,7 @@ struct SurfaceFillParams
 				this->spacing 			== rhs.spacing 			&&
 //				this->overlap 			== rhs.overlap 			&&
 				this->angle   			== rhs.angle   			&&
+				this->fixed_angle		== rhs.fixed_angle		&&
 				this->bridge   			== rhs.bridge   		&&
 //				this->bridge_angle 		== rhs.bridge_angle		&&
 				this->density   		== rhs.density   		&&
@@ -149,6 +153,18 @@ struct SurfaceFill {
 static inline bool fill_type_monotonic(InfillPattern pattern)
 {
 	return pattern == ipMonotonic || pattern == ipMonotonicLines;
+}
+
+// Infill angle in radians, as in OrcaSlicer: fill_angle for the sparse infill, solid_infill_direction (-1 = fill_angle)
+// for everything else, plus the rotation of the object on the bed with align_infill_direction_to_model.
+static double region_fill_angle(const PrintRegionConfig &config, const PrintObject &object, bool solid)
+{
+    const double degrees = solid && config.solid_infill_direction.value >= 0. ? config.solid_infill_direction.value : config.fill_angle.value;
+    double       angle   = Geometry::deg2rad(degrees);
+    if (config.align_infill_direction_to_model)
+        angle += object.z_rotation();
+    // Double: the ironing angle is used as double, as in stock.
+    return angle;
 }
 
 std::vector<SurfaceFill> group_fills(const Layer &layer)
@@ -199,7 +215,11 @@ std::vector<SurfaceFill> group_fills(const Layer &layer)
                     }
                 }
 		        params.bridge_angle = float(surface.bridge_angle);
-		        params.angle 		= float(Geometry::deg2rad(region_config.fill_angle.value));
+		        {
+		            const bool solid   = params.extrusion_role != ExtrusionRole::InternalInfill;
+		            params.angle       = float(region_fill_angle(region_config, *layer.object(), solid));
+		            params.fixed_angle = solid && ! region_config.rotate_solid_infill_direction;
+		        }
 
 		        // Calculate the actual flow we'll be using for this infill.
 		        params.bridge = is_bridge || Fill::use_bridge_flow(params.pattern);
@@ -333,7 +353,9 @@ std::vector<SurfaceFill> group_fills(const Layer &layer)
 	            params.pattern 		 = fill_type_monotonic(layerm.region().config().top_fill_pattern) ? ipMonotonic : ipRectilinear;
 	            params.density 		 = 100.f;
 		        params.extrusion_role = ExtrusionRole::InternalInfill;
-		        params.angle 		= float(Geometry::deg2rad(layerm.region().config().fill_angle.value));
+		        // Solid infill, even if marked as internal infill.
+		        params.angle 		= float(region_fill_angle(layerm.region().config(), *layer.object(), true));
+		        params.fixed_angle  = ! layerm.region().config().rotate_solid_infill_direction;
 		        // calculate the actual flow we'll be using for this infill
 				params.flow = layerm.flow(frSolidInfill);
 		        params.spacing = params.flow.spacing();	        
@@ -504,6 +526,7 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
         f->layer_id = this->id() - first_object_layer_id;
         f->z 		= this->print_z;
         f->angle 	= surface_fill.params.angle;
+        f->fixed_angle = surface_fill.params.fixed_angle;
         f->adapt_fill_octree   = (surface_fill.params.pattern == ipSupportCubic) ? support_fill_octree : adaptive_fill_octree;
         f->print_config        = &this->object()->print()->config();
         f->print_object_config = &this->object()->config();
@@ -700,6 +723,7 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
         f->layer_id = this->id() - this->object()->get_layer(0)->id(); // We need to subtract raft layers.
         f->z        = this->print_z;
         f->angle    = surface_fill.params.angle;
+        f->fixed_angle = surface_fill.params.fixed_angle;
         f->adapt_fill_octree   = (surface_fill.params.pattern == ipSupportCubic) ? support_fill_octree : adaptive_fill_octree;
         f->print_config        = &this->object()->print()->config();
         f->print_object_config = &this->object()->config();
@@ -767,6 +791,8 @@ void Layer::make_ironing()
 		double 		height;
 		double 		speed;
 		double 		angle;
+		// Don't alternate the angle from layer to layer (rotate_solid_infill_direction off).
+		bool        fixed_angle = false;
 
 		bool operator<(const IroningParams &rhs) const {
 			if (this->extruder < rhs.extruder)
@@ -793,13 +819,13 @@ void Layer::make_ironing()
 				return true;
 			if (this->angle > rhs.angle)
 				return false;
-			return false;
+			return this->fixed_angle < rhs.fixed_angle;
 		}
 
 		bool operator==(const IroningParams &rhs) const {
 			return this->extruder == rhs.extruder && this->just_infill == rhs.just_infill &&
 				   this->line_spacing == rhs.line_spacing && this->height == rhs.height && this->speed == rhs.speed &&
-				   this->angle == rhs.angle;
+				   this->angle == rhs.angle && this->fixed_angle == rhs.fixed_angle;
 		}
 
 		LayerRegion *layerm;
@@ -846,7 +872,9 @@ void Layer::make_ironing()
 				ironing_params.line_spacing = config.ironing_spacing;
 				ironing_params.height 		= default_layer_height * 0.01 * config.ironing_flowrate;
 				ironing_params.speed 		= config.ironing_speed;
-				ironing_params.angle 		= config.fill_angle * M_PI / 180.;
+				// The solid infill direction (fill_angle by default), as in OrcaSlicer.
+				ironing_params.angle 		= region_fill_angle(config, *this->object(), true);
+				ironing_params.fixed_angle  = ! config.rotate_solid_infill_direction;
 				ironing_params.layerm 		= layerm;
 				ironing_params.region_id    = region_id;
 				by_extruder.emplace_back(ironing_params);
@@ -933,6 +961,7 @@ void Layer::make_ironing()
         // Create the filler object.
         fill.spacing = ironing_params.line_spacing;
         fill.angle = float(ironing_params.angle + 0.25 * M_PI);
+        fill.fixed_angle = ironing_params.fixed_angle;
         fill.link_max_length = (coord_t)scale_(3. * fill.spacing);
 		double extrusion_height = ironing_params.height * fill.spacing / nozzle_dmr;
 		float  extrusion_width  = Flow::rounded_rectangle_extrusion_width_from_spacing(float(nozzle_dmr), float(extrusion_height));

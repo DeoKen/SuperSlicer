@@ -1955,6 +1955,33 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(45));
 
+    def = this->add("solid_infill_direction", coFloat);
+    def->label = L("Solid infill direction");
+    def->category = L("Infill");
+    def->tooltip = L("Angle of the solid infill (also top, bottom and ironing), as the fill angle is for the sparse infill. "
+                     "Set -1 to use the fill angle.");
+    def->sidetext = L("°");
+    def->min = -1;
+    def->max = 360;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(-1));
+
+    def = this->add("rotate_solid_infill_direction", coBool);
+    def->label = L("Rotate solid infill direction");
+    def->category = L("Infill");
+    def->tooltip = L("Turn the solid infill (and ironing) by 90° on every other layer. "
+                     "Off: always print it at the solid infill direction.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("align_infill_direction_to_model", coBool);
+    def->label = L("Align directions to model");
+    def->category = L("Infill");
+    def->tooltip = L("Rotate the infill, ironing and the bridging angle override with the object when it is rotated on the bed, "
+                     "so they keep their direction relative to the part (OrcaSlicer). Automatically detected bridges are not changed.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("fill_density", coPercent);
     def->gui_flags = "show_value";
     def->label = L("Fill density");
