@@ -227,6 +227,11 @@ public:
         for (auto &fixitem : fixed) {
             auto fixitmbb = fixed_bounding_box(fixitem);
             m_itemstats.emplace_back(ItemStats{fixed_area(fixitem), fixitmbb});
+            if (is_keep_out(fixitem)) {
+                // Only an obstacle (handled by the NFP): it neither grows the pile nor attracts items.
+                idx++;
+                continue;
+            }
             m_pilebb.merge(fixitmbb);
 
             if(is_big(fixed_area(fixitem)))

@@ -13,6 +13,14 @@
 
 namespace Slic3r { namespace arr2 {
 
+// Bed keep-out zone (bed_keep_out_zones): a fixed obstacle that must not attract the arranged items.
+template<class ArrItem> bool is_keep_out(const ArrItem &itm)
+{
+    constexpr const char * Key = "is_keep_out";
+
+    return has_key(itm, Key);
+}
+
 template<class Itm, class Bed, class Context>
 bool find_initial_position(Itm &itm,
                            const Vec2crd &sink,
@@ -25,7 +33,18 @@ bool find_initial_position(Itm &itm,
                   std::is_convertible_v<Bed, InfiniteBed> ||
                   std::is_convertible_v<Bed, CircleBed>)
     {
-        if (all_items_range(packing_context).empty()) {
+        // Bed keep-out zones alone don't prevent the placement at the sink, as long as the item stays clear of them.
+        bool only_keep_out = true;
+        for (const auto &fixed : all_items_range(packing_context))
+            only_keep_out = only_keep_out && is_keep_out(fixed);
+        auto clear_of_keep_out = [&packing_context](const BoundingBox &bb) {
+            for (const auto &fixed : all_items_range(packing_context))
+                if (bb.overlap(fixed_bounding_box(fixed)))
+                    return false;
+            return true;
+        };
+
+        if (only_keep_out) {
             auto rotations = allowed_rotations(itm);
             set_rotation(itm, 0.);
             auto chull     = envelope_convex_hull(itm);
@@ -41,7 +60,7 @@ bool find_initial_position(Itm &itm,
                 Vec2crd d = cb - ci;
                 bbitm.translate(d);
 
-                if (bounding_box(bed).contains(bbitm)) {
+                if (bounding_box(bed).contains(bbitm) && clear_of_keep_out(bbitm)) {
                     rotate(itm, rot);
                     translate(itm, d);
                     ret = true;

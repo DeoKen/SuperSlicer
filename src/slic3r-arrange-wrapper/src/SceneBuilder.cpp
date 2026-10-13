@@ -1021,6 +1021,8 @@ public:
     std::optional<int> bed_constraint() const override { return m_bed_idx; }
     int                get_bed_index() const override { return m_bed_idx; }
     bool               assign_bed(int bed_idx) override { return bed_idx == m_bed_idx; }
+    // Lets the arrange kernel ignore it when scoring positions (see is_keep_out()).
+    void               imbue_data(AnyWritable &datastore) const override { datastore.write("is_keep_out", {}); }
 };
 
 // One handler per zone and bed, so that looking an item up by its id finds exactly that item.

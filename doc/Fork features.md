@@ -113,12 +113,15 @@ rectangle (a concave bed shape makes the plater much slower).
   convex hull); anything inside refuses the slice with a message naming it.
 - Plater (`GLCanvas3D.cpp`): objects reaching into a zone are shown as outside of the print area (bounding box test,
   then convex hull for objects near a zone), on every virtual bed. The first 4 zones are tinted on the bed.
-- Arrange and fill bed: the zones are fixed obstacles on every bed (`arrange-wrapper/SceneBuilder.cpp`).
+- Arrange and fill bed: the zones are fixed obstacles on every bed (`arrange-wrapper/SceneBuilder.cpp`). They are
+  tagged `is_keep_out`, so the arrange kernel only avoids them: they don't pull objects towards them as other fixed
+  items do, and the first object still goes to the bed center when it stays clear of them
+  (`NFP/Kernels/KernelUtils.hpp`, `TMArrangeKernel.hpp`).
 - Limits: moves written inside custom G-code (purge lines, macros) are not checked or rerouted.
 
 **How to test.** `fff_print_tests "[KeepOut]"` and `arrange_tests "[KeepOut]"`. Manually: set the zones, check the
 tint on the bed, drag an object into a corner (outside color, slicing refused), press A with many objects (corners stay
-empty), slice objects near a corner and check in the preview (travel moves visible) that travels go around.
+empty), press A with one object (it goes to the bed center, not between the zones), slice objects near a corner and check in the preview (travel moves visible) that travels go around.
 
 ---
 

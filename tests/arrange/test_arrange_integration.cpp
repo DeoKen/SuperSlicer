@@ -1161,3 +1161,36 @@ TEST_CASE("Arrangement keeps objects out of the bed keep-out zones", "[arrange2]
         // Sanity check of the test itself: without the zones the corners are used.
         CHECK(in_zones > 0);
 }
+
+TEST_CASE("Bed keep-out zones do not pull arranged objects towards them", "[arrange2][integration][KeepOut]")
+{
+    using namespace Slic3r;
+
+    // A single object lands where it would without the zones (the bed center), not between the front zones.
+    auto arranged_center = [](bool with_zones) {
+        Model model;
+        ModelObject *mo = model.add_object();
+        mo->name = "cube";
+        mo->add_volume(TriangleMesh(its_make_cube(60., 40., 10.)));
+        mo->add_instance();
+        DynamicPrintConfig cfg = DynamicPrintConfig::full_print_config();
+        cfg.set_deserialize_strict({ { "bed_shape", "0x0,350x0,350x350,0x350" }, { "bed_keep_out_zones", "0,0,40,40;310,0,350,40" } });
+        auto settings = arr2::ArrangeSettings{}.set_distance_from_objects(2.);
+        arr2::SceneBuilder builder = arr2::SceneBuilder{}.set_model(model).set_arrange_settings(settings).set_bed(cfg, Point::new_scale(10, 10));
+        if (with_zones)
+            builder.set_wipe_tower_handlers(arr2::bed_keep_out_handlers(cfg, 1));
+        arr2::Scene scene{ std::move(builder) };
+        auto task   = arr2::ArrangeTask<arr2::ArrangeItem>::create(scene);
+        auto result = task->process_native(arr2::DummyCtl{});
+        REQUIRE(result);
+        REQUIRE(result->apply_on(scene.model()));
+        const BoundingBoxf3 bb = model.objects.front()->instance_bounding_box(0);
+        return Vec2d(0.5 * (bb.min.x() + bb.max.x()), 0.5 * (bb.min.y() + bb.max.y()));
+    };
+
+    const Vec2d without = arranged_center(false);
+    const Vec2d with    = arranged_center(true);
+    INFO("without zones " << without.transpose() << ", with zones " << with.transpose());
+    CHECK((with - without).norm() < 1.);
+    CHECK(std::abs(with.y() - 175.) < 1.);
+}
