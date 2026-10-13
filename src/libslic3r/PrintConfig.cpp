@@ -1364,7 +1364,8 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Default");
     def->tooltip = L("This is the acceleration your printer will be reset to after "
                    "the role-specific acceleration values are used (perimeter/infill). "
-                   "Set zero to prevent resetting acceleration at all.");
+                   "Set zero to prevent setting acceleration at all: no acceleration command is written, "
+                   "the role-specific, first layer and travel accelerations are ignored.");
     def->sidetext = L("mm/s²");
     def->min = 0;
     def->mode = comExpert;
@@ -2288,7 +2289,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("travel_acceleration", coFloat);
     def->label = L("Travel");
     def->tooltip = L("This is the acceleration your printer will use for travel moves. Set zero to disable "
-                     "acceleration control for travel.");
+                     "acceleration control for travel. Ignored when the default acceleration is zero.");
     def->sidetext = L("mm/s²");
     def->min = 0;
     def->mode = comExpert;

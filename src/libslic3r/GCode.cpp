@@ -4243,8 +4243,10 @@ std::string GCodeGenerator::generate_travel_gcode(
         return "";
     }
 
-    const unsigned travel_acceleration                = static_cast<unsigned>(m_config.travel_acceleration.value + 0.5);
-    const unsigned travel_short_distance_acceleration = static_cast<unsigned>(m_config.travel_short_distance_acceleration.value + 0.5);
+    // As SuperSlicer: default_acceleration 0 = no acceleration commands at all, travel included.
+    const bool     have_acceleration                  = m_config.default_acceleration.value > 0;
+    const unsigned travel_acceleration                = have_acceleration ? static_cast<unsigned>(m_config.travel_acceleration.value + 0.5) : 0;
+    const unsigned travel_short_distance_acceleration = have_acceleration ? static_cast<unsigned>(m_config.travel_short_distance_acceleration.value + 0.5) : 0;
 
     std::string gcode;
     // Generate G-code for the travel move.

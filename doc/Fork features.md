@@ -143,11 +143,18 @@ acceleration"). On the first layer, the first layer acceleration and speed still
 Note: in SuperSlicer, 0 for gap fill / ironing / brim acceleration means "same as perimeter / top solid / support". The
 profile converter writes `100%` for those to keep the SuperSlicer behaviour.
 
+**Default acceleration 0 = no acceleration at all (as SuperSlicer).** With `default_acceleration = 0` no acceleration
+command is written, the travel acceleration included, so the firmware's own value (Klipper `max_accel`) is used for
+everything. Stock PrusaSlicer already ignored the per-feature and first layer accelerations then, but still wrote
+`travel_acceleration` / `travel_short_distance_acceleration` (and with Klipper `M204 S` is the print acceleration too).
+Those two are now greyed out with the others. Stock output is unchanged at PrusaSlicer defaults (travel acceleration 0).
+
 **How it works.** `GCodeGenerator::feature_acceleration()` and `brim_speed()` in `GCode.cpp`, checked before the stock
-acceleration chain in `_extrude()`.
+acceleration chain in `_extrude()`. Travel: `generate_travel_gcode()`.
 
 **How to test.** `fff_print_tests "[FeatureAccel]"`. Manually: set distinct values, slice a supported model with
-ironing and a skirt, and check the `M204` values per `;TYPE:` block in the G-code.
+ironing and a skirt, and check the `M204` values per `;TYPE:` block in the G-code. Set the default acceleration to 0 with
+a travel acceleration set: the G-code has no `M204` at all.
 
 ---
 

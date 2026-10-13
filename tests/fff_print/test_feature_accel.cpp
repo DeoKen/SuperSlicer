@@ -149,3 +149,24 @@ TEST_CASE("Gap fill acceleration", "[FeatureAccel]") {
     const auto accels = by_type(walk_gcode(Test::slice({ TestMesh::two_hollow_squares }, config)));
     check_type(accels, gap_fill, 1500);   // 50% of the perimeter acceleration
 }
+
+TEST_CASE("Default acceleration 0 writes no acceleration at all, as SuperSlicer", "[FeatureAccel]") {
+    // Stock PrusaSlicer still set the travel acceleration (and with Klipper M204 S is the print acceleration too).
+    DynamicPrintConfig config = base_config();
+    config.set_deserialize_strict({ { "travel_acceleration", 8000 }, { "travel_short_distance_acceleration", 6000 },
+                                    { "first_layer_acceleration", 2000 }, { "support_material_acceleration", 7000 } });
+    auto count_accel = [](const std::string &gcode) {
+        size_t n = 0;
+        for (size_t pos = 0; (pos = gcode.find("\nM204", pos)) != std::string::npos; ++ pos)
+            ++ n;
+        return n;
+    };
+    SECTION("default acceleration set: travel acceleration written") {
+        const std::string gcode = Test::slice({ TestMesh::overhang }, config);
+        CHECK(gcode.find("\nM204 S8000") != std::string::npos);
+    }
+    SECTION("default acceleration 0: no M204") {
+        config.set_deserialize_strict({ { "default_acceleration", 0 } });
+        CHECK(count_accel(Test::slice({ TestMesh::overhang }, config)) == 0);
+    }
+}
