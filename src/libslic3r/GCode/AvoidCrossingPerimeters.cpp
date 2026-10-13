@@ -1215,8 +1215,10 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCodeGenerator &gcodegen, cons
     bool is_support_layer = dynamic_cast<const SupportLayer *>(gcodegen.layer()) != nullptr;
     if (!use_external && (is_support_layer || (!m_lslices_offset.empty() && !any_expolygon_contains(m_lslices_offset, m_lslices_offset_bboxes, m_grid_lslices_offset, travel)))) {
         // Initialize m_internal only when it is necessary.
-        if (m_internal.boundaries.empty())
+        if (m_internal.boundaries.empty()) {
             init_boundary(&m_internal, to_polygons(get_boundary(*gcodegen.layer(), gcodegen.config().avoid_crossing_top)));
+            m_internal_layer = gcodegen.layer();
+        }
 
         // Trim the travel line by the bounding box.
         if (!m_internal.boundaries.empty() && Geometry::liang_barsky_line_clipping(startf, endf, m_internal.bbox)) {
@@ -1225,7 +1227,8 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCodeGenerator &gcodegen, cons
             result_pl.points.back()   = end;
             // Between two islands: cross the gap where they are nearest (avoid_travel_island, from SuperSlicer).
             if (travel_intersection_count > 0 && ! is_support_layer && gcodegen.config().avoid_travel_island)
-                if (Polyline jump = this->travel_between_islands(*gcodegen.layer(), start, end, gcodegen.config().avoid_travel_island_weight.value); ! jump.empty())
+                if (Polyline jump = this->travel_between_islands(m_internal_layer != nullptr ? *m_internal_layer : *gcodegen.layer(), start, end,
+                                                                 gcodegen.config().avoid_travel_island_weight.value); ! jump.empty())
                     result_pl = std::move(jump);
         }
     } else if(use_external) {
@@ -1384,6 +1387,7 @@ Polyline AvoidCrossingPerimeters::travel_between_islands(const Layer &layer, con
 void AvoidCrossingPerimeters::init_layer(const Layer &layer)
 {
     m_internal.clear();
+    m_internal_layer = nullptr;
     m_external.clear();
     m_internal_boundary_island.clear();
     m_island_boundaries.clear();

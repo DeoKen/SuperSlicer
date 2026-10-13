@@ -81,6 +81,9 @@ private:
 
     // avoid_travel_island: travel between two islands crossing the gap where they are nearest.
     Polyline travel_between_islands(const Layer &layer, const Point &start, const Point &end, double weight);
+    // Layer m_internal was built from (stock builds it lazily from the layer current at the first travel, which may still be
+    // the previous layer at a layer change); the islands of avoid_travel_island are taken from the same layer.
+    const Layer                                        *m_internal_layer { nullptr };
     // Internal boundary polygons of each island (index into Layer::lslices) and their edge grid, built on demand.
     std::vector<int>                                    m_internal_boundary_island;
     std::map<int, std::pair<Polygons, EdgeGrid::Grid>>  m_island_boundaries;

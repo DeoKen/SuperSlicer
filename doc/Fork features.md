@@ -279,6 +279,10 @@ in object modifiers).
   islands (sampled every 1 mm, nearest point of the other island from an edge grid). It is used when its cost is below
   `(1 + weight) * straight length` (as SuperSlicer); the parts inside the islands are planned as usual. This is a new
   implementation of SuperSlicer's idea on PrusaSlicer's travel planner, not a line by line port.
+  The islands are taken from the layer the internal boundary was built from (`m_internal_layer`): stock builds the
+  boundary lazily from the layer current at the first travel, which at a layer change is still the previous layer, and
+  the order of `Layer::lslices` changes from run to run. Mixing the two layers made the output differ between runs
+  (fixed 2026-10-13: 60 slices of the test plate identical).
 
 **How to test.** `fff_print_tests "[AvoidCrossing]"` (and PrusaSlicer's `"[AvoidCrossingPerimeters]"`). Manually: turn on
 avoid crossing perimeters, slice a plate of small parts close together as one object (or a part with separate islands)
