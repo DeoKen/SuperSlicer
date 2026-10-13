@@ -212,6 +212,14 @@ void GCodeProcessor::TimeMachine::reset()
     travel_acceleration = 0.0f;
     max_travel_acceleration = 0.0f;
     extrude_factor_override_percentage = 1.0f;
+    klipper = false;
+    klipper_velocity = 0.0f;
+    klipper_accel = 0.0f;
+    klipper_min_cruise_ratio = 0.0f;
+    klipper_square_corner_velocity = 0.0f;
+    klipper_carry_start_v2 = 0.0f;
+    klipper_carry_mcr_start_v2 = 0.0f;
+    klipper_carry_cruise_v2 = 0.0f;
     time = 0.0f;
     stop_times = std::vector<StopTime>();
     curr.reset();
@@ -305,13 +313,85 @@ static void recalculate_trapezoids(std::vector<GCodeProcessor::TimeBlock>& block
     }
 }
 
+// Klipper look-ahead, after LookAheadQueue.flush() in klippy/toolhead.py (non lazy: the toolhead stops after the last
+// block; blocks kept for the next pass are planned again). Fills the feedrate profile and the trapezoid of each block.
+void GCodeProcessor::TimeMachine::plan_klipper()
+{
+    const size_t n = blocks.size();
+    // Maximum start speeds reachable from the start of the queue (Move.calc_junction()).
+    for (size_t i = 0; i < n; ++i) {
+        TimeBlock::Klipper& k = blocks[i].klipper;
+        if (i == 0) {
+            k.max_start_v2     = std::min(k.junction_v2, klipper_carry_start_v2);
+            k.max_mcr_start_v2 = std::min(k.max_start_v2, klipper_carry_mcr_start_v2);
+        } else {
+            const TimeBlock::Klipper& p = blocks[i - 1].klipper;
+            k.max_start_v2     = std::min(k.junction_v2, p.max_start_v2 + p.delta_v2);
+            k.max_mcr_start_v2 = std::min(k.max_start_v2, p.max_mcr_start_v2 + p.mcr_delta_v2);
+        }
+    }
+
+    // Reverse pass: maximum junction speeds assuming a full stop after the last block.
+    struct Junction { float start_v2; float cruise_v2; bool has_cruise; float next_start_v2; };
+    std::vector<Junction> junctions(n);
+    float next_start_v2 = 0.0f, next_mcr_start_v2 = 0.0f, peak_cruise_v2 = 0.0f;
+    size_t pending_cv2_assign = 0;
+    for (size_t j = n; j-- > 0;) {
+        const TimeBlock::Klipper& k = blocks[j].klipper;
+        const float reachable_start_v2 = next_start_v2 + k.delta_v2;
+        const float start_v2 = std::min(k.max_start_v2, reachable_start_v2);
+        Junction& junction = junctions[j];
+        junction = { start_v2, 0.0f, false, next_start_v2 };
+        ++pending_cv2_assign;
+        const float reach_mcr_start_v2 = next_mcr_start_v2 + k.mcr_delta_v2;
+        const float mcr_start_v2 = std::min(k.max_mcr_start_v2, reach_mcr_start_v2);
+        if (mcr_start_v2 < reach_mcr_start_v2) {
+            // It's possible for this block to accelerate.
+            if (mcr_start_v2 + k.mcr_delta_v2 > next_mcr_start_v2 || pending_cv2_assign > 1)
+                // This block can both accelerate and decelerate, or it is a full acceleration followed by a full deceleration.
+                peak_cruise_v2 = (mcr_start_v2 + reach_mcr_start_v2) * 0.5f;
+            junction.cruise_v2  = std::min({ (start_v2 + reachable_start_v2) * 0.5f, k.max_cruise_v2, peak_cruise_v2 });
+            junction.has_cruise = true;
+            pending_cv2_assign = 0;
+        }
+        next_start_v2 = start_v2;
+        next_mcr_start_v2 = mcr_start_v2;
+    }
+
+    // Forward pass: propagate the cruise speeds and set the trapezoids (Move.set_junction()).
+    float prev_cruise_v2 = klipper_carry_cruise_v2;
+    for (size_t i = 0; i < n; ++i) {
+        TimeBlock& block = blocks[i];
+        const Junction& junction = junctions[i];
+        // A block that can't accelerate keeps the cruise speed of the previous one.
+        const float cruise_v2 = junction.has_cruise ? junction.cruise_v2 : std::min(prev_cruise_v2, junction.start_v2);
+        const float start_v2  = std::min(junction.start_v2, cruise_v2);
+        const float end_v2    = std::min(junction.next_start_v2, cruise_v2);
+        const float half_inv_accel = 0.5f / block.acceleration;
+        const float accel_d = std::clamp((cruise_v2 - start_v2) * half_inv_accel, 0.0f, block.distance);
+        const float decel_d = std::clamp((cruise_v2 - end_v2) * half_inv_accel, 0.0f, block.distance - accel_d);
+        block.feedrate_profile.entry      = std::sqrt(start_v2);
+        block.feedrate_profile.cruise     = std::sqrt(cruise_v2);
+        block.feedrate_profile.exit       = std::sqrt(end_v2);
+        block.trapezoid.cruise_feedrate   = block.feedrate_profile.cruise;
+        block.trapezoid.accelerate_until  = accel_d;
+        block.trapezoid.decelerate_after  = block.distance - decel_d;
+        block.flags.recalculate = false;
+        prev_cruise_v2 = cruise_v2;
+    }
+}
+
 void GCodeProcessor::TimeMachine::calculate_time(GCodeProcessorResult& result, PrintEstimatedStatistics::ETimeMode mode, size_t keep_last_n_blocks, float additional_time)
 {
-    if (!enabled || blocks.size() < 2)
+    // Stock: a single block is not timed. Klipper limits: it is (e.g. one move between two stops).
+    if (!enabled || blocks.empty() || (! klipper && blocks.size() < 2))
         return;
 
     assert(keep_last_n_blocks <= blocks.size());
 
+    if (klipper) {
+        plan_klipper();
+    } else {
     // reverse_pass
     for (int i = static_cast<int>(blocks.size()) - 1; i > 0; --i) {
         planner_reverse_pass_kernel(blocks[i - 1], blocks[i]);
@@ -323,6 +403,7 @@ void GCodeProcessor::TimeMachine::calculate_time(GCodeProcessorResult& result, P
     }
 
     recalculate_trapezoids(blocks);
+    }
 
     const size_t n_blocks_process = blocks.size() - keep_last_n_blocks;
     for (size_t i = 0; i < n_blocks_process; ++i) {
@@ -432,6 +513,19 @@ void GCodeProcessor::TimeMachine::calculate_time(GCodeProcessorResult& result, P
             it_stop_time->elapsed_time = float(time);
     }
 
+    if (klipper) {
+        // The speeds at the boundary with the blocks processed now are fixed for the next pass.
+        if (keep_last_n_blocks && n_blocks_process > 0) {
+            const TimeBlock& last  = blocks[n_blocks_process - 1];
+            const TimeBlock& first = blocks[n_blocks_process];
+            klipper_carry_start_v2     = sqr(first.feedrate_profile.entry);
+            klipper_carry_mcr_start_v2 = std::min(klipper_carry_start_v2, last.klipper.max_mcr_start_v2 + last.klipper.mcr_delta_v2);
+            klipper_carry_cruise_v2    = sqr(last.trapezoid.cruise_feedrate);
+        } else if (! keep_last_n_blocks)
+            // Full stop.
+            klipper_carry_start_v2 = klipper_carry_mcr_start_v2 = klipper_carry_cruise_v2 = 0.0f;
+    }
+
     if (keep_last_n_blocks) {
         blocks.erase(blocks.begin(), blocks.begin() + n_blocks_process);
 
@@ -454,6 +548,7 @@ void GCodeProcessor::TimeProcessor::reset()
     export_remaining_time_enabled = false;
     machine_envelope_processing_enabled = false;
     machine_limits = MachineEnvelopeConfig();
+    klipper = KlipperLimits();
     filament_load_times = std::vector<float>();
     filament_unload_times = std::vector<float>();
     for (size_t i = 0; i < static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count); ++i) {
@@ -658,6 +753,50 @@ GCodeProcessor::GCodeProcessor()
     m_time_processor.machines[static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Stealth)].line_m73_stop_mask = "M73 D%s\n";
 }
 
+void GCodeProcessor::apply_klipper_limits(const ConfigOptionResolver& config)
+{
+    KlipperLimits& k = m_time_processor.klipper;
+    k = KlipperLimits();
+    const ConfigOptionEnum<MachineLimitsUsage>* usage = config.option<ConfigOptionEnum<MachineLimitsUsage>>("machine_limits_usage");
+    if (m_flavor != gcfKlipper || usage == nullptr || usage->value == MachineLimitsUsage::Ignore || config.option("klipper_max_velocity") == nullptr)
+        // Not Klipper, limits ignored, or G-code without the Klipper limits: stock estimate.
+        return;
+
+    auto get = [&config](const char* key) {
+        const ConfigOption* opt = config.option(key);
+        return opt != nullptr ? float(opt->getFloat()) : 0.0f;
+    };
+    k.enabled                = true;
+    k.max_velocity           = std::max(get("klipper_max_velocity"), 1.0f);
+    k.max_accel              = std::max(get("klipper_max_accel"), 1.0f);
+    k.min_cruise_ratio       = std::clamp(get("klipper_minimum_cruise_ratio"), 0.0f, 0.99f);
+    k.square_corner_velocity = std::max(get("klipper_square_corner_velocity"), 0.0f);
+    k.max_z_velocity         = std::max(get("klipper_max_z_velocity"), 0.1f);
+    k.max_z_accel            = std::max(get("klipper_max_z_accel"), 1.0f);
+    k.max_e_velocity         = get("klipper_max_extrude_only_velocity");
+    k.max_e_accel            = get("klipper_max_extrude_only_accel");
+    if (k.max_e_velocity <= 0.0f || k.max_e_accel <= 0.0f) {
+        // Klipper's defaults (klippy/kinematics/extruder.py): max_velocity and max_accel * max_extrude_ratio,
+        // max_extrude_ratio = (4 * nozzle_diameter^2) / filament area.
+        const ConfigOptionFloats* nozzle   = config.option<ConfigOptionFloats>("nozzle_diameter");
+        const ConfigOptionFloats* filament = config.option<ConfigOptionFloats>("filament_diameter");
+        double ratio = 1.;
+        if (nozzle != nullptr && filament != nullptr && ! nozzle->values.empty() && ! filament->values.empty() && filament->values.front() > 0.)
+            ratio = 4. * sqr(nozzle->values.front()) / (M_PI * sqr(0.5 * filament->values.front()));
+        if (k.max_e_velocity <= 0.0f)
+            k.max_e_velocity = float(k.max_velocity * ratio);
+        if (k.max_e_accel <= 0.0f)
+            k.max_e_accel = float(k.max_accel * ratio);
+    }
+    for (TimeMachine& machine : m_time_processor.machines) {
+        machine.klipper                        = true;
+        machine.klipper_velocity               = k.max_velocity;
+        machine.klipper_accel                  = k.max_accel;
+        machine.klipper_min_cruise_ratio       = k.min_cruise_ratio;
+        machine.klipper_square_corner_velocity = k.square_corner_velocity;
+    }
+}
+
 void GCodeProcessor::apply_config(const PrintConfig& config)
 {
     m_parser.apply_config(config);
@@ -697,8 +836,11 @@ void GCodeProcessor::apply_config(const PrintConfig& config)
         m_result.filament_cost[i]       = static_cast<float>(config.filament_cost.get_at(i));
     }
 
+    // Klipper limits replace the Marlin style machine limits for the time estimate.
+    apply_klipper_limits(config);
+
     if ((m_flavor == gcfMarlinLegacy || m_flavor == gcfMarlinFirmware || m_flavor == gcfRepRapFirmware || m_flavor == gcfKlipper)
-         && config.machine_limits_usage.value != MachineLimitsUsage::Ignore) {
+         && config.machine_limits_usage.value != MachineLimitsUsage::Ignore && ! m_time_processor.klipper.enabled) {
         m_time_processor.machine_limits = reinterpret_cast<const MachineEnvelopeConfig&>(config);
         if (m_flavor == gcfMarlinLegacy || m_flavor == gcfKlipper) {
             // Legacy Marlin and Klipper don't have separate travel acceleration, they use the 'extruding' value instead.
@@ -923,7 +1065,11 @@ void GCodeProcessor::apply_config(const DynamicPrintConfig& config)
     if (machine_limits_usage != nullptr)
         use_machine_limits = machine_limits_usage->value != MachineLimitsUsage::Ignore;
 
-    if (use_machine_limits && (m_flavor == gcfMarlinLegacy || m_flavor == gcfMarlinFirmware || m_flavor == gcfRepRapFirmware || m_flavor == gcfKlipper)) {
+    // Klipper limits replace the Marlin style machine limits for the time estimate (G-code from this fork only).
+    apply_klipper_limits(config);
+
+    if (use_machine_limits && (m_flavor == gcfMarlinLegacy || m_flavor == gcfMarlinFirmware || m_flavor == gcfRepRapFirmware || m_flavor == gcfKlipper)
+        && ! m_time_processor.klipper.enabled) {
         const ConfigOptionFloats* machine_max_acceleration_x = config.option<ConfigOptionFloats>("machine_max_acceleration_x");
         if (machine_max_acceleration_x != nullptr)
             m_time_processor.machine_limits.machine_max_acceleration_x.values = machine_max_acceleration_x->values;
@@ -1861,6 +2007,11 @@ void GCodeProcessor::process_gcode_line(const GCodeReader::GCodeLine& line, bool
         case 'T':
             process_T(line); // Select Tool
             break;
+        case 's':
+        case 'S':
+            if (boost::iequals(cmd, "SET_VELOCITY_LIMIT"))
+                process_SET_VELOCITY_LIMIT(line);
+            break;
         default:
             break;
         }
@@ -2790,6 +2941,67 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
         block.remaining_internal_g1_lines = remaining_internal_g1_lines.has_value() ? *remaining_internal_g1_lines : 0;
         block.layer_id = std::max<unsigned int>(1, m_layer_id);
 
+        if (machine.klipper) {
+            // Klipper limits (klippy/toolhead.py Move, kinematics/corexy.py and extruder.py check_move()).
+            const KlipperLimits& limits = m_time_processor.klipper;
+            TimeBlock::Klipper& k = block.klipper;
+            float velocity = std::min(curr.feedrate, machine.klipper_velocity);
+            float accel    = machine.klipper_accel;
+            k.kinematic = delta_pos[X] != 0.0f || delta_pos[Y] != 0.0f || delta_pos[Z] != 0.0f;
+            if (k.kinematic) {
+                k.axes_r = Vec4f(float(delta_pos[X]), float(delta_pos[Y]), float(delta_pos[Z]), float(delta_pos[E])) * inv_distance;
+                if (delta_pos[Z] != 0.0f) {
+                    // Move with Z: velocity and acceleration of the slower Z axis.
+                    const float z_ratio = distance / std::abs(float(delta_pos[Z]));
+                    velocity = std::min(velocity, limits.max_z_velocity * z_ratio);
+                    accel    = std::min(accel, limits.max_z_accel * z_ratio);
+                }
+                if (delta_pos[E] != 0.0f && ((delta_pos[X] == 0.0f && delta_pos[Y] == 0.0f) || k.axes_r[E] < 0.0f)) {
+                    // Retraction during a move (wipe): extrude only limits.
+                    const float inv_extrude_r = 1.0f / std::abs(k.axes_r[E]);
+                    velocity = std::min(velocity, limits.max_e_velocity * inv_extrude_r);
+                    accel    = std::min(accel, limits.max_e_accel * inv_extrude_r);
+                }
+            } else {
+                // Extrude only move: no toolhead velocity limit, the extruder limits only.
+                k.axes_r = Vec4f(0.0f, 0.0f, 0.0f, delta_pos[E] > 0.0f ? 1.0f : -1.0f);
+                velocity = std::min(curr.feedrate, limits.max_e_velocity);
+                accel    = limits.max_e_accel;
+            }
+            const float jd = sqr(machine.klipper_square_corner_velocity) * (std::sqrt(2.0f) - 1.0f) / machine.klipper_accel;
+            k.jd_accel      = jd * accel;
+            k.max_cruise_v2 = sqr(velocity);
+            k.delta_v2      = 2.0f * distance * accel;
+            k.mcr_delta_v2  = std::min(2.0f * distance * machine.klipper_accel * (1.0f - machine.klipper_min_cruise_ratio), k.delta_v2);
+            // Junction with the previous block (Move.calc_junction()); from rest after a stop or an extrude only move.
+            k.junction_v2 = 0.0f;
+            if (! blocks.empty() && k.kinematic && blocks.back().klipper.kinematic) {
+                const TimeBlock::Klipper& p = blocks.back().klipper;
+                float max_start_v2 = std::min(k.max_cruise_v2, p.max_cruise_v2);
+                // Extruder: instantaneous_corner_velocity when the extrusion ratio changes.
+                if (const float diff_r = k.axes_r[E] - p.axes_r[E]; diff_r != 0.0f)
+                    max_start_v2 = std::min(max_start_v2, sqr(limits.instant_corner_velocity / std::abs(diff_r)));
+                const float junction_cos_theta = -(k.axes_r[X] * p.axes_r[X] + k.axes_r[Y] * p.axes_r[Y] + k.axes_r[Z] * p.axes_r[Z]);
+                const float sin_theta_d2 = std::sqrt(std::max(0.5f * (1.0f - junction_cos_theta), 0.0f));
+                const float cos_theta_d2 = std::sqrt(std::max(0.5f * (1.0f + junction_cos_theta), 0.0f));
+                const float one_minus_sin_theta_d2 = 1.0f - sin_theta_d2;
+                if (one_minus_sin_theta_d2 > 0.0f && cos_theta_d2 > 0.0f) {
+                    const float r_jd = sin_theta_d2 / one_minus_sin_theta_d2;
+                    // Approximated circle must contact the moves no further than mid-move.
+                    const float quarter_tan_theta_d2 = 0.25f * sin_theta_d2 / cos_theta_d2;
+                    max_start_v2 = std::min({ max_start_v2, r_jd * k.jd_accel, r_jd * p.jd_accel,
+                                              k.delta_v2 * quarter_tan_theta_d2, p.delta_v2 * quarter_tan_theta_d2 });
+                }
+                k.junction_v2 = max_start_v2;
+            }
+            block.acceleration = accel;
+            block.feedrate_profile.cruise = velocity;
+            block.flags.recalculate = true;
+            prev = curr;
+            blocks.push_back(block);
+            continue;
+        }
+
         // calculates block cruise feedrate
         float min_feedrate_factor = 1.0f;
         for (unsigned char a = X; a <= E; ++a) {
@@ -3631,6 +3843,19 @@ void GCodeProcessor::process_M203(const GCodeReader::GCodeLine& line)
 void GCodeProcessor::process_M204(const GCodeReader::GCodeLine& line)
 {
     float value;
+    if (m_time_processor.klipper.enabled) {
+        // Klipper (toolhead.py cmd_M204): S, else the smaller of P and T, replaces max_accel (not limited by it).
+        float accel = 0.0f;
+        float p, t;
+        if (line.has_value('S', value))
+            accel = value;
+        else if (line.has_value('P', p) && line.has_value('T', t))
+            accel = std::min(p, t);
+        if (accel > 0.0f)
+            for (TimeMachine& machine : m_time_processor.machines)
+                machine.klipper_accel = accel;
+        return;
+    }
     for (size_t i = 0; i < static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count); ++i) {
         if (static_cast<PrintEstimatedStatistics::ETimeMode>(i) == PrintEstimatedStatistics::ETimeMode::Normal ||
             m_time_processor.machine_envelope_processing_enabled) {
@@ -3654,6 +3879,36 @@ void GCodeProcessor::process_M204(const GCodeReader::GCodeLine& line)
                     set_travel_acceleration(static_cast<PrintEstimatedStatistics::ETimeMode>(i), value);
             }
         }
+    }
+}
+
+void GCodeProcessor::process_SET_VELOCITY_LIMIT(const GCodeReader::GCodeLine& line)
+{
+    if (! m_time_processor.klipper.enabled)
+        return;
+    // Klipper macro syntax: PARAMETER=value, case insensitive.
+    std::string params = line.raw().substr(0, line.raw().find(';'));
+    boost::to_upper(params);
+    auto get = [&params](const std::string& key, float& value) {
+        size_t pos = 0;
+        while ((pos = params.find(key + "=", pos)) != std::string::npos) {
+            if (pos == 0 || params[pos - 1] == ' ' || params[pos - 1] == '	') {
+                try { value = std::stof(params.substr(pos + key.size() + 1)); return true; } catch (...) { return false; }
+            }
+            pos += key.size();
+        }
+        return false;
+    };
+    float value;
+    for (TimeMachine& machine : m_time_processor.machines) {
+        if (get("VELOCITY", value) && value > 0.0f)
+            machine.klipper_velocity = value;
+        if (get("ACCEL", value) && value > 0.0f)
+            machine.klipper_accel = value;
+        if (get("MINIMUM_CRUISE_RATIO", value) && value >= 0.0f && value < 1.0f)
+            machine.klipper_min_cruise_ratio = value;
+        if (get("SQUARE_CORNER_VELOCITY", value) && value >= 0.0f)
+            machine.klipper_square_corner_velocity = value;
     }
 }
 

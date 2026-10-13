@@ -2705,6 +2705,101 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloats{ 0., 0. });
 
+    // Klipper limits ([printer] and [extruder] sections of printer.cfg), for the time estimate only.
+    def = this->add("klipper_max_velocity", coFloat);
+    def->label = L("Max velocity");
+    def->full_label = L("Klipper max velocity");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [printer] max_velocity: the maximum speed of the toolhead (not per axis). "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->sidetext = L("mm/s");
+    def->min = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(500.));
+
+    def = this->add("klipper_max_accel", coFloat);
+    def->label = L("Max accel");
+    def->full_label = L("Klipper max accel");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [printer] max_accel: the maximum acceleration of the toolhead (not per axis). "
+                     "It is the acceleration in use until the G-code changes it (M204 or SET_VELOCITY_LIMIT): "
+                     "with Klipper, M204 replaces it instead of being limited by it. "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->sidetext = L("mm/s²");
+    def->min = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1500.));
+
+    def = this->add("klipper_minimum_cruise_ratio", coFloat);
+    def->label = L("Minimum cruise ratio");
+    def->full_label = L("Klipper minimum cruise ratio");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [printer] minimum_cruise_ratio: share of a short move that is traveled at cruise speed; "
+                     "Klipper lowers the top speed of short moves to keep it. 0 = off. "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->min = 0;
+    def->max = 0.99;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.5));
+
+    def = this->add("klipper_square_corner_velocity", coFloat);
+    def->label = L("Square corner velocity");
+    def->full_label = L("Klipper square corner velocity");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [printer] square_corner_velocity: the speed of the toolhead through a 90 degree corner. "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(5.));
+
+    def = this->add("klipper_max_z_velocity", coFloat);
+    def->label = L("Max Z velocity");
+    def->full_label = L("Klipper max Z velocity");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [printer] max_z_velocity: moves with Z are slowed down so the Z axis stays below it. "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->sidetext = L("mm/s");
+    def->min = 0.1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(12.));
+
+    def = this->add("klipper_max_z_accel", coFloat);
+    def->label = L("Max Z accel");
+    def->full_label = L("Klipper max Z accel");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [printer] max_z_accel. "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->sidetext = L("mm/s²");
+    def->min = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(500.));
+
+    def = this->add("klipper_max_extrude_only_velocity", coFloat);
+    def->label = L("Max extrude only velocity");
+    def->full_label = L("Klipper max extrude only velocity");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [extruder] max_extrude_only_velocity: the speed limit of retractions and other "
+                     "extrude only moves. 0 = Klipper's default, computed from max_velocity, the nozzle and the filament "
+                     "diameter (max_velocity * 4 * nozzle_diameter^2 / filament area). "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("klipper_max_extrude_only_accel", coFloat);
+    def->label = L("Max extrude only accel");
+    def->full_label = L("Klipper max extrude only accel");
+    def->category = L("Machine limits");
+    def->tooltip = L("Klipper [extruder] max_extrude_only_accel: the acceleration limit of retractions and other "
+                     "extrude only moves. 0 = Klipper's default, computed from max_accel like the velocity. "
+                     "Used for the time estimate only, never written to the G-code.");
+    def->sidetext = L("mm/s²");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
     // M204 P... [mm/sec^2]
     def = this->add("machine_max_acceleration_extruding", coFloats);
     def->full_label = L("Maximum acceleration when extruding");

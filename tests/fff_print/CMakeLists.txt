@@ -28,6 +28,7 @@ add_executable(${_TEST_NAME}_tests
 	test_avoid_crossing_ss.cpp
 	test_seam_notch.cpp
 	test_brim_ss.cpp
+	test_klipper_limits.cpp
 	gcode_walk.hpp
     test_infill_above_bridges.cpp
     test_seam_perimeters.cpp

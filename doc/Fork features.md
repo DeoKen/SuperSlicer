@@ -8,7 +8,7 @@ General rules followed by every feature:
 
 - **Defaults keep stock output.** With every new setting at its default, the G-code is byte for byte identical to stock
   PrusaSlicer 2.9.6 (only the new keys in the config block at the end of the file, and the `Internal bridge infill`
-  type name, differ). This is checked by the golden test, see [Testing](#testing).
+  type name, differ; with the Klipper flavor also the estimated times, see section 15). This is checked by the golden test, see [Testing](#testing).
 - Settings marked "per filament" live in the filament preset, "printer" in the printer preset, all others in the
   print preset. Most are visible in **Expert** mode only.
 
@@ -28,7 +28,8 @@ Contents:
 12. [Auxiliary fan (from OrcaSlicer)](#12-auxiliary-fan-from-orcaslicer)
 13. [Infill directions (from OrcaSlicer)](#13-infill-directions-from-orcaslicer)
 14. [GUI layout](#14-gui-layout)
-15. [Testing](#testing)
+15. [Klipper limits for the time estimate](#15-klipper-limits-for-the-time-estimate)
+16. [Testing](#testing)
 
 ---
 
@@ -447,6 +448,53 @@ field are laid out as stock. Not regrouped: the machine limits page, the filamen
 pages.
 ---
 
+## 15. Klipper limits for the time estimate
+
+**What it does.** With the Klipper G-code flavor, the time estimate (and the actual speeds in the G-code viewer) follow
+Klipper's motion planning and the limits from `printer.cfg` instead of the Marlin style machine limits (per axis
+feedrates, accelerations and jerk). Nothing is ever written to the G-code: PrusaSlicer already refuses "Emit to G-code"
+with Klipper. Active when the flavor is Klipper and Printer > Machine limits > "How to apply limits" is
+"Use for time estimate"; "Ignore" keeps the stock estimate. Stock PrusaSlicer defaults (other flavor) are unaffected,
+and the G-code itself never changes (only the estimated times in it).
+
+| Setting (printer, Machine limits page with Klipper) | Default | Klipper option |
+|---|---|---|
+| `klipper_max_velocity` | `500` mm/s | `[printer] max_velocity` |
+| `klipper_max_accel` | `1500` mm/s² | `[printer] max_accel` |
+| `klipper_minimum_cruise_ratio` | `0.5` | `[printer] minimum_cruise_ratio` (0 = off) |
+| `klipper_square_corner_velocity` | `5` mm/s | `[printer] square_corner_velocity` |
+| `klipper_max_z_velocity` | `12` mm/s | `[printer] max_z_velocity` |
+| `klipper_max_z_accel` | `500` mm/s² | `[printer] max_z_accel` |
+| `klipper_max_extrude_only_velocity` | `0` | `[extruder] max_extrude_only_velocity`; 0 = Klipper's default (max_velocity × 4 × nozzle² / filament area) |
+| `klipper_max_extrude_only_accel` | `0` | `[extruder] max_extrude_only_accel`; 0 = Klipper's default (max_accel × the same ratio) |
+
+**How it works.** `GCode/GCodeProcessor.cpp`, a port of Klipper's planner (`klippy/toolhead.py`, checked against
+Klipper master c7d5724, 2026-10-12):
+
+- Per move (`Move`, `corexy.check_move()`, `extruder.check_move()`): speed capped by max_velocity (toolhead speed, not
+  per axis); moves with Z limited by the Z velocity / acceleration scaled by the Z share of the move; retractions
+  (extrude only moves, and wipes with a negative E) by the extrude only limits.
+- Corners (`Move.calc_junction()`): junction deviation from square_corner_velocity, the centripetal limit, and the
+  extruder's `instantaneous_corner_velocity` (Klipper default 1 mm/s, not a setting) when the extrusion ratio changes,
+  e.g. between a travel and an extrusion.
+- Look-ahead (`LookAheadQueue.flush()`) including minimum_cruise_ratio, with a stop at the end of the queue; the queue
+  is processed in chunks like the stock planner, the speeds at the chunk boundary are carried over.
+- G-code: `M204 S` (or the smaller of P and T) replaces the acceleration, as in Klipper (not limited by max_accel);
+  `SET_VELOCITY_LIMIT VELOCITY= ACCEL= MINIMUM_CRUISE_RATIO= SQUARE_CORNER_VELOCITY=` changes the limits. Commands
+  hidden inside macros (e.g. `PRINT_START`) are not seen.
+- Not modelled: input shaper smoothing, pressure advance, `max_extrude_cross_section`, firmware retraction.
+- A G-code file opened in the viewer is estimated with the limits from its config block; files without the
+  `klipper_*` keys get the stock estimate.
+
+Profile converter: the AWD Voron printer preset gets max_velocity 500, max_accel 20000, Z 20 mm/s and 300 mm/s²,
+cruise ratio 0.5, square corner velocity 5, and "Use for time estimate".
+
+**How to test.** `fff_print_tests "[KlipperLimits]"`: single moves, M204, SET_VELOCITY_LIMIT, Z moves, the cruise ratio
+and a 90° corner against times computed from Klipper's formulas. Manually: slice with the Klipper flavor, change the
+limits and check the estimate and the speeds in the preview ("Actual speed" view).
+
+---
+
 ## Testing
 
 - Build and run all tests: see CLAUDE.md. `ctest -C Release --output-on-failure` in `build\`, or a single test program,
@@ -455,6 +503,7 @@ pages.
 - **Golden test** (`fff_print_tests "[Golden]"`): slices 4 models with PrusaSlicer defaults and with a Klipper config, and
   compares with the stock PrusaSlicer 2.9.6 G-code in `tests/data/golden`. It strips the header line and the keys added
   by this fork (list `added_config_keys` in `tests/fff_print/test_golden_gcode.cpp`, add new keys there) and maps
-  `Internal bridge infill` back to `Bridge infill`. Regenerate the reference only from an unmodified stock build:
+  `Internal bridge infill` back to `Bridge infill`. The estimated time comments are not compared: with the Klipper
+  config the Klipper limits (section 15) change them. Regenerate the reference only from an unmodified stock build:
   `PS_UPDATE_GOLDEN=1`.
 - Every feature has a tag listed in its section above.

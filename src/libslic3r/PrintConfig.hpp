@@ -860,6 +860,15 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloats,               machine_min_travel_rate))
     // M205 S... [mm/sec]
     ((ConfigOptionFloats,               machine_min_extruding_rate))
+    // Klipper [printer] / [extruder] limits, used for the time estimate only (never written to the G-code).
+    ((ConfigOptionFloat,                klipper_max_velocity))
+    ((ConfigOptionFloat,                klipper_max_accel))
+    ((ConfigOptionFloat,                klipper_minimum_cruise_ratio))
+    ((ConfigOptionFloat,                klipper_square_corner_velocity))
+    ((ConfigOptionFloat,                klipper_max_z_velocity))
+    ((ConfigOptionFloat,                klipper_max_z_accel))
+    ((ConfigOptionFloat,                klipper_max_extrude_only_velocity))
+    ((ConfigOptionFloat,                klipper_max_extrude_only_accel))
 )
 
 PRINT_CONFIG_CLASS_DEFINE(

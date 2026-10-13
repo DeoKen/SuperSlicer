@@ -514,6 +514,8 @@ private:
 	bool		m_use_silent_mode = false;
     bool        m_supports_travel_acceleration = false;
 	bool        m_supports_min_feedrates = false;
+	// Klipper flavor: the Machine limits page shows the Klipper limits instead of the Marlin ones.
+	bool        m_klipper_limits = false;
 	void		append_option_line(ConfigOptionsGroupShp optgroup, const std::string opt_key);
 	bool		m_rebuild_kinematics_page = false;
 	ogStaticText* m_machine_limits_description_line {nullptr};

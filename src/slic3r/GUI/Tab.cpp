@@ -2811,10 +2811,12 @@ void TabPrinter::build_fff()
                     const GCodeFlavor flavor = static_cast<GCodeFlavor>(boost::any_cast<int>(value));
                     bool supports_travel_acceleration = GCodeWriter::supports_separate_travel_acceleration(flavor);
                     bool supports_min_feedrates       = (flavor == gcfMarlinFirmware || flavor == gcfMarlinLegacy);
-                    if (supports_travel_acceleration != m_supports_travel_acceleration || supports_min_feedrates != m_supports_min_feedrates) {
+                    if (supports_travel_acceleration != m_supports_travel_acceleration || supports_min_feedrates != m_supports_min_feedrates ||
+                        (flavor == gcfKlipper) != m_klipper_limits) {
                         m_rebuild_kinematics_page = true;
                         m_supports_travel_acceleration = supports_travel_acceleration;
                         m_supports_min_feedrates = supports_min_feedrates;
+                        m_klipper_limits = flavor == gcfKlipper;
                     }
 
                     const bool is_emit_to_gcode = m_config->option("machine_limits_usage")->getInt() == static_cast<int>(MachineLimitsUsage::EmitToGCode);
@@ -3182,6 +3184,16 @@ PageShp TabPrinter::build_kinematics_page()
         update_dirty();
         update();
     };
+
+    if (m_klipper_limits) {
+        // Klipper: its own limits ([printer] and [extruder] of printer.cfg), for the time estimate only.
+        optgroup = page->new_optgroup(L("Klipper limits (printer.cfg)"));
+        for (const char *opt : { "klipper_max_velocity", "klipper_max_accel", "klipper_minimum_cruise_ratio",
+                                 "klipper_square_corner_velocity", "klipper_max_z_velocity", "klipper_max_z_accel",
+                                 "klipper_max_extrude_only_velocity", "klipper_max_extrude_only_accel" })
+            optgroup->append_single_option_line(opt);
+        return page;
+    }
 
     if (m_use_silent_mode) {
         std::vector<std::pair<std::string, std::string>> legend_columns = {
@@ -3710,6 +3722,10 @@ void TabPrinter::toggle_options()
         int  max_field = silent_mode ? 2 : 1;
     	for (const std::string &opt : Preset::machine_limits_options()) {
             const bool option_enabled = (opt == "machine_max_junction_deviation") ? flavor == gcfMarlinFirmware && enabled : enabled;
+            if (boost::starts_with(opt, "klipper_")) {
+                toggle_option(opt, enabled);
+                continue;
+            }
             for (int i = 0; i < max_field; ++ i) {
                 toggle_option(opt, option_enabled, i);
             }
@@ -3741,10 +3757,12 @@ void TabPrinter::update_fff()
     const auto flavor = m_config->option<ConfigOptionEnum<GCodeFlavor>>("gcode_flavor")->value;
     bool supports_travel_acceleration = (flavor == gcfMarlinFirmware || flavor == gcfRepRapFirmware);
     bool supports_min_feedrates       = (flavor == gcfMarlinFirmware || flavor == gcfMarlinLegacy);
-    if (m_supports_travel_acceleration != supports_travel_acceleration || m_supports_min_feedrates != supports_min_feedrates) {
+    if (m_supports_travel_acceleration != supports_travel_acceleration || m_supports_min_feedrates != supports_min_feedrates ||
+        (flavor == gcfKlipper) != m_klipper_limits) {
         m_rebuild_kinematics_page = true;
         m_supports_travel_acceleration = supports_travel_acceleration;
         m_supports_min_feedrates = supports_min_feedrates;
+        m_klipper_limits = flavor == gcfKlipper;
     }
 
     toggle_options();

@@ -38,6 +38,7 @@ const std::vector<std::string> added_config_keys {
     "brim_ears", "brim_per_object",
     "auxiliary_fan_gcode", "additional_cooling_fan_speed",
     "solid_infill_direction", "rotate_solid_infill_direction", "align_infill_direction_to_model",
+    "klipper_",
 };
 
 bool is_added_config_line(const std::string &line)
@@ -46,6 +47,22 @@ bool is_added_config_line(const std::string &line)
         if (boost::starts_with(line, "; " + key))
             return true;
     return false;
+}
+
+// The Klipper limits (klipper_*) change the time estimate with the Klipper flavor: the estimated times written as
+// comments are not compared (on both sides, the golden files keep the stock values).
+std::string without_time_estimates(const std::string &gcode)
+{
+    std::istringstream in(gcode);
+    std::string        out;
+    out.reserve(gcode.size());
+    std::string line;
+    while (std::getline(in, line))
+        if (! boost::starts_with(line, "; estimated printing time") && ! boost::starts_with(line, "; estimated first layer printing time")) {
+            out += line;
+            out += '\n';
+        }
+    return out;
 }
 
 // Remove the parts of the G-code that legitimately differ from the stock output:
@@ -145,9 +162,10 @@ void check_golden(const std::string &name, TestMesh mesh, const DynamicPrintConf
     }
 
     REQUIRE(boost::filesystem::exists(path));
-    const std::string expected = read_file(path);
-    INFO(name << ": " << first_difference(gcode, expected));
-    CHECK(gcode == expected);
+    const std::string expected = without_time_estimates(read_file(path));
+    const std::string actual   = without_time_estimates(gcode);
+    INFO(name << ": " << first_difference(actual, expected));
+    CHECK(actual == expected);
 }
 
 } // namespace
