@@ -461,6 +461,8 @@ private:
     float                               m_last_height{ 0.0f };
     float                               m_last_layer_z{ 0.0f };
     float                               m_max_layer_z{ 0.0f };
+    // Z step of the current layer (print_z minus the previous print_z), for the current_layer_height placeholder.
+    float                               m_current_layer_height{ 0.0f };
     float                               m_last_width{ 0.0f };
 
     std::optional<Vec3d>                m_previous_layer_last_position;

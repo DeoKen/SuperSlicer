@@ -6982,6 +6982,11 @@ PrintStatisticsConfigDef::PrintStatisticsConfigDef()
     def = this->add("total_layer_count", coInt);
     def->label = L("Total layer count");
     def->tooltip = L("Number of layers in the entire print.");
+
+    def = this->add("total_print_height", coFloat);
+    def->label = L("Total print height");
+    def->tooltip = L("Z of the top of the highest layer of the entire print (objects, supports and raft), in mm. "
+                     "The last layer change has layer_z equal to this value.");
 }
 
 ObjectsInfoConfigDef::ObjectsInfoConfigDef()
@@ -7099,14 +7104,14 @@ OtherPresetsConfigDef::OtherPresetsConfigDef()
 
 
 static std::map<t_custom_gcode_key, t_config_option_keys> s_CustomGcodeSpecificPlaceholders{
-    {"start_filament_gcode",    {"layer_num", "layer_z", "max_layer_z", "filament_extruder_id"}},
-    {"end_filament_gcode",      {"layer_num", "layer_z", "max_layer_z", "filament_extruder_id"}},
-    {"end_gcode",               {"layer_num", "layer_z", "max_layer_z", "filament_extruder_id"}},
-    {"before_layer_gcode",      {"layer_num", "layer_z", "max_layer_z"}},
-    {"layer_gcode",             {"layer_num", "layer_z", "max_layer_z"}},
-    {"feature_gcode",           {"layer_num", "layer_z", "max_layer_z", "extrusion_role", "last_extrusion_role", "next_extrusion_role", "previous_extrusion_role"}},
+    {"start_filament_gcode",    {"layer_num", "layer_z", "max_layer_z", "current_layer_height", "filament_extruder_id"}},
+    {"end_filament_gcode",      {"layer_num", "layer_z", "max_layer_z", "current_layer_height", "filament_extruder_id"}},
+    {"end_gcode",               {"layer_num", "layer_z", "max_layer_z", "current_layer_height", "filament_extruder_id"}},
+    {"before_layer_gcode",      {"layer_num", "layer_z", "max_layer_z", "current_layer_height"}},
+    {"layer_gcode",             {"layer_num", "layer_z", "max_layer_z", "current_layer_height"}},
+    {"feature_gcode",           {"layer_num", "layer_z", "max_layer_z", "current_layer_height", "extrusion_role", "last_extrusion_role", "next_extrusion_role", "previous_extrusion_role"}},
     {"auxiliary_fan_gcode",     {"aux_fan_speed"}},
-    {"toolchange_gcode",        {"layer_num", "layer_z", "max_layer_z", "previous_extruder", "next_extruder", "toolchange_z"}},
+    {"toolchange_gcode",        {"layer_num", "layer_z", "max_layer_z", "current_layer_height", "previous_extruder", "next_extruder", "toolchange_z"}},
     {"color_change_gcode",      {"color_change_extruder"}},
     {"pause_print_gcode",       {"color_change_extruder"}},
 };
@@ -7131,6 +7136,12 @@ CustomGcodeSpecificConfigDef::CustomGcodeSpecificConfigDef()
     def = this->add("max_layer_z", coFloat);
     def->label = L("Maximal layer Z");
     def->tooltip = L("Height of the last layer above the print bed.");
+
+    def = this->add("current_layer_height", coFloat);
+    def->label = L("Current layer height");
+    def->tooltip = L("Real height of the current layer: its Z minus the Z of the layer printed before it (the first layer: its Z). "
+                     "Follows variable layer height and support layers, unlike layer_height, which is the print setting. "
+                     "Same value as the ;HEIGHT: line at the layer change.");
 
     def = this->add("filament_extruder_id", coInt);
     def->label = L("Current extruder index");

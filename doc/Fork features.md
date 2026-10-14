@@ -29,7 +29,8 @@ Contents:
 13. [Infill directions (from OrcaSlicer)](#13-infill-directions-from-orcaslicer)
 14. [GUI layout](#14-gui-layout)
 15. [Klipper limits for the time estimate](#15-klipper-limits-for-the-time-estimate)
-16. [Testing](#testing)
+16. [Layer height variables for custom G-code](#16-layer-height-variables-for-custom-g-code)
+17. [Testing](#testing)
 
 ---
 
@@ -192,7 +193,7 @@ positions with the delay at 0: the increases come earlier, the extrusion is iden
 | `feature_gcode` | Printer > Custom G-code > "Between extrusion role change G-code" | empty |
 
 Variables: `extrusion_role` (= `next_extrusion_role`, the new type), `last_extrusion_role` (= `previous_extrusion_role`),
-`layer_num`, `layer_z`, `max_layer_z`, plus all settings. Type names are the `;TYPE:` names: `Perimeter`,
+`layer_num`, `layer_z`, `max_layer_z`, `current_layer_height` (section 16), plus all settings. Type names are the `;TYPE:` names: `Perimeter`,
 `External perimeter`, `Overhang perimeter`, `Internal infill`, `Solid infill`, `Top solid infill`, `Ironing`,
 `Bridge infill`, `Internal bridge infill`, `Gap fill`, `Skirt/Brim`, `Support material`, `Support material interface`,
 `Wipe tower` (`Unknown` before the first extrusion). Example:
@@ -496,6 +497,42 @@ cruise ratio 0.5, square corner velocity 5, and "Use for time estimate".
 **How to test.** `fff_print_tests "[KlipperLimits]"`: single moves, M204, SET_VELOCITY_LIMIT, Z moves, the cruise ratio
 and a 90° corner against times computed from Klipper's formulas. Manually: slice with the Klipper flavor, change the
 limits and check the estimate and the speeds in the preview ("Actual speed" view).
+
+---
+
+## 16. Layer height variables for custom G-code
+
+**What it does.** Two new variables for custom G-code (fork only, not in SuperSlicer). Stock `layer_height` is the print
+setting: it doesn't change with variable layer height, support layers or the first layer. These give the real values,
+the same ones the G-code viewer shows.
+
+| Variable | Available in | Value |
+|---|---|---|
+| `current_layer_height` | before / after layer change, `feature_gcode`, toolchange, start / end filament, end G-code | Z of the current layer minus Z of the layer printed before it (first layer: its Z). Same number as the `;HEIGHT:` line at the layer change. |
+| `total_print_height` | every custom G-code, including the start G-code | Z of the top of the highest layer of the print (objects, supports, raft) = `layer_z` of the last layer. |
+
+Layer numbers (stock variables, unchanged): `layer_num` (0 based) and `total_layer_count` count every distinct Z, support
+only layers included, so `{layer_num+1}` / `[total_layer_count]` is the viewer's layer slider number. Variable layer
+height just gives more layers where they are thin. Stock PrusaSlicer does not run the layer change G-code on the first
+layer: for Klipper's layer display put `SET_PRINT_STATS_INFO CURRENT_LAYER=1` in the start G-code (after `TOTAL_LAYER`).
+The extrusion thickness of a single line (the viewer's "Layer height" colours) can differ inside one layer (support
+lines spanning several object layers), so it is not a per layer variable. In sequential printing, `total_print_height`
+is the height of the tallest object.
+
+Example (after layer change G-code):
+
+```
+M117 Layer {layer_num+1}/[total_layer_count] Z {layer_z}/{total_print_height} h {current_layer_height}
+SET_PRINT_STATS_INFO CURRENT_LAYER={layer_num+1}
+```
+
+**How it works.** `GCode.cpp`: `m_current_layer_height` is set in `process_layer()` with the `;HEIGHT:` value and passed
+wherever `layer_z` is passed; `total_print_height` is set with `total_layer_count` before the start G-code. Both are
+listed in the custom G-code editor. G-code with them unused is unchanged.
+
+**How to test.** `fff_print_tests "[LayerPlaceholders]"`: a cube with a variable layer height profile and an overhang
+with supports on their own heights; every layer change checks `current_layer_height` against `;HEIGHT:`, `layer_z`
+against `;Z:`, `layer_num+1` against the count of `;LAYER_CHANGE`, and the totals against the last layer.
 
 ---
 
