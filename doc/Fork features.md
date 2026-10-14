@@ -526,6 +526,12 @@ M117 Layer {layer_num+1}/[total_layer_count] Z {layer_z}/{total_print_height} h 
 SET_PRINT_STATS_INFO CURRENT_LAYER={layer_num+1}
 ```
 
+**Your own variables** (SuperSlicer `print_custom_variables` / `filament_custom_variables` / `printer_custom_variables`):
+not ported, stock PrusaSlicer 2.9.6 does the same with "Custom parameters" (Expert mode): Print > Advanced, Filament >
+Custom G-code, Printer > Custom G-code. Written as single level JSON, e.g. `{"soak": 10, "chamber": true}`, used with a
+prefix: `{custom_parameter_print_soak}`, `{custom_parameter_printer_...}`, `{custom_parameter_filament_soak[current_extruder]}`
+(one value per filament). Invalid JSON, or the same filament key with different types, refuses to slice.
+
 **How it works.** `GCode.cpp`: `m_current_layer_height` is set in `process_layer()` with the `;HEIGHT:` value and passed
 wherever `layer_z` is passed; `total_print_height` is set with `total_layer_count` before the start G-code. Both are
 listed in the custom G-code editor. G-code with them unused is unchanged.
