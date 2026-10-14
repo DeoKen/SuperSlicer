@@ -20,6 +20,10 @@ struct PrintVolumeDetection
 	vec4 xy_keep_out_1;
 	vec4 xy_keep_out_2;
 	vec4 xy_keep_out_3;
+	vec4 xy_keep_out_4;
+	vec4 xy_keep_out_5;
+	vec4 xy_keep_out_6;
+	vec4 xy_keep_out_7;
 };
 
 bool inside_keep_out(vec4 zone, vec3 pos)
@@ -90,8 +94,14 @@ void main()
 		pv_check_max = vec3(0.0, 0.0, world_pos.z - print_volume.z_data.y);
 	}
 	bool pv_keep_out = print_volume.type == 0 &&
-		(inside_keep_out(print_volume.xy_keep_out_0, world_pos.xyz) || inside_keep_out(print_volume.xy_keep_out_1, world_pos.xyz) ||
-		 inside_keep_out(print_volume.xy_keep_out_2, world_pos.xyz) || inside_keep_out(print_volume.xy_keep_out_3, world_pos.xyz));
+		(inside_keep_out(print_volume.xy_keep_out_0, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_1, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_2, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_3, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_4, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_5, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_6, world_pos.xyz) ||
+		 inside_keep_out(print_volume.xy_keep_out_7, world_pos.xyz));
 	color.rgb = (pv_keep_out || any(lessThan(pv_check_min, ZERO)) || any(greaterThan(pv_check_max, ZERO))) ? mix(color.rgb, ZERO, 0.3333) : color.rgb;
 	
 #ifdef ENABLE_ENVIRONMENT_MAP

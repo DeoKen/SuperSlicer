@@ -753,10 +753,21 @@ GCodeProcessor::GCodeProcessor()
     m_time_processor.machines[static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Stealth)].line_m73_stop_mask = "M73 D%s\n";
 }
 
+// Fork: a G-code loaded into the viewer gets the Klipper planner only if it was sliced with the Klipper limits. The loaders fill
+// the config with the defaults first, which have them: remove them otherwise, apply_klipper_limits() then keeps the stock estimate.
+static void keep_klipper_limits_of_gcode(DynamicPrintConfig& config, const bool gcode_has_klipper_limits)
+{
+    if (! gcode_has_klipper_limits)
+        config.erase("klipper_max_velocity");
+}
+
 void GCodeProcessor::apply_klipper_limits(const ConfigOptionResolver& config)
 {
     KlipperLimits& k = m_time_processor.klipper;
     k = KlipperLimits();
+    // The machines too, apply_config() may be called again without a reset().
+    for (TimeMachine& machine : m_time_processor.machines)
+        machine.klipper = false;
     const ConfigOptionEnum<MachineLimitsUsage>* usage = config.option<ConfigOptionEnum<MachineLimitsUsage>>("machine_limits_usage");
     if (m_flavor != gcfKlipper || usage == nullptr || usage->value == MachineLimitsUsage::Ignore || config.option("klipper_max_velocity") == nullptr)
         // Not Klipper, limits ignored, or G-code without the Klipper limits: stock estimate.
@@ -1329,7 +1340,11 @@ void GCodeProcessor::process_ascii_file(const std::string& filename, GCodeReader
             // Silently substitute unknown values by new ones for loading configurations from PrusaSlicer's own G-code.
             // Showing substitution log or errors may make sense, but we are not really reading many values from the G-code config,
             // thus a probability of incorrect substitution is low and the G-code viewer is a consumer-only anyways.
-            config.load_from_gcode_file(filename, ForwardCompatibilitySubstitutionRule::EnableSilent);
+            // Fork: loaded apart from the defaults to know whether the G-code has the Klipper limits.
+            DynamicPrintConfig file_config;
+            file_config.load_from_gcode_file(filename, ForwardCompatibilitySubstitutionRule::EnableSilent);
+            config.apply(file_config);
+            keep_klipper_limits_of_gcode(config, file_config.has("klipper_max_velocity"));
             apply_config(config);
         }
         else {
@@ -1500,6 +1515,8 @@ void GCodeProcessor::process_binary_file(const std::string& filename, GCodeReade
     // Showing substitution log or errors may make sense, but we are not really reading many values from the G-code config,
     // thus a probability of incorrect substitution is low and the G-code viewer is a consumer-only anyways.
     config.load_from_ini_string(str, ForwardCompatibilitySubstitutionRule::EnableSilent);
+    keep_klipper_limits_of_gcode(config, slicer_metadata_block.raw_data.end() != std::find_if(slicer_metadata_block.raw_data.begin(),
+        slicer_metadata_block.raw_data.end(), [](const auto &kv) { return kv.first == "klipper_max_velocity"; }));
     apply_config(config);
 
     m_result.filename = filename;
@@ -1643,6 +1660,8 @@ void GCodeProcessor::apply_config_superslicer(const std::string& filename)
     DynamicPrintConfig config;
     config.apply(FullPrintConfig::defaults());
     load_from_superslicer_gcode_file(filename, config, ForwardCompatibilitySubstitutionRule::EnableSilent);
+    // Fork: SuperSlicer has no Klipper limits, keep its machine limits estimate.
+    keep_klipper_limits_of_gcode(config, false);
     apply_config(config);
 }
 

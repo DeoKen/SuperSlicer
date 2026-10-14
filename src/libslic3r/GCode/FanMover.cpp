@@ -51,7 +51,7 @@ static void change_axis_value(std::string &line, char axis, const float new_valu
 }
 
 // Fan speed (0-255 scale, as written) set by the line, -1 if the line doesn't set the fan.
-static int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor)
+static float get_fan_speed_raw(const std::string &line, GCodeFlavor flavor)
 {
     // M106 / M107 with a fan index other than 0 (P word, except for Mach3 / Machinekit where P is the speed) is another
     // fan, for example the auxiliary fan (M106 P2): not the part cooling fan.
@@ -59,12 +59,21 @@ static int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor)
         if (const float index = get_axis_value(line, 'P'); ! std::isnan(index) && index != 0.f)
             return -1;
     if (line.compare(0, 4, "M106") == 0)
-        return int16_t(get_axis_value(line, (flavor == gcfMach3 || flavor == gcfMachinekit) ? 'P' : 'S'));
+        return get_axis_value(line, (flavor == gcfMach3 || flavor == gcfMachinekit) ? 'P' : 'S');
     if (line.compare(0, 4, "M127") == 0 || line.compare(0, 4, "M107") == 0)
         return 0;
     if ((flavor == gcfMakerWare || flavor == gcfSailfish) && line.compare(0, 4, "M126") == 0)
-        return int16_t(get_axis_value(line, 'T'));
+        return get_axis_value(line, 'T');
     return -1;
+}
+
+// Fan speed set by the line in hundredths of the written value (M106 S89.25 -> 8925), -1 if the line doesn't set the fan.
+// Fork: SuperSlicer compared whole percents (int(S) * 100 / 255), so two neighbouring percents (PrusaSlicer writes
+// M106 S102 for 40 % and S104.55 for 41 %) could compare equal and the second one was dropped as a duplicate.
+static int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor)
+{
+    const float raw = get_fan_speed_raw(line, flavor);
+    return std::isnan(raw) || raw < 0.f ? int16_t(-1) : int16_t(std::lround(std::min(raw, 300.f) * 100.f));
 }
 
 static bool is_G1(const std::string &raw) { return raw.size() > 2 && raw[0] == 'G' && raw[1] == '1' && raw[2] == ' '; }
@@ -186,7 +195,6 @@ void FanMover::process_gcode_line(GCodeReader &reader, const GCodeReader::GCodeL
         case 'M': {
             fan_speed = get_fan_speed(line.raw(), m_flavor);
             if (fan_speed >= 0) {
-                fan_speed = int16_t(100 * fan_speed / 255);
                 if (! m_is_custom_gcode) {
                     if (m_back_buffer_fan_speed < fan_speed && m_nb_seconds_delay > 0 &&
                         (! m_only_overhangs || m_current_role == GCodeExtrusionRole::OverhangPerimeter)) {

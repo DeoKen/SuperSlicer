@@ -44,17 +44,29 @@ public:
     // Scaled areas in bed coordinates: true if they overlap a zone.
     bool intersects(const ExPolygons &expolygons) const;
 
+    // The printed parts of the current layer (bounding boxes of its islands, bed coordinates in mm, grown by CLEARANCE):
+    // the detours go around them too when possible, except around the parts where the travel starts or ends.
+    void set_obstacles(const std::vector<BoundingBoxf> &obstacles);
+
     // Reroute a scaled travel polyline in bed coordinates around the zones, along the shortest detour through
-    // the zone corners. A segment starting inside a zone is left alone (it moves out of the zone).
+    // the zone corners (and the corners of the obstacles, if a detour avoiding them exists).
+    // A segment starting inside a zone is left alone (it moves out of the zone).
     // Returns false if some segment cannot be routed.
     bool reroute(const Polyline &in, Polyline &out) const;
 
 private:
     bool reroute_segment(const Vec2d &a, const Vec2d &b, std::vector<Vec2d> &via) const;
+    // Dijkstra in the visibility graph of start, end and the given turning points, avoiding the zones and the obstacles.
+    bool shortest_path(const Vec2d &start, const Vec2d &end, const std::vector<Vec2d> &corners,
+                       const std::vector<const BoundingBoxf*> &obstacles, std::vector<Vec2d> &via) const;
 
     std::vector<BoundingBoxf> m_zones;
     // Candidate detour turning points: the zone corners, nudged outwards, inside the bed and outside all zones.
     std::vector<Vec2d>        m_corners;
+    // set_obstacles(): the bed (for its corners) and the obstacles with their corners (inside the bed, outside the zones).
+    BoundingBoxf              m_bed;
+    std::vector<BoundingBoxf> m_obstacles;
+    std::vector<Vec2d>        m_obstacle_corners;
 };
 
 } // namespace Slic3r

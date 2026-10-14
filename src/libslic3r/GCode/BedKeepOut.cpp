@@ -92,6 +92,9 @@ void BedKeepOut::init(const std::vector<BoundingBoxf> &zones, const BoundingBoxf
 {
     m_zones.clear();
     m_corners.clear();
+    m_bed = bed;
+    m_obstacles.clear();
+    m_obstacle_corners.clear();
     for (const BoundingBoxf &z : zones)
         m_zones.emplace_back(z.min - Vec2d(CLEARANCE, CLEARANCE), z.max + Vec2d(CLEARANCE, CLEARANCE));
     for (const BoundingBoxf &z : m_zones)
@@ -146,15 +149,46 @@ bool BedKeepOut::intersects(const ExPolygons &expolygons) const
     return false;
 }
 
-bool BedKeepOut::reroute_segment(const Vec2d &start, const Vec2d &end, std::vector<Vec2d> &via) const
+void BedKeepOut::set_obstacles(const std::vector<BoundingBoxf> &obstacles)
 {
-    // Shortest path in the visibility graph of start, end and the zone corners (Dijkstra). There are only a few
+    m_obstacles.clear();
+    m_obstacle_corners.clear();
+    if (m_zones.empty())
+        return;
+    for (const BoundingBoxf &o : obstacles)
+        m_obstacles.emplace_back(o.min - Vec2d(CLEARANCE, CLEARANCE), o.max + Vec2d(CLEARANCE, CLEARANCE));
+    for (const BoundingBoxf &o : m_obstacles)
+        for (const Vec2d &c : { Vec2d(o.min.x() - CORNER_MARGIN, o.min.y() - CORNER_MARGIN), Vec2d(o.max.x() + CORNER_MARGIN, o.min.y() - CORNER_MARGIN),
+                                Vec2d(o.max.x() + CORNER_MARGIN, o.max.y() + CORNER_MARGIN), Vec2d(o.min.x() - CORNER_MARGIN, o.max.y() + CORNER_MARGIN) })
+            if (m_bed.contains(c) && ! this->contains(c))
+                m_obstacle_corners.emplace_back(c);
+}
+
+bool BedKeepOut::shortest_path(const Vec2d &start, const Vec2d &end, const std::vector<Vec2d> &corners,
+                               const std::vector<const BoundingBoxf*> &obstacles, std::vector<Vec2d> &via) const
+{
+    // Shortest path in the visibility graph of start, end and the corners (Dijkstra). There are only a few
     // zones, so the graph has a handful of nodes, and this only runs for the rare travels that hit a zone.
+    auto blocked = [this, &obstacles](const Vec2d &a, const Vec2d &b) {
+        if (this->crosses(a, b))
+            return true;
+        for (const BoundingBoxf *o : obstacles)
+            if (segment_hits(a, b, *o))
+                return true;
+        return false;
+    };
     std::vector<Vec2d> nodes;
-    nodes.reserve(m_corners.size() + 2);
+    nodes.reserve(corners.size() + 2);
     nodes.emplace_back(start);
     nodes.emplace_back(end);
-    nodes.insert(nodes.end(), m_corners.begin(), m_corners.end());
+    for (const Vec2d &c : corners) {
+        bool inside = false;
+        for (const BoundingBoxf *o : obstacles)
+            if (point_inside(c, *o))
+                inside = true;
+        if (! inside)
+            nodes.emplace_back(c);
+    }
     const size_t n = nodes.size();
     std::vector<double> dist(n, std::numeric_limits<double>::infinity());
     std::vector<size_t> prev(n, size_t(-1));
@@ -171,7 +205,7 @@ bool BedKeepOut::reroute_segment(const Vec2d &start, const Vec2d &end, std::vect
         for (size_t v = 0; v < n; ++ v)
             if (! done[v] && v != u) {
                 const double d = dist[u] + (nodes[v] - nodes[u]).norm();
-                if (d < dist[v] && ! this->crosses(nodes[u], nodes[v])) {
+                if (d < dist[v] && ! blocked(nodes[u], nodes[v])) {
                     dist[v] = d;
                     prev[v] = u;
                 }
@@ -184,6 +218,25 @@ bool BedKeepOut::reroute_segment(const Vec2d &start, const Vec2d &end, std::vect
         path.emplace_back(nodes[v]);
     via.insert(via.end(), path.rbegin(), path.rend());
     return true;
+}
+
+bool BedKeepOut::reroute_segment(const Vec2d &start, const Vec2d &end, std::vector<Vec2d> &via) const
+{
+    // First around the printed parts too, except the ones the travel starts or ends in (it has to leave / enter them).
+    if (! m_obstacles.empty()) {
+        std::vector<const BoundingBoxf*> obstacles;
+        for (const BoundingBoxf &o : m_obstacles)
+            if (! point_inside(start, o) && ! point_inside(end, o))
+                obstacles.emplace_back(&o);
+        if (! obstacles.empty()) {
+            std::vector<Vec2d> corners = m_corners;
+            corners.insert(corners.end(), m_obstacle_corners.begin(), m_obstacle_corners.end());
+            if (this->shortest_path(start, end, corners, obstacles, via))
+                return true;
+        }
+    }
+    // Around the zones only: crossing a part is better than no way at all.
+    return this->shortest_path(start, end, m_corners, {}, via);
 }
 
 bool BedKeepOut::reroute(const Polyline &in, Polyline &out) const

@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <set>
@@ -215,4 +216,23 @@ TEST_CASE("Brim per object with ears", "[BrimSS]") {
     REQUIRE(! s.parsed.moves.empty());
     for (const BrimMove &m : s.parsed.moves)
         CHECK(std::min(distance_to_corner(m.to, s.boxes[0]), distance_to_corner(m.to, s.boxes[1])) < 5.5);
+}
+
+TEST_CASE("Brim per object: the inner brim is printed with its object when printing sequentially", "[BrimSS]") {
+    // The brim inside the holes is made for all objects together: with brim_per_object it has to go with its object too.
+    const TriangleMesh low_cube_with_hole = Test::mesh(TestMesh::cube_with_hole, Vec3d::Zero(), Vec3d(1., 1., 0.25));
+    const Sliced s = slice_brim({ low_cube_with_hole, low_cube_with_hole },
+                                config_with({ { "complete_objects", true }, { "brim_per_object", true }, { "brim_type", "outer_and_inner" } }));
+    REQUIRE(s.boxes.size() == 2);
+    // Inner brim moves (inside the bounding box of an object) of each object: before / after the first object goes up.
+    std::array<int, 2> before { 0, 0 }, after { 0, 0 };
+    for (const BrimMove &m : s.parsed.moves)
+        for (size_t i = 0; i < 2; ++ i)
+            if (s.boxes[i].contains(m.to) && s.boxes[i].contains(m.from))
+                ++ (m.line < s.parsed.first_upper_line ? before : after)[i];
+    INFO("inner brim moves before / after the first object: " << before[0] << " / " << after[0] << ", " << before[1] << " / " << after[1]);
+    REQUIRE(before[0] + after[0] > 0);
+    REQUIRE(before[1] + after[1] > 0);
+    // One object's inner brim entirely before the first object goes up, the other's entirely after.
+    CHECK(((before[0] > 0 && after[0] == 0 && before[1] == 0 && after[1] > 0) || (before[1] > 0 && after[1] == 0 && before[0] == 0 && after[0] > 0)));
 }

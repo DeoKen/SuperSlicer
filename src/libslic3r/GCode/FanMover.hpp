@@ -75,8 +75,10 @@ private:
     bool               m_is_custom_gcode = false;
 
     // Fan speed at the front (already written) and at the back (last parsed) of the buffer.
-    int                m_front_buffer_fan_speed = 1;
-    int                m_back_buffer_fan_speed  = 1;
+    // Fan speeds in hundredths of the written S value (get_fan_speed()). Front: last written out, unknown at the start
+    // so that the first fan command is never dropped as a duplicate. Back: last read, the fan is off at the start.
+    int                m_front_buffer_fan_speed = -1;
+    int                m_back_buffer_fan_speed  = 0;
 
     std::list<BufferData> m_buffer;
     double                m_buffer_time_size = 0;

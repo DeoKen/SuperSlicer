@@ -9,6 +9,12 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 
+#include <boost/filesystem.hpp>
+#include <boost/nowide/fstream.hpp>
+#include <regex>
+
+#include "test_data.hpp"
+
 using namespace Slic3r;
 using Catch::Approx;
 
@@ -102,4 +108,39 @@ TEST_CASE("Klipper limits: off when ignored or with another flavor", "[KlipperLi
     const double klipper = estimate(klipper_config({}), gcode);
     CHECK(estimate(klipper_config({ { "machine_limits_usage", "ignore" } }), gcode) != Approx(klipper));
     CHECK(estimate(klipper_config({ { "gcode_flavor", "marlin2" } }), gcode) != Approx(klipper));
+}
+
+TEST_CASE("Klipper limits: a G-code loaded without them keeps the stock estimate", "[KlipperLimits]") {
+    // The viewer fills the config of a loaded G-code with the defaults, which have the Klipper limits: a G-code sliced
+    // without them (stock PrusaSlicer, other slicers) must not get the Klipper planner.
+    const std::string gcode = Slic3r::Test::slice({ Slic3r::Test::TestMesh::cube_20x20x20 }, {
+        { "gcode_flavor", "klipper" }, { "machine_limits_usage", "time_estimate_only" } });
+    // The default Klipper limits: without the fix the G-code without them got these same defaults back.
+    REQUIRE(gcode.find("; klipper_max_velocity = ") != std::string::npos);
+    auto estimate_file = [](const std::string &text) {
+        const boost::filesystem::path path = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("klipper_%%%%%%.gcode");
+        {
+            boost::nowide::ofstream out(path.string(), std::ios::binary);
+            out << text;
+        }
+        GCodeProcessor processor;
+        processor.process_file(path.string());
+        boost::filesystem::remove(path);
+        return processor.get_result().print_statistics.modes[size_t(PrintEstimatedStatistics::ETimeMode::Normal)].time;
+    };
+    const double with_limits    = estimate_file(gcode);
+    const double without_limits = estimate_file(std::regex_replace(gcode, std::regex("; klipper_[a-z_]+ = [^\n]*\n"), ""));
+    // Same G-code: only the planner differs (Klipper limits vs. the machine limits).
+    CHECK(with_limits > 0.);
+    CHECK(without_limits > 0.);
+    CHECK(with_limits != Approx(without_limits));
+    // Loading a G-code sliced with the limits gives the time estimated while slicing (written in seconds).
+    std::smatch m;
+    REQUIRE(std::regex_search(gcode, m, std::regex(R"(; estimated printing time \(normal mode\) = ([^\n]*))")));
+    double sliced = 0.;
+    const std::string text = m[1].str();
+    const std::regex units(R"((\d+)([dhms]))");
+    for (std::sregex_iterator it(text.begin(), text.end(), units), end; it != end; ++ it)
+        sliced += std::stod((*it)[1].str()) * ((*it)[2] == "d" ? 86400. : (*it)[2] == "h" ? 3600. : (*it)[2] == "m" ? 60. : 1.);
+    CHECK(std::abs(with_limits - sliced) <= 1.);
 }

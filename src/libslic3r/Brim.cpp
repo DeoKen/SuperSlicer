@@ -839,7 +839,33 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
     emit_lines(brim_lines(islands, islands_area_ex, shared_width));
     emit_rectilinear_ears(rectilinear_ears);
 
+    const size_t inner_first = brim.entities.size();
     make_inner_brim(print, top_level_objects_with_brim, bottom_layers_expolygons, brim);
+    // The inner brim (holes, objects inside holes) is made for all objects together: a loop goes with the brim_per_object
+    // instance whose first layer outline contains it (the innermost one), so that it is printed with its object.
+    for (size_t entity_idx = inner_first; entity_idx < brim.entities.size(); ++ entity_idx) {
+        const Point  pt        = brim.entities[entity_idx]->first_point();
+        double       best_area = std::numeric_limits<double>::max();
+        std::pair<const PrintObject*, size_t> owner { nullptr, 0 };
+        for (size_t object_idx = 0; object_idx < print.objects().size(); ++ object_idx) {
+            const PrintObject *object = print.objects()[object_idx];
+            if (! object->config().brim_per_object)
+                continue;
+            for (size_t instance_idx = 0; instance_idx < object->instances().size(); ++ instance_idx)
+                for (const ExPolygon &expoly : bottom_layers_expolygons[object_idx]) {
+                    Polygon contour = expoly.contour;
+                    contour.translate(object->instances()[instance_idx].shift);
+                    if (const double area = std::abs(contour.area()); area < best_area && contour.contains(pt)) {
+                        best_area = area;
+                        owner     = { object, instance_idx };
+                    }
+                }
+        }
+        if (owner.first != nullptr) {
+            owners.resize(entity_idx, { nullptr, 0 });
+            owners.emplace_back(owner);
+        }
+    }
 
     // brim_per_object (SuperSlicer): one brim per object instance, not merged with the brims of the other objects, printed
     // with its object. Where two brims overlap, the one made first wins (the brim may be truncated if objects are too close).
@@ -874,6 +900,8 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
             append(all_area, std::move(object_ears));
         }
     }
+    if (! owners.empty())
+        owners.resize(brim.entities.size(), { nullptr, 0 });
     // Shared entities first, owned by no object.
     assert(owners.empty() || (owners.size() == brim.entities.size() && shared_count <= brim.entities.size()));
     (void)shared_count;

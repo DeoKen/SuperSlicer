@@ -87,6 +87,18 @@ TEST_CASE("Fan mover: what is not moved", "[FanMover]") {
         const std::string in = moves_before + "; custom gcode: layer_gcode\nM106 S255\n; custom gcode end: layer_gcode\nG1 X40 E1\n";
         CHECK(move(in, 1.5f) == in);
     }
+    SECTION("a 1 % change is not dropped") {
+        // 41 % then 40 %: SuperSlicer's whole percents (int(S) * 100 / 255) made them equal and dropped the second one.
+        const std::string in  = "M106 S104.55\n" + moves_before + "M106 S102\nG1 X40 E1\n";
+        const std::string out = move(in, 1.5f);
+        CHECK(out.find("M106 S104.55") != std::string::npos);
+        CHECK(out.find("M106 S102") != std::string::npos);
+    }
+    SECTION("a first fan command of 1 % is not dropped") {
+        // The fan speed written out was initialised to 1 %, so a first command of 1 % (S3) was dropped as a duplicate.
+        const std::string out = move(moves_before + "M106 S3\nG1 X40 E1\n", 1.5f);
+        CHECK(out.find("M106 S3") != std::string::npos);
+    }
     SECTION("into the previous layer") {
         FanMover mover(gcfKlipper, 1.5f, true, false);
         const std::string layer1 = mover.process_gcode(moves_before, true);

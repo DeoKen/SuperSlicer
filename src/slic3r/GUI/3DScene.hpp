@@ -374,9 +374,11 @@ public:
         // Rectangle only: bed keep-out zones tinted like the outside of the print volume.
         //   [0] = min.x, [1] = min.y, [2] = max.x, [3] = max.y
         // An unused zone is inverted (min > max), so that it contains nothing.
-        static constexpr size_t               MaxKeepOutZones = 4;
+        // The shaders (gouraud.fs) have as many xy_keep_out_<i> uniforms; slicing checks all the zones.
+        static constexpr size_t               MaxKeepOutZones = 8;
         static constexpr std::array<float, 4> NoKeepOut { 1.f, 1.f, -1.f, -1.f };
-        std::array<std::array<float, 4>, MaxKeepOutZones> keep_out { NoKeepOut, NoKeepOut, NoKeepOut, NoKeepOut };
+        std::array<std::array<float, 4>, MaxKeepOutZones> keep_out { NoKeepOut, NoKeepOut, NoKeepOut, NoKeepOut,
+                                                                     NoKeepOut, NoKeepOut, NoKeepOut, NoKeepOut };
     };
 
 private:

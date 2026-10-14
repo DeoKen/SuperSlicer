@@ -2846,6 +2846,21 @@ LayerResult GCodeGenerator::process_layer(
             + "\n";
     }
 
+    // Bed keep-out zones: the detours of this layer go around its printed parts when possible.
+    if (m_bed_keep_out.is_active()) {
+        std::vector<BoundingBoxf> obstacles;
+        for (const ObjectLayerToPrint &layer_to_print : layers)
+            for (const Layer *l : { static_cast<const Layer*>(layer_to_print.object_layer), static_cast<const Layer*>(layer_to_print.support_layer) })
+                if (l != nullptr)
+                    for (const PrintInstance &instance : l->object()->instances())
+                        for (const LayerSlice &slice : l->lslices_ex) {
+                            BoundingBox bbox = slice.bbox;
+                            bbox.translate(instance.shift);
+                            obstacles.emplace_back(unscaled<double>(bbox.min), unscaled<double>(bbox.max));
+                        }
+        m_bed_keep_out.set_obstacles(obstacles);
+    }
+
     // Initialize avoid crossing perimeters before a layer change.
     if (!instances_to_print.empty() && print.config().avoid_crossing_perimeters) {
         const InstanceToPrint instance_to_print{instances_to_print.front()};

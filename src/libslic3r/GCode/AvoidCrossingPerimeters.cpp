@@ -1328,6 +1328,17 @@ Polyline AvoidCrossingPerimeters::travel_between_islands(const Layer &layer, con
     struct Crossing { Point point; Point edge_a; Point edge_b; };
     Crossing best_leave, best_enter;
     bool     found = false;
+    // The gap segment is printed over the void: it must not cross another island (SuperSlicer doesn't check it, see its
+    // "TODO: avoid other islands in-between"), the travels inside the two islands avoid the perimeters as usual.
+    auto crosses_other_island = [&layer, island_start, island_end](const Point &leave, const Point &enter) {
+        const Polylines   gap { Polyline(leave, enter) };
+        const BoundingBox gap_bbox = get_extents(gap.front());
+        for (size_t i = 0; i < layer.lslices.size() && i < layer.lslices_ex.size(); ++ i)
+            if (int(i) != island_start && int(i) != island_end && layer.lslices_ex[i].bbox.overlap(gap_bbox) &&
+                ! intersection_pl(gap, layer.lslices[i]).empty())
+                return true;
+        return false;
+    };
 
     // Sample the boundary of one island, find the nearest point of the other one.
     auto search = [&](const Polygons &sampled, const std::pair<Polygons, EdgeGrid::Grid> &other, const bool sampled_is_start) {
@@ -1351,7 +1362,7 @@ Polyline AvoidCrossingPerimeters::travel_between_islands(const Layer &layer, con
                     const Point &enter = sampled_is_start ? o : q;
                     const double cost = weight * (leave - start).cast<double>().norm() + (enter - leave).cast<double>().norm() +
                                         weight * (end - enter).cast<double>().norm();
-                    if (cost < best_cost) {
+                    if (cost < best_cost && ! crosses_other_island(leave, enter)) {
                         best_cost  = cost;
                         found      = true;
                         best_leave = sampled_is_start ? Crossing{ q, a, b } : Crossing{ o, oa, ob };

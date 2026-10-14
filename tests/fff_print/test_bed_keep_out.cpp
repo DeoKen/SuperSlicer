@@ -143,6 +143,45 @@ TEST_CASE("Bed keep-out zones: routing", "[KeepOut]") {
     }
 }
 
+TEST_CASE("Bed keep-out zones: detours go around the printed parts", "[KeepOut]") {
+    // A zone in the middle of the bed and a travel across it: the detour goes over or under it.
+    const BoundingBoxf bed(Vec2d(0, 0), Vec2d(350, 350));
+    BedKeepOut keep_out;
+    keep_out.init(BedKeepOut::parse("140,70,160,130"), bed);
+    const Polyline in = polyline_mm({ { 120, 100 }, { 180, 100 } });
+    const BoundingBoxf below(Vec2d(130, 40), Vec2d(170, 66));
+    const BoundingBoxf above(Vec2d(130, 134), Vec2d(170, 160));
+    // The parts as zones, to test the detour against them.
+    auto crosses = [&bed](const Polyline &path, const BoundingBoxf &part) {
+        BedKeepOut test;
+        test.init({ part }, bed);
+        return test.intersects(path);
+    };
+    Polyline out;
+    SECTION("a part below the zone: over the zone") {
+        keep_out.set_obstacles({ below });
+        REQUIRE(keep_out.reroute(in, out));
+        CHECK(! keep_out.intersects(out));
+        CHECK(! crosses(out, below));
+    }
+    SECTION("a part above the zone: under the zone") {
+        keep_out.set_obstacles({ above });
+        REQUIRE(keep_out.reroute(in, out));
+        CHECK(! keep_out.intersects(out));
+        CHECK(! crosses(out, above));
+    }
+    SECTION("no way around the parts: around the zone only") {
+        keep_out.set_obstacles({ BoundingBoxf(Vec2d(100, 0), Vec2d(200, 66)), BoundingBoxf(Vec2d(100, 134), Vec2d(200, 350)) });
+        REQUIRE(keep_out.reroute(in, out));
+        CHECK(! keep_out.intersects(out));
+    }
+    SECTION("the part the travel starts in is not avoided") {
+        keep_out.set_obstacles({ BoundingBoxf(Vec2d(110, 60), Vec2d(130, 140)) });
+        REQUIRE(keep_out.reroute(in, out));
+        CHECK(! keep_out.intersects(out));
+    }
+}
+
 TEST_CASE("Bed keep-out zones: travels in sliced G-code go around a zone", "[KeepOut]") {
     // Two cubes side by side with a zone between them: the travels between the cubes would cross it.
     Model model;
