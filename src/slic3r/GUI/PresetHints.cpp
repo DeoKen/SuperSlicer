@@ -20,8 +20,115 @@
 namespace Slic3r {
 
 #define MIN_BUF_LENGTH	4096
+
+// Fork: fan speed of the first filament option, -1 if the option is not in the preset.
+static int fan_option(const Preset &preset, const char *key)
+{
+    return preset.config.has(key) ? preset.config.opt_int(key, 0) : -1;
+}
+
+// Fork: the default fan speed is set, it replaces "Keep fan always on" + "Min fan speed" (CoolingBuffer::apply_layer_cooldown()).
+static std::string cooling_description_default_fan(const Preset &preset, const int default_fan_speed)
+{
+    std::string out;
+    const bool cooling                   = preset.config.opt_bool("cooling", 0);
+    const int  fan_below_layer_time      = preset.config.opt_int("fan_below_layer_time", 0);
+    const int  slowdown_below_layer_time = preset.config.opt_int("slowdown_below_layer_time", 0);
+    const int  max_fan_speed             = preset.config.opt_int("max_fan_speed", 0);
+    const int  min_print_speed           = int(preset.config.opt_float("min_print_speed", 0) + 0.5);
+    const int  full_fan_speed_layer      = preset.config.opt_int("full_fan_speed_layer", 0);
+    int        disable_fan_first_layers  = preset.config.opt_int("disable_fan_first_layers", 0);
+    if (disable_fan_first_layers <= 0 && full_fan_speed_layer > 0)
+        // As the G-code generator: with a ramp, the fan is off at least on the first layer.
+        disable_fan_first_layers = 1;
+
+    if (cooling) {
+        out += GUI::format(_L("If estimated layer time is below ~%1%s, print speed will be reduced "
+                              "so that no less than %1%s are spent on that layer "
+                              "(however, speed will never be reduced below %2%mm/s)."),
+                              slowdown_below_layer_time, min_print_speed);
+        if (fan_below_layer_time > 0)
+            out += " " + GUI::format(_L("Fan will run at least at %1%%% on such layers."), max_fan_speed);
+        if (fan_below_layer_time > slowdown_below_layer_time && max_fan_speed > default_fan_speed)
+            out += "\n" + GUI::format(_L("If estimated layer time is greater, but still below ~%1%s, "
+                                         "fan will be raised proportionally towards %2%%%."),
+                                         fan_below_layer_time, max_fan_speed);
+        out += "\n";
+    }
+    if (default_fan_speed == 0)
+        out += cooling ? _u8L("During the other layers, fan will be turned off.") : _u8L("Fan will be turned off.");
+    else if (full_fan_speed_layer > disable_fan_first_layers + 1)
+        out += GUI::format(_L("Fan speed will be ramped from zero at layer %1% to %2%%% at layer %3%."),
+                           disable_fan_first_layers, default_fan_speed, full_fan_speed_layer);
+    else {
+        out += GUI::format(cooling ? _L("During the other layers, fan will always run at %1%%%") : _L("Fan will always run at %1%%%"), default_fan_speed) + " ";
+        if (disable_fan_first_layers > 1)
+            out += GUI::format(_L("except for the first %1% layers."), disable_fan_first_layers);
+        else if (disable_fan_first_layers == 1)
+            out += GUI::format(_L("except for the first layer."));
+    }
+    return out;
+}
+
+// Fork: the features with a fan speed of their own and the bridge fan speed (CoolingBuffer feature_fan_speeds()).
+static std::string cooling_description_features(const Preset &preset, const int default_fan_speed)
+{
+    // Fan speed of their own, with the fallbacks of the G-code generator.
+    const int perimeter         = fan_option(preset, "perimeter_fan_speed");
+    const int external          = fan_option(preset, "external_perimeter_fan_speed") >= 0 ? fan_option(preset, "external_perimeter_fan_speed") : perimeter;
+    const int solid             = fan_option(preset, "solid_infill_fan_speed");
+    const int top               = fan_option(preset, "top_fan_speed") >= 0 ? fan_option(preset, "top_fan_speed") : solid;
+    const int support           = fan_option(preset, "support_material_fan_speed");
+    const int support_interface = fan_option(preset, "support_material_interface_fan_speed") >= 0 ? fan_option(preset, "support_material_interface_fan_speed") : support;
+    const int overhangs         = fan_option(preset, "overhangs_fan_speed");
+    const int internal_bridges  = fan_option(preset, "internal_bridge_fan_speed");
+    const std::vector<std::pair<std::string, int>> features {
+        { _u8L("internal perimeters"),       perimeter },
+        { _u8L("external perimeters"),       external },
+        { _u8L("overhangs"),                 overhangs },
+        { _u8L("sparse infill"),             fan_option(preset, "infill_fan_speed") },
+        { _u8L("solid infill"),              solid },
+        { _u8L("top solid infill"),          top },
+        { _u8L("gap fill"),                  fan_option(preset, "gap_fill_fan_speed") },
+        { _u8L("support material"),          support },
+        { _u8L("support interface"),         support_interface },
+        { _u8L("internal bridges"),          internal_bridges },
+    };
+    std::string list;
+    for (const auto &[name, fan_speed] : features)
+        if (fan_speed >= 0)
+            list += (list.empty() ? "" : ", ") + name + " " + std::to_string(fan_speed) + "%";
+
+    std::string out;
+    if (! list.empty())
+        out += "\n" + GUI::format(_L("Fan speed of their own, used even if lower: %1%."), list);
+
+    // Bridges, and overhangs / internal bridges without a fan speed of their own: the bridge fan only raises the fan.
+    const int bridge_fan_speed = fan_option(preset, "bridge_fan_speed");
+    if (bridge_fan_speed > 0) {
+        std::string bridges = _u8L("Bridges");
+        if (overhangs < 0)
+            bridges += ", " + _u8L("overhangs");
+        if (internal_bridges < 0)
+            bridges += ", " + _u8L("internal bridges");
+        const int base = default_fan_speed >= 0 ? default_fan_speed :
+            preset.config.opt_bool("fan_always_on", 0) ? preset.config.opt_int("min_fan_speed", 0) : 0;
+        out += "\n";
+        if (bridge_fan_speed > base)
+            out += GUI::format(_L("%1%: fan raised to %2%%%, kept if already higher."), bridges, bridge_fan_speed);
+        else
+            out += GUI::format(_L("%1%: no change, the bridges fan speed %2%%% only raises the fan and it is not above %3%%%."),
+                               bridges, bridge_fan_speed, base);
+    }
+    return out;
+}
+
 std::string PresetHints::cooling_description(const Preset &preset)
 {
+    const int default_fan_speed = fan_option(preset, "default_fan_speed");
+    if (default_fan_speed >= 0)
+        return cooling_description_default_fan(preset, default_fan_speed) + cooling_description_features(preset, default_fan_speed);
+
 	std::string out;
 
     bool cooling              = preset.config.opt_bool("cooling", 0);
@@ -68,7 +175,7 @@ std::string PresetHints::cooling_description(const Preset &preset)
     } else
        out += cooling ? _u8L("During the other layers, fan will be turned off.") : _u8L("Fan will be turned off.");
 
-    return out;
+    return out + cooling_description_features(preset, -1);
 }
 
 static const ConfigOptionFloatOrPercent& first_positive(const ConfigOptionFloatOrPercent *v1, const ConfigOptionFloatOrPercent &v2, const ConfigOptionFloatOrPercent &v3)
@@ -102,6 +209,16 @@ std::string PresetHints::maximum_volumetric_flow_description(const PresetBundle 
     double support_material_speed           = print_config.opt_float("support_material_speed");
     double support_material_interface_speed = print_config.get_abs_value("support_material_interface_speed", support_material_speed);
     double bridge_speed                     = print_config.opt_float("bridge_speed");
+    // Fork: internal bridge and brim / skirt speeds (GCodeGenerator::_extrude(), GCodeGenerator::brim_speed()).
+    double internal_bridge_speed            = print_config.has("internal_bridge_speed") ? print_config.get_abs_value("internal_bridge_speed", bridge_speed) : bridge_speed;
+    if (internal_bridge_speed <= 0.)
+        internal_bridge_speed = bridge_speed;
+    double brim_speed                       = print_config.has("brim_speed") ? print_config.get_abs_value("brim_speed", support_material_speed) : 0.;
+    if (brim_speed <= 0.)
+        brim_speed = support_material_speed;
+    const bool has_skirt_brim               = print_config.opt_int("skirts") > 0 || print_config.opt_float("brim_width") > 0;
+    const bool skirt_above_first_layer      = print_config.opt_int("skirts") > 0 &&
+        (print_config.opt_int("skirt_height") > 1 || print_config.opt_serialize("draft_shield") != "disabled");
     double bridge_flow_ratio                = print_config.opt_float("bridge_flow_ratio");
     double perimeter_speed                  = print_config.opt_float("perimeter_speed");
     double external_perimeter_speed         = print_config.get_abs_value("external_perimeter_speed", perimeter_speed);
@@ -160,32 +277,43 @@ std::string PresetHints::maximum_volumetric_flow_description(const PresetBundle 
             return (speed_normal > 0.) ? speed_normal : speed_max;
         };
         auto test_flow =
-            [first_layer_extrusion_width_ptr, extrusion_width, nozzle_diameter, lh, bridging, bridge_speed, bridge_flow_ratio, limit_by_first_layer_speed, max_print_speed, &max_flow, &max_flow_extrusion_type]
+            [first_layer_extrusion_width_ptr, extrusion_width, nozzle_diameter, lh, bridging, bridge_flow_ratio, limit_by_first_layer_speed, max_print_speed, &max_flow, &max_flow_extrusion_type]
             (FlowRole flow_role, const ConfigOptionFloatOrPercent &this_extrusion_width, double speed, const char *err_msg) {
+            // Fork: stock PrusaSlicer had the two flows swapped (bridging flow for the normal extrusions and the other way round).
             Flow flow = bridging ?
-                Flow::new_from_config_width(flow_role, first_positive(first_layer_extrusion_width_ptr, this_extrusion_width, extrusion_width), nozzle_diameter, lh) :
-                Flow::bridging_flow(nozzle_diameter * bridge_flow_ratio, nozzle_diameter);
-            double volumetric_flow = flow.mm3_per_mm() * (bridging ? bridge_speed : limit_by_first_layer_speed(speed, max_print_speed));
+                Flow::bridging_flow(nozzle_diameter * bridge_flow_ratio, nozzle_diameter) :
+                Flow::new_from_config_width(flow_role, first_positive(first_layer_extrusion_width_ptr, this_extrusion_width, extrusion_width), nozzle_diameter, lh);
+            double volumetric_flow = flow.mm3_per_mm() * (bridging ? speed : limit_by_first_layer_speed(speed, max_print_speed));
             if (max_flow < volumetric_flow) {
                 max_flow = volumetric_flow;
                 max_flow_extrusion_type = GUI::into_u8(_(err_msg));
             }
         };
-        if (perimeter_extruder_active) {
-            test_flow(frExternalPerimeter, external_perimeter_extrusion_width, std::max(external_perimeter_speed, small_perimeter_speed), L("external perimeters"));
-            test_flow(frPerimeter,         perimeter_extrusion_width,          std::max(perimeter_speed,          small_perimeter_speed), L("perimeters"));
-        }
-        if (! bridging && infill_extruder_active)
-            test_flow(frInfill, infill_extrusion_width, infill_speed, L("infill"));
-        if (solid_infill_extruder_active) {
-            test_flow(frInfill, solid_infill_extrusion_width, solid_infill_speed, L("solid infill"));
-            if (! bridging)
+        if (bridging) {
+            // Fork: the bridging flow is the same for all, only the bridge speeds differ (stock tested every feature at the bridge speed).
+            if (solid_infill_extruder_active) {
+                test_flow(frInfill, solid_infill_extrusion_width, bridge_speed, L("bridges"));
+                test_flow(frInfill, solid_infill_extrusion_width, internal_bridge_speed, L("internal bridges"));
+            }
+        } else {
+            if (perimeter_extruder_active) {
+                test_flow(frExternalPerimeter, external_perimeter_extrusion_width, std::max(external_perimeter_speed, small_perimeter_speed), L("external perimeters"));
+                test_flow(frPerimeter,         perimeter_extrusion_width,          std::max(perimeter_speed,          small_perimeter_speed), L("perimeters"));
+            }
+            if (infill_extruder_active)
+                test_flow(frInfill, infill_extrusion_width, infill_speed, L("infill"));
+            if (solid_infill_extruder_active) {
+                test_flow(frInfill, solid_infill_extrusion_width, solid_infill_speed, L("solid infill"));
                 test_flow(frInfill, top_infill_extrusion_width, top_solid_infill_speed, L("top solid infill"));
+            }
+            if (support_material_extruder_active)
+                test_flow(frSupportMaterial, support_material_extrusion_width, support_material_speed, L("support"));
+            if (support_material_interface_extruder_active)
+                test_flow(frSupportMaterialInterface, support_material_extrusion_width, support_material_interface_speed, L("support interface"));
+            // Fork: brim and skirt at brim_speed, the brim only on the first layer.
+            if (first_layer ? has_skirt_brim : skirt_above_first_layer)
+                test_flow(frPerimeter, extrusion_width, brim_speed, L("brim / skirt"));
         }
-        if (! bridging && support_material_extruder_active)
-            test_flow(frSupportMaterial, support_material_extrusion_width, support_material_speed, L("support"));
-        if (support_material_interface_extruder_active)
-            test_flow(frSupportMaterialInterface, support_material_extrusion_width, support_material_interface_speed, L("support interface"));
         //FIXME handle gap_fill_speed
         if (! out.empty())
             out += "\n";

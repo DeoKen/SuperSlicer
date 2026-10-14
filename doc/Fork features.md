@@ -86,6 +86,9 @@ Rules:
 - `bridge_fan_speed` keeps the stock PrusaSlicer behaviour (it only raises the fan).
 - PrusaSlicer's dynamic overhang fan speeds (`enable_dynamic_fan_speeds`) still apply on top of a feature fan speed.
 - When `default_fan_speed` is set, it replaces "Keep fan always on" + "Min fan speed" (greyed out in the GUI).
+- The summary under Filament > Cooling > Enable (`GUI/PresetHints.cpp`) describes this logic: the default fan speed,
+  the features with a fan speed of their own, and whether `bridge_fan_speed` has any effect (it doesn't when it is not
+  above the base fan speed, e.g. bridges 45 % with a default of 60 % print at 60 %).
 
 **How it works.** `GCode.cpp` wraps every extrusion in `;_FEATURE_FAN_START<role>` / `;_FEATURE_FAN_END<role>`
 markers. `GCode/CoolingBuffer.cpp` builds a per role fan table each layer and changes the fan only at feature

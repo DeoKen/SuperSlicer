@@ -829,7 +829,9 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("bridge_fan_speed", coInts);
     def->label = L("Bridges fan speed");
-    def->tooltip = L("This fan speed is enforced during all bridges and overhangs.");
+    def->tooltip = L("This fan speed is used during all bridges, and during overhangs and internal bridges that have no fan speed "
+                     "of their own. It only raises the fan: if the current fan speed is higher, it is kept. "
+                     "Slowed down by \"Full fan speed at layer\".");
     def->sidetext = L("%");
     def->min = 0;
     def->max = 100;
@@ -1606,13 +1608,14 @@ void PrintConfigDef::init_fff_params()
     def = this->add("fan_always_on", coBools);
     def->label = L("Keep fan always on");
     def->tooltip = L("If this is enabled, fan will never be disabled and will be kept running at least "
-                   "at its minimum speed. Useful for PLA, harmful for ABS.");
+                   "at its minimum speed. Useful for PLA, harmful for ABS. Not used when the default fan speed is set.");
     def->set_default_value(new ConfigOptionBools { false });
 
     def = this->add("fan_below_layer_time", coInts);
     def->label = L("Enable fan if layer print time is below");
     def->tooltip = L("If layer print time is estimated below this number of seconds, fan will be enabled "
-                   "and its speed will be calculated by interpolating the minimum and maximum speeds.");
+                   "and its speed will be calculated by interpolating the minimum and maximum speeds. When the default fan speed "
+                   "is set, the default and feature fan speeds are raised towards the maximum fan speed instead.");
     def->sidetext = L("approximate seconds");
     def->min = 0;
     def->max = 1000;
@@ -2135,7 +2138,8 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Fan speed will be ramped up linearly from zero at layer \"disable_fan_first_layers\" "
                    "to maximum at layer \"full_fan_speed_layer\". "
                    "\"full_fan_speed_layer\" will be ignored if lower than \"disable_fan_first_layers\", in which case "
-                   "the fan will be running at maximum allowed speed at layer \"disable_fan_first_layers\" + 1.");
+                   "the fan will be running at maximum allowed speed at layer \"disable_fan_first_layers\" + 1. "
+                   "The default fan speed, the bridges fan speed and the feature fan speeds whose tooltip says so are ramped the same way.");
     def->min = 0;
     def->max = 1000;
     def->mode = comExpert;
@@ -2834,7 +2838,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("max_fan_speed", coInts);
     def->label = L("Max");
-    def->tooltip = L("This setting represents the maximum speed of your fan.");
+    def->tooltip = L("This setting represents the maximum speed of your fan. With auto cooling, short layers raise the fan up to it.");
     def->sidetext = L("%");
     def->min = 0;
     def->max = 100;
@@ -2897,7 +2901,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("min_fan_speed", coInts);
     def->label = L("Min");
-    def->tooltip = L("This setting represents the minimum PWM your fan needs to work.");
+    def->tooltip = L("This setting represents the minimum PWM your fan needs to work. Not used when the default fan speed is set.");
     def->sidetext = L("%");
     def->min = 0;
     def->max = 100;
@@ -3648,8 +3652,9 @@ void PrintConfigDef::init_fff_params()
     def = this->add("small_perimeter_speed", coFloatOrPercent);
     def->label = L("Small perimeters");
     def->category = L("Speed");
-    def->tooltip = L("This separate setting will affect the speed of perimeters having radius <= 6.5mm "
-                   "(usually holes). If expressed as percentage (for example: 80%) it will be calculated "
+    def->tooltip = L("This separate setting will affect the speed of small perimeters (usually holes): shorter than "
+                   "the small perimeter min length (by default a circle of 6.5 mm radius), with a gradual ramp up to "
+                   "the max length when it is set. If expressed as percentage (for example: 80%) it will be calculated "
                    "on the perimeters speed setting above. Set to zero for auto.");
     def->sidetext = L("mm/s or %");
     def->ratio_over = "perimeter_speed";
