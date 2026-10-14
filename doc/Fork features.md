@@ -119,7 +119,10 @@ rectangle (a concave bed shape makes the plater much slower).
 - Export check: layer outlines, support, skirt, brim and the wipe tower are tested against the zones (exactly, not the
   convex hull); anything inside refuses the slice with a message naming it.
 - Plater (`GLCanvas3D.cpp`): objects reaching into a zone are shown as outside of the print area (bounding box test,
-  then convex hull for objects near a zone), on every virtual bed. The first 4 zones are tinted on the bed.
+  then convex hull for objects near a zone), on every virtual bed. The hull is grown by the object's outer brim
+  (separation + width) and the skirt (distance + loops x nozzle diameter), as slicing refuses those in a zone too;
+  supports can't be known before slicing, so an object shown as fine can still be refused for its supports. The first 8
+  zones are tinted on the objects (slicing checks all of them).
 - Arrange and fill bed: the zones are fixed obstacles on every bed (`arrange-wrapper/SceneBuilder.cpp`). They are
   tagged `is_keep_out`, so the arrange kernel only avoids them: they don't pull objects towards them as other fixed
   items do, and the first object still goes to the bed center when it stays clear of them

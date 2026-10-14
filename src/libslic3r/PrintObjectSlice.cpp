@@ -990,7 +990,8 @@ void PrintObject::slice_volumes()
             const double max_hole_area = scale_(scale_(threshold));
             // Offsets of the holes seen as contours: a positive offset makes the hole bigger.
             Polygons grown_holes;   // compensation < 0: area to remove
-            Polygons filled_rings;  // compensation > 0: area to add
+            // compensation > 0: area to add, one ring per hole (contour and its hole kept together) with its faded compensation.
+            std::vector<std::pair<ExPolygons, double>> filled_rings;
             const ExPolygons merged = layer.m_regions.size() == 1 ? to_expolygons(layer.m_regions.front()->slices().surfaces) :
                                                                    layer.merged(float(SCALED_EPSILON));
             for (const ExPolygon &expoly : merged)
@@ -1009,7 +1010,11 @@ void PrintObject::slice_volumes()
                     if (delta < 0) {
                         append(grown_holes, offset(contour, float(scale_(-delta))));
                     } else if (delta > 0) {
-                        append(filled_rings, diff(Polygons{ contour }, offset(contour, float(scale_(-delta)))));
+                        // Grown a bit outwards to overlap the slices: with several regions the hole comes from the merged
+                        // layer, whose edges don't exactly match the regions' (the ring would stay a separate island).
+                        if (ExPolygons ring = diff_ex(offset(contour, float(4 * SCALED_EPSILON)), offset(contour, float(scale_(-delta))));
+                            ! ring.empty())
+                            filled_rings.emplace_back(std::move(ring), delta);
                     }
                 }
             if (! grown_holes.empty())
@@ -1018,11 +1023,14 @@ void PrintObject::slice_volumes()
             if (! filled_rings.empty()) {
                 if (layer.m_regions.size() == 1) {
                     LayerRegion *layerm = layer.m_regions.front();
-                    layerm->m_slices.set(union_ex(to_polygons(to_expolygons(layerm->slices().surfaces)), filled_rings), stInternal);
+                    Polygons     polys  = to_polygons(to_expolygons(layerm->slices().surfaces));
+                    for (const auto &[ring, delta] : filled_rings)
+                        append(polys, to_polygons(ring));
+                    layerm->m_slices.set(union_ex(polys), stInternal);
                 } else {
-                    // Give each ring to the region it borders the most.
-                    for (const Polygon &ring : filled_rings) {
-                        const Polygons around = offset(ring, float(scale_(compensation)));
+                    // Give each ring to the region it borders the most: the regions around the ring, as far as it fills.
+                    for (const auto &[ring, delta] : filled_rings) {
+                        const Polygons around = offset(ring, float(scale_(delta)));
                         size_t best = 0;
                         double best_area = -1;
                         for (size_t i = 0; i < layer.m_regions.size(); ++ i) {
@@ -1034,7 +1042,7 @@ void PrintObject::slice_volumes()
                         }
                         LayerRegion *layerm = layer.m_regions[best];
                         Polygons polys = to_polygons(layerm->slices().surfaces);
-                        polys.emplace_back(ring);
+                        append(polys, to_polygons(ring));
                         layerm->m_slices.set(union_ex(polys), stInternal);
                     }
                 }

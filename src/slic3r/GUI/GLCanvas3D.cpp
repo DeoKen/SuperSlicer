@@ -1485,15 +1485,38 @@ bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelI
     // Make an "inside" verdict stricter when the volume reaches into a bed keep-out zone of the bed it is on.
     // The cheap bounding box test first; only a volume whose bounding box touches a zone gets the exact test
     // of its convex hull, so this stays O(1) for everything away from the zones.
-    auto keep_out_state = [&keep_out, &volume_bbox, &volume_convex_mesh](GLVolume &volume, int bed_idx, BuildVolume::ObjectState state) {
+    // Slicing also refuses a brim or a skirt reaching into a zone: grow the object by its outer brim and by the skirt
+    // (supports can't be known before slicing). The object's own settings override the print settings.
+    auto brim_skirt_margin = [this](const GLVolume &volume) {
+        auto option = [this, &volume](const char *key) -> const ConfigOption* {
+            if (m_model != nullptr && volume.object_idx() >= 0 && volume.object_idx() < int(m_model->objects.size()))
+                if (const ConfigOption *opt = m_model->objects[volume.object_idx()]->config.get().option(key); opt != nullptr)
+                    return opt;
+            return m_config != nullptr ? m_config->option(key) : nullptr;
+        };
+        auto value = [&option](const char *key) { const ConfigOption *opt = option(key); return opt != nullptr ? opt->getFloat() : 0.; };
+        double margin = 0.;
+        if (const ConfigOption *brim_type = option("brim_type"); brim_type != nullptr &&
+            (brim_type->getInt() == int(btOuterOnly) || brim_type->getInt() == int(btOuterAndInner)) && value("brim_width") > 0.)
+            margin = value("brim_separation") + value("brim_width");
+        if (const ConfigOption *skirts = option("skirts"); skirts != nullptr && skirts->getInt() > 0) {
+            const ConfigOptionFloats *nozzle = m_config != nullptr ? m_config->option<ConfigOptionFloats>("nozzle_diameter") : nullptr;
+            const double spacing = nozzle != nullptr && ! nozzle->values.empty() ? nozzle->values.front() : 0.4;
+            margin = std::max(margin, value("skirt_distance") + skirts->getInt() * spacing);
+        }
+        return margin;
+    };
+    auto keep_out_state = [&keep_out, &volume_bbox, &volume_convex_mesh, &brim_skirt_margin](GLVolume &volume, int bed_idx, BuildVolume::ObjectState state) {
         if (! keep_out.is_active() || state != BuildVolume::ObjectState::Inside || bed_idx < 0)
             return state;
         const Vec2d        shift = to_2d(s_multiple_beds.get_bed_translation(bed_idx));
         const BoundingBoxf3 bbox3 = volume_bbox(volume);
         const BoundingBoxf bbox(to_2d(bbox3.min) - shift, to_2d(bbox3.max) - shift);
+        const double       margin = brim_skirt_margin(volume);
+        const BoundingBoxf bbox_grown(bbox.min - Vec2d(margin, margin), bbox.max + Vec2d(margin, margin));
         bool near_zone = false;
         for (const BoundingBoxf &zone : keep_out.zones())
-            if (zone.overlap(bbox)) {
+            if (zone.overlap(bbox_grown)) {
                 if (zone.contains(bbox.min) && zone.contains(bbox.max))
                     return BuildVolume::ObjectState::Outside;
                 near_zone = true;
@@ -1507,7 +1530,8 @@ bool GLCanvas3D::check_volumes_outside_state(GLVolumeCollection& volumes, ModelI
             pts.emplace_back(Point::new_scale(w.x() - shift.x(), w.y() - shift.y()));
         }
         const Polygon hull = Geometry::convex_hull(std::move(pts));
-        return keep_out.intersects(ExPolygons{ ExPolygon(hull) }) ? BuildVolume::ObjectState::Colliding : state;
+        return keep_out.intersects(margin > 0. ? union_ex(offset(hull, float(scale_(margin)))) : ExPolygons{ ExPolygon(hull) }) ?
+            BuildVolume::ObjectState::Colliding : state;
     };
 
     const std::vector<unsigned int> volumes_idxs = volumes_to_process_idxs();
