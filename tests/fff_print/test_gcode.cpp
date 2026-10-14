@@ -345,3 +345,17 @@ TEST_CASE("M201 for acceleation reset", "[GCode]") {
     INFO("M204 is not generated for repetier firmware");
     CHECK(!has_m204);
 }
+
+// Fork, as SuperSlicer: no M141 / M191 with the Klipper flavor (Klipper answers "Unknown command"), other flavors as stock.
+TEST_CASE("Chamber temperature commands are not emitted for Klipper", "[GCode][ChamberTemperature]") {
+    auto chamber_commands = [](const std::string &flavor) {
+        const std::string gcode = Test::slice({ TestMesh::cube_20x20x20 }, {
+            { "gcode_flavor",                flavor },
+            { "chamber_temperature",         "50" },
+            { "chamber_minimal_temperature", "40" },
+        });
+        return int(gcode.find("M141") != std::string::npos) + int(gcode.find("M191") != std::string::npos);
+    };
+    CHECK(chamber_commands("klipper") == 0);
+    CHECK(chamber_commands("marlin2") == 2);
+}

@@ -185,6 +185,10 @@ std::string GCodeWriter::set_bed_temperature(unsigned int temperature, bool wait
 
 std::string GCodeWriter::set_chamber_temperature(unsigned int temperature, bool wait, bool accurate) const
 {
+    // Fork, as SuperSlicer: Klipper has no M141 / M191 ("Unknown command"), the chamber temperature is passed to the
+    // start macro with the chamber_temperature placeholder instead.
+    if (FLAVOR_IS(gcfKlipper))
+        return {};
     std::string_view code, comment;
     if (wait) {
         code = "M191"sv;

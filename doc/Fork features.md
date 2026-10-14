@@ -31,7 +31,8 @@ Contents:
 15. [Klipper limits for the time estimate](#15-klipper-limits-for-the-time-estimate)
 16. [Layer height variables for custom G-code](#16-layer-height-variables-for-custom-g-code)
 17. [Small area flow compensation](#17-small-area-flow-compensation)
-18. [Testing](#testing)
+18. [No chamber temperature commands for Klipper](#18-no-chamber-temperature-commands-for-klipper)
+19. [Testing](#testing)
 
 ---
 
@@ -585,6 +586,24 @@ point, text round trip), invalid models refused, and a cube sliced with and with
 segment after the first layer has E × factor(length), everything else unchanged, some segments reduced; a concentric
 top surface is not changed. Manually: enable it, slice a part with small solid areas and look at the volumetric flow
 rate view.
+
+---
+
+## 18. No chamber temperature commands for Klipper
+
+**What it does.** With `gcode_flavor = klipper`, the chamber temperature (`chamber_temperature`,
+`chamber_minimal_temperature`, Filament > Temperature) is no longer written as `M141` / `M191`: Klipper has no such
+commands and answers `Unknown command:"M141"`. As SuperSlicer, which writes them only for Marlin 2, RepRap and
+Machinekit. Other flavors are as stock. No setting.
+
+Pass the value to the start macro instead, e.g. `PRINT_START ... CHAMBER={chamber_temperature[initial_extruder]}`
+(the placeholder is unchanged). If the printer has its own `M141` macro, write it in the start G-code.
+
+**How it works.** `GCodeWriter::set_chamber_temperature()` returns nothing for Klipper; the start G-code logic
+(`_print_first_layer_chamber_temperature()`) is unchanged.
+
+**How to test.** `fff_print_tests "[ChamberTemperature]"`: a cube with chamber temperatures set has no `M141` / `M191`
+with Klipper, both with Marlin 2.
 
 ---
 
