@@ -110,6 +110,28 @@ TEST_CASE("Avoid crossing perimeters: smallest crossing between islands", "[Avoi
     CHECK(with < without);
 }
 
+TEST_CASE("Avoid crossing perimeters: islands with organic supports", "[AvoidCrossing]") {
+    // Regression (crash reported with organic supports): the crossing points were read from a dangling Eigen expression
+    // and the travel ends were not clipped to the boundary grid, so avoid_perimeters() could walk outside of the grid.
+    // A Release build doesn't reliably crash on that; this slices such a print twice and compares.
+    // Two overhanging parts in one object: two islands and supports.
+    TriangleMesh mesh  = Test::mesh(TestMesh::overhang);
+    TriangleMesh other = Test::mesh(TestMesh::overhang);
+    other.translate(40.f, 0.f, 0.f);
+    mesh.merge(other);
+    const DynamicPrintConfig config = config_with({
+        { "avoid_travel_island",            true },
+        { "avoid_crossing_not_first_layer", false },
+        { "support_material",               true },
+        { "support_material_style",         "organic" },
+    });
+    const std::string a = Test::slice({ mesh }, config);
+    const std::string b = Test::slice({ mesh }, config);
+    CHECK(! a.empty());
+    CHECK(a.find(";TYPE:Support material") != std::string::npos);
+    CHECK(a == b);
+}
+
 TEST_CASE("Avoid crossing perimeters: top surfaces", "[AvoidCrossing]") {
     // Both settings slice; avoiding the top surfaces changes the travels of a model with top surfaces under other parts.
     const std::string on  = Test::slice({ TestMesh::step }, config_with({ { "avoid_crossing_top", true } }));

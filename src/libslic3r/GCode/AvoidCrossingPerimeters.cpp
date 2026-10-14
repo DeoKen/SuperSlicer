@@ -1366,19 +1366,27 @@ Polyline AvoidCrossingPerimeters::travel_between_islands(const Layer &layer, con
         return {};
 
     // Move the crossing points a bit inside their boundary (inside is on the left of the boundary edges).
-    auto inside = [](const Crossing &c) {
+    // Returns a Point, not the Eigen expression: that one would refer to a temporary destroyed on return.
+    auto inside = [](const Crossing &c) -> Point {
         const Vec2d dir = (c.edge_b - c.edge_a).cast<double>().normalized();
         return c.point + (Vec2d(-dir.y(), dir.x()) * double(4 * SCALED_EPSILON)).cast<coord_t>();
     };
-    Polyline to_leave, from_enter;
-    avoid_perimeters(m_internal, start, inside(best_leave), layer, to_leave);
-    avoid_perimeters(m_internal, inside(best_enter), end, layer, from_enter);
-    if (to_leave.empty() || from_enter.empty())
-        return {};
-    Polyline out = std::move(to_leave);
-    out.points.front() = start;
-    append(out.points, from_enter.points);
-    out.points.back() = end;
+    // Travel inside an island, as travel_to(): avoid_perimeters() walks the boundary grid, so the line is first clipped
+    // to its bounding box (the start may be outside of it, e.g. on the external perimeter).
+    auto travel_inside = [this, &layer](const Point &from, const Point &to) {
+        Vec2d    fromf = from.cast<double>();
+        Vec2d    tof   = to.cast<double>();
+        Polyline pl;
+        if (Geometry::liang_barsky_line_clipping(fromf, tof, m_internal.bbox))
+            avoid_perimeters(m_internal, fromf.cast<coord_t>(), tof.cast<coord_t>(), layer, pl);
+        if (pl.empty())
+            pl = Polyline(from, to);
+        pl.points.front() = from;
+        pl.points.back()  = to;
+        return pl;
+    };
+    Polyline out = travel_inside(start, inside(best_leave));
+    append(out.points, travel_inside(inside(best_enter), end).points);
     return out;
 }
 
