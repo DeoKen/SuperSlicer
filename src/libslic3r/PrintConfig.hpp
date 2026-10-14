@@ -1092,6 +1092,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionInt,                threads))
     ((ConfigOptionString,             thumbnails))
     ((ConfigOptionEnum<GCodeThumbnailsFormat>,  thumbnails_format))
+    ((ConfigOptionBool,               thumbnails_end_file))
     ((ConfigOptionFloat,              top_solid_infill_acceleration))
     ((ConfigOptionEnum<ToolChangeOrderingType>, toolchange_ordering))
     ((ConfigOptionFloat,              travel_acceleration))

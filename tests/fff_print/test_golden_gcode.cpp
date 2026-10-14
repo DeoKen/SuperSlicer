@@ -40,6 +40,7 @@ const std::vector<std::string> added_config_keys {
     "auxiliary_fan_gcode", "additional_cooling_fan_speed",
     "solid_infill_direction", "rotate_solid_infill_direction", "align_infill_direction_to_model",
     "klipper_",
+    "thumbnails_end_file",
 };
 
 bool is_added_config_line(const std::string &line)

@@ -9,6 +9,9 @@
 #include <regex>
 #include <fstream>
 
+#include <boost/nowide/cstdio.hpp>
+#include <boost/nowide/fstream.hpp>
+
 #include "libslic3r/GCode.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
 #include "test_data.hpp"
@@ -358,4 +361,46 @@ TEST_CASE("Chamber temperature commands are not emitted for Klipper", "[GCode][C
     };
     CHECK(chamber_commands("klipper") == 0);
     CHECK(chamber_commands("marlin2") == 2);
+}
+
+TEST_CASE("Thumbnails at the end of the G-code file", "[GCode][ThumbnailsEndFile]") {
+    // No renderer in the tests: a callback returns a plain 16x16 picture.
+    ThumbnailsGeneratorCallback thumbnail_cb = [](const ThumbnailsParams &params) {
+        ThumbnailsList out;
+        for (const Vec2d &size : params.sizes) {
+            ThumbnailData data;
+            data.set(unsigned(size.x()), unsigned(size.y()));
+            std::fill(data.pixels.begin(), data.pixels.end(), (unsigned char)200);
+            out.push_back(std::move(data));
+        }
+        return out;
+    };
+    auto export_with = [&thumbnail_cb](bool end_file) {
+        Print print;
+        Model model;
+        Test::init_print({ TestMesh::cube_20x20x20 }, print, model, {
+            { "thumbnails",          "16x16/PNG" },
+            { "thumbnails_end_file", end_file },
+        });
+        print.process();
+        const boost::filesystem::path path = boost::filesystem::unique_path();
+        print.export_gcode(path.string(), nullptr, thumbnail_cb);
+        boost::nowide::ifstream in(path.string());
+        std::string gcode((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        in.close();
+        boost::nowide::remove(path.string().c_str());
+        return gcode;
+    };
+    const std::string front = export_with(false);
+    const std::string end   = export_with(true);
+    const size_t first_move_front = front.find("\nG1 ");
+    const size_t first_move_end   = end.find("\nG1 ");
+    // At the front (stock): before the first move.
+    REQUIRE(front.find("; thumbnail begin 16x16") != std::string::npos);
+    CHECK(front.find("; thumbnail begin 16x16") < first_move_front);
+    // At the end: after the config block, once, and the header is shorter by the thumbnail.
+    REQUIRE(end.find("; thumbnail begin 16x16") != std::string::npos);
+    CHECK(end.find("; thumbnail begin 16x16") > end.find("; prusaslicer_config = end"));
+    CHECK(end.find("; thumbnail begin 16x16") == end.rfind("; thumbnail begin 16x16"));
+    CHECK(first_move_end < first_move_front);
 }

@@ -32,7 +32,8 @@ Contents:
 16. [Layer height variables for custom G-code](#16-layer-height-variables-for-custom-g-code)
 17. [Small area flow compensation](#17-small-area-flow-compensation)
 18. [No chamber temperature commands for Klipper](#18-no-chamber-temperature-commands-for-klipper)
-19. [Testing](#testing)
+19. [Thumbnails at the end of the file](#19-thumbnails-at-the-end-of-the-file)
+20. [Testing](#testing)
 
 ---
 
@@ -607,6 +608,24 @@ Pass the value to the start macro instead, e.g. `PRINT_START ... CHAMBER={chambe
 
 **How to test.** `fff_print_tests "[ChamberTemperature]"`: a cube with chamber temperatures set has no `M141` / `M191`
 with Klipper, both with Marlin 2.
+
+---
+
+## 19. Thumbnails at the end of the file
+
+**What it does.** From SuperSlicer. `thumbnails_end_file` (printer, Printer > General > Firmware, default off = stock)
+writes the G-code thumbnails at the end of an ASCII G-code file, after the configuration block, instead of the front.
+Klipper reports the print progress from the file position until the first `M73`; with the thumbnails at the front
+(about 20 KB, 2% of a 1 MB file) Mainsail shows 2% before the printer has even homed. Moonraker / Mainsail find the
+thumbnails at the end too; other printer screens may expect them at the front. Greyed out with binary G-code (the
+thumbnails have their own blocks there). The bundle converter carries the SuperSlicer value over.
+
+**How it works.** `GCodeGenerator::_do_export()` still checks the thumbnail list at the front (errors are reported the
+same), skips writing them there and writes them after `; prusaslicer_config = end`. Loading the config from a G-code reads
+back from the end up to that line, so the thumbnails after it don't disturb it.
+
+**How to test.** `fff_print_tests "[ThumbnailsEndFile]"`: with a test thumbnail callback, the thumbnail is before the first
+move by default, and once after the config block with the option on.
 
 ---
 

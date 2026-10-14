@@ -484,6 +484,16 @@ void PrintConfigDef::init_common_params()
     def->set_enum<GCodeThumbnailsFormat>({ "PNG", "JPG", "QOI" });
     def->set_default_value(new ConfigOptionEnum<GCodeThumbnailsFormat>(GCodeThumbnailsFormat::PNG));
 
+    // From SuperSlicer.
+    def = this->add("thumbnails_end_file", coBool);
+    def->label = L("Thumbnails at the end of the file");
+    def->tooltip = L("Write the thumbnails at the end of the G-code file (after the configuration block) instead of the front. "
+                     "The print progress based on the file position (e.g. Klipper before the first M73) then starts at 0%. "
+                     "Be careful! Many firmwares and printer screens expect the thumbnails at the front; Moonraker / Mainsail "
+                     "find them at the end too. Not used for binary G-code.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("layer_height", coFloat);
     def->label = L("Layer height");
     def->category = L("Layers and Perimeters");

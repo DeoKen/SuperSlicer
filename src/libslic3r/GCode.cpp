@@ -1170,7 +1170,8 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
             throw Slic3r::ExportError(error_str);
         }
 
-        if (!thumbnails.empty())
+        // thumbnails_end_file: written after the config block instead (SuperSlicer).
+        if (!thumbnails.empty() && ! print.config().thumbnails_end_file.value)
             GCodeThumbnails::export_thumbnails_to_file(thumbnail_cb, thumbnails,
                 [&file](const char* sz) { file.write(sz); },
                 [&print]() { print.throw_if_canceled(); });
@@ -1653,6 +1654,16 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
         if (std::optional<std::string> line_M84 = find_M84(print.config().end_gcode);
             is_mk2_or_mk3(print.config().printer_model) && line_M84.has_value()) {
             file.writeln(*line_M84);
+        }
+
+        // Thumbnails at the end of the file (SuperSlicer): the config loader reads back from the end up to
+        // "; prusaslicer_config = end", so they don't disturb it. The list was checked at the front.
+        if (print.config().thumbnails_end_file.value) {
+            auto [thumbnails, errors] = GCodeThumbnails::make_and_check_thumbnail_list(print.full_print_config());
+            if (!thumbnails.empty())
+                GCodeThumbnails::export_thumbnails_to_file(thumbnail_cb, thumbnails,
+                    [&file](const char* sz) { file.write(sz); },
+                    [&print]() { print.throw_if_canceled(); });
         }
     }
     print.throw_if_canceled();

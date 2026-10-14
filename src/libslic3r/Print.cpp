@@ -224,6 +224,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "travel_short_distance_acceleration",
         "thumbnails",
         "thumbnails_format",
+        "thumbnails_end_file",
         "use_firmware_retraction",
         "use_relative_e_distances",
         "use_volumetric_e",

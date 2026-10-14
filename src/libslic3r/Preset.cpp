@@ -562,7 +562,7 @@ static std::vector<std::string> s_Preset_printer_options {
     "cooling_tube_length", "high_current_on_filament_swap", "parking_pos_retraction", "extra_loading_move", "multimaterial_purging",
     "max_print_height", "default_print_profile", "inherits",
     "remaining_times", "silent_mode",
-    "machine_limits_usage", "thumbnails", "thumbnails_format",
+    "machine_limits_usage", "thumbnails", "thumbnails_format", "thumbnails_end_file",
     "nozzle_high_flow", "extruder_clearance_radius", "extruder_clearance_height"
 };
 

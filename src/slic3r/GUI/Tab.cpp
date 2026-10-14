@@ -2796,6 +2796,7 @@ void TabPrinter::build_fff()
         option = optgroup->get_option("thumbnails");
         option.opt.full_width = true;
         optgroup->append_single_option_line(option);
+        optgroup->append_single_option_line("thumbnails_end_file");
 
         append_labelled_line(optgroup, L("Supports"), { { "silent_mode", L("Stealth mode") }, { "binary_gcode", L("Binary G-code") } }, std::string(), -1);
         optgroup->append_single_option_line("remaining_times");
@@ -3665,6 +3666,8 @@ void TabPrinter::toggle_options()
         toggle_option("silent_mode", is_marlin_flavor);
 
         toggle_option("fan_speedup_overhangs", m_config->opt_float("fan_speedup_time") > 0);
+        // Binary G-code stores the thumbnails in their own blocks.
+        toggle_option("thumbnails_end_file", ! m_config->opt_bool("binary_gcode"));
     }
 
     wxString extruder_number;
