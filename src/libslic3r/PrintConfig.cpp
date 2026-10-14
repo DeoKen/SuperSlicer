@@ -3596,6 +3596,29 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloat(250));
 
+    def = this->add("small_area_infill_flow_compensation", coBool);
+    def->label = L("Small area flow compensation");
+    def->category = L("Infill");
+    def->tooltip = L("Reduce the flow of short solid infill and top solid infill lines, which tend to be over-extruded "
+                     "in small areas. Each straight segment gets the flow factor of its length from the model below. "
+                     "Not used on the first layer, nor on top surfaces with a pattern other than rectilinear, aligned "
+                     "rectilinear, monotonic or monotonic lines.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("small_area_infill_flow_compensation_model", coString);
+    def->label = L("Flow compensation model");
+    def->category = L("Infill");
+    def->tooltip = L("Flow factor per extrusion segment length: one \"length, factor\" pair per line, length in mm, "
+                     "factor between 0 and 1. The first length must be 0, lengths and factors must increase, the last "
+                     "factor must be 1 (longer segments are not changed). Smooth curve through the points (PCHIP). "
+                     "Use \"Edit graph\" to see and edit the curve.");
+    def->multiline = true;
+    def->full_width = true;
+    def->height = 10;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionString("0,0\n0.2,0.44\n0.4,0.61\n0.6,0.7\n0.8,0.76\n1.5,0.86\n2,0.89\n3,0.92\n5,0.95\n10,1"));
+
     def = this->add("small_perimeter_min_length", coFloatOrPercent);
     def->label = L("Min length");
     def->full_label = L("Min small perimeters length");

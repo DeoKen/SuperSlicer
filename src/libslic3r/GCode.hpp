@@ -43,6 +43,7 @@
 #include "libslic3r/GCode/Travels.hpp"
 #include "libslic3r/GCode/BedKeepOut.hpp"
 #include "libslic3r/GCode/FanMover.hpp"
+#include "libslic3r/GCode/SmallAreaFlowCompensation.hpp"
 #include "EdgeGrid.hpp"
 #include "tcbspan/span.hpp"
 
@@ -463,6 +464,11 @@ private:
     float                               m_max_layer_z{ 0.0f };
     // Z step of the current layer (print_z minus the previous print_z), for the current_layer_height placeholder.
     float                               m_current_layer_height{ 0.0f };
+    // Small area flow compensation: the model parsed from the text last seen in the region config.
+    std::string                         m_small_area_flow_text;
+    std::optional<SmallAreaFlowModel>   m_small_area_flow_model;
+    // The model to apply to an extrusion of this role with the current config, or nullptr.
+    const SmallAreaFlowModel*           small_area_flow_model(const ExtrusionRole role);
     float                               m_last_width{ 0.0f };
 
     std::optional<Vec3d>                m_previous_layer_last_position;

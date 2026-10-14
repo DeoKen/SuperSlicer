@@ -315,6 +315,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     for (auto el : { "top_fill_pattern", "bottom_fill_pattern", "infill_first", "solid_infill_extruder",
                     "solid_infill_extrusion_width", "solid_infill_speed", "solid_infill_direction", "rotate_solid_infill_direction" })
         toggle_field(el, has_solid_infill);
+    toggle_field("small_area_infill_flow_compensation", has_solid_infill);
+    toggle_field("small_area_infill_flow_compensation_model", has_solid_infill && config->opt_bool("small_area_infill_flow_compensation"));
 
     for (auto el : { "fill_angle", "bridge_angle", "align_infill_direction_to_model", "infill_extrusion_width",
                     "infill_speed", "bridge_speed", "over_bridge_speed", "internal_bridge_speed" })

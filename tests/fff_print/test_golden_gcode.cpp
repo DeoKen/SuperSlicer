@@ -32,6 +32,7 @@ const std::vector<std::string> added_config_keys {
     "fan_speedup_time", "fan_speedup_overhangs",
     "feature_gcode",
     "small_perimeter_min_length", "small_perimeter_max_length",
+    "small_area_infill_flow_compensation",
     "hole_size_compensation", "hole_size_threshold",
     "avoid_crossing_not_first_layer", "avoid_crossing_top", "avoid_travel_island",
     "seam_notch_",

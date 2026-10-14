@@ -228,6 +228,8 @@ set(SLIC3R_SOURCES
     GCode/BedKeepOut.hpp
     GCode/FanMover.cpp
     GCode/FanMover.hpp
+    GCode/SmallAreaFlowCompensation.cpp
+    GCode/SmallAreaFlowCompensation.hpp
     GCode/AvoidCrossingPerimeters.hpp
     GCode/Travels.cpp
     GCode/Travels.hpp

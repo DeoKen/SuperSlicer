@@ -30,7 +30,8 @@ Contents:
 14. [GUI layout](#14-gui-layout)
 15. [Klipper limits for the time estimate](#15-klipper-limits-for-the-time-estimate)
 16. [Layer height variables for custom G-code](#16-layer-height-variables-for-custom-g-code)
-17. [Testing](#testing)
+17. [Small area flow compensation](#17-small-area-flow-compensation)
+18. [Testing](#testing)
 
 ---
 
@@ -539,6 +540,48 @@ listed in the custom G-code editor. G-code with them unused is unchanged.
 **How to test.** `fff_print_tests "[LayerPlaceholders]"`: a cube with a variable layer height profile and an overhang
 with supports on their own heights; every layer change checks `current_layer_height` against `;HEIGHT:`, `layer_z`
 against `;Z:`, `layer_num+1` against the count of `;LAYER_CHANGE`, and the totals against the last layer.
+
+---
+
+## 17. Small area flow compensation
+
+**What it does.** Reduces the flow of short solid infill lines, which come out over-extruded in small areas (ported from
+SuperSlicer 2.7.63 / OrcaSlicer, after Alexander Moss' Small-Area-Flow-Comp script). Every straight segment of solid
+infill and top solid infill gets its extrusion multiplied by a flow factor read from a curve of segment length → factor.
+Segments longer than the last point (10 mm by default) are not changed. Not applied on the first layer (adhesion,
+as SuperSlicer), nor on top surfaces whose pattern is not rectilinear, aligned rectilinear, monotonic or monotonic lines
+(curved patterns are made of many short segments, as OrcaSlicer). Internal solid infill is PrusaSlicer's "ensuring"
+straight line pattern and is always included. The short connections between solid infill lines are reduced too (same
+in SuperSlicer and OrcaSlicer).
+
+| Setting | Where | Default |
+|---|---|---|
+| `small_area_infill_flow_compensation` | Print > Infill > Small area flow compensation (per object / modifier) | off |
+| `small_area_infill_flow_compensation_model` | same, text, one `length, factor` pair per line (mm, 0-1) | SuperSlicer's curve: `0,0` `0.2,0.44` `0.4,0.61` `0.6,0.7` `0.8,0.76` `1.5,0.86` `2,0.89` `3,0.92` `5,0.95` `10,1` |
+
+Rules (as OrcaSlicer; slicing refuses a model breaking them, with a message): at least 2 points, first length 0, lengths
+and factors strictly increasing, factors not negative, last factor 1. The curve between the points is OrcaSlicer's
+PCHIP (smooth, never overshoots between the points). **"Edit graph…"** opens a dialog with the curve as used for
+slicing and the points as text: drag a point to move it, double click to add one, right click to remove one; the text
+and the graph update each other, OK writes the text back into the setting.
+
+G-code viewer: the "Width" view shows the planned width (`;WIDTH:` lines) and does not change; the "Volumetric flow
+rate" and "Actual volumetric flow rate" views and the hover info show the reduced segments.
+
+Profile converter: SuperSlicer's graph value (`[!]0:10:2:0x0:0.2x0.44:…`, `!` = disabled) becomes the switch (on unless
+`!`) and the same points.
+
+**How it works.** `GCode/SmallAreaFlowCompensation.cpp` parses and checks the text and interpolates (shared with the
+dialog `GUI/SmallAreaFlowDialog.cpp`). `GCodeGenerator::_extrude()` multiplies the E of each line and arc segment by
+the factor of its length (G-code coordinates); `small_area_flow_model()` decides per extrusion (role, first layer,
+top pattern from the region config) and caches the parsed model. `Print::validate()` checks the model of every region
+with the switch on.
+
+**How to test.** `fff_print_tests "[SmallAreaFlow]"`: the curve (through the points, monotonic, 1 beyond the last
+point, text round trip), invalid models refused, and a cube sliced with and without: same moves, every solid / top solid
+segment after the first layer has E × factor(length), everything else unchanged, some segments reduced; a concentric
+top surface is not changed. Manually: enable it, slice a part with small solid areas and look at the volumetric flow
+rate view.
 
 ---
 

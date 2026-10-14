@@ -3933,6 +3933,26 @@ double cap_speed(
     return speed;
 }
 
+// Small area flow compensation (SuperSlicer / OrcaSlicer): solid and top solid infill, not on the first layer,
+// top surfaces only with a line pattern (curved patterns are made of many short segments).
+const SmallAreaFlowModel* GCodeGenerator::small_area_flow_model(const ExtrusionRole role)
+{
+    if (! m_config.small_area_infill_flow_compensation || this->on_first_layer())
+        return nullptr;
+    if (role == ExtrusionRole::TopSolidInfill) {
+        const InfillPattern pattern = m_config.top_fill_pattern.value;
+        if (pattern != ipRectilinear && pattern != ipAlignedRectilinear && pattern != ipMonotonic && pattern != ipMonotonicLines)
+            return nullptr;
+    } else if (role != ExtrusionRole::SolidInfill)
+        return nullptr;
+    const std::string &text = m_config.small_area_infill_flow_compensation_model.value;
+    if (! m_small_area_flow_model || text != m_small_area_flow_text) {
+        m_small_area_flow_text  = text;
+        m_small_area_flow_model = SmallAreaFlowModel::parse(text);
+    }
+    return m_small_area_flow_model ? &*m_small_area_flow_model : nullptr;
+}
+
 std::string GCodeGenerator::_extrude(
     const ExtrusionAttributes       &path_attr,
     const Geometry::ArcWelder::Path &path,
@@ -4183,6 +4203,8 @@ std::string GCodeGenerator::_extrude(
         comment = description;
         comment += description_bridge;
     }
+    // Small area flow compensation: flow factor per segment length (nullptr: not applied to this extrusion).
+    const SmallAreaFlowModel *small_area_flow = this->small_area_flow_model(path_attr.role);
     Vec2d prev_exact = this->point_to_gcode(path.front().point);
     Vec2d prev = GCodeFormatter::quantize(prev_exact);
     auto  it   = path.begin();
@@ -4213,6 +4235,8 @@ std::string GCodeGenerator::_extrude(
                 // Extrude line segment.
                 if (const double line_length = (p - prev).norm(); line_length > 0) {
                     double extrusion_amount{e_per_mm * line_length * it->e_fraction};
+                    if (small_area_flow)
+                        extrusion_amount *= small_area_flow->factor(line_length);
                     if (it->height_fraction < 1.0 || std::prev(it)->height_fraction < 1.0) {
                         const Vec3d destination{to_3d(p, this->m_last_layer_z + (it->height_fraction - 1) * m_last_height)};
                         gcode += m_writer.extrude_to_xyz(destination, extrusion_amount);
@@ -4224,8 +4248,8 @@ std::string GCodeGenerator::_extrude(
                 double angle = Geometry::ArcWelder::arc_angle(prev.cast<double>(), p.cast<double>(), double(radius));
                 assert(angle > 0);
                 const double line_length = angle * std::abs(radius);
-                const double dE          = e_per_mm * line_length;
-                assert(dE > 0);
+                const double dE          = e_per_mm * line_length * (small_area_flow ? small_area_flow->factor(line_length) : 1.);
+                assert(dE >= 0);
                 gcode += m_writer.extrude_to_xy_G2G3IJ(p, ij, it->ccw(), dE, comment);
             }
             prev = p;

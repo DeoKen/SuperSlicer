@@ -796,6 +796,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                perimeter_speed))
     // Total number of perimeters.
     ((ConfigOptionInt,                  perimeters))
+    ((ConfigOptionBool,                 small_area_infill_flow_compensation))
+    ((ConfigOptionString,               small_area_infill_flow_compensation_model))
     ((ConfigOptionFloatOrPercent,       small_perimeter_speed))
     ((ConfigOptionFloatOrPercent,       small_perimeter_min_length))
     ((ConfigOptionFloatOrPercent,       small_perimeter_max_length))

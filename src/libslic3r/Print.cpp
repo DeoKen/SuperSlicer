@@ -40,6 +40,7 @@
 #include "format.hpp"
 #include "ArrangeHelper.hpp"
 #include "CustomParametersHandling.hpp"
+#include "GCode/SmallAreaFlowCompensation.hpp"
 #include "Feature/FullSpectrum/VirtualExtruder.hpp"
 
 #include <float.h>
@@ -824,6 +825,13 @@ std::string Print::validate(std::vector<std::string>* warnings) const
         if (! check_custom_parameters(m_config.custom_parameters_print, m_config.custom_parameters_printer, m_config.custom_parameters_filament.values, &error_out))
             return std::string("Unable to parse custom parameters: " + error_out);
     }
+    for (const PrintObject *object : m_objects)
+        for (const PrintRegion &region : object->all_regions())
+            if (region.config().small_area_infill_flow_compensation) {
+                std::string error_out;
+                if (! SmallAreaFlowModel::parse(region.config().small_area_infill_flow_compensation_model.value, &error_out))
+                    return error_out;
+            }
 
     return std::string();
 }

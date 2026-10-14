@@ -35,6 +35,7 @@
 #include "slic3r/Utils/PrintHost.hpp"
 #include "BonjourDialog.hpp"
 #include "WipeTowerDialog.hpp"
+#include "SmallAreaFlowDialog.hpp"
 #include "ButtonsDescription.hpp"
 #include "Search.hpp"
 #include "OG_CustomCtrl.hpp"
@@ -1541,6 +1542,34 @@ void TabPrint::build()
         optgroup->append_single_option_line("solid_infill_below_area", category_path + "solid-infill-threshold-area");
         optgroup->append_single_option_line("only_retract_when_crossing_perimeters");
         optgroup->append_single_option_line("infill_first");
+
+        // Small area flow compensation (SuperSlicer / OrcaSlicer): the model as text, plus a graph editor.
+        optgroup = page->new_optgroup(L("Small area flow compensation"));
+        optgroup->append_single_option_line("small_area_infill_flow_compensation");
+        {
+            Option model_option = optgroup->get_option("small_area_infill_flow_compensation_model");
+            model_option.opt.full_width = true;
+            optgroup->append_single_option_line(model_option);
+            Line graph_line { "", "" };
+            graph_line.full_width = 1;
+            graph_line.widget = [this](wxWindow* parent) {
+                auto *graph_btn = new wxButton(parent, wxID_ANY, _L("Edit graph") + dots, wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+                wxGetApp().SetWindowVariantForButton(graph_btn);
+                wxGetApp().UpdateDarkUI(graph_btn);
+                graph_btn->SetFont(wxGetApp().normal_font());
+                graph_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+                    SmallAreaFlowDialog dlg(this, m_config->opt_string("small_area_infill_flow_compensation_model"));
+                    if (dlg.ShowModal() == wxID_OK) {
+                        load_key_value("small_area_infill_flow_compensation_model", dlg.get_model());
+                        update_changed_ui();
+                    }
+                });
+                auto sizer = new wxBoxSizer(wxHORIZONTAL);
+                sizer->Add(graph_btn);
+                return sizer;
+            };
+            optgroup->append_line(graph_line);
+        }
 
     page = add_options_page(L("Skirt and brim"), "skirt+brim");
         category_path = "skirt-and-brim_133969#";
