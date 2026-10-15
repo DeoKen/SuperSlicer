@@ -1021,6 +1021,12 @@ std::string GCodeGenerator::keep_out_detour_to(const Vec2d &to, const std::strin
     return gcode;
 }
 
+// Fork: letter of a Klipper speed mode ("Slow" / "Normal" / "Fast") for {speed_mode}, empty for "Off" (doc section 22).
+static const char* klipper_speed_mode_letter(const std::string &mode)
+{
+    return boost::iequals(mode, "slow") ? "S" : boost::iequals(mode, "normal") ? "N" : boost::iequals(mode, "fast") ? "F" : "";
+}
+
 // Fork: seam placer kept in the Print between G-code exports.
 struct SeamPlacerCache
 {
@@ -1347,12 +1353,10 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
         }
         this->placeholder_parser().set("total_print_height", total_print_height);
     }
-    // Klipper speed mode letter for the speed mode macro and the other custom G-codes, empty when off (doc section 22).
+    // Klipper speed mode letter (filament of the first extruder) for the speed mode macro and the other custom G-codes,
+    // empty when off (doc section 22).
     {
-        const PrintConfig &config = print.config();
-        const char *letter = ! config.klipper_speed_mode_enabled ? "" :
-            config.klipper_speed_mode == KlipperSpeedMode::slow ? "S" : config.klipper_speed_mode == KlipperSpeedMode::fast ? "F" : "N";
-        this->placeholder_parser().set("speed_mode", std::string(letter));
+        this->placeholder_parser().set("speed_mode", std::string(klipper_speed_mode_letter(print.config().klipper_speed_mode.get_at(0))));
     }
     // Useful for sequential prints.
     this->placeholder_parser().set("current_object_idx", 0);
@@ -1481,7 +1485,7 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
     }
 
     // Fork: Klipper speed mode macro, after the start G-code and the filament start G-code (doc section 22).
-    if (print.config().klipper_speed_mode_enabled && ! print.config().klipper_speed_mode_gcode.value.empty())
+    if (*klipper_speed_mode_letter(print.config().klipper_speed_mode.get_at(0)) != 0 && ! print.config().klipper_speed_mode_gcode.value.empty())
         file.writeln(this->placeholder_parser_process("klipper_speed_mode_gcode", print.config().klipper_speed_mode_gcode.value, initial_extruder_id));
 
     GCode::SmoothPathCache smooth_path_cache_global = smooth_path_interpolate_global(print);

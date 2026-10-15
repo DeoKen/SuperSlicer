@@ -204,13 +204,6 @@ static const t_config_enum_values s_keys_map_ScarfSeamPlacement {
 
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(ScarfSeamPlacement)
 
-static const t_config_enum_values s_keys_map_KlipperSpeedMode {
-    { "slow",   static_cast<int>(KlipperSpeedMode::slow) },
-    { "normal", static_cast<int>(KlipperSpeedMode::normal) },
-    { "fast",   static_cast<int>(KlipperSpeedMode::fast) }
-};
-CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(KlipperSpeedMode)
-
 static const t_config_enum_values s_keys_map_SLADisplayOrientation = {
     { "landscape",      sladoLandscape},
     { "portrait",       sladoPortrait}
@@ -1390,39 +1383,19 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloat(0));
 
-    def = this->add("klipper_speed_mode_enabled", coBool);
-    def->label = L("Enable");
+    // Text values shown in a closed combo box: the stock ConfigOptionEnums<T> neither deserializes nor serializes names.
+    def = this->add("klipper_speed_mode", coStrings);
+    def->label = L("Speed mode");
     def->full_label = L("Klipper speed mode");
-    def->category = L("Speed");
-    def->tooltip = L("Klipper: select one of the printer's speed modes (Printer Settings > Machine limits: slow, normal and fast "
-                     "columns). The time estimate uses the limits of the selected mode, and the speed mode macro is written "
-                     "to the G-code before the first layer. Off: nothing is written and the normal limits are used.");
+    def->category = L("Cooling");
+    def->tooltip = L("Klipper: speed mode of the printer to use with this filament (its fan and temperature settings are tuned "
+                     "for it). Slow / Normal / Fast: the time estimate uses that mode's max velocity and max accel (Printer "
+                     "Settings > Machine limits) and the printer's speed mode macro is written to the G-code before the first "
+                     "layer, with {speed_mode} = S, N or F. Off: nothing is written and the normal limits are used.");
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionBool(false));
-
-    def = this->add("klipper_speed_mode", coEnum);
-    def->label = L("Mode");
-    def->full_label = L("Klipper speed mode");
-    def->category = L("Speed");
-    def->tooltip = L("Speed mode of the printer: the time estimate uses its limits from Printer Settings > Machine limits, "
-                     "and {speed_mode} is S, N or F in the speed mode macro and in the other custom G-codes.");
-    def->mode = comAdvanced;
-    def->set_enum<KlipperSpeedMode>({
-        { "slow",   L("Slow") },
-        { "normal", L("Normal") },
-        { "fast",   L("Fast") }
-    });
-    def->set_default_value(new ConfigOptionEnum<KlipperSpeedMode>(KlipperSpeedMode::normal));
-
-    def = this->add("klipper_speed_mode_gcode", coString);
-    def->label = L("Macro");
-    def->full_label = L("Klipper speed mode macro");
-    def->category = L("Speed");
-    def->tooltip = L("Written to the G-code before the first layer (after the start G-code and the filament start G-code) "
-                     "when the speed mode is enabled, e.g. SPEED_MODE TOGGLE={speed_mode}, where {speed_mode} is S, N or F. "
-                     "Empty: nothing is written, the time estimate still uses the selected mode.");
-    def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionString(""));
+    def->set_enum_values({ "Off", "Slow", "Normal", "Fast" });
+    def->gui_type = ConfigOptionDef::GUIType::select_close;
+    def->set_default_value(new ConfigOptionStrings{ "Off" });
 
     def = this->add("default_filament_profile", coStrings);
     def->label = L("Default filament profile");
@@ -2866,22 +2839,20 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(0.));
 
-    // Klipper speed modes (slow / fast columns next to the normal limits above), selected in the print settings
+    // Klipper speed modes (slow / fast columns next to the normal limits above), selected by the filament
     // (klipper_speed_mode). A percentage is of the normal value.
     struct SpeedModeLimit { const char *key; const char *label; const char *sidetext; };
     for (const SpeedModeLimit &limit : { SpeedModeLimit{ "klipper_max_velocity", L("Max velocity"), L("mm/s or %") },
-                                         SpeedModeLimit{ "klipper_max_accel", L("Max accel"), L("mm/s² or %") },
-                                         SpeedModeLimit{ "klipper_minimum_cruise_ratio", L("Minimum cruise ratio"), L("or %") },
-                                         SpeedModeLimit{ "klipper_square_corner_velocity", L("Square corner velocity"), L("mm/s or %") } })
+                                         SpeedModeLimit{ "klipper_max_accel", L("Max accel"), L("mm/s² or %") } })
         for (const bool slow : { true, false }) {
             def = this->add(std::string(limit.key) + (slow ? "_slow" : "_fast"), coFloatOrPercent);
             def->label = slow ? L("Slow") : L("Fast");
             def->full_label = std::string(limit.label) + (slow ? " (slow speed mode)" : " (fast speed mode)");
             def->category = L("Machine limits");
             def->tooltip = slow ?
-                L("Value used by the time estimate when the print settings select the slow speed mode (Print Settings > Speed > "
+                L("Value used by the time estimate when the filament selects the slow speed mode (Filament Settings > Cooling > "
                   "Speed mode). A percentage is of the normal value. Never written to the G-code.") :
-                L("Value used by the time estimate when the print settings select the fast speed mode (Print Settings > Speed > "
+                L("Value used by the time estimate when the filament selects the fast speed mode (Filament Settings > Cooling > "
                   "Speed mode). A percentage is of the normal value. Never written to the G-code.");
             def->sidetext = limit.sidetext;
             def->ratio_over = limit.key;
@@ -2889,6 +2860,17 @@ void PrintConfigDef::init_fff_params()
             def->mode = comAdvanced;
             def->set_default_value(new ConfigOptionFloatOrPercent(slow ? 75. : 125., true));
         }
+
+    def = this->add("klipper_speed_mode_gcode", coString);
+    def->label = L("Speed mode macro");
+    def->full_label = L("Klipper speed mode macro");
+    def->category = L("Machine limits");
+    def->tooltip = L("The printer's macro selecting a speed mode, e.g. SPEED_MODE TOGGLE={speed_mode}, where {speed_mode} is S, N "
+                     "or F. Written to the G-code before the first layer (after the start G-code and the filament start G-code) "
+                     "when the filament selects a speed mode (Filament Settings > Cooling > Speed mode). Empty: nothing is "
+                     "written, the time estimate still uses the selected mode.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString(""));
 
     // M204 P... [mm/sec^2]
     def = this->add("machine_max_acceleration_extruding", coFloats);

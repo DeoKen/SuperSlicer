@@ -489,7 +489,7 @@ static std::vector<std::string> s_Preset_print_options {
     "bridge_speed", "over_bridge_speed", "internal_bridge_speed", "gap_fill_speed", "gap_fill_enabled", "travel_speed", "travel_speed_z", "first_layer_speed", "first_layer_infill_speed", "first_layer_speed_over_raft", "perimeter_acceleration", "infill_acceleration",
     "external_perimeter_acceleration", "top_solid_infill_acceleration", "solid_infill_acceleration", "travel_acceleration", "wipe_tower_acceleration",
     "bridge_acceleration", "internal_bridge_acceleration", "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration", "ironing_acceleration", "brim_acceleration", "brim_speed", "first_layer_acceleration", "first_layer_acceleration_over_raft", "default_acceleration",
-    "klipper_speed_mode_enabled", "klipper_speed_mode", "klipper_speed_mode_gcode", "skirts", "skirt_distance", "skirt_height", "draft_shield",
+    "skirts", "skirt_distance", "skirt_height", "draft_shield",
     "min_skirt_length", "brim_width", "brim_separation", "brim_type", "brim_ears", "brim_ears_max_angle", "brim_ears_detection_length", "brim_ears_pattern", "brim_per_object", "support_material", "support_material_auto", "support_material_threshold", "support_material_enforce_layers",
     "raft_layers", "raft_first_layer_density", "raft_first_layer_expansion", "raft_contact_distance", "raft_expansion",
     "support_material_pattern", "support_material_with_sheath", "support_material_spacing", "support_material_closing_radius", "support_material_style",
@@ -523,7 +523,7 @@ static std::vector<std::string> s_Preset_filament_options {
     "filament_unloading_speed", "filament_unloading_speed_start", "filament_unload_time", "filament_toolchange_delay", "filament_cooling_moves", "filament_stamping_loading_speed", "filament_stamping_distance",
     "filament_cooling_initial_speed", "filament_purge_multiplier", "filament_cooling_final_speed", "filament_ramming_parameters", "filament_minimal_purge_on_wipe_tower",
     "filament_multitool_ramming", "filament_multitool_ramming_volume", "filament_multitool_ramming_flow", "filament_flush_volume", "filament_flush_speed",
-    "temperature", "idle_temperature", "first_layer_temperature", "bed_temperature", "first_layer_bed_temperature", "fan_always_on", "cooling", "cooling_slowdown_logic",
+    "temperature", "idle_temperature", "first_layer_temperature", "bed_temperature", "first_layer_bed_temperature", "fan_always_on", "cooling", "cooling_slowdown_logic", "klipper_speed_mode",
     "cooling_perimeter_transition_distance", "min_fan_speed",
     "max_fan_speed", "bridge_fan_speed", "internal_bridge_fan_speed", "additional_cooling_fan_speed", "default_fan_speed", "perimeter_fan_speed", "external_perimeter_fan_speed", "overhangs_fan_speed", "infill_fan_speed", "solid_infill_fan_speed", "top_fan_speed", "gap_fill_fan_speed", "support_material_fan_speed", "support_material_interface_fan_speed", "disable_fan_first_layers", "full_fan_speed_layer", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed",
     "custom_parameters_filament", "start_filament_gcode", "end_filament_gcode", "enable_dynamic_fan_speeds", "chamber_temperature", "chamber_minimal_temperature",
@@ -549,9 +549,7 @@ static std::vector<std::string> s_Preset_machine_limits_options {
     "machine_max_junction_deviation",
     "klipper_max_velocity", "klipper_max_accel", "klipper_minimum_cruise_ratio", "klipper_square_corner_velocity",
     "klipper_max_z_velocity", "klipper_max_z_accel", "klipper_max_extrude_only_velocity", "klipper_max_extrude_only_accel",
-    "klipper_max_velocity_slow", "klipper_max_velocity_fast", "klipper_max_accel_slow", "klipper_max_accel_fast",
-    "klipper_minimum_cruise_ratio_slow", "klipper_minimum_cruise_ratio_fast",
-    "klipper_square_corner_velocity_slow", "klipper_square_corner_velocity_fast",
+    "klipper_max_velocity_slow", "klipper_max_velocity_fast", "klipper_max_accel_slow", "klipper_max_accel_fast", "klipper_speed_mode_gcode",
 };
 
 static std::vector<std::string> s_Preset_printer_options {

@@ -799,21 +799,19 @@ void GCodeProcessor::apply_klipper_limits(const ConfigOptionResolver& config)
         if (k.max_e_accel <= 0.0f)
             k.max_e_accel = float(k.max_accel * ratio);
     }
-    // Fork: Klipper speed mode selected in the print settings (doc section 22): the slow / fast limits, absolute or a
-    // percentage of the normal ones, replace the normal limits (as the speed mode macro does with SET_VELOCITY_LIMIT).
-    // The extrude only limits keep following the normal ones, as Klipper derives them from printer.cfg.
-    const ConfigOptionBool*                   speed_mode_enabled = config.option<ConfigOptionBool>("klipper_speed_mode_enabled");
-    const ConfigOptionEnum<KlipperSpeedMode>* speed_mode         = config.option<ConfigOptionEnum<KlipperSpeedMode>>("klipper_speed_mode");
-    if (speed_mode_enabled != nullptr && speed_mode_enabled->value && speed_mode != nullptr && speed_mode->value != KlipperSpeedMode::normal) {
-        const std::string suffix = speed_mode->value == KlipperSpeedMode::slow ? "_slow" : "_fast";
+    // Fork: Klipper speed mode selected by the filament of the first extruder (doc section 22): the slow / fast max velocity and max accel,
+    // absolute or a percentage of the normal ones, replace the normal limits (as the speed mode macro does with
+    // SET_VELOCITY_LIMIT). The other limits, and the extrude only limits (Klipper derives them from printer.cfg), stay.
+    const ConfigOptionStrings* speed_modes = config.option<ConfigOptionStrings>("klipper_speed_mode");
+    const std::string          speed_mode  = speed_modes != nullptr && ! speed_modes->values.empty() ? speed_modes->get_at(0) : std::string();
+    if (boost::iequals(speed_mode, "slow") || boost::iequals(speed_mode, "fast")) {
+        const std::string suffix = boost::iequals(speed_mode, "slow") ? "_slow" : "_fast";
         auto mode_value = [&config, &suffix](const char* key, float normal) {
             const ConfigOptionFloatOrPercent* opt = config.option<ConfigOptionFloatOrPercent>(key + suffix);
             return opt != nullptr ? float(opt->get_abs_value(normal)) : normal;
         };
         k.max_velocity           = std::max(mode_value("klipper_max_velocity", k.max_velocity), 1.0f);
         k.max_accel              = std::max(mode_value("klipper_max_accel", k.max_accel), 1.0f);
-        k.min_cruise_ratio       = std::clamp(mode_value("klipper_minimum_cruise_ratio", k.min_cruise_ratio), 0.0f, 0.99f);
-        k.square_corner_velocity = std::max(mode_value("klipper_square_corner_velocity", k.square_corner_velocity), 0.0f);
     }
     for (TimeMachine& machine : m_time_processor.machines) {
         machine.klipper                        = true;

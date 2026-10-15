@@ -145,34 +145,36 @@ TEST_CASE("Klipper limits: a G-code loaded without them keeps the stock estimate
     CHECK(std::abs(with_limits - sliced) <= 1.);
 }
 
-// Klipper speed mode (print settings) selecting the slow / normal / fast limits of the printer (doc section 22).
+// Klipper speed mode (filament) selecting the slow / normal / fast limits of the printer (doc section 22).
 
 TEST_CASE("Klipper speed mode: the estimate uses the limits of the selected mode", "[KlipperSpeedMode]") {
     const std::string move = "G1 X300 F60000\n";
     // Normal limits: 300 mm/s, 1000 mm/s^2. Slow / fast default to 75 % / 125 % of them. 300 mm: long enough to cruise in every mode.
-    SECTION("off: normal limits, whatever mode is selected") {
-        CHECK(estimate(klipper_config({ { "klipper_speed_mode", "slow" } }), move) == Approx(rest_to_rest(300., 300., 1000.)).epsilon(1e-4));
+    SECTION("off (default): normal limits") {
+        CHECK(estimate(klipper_config({}), move) == Approx(rest_to_rest(300., 300., 1000.)).epsilon(1e-4));
     }
     SECTION("normal") {
-        CHECK(estimate(klipper_config({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "normal" } }), move) ==
-              Approx(rest_to_rest(300., 300., 1000.)).epsilon(1e-4));
+        CHECK(estimate(klipper_config({ { "klipper_speed_mode", "normal" } }), move) == Approx(rest_to_rest(300., 300., 1000.)).epsilon(1e-4));
     }
     SECTION("slow: 75 %") {
-        CHECK(estimate(klipper_config({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "slow" } }), move) ==
-              Approx(rest_to_rest(300., 225., 750.)).epsilon(1e-4));
+        CHECK(estimate(klipper_config({ { "klipper_speed_mode", "slow" } }), move) == Approx(rest_to_rest(300., 225., 750.)).epsilon(1e-4));
     }
     SECTION("fast: 125 %") {
-        CHECK(estimate(klipper_config({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "fast" } }), move) ==
-              Approx(rest_to_rest(300., 375., 1250.)).epsilon(1e-4));
+        CHECK(estimate(klipper_config({ { "klipper_speed_mode", "fast" } }), move) == Approx(rest_to_rest(300., 375., 1250.)).epsilon(1e-4));
     }
     SECTION("slow, absolute values") {
-        CHECK(estimate(klipper_config({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "slow" },
-                                        { "klipper_max_velocity_slow", "100" }, { "klipper_max_accel_slow", "2000" } }), move) ==
+        CHECK(estimate(klipper_config({ { "klipper_speed_mode", "slow" }, { "klipper_max_velocity_slow", "100" }, { "klipper_max_accel_slow", "2000" } }), move) ==
               Approx(rest_to_rest(300., 100., 2000.)).epsilon(1e-4));
     }
+    SECTION("only velocity and accel change: square corner velocity and cruise ratio stay") {
+        // Two moves with a 90 degree corner: same corner as with the normal limits scaled by hand.
+        const std::string corner = "G1 X100 F60000\nG1 Y100\n";
+        CHECK(estimate(klipper_config({ { "klipper_speed_mode", "slow" } }), corner) ==
+              Approx(estimate(klipper_config({ { "klipper_max_velocity", "225" }, { "klipper_max_accel", "750" } }), corner)).epsilon(1e-6));
+    }
     SECTION("SET_VELOCITY_LIMIT in the G-code still overrides") {
-        CHECK(estimate(klipper_config({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "slow" } }),
-                       "SET_VELOCITY_LIMIT VELOCITY=200 ACCEL=2000\n" + move) == Approx(rest_to_rest(300., 200., 2000.)).epsilon(1e-4));
+        CHECK(estimate(klipper_config({ { "klipper_speed_mode", "slow" } }), "SET_VELOCITY_LIMIT VELOCITY=200 ACCEL=2000\n" + move) ==
+              Approx(rest_to_rest(300., 200., 2000.)).epsilon(1e-4));
     }
 }
 
@@ -182,29 +184,27 @@ TEST_CASE("Klipper speed mode: the macro", "[KlipperSpeedMode]") {
         config.set_deserialize_strict({ { "start_gcode", "START_MACRO MODE={speed_mode}" } });
         return Test::slice({ Test::TestMesh::cube_20x20x20 }, config);
     };
+    const std::pair<std::string, std::string> macro { "klipper_speed_mode_gcode", "SPEED_MODE TOGGLE={speed_mode}" };
     SECTION("off by default: nothing written, {speed_mode} empty") {
-        const std::string gcode = slice({ { "klipper_speed_mode_gcode", "SPEED_MODE TOGGLE={speed_mode}" } });
+        const std::string gcode = slice({ macro });
         // Only in the config block at the end ("; klipper_speed_mode_gcode = ..."), not as a G-code line.
         CHECK(gcode.find("\nSPEED_MODE") == std::string::npos);
         CHECK(gcode.find("START_MACRO MODE=\n") != std::string::npos);
     }
     SECTION("slow: written once, after the start G-code and before the first layer") {
-        const std::string gcode = slice({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "slow" },
-                                          { "klipper_speed_mode_gcode", "SPEED_MODE TOGGLE={speed_mode}" } });
-        const size_t macro = gcode.find("\nSPEED_MODE TOGGLE=S\n");
-        REQUIRE(macro != std::string::npos);
-        CHECK(gcode.find("\nSPEED_MODE TOGGLE=", macro + 1) == std::string::npos);
-        CHECK(gcode.find("START_MACRO MODE=S\n") < macro);
-        CHECK(macro < gcode.find(";LAYER_CHANGE"));
+        const std::string gcode = slice({ { "klipper_speed_mode", "slow" }, macro });
+        const size_t pos = gcode.find("\nSPEED_MODE TOGGLE=S\n");
+        REQUIRE(pos != std::string::npos);
+        CHECK(gcode.find("\nSPEED_MODE TOGGLE=", pos + 1) == std::string::npos);
+        CHECK(gcode.find("START_MACRO MODE=S\n") < pos);
+        CHECK(pos < gcode.find(";LAYER_CHANGE"));
     }
     SECTION("fast and normal letters") {
-        CHECK(slice({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "fast" }, { "klipper_speed_mode_gcode", "SPEED_MODE TOGGLE={speed_mode}" } })
-                  .find("\nSPEED_MODE TOGGLE=F\n") != std::string::npos);
-        CHECK(slice({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "normal" }, { "klipper_speed_mode_gcode", "SPEED_MODE TOGGLE={speed_mode}" } })
-                  .find("\nSPEED_MODE TOGGLE=N\n") != std::string::npos);
+        CHECK(slice({ { "klipper_speed_mode", "fast" }, macro }).find("\nSPEED_MODE TOGGLE=F\n") != std::string::npos);
+        CHECK(slice({ { "klipper_speed_mode", "normal" }, macro }).find("\nSPEED_MODE TOGGLE=N\n") != std::string::npos);
     }
-    SECTION("enabled with an empty macro: nothing written") {
-        const std::string gcode = slice({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "slow" } });
+    SECTION("mode selected, empty macro: nothing written") {
+        const std::string gcode = slice({ { "klipper_speed_mode", "slow" } });
         CHECK(gcode.find("\nSPEED_MODE") == std::string::npos);
     }
 }
@@ -221,10 +221,9 @@ TEST_CASE("Klipper speed mode: sliced and reloaded G-code", "[KlipperSpeedMode]"
         return t;
     };
     // Low limits so that the speed mode matters.
-    const std::initializer_list<std::pair<std::string, std::string>> base = { { "klipper_max_velocity", "60" }, { "klipper_max_accel", "500" } };
-    DynamicPrintConfig config = klipper_config(base);
+    DynamicPrintConfig config = klipper_config({ { "klipper_max_velocity", "60" }, { "klipper_max_accel", "500" } });
     const std::string normal = Test::slice({ Test::TestMesh::cube_20x20x20 }, config);
-    config.set_deserialize_strict({ { "klipper_speed_mode_enabled", "1" }, { "klipper_speed_mode", "slow" } });
+    config.set_deserialize_strict({ { "klipper_speed_mode", "slow" } });
     const std::string slow = Test::slice({ Test::TestMesh::cube_20x20x20 }, config);
     CHECK(estimated(slow) > estimated(normal) + 1.);
     // Reloading the G-code (viewer) gives the same estimate: the speed mode settings are in its config block.

@@ -107,12 +107,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "klipper_max_velocity_fast",
         "klipper_max_accel_slow",
         "klipper_max_accel_fast",
-        "klipper_minimum_cruise_ratio_slow",
-        "klipper_minimum_cruise_ratio_fast",
-        "klipper_square_corner_velocity_slow",
-        "klipper_square_corner_velocity_fast",
         // Klipper speed mode: macro and time estimate only.
-        "klipper_speed_mode_enabled",
         "klipper_speed_mode",
         "klipper_speed_mode_gcode",
         "fan_speedup_time",

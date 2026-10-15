@@ -1658,13 +1658,6 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Travel acceleration"),      { { "travel_acceleration", L("Travel") }, { "travel_short_distance_acceleration", L("Short") } });
         append_labelled_line(optgroup, L("First layer acceleration"), { { "first_layer_acceleration", L("Default") }, { "first_layer_acceleration_over_raft", L("Over raft") } });
         append_labelled_line(optgroup, L("Wipe tower acceleration"),  { { "wipe_tower_acceleration", L("Wipe tower") } });
-        // Klipper speed mode (doc section 22): mode for the time estimate and the macro selecting it on the printer.
-        append_labelled_line(optgroup, L("Speed mode (Klipper)"),     { { "klipper_speed_mode_enabled", L("Enable") }, { "klipper_speed_mode", L("Mode") } }, std::string(), 0);
-        {
-            Option macro = optgroup->get_option("klipper_speed_mode_gcode");
-            macro.opt.full_width = true;
-            optgroup->append_single_option_line(macro);
-        }
 
         optgroup = page->new_optgroup(L("Autospeed (advanced)"));
         optgroup->append_single_option_line("max_print_speed", "max-volumetric-speed_127176");
@@ -2267,6 +2260,9 @@ void TabFilament::build()
 
     page = add_options_page(L("Cooling"), "cooling");
         std::string category_path = "cooling_127569#";
+        // Klipper speed mode (doc section 22): the filament's fans are tuned for a speed mode of the printer.
+        optgroup = page->new_optgroup(L("Klipper speed mode"));
+        optgroup->append_single_option_line("klipper_speed_mode");
         optgroup = page->new_optgroup(L("Enable"));
         optgroup->append_single_option_line("fan_always_on");
         optgroup->append_single_option_line("cooling");
@@ -3225,16 +3221,20 @@ PageShp TabPrinter::build_kinematics_page()
     if (m_klipper_limits) {
         // Klipper: its own limits ([printer] and [extruder] of printer.cfg), for the time estimate only.
         optgroup = page->new_optgroup(L("Klipper limits (printer.cfg)"));
-        // Slow / normal / fast columns for the limits a speed mode macro changes (SET_VELOCITY_LIMIT), doc section 22.
+        // Slow / normal / fast columns for max velocity and max accel (Klipper speed modes, doc section 22).
         optgroup->sublabel_width = 7;
         optgroup->sidetext_width = 10;
         append_labelled_line(optgroup, L("Max velocity"),           { { "klipper_max_velocity_slow", L("Slow") }, { "klipper_max_velocity", L("Normal") }, { "klipper_max_velocity_fast", L("Fast") } });
         append_labelled_line(optgroup, L("Max accel"),              { { "klipper_max_accel_slow", L("Slow") }, { "klipper_max_accel", L("Normal") }, { "klipper_max_accel_fast", L("Fast") } });
-        append_labelled_line(optgroup, L("Minimum cruise ratio"),   { { "klipper_minimum_cruise_ratio_slow", L("Slow") }, { "klipper_minimum_cruise_ratio", L("Normal") }, { "klipper_minimum_cruise_ratio_fast", L("Fast") } });
-        append_labelled_line(optgroup, L("Square corner velocity"), { { "klipper_square_corner_velocity_slow", L("Slow") }, { "klipper_square_corner_velocity", L("Normal") }, { "klipper_square_corner_velocity_fast", L("Fast") } });
-        for (const char *opt : { "klipper_max_z_velocity", "klipper_max_z_accel",
+        for (const char *opt : { "klipper_minimum_cruise_ratio", "klipper_square_corner_velocity", "klipper_max_z_velocity", "klipper_max_z_accel",
                                  "klipper_max_extrude_only_velocity", "klipper_max_extrude_only_accel" })
             optgroup->append_single_option_line(opt);
+        // Klipper speed mode macro, the mode is selected by the filament (doc section 22).
+        {
+            Option macro = optgroup->get_option("klipper_speed_mode_gcode");
+            macro.opt.full_width = true;
+            optgroup->append_single_option_line(macro);
+        }
         return page;
     }
 
