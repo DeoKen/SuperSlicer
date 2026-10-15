@@ -45,6 +45,11 @@ private:
     GLModel m_triangles;
     GLModel m_gridlines;
     GLModel m_contourlines;
+    // bed_keep_out_zones (bed coordinates, without the clearance), drawn hatched over the bed.
+    std::vector<BoundingBoxf> m_keep_out_zones;
+    GLModel m_keep_out_fill;
+    GLModel m_keep_out_hatch;
+    GLModel m_keep_out_outline;
     GLTexture m_texture;
     // temporary texture shown until the main texture has still no levels compressed
     GLTexture m_temp_texture;
@@ -67,6 +72,9 @@ public:
     // as this class does not use it, thus there is no need to update the UI.
     bool set_shape(const Pointfs& bed_shape, const double max_print_height, const std::string& custom_texture, const std::string& custom_model, bool force_as_custom = false);
 
+    // Keep-out zones to draw over the bed (bed coordinates, mm).
+    void set_keep_out_zones(const std::vector<BoundingBoxf>& zones);
+
     // Build volume geometry for various collision detection tasks.
     const BuildVolume& build_volume() const { return m_build_volume; }
 
@@ -88,6 +96,7 @@ private:
     void init_triangles();
     void init_gridlines();
     void init_contourlines();
+    void init_keep_out();
     void init_internal_model_from_file();
     static std::tuple<Type, std::string, std::string> detect_type(const Pointfs& shape);
     void render_internal(GLCanvas3D& canvas, const Transform3d& view_matrix, const Transform3d& projection_matrix, bool bottom, float scale_factor,
@@ -98,6 +107,7 @@ private:
     void render_custom(GLCanvas3D& canvas, const Transform3d& view_matrix, const Transform3d& projection_matrix, bool bottom, bool show_texture, bool picking, bool is_active);
     void render_default(bool bottom, bool picking, bool show_texture, const Transform3d& view_matrix, const Transform3d& projection_matrix);
     void render_contour(const Transform3d& view_matrix, const Transform3d& projection_matrix);
+    void render_keep_out(const Transform3d& view_matrix, const Transform3d& projection_matrix);
 
     void register_raycasters_for_picking(const GLModel::Geometry& geometry, const Transform3d& trafo);
 };

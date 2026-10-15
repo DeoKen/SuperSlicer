@@ -34,6 +34,13 @@ static const Slic3r::ColorRGBA PICKING_MODEL_COLOR             = Slic3r::ColorRG
 static const Slic3r::ColorRGBA DEFAULT_SOLID_GRID_COLOR        = { 0.9f, 0.9f, 0.9f, 1.0f };
 static const Slic3r::ColorRGBA DEFAULT_TRANSPARENT_GRID_COLOR  = { 0.9f, 0.9f, 0.9f, 0.6f };
 static const Slic3r::ColorRGBA DISABLED_MODEL_COLOR            = { 0.6f, 0.6f, 0.6f, 0.75f };
+// Keep-out zones: grey fill, darker 45 degree hatch and outline (widths in mm, so they scale with the zoom as a texture would).
+static const Slic3r::ColorRGBA KEEP_OUT_FILL_COLOR             = { 0.29f, 0.29f, 0.29f, 0.42f };
+static const Slic3r::ColorRGBA KEEP_OUT_HATCH_COLOR            = { 0.184f, 0.184f, 0.184f, 0.5f };
+static const Slic3r::ColorRGBA KEEP_OUT_OUTLINE_COLOR          = { 0.184f, 0.184f, 0.184f, 0.9f };
+static const double KEEP_OUT_HATCH_SPACING                     = 5.0;
+static const double KEEP_OUT_HATCH_WIDTH                       = 0.35;
+static const double KEEP_OUT_OUTLINE_WIDTH                     = 0.7;
 
 namespace Slic3r {
 namespace GUI {
@@ -93,6 +100,9 @@ bool Bed3D::set_shape(const Pointfs& bed_shape, const double max_print_height, c
     m_triangles.reset();
     m_gridlines.reset();
     m_contourlines.reset();
+    m_keep_out_fill.reset();
+    m_keep_out_hatch.reset();
+    m_keep_out_outline.reset();
     m_texture.reset();
     m_model.reset();
 
@@ -123,6 +133,17 @@ bool Bed3D::set_shape(const Pointfs& bed_shape, const double max_print_height, c
     return true;
 }
 
+void Bed3D::set_keep_out_zones(const std::vector<BoundingBoxf>& zones)
+{
+    auto same = [](const BoundingBoxf& a, const BoundingBoxf& b) { return a.min == b.min && a.max == b.max; };
+    if (zones.size() == m_keep_out_zones.size() && std::equal(zones.begin(), zones.end(), m_keep_out_zones.begin(), same))
+        return;
+    m_keep_out_zones = zones;
+    m_keep_out_fill.reset();
+    m_keep_out_hatch.reset();
+    m_keep_out_outline.reset();
+}
+
 void Bed3D::render(GLCanvas3D& canvas, const Transform3d& view_matrix, const Transform3d& projection_matrix, bool bottom, float scale_factor, bool show_texture)
 {
     bool is_thumbnail = s_multiple_beds.get_thumbnail_bed_idx() != -1;
@@ -144,6 +165,8 @@ void Bed3D::render(GLCanvas3D& canvas, const Transform3d& view_matrix, const Tra
         Transform3d mat = view_matrix;
         mat.translate(s_multiple_beds.get_bed_translation(i));
         render_internal(canvas, mat, projection_matrix, bottom, scale_factor, show_texture, false, is_thumbnail || i == bed_to_highlight);
+        if (! is_thumbnail && ! bottom)
+            render_keep_out(mat, projection_matrix);
     }
 
     if (m_digits_models.empty()) {
@@ -378,6 +401,92 @@ void Bed3D::init_contourlines()
 
     m_contourlines.init_from(std::move(init_data));
     m_contourlines.set_color({ 1.0f, 1.0f, 1.0f, 0.5f });
+}
+
+void Bed3D::init_keep_out()
+{
+    if (m_keep_out_fill.is_initialized() || m_keep_out_zones.empty() || m_contour.empty())
+        return;
+
+    const Polygons bed = to_polygons(m_contour);
+    ExPolygons fill;
+    ExPolygons hatch;
+    ExPolygons outline;
+    for (const BoundingBoxf& zone : m_keep_out_zones) {
+        const Polygons rect { Polygon::new_scale({ zone.min, { zone.max.x(), zone.min.y() }, zone.max, { zone.min.x(), zone.max.y() } }) };
+        append(fill, intersection_ex(rect, bed));
+        // Hatch lines x + y = c, c a multiple of the spacing from the zone corner, as strips cut to the zone.
+        const double half = 0.5 * KEEP_OUT_HATCH_WIDTH * std::sqrt(2.); // half width along x + y
+        const double c0 = zone.min.x() + zone.min.y();
+        const double c1 = zone.max.x() + zone.max.y();
+        Polygons strips;
+        for (double c = c0 + KEEP_OUT_HATCH_SPACING; c < c1 - 0.5 * KEEP_OUT_HATCH_SPACING + EPSILON; c += KEEP_OUT_HATCH_SPACING) {
+            // Strip c - half <= x + y <= c + half over the zone's x range, longer than needed, clipped below.
+            const double x0 = zone.min.x() - 1.;
+            const double x1 = zone.max.x() + 1.;
+            strips.emplace_back(Polygon::new_scale({ { x0, c - half - x0 }, { x1, c - half - x1 }, { x1, c + half - x1 }, { x0, c + half - x0 } }));
+        }
+        append(hatch, intersection_ex(intersection(strips, rect), bed));
+        const float outline_half = float(scale_(0.5 * KEEP_OUT_OUTLINE_WIDTH));
+        append(outline, intersection_ex(diff_ex(offset(rect, outline_half), offset(rect, -outline_half)), bed));
+    }
+
+    auto init = [](GLModel& model, const ExPolygons& areas, const ColorRGBA& color) {
+        const std::vector<Vec2f> triangles = triangulate_expolygons_2f(areas, NORMALS_UP);
+        if (triangles.empty())
+            return;
+        GLModel::Geometry init_data;
+        init_data.format = { GLModel::Geometry::EPrimitiveType::Triangles, GLModel::Geometry::EVertexLayout::P3 };
+        init_data.reserve_vertices(triangles.size());
+        init_data.reserve_indices(triangles.size());
+        for (const Vec2f& v : triangles) {
+            init_data.add_vertex(Vec3f(v.x(), v.y(), GROUND_Z));
+            const unsigned int vertices_counter = (unsigned int)init_data.vertices_count();
+            if (vertices_counter % 3 == 0)
+                init_data.add_triangle(vertices_counter - 3, vertices_counter - 2, vertices_counter - 1);
+        }
+        model.init_from(std::move(init_data));
+        model.set_color(color);
+    };
+    init(m_keep_out_fill, fill, KEEP_OUT_FILL_COLOR);
+    init(m_keep_out_hatch, hatch, KEEP_OUT_HATCH_COLOR);
+    init(m_keep_out_outline, outline, KEEP_OUT_OUTLINE_COLOR);
+}
+
+void Bed3D::render_keep_out(const Transform3d& view_matrix, const Transform3d& projection_matrix)
+{
+    init_keep_out();
+    if (! m_keep_out_fill.is_initialized())
+        return;
+
+    GLShaderProgram* shader = wxGetApp().get_shader("flat");
+    if (shader == nullptr)
+        return;
+
+    shader->start_using();
+    shader->set_uniform("view_model_matrix", view_matrix);
+    shader->set_uniform("projection_matrix", projection_matrix);
+
+    // Same plane as the bed texture: pulled towards the camera by a polygon offset instead of a Z shift, so it neither
+    // flickers against the bed nor floats above it when the view moves. No depth writes, so fill, hatch and outline
+    // blend in drawing order and objects / toolpaths drawn later are not hidden.
+    glsafe(::glEnable(GL_DEPTH_TEST));
+    glsafe(::glDepthMask(GL_FALSE));
+    glsafe(::glEnable(GL_BLEND));
+    glsafe(::glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    glsafe(::glEnable(GL_POLYGON_OFFSET_FILL));
+    glsafe(::glPolygonOffset(-2.0f, -2.0f));
+
+    m_keep_out_fill.render();
+    m_keep_out_hatch.render();
+    m_keep_out_outline.render();
+
+    glsafe(::glDisable(GL_POLYGON_OFFSET_FILL));
+    glsafe(::glDisable(GL_BLEND));
+    glsafe(::glDepthMask(GL_TRUE));
+    glsafe(::glDisable(GL_DEPTH_TEST));
+
+    shader->stop_using();
 }
 
 // Try to match the print bed shape with the shape of an active profile. If such a match exists,

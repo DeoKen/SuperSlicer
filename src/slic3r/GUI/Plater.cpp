@@ -67,6 +67,7 @@
 #include "libslic3r/Format/AMF.hpp"
 #include "libslic3r/Format/3mf.hpp"
 #include "libslic3r/Format/OBJ.hpp"
+#include "libslic3r/GCode/BedKeepOut.hpp"
 #include "libslic3r/GCode/ThumbnailData.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Feature/FullSpectrum/VirtualExtruder.hpp"
@@ -7036,9 +7037,11 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
             update_scheduled = true;
         }
         else if (opt_key == "bed_keep_out_zones") {
-            // The bed itself does not change: re-evaluate which objects reach into a zone and redraw the tint.
+            // The bed shape does not change: draw the zones on the bed, re-evaluate which objects reach into a zone and redraw the tint.
+            p->bed.set_keep_out_zones(BedKeepOut::parse(config.opt_string(opt_key)));
             p->view3D->get_canvas3d()->requires_check_outside_state();
             p->view3D->get_canvas3d()->set_as_dirty();
+            p->preview->get_canvas3d()->set_as_dirty();
             update_scheduled = true;
         }
         else if (boost::starts_with(opt_key, "wipe_tower") ||

@@ -131,6 +131,12 @@ rectangle (a concave bed shape makes the plater much slower).
   (separation + width) and the skirt (distance + loops x nozzle diameter), as slicing refuses those in a zone too;
   supports can't be known before slicing, so an object shown as fine can still be refused for its supports. The first 8
   zones are tinted on the objects (slicing checks all of them).
+- Bed drawing (`GUI/3DBed.cpp`, `render_keep_out()`): every zone (as entered, without the clearance, cut to the bed)
+  is drawn over the bed in the 3D view and the preview, on every virtual bed, over the plain bed, a custom texture or a
+  system bed: a grey fill (42 % opacity), 45° hatch lines every 5 mm (0.35 mm wide) and a 0.7 mm outline. The
+  widths are in mm (thin triangle strips, not GL lines), so they scale with the zoom like a texture does, and the overlay
+  lies in the bed plane with a polygon offset, so it does not flicker against the bed when the view moves. Not drawn
+  in G-code thumbnails or when looking at the bed from below. A bed texture no longer needs the zones painted in.
 - Arrange and fill bed: the zones are fixed obstacles on every bed (`arrange-wrapper/SceneBuilder.cpp`). They are
   tagged `is_keep_out`, so the arrange kernel only avoids them: they don't pull objects towards them as other fixed
   items do, and the first object still goes to the bed center when it stays clear of them
@@ -143,7 +149,8 @@ rectangle (a concave bed shape makes the plater much slower).
 
 **How to test.** `fff_print_tests "[KeepOut]"` and `arrange_tests "[KeepOut]"`. Manually: set the zones, check the
 tint on the bed, drag an object into a corner (outside color, slicing refused), press A with many objects (corners stay
-empty), press A with one object (it goes to the bed center, not between the zones), press A with 4 copies of a round part (the group is centered on the bed), slice objects near a corner and check in the preview (travel moves visible) that travels go around.
+empty), press A with one object (it goes to the bed center, not between the zones), press A with 4 copies of a round part (the group is centered on the bed), check the zones are drawn hatched on the bed
+in the 3D view and the preview and follow edits of the setting, slice objects near a corner and check in the preview (travel moves visible) that travels go around.
 
 ---
 
