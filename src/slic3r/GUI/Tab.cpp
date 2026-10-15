@@ -2463,12 +2463,18 @@ void TabFilament::toggle_options()
         bool cooling = m_config->opt_bool("cooling", 0);
         bool fan_always_on = cooling || m_config->opt_bool("fan_always_on", 0);
 
-        for (auto el : { "max_fan_speed", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed", "cooling_slowdown_logic" })
+        for (auto el : { "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed", "cooling_slowdown_logic" })
             toggle_option(el, cooling);
 
         // default_fan_speed replaces "fan always on" + min_fan_speed when set.
         const bool has_default_fan_speed = m_config->opt_int("default_fan_speed", 0) >= 0;
         toggle_option("min_fan_speed", fan_always_on && ! has_default_fan_speed);
+        toggle_option("fan_always_on", ! has_default_fan_speed);
+        // max_fan_speed is only the target of the short layer fan speed-up (CoolingBuffer::apply_layer_cooldown()):
+        // with a default fan speed it needs "enable fan below", without it also "slow down below" sets the fan to max.
+        const bool fan_below      = m_config->opt_int("fan_below_layer_time", 0) > 0;
+        const bool slowdown_below = m_config->opt_int("slowdown_below_layer_time", 0) > 0;
+        toggle_option("max_fan_speed", cooling && (fan_below || (! has_default_fan_speed && slowdown_below)));
         for (auto el : { "disable_fan_first_layers", "full_fan_speed_layer" })
             toggle_option(el, fan_always_on || has_default_fan_speed);
 
@@ -3226,9 +3232,10 @@ PageShp TabPrinter::build_kinematics_page()
         optgroup->sidetext_width = 10;
         append_labelled_line(optgroup, L("Max velocity"),           { { "klipper_max_velocity_slow", L("Slow") }, { "klipper_max_velocity", L("Normal") }, { "klipper_max_velocity_fast", L("Fast") } });
         append_labelled_line(optgroup, L("Max accel"),              { { "klipper_max_accel_slow", L("Slow") }, { "klipper_max_accel", L("Normal") }, { "klipper_max_accel_fast", L("Fast") } });
+        // Single values as labelled lines with an empty sub-label, so that their field lines up with the Slow column.
         for (const char *opt : { "klipper_minimum_cruise_ratio", "klipper_square_corner_velocity", "klipper_max_z_velocity", "klipper_max_z_accel",
                                  "klipper_max_extrude_only_velocity", "klipper_max_extrude_only_accel" })
-            optgroup->append_single_option_line(opt);
+            append_labelled_line(optgroup, optgroup->get_option(opt).opt.label.c_str(), { { opt, "" } });
         // Klipper speed mode macro, the mode is selected by the filament (doc section 22).
         {
             Option macro = optgroup->get_option("klipper_speed_mode_gcode");

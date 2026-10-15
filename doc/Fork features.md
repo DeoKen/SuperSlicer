@@ -93,6 +93,8 @@ Rules:
 - `bridge_fan_speed` keeps the stock PrusaSlicer behaviour (it only raises the fan).
 - PrusaSlicer's dynamic overhang fan speeds (`enable_dynamic_fan_speeds`) still apply on top of a feature fan speed.
 - When `default_fan_speed` is set, it replaces "Keep fan always on" + "Min fan speed" (greyed out in the GUI).
+- "Max" fan speed is only the target of the short layer fan speed-up: greyed out unless auto cooling is on and "Enable fan
+  if layer print time is below" is above 0 (without a default fan speed also when "Slow down if layer print time is below" is).
 - The summary under Filament > Cooling > Enable (`GUI/PresetHints.cpp`) describes this logic: the default fan speed,
   the features with a fan speed of their own, and whether `bridge_fan_speed` has any effect (it doesn't when it is not
   above the base fan speed, e.g. bridges 45 % with a default of 60 % print at 60 %).
