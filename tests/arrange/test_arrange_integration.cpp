@@ -1194,3 +1194,100 @@ TEST_CASE("Bed keep-out zones do not pull arranged objects towards them", "[arra
     CHECK((with - without).norm() < 1.);
     CHECK(std::abs(with.y() - 175.) < 1.);
 }
+
+TEST_CASE("Bed keep-out zones do not move the arranged pile off the bed center", "[arrange2][integration][KeepOut]")
+{
+    using namespace Slic3r;
+
+    // Several instances of one object (4 x KarlbyVerticalSpacer went to the back left); the pile is
+    // centered as without the zones, as long as that keeps it clear of them.
+    struct Shape { const char *name; indexed_triangle_set its; };
+    auto shape = GENERATE(as<std::string>{}, "cone", "box", "small cylinder");
+    auto count = GENERATE(1, 2, 3, 4, 9);
+    auto strategy = GENERATE(arr2::ArrangeSettingsView::asAuto, arr2::ArrangeSettingsView::asPullToCenter);
+    INFO("Shape = " << shape << ", count = " << count << ", strategy = " << strategy);
+
+    const std::vector<BoundingBoxf> zones { BoundingBoxf(Vec2d(0, 0), Vec2d(40, 40)), BoundingBoxf(Vec2d(310, 0), Vec2d(350, 40)) };
+    struct Result { BoundingBoxf pile; int in_zones; int on_bed; };
+    auto arrange = [&](bool with_zones) {
+        Model model;
+        ModelObject *mo = model.add_object();
+        mo->name = shape;
+        mo->add_volume(TriangleMesh(shape == "cone" ? its_make_cone(38., 40.) :
+                                    shape == "box"  ? its_make_cube(60., 40., 10.) : its_make_cylinder(10., 20.)));
+        for (int i = 0; i < count; ++ i)
+            mo->add_instance();
+        DynamicPrintConfig cfg = DynamicPrintConfig::full_print_config();
+        cfg.set_deserialize_strict({ { "bed_shape", "0x0,350x0,350x350,0x350" }, { "bed_keep_out_zones", "0,0,40,40;310,0,350,40" } });
+        auto settings = arr2::ArrangeSettings{}.set_distance_from_objects(6.).set_arrange_strategy(strategy);
+        arr2::SceneBuilder builder = arr2::SceneBuilder{}.set_model(model).set_arrange_settings(settings).set_bed(cfg, Point::new_scale(10, 10));
+        if (with_zones)
+            builder.set_wipe_tower_handlers(arr2::bed_keep_out_handlers(cfg, 4));
+        arr2::Scene scene{ std::move(builder) };
+        auto task   = arr2::ArrangeTask<arr2::ArrangeItem>::create(scene);
+        auto result = task->process_native(arr2::DummyCtl{});
+        REQUIRE(result);
+        REQUIRE(result->apply_on(scene.model()));
+        Result r;
+        r.in_zones = instances_in_keep_out_zones(model, zones, r.on_bed);
+        for (size_t i = 0; i < mo->instances.size(); ++ i) {
+            const BoundingBoxf3 bb = mo->instance_bounding_box(i);
+            r.pile.merge(BoundingBoxf(to_2d(bb.min), to_2d(bb.max)));
+        }
+        return r;
+    };
+
+    const Result without = arrange(false);
+    const Result with    = arrange(true);
+    INFO("pile center without zones " << without.pile.center().transpose() << ", with zones " << with.pile.center().transpose());
+    REQUIRE(with.on_bed == count);
+    CHECK(with.in_zones == 0);
+    if (strategy == arr2::ArrangeSettingsView::asAuto) {
+        // Without the zones the pile is centered on the bed; with them it must stay there.
+        CHECK((with.pile.center() - without.pile.center()).norm() < 1.);
+        CHECK((with.pile.center() - Vec2d(175., 175.)).norm() < 1.);
+    } else if (count <= 4) {
+        // Pull to center is not re-centered (stock). A big pile comes near the zones, whose edges then give
+        // the packing other candidate positions, so only a pile well away from them is the same.
+        CHECK((with.pile.center() - without.pile.center()).norm() < 1.);
+    }
+}
+
+TEST_CASE("Arranged pile moves towards the center only as far as the keep-out zones allow", "[arrange2][integration][KeepOut]")
+{
+    using namespace Slic3r;
+
+    // A wide zone across the whole front: the centered pile would reach into it, so the pile ends up
+    // centered in X and as close to the center in Y as the zone allows.
+    Model model;
+    ModelObject *mo = model.add_object();
+    mo->name = "box";
+    mo->add_volume(TriangleMesh(its_make_cube(100., 100., 10.)));
+    for (int i = 0; i < 6; ++ i)
+        mo->add_instance();
+    DynamicPrintConfig cfg = DynamicPrintConfig::full_print_config();
+    cfg.set_deserialize_strict({ { "bed_shape", "0x0,350x0,350x350,0x350" }, { "bed_keep_out_zones", "0,0,350,100" } });
+    auto settings = arr2::ArrangeSettings{}.set_distance_from_objects(6.);
+    arr2::SceneBuilder builder = arr2::SceneBuilder{}.set_model(model).set_arrange_settings(settings).set_bed(cfg, Point::new_scale(10, 10));
+    builder.set_wipe_tower_handlers(arr2::bed_keep_out_handlers(cfg, 4));
+    arr2::Scene scene{ std::move(builder) };
+    auto task   = arr2::ArrangeTask<arr2::ArrangeItem>::create(scene);
+    auto result = task->process_native(arr2::DummyCtl{});
+    REQUIRE(result);
+    REQUIRE(result->apply_on(scene.model()));
+
+    BoundingBoxf pile;
+    int on_bed = 0;
+    const int in_zones = instances_in_keep_out_zones(model, { BoundingBoxf(Vec2d(0, 0), Vec2d(350, 100)) }, on_bed);
+    for (size_t i = 0; i < mo->instances.size(); ++ i) {
+        const BoundingBoxf3 bb = mo->instance_bounding_box(i);
+        if (BoundingBoxf(Vec2d(0, 0), Vec2d(350, 350)).contains(to_2d(bb.center())))
+            pile.merge(BoundingBoxf(to_2d(bb.min), to_2d(bb.max)));
+    }
+    INFO("pile " << pile.min.transpose() << " - " << pile.max.transpose() << ", on bed " << on_bed);
+    REQUIRE(on_bed > 0);
+    CHECK(in_zones == 0);
+    CHECK(std::abs(pile.center().x() - 175.) < 1.);
+    // Pushed against the zone (clearance + half the object distance + one 1/32 step of the move at most), not left lower.
+    CHECK(pile.min.y() < 101. + 3. + 10.);
+}

@@ -131,12 +131,16 @@ rectangle (a concave bed shape makes the plater much slower).
 - Arrange and fill bed: the zones are fixed obstacles on every bed (`arrange-wrapper/SceneBuilder.cpp`). They are
   tagged `is_keep_out`, so the arrange kernel only avoids them: they don't pull objects towards them as other fixed
   items do, and the first object still goes to the bed center when it stays clear of them
-  (`NFP/Kernels/KernelUtils.hpp`, `TMArrangeKernel.hpp`).
+  (`NFP/Kernels/KernelUtils.hpp`, `TMArrangeKernel.hpp`). Stock re-centers the arranged pile only on a bed without fixed
+  items, so with zones the pile stayed where the packing put it (4 round parts ~40 mm left of center). When the zones are
+  the only fixed items, the pile is now moved towards the bed center as far as every object stays on the bed and clear of
+  the zones, so it is centered as without zones whenever that fits (`NFP/RectangleOverfitPackingStrategy.hpp`; default
+  "Auto" arrange strategy, "Pull to center" is not re-centered, as stock).
 - Limits: moves written inside custom G-code (purge lines, macros) are not checked or rerouted.
 
 **How to test.** `fff_print_tests "[KeepOut]"` and `arrange_tests "[KeepOut]"`. Manually: set the zones, check the
 tint on the bed, drag an object into a corner (outside color, slicing refused), press A with many objects (corners stay
-empty), press A with one object (it goes to the bed center, not between the zones), slice objects near a corner and check in the preview (travel moves visible) that travels go around.
+empty), press A with one object (it goes to the bed center, not between the zones), press A with 4 copies of a round part (the group is centered on the bed), slice objects near a corner and check in the preview (travel moves visible) that travels go around.
 
 ---
 
