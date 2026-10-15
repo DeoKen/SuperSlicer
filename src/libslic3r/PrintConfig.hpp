@@ -769,6 +769,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                solid_infill_direction))
     ((ConfigOptionBool,                 rotate_solid_infill_direction))
     ((ConfigOptionBool,                 align_infill_direction_to_model))
+    ((ConfigOptionBool,                 internal_bridge_shortest_span))
     ((ConfigOptionPercent,              fill_density))
     ((ConfigOptionEnum<InfillPattern>,  fill_pattern))
     ((ConfigOptionEnum<FuzzySkinType>,  fuzzy_skin))

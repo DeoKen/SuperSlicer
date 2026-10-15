@@ -852,6 +852,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "solid_infill_extruder"
             || opt_key == "infill_extrusion_width"
             || opt_key == "bridge_angle"
+            || opt_key == "internal_bridge_shortest_span"
             // Rotates the bridging angle override too.
             || opt_key == "align_infill_direction_to_model") {
             steps.emplace_back(posPrepareInfill);
@@ -2202,6 +2203,57 @@ void PrintObject::bridge_over_infill()
         return bridging_angle;
     };
 
+    // Fork (PrusaSlicer #14957): the angle above follows the nearest anchor segment at sampled points of the outline. With wavy
+    // infill below (gyroid) the local segment directions don't show the direction of the lines, and the bridge may run along them.
+    // Score a bridging angle by the unsupported spans along parallel scan lines over the bridged area, split at every crossing
+    // with an anchor (an infill line of the layer below): sum of squared spans, i.e. the length-weighted mean span times the
+    // (constant) total length. Lower is better.
+    auto bridging_span_cost = [](const Polygons &bridged_area, const AABBTreeLines::LinesDistancer<Line> &anchors_tree, double angle,
+                                 coord_t scan_spacing) {
+        const Vec2d dir(std::cos(angle), std::sin(angle));
+        const Vec2d nrm(-dir.y(), dir.x());
+        double dmin = std::numeric_limits<double>::max(), dmax = -dmin, nmin = dmin, nmax = -dmin;
+        for (const Polygon &p : bridged_area)
+            for (const Point &pt : p.points) {
+                const Vec2d v = pt.cast<double>();
+                dmin = std::min(dmin, v.dot(dir)); dmax = std::max(dmax, v.dot(dir));
+                nmin = std::min(nmin, v.dot(nrm)); nmax = std::max(nmax, v.dot(nrm));
+            }
+        Polylines scan_lines;
+        for (double t = nmin + 0.5 * scan_spacing; t < nmax; t += scan_spacing)
+            scan_lines.emplace_back(Polyline{ (t * nrm + (dmin - 1.) * dir).cast<coord_t>(), (t * nrm + (dmax + 1.) * dir).cast<coord_t>() });
+        double cost = 0.;
+        for (const Polyline &pl : intersection_pl(scan_lines, bridged_area))
+            for (size_t i = 1; i < pl.points.size(); ++ i) {
+                const Line   l(pl.points[i - 1], pl.points[i]);
+                const Vec2d  a   = l.a.cast<double>();
+                const double len = unscaled(l.length());
+                std::vector<double> stops { 0., len };
+                for (const auto &[pt, idx] : anchors_tree.intersections_with_line<false>(l))
+                    stops.emplace_back(unscaled((pt.template cast<double>() - a).norm()));
+                std::sort(stops.begin(), stops.end());
+                for (size_t j = 1; j < stops.size(); ++ j)
+                    cost += sqr(stops[j] - stops[j - 1]);
+            }
+        return cost;
+    };
+
+    // Keep the angle above unless an angle in 5 degree steps gives clearly shorter spans (10 % lower cost), so that infill made
+    // of straight lines keeps the stock angle.
+    auto shortest_span_bridging_angle = [&bridging_span_cost](const Polygons &bridged_area, const Lines &anchors, double angle,
+                                                              coord_t scan_spacing) {
+        const AABBTreeLines::LinesDistancer<Line> anchors_tree(anchors);
+        const double stock_cost = bridging_span_cost(bridged_area, anchors_tree, angle, scan_spacing);
+        double best_angle = angle, best_cost = 0.9 * stock_cost;
+        for (int deg = 0; deg < 180; deg += 5)
+            if (double a = Geometry::deg2rad(double(deg)) + 0.001, cost = bridging_span_cost(bridged_area, anchors_tree, a, scan_spacing);
+                cost < best_cost) {
+                best_angle = a;
+                best_cost  = cost;
+            }
+        return best_angle;
+    };
+
     // LAMBDA that will fill given polygons with lines, exapand the lines to the nearest anchor, and reconstruct polygons from the newly
     // generated lines
     auto construct_anchored_polygon = [](Polygons bridged_area, Lines anchors, const Flow &bridging_flow, double bridging_angle) {
@@ -2378,7 +2430,7 @@ void PrintObject::bridge_over_infill()
                                                                                            target_flow_height_factor, &surfaces_by_layer,
                                                                                            &clustered_layers_for_threads,
                                                                                            gather_areas_w_depth, &infill_lines,
-                                                                                           determine_bridging_angle,
+                                                                                           determine_bridging_angle, shortest_span_bridging_angle,
                                                                                            construct_anchored_polygon](
                                                                                               tbb::blocked_range<size_t> r) {
         PRINT_OBJECT_TIME_LIMIT_MILLIS(PRINT_OBJECT_TIME_LIMIT_DEFAULT);
@@ -2506,6 +2558,9 @@ void PrintObject::bridge_over_infill()
                     if (!anchors.empty()) {
                         bridging_angle = determine_bridging_angle(area_to_be_bridge, to_lines(anchors),
                                                                   candidate.region->region().config().fill_pattern.value);
+                        if (candidate.region->region().config().internal_bridge_shortest_span)
+                            bridging_angle = shortest_span_bridging_angle(area_to_be_bridge, to_lines(anchors), bridging_angle,
+                                                                          2 * flow.scaled_spacing());
                     } else {
                         // use expansion boundaries as anchors.
                         // Also, use Infill pattern that is neutral for angle determination, since there are no infill lines.

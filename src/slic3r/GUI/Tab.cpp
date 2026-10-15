@@ -1538,7 +1538,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("solid_infill_every_layers", category_path + "solid-infill-every-x-layers");
         // Solid infill direction from OrcaSlicer.
         append_labelled_line(optgroup, L("Infill angle"), { { "fill_angle", L("Sparse") }, { "solid_infill_direction", L("Solid") }, { "bridge_angle", L("Bridge") } }, category_path + "fill-angle");
-        append_labelled_line(optgroup, L("Infill angle modifiers"), { { "rotate_solid_infill_direction", L("Rotate solid infill") }, { "align_infill_direction_to_model", L("Align to model") } }, std::string(), -1);
+        append_labelled_line(optgroup, L("Infill angle modifiers"), { { "rotate_solid_infill_direction", L("Rotate solid infill") }, { "align_infill_direction_to_model", L("Align to model") }, { "internal_bridge_shortest_span", L("Shortest internal bridge spans") } }, std::string(), -1);
         optgroup->append_single_option_line("solid_infill_below_area", category_path + "solid-infill-threshold-area");
         optgroup->append_single_option_line("only_retract_when_crossing_perimeters");
         optgroup->append_single_option_line("infill_first");

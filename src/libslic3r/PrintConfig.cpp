@@ -1988,6 +1988,16 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
 
+    def = this->add("internal_bridge_shortest_span", coBool);
+    def->label = L("Internal bridges: shortest spans");
+    def->category = L("Infill");
+    def->tooltip = L("Choose the direction of internal bridges over sparse infill by the real unsupported spans between the "
+                     "infill lines below, trying every 5°. The automatic direction is kept unless another one is clearly better. "
+                     "Helps with wavy infill (gyroid), where the automatic direction can run along the infill lines "
+                     "(PrusaSlicer issue #14957). Off: stock behaviour.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("align_infill_direction_to_model", coBool);
     def->label = L("Align directions to model");
     def->category = L("Infill");

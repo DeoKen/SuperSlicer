@@ -33,7 +33,8 @@ Contents:
 17. [Small area flow compensation](#17-small-area-flow-compensation)
 18. [No chamber temperature commands for Klipper](#18-no-chamber-temperature-commands-for-klipper)
 19. [Thumbnails at the end of the file](#19-thumbnails-at-the-end-of-the-file)
-20. [Testing](#testing)
+20. [Internal bridge direction: shortest spans](#20-internal-bridge-direction-shortest-spans)
+21. [Testing](#testing)
 
 ---
 
@@ -629,11 +630,39 @@ move by default, and once after the config block with the option on.
 
 ---
 
+## 20. Internal bridge direction: shortest spans
+
+**What it does.** Fix for PrusaSlicer issue #14957 ("Bridge over infill chose the worst possible angle").
+`internal_bridge_shortest_span` (print, Print > Infill > Advanced, "Infill angle modifiers" line, default off = stock)
+chooses the direction of the internal bridges over sparse infill by the real unsupported spans between the infill lines
+of the layer below. Stock PrusaSlicer looks at the nearest infill segment at points every 2 mm along the bridged area's
+outline and bridges perpendicular to the most common direction. With wavy infill (gyroid) the local segment directions
+don't show which way the lines run, and the bridge can end up along the infill lines; it can also go wrong with straight
+infill on some shapes. Not changed: external bridges, the `bridge_angle` override (it applies to external bridges), internal
+bridges without sparse infill lines below (e.g. lightning areas without lines, 0 % infill), which keep the stock fallback.
+
+**How it works.** `PrintObject::bridge_over_infill()`, after the stock angle (`determine_bridging_angle`): for the stock
+angle and for every 5° (0-175°), parallel scan lines (2x the bridge line spacing apart) are clipped to the bridged area and
+split at every crossing with the anchor lines (the stock infill lines of the layer below, clipped to the expansion area).
+The cost is the sum of the squared spans, i.e. the length-weighted mean span (the total length is the same for every angle).
+The stock angle is kept unless another angle costs at least 10 % less, so straight-line infill usually keeps it exactly.
+The chosen angle is then used like the stock one (also for the anchored expansion and for neighbouring bridged areas).
+
+Measured with the issue's project (5 % gyroid, length-weighted mean span over the bridge layer): 29.0 mm stock, 12.7 mm
+with the option (longest span 39.5 -> 26.5 mm). Same box with 15 % infill, stock -> option: rectilinear 5.0 -> 2.9 mm
+(longest 37 -> 6.9 mm), grid 5.9 -> 5.1, stars 6.6 -> 6.1, cubic 6.3 -> 5.7, adaptive cubic 9.3 -> 7.3, triangles
+6.0 -> 5.5, lightning 11.2 -> 8.6, 3D honeycomb 3.8 -> 3.0; line, honeycomb and aligned rectilinear unchanged. Never worse.
+On a 20 mm cube with 15 % infill, the straight-line patterns give byte-identical G-code with the option on.
+
+**How to test.** `fff_print_tests "[InfillDirection]"`: on a 20 mm cube with 5 % gyroid the mean span with the option is
+at least 15 % shorter (9.5 -> 7.6 mm); with rectilinear infill the internal bridge angle is unchanged.
+
+---
+
 ## Testing
 
 - Build and run all tests: see CLAUDE.md. `ctest -C Release --output-on-failure` in `build\`, or a single test program,
-  e.g. `build\tests\fff_print\Release\fff_print_tests.exe "[FanMover]"` (run it with `build\` as working directory, the
-  slicing tests leave temporary G-code files in it).
+  e.g. `build\tests\fff_print\Release\fff_print_tests.exe "[FanMover]"` (run it with `build\` as working directory).
 - **Golden test** (`fff_print_tests "[Golden]"`): slices 4 models with PrusaSlicer defaults and with a Klipper config, and
   compares with the stock PrusaSlicer 2.9.6 G-code in `tests/data/golden`. It strips the header line and the keys added
   by this fork (list `added_config_keys` in `tests/fff_print/test_golden_gcode.cpp`, add new keys there) and maps

@@ -1,8 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Config.hpp"
@@ -195,4 +197,79 @@ TEST_CASE("Infill direction: the bridging angle override turns with the object",
         const std::string rotated = slice_rotated(TestMesh::bridge, config, 30.);
         CHECK(angle_diff(dominant_angle(straight, "Bridge infill", bridge_layer), dominant_angle(rotated, "Bridge infill", bridge_layer)) == 30.);
     }
+}
+
+// internal_bridge_shortest_span (PrusaSlicer #14957).
+
+namespace {
+
+// Length-weighted mean unsupported span (mm) of the internal bridge lines over the sparse infill of the layer below:
+// each bridge line is split at its crossings with the infill lines below, sum of span^2 / sum of span.
+double internal_bridge_mean_span(const std::string &gcode)
+{
+    using Segment = std::pair<Vec2d, Vec2d>;
+    std::vector<std::map<std::string, std::vector<Segment>>> layers;
+    std::string current_type;
+    GCodeReader parser;
+    parser.parse_buffer(gcode, [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
+        const std::string &raw = line.raw();
+        if (raw.rfind(";LAYER_CHANGE", 0) == 0)
+            layers.emplace_back();
+        else if (raw.rfind(";TYPE:", 0) == 0)
+            current_type = raw.substr(6);
+        else if (! layers.empty() && line.cmd_is("G1") && line.dist_E(self) > 0 && line.dist_XY(self) > 0)
+            layers.back()[current_type].emplace_back(Vec2d(self.x(), self.y()), Vec2d(line.new_X(self), line.new_Y(self)));
+    });
+    double sum = 0., sum_sq = 0.;
+    for (size_t i = 1; i < layers.size(); ++ i) {
+        const std::vector<Segment> &below = layers[i - 1]["Internal infill"];
+        for (const Segment &bridge : layers[i]["Internal bridge infill"]) {
+            const Vec2d  r   = bridge.second - bridge.first;
+            const double len = r.norm();
+            if (len < 1.)
+                continue;
+            std::vector<double> stops { 0., 1. };
+            for (const Segment &infill : below) {
+                const Vec2d  q   = infill.second - infill.first;
+                const double den = r.x() * q.y() - r.y() * q.x();
+                if (std::abs(den) < 1e-12)
+                    continue;
+                const Vec2d  d = infill.first - bridge.first;
+                const double u = (d.x() * q.y() - d.y() * q.x()) / den;
+                const double v = (d.x() * r.y() - d.y() * r.x()) / den;
+                if (u >= 0. && u <= 1. && v >= 0. && v <= 1.)
+                    stops.emplace_back(u);
+            }
+            std::sort(stops.begin(), stops.end());
+            for (size_t j = 1; j < stops.size(); ++ j) {
+                const double span = (stops[j] - stops[j - 1]) * len;
+                sum    += span;
+                sum_sq += span * span;
+            }
+        }
+    }
+    REQUIRE(sum > 0.);
+    return sum_sq / sum;
+}
+
+} // namespace
+
+TEST_CASE("Internal bridge shortest span: gyroid", "[InfillDirection]") {
+    DynamicPrintConfig config = base_config();
+    config.set_deserialize_strict({ { "fill_pattern", "gyroid" }, { "fill_density", "5%" }, { "layer_height", "0.25" }, { "perimeters", 2 } });
+    const std::string stock = Test::slice({ TestMesh::cube_20x20x20 }, config);
+    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "1" } });
+    const std::string shortest = Test::slice({ TestMesh::cube_20x20x20 }, config);
+    // The automatic angle runs about 40 degrees off the gyroid here: 9.5 mm mean span, 7.6 mm with the option.
+    CHECK(internal_bridge_mean_span(shortest) < 0.85 * internal_bridge_mean_span(stock));
+}
+
+TEST_CASE("Internal bridge shortest span: straight infill keeps the stock angle", "[InfillDirection]") {
+    DynamicPrintConfig config = base_config();
+    const std::string stock = Test::slice({ TestMesh::cube_20x20x20 }, config);
+    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "1" } });
+    const std::string shortest = Test::slice({ TestMesh::cube_20x20x20 }, config);
+    const int layer = last_layer(stock, "Internal bridge infill");
+    REQUIRE(layer > 0);
+    CHECK(dominant_angle(stock, "Internal bridge infill", layer) == dominant_angle(shortest, "Internal bridge infill", layer));
 }
