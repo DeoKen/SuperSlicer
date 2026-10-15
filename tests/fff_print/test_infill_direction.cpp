@@ -254,9 +254,14 @@ double internal_bridge_mean_span(const std::string &gcode)
 
 } // namespace
 
+TEST_CASE("Internal bridge shortest span: on by default", "[InfillDirection]") {
+    CHECK(DynamicPrintConfig::full_print_config().opt_bool("internal_bridge_shortest_span"));
+}
+
 TEST_CASE("Internal bridge shortest span: gyroid", "[InfillDirection]") {
     DynamicPrintConfig config = base_config();
     config.set_deserialize_strict({ { "fill_pattern", "gyroid" }, { "fill_density", "5%" }, { "layer_height", "0.25" }, { "perimeters", 2 } });
+    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "0" } });
     const std::string stock = Test::slice({ TestMesh::cube_20x20x20 }, config);
     config.set_deserialize_strict({ { "internal_bridge_shortest_span", "1" } });
     const std::string shortest = Test::slice({ TestMesh::cube_20x20x20 }, config);
@@ -266,6 +271,7 @@ TEST_CASE("Internal bridge shortest span: gyroid", "[InfillDirection]") {
 
 TEST_CASE("Internal bridge shortest span: straight infill keeps the stock angle", "[InfillDirection]") {
     DynamicPrintConfig config = base_config();
+    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "0" } });
     const std::string stock = Test::slice({ TestMesh::cube_20x20x20 }, config);
     config.set_deserialize_strict({ { "internal_bridge_shortest_span", "1" } });
     const std::string shortest = Test::slice({ TestMesh::cube_20x20x20 }, config);

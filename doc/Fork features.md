@@ -9,6 +9,8 @@ General rules followed by every feature:
 - **Defaults keep stock output.** With every new setting at its default, the G-code is byte for byte identical to stock
   PrusaSlicer 2.9.6 (only the new keys in the config block at the end of the file, and the `Internal bridge infill`
   type name, differ; with the Klipper flavor also the estimated times, see section 15). This is checked by the golden test, see [Testing](#testing).
+  **One exception:** `internal_bridge_shortest_span` (section 20) is on by default (user's choice), so internal bridges
+  over sparse infill can take a different direction than stock. Turn it off for stock output; the golden test does.
 - Settings marked "per filament" live in the filament preset, "printer" in the printer preset, all others in the
   print preset. Most are visible in **Expert** mode only.
 
@@ -633,7 +635,8 @@ move by default, and once after the config block with the option on.
 ## 20. Internal bridge direction: shortest spans
 
 **What it does.** Fix for PrusaSlicer issue #14957 ("Bridge over infill chose the worst possible angle").
-`internal_bridge_shortest_span` (print, Print > Infill > Advanced, "Infill angle modifiers" line, default off = stock)
+`internal_bridge_shortest_span` (print, Print > Infill > Advanced, "Infill angle modifiers" line, **default on**, the only
+fork option whose default changes stock output; off = stock)
 chooses the direction of the internal bridges over sparse infill by the real unsupported spans between the infill lines
 of the layer below. Stock PrusaSlicer looks at the nearest infill segment at points every 2 mm along the bridged area's
 outline and bridges perpendicular to the most common direction. With wavy infill (gyroid) the local segment directions
@@ -654,8 +657,10 @@ with the option (longest span 39.5 -> 26.5 mm). Same box with 15 % infill, stock
 6.0 -> 5.5, lightning 11.2 -> 8.6, 3D honeycomb 3.8 -> 3.0; line, honeycomb and aligned rectilinear unchanged. Never worse.
 On a 20 mm cube with 15 % infill, the straight-line patterns give byte-identical G-code with the option on.
 
-**How to test.** `fff_print_tests "[InfillDirection]"`: on a 20 mm cube with 5 % gyroid the mean span with the option is
-at least 15 % shorter (9.5 -> 7.6 mm); with rectilinear infill the internal bridge angle is unchanged.
+**How to test.** `fff_print_tests "[InfillDirection]"`: the option is on by default; on a 20 mm cube with 5 % gyroid the
+mean span with the option is at least 15 % shorter (9.5 -> 7.6 mm); with rectilinear infill the internal bridge angle is
+unchanged. The golden test turns it off (`with_stock_behaviour()` in `test_golden_gcode.cpp`; add any other option that is
+on by default and changes the output there).
 
 ---
 
@@ -665,7 +670,8 @@ at least 15 % shorter (9.5 -> 7.6 mm); with rectilinear infill the internal brid
   e.g. `build\tests\fff_print\Release\fff_print_tests.exe "[FanMover]"` (run it with `build\` as working directory).
 - **Golden test** (`fff_print_tests "[Golden]"`): slices 4 models with PrusaSlicer defaults and with a Klipper config, and
   compares with the stock PrusaSlicer 2.9.6 G-code in `tests/data/golden`. It strips the header line and the keys added
-  by this fork (list `added_config_keys` in `tests/fff_print/test_golden_gcode.cpp`, add new keys there) and maps
+  by this fork (list `added_config_keys` in `tests/fff_print/test_golden_gcode.cpp`, add new keys there), turns off
+`internal_bridge_shortest_span` (on by default, section 20) and maps
   `Internal bridge infill` back to `Bridge infill`. The estimated time comments are not compared: with the Klipper
   config the Klipper limits (section 15) change them. Regenerate the reference only from an unmodified stock build:
   `PS_UPDATE_GOLDEN=1`.

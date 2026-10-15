@@ -1996,7 +1996,8 @@ void PrintConfigDef::init_fff_params()
                      "Helps with wavy infill (gyroid), where the automatic direction can run along the infill lines "
                      "(PrusaSlicer issue #14957). Off: stock behaviour.");
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionBool(false));
+    // On by default (user, 2026-10-15): the one fork option whose default changes stock output.
+    def->set_default_value(new ConfigOptionBool(true));
 
     def = this->add("align_infill_direction_to_model", coBool);
     def->label = L("Align directions to model");

@@ -149,8 +149,16 @@ DynamicPrintConfig klipper_config()
     });
 }
 
-void check_golden(const std::string &name, TestMesh mesh, const DynamicPrintConfig &config)
+// Fork options that are on by default and change the output: turned off for the comparison with stock.
+DynamicPrintConfig with_stock_behaviour(DynamicPrintConfig config)
 {
+    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "0" } });
+    return config;
+}
+
+void check_golden(const std::string &name, TestMesh mesh, const DynamicPrintConfig &config_in)
+{
+    const DynamicPrintConfig config = with_stock_behaviour(config_in);
     const std::string gcode = normalize_gcode(Test::slice({ mesh }, config));
     REQUIRE(! gcode.empty());
 
