@@ -1347,6 +1347,13 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
         }
         this->placeholder_parser().set("total_print_height", total_print_height);
     }
+    // Klipper speed mode letter for the speed mode macro and the other custom G-codes, empty when off (doc section 22).
+    {
+        const PrintConfig &config = print.config();
+        const char *letter = ! config.klipper_speed_mode_enabled ? "" :
+            config.klipper_speed_mode == KlipperSpeedMode::slow ? "S" : config.klipper_speed_mode == KlipperSpeedMode::fast ? "F" : "N";
+        this->placeholder_parser().set("speed_mode", std::string(letter));
+    }
     // Useful for sequential prints.
     this->placeholder_parser().set("current_object_idx", 0);
     // For the start / end G-code to do the priming and final filament pull in case there is no wipe tower provided.
@@ -1472,6 +1479,10 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
         // Ugly hack: Do not set the initial extruder if the extruder is primed using the MMU priming towers at the edge of the print bed.
         file.write(this->set_extruder(initial_extruder_id, 0.));
     }
+
+    // Fork: Klipper speed mode macro, after the start G-code and the filament start G-code (doc section 22).
+    if (print.config().klipper_speed_mode_enabled && ! print.config().klipper_speed_mode_gcode.value.empty())
+        file.writeln(this->placeholder_parser_process("klipper_speed_mode_gcode", print.config().klipper_speed_mode_gcode.value, initial_extruder_id));
 
     GCode::SmoothPathCache smooth_path_cache_global = smooth_path_interpolate_global(print);
 

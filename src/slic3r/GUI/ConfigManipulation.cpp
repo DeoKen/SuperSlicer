@@ -339,6 +339,11 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
                     "travel_acceleration", "travel_short_distance_acceleration"})
         toggle_field(el, have_default_acceleration);
 
+    // Klipper speed mode: the mode and the macro only matter when it is enabled.
+    const bool have_speed_mode = config->opt_bool("klipper_speed_mode_enabled");
+    for (auto el : { "klipper_speed_mode", "klipper_speed_mode_gcode" })
+        toggle_field(el, have_speed_mode);
+
     bool have_skirt = config->opt_int("skirts") > 0;
     toggle_field("skirt_height", have_skirt && config->opt_enum<DraftShield>("draft_shield") != dsEnabled);
     for (auto el : { "skirt_distance", "draft_shield", "min_skirt_length" })

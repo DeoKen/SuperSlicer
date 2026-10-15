@@ -37,7 +37,8 @@ Contents:
 19. [Thumbnails at the end of the file](#19-thumbnails-at-the-end-of-the-file)
 20. [Internal bridge direction: shortest spans](#20-internal-bridge-direction-shortest-spans)
 21. [Seam placer cache](#21-seam-placer-cache)
-22. [Testing](#testing)
+22. [Klipper speed modes](#22-klipper-speed-modes)
+23. [Testing](#testing)
 
 ---
 
@@ -687,6 +688,48 @@ Scarf seam and other region settings are read when a seam is placed, not cached.
 **How to test.** `fff_print_tests "[SeamPlacerCache]"`: after a fan / speed change the placer is reused and the G-code
 equals a fresh slice; changing `seam_position`, the seam painting, `staggered_inner_seams` or the external perimeter width
 rebuilds it (and the G-code equals a fresh slice).
+
+---
+
+## 22. Klipper speed modes
+
+**What it does.** For a printer with a speed mode macro (e.g. `SPEED_MODE TOGGLE=S|N|F` that changes the limits with
+`SET_VELOCITY_LIMIT`): the print settings choose the mode, the fork writes the macro into the G-code, and the time
+estimate (also the one Mainsail shows, read from `; estimated printing time (normal mode)`) uses that mode's limits
+instead of always the normal ones. One printer profile serves all the modes.
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `klipper_max_velocity_slow` / `_fast` | Printer > Machine limits (Klipper), Slow / Fast columns | `75%` / `125%` | Absolute, or a percentage of the normal value (the existing `klipper_max_velocity`) |
+| `klipper_max_accel_slow` / `_fast` | same | `75%` / `125%` | same, of `klipper_max_accel` |
+| `klipper_minimum_cruise_ratio_slow` / `_fast` | same | `75%` / `125%` | same, of `klipper_minimum_cruise_ratio` (capped at 0.99) |
+| `klipper_square_corner_velocity_slow` / `_fast` | same | `75%` / `125%` | same, of `klipper_square_corner_velocity` |
+| `klipper_speed_mode_enabled` | Print > Speed > Acceleration control, "Speed mode (Klipper)" | off | Use the speed mode |
+| `klipper_speed_mode` | same line | Normal | Slow / Normal / Fast (greyed out while off) |
+| `klipper_speed_mode_gcode` | next line | empty | The macro, e.g. `SPEED_MODE TOGGLE={speed_mode}` (greyed out while off) |
+
+Only the four limits a speed mode macro can change with `SET_VELOCITY_LIMIT` have slow / fast values; the Z and
+extrude only limits are the same in every mode. Placeholder `{speed_mode}`: `S`, `N` or `F`, empty while the speed mode
+is off; usable in every custom G-code (start G-code, filament G-code...). The "(normal mode)" in the estimate line is
+PrusaSlicer's name for its single estimate (its second, "silent mode", exists only for Marlin printers with stealth mode);
+it is unchanged.
+
+Off (default): nothing is written and the normal limits are used, as before. On with an empty macro: nothing is written,
+but the estimate uses the selected mode. If the filament start G-code also calls the macro (the converted SuperSlicer
+profiles have `SPEED_MODE TOGGLE=S` in the "slow" filaments), the print setting's macro comes after it and wins.
+
+**How it works.** The macro is processed by the placeholder parser and written once in `GCodeGenerator::_do_export()`,
+after the start G-code and the initial tool change (which runs the filament start G-code), before the first layer.
+`GCodeProcessor::apply_klipper_limits()` replaces the normal limits by the selected mode's (percentages of the normal
+ones) when the speed mode is enabled; `SET_VELOCITY_LIMIT` lines in the G-code still change them afterwards. The speed
+mode settings are in the G-code's config block, so a reloaded G-code gets the same estimate.
+
+**How to test.** `fff_print_tests "[KlipperSpeedMode]"`: a single move against Klipper's formulas with the mode off
+(normal limits even with Slow selected), Normal, Slow (75 %), Fast (125 %), absolute slow values, and a
+`SET_VELOCITY_LIMIT` after it; the macro is written once with S / N / F after the start G-code and before the first layer,
+nothing while off or with an empty macro; `{speed_mode}` in the start G-code; a sliced G-code with the slow mode has a longer
+estimate, and reloading it gives the same estimate. Manually: Printer > Machine limits shows Slow | Normal | Fast columns,
+Print > Speed has the speed mode line; with Slow selected the sliced estimate goes up.
 
 ---
 

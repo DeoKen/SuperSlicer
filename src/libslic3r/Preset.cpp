@@ -488,7 +488,8 @@ static std::vector<std::string> s_Preset_print_options {
     "top_solid_infill_speed", "support_material_speed", "support_material_xy_spacing", "support_material_interface_speed",
     "bridge_speed", "over_bridge_speed", "internal_bridge_speed", "gap_fill_speed", "gap_fill_enabled", "travel_speed", "travel_speed_z", "first_layer_speed", "first_layer_infill_speed", "first_layer_speed_over_raft", "perimeter_acceleration", "infill_acceleration",
     "external_perimeter_acceleration", "top_solid_infill_acceleration", "solid_infill_acceleration", "travel_acceleration", "wipe_tower_acceleration",
-    "bridge_acceleration", "internal_bridge_acceleration", "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration", "ironing_acceleration", "brim_acceleration", "brim_speed", "first_layer_acceleration", "first_layer_acceleration_over_raft", "default_acceleration", "skirts", "skirt_distance", "skirt_height", "draft_shield",
+    "bridge_acceleration", "internal_bridge_acceleration", "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration", "ironing_acceleration", "brim_acceleration", "brim_speed", "first_layer_acceleration", "first_layer_acceleration_over_raft", "default_acceleration",
+    "klipper_speed_mode_enabled", "klipper_speed_mode", "klipper_speed_mode_gcode", "skirts", "skirt_distance", "skirt_height", "draft_shield",
     "min_skirt_length", "brim_width", "brim_separation", "brim_type", "brim_ears", "brim_ears_max_angle", "brim_ears_detection_length", "brim_ears_pattern", "brim_per_object", "support_material", "support_material_auto", "support_material_threshold", "support_material_enforce_layers",
     "raft_layers", "raft_first_layer_density", "raft_first_layer_expansion", "raft_contact_distance", "raft_expansion",
     "support_material_pattern", "support_material_with_sheath", "support_material_spacing", "support_material_closing_radius", "support_material_style",
@@ -548,6 +549,9 @@ static std::vector<std::string> s_Preset_machine_limits_options {
     "machine_max_junction_deviation",
     "klipper_max_velocity", "klipper_max_accel", "klipper_minimum_cruise_ratio", "klipper_square_corner_velocity",
     "klipper_max_z_velocity", "klipper_max_z_accel", "klipper_max_extrude_only_velocity", "klipper_max_extrude_only_accel",
+    "klipper_max_velocity_slow", "klipper_max_velocity_fast", "klipper_max_accel_slow", "klipper_max_accel_fast",
+    "klipper_minimum_cruise_ratio_slow", "klipper_minimum_cruise_ratio_fast",
+    "klipper_square_corner_velocity_slow", "klipper_square_corner_velocity_fast",
 };
 
 static std::vector<std::string> s_Preset_printer_options {

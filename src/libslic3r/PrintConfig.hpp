@@ -149,6 +149,13 @@ enum class ScarfSeamPlacement {
     everywhere
 };
 
+// Fork: Klipper speed mode selected in the print settings (doc section 22).
+enum class KlipperSpeedMode {
+    slow,
+    normal,
+    fast
+};
+
 enum SLAMaterial {
     slamTough,
     slamFlex,
@@ -298,6 +305,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SupportMaterialStyle)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SupportMaterialInterfacePattern)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SeamPosition)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ScarfSeamPlacement)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(KlipperSpeedMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLADisplayOrientation)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLAPillarConnectionMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLASupportTreeType)
@@ -872,6 +880,15 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                klipper_max_z_accel))
     ((ConfigOptionFloat,                klipper_max_extrude_only_velocity))
     ((ConfigOptionFloat,                klipper_max_extrude_only_accel))
+    // Slow / fast speed modes, absolute or a percentage of the normal value above.
+    ((ConfigOptionFloatOrPercent,       klipper_max_velocity_slow))
+    ((ConfigOptionFloatOrPercent,       klipper_max_velocity_fast))
+    ((ConfigOptionFloatOrPercent,       klipper_max_accel_slow))
+    ((ConfigOptionFloatOrPercent,       klipper_max_accel_fast))
+    ((ConfigOptionFloatOrPercent,       klipper_minimum_cruise_ratio_slow))
+    ((ConfigOptionFloatOrPercent,       klipper_minimum_cruise_ratio_fast))
+    ((ConfigOptionFloatOrPercent,       klipper_square_corner_velocity_slow))
+    ((ConfigOptionFloatOrPercent,       klipper_square_corner_velocity_fast))
 )
 
 PRINT_CONFIG_CLASS_DEFINE(
@@ -1037,6 +1054,9 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionEnums<CoolingSlowdownLogicType>, cooling_slowdown_logic))
     ((ConfigOptionFloats,             cooling_perimeter_transition_distance))
     ((ConfigOptionFloat,              default_acceleration))
+    ((ConfigOptionBool,               klipper_speed_mode_enabled))
+    ((ConfigOptionEnum<KlipperSpeedMode>, klipper_speed_mode))
+    ((ConfigOptionString,             klipper_speed_mode_gcode))
     ((ConfigOptionInts,               disable_fan_first_layers))
     ((ConfigOptionEnum<DraftShield>,  draft_shield))
     ((ConfigOptionFloat,              duplicate_distance))
