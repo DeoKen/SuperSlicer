@@ -2290,7 +2290,8 @@ void TabFilament::build()
         append_labelled_line(optgroup, L("Overhang perimeter fan speed"), { { "overhangs_fan_speed", L("Overhangs") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Gap fill fan speed"),           { { "gap_fill_fan_speed", L("Gap fill") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Auxiliary fan speed"),          { { "additional_cooling_fan_speed", L("Speed") } }, category_path + "fan-settings");
-        append_labelled_line(optgroup, L("Disable fan for the first"), { { "disable_fan_first_layers", "" }, { "full_fan_speed_layer", L("Full fan speed at layer") } }, category_path + "fan-settings", -1);
+        // Same field width as the fan speeds above (the columns are shared by the group), short sub-label for the same reason.
+        append_labelled_line(optgroup, L("Disable fan for the first"), { { "disable_fan_first_layers", "" }, { "full_fan_speed_layer", L("Full at layer") } }, category_path + "fan-settings");
 
         optgroup = page->new_optgroup(L("Dynamic fan speeds"), 25);
         optgroup->append_single_option_line("enable_dynamic_fan_speeds", category_path + "dynamic-fan-speeds");
@@ -3228,8 +3229,9 @@ PageShp TabPrinter::build_kinematics_page()
         // Klipper: its own limits ([printer] and [extruder] of printer.cfg), for the time estimate only.
         optgroup = page->new_optgroup(L("Klipper limits (printer.cfg)"));
         // Slow / normal / fast columns for max velocity and max accel (Klipper speed modes, doc section 22).
-        optgroup->sublabel_width = 7;
-        optgroup->sidetext_width = 10;
+        // Sub-labels and side texts only as wide as their text, so the three columns stay close together.
+        optgroup->sublabel_width = 0;
+        optgroup->sidetext_width = 0;
         append_labelled_line(optgroup, L("Max velocity"),           { { "klipper_max_velocity_slow", L("Slow") }, { "klipper_max_velocity", L("Normal") }, { "klipper_max_velocity_fast", L("Fast") } });
         append_labelled_line(optgroup, L("Max accel"),              { { "klipper_max_accel_slow", L("Slow") }, { "klipper_max_accel", L("Normal") }, { "klipper_max_accel_fast", L("Fast") } });
         // Single values as labelled lines with an empty sub-label, so that their field lines up with the Slow column.
