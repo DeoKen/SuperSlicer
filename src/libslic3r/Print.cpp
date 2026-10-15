@@ -72,6 +72,7 @@ void Print::clear()
 	m_objects.clear();
     m_print_regions.clear();
     m_model.clear_objects();
+    m_seam_placer_cache.reset();
 }
 
 // Called by Print::apply().

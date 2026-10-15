@@ -36,7 +36,8 @@ Contents:
 18. [No chamber temperature commands for Klipper](#18-no-chamber-temperature-commands-for-klipper)
 19. [Thumbnails at the end of the file](#19-thumbnails-at-the-end-of-the-file)
 20. [Internal bridge direction: shortest spans](#20-internal-bridge-direction-shortest-spans)
-21. [Testing](#testing)
+21. [Seam placer cache](#21-seam-placer-cache)
+22. [Testing](#testing)
 
 ---
 
@@ -661,6 +662,27 @@ On a 20 mm cube with 15 % infill, the straight-line patterns give byte-identical
 mean span with the option is at least 15 % shorter (9.5 -> 7.6 mm); with rectilinear infill the internal bridge angle is
 unchanged. The golden test turns it off (`with_stock_behaviour()` in `test_golden_gcode.cpp`; add any other option that is
 on by default and changes the output there).
+
+---
+
+## 21. Seam placer cache
+
+**What it does.** Faster G-code export after edits that don't change the geometry (fan, speed, acceleration, temperature,
+custom G-code...): the seam placer (seam visibility ray casting, aligned seams) is kept from the last export and reused.
+No setting, the G-code is unchanged. Measured on the box from PrusaSlicer issue #14957: export after a fan change
+770 ms -> 510 ms. The first export after slicing takes as long as before.
+
+**How it works.** `Print` keeps the last `Seams::Placer` (`Print::seam_placer_cache()`, cleared by `Print::clear()`).
+`GCodeGenerator::_do_export()` builds a key (`seam_placer_cache_key()` in `GCode.cpp`) from everything
+`Seams::Placer::init()` reads: per object the step timestamps (any re-slice or new perimeters changes them; the external
+perimeter width it reads invalidates the perimeters), `seam_position`, the object transformation and the seam painting
+timestamp of every volume (seam painting and `seam_position` only invalidate the G-code export), plus
+`staggered_inner_seams`, `elefant_foot_compensation` and `raft_layers`. Same key: reuse, otherwise compute as stock.
+Scarf seam and other region settings are read when a seam is placed, not cached.
+
+**How to test.** `fff_print_tests "[SeamPlacerCache]"`: after a fan / speed change the placer is reused and the G-code
+equals a fresh slice; changing `seam_position`, the seam painting, `staggered_inner_seams` or the external perimeter width
+rebuilds it (and the G-code equals a fresh slice).
 
 ---
 

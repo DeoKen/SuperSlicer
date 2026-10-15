@@ -381,7 +381,8 @@ private:
     std::string     set_extruder(unsigned int extruder_id, double print_z);
     bool line_distancer_is_required(const std::vector<unsigned int>& extruder_ids);
 
-    Seams::Placer                       m_seam_placer;
+    // Shared with Print::seam_placer_cache().
+    std::shared_ptr<const Seams::Placer> m_seam_placer;
 
     /* Origin of print coordinates expressed in unscaled G-code coordinates.
        This affects the input arguments supplied to the extrude*() and travel_to()

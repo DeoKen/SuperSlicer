@@ -13,6 +13,7 @@
 #include <boost/nowide/fstream.hpp>
 
 #include "libslic3r/GCode.hpp"
+#include "libslic3r/TriangleSelector.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
 #include "test_data.hpp"
 
@@ -403,4 +404,60 @@ TEST_CASE("Thumbnails at the end of the G-code file", "[GCode][ThumbnailsEndFile
     CHECK(end.find("; thumbnail begin 16x16") > end.find("; prusaslicer_config = end"));
     CHECK(end.find("; thumbnail begin 16x16") == end.rfind("; thumbnail begin 16x16"));
     CHECK(first_move_end < first_move_front);
+}
+
+TEST_CASE("Seam placer is reused between exports when only G-code options change", "[SeamPlacerCache]") {
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_deserialize_strict({ { "seam_position", "aligned" } });
+    Print print;
+    Model model;
+    Test::init_print({ TestMesh::cube_with_hole }, print, model, config);
+    Test::gcode(print);
+    const std::shared_ptr<SeamPlacerCache> first = print.seam_placer_cache();
+    REQUIRE(first);
+
+    auto fresh = [](const DynamicPrintConfig &config) {
+        Print print;
+        Model model;
+        Test::init_print({ TestMesh::cube_with_hole }, print, model, config);
+        return Test::gcode(print);
+    };
+    auto without_header = [](const std::string &gcode) { return gcode.substr(gcode.find('\n')); };
+
+    SECTION("fan speed: reused, same G-code as a fresh slice") {
+        config.set_deserialize_strict({ { "max_fan_speed", "60" }, { "external_perimeter_speed", "33" } });
+        print.apply(model, config);
+        const std::string gcode = Test::gcode(print);
+        CHECK(print.seam_placer_cache() == first);
+        CHECK(without_header(gcode) == without_header(fresh(config)));
+    }
+    SECTION("seam position: rebuilt") {
+        config.set_deserialize_strict({ { "seam_position", "rear" } });
+        print.apply(model, config);
+        const std::string gcode = Test::gcode(print);
+        CHECK(print.seam_placer_cache() != first);
+        CHECK(without_header(gcode) == without_header(fresh(config)));
+    }
+    SECTION("seam painting: rebuilt") {
+        ModelVolume &volume = *model.objects.front()->volumes.front();
+        TriangleSelector selector(volume.mesh());
+        selector.set_facet(0, TriangleStateType::ENFORCER);
+        volume.seam_facets.set(selector);
+        print.apply(model, config);
+        Test::gcode(print);
+        CHECK(print.seam_placer_cache() != first);
+    }
+    SECTION("external perimeter width: rebuilt") {
+        config.set_deserialize_strict({ { "external_perimeter_extrusion_width", "0.6" } });
+        print.apply(model, config);
+        const std::string gcode = Test::gcode(print);
+        CHECK(print.seam_placer_cache() != first);
+        CHECK(without_header(gcode) == without_header(fresh(config)));
+    }
+    SECTION("staggered inner seams: rebuilt") {
+        config.set_deserialize_strict({ { "staggered_inner_seams", "1" } });
+        print.apply(model, config);
+        Test::gcode(print);
+        CHECK(print.seam_placer_cache() != first);
+    }
 }

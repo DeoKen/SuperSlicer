@@ -44,6 +44,7 @@
 #include <Eigen/Geometry>
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <set>
 #include <tcbspan/span.hpp>
@@ -52,6 +53,8 @@ namespace Slic3r {
 
 class GCodeGenerator;
 class Layer;
+// Fork: seam placer kept between G-code exports, defined in GCode.cpp.
+struct SeamPlacerCache;
 class ModelObject;
 class Print;
 class PrintObject;
@@ -748,6 +751,10 @@ public:
     // Returns scaling for each axis representing shrinkage compensations in each axis.
     Vec3d shrinkage_compensation() const;
 
+    // Fork: the seam placer of the last G-code export, reused by the next export when its inputs didn't change
+    // (see GCodeGenerator::_do_export()).
+    std::shared_ptr<SeamPlacerCache>& seam_placer_cache() const { return m_seam_placer_cache; }
+
 protected:
     // Invalidates the step, and its depending steps in Print.
     bool                invalidate_step(PrintStep step);
@@ -758,6 +765,8 @@ private:
     void                _make_skirt();
     void                _make_wipe_tower();
     void                finalize_first_layer_convex_hull();
+
+    mutable std::shared_ptr<SeamPlacerCache> m_seam_placer_cache;
     void                alert_when_supports_needed();
 
     // Islands of objects and their supports extruded at the 1st layer.

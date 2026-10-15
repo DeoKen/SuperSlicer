@@ -1021,6 +1021,39 @@ std::string GCodeGenerator::keep_out_detour_to(const Vec2d &to, const std::strin
     return gcode;
 }
 
+// Fork: seam placer kept in the Print between G-code exports.
+struct SeamPlacerCache
+{
+    std::string                          key;
+    std::shared_ptr<const Seams::Placer> placer;
+};
+
+// Everything Seams::Placer::init() depends on: the object steps (any re-slice or new perimeters gets new timestamps; the
+// only region data it reads, the external perimeter width, invalidates the perimeters), seam_position, the seam painting and
+// the object transformation (seam painting and seam_position only invalidate the G-code export step), and the config
+// values read by Seams::Placer::get_params(). The region settings used when placing a seam (scarf seam...) are read at
+// export time, not cached.
+static std::string seam_placer_cache_key(const Print &print)
+{
+    std::ostringstream key;
+    key.precision(17);
+    const DynamicPrintConfig &config = print.full_print_config();
+    key << config.opt_float("elefant_foot_compensation") << ' ' << config.opt_int("raft_layers") << ' '
+        << config.opt_bool("staggered_inner_seams") << '\n';
+    for (const PrintObject *object : print.objects()) {
+        key << object << ':';
+        for (int step = 0; step < int(posCount); ++ step)
+            key << ' ' << object->step_state_with_timestamp(PrintObjectStep(step)).timestamp;
+        const Transform3d trafo = object->trafo_centered();
+        for (int i = 0; i < 16; ++ i)
+            key << ' ' << trafo.data()[i];
+        for (const ModelVolume *volume : object->model_object()->volumes)
+            key << " v" << volume->id().id << ':' << volume->seam_facets.timestamp();
+        key << " seam_position " << int(object->config().seam_position.value) << '\n';
+    }
+    return key.str();
+}
+
 void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb)
 {
     const bool export_to_binary_gcode = print.full_print_config().option<ConfigOptionBool>("binary_gcode")->value;
@@ -1416,8 +1449,23 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
     // Collect custom seam data from all objects.
     std::function<void(void)> throw_if_canceled_func = [&print]() { print.throw_if_canceled();};
 
-    const Seams::Params params{Seams::Placer::get_params(print.full_print_config())};
-    m_seam_placer.init(print.objects(), params, throw_if_canceled_func);
+    // Fork: the seam placer (visibility ray casting, aligned seams) takes most of the export time; reuse it from the last
+    // export when nothing it depends on changed, e.g. when only a fan speed or a speed was edited.
+    {
+        std::shared_ptr<SeamPlacerCache> &cache = print.seam_placer_cache();
+        std::string key = seam_placer_cache_key(print);
+        if (cache && cache->key == key) {
+            m_seam_placer = cache->placer;
+            BOOST_LOG_TRIVIAL(debug) << "SeamPlacer: reused from the last export";
+        } else {
+            cache.reset();
+            const Seams::Params params{Seams::Placer::get_params(print.full_print_config())};
+            auto placer = std::make_shared<Seams::Placer>();
+            placer->init(print.objects(), params, throw_if_canceled_func);
+            m_seam_placer = placer;
+            cache = std::make_shared<SeamPlacerCache>(SeamPlacerCache{ std::move(key), std::move(placer) });
+        }
+    }
 
     if (! (has_wipe_tower && print.config().single_extruder_multi_material_priming)) {
         // Set initial extruder only after custom start G-code.
@@ -2684,7 +2732,7 @@ std::vector<GCode::ExtrusionOrder::ExtruderExtrusions> GCodeGenerator::get_sorte
             Skirt::make_skirt_loops_per_extruder_other_layers(print, layer_tools, m_skirt_done)};
 
     const SmoothPathGenerator smooth_path{
-        m_seam_placer,
+        *m_seam_placer,
         smooth_path_caches,
         m_scaled_resolution,
         m_config,
