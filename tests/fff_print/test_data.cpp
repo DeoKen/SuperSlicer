@@ -341,6 +341,8 @@ std::string gcode(Print & print)
     print.export_gcode(temp.string(), nullptr, nullptr);
     boost::nowide::ifstream t(temp.string());
 	std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+	// Close before removing: Windows refuses to delete an open file, which left the temp G-code behind.
+	t.close();
 	boost::nowide::remove(temp.string().c_str());
 	return str;
 }
