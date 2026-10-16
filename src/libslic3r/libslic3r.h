@@ -23,7 +23,7 @@
 
 
 
-#define GCODEVIEWER_APP_NAME "PrusaSlicer G-code Viewer"
+#define GCODEVIEWER_APP_NAME SLIC3R_APP_NAME " G-code Viewer"
 #define GCODEVIEWER_APP_KEY  "PrusaSlicerGcodeViewer"
 
 // this needs to be included early for MSVC (listing it in Build.PL is not enough)
