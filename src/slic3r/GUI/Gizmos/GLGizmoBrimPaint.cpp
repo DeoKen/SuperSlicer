@@ -39,6 +39,9 @@ bool GLGizmoBrimPaint::on_init()
     m_desc["remove_all"]       = _u8L("Remove all selection");
     m_desc["circle"]           = _u8L("Circle");
     m_desc["sphere"]           = _u8L("Sphere");
+    m_desc["no_brim_width"]    = _u8L("Brim width is 0: the painted brim needs a brim width (Print Settings > Skirt and brim, "
+                                      "or a per-object setting).");
+    m_desc["raft"]             = _u8L("No brim is made on a raft.");
     m_desc["hint"]             = _u8L("Paint the bottom edge of the part (the side walls near the bed or the bottom face). "
                                       "Enforced: a brim along the painted edge, also with the brim type \"No brim\". "
                                       "Blocked: no brim there. The brim width and separation come from the print settings.");
@@ -76,7 +79,7 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
     if (! m_c->selection_info()->model_object())
         return;
 
-    const float approx_height = m_imgui->scaled(18.f);
+    const float approx_height = m_imgui->scaled(21.f);
     y = std::min(y, bottom_limit - approx_height);
     ImGuiPureWrap::set_next_window_pos(x, y, ImGuiCond_Always);
     ImGuiPureWrap::begin(get_name(), ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
@@ -121,6 +124,25 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
 
     ImGui::Separator();
     ImGuiPureWrap::text_wrapped(m_desc.at("hint"), window_width);
+    // The painting has no effect without a brim width or with a raft (PrintObject::has_brim()): say so.
+    {
+        const ModelObject        *mo     = m_c->selection_info()->model_object();
+        const DynamicPrintConfig &config = *wxGetApp().plater()->config();
+        // The object's own setting, else the print settings.
+        auto option = [mo, &config](const char *key) {
+            const ConfigOption *opt = mo->config.option(key);
+            return opt != nullptr ? opt : config.option(key);
+        };
+        const ConfigOption *brim_width  = option("brim_width");
+        const ConfigOption *raft_layers = option("raft_layers");
+        for (const auto &[problem, text] : { std::make_pair(brim_width == nullptr || brim_width->getFloat() <= 0., "no_brim_width"),
+                                             std::make_pair(raft_layers != nullptr && raft_layers->getInt() > 0, "raft") })
+            if (problem) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGuiPureWrap::COL_ORANGE_LIGHT);
+                ImGuiPureWrap::text_wrapped(m_desc.at(text), window_width);
+                ImGui::PopStyleColor();
+            }
+    }
     ImGui::Separator();
 
     const float max_tooltip_width = ImGui::GetFontSize() * 20.0f;

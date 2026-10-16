@@ -17,6 +17,8 @@
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Format/3mf.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/TriangleSelector.hpp"
 
 using namespace Catch;
 
@@ -1290,4 +1292,28 @@ TEST_CASE("Arranged pile moves towards the center only as far as the keep-out zo
     CHECK(std::abs(pile.center().x() - 175.) < 1.);
     // Pushed against the zone (clearance + half the object distance + one 1/32 step of the move at most), not left lower.
     CHECK(pile.min.y() < 101. + 3. + 10.);
+}
+
+// Paint-on brim: a part whose brim comes only from brim enforcers needs the same room as with an outer brim.
+TEST_CASE("Arrangement leaves room for a painted brim", "[arrange2][integration][BrimPaint]")
+{
+    using namespace Slic3r;
+    Model        model;
+    ModelObject *mo = model.add_object();
+    mo->add_volume(TriangleMesh(its_make_cube(20., 20., 20.)));
+    mo->add_instance();
+    DynamicPrintConfig cfg = DynamicPrintConfig::full_print_config();
+    cfg.set_deserialize_strict({ { "brim_type", "no_brim" }, { "brim_width", "5" } });
+
+    Print print;
+    print.apply(model, cfg);
+    REQUIRE(print.objects().size() == 1);
+    CHECK(arr2::brim_offset(*print.objects().front()) == 0);
+
+    ModelVolume     &volume = *mo->volumes.front();
+    TriangleSelector selector(volume.mesh());
+    selector.set_facet(0, TriangleStateType::ENFORCER);
+    volume.brim_facets.set(selector);
+    print.apply(model, cfg);
+    CHECK(arr2::brim_offset(*print.objects().front()) == scaled(5.));
 }

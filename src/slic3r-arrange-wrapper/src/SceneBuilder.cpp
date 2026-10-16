@@ -52,8 +52,9 @@ coord_t brim_offset(const PrintObject &po)
     const BrimType brim_type       = po.config().brim_type.value;
     const float    brim_separation = po.config().brim_separation.getFloat();
     const float    brim_width      = po.config().brim_width.getFloat();
+    // Paint-on brim (fork): brim enforcers add an outer brim along the painted edges, also with "No brim".
     const bool     has_outer_brim  = brim_type == BrimType::btOuterOnly ||
-                                brim_type == BrimType::btOuterAndInner;
+                                brim_type == BrimType::btOuterAndInner || po.has_brim_enforcers();
 
     // How wide is the brim? (in scaled units)
     return has_outer_brim ? scaled(brim_width + brim_separation) : 0;

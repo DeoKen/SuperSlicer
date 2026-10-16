@@ -103,6 +103,9 @@ TEST_CASE("Bed keep-out zones: parsing", "[KeepOut]") {
     CHECK(! error.empty());
     CHECK(! BedKeepOut::parse("40,0,0,40", zones, &error));
     CHECK(! BedKeepOut::parse("a,0,40,40", zones, &error));
+    CHECK(! BedKeepOut::parse("-inf,-inf,inf,inf", zones, &error));
+    CHECK(! BedKeepOut::parse("nan,0,40,40", zones, &error));
+    CHECK(zones.empty());
 }
 
 TEST_CASE("Bed keep-out zones: routing", "[KeepOut]") {

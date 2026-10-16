@@ -756,6 +756,9 @@ brim per object) come from the print settings as usual; the object list shows "P
 double click to edit). The painting is saved in the 3mf project (attribute `slic3rpe:custom_brim`, ignored by stock
 PrusaSlicer) and copied with the object.
 
+The painting needs a brim width above 0 and no raft (as any brim): the tool's window says so when the part's brim
+width is 0 or it has a raft. Arrange leaves room for the brim of a part with brim enforcers, as for an outer brim.
+
 No setting; nothing painted = stock brim (golden test unchanged).
 
 **How it works.** `ModelVolume::brim_facets` holds the painting (like `seam_facets`), with undo / redo, 3mf and copy; cutting
@@ -776,7 +779,8 @@ that has supports), not the slicing.
 of a cube with "No brim" gives a brim only in front of that wall, not longer than the wall and not wider than the brim;
 an enforcer on the bottom face gives the brim all around; painting the top face does nothing; a blocker on one wall
 with "Outer brim only" removes the brim there; blockers in a hole remove the inner brim; repainting keeps the slices
-and only redoes the brim; the painting is saved and loaded with the 3mf. Manually: open Brim painting on a part,
+and only redoes the brim; the painting is saved and loaded with the 3mf. `arrange_tests "[BrimPaint]"`: arrange's brim offset counts the
+enforcers. Manually: open Brim painting on a part,
 paint two corners with "No brim", slice: brim only at those corners; set "Outer brim only", block one side: no brim
 there; save and reopen the project.
 

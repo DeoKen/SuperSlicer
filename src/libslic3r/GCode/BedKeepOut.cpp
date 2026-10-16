@@ -31,7 +31,8 @@ bool BedKeepOut::parse(const std::string &text, std::vector<BoundingBoxf> &zones
             std::string n = boost::trim_copy(nums[i]);
             char *end = nullptr;
             v[i] = std::strtod(n.c_str(), &end);
-            ok = ! n.empty() && end != nullptr && *end == 0;
+            // Finite only: "inf" / "nan" are parsed by strtod but are not coordinates.
+            ok = ! n.empty() && end != nullptr && *end == 0 && std::isfinite(v[i]);
         }
         if (! ok || v[2] <= v[0] || v[3] <= v[1]) {
             if (error)
