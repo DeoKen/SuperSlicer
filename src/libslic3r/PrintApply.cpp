@@ -114,6 +114,8 @@ static inline void model_volume_list_copy_configs(ModelObject &model_object_dst,
         mv_dst.mm_segmentation_facets.assign(mv_src.mm_segmentation_facets);
         assert(mv_dst.fuzzy_skin_facets.id() == mv_src.fuzzy_skin_facets.id());
         mv_dst.fuzzy_skin_facets.assign(mv_src.fuzzy_skin_facets);
+        assert(mv_dst.brim_facets.id() == mv_src.brim_facets.id());
+        mv_dst.brim_facets.assign(mv_src.brim_facets);
         //FIXME what to do with the materials?
         // mv_dst.m_material_id = mv_src.m_material_id;
         ++ i_src;
@@ -1450,6 +1452,14 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 }
             } else if (model_custom_seam_data_changed(model_object, model_object_new)) {
                 update_apply_status(this->invalidate_step(psGCodeExport));
+            }
+            // Paint-on brim: only the brim is made again (the painting is copied with the volume configs below), and the
+            // supports, which keep away from the brim of a part with brim enforcers.
+            if (model_brim_data_changed(model_object, model_object_new)) {
+                update_apply_status(this->invalidate_step(psSkirtBrim));
+                for (const PrintObjectStatus &print_object_status : print_objects_range)
+                    if (print_object_status.print_object->has_support_material())
+                        update_apply_status(print_object_status.print_object->invalidate_step(posSupportMaterial));
             }
         }
         if (! solid_or_modifier_differ) {

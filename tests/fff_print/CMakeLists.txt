@@ -28,6 +28,7 @@ add_executable(${_TEST_NAME}_tests
 	test_avoid_crossing_ss.cpp
 	test_seam_notch.cpp
 	test_brim_ss.cpp
+	test_brim_paint.cpp
 	test_klipper_limits.cpp
 	test_layer_placeholders.cpp
 	test_small_area_flow.cpp

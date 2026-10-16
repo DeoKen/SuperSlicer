@@ -155,6 +155,7 @@ void convert_units(Model& model_to, ModelObject* object_from, ConversionType con
             vol->supported_facets.assign(volume->supported_facets);
             vol->seam_facets.assign(volume->seam_facets);
             vol->mm_segmentation_facets.assign(volume->mm_segmentation_facets);
+            vol->brim_facets.assign(volume->brim_facets);
 
             // Perform conversion only if the target "imperial" state is different from the current one.
             // This check supports conversion of "mixed" set of volumes, each with different "imperial" state.

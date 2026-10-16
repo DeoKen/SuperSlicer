@@ -87,6 +87,7 @@ const std::map<InfoItemType, InfoItemAtributes> INFO_ITEMS{
             { InfoItemType::Sinking,             {L("Sinking"),                 "sinking" },              },
             { InfoItemType::VariableLayerHeight, {L("Variable layer height"),   "layers" },               },
             { InfoItemType::FuzzySkin,           {L("Paint-on fuzzy skin"),     "fuzzy_skin_painting_" }, },
+            { InfoItemType::CustomBrim,          {L("Paint-on brim"),           "brim_painting_" },       },
 };
 
 ObjectDataViewModelNode::ObjectDataViewModelNode(ObjectDataViewModelNode*   parent,

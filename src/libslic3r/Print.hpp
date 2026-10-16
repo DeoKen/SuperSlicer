@@ -323,10 +323,12 @@ public:
     const Point& 			     center_offset() const  { return m_center_offset; }
 
     bool                         has_brim() const       {
-        return this->config().brim_type != btNoBrim
+        return (this->config().brim_type != btNoBrim || this->has_brim_enforcers())
             && this->config().brim_width.value > 0.
             && ! this->has_raft();
     }
+    // Paint-on brim: brim enforcers painted on any part, they add a brim also with the brim type "No brim".
+    bool                         has_brim_enforcers() const;
 
     // This is the *total* layer count (including support layers)
     // this value is not supposed to be compared with Layer::id
@@ -379,6 +381,7 @@ public:
     bool                        is_mm_painted()         const { return this->model_object()->is_mm_painted(); }
     // Checks if the model object is painted using the fuzzy skin painting gizmo.
     bool                        is_fuzzy_skin_painted() const { return this->model_object()->is_fuzzy_skin_painted(); }
+    bool                        is_brim_painted() const { return this->model_object()->is_brim_painted(); }
 
     // returns 0-based indices of extruders used to print the object (without brim, support and other helper extrusions)
     std::vector<unsigned int>   object_extruders() const;
@@ -393,6 +396,9 @@ public:
 
     // Helpers to project custom facets on slices
     void project_and_append_custom_facets(bool seam, TriangleStateType type, std::vector<Polygons>& expolys) const;
+    // Paint-on brim: XY area (same frame as the slices) of the brim enforcers or blockers painted at most one first layer
+    // above the bed, side walls included (as thin bands).
+    ExPolygons brim_paint_area(TriangleStateType type) const;
 
 private:
     // to be called from Print only.

@@ -31,6 +31,7 @@ class Selection;
 enum class PainterGizmoType {
     FDM_SUPPORTS,
     SEAM,
+    BRIM,
     MM_SEGMENTATION,
     FUZZY_SKIN
 };

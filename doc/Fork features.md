@@ -739,6 +739,47 @@ G-code with the slow mode has a longer estimate, and reloading it gives the same
 limits shows Slow | Normal | Fast for max velocity and max accel and the macro field; Filament > Cooling has the speed
 mode; with Slow selected the sliced estimate goes up.
 
+## 23. Paint-on brim
+
+**What it does.** A brim only where you want it (PrusaSlicer request #8283), painted on the model like the support and
+seam painting: a new left toolbar tool "Brim painting" (after Fuzzy skin painting).
+
+- **Enforce brim** (left mouse button): a brim along the painted part of the bottom edge. Works also with the brim type
+  "No brim", so a part can have a brim only at its corners or along one side.
+- **Block brim** (right mouse button): no brim there, with any brim type (outer and inner brim).
+- Shift + left mouse button removes the painting, "Remove all selection" clears it. Brush size and shape, and the
+  clipping plane, as in the seam painting.
+
+Paint the bottom edge: the side walls near the bed or the bottom face. Painting higher up the walls does nothing (only
+the facets within the first layer height count). The brim width, separation and the other brim settings (brim ears,
+brim per object) come from the print settings as usual; the object list shows "Paint-on brim" (right click to remove,
+double click to edit). The painting is saved in the 3mf project (attribute `slic3rpe:custom_brim`, ignored by stock
+PrusaSlicer) and copied with the object.
+
+No setting; nothing painted = stock brim (golden test unchanged).
+
+**How it works.** `ModelVolume::brim_facets` holds the painting (like `seam_facets`), with undo / redo, 3mf and copy; cutting
+the object or changing its mesh (repair, simplify...) removes it with the other paintings. `PrintObject::brim_paint_area()`
+clips the painted facets at the top of the first layer and projects them to the bed (the walls as thin bands). In
+`Brim.cpp`, `brim_paint_zones()` takes the parts of the first layer outline (contours offset, holes shrunk by the brim
+separation) that lie in the painted area (grown by the elephant foot compensation + 0.1 mm) and shortens them at their
+ends by a bit more, so the brim does not turn around the corner next to a painted wall; a band of the brim width + one
+line on both sides of these parts, cut square at the ends, is the zone. The outer brim ring and the inner (hole) rings
+are intersected with the enforcer zone where the brim type doesn't make them anyway, and the blocker zone is
+subtracted; the one line wide "no brim" band around parts without a brim is opened where enforced. A hole that is
+filled completely (the innermost hole) becomes a normal ring of the brim width when blocked, so the fill does not start
+again from the blocked edge. A part with enforcers counts as having a brim (`PrintObject::has_brim()`), and its supports
+keep away from the brim as with an outer and inner brim. Repainting only redoes the brim (and the supports of a part
+that has supports), not the slicing.
+
+**How to test.** `fff_print_tests "[BrimPaint]"`: nothing painted gives the stock brim; an enforcer on one side wall
+of a cube with "No brim" gives a brim only in front of that wall, not longer than the wall and not wider than the brim;
+an enforcer on the bottom face gives the brim all around; painting the top face does nothing; a blocker on one wall
+with "Outer brim only" removes the brim there; blockers in a hole remove the inner brim; repainting keeps the slices
+and only redoes the brim; the painting is saved and loaded with the 3mf. Manually: open Brim painting on a part,
+paint two corners with "No brim", slice: brim only at those corners; set "Outer brim only", block one side: no brim
+there; save and reopen the project.
+
 ---
 
 ## Testing

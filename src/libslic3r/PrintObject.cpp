@@ -3532,6 +3532,59 @@ void PrintObject::project_and_append_custom_facets(
         }
 }
 
+bool PrintObject::has_brim_enforcers() const
+{
+    return std::any_of(this->model_object()->volumes.begin(), this->model_object()->volumes.end(), [](const ModelVolume *mv) {
+        return mv->is_model_part() && mv->is_brim_painted() && mv->brim_facets.has_facets(*mv, TriangleStateType::ENFORCER);
+    });
+}
+
+ExPolygons PrintObject::brim_paint_area(TriangleStateType type) const
+{
+    if (m_layers.empty() || ! this->is_brim_painted())
+        return {};
+    // Facets touching the first layer: clipped at its top, projected to the bed.
+    const float z_top = float(m_layers.front()->print_z + EPSILON);
+    Polygons    areas;
+    Polylines   edges;
+    for (const ModelVolume *mv : this->model_object()->volumes) {
+        if (! mv->is_model_part() || ! mv->is_brim_painted())
+            continue;
+        const indexed_triangle_set facets = mv->brim_facets.get_facets_strict(*mv, type);
+        const Transform3f          trafo  = (this->trafo_centered() * mv->get_matrix()).cast<float>();
+        for (const stl_triangle_vertex_indices &tri : facets.indices) {
+            std::vector<Vec3f> poly;
+            for (int i = 0; i < 3; ++ i)
+                poly.emplace_back(trafo * facets.vertices[tri[i]]);
+            // Clip by the plane z = z_top, keep the part below.
+            std::vector<Vec3f> clipped;
+            for (size_t i = 0; i < poly.size(); ++ i) {
+                const Vec3f &a = poly[i];
+                const Vec3f &b = poly[(i + 1) % poly.size()];
+                if (a.z() <= z_top)
+                    clipped.push_back(a);
+                if ((a.z() <= z_top) != (b.z() <= z_top))
+                    clipped.push_back(a + (b - a) * ((z_top - a.z()) / (b.z() - a.z())));
+            }
+            if (clipped.size() < 2)
+                continue;
+            Polygon p;
+            for (const Vec3f &v : clipped)
+                p.points.emplace_back(scaled<coord_t>(v.x()), scaled<coord_t>(v.y()));
+            // A side wall projects to a line: keep the edges, they are expanded below.
+            edges.emplace_back(p.points);
+            edges.back().points.push_back(p.points.front());
+            if (std::abs(p.area()) > double(SCALED_EPSILON) * double(SCALED_EPSILON)) {
+                if (! p.is_counter_clockwise())
+                    p.reverse();
+                areas.emplace_back(std::move(p));
+            }
+        }
+    }
+    append(areas, offset(edges, scaled<float>(0.05)));
+    return union_ex(areas);
+}
+
 const Layer* PrintObject::get_layer_at_printz(coordf_t print_z) const {
     auto it = Slic3r::lower_bound_by_predicate(m_layers.begin(), m_layers.end(), [print_z](const Layer *layer) { return layer->print_z < print_z; });
     return (it == m_layers.end() || (*it)->print_z != print_z) ? nullptr : *it;

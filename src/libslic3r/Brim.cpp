@@ -83,6 +83,50 @@ static std::vector<ExPolygons> get_print_bottom_layers_expolygons(const Print &p
     return bottom_layers_expolygons;
 }
 
+// Paint-on brim: bands along the painted parts of the outline (contours offset and holes shrunk by the brim separation),
+// reaching the brim width plus one line to both sides, butt ended where the painting ends. Enforcers add a brim there
+// (also with the brim type "No brim"), blockers remove it.
+struct BrimPaintZones
+{
+    ExPolygons enforcers;
+    ExPolygons blockers;
+};
+
+static BrimPaintZones brim_paint_zones(const PrintObject &object, const ExPolygons &bottom_layer, const float brim_width, const float brim_separation, const float spacing)
+{
+    BrimPaintZones out;
+    if (! object.is_brim_painted() || brim_width <= 0.f)
+        return out;
+    Polygons outlines;
+    for (const ExPolygon &ex_poly : bottom_layer) {
+        polygons_append(outlines, offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare));
+        Polygons holes_reversed = ex_poly.holes;
+        polygons_reverse(holes_reversed);
+        polygons_append(outlines, shrink(holes_reversed, brim_separation, ClipperLib::jtSquare));
+    }
+    // The outline lies a bit inside the painted walls (elephant foot compensation, the bands of the walls): the painting
+    // is grown by that much, and the painted parts of the outline shortened by a bit more at their ends, so that the brim
+    // does not turn around the corner next to a painted wall.
+    const float tolerance = scaled<float>(object.config().elefant_foot_compensation.value + 0.1);
+    auto zone = [&](TriangleStateType type) {
+        const ExPolygons painted = object.brim_paint_area(type);
+        if (painted.empty())
+            return ExPolygons();
+        Polylines along = intersection_pl(outlines, offset(painted, tolerance));
+        for (Polyline &pl : along)
+            if (pl.size() > 1 && pl.first_point() != pl.last_point()) {
+                // Up to the corner: the grown painting reaches tolerance + 0.05 mm (the bands of the walls) past it.
+                pl.clip_start(tolerance + scaled<double>(0.1));
+                pl.clip_end(tolerance + scaled<double>(0.1));
+            }
+        along.erase(std::remove_if(along.begin(), along.end(), [](const Polyline &pl) { return pl.size() < 2; }), along.end());
+        return along.empty() ? ExPolygons() : union_ex(offset(along, brim_width + spacing, ClipperLib::jtSquare));
+    };
+    out.enforcers = zone(TriangleStateType::ENFORCER);
+    out.blockers  = zone(TriangleStateType::BLOCKER);
+    return out;
+}
+
 static ConstPrintObjectPtrs get_top_level_objects_with_brim(const Print &print, const std::vector<ExPolygons> &bottom_layers_expolygons)
 {
     assert(print.objects().size() == bottom_layers_expolygons.size());
@@ -255,13 +299,20 @@ static ExPolygons top_level_outer_brim_area(const Print                   &print
 
         const bool         selected          = brim_object_selected(object, only_object);
         const PrintObjectConfig &config      = object->config();
+        const BrimPaintZones paint           = brim_paint_zones(*object, bottom_layers_expolygons[print_object_idx], brim_width, brim_separation, no_brim_offset);
+        const bool         outer_type        = brim_type == BrimType::btOuterOnly || brim_type == BrimType::btOuterAndInner;
+        const bool         painted_outer     = ! outer_type && ! paint.enforcers.empty();
 
         ExPolygons brim_area_object;
         ExPolygons rectilinear_area_object;
         ExPolygons no_brim_area_object;
         for (const ExPolygon &ex_poly : bottom_layers_expolygons[print_object_idx]) {
-            if ((brim_type == BrimType::btOuterOnly || brim_type == BrimType::btOuterAndInner) && is_top_outer_brim && selected) {
+            if ((outer_type || painted_outer) && is_top_outer_brim && selected) {
                 ExPolygons ring = diff_ex(offset(ex_poly.contour, brim_width + brim_separation, ClipperLib::jtSquare), offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare));
+                if (painted_outer)
+                    ring = intersection_ex(ring, paint.enforcers);
+                if (! paint.blockers.empty())
+                    ring = diff_ex(ring, paint.blockers);
                 if (config.brim_ears) {
                     // Brim ears: the brim only around the sharp corners, discs of the brim width minus one line (SuperSlicer).
                     const double radius = brim_width > 2. * no_brim_offset ? brim_width - no_brim_offset : brim_width;
@@ -280,10 +331,12 @@ static ExPolygons top_level_outer_brim_area(const Print                   &print
             if (brim_type == BrimType::btOuterOnly || brim_type == BrimType::btNoBrim)
                 append(no_brim_area_object, shrink_ex(ex_poly_holes_reversed, no_brim_offset, ClipperLib::jtSquare));
 
-            if (brim_type == BrimType::btInnerOnly || brim_type == BrimType::btNoBrim)
-                append(no_brim_area_object, diff_ex(offset(ex_poly.contour, no_brim_offset, ClipperLib::jtSquare), ex_poly_holes_reversed));
+            if (brim_type == BrimType::btInnerOnly || brim_type == BrimType::btNoBrim) {
+                ExPolygons band = diff_ex(offset(ex_poly.contour, no_brim_offset, ClipperLib::jtSquare), ex_poly_holes_reversed);
+                append(no_brim_area_object, paint.enforcers.empty() ? std::move(band) : diff_ex(band, paint.enforcers));
+            }
 
-            if (brim_type != BrimType::btNoBrim)
+            if (brim_type != BrimType::btNoBrim || ! paint.enforcers.empty())
                 append(no_brim_area_object, offset_ex(ExPolygon(ex_poly.contour), brim_separation, ClipperLib::jtSquare));
 
             no_brim_area_object.emplace_back(ex_poly.contour);
@@ -398,17 +451,22 @@ static std::vector<InnerBrimExPolygons> inner_brim_area(const Print             
         const float        brim_separation = scale_(object->config().brim_separation.value);
         const float        brim_width      = scale_(object->config().brim_width.value);
         const bool         top_outer_brim  = top_level_objects_idx.find(object->id().id) != top_level_objects_idx.end();
+        const BrimPaintZones paint         = brim_paint_zones(*object, bottom_layers_expolygons[print_object_idx], brim_width, brim_separation, no_brim_offset);
+        const bool         outer_type      = brim_type == BrimType::btOuterOnly || brim_type == BrimType::btOuterAndInner;
+        const bool         inner_type      = brim_type == BrimType::btInnerOnly || brim_type == BrimType::btOuterAndInner;
 
         ExPolygons brim_area_innermost_object;
         ExPolygons brim_area_object;
         ExPolygons no_brim_area_object;
         Polygons   holes_reversed_object;
         for (const ExPolygon &ex_poly : bottom_layers_expolygons[print_object_idx]) {
-            if (brim_type == BrimType::btOuterOnly || brim_type == BrimType::btOuterAndInner) {
+            if (outer_type || ! paint.enforcers.empty()) {
                 if (top_outer_brim)
                     no_brim_area_object.emplace_back(ex_poly);
-                else
-                    append(brim_area_object, diff_ex(offset(ex_poly.contour, brim_width + brim_separation, ClipperLib::jtSquare), offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare)));
+                else {
+                    ExPolygons ring = diff_ex(offset(ex_poly.contour, brim_width + brim_separation, ClipperLib::jtSquare), offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare));
+                    append(brim_area_object, outer_type ? std::move(ring) : intersection_ex(ring, paint.enforcers));
+                }
             }
 
             // After 7ff76d07684858fd937ef2f5d863f105a10f798e offset and shrink don't work with CW polygons (holes), so let's make it CCW.
@@ -429,15 +487,33 @@ static std::vector<InnerBrimExPolygons> inner_brim_area(const Print             
                 polygon_idx += ex_poly.holes.size(); // Increase idx for every hole of the ExPolygon.
             }
 
-            if (brim_type == BrimType::btInnerOnly || brim_type == BrimType::btNoBrim)
-                append(no_brim_area_object, diff_ex(offset(ex_poly.contour, no_brim_offset, ClipperLib::jtSquare), ex_poly_holes_reversed));
+            // Paint-on brim in the holes without an inner brim: a normal brim ring, only where painted.
+            if (! inner_type && ! paint.enforcers.empty())
+                for (const Polygon &hole : ex_poly_holes_reversed)
+                    append(brim_area_object, intersection_ex(diff_ex(shrink_ex({hole}, brim_separation, ClipperLib::jtSquare), shrink_ex({hole}, brim_width + brim_separation, ClipperLib::jtSquare)), paint.enforcers));
 
-            if (brim_type == BrimType::btOuterOnly || brim_type == BrimType::btNoBrim)
-                append(no_brim_area_object, diff_ex(ex_poly.contour, shrink_ex(ex_poly_holes_reversed, no_brim_offset, ClipperLib::jtSquare)));
+            if (brim_type == BrimType::btInnerOnly || brim_type == BrimType::btNoBrim) {
+                ExPolygons band = diff_ex(offset(ex_poly.contour, no_brim_offset, ClipperLib::jtSquare), ex_poly_holes_reversed);
+                append(no_brim_area_object, paint.enforcers.empty() ? std::move(band) : diff_ex(band, paint.enforcers));
+            }
+
+            if (brim_type == BrimType::btOuterOnly || brim_type == BrimType::btNoBrim) {
+                ExPolygons band = diff_ex(ex_poly.contour, shrink_ex(ex_poly_holes_reversed, no_brim_offset, ClipperLib::jtSquare));
+                append(no_brim_area_object, paint.enforcers.empty() ? std::move(band) : diff_ex(band, paint.enforcers));
+            }
 
             append(holes_reversed_object, ex_poly_holes_reversed);
         }
         append(no_brim_area_object, offset_ex(bottom_layers_expolygons[print_object_idx], brim_separation, ClipperLib::jtSquare));
+        if (! paint.blockers.empty()) {
+            // An innermost hole is filled from its outline inwards: with blockers it becomes a normal ring of the brim width,
+            // else the brim would start again from the edge of the blocked part.
+            if (! brim_area_innermost_object.empty()) {
+                append(brim_area_object, diff_ex(brim_area_innermost_object, shrink_ex(brim_area_innermost_object, brim_width, ClipperLib::jtSquare)));
+                brim_area_innermost_object.clear();
+            }
+            brim_area_object = diff_ex(brim_area_object, paint.blockers);
+        }
 
         for (const PrintInstance &instance : object->instances()) {
             append_and_translate(brim_area_innermost[print_object_idx], brim_area_innermost_object, instance);
@@ -653,7 +729,7 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
 
     const bool could_brim_intersects_skirt = std::any_of(print.objects().begin(), print.objects().end(), [&print](const PrintObject *object) {
         const BrimType &bt = object->config().brim_type;
-        return (bt == btOuterOnly || bt == btOuterAndInner) && print.config().skirt_distance.value < object->config().brim_width;
+        return (bt == btOuterOnly || bt == btOuterAndInner || object->has_brim_enforcers()) && print.config().skirt_distance.value < object->config().brim_width;
     });
 
     const bool draft_shield = print.config().draft_shield != dsDisabled;
@@ -834,7 +910,7 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
     // The brim shared by the objects without brim_per_object (stock PrusaSlicer brim).
     float shared_width = 0.f;
     for (const PrintObject *object : print.objects())
-        if (! object->config().brim_per_object && object->config().brim_type != btNoBrim)
+        if (! object->config().brim_per_object && (object->config().brim_type != btNoBrim || object->has_brim_enforcers()))
             shared_width = std::max(shared_width, float(object->config().brim_width.value));
     emit_lines(brim_lines(islands, islands_area_ex, shared_width));
     emit_rectilinear_ears(rectilinear_ears);

@@ -347,8 +347,9 @@ SupportGeneratorLayersPtr generate_raft_base(
         // The object does not have a raft.
         // Calculate the area covered by the brim.
         const BrimType brim_type       = object.config().brim_type;
-        const bool     brim_outer      = brim_type == btOuterOnly || brim_type == btOuterAndInner;
-        const bool     brim_inner      = brim_type == btInnerOnly || brim_type == btOuterAndInner;
+        // Paint-on brim enforcers: keep the supports away from the whole outline (the painting only redoes the brim).
+        const bool     brim_outer      = brim_type == btOuterOnly || brim_type == btOuterAndInner || object.has_brim_enforcers();
+        const bool     brim_inner      = brim_type == btInnerOnly || brim_type == btOuterAndInner || object.has_brim_enforcers();
         const auto     brim_separation = scaled<float>(object.config().brim_separation.value + object.config().brim_width.value);
         for (const ExPolygon &ex : object.layers().front()->lslices) {
             if (brim_outer && brim_inner)

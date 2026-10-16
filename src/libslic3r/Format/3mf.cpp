@@ -141,6 +141,8 @@ static constexpr const char* CUSTOM_SUPPORTS_ATTR = "slic3rpe:custom_supports";
 static constexpr const char* CUSTOM_SEAM_ATTR = "slic3rpe:custom_seam";
 static constexpr const char* MM_SEGMENTATION_ATTR = "slic3rpe:mmu_segmentation";
 static constexpr const char* FUZZY_SKIN_ATTR = "slic3rpe:fuzzy_skin";
+// Paint-on brim (fork): enforcers / blockers, same encoding as the seam painting.
+static constexpr const char* CUSTOM_BRIM_ATTR = "slic3rpe:custom_brim";
 
 static constexpr const char* KEY_ATTR = "key";
 static constexpr const char* VALUE_ATTR = "value";
@@ -383,6 +385,7 @@ namespace Slic3r {
             std::vector<std::string> custom_seam;
             std::vector<std::string> mm_segmentation;
             std::vector<std::string> fuzzy_skin;
+            std::vector<std::string> custom_brim;
 
             bool empty() { return vertices.empty() || triangles.empty(); }
 
@@ -393,6 +396,7 @@ namespace Slic3r {
                 custom_seam.clear();
                 mm_segmentation.clear();
                 fuzzy_skin.clear();
+                custom_brim.clear();
             }
         };
 
@@ -2149,6 +2153,7 @@ namespace Slic3r {
         m_curr_object.geometry.custom_supports.push_back(get_attribute_value_string(attributes, num_attributes, CUSTOM_SUPPORTS_ATTR));
         m_curr_object.geometry.custom_seam.push_back(get_attribute_value_string(attributes, num_attributes, CUSTOM_SEAM_ATTR));
         m_curr_object.geometry.fuzzy_skin.push_back(get_attribute_value_string(attributes, num_attributes, FUZZY_SKIN_ATTR));
+        m_curr_object.geometry.custom_brim.push_back(get_attribute_value_string(attributes, num_attributes, CUSTOM_BRIM_ATTR));
 
         // Now load MM segmentation data. Unfortunately, BambuStudio has changed the attribute name after they forked us,
         // leading to https://github.com/prusa3d/PrusaSlicer/issues/12502. Let's try to load both keys if the usual
@@ -2662,6 +2667,7 @@ namespace Slic3r {
             volume->seam_facets.reserve(triangles_count);
             volume->mm_segmentation_facets.reserve(triangles_count);
             volume->fuzzy_skin_facets.reserve(triangles_count);
+            volume->brim_facets.reserve(triangles_count);
             for (size_t i=0; i<triangles_count; ++i) {
                 size_t index = volume_data.first_triangle_id + i;
                 assert(index < geometry.custom_supports.size());
@@ -2672,11 +2678,13 @@ namespace Slic3r {
                 volume->seam_facets.set_triangle_from_string(i, geometry.custom_seam[index]);
                 volume->mm_segmentation_facets.set_triangle_from_string(i, geometry.mm_segmentation[index]);
                 volume->fuzzy_skin_facets.set_triangle_from_string(i, geometry.fuzzy_skin[index]);
+                volume->brim_facets.set_triangle_from_string(i, geometry.custom_brim[index]);
             }
             volume->supported_facets.shrink_to_fit();
             volume->seam_facets.shrink_to_fit();
             volume->mm_segmentation_facets.shrink_to_fit();
             volume->fuzzy_skin_facets.shrink_to_fit();
+            volume->brim_facets.shrink_to_fit();
 
             if (auto &es = volume_data.shape_configuration; es.has_value())
                 volume->emboss_shape = std::move(es);            
@@ -3383,6 +3391,15 @@ namespace Slic3r {
                     output_buffer += FUZZY_SKIN_ATTR;
                     output_buffer += "=\"";
                     output_buffer += fuzzy_skin_data_string;
+                    output_buffer += "\"";
+                }
+
+                std::string brim_data_string = volume->brim_facets.get_triangle_as_string(i);
+                if (! brim_data_string.empty()) {
+                    output_buffer += " ";
+                    output_buffer += CUSTOM_BRIM_ATTR;
+                    output_buffer += "=\"";
+                    output_buffer += brim_data_string;
                     output_buffer += "\"";
                 }
 
