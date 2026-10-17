@@ -23,6 +23,7 @@
 
 #include <string>
 #include <map>
+#include <functional>
 
 #include "GUI_Utils.hpp"
 #include "Event.hpp"
@@ -221,6 +222,8 @@ public:
     bool save_project_as(const wxString& filename = wxString());
 
     void        add_to_recent_projects(const wxString& filename);
+    // Removes the entries for which is_replaced(UTF-8 path) is true, then adds filename.
+    void        replace_in_recent_projects(const wxString& filename, const std::function<bool(const std::string&)>& is_replaced);
     void        technology_changed();
 
     void    on_account_login(const std::string& token);

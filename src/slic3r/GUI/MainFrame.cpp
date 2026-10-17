@@ -2302,6 +2302,15 @@ void MainFrame::add_to_recent_projects(const wxString& filename)
     }
 }
 
+void MainFrame::replace_in_recent_projects(const wxString& filename, const std::function<bool(const std::string&)>& is_replaced)
+{
+    for (size_t i = m_recent_projects.GetCount(); i > 0; -- i)
+        if (is_replaced(into_u8(m_recent_projects.GetHistoryFile(i - 1))))
+            m_recent_projects.RemoveFileFromHistory(i - 1);
+    // Also stores the list in the app config.
+    add_to_recent_projects(filename);
+}
+
 void MainFrame::technology_changed()
 {
     PrinterTechnology pt = plater()->printer_technology();

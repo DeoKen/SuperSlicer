@@ -15,6 +15,7 @@
 #include "format.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include <wx/notebook.h>
+#include <wx/dirdlg.h>
 #include "Notebook.hpp"
 #include "ButtonsDescription.hpp"
 #include "OG_CustomCtrl.hpp"
@@ -147,6 +148,8 @@ void PreferencesDialog::show(const std::string& highlight_opt_key /*= std::strin
 			m_optgroup_general->set_value(opt_key, app_config->get(opt_key) == "none");
 		m_optgroup_general->set_value("default_action_on_dirty_project", app_config->get("default_action_on_dirty_project").empty());
 		m_optgroup_gui->set_value("seq_top_layer_only", app_config->get_bool("seq_top_layer_only"));
+		m_optgroup_general->set_value("export_project_copy", app_config->get_bool("export_project_copy"));
+		m_optgroup_general->set_value("export_project_copy_dir", from_u8(app_config->get("export_project_copy_dir")));
 
 		// update colors for color pickers of the labels
 		update_color(m_sys_colour, wxGetApp().get_label_clr_sys());
@@ -282,6 +285,10 @@ void PreferencesDialog::build()
 	// Add "General" tab
 	m_optgroup_general = create_options_tab(L("General"), tabs);
 	m_optgroup_general->on_change = [this](t_config_option_key opt_key, boost::any value) {
+		if (opt_key == "export_project_copy_dir") {
+			m_values[opt_key] = boost::any_cast<std::string>(value);
+			return;
+		}
 		if (auto it = m_values.find(opt_key); it != m_values.end()) {
 			m_values.erase(it); // we shouldn't change value, if some of those parameters were selected, and then deselected
 			return;
@@ -323,6 +330,41 @@ void PreferencesDialog::build()
 			L("Export sources full pathnames to 3mf and amf"),
 			L("If enabled, allows the Reload from disk command to automatically find and load the files when invoked."),
 			app_config->get_bool("export_sources_full_pathnames"));
+
+		append_bool_option(m_optgroup_general, "export_project_copy",
+			L("Save a project copy at every G-code export"),
+			L("If enabled, every G-code export and every upload to a printer also saves the project (3mf) into the "
+			  "project copies folder, named as the G-code file plus the date and time. The newest copy is shown in "
+			  "Recent projects. Only the 10 newest copies are kept."),
+			app_config->get_bool("export_project_copy"));
+		{
+			const std::string opt_key = "export_project_copy_dir";
+			ConfigOptionDef def = { opt_key, coString };
+			def.label = L("Project copies folder");
+			def.tooltip = L("Folder for the project copies. Empty = \"exported_projects\" in the configuration folder. "
+							"Older copies are deleted when there are more than 10; only files named as the copies "
+							"(<name>_YYYY-MM-DD_HH-MM-SS.3mf) are ever deleted.");
+			def.width = 40;
+			def.set_default_value(new ConfigOptionString{ app_config->get(opt_key) });
+			Line line = m_optgroup_general->create_single_option_line(Option(def, opt_key));
+			line.append_widget([this, opt_key](wxWindow* parent) {
+				auto btn = new wxButton(parent, wxID_ANY, _L("Browse") + dots, wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+				wxGetApp().UpdateDarkUI(btn);
+				btn->Bind(wxEVT_BUTTON, [this, opt_key](wxCommandEvent&) {
+					wxDirDialog dlg(this, _L("Choose the folder for the project copies:"),
+						from_u8(boost::any_cast<std::string>(m_optgroup_general->get_value(opt_key))));
+					if (dlg.ShowModal() != wxID_OK)
+						return;
+					m_optgroup_general->set_value(opt_key, dlg.GetPath());
+					m_values[opt_key] = into_u8(dlg.GetPath());
+				});
+				auto sizer = new wxBoxSizer(wxHORIZONTAL);
+				sizer->Add(btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 5);
+				return sizer;
+			});
+			m_optgroup_general->append_line(line);
+			wxGetApp().searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, m_optgroup_general->config_category(), L("Preferences"));
+		}
 
 #ifdef _WIN32
 		// Please keep in sync with ConfigWizard
@@ -858,6 +900,10 @@ void PreferencesDialog::revert(wxEvent&)
 		}
 		if (key == "default_action_on_close_application" || key == "default_action_on_select_preset" || key == "default_action_on_new_project") {
 			m_optgroup_general->set_value(key, app_config->get(key) == "none");
+			continue;
+		}
+		if (key == "export_project_copy_dir") {
+			m_optgroup_general->set_value(key, from_u8(app_config->get(key)));
 			continue;
 		}
 		if (key == "notify_release") {

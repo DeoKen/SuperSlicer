@@ -345,8 +345,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
         toggle_field(el, have_skirt);
 
     bool have_brim = config->opt_enum<BrimType>("brim_type") != btNoBrim;
-    for (auto el : { "brim_width", "brim_separation", "brim_per_object" })
-        toggle_field(el, have_brim);
+    // brim_width, brim_separation and brim_per_object stay editable with "No brim": the paint-on brim uses them.
     // Brim ears: outer brim only.
     const bool have_outer_brim = have_brim && config->opt_enum<BrimType>("brim_type") != btInnerOnly;
     toggle_field("brim_ears", have_outer_brim);

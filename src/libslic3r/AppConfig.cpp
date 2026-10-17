@@ -91,6 +91,8 @@ void AppConfig::set_defaults()
 
         if (get("export_sources_full_pathnames").empty())
             set("export_sources_full_pathnames", "0");
+        if (get("export_project_copy").empty())
+            set("export_project_copy", "1");
 
 #ifdef _WIN32
         if (get("associate_3mf").empty())
