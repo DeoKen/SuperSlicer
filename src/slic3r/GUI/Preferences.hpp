@@ -68,6 +68,7 @@ class PreferencesDialog : public DPIDialog
 	wxColourPickerCtrl*					m_mode_expert    { nullptr };
 
 	DownloaderUtils::Worker*			downloader { nullptr };
+	wxTextCtrl*						m_export_project_copy_dir { nullptr };
 
 	wxBookCtrlBase*						tabs {nullptr};
 
@@ -106,6 +107,7 @@ protected:
     void create_settings_mode_color_widget();
     void create_settings_font_widget();
     void create_downloader_path_sizer();
+    void create_export_project_copy_dir_sizer();
 	void init_highlighter(const t_config_option_key& opt_key);
 	std::vector<ConfigOptionsGroup*> optgroups();
 
