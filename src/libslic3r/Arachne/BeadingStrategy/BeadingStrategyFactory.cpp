@@ -28,7 +28,8 @@ BeadingStrategyPtr BeadingStrategyFactory::makeStrategy(const coord_t preferred_
                                                         const coord_t max_bead_count,
                                                         const coord_t outer_wall_offset,
                                                         const int     inward_distributed_center_wall_count,
-                                                        const double  minimum_variable_line_ratio)
+                                                        const double  minimum_variable_line_ratio,
+                                                        const bool    split_at_limit_transition)
 {
     // Handle a special case when there is just one external perimeter.
     // Because big differences in bead width for inner and other perimeters cause issues with current beading strategies.
@@ -52,7 +53,7 @@ BeadingStrategyPtr BeadingStrategyFactory::makeStrategy(const coord_t preferred_
 
     // Apply the LimitedBeadingStrategy last, since that adds a 0-width marker wall which other beading strategies shouldn't touch.
     BOOST_LOG_TRIVIAL(trace) << "Applying the Limited Beading meta-strategy with maximum bead count = " << max_bead_count << ".";
-    ret = std::make_unique<LimitedBeadingStrategy>(max_bead_count, std::move(ret));
+    ret = std::make_unique<LimitedBeadingStrategy>(max_bead_count, std::move(ret), split_at_limit_transition);
     return ret;
 }
 } // namespace Slic3r::Arachne

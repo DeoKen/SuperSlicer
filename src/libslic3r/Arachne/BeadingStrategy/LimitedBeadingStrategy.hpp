@@ -25,11 +25,19 @@ namespace Slic3r::Arachne
  * Other structures can then use this border to align their structures to, such
  * as to create correctly overlapping infill or skin, or to align the infill
  * pattern to any extra infill walls.
+ *
+ * With split_at_parent_transition, the walled area already ends where the parent
+ * strategy would add bead max_bead_count + 1, instead of just below the optimal
+ * thickness of max_bead_count + 1 beads. The max_bead_count beads then keep their
+ * optimal width there and the rest is left to the inner contour. This is for
+ * callers that generate more walls inside the inner contour in a separate pass
+ * (one perimeter on top surfaces), so the outer beads are not widened to cover
+ * what the next pass would print.
  */
 class LimitedBeadingStrategy : public BeadingStrategy
 {
 public:
-    LimitedBeadingStrategy(coord_t max_bead_count, BeadingStrategyPtr parent);
+    LimitedBeadingStrategy(coord_t max_bead_count, BeadingStrategyPtr parent, bool split_at_parent_transition = false);
     
     ~LimitedBeadingStrategy() override = default;
     
@@ -46,6 +54,7 @@ public:
 protected:
     const coord_t max_bead_count;
     const BeadingStrategyPtr parent;
+    const bool split_at_parent_transition;
 };
 
 } // namespace Slic3r::Arachne

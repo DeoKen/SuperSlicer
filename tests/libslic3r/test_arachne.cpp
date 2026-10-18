@@ -901,3 +901,44 @@ TEST_CASE("Arachne - SPE-2496 - Negative extrusion width", "[Arachne_Negative_Ex
 
     REQUIRE(!has_negative_extrusion_width);
 }
+
+// One perimeter on top surfaces: the first pass generates only the outer wall and the inner walls come in a second pass.
+// A wall a bit too thin for three lines must keep two normal outer lines and leave the middle to the inner contour,
+// instead of getting two widened outer lines that leave nothing for the second pass.
+TEST_CASE("Arachne - outer walls with more walls inside", "[ArachneMoreWallsInside]") {
+    // 1.04 mm wide, 20 mm long: three lines of 0.357 mm spacing would be added (85 % min bead width) but don't fit at full width.
+    const Polygons polygons = { Polygon{ Point::new_scale(-0.52, -10.), Point::new_scale(0.52, -10.), Point::new_scale(0.52, 10.), Point::new_scale(-0.52, 10.) } };
+    const coord_t  spacing  = scaled<coord_t>(0.357);
+
+    // Widest line where the lines cross the middle of the wall (y = 0).
+    auto max_width_in_middle = [](const std::vector<Arachne::VariableWidthLines> &perimeters) {
+        double max_width = 0.;
+        for (const Arachne::VariableWidthLines &perimeter : perimeters)
+            for (const Arachne::ExtrusionLine &extrusion_line : perimeter)
+                for (size_t idx = 1; idx < extrusion_line.size(); ++idx) {
+                    const Arachne::ExtrusionJunction &a = extrusion_line[idx - 1];
+                    const Arachne::ExtrusionJunction &b = extrusion_line[idx];
+                    if ((a.p.y() < 0) != (b.p.y() < 0)) {
+                        const double t = double(-a.p.y()) / double(b.p.y() - a.p.y());
+                        max_width = std::max(max_width, double(a.w) + t * double(b.w - a.w));
+                    }
+                }
+        return coord_t(max_width);
+    };
+
+    SECTION("Without: two widened lines, no inner contour") {
+        Arachne::WallToolPaths wall_tool_paths(polygons, spacing, spacing, 1, 0, 0.2, PrintObjectConfig::defaults(), PrintConfig::defaults());
+        const std::vector<Arachne::VariableWidthLines> perimeters = wall_tool_paths.generate();
+        CHECK(max_width_in_middle(perimeters) > scaled<coord_t>(0.5));
+        CHECK(area(wall_tool_paths.getInnerContour()) < scaled<double>(0.1) * scaled<double>(1.));
+    }
+
+    SECTION("With: two normal lines, middle left to the inner contour") {
+        Arachne::WallToolPaths wall_tool_paths(polygons, spacing, spacing, 1, 0, 0.2, PrintObjectConfig::defaults(), PrintConfig::defaults(), true);
+        const std::vector<Arachne::VariableWidthLines> perimeters = wall_tool_paths.generate();
+        CHECK(max_width_in_middle(perimeters) > scaled<coord_t>(0.3));
+        CHECK(max_width_in_middle(perimeters) < scaled<coord_t>(0.36));
+        // The middle strip is 1.04 - 2 * 0.357 = 0.326 mm wide; at least 0.3 x 15 mm of it must be inner contour.
+        CHECK(area(wall_tool_paths.getInnerContour()) > scaled<double>(0.3) * scaled<double>(15.));
+    }
+}

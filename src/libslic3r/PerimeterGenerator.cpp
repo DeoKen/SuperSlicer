@@ -1038,7 +1038,9 @@ void PerimeterGenerator::process_arachne(
 
     ExPolygons last   = offset_ex(surface.expolygon.simplify_p(params.scaled_resolution), - float(ext_perimeter_width / 2. - ext_perimeter_spacing / 2.));
     Polygons   last_p = to_polygons(last);
-    Arachne::WallToolPaths wall_tool_paths(last_p, ext_perimeter_spacing, perimeter_spacing, coord_t(loop_number + 1), 0, params.layer_height, params.object_config, params.print_config);
+    // With inner walls still to come, a wall a bit too thin for three lines must not get two widened outer lines
+    // that leave nothing for the inner pass: it gets two normal outer lines and the inner pass adds the middle one.
+    Arachne::WallToolPaths wall_tool_paths(last_p, ext_perimeter_spacing, perimeter_spacing, coord_t(loop_number + 1), 0, params.layer_height, params.object_config, params.print_config, inner_loop_number >= 0);
     Arachne::Perimeters    perimeters     = wall_tool_paths.getToolPaths();
     ExPolygons             infill_contour = union_ex(wall_tool_paths.getInnerContour());
 

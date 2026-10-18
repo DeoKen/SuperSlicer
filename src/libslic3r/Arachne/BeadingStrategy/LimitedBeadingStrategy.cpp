@@ -28,10 +28,11 @@ float LimitedBeadingStrategy::getTransitionAnchorPos(coord_t lower_bead_count) c
     return parent->getTransitionAnchorPos(lower_bead_count);
 }
 
-LimitedBeadingStrategy::LimitedBeadingStrategy(const coord_t max_bead_count, BeadingStrategyPtr parent)
+LimitedBeadingStrategy::LimitedBeadingStrategy(const coord_t max_bead_count, BeadingStrategyPtr parent, const bool split_at_parent_transition)
     : BeadingStrategy(*parent)
     , max_bead_count(max_bead_count)
     , parent(std::move(parent))
+    , split_at_parent_transition(split_at_parent_transition)
 {
     if (max_bead_count % 2 == 1)
     {
@@ -105,6 +106,9 @@ coord_t LimitedBeadingStrategy::getTransitionThickness(coord_t lower_bead_count)
     if (lower_bead_count < max_bead_count)
         return parent->getTransitionThickness(lower_bead_count);
 
+    if (lower_bead_count == max_bead_count && split_at_parent_transition)
+        return parent->getTransitionThickness(lower_bead_count);
+
     if (lower_bead_count == max_bead_count)
         return parent->getOptimalThickness(lower_bead_count + 1) - scaled<coord_t>(0.01);
 
@@ -118,6 +122,8 @@ coord_t LimitedBeadingStrategy::getOptimalBeadCount(coord_t thickness) const
     if (parent_bead_count <= max_bead_count) {
         return parent->getOptimalBeadCount(thickness);
     } else if (parent_bead_count == max_bead_count + 1) {
+        if (split_at_parent_transition)
+            return max_bead_count + 1;
         if (thickness < parent->getOptimalThickness(max_bead_count + 1) - scaled<coord_t>(0.01))
             return max_bead_count;
         else 

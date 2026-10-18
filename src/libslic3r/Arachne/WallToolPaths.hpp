@@ -40,8 +40,11 @@ public:
      * \param bead_width_x The bead width of the inner walls used in the generation of the toolpaths
      * \param inset_count The maximum number of parallel extrusion lines that make up the wall
      * \param wall_0_inset How far to inset the outer wall, to make it adhere better to other walls.
+     * \param more_walls_inside The caller generates more walls inside the inner contour in a separate pass: where the
+     * inset_count walls can't fill the wall but one more wall would be added, leave the rest to the inner contour
+     * instead of widening the inset_count walls (see LimitedBeadingStrategy).
      */
-    WallToolPaths(const Polygons& outline, coord_t bead_width_0, coord_t bead_width_x, size_t inset_count, coord_t wall_0_inset, coordf_t layer_height, const PrintObjectConfig &print_object_config, const PrintConfig &print_config);
+    WallToolPaths(const Polygons& outline, coord_t bead_width_0, coord_t bead_width_x, size_t inset_count, coord_t wall_0_inset, coordf_t layer_height, const PrintObjectConfig &print_object_config, const PrintConfig &print_config, bool more_walls_inside = false);
 
     /*!
      * Generates the Toolpaths
@@ -111,6 +114,7 @@ private:
     coord_t bead_width_0; //<! The nominal or first extrusion line width with which libArachne generates its walls
     coord_t bead_width_x; //<! The subsequently extrusion line width with which libArachne generates its walls if WallToolPaths was called with the nominal_bead_width Constructor this is the same as bead_width_0
     size_t inset_count; //<! The maximum number of walls to generate
+    bool more_walls_inside; //<! More walls are generated inside the inner contour in a separate pass
     coord_t wall_0_inset; //<! How far to inset the outer wall. Should only be applied when printing the actual walls, not extra infill/skin/support walls.
     coordf_t layer_height;
     bool print_thin_walls; //<! Whether to enable the widening beading meta-strategy for thin features

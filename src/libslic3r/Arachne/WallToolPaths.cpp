@@ -32,11 +32,12 @@ namespace Slic3r::Arachne
 
 WallToolPaths::WallToolPaths(const Polygons& outline, const coord_t bead_width_0, const coord_t bead_width_x,
                              const size_t inset_count, const coord_t wall_0_inset, const coordf_t layer_height,
-                             const PrintObjectConfig &print_object_config, const PrintConfig &print_config)
+                             const PrintObjectConfig &print_object_config, const PrintConfig &print_config, const bool more_walls_inside)
     : outline(outline)
     , bead_width_0(bead_width_0)
     , bead_width_x(bead_width_x)
     , inset_count(inset_count)
+    , more_walls_inside(more_walls_inside)
     , wall_0_inset(wall_0_inset)
     , layer_height(layer_height)
     , print_thin_walls(Slic3r::Arachne::fill_outline_gaps)
@@ -510,7 +511,9 @@ const std::vector<VariableWidthLines> &WallToolPaths::generate()
             wall_add_middle_threshold,
             max_bead_count,
             wall_0_inset,
-            wall_distribution_count
+            wall_distribution_count,
+            0.5,
+            more_walls_inside
         );
     const coord_t transition_filter_dist   = scaled<coord_t>(100.f);
     const coord_t allowed_filter_deviation = wall_transition_filter_deviation;

@@ -11,6 +11,8 @@ General rules followed by every feature:
   type name, differ; with the Klipper flavor also the estimated times, see section 15). This is checked by the golden test, see [Testing](#testing).
   **One exception:** `internal_bridge_shortest_span` (section 20) is on by default (user's choice), so internal bridges
   over sparse infill can take a different direction than stock. Turn it off for stock output; the golden test does.
+  Also different from stock, as a fix and not a setting: Arachne with "Single perimeter on top surfaces" = "All top
+  surfaces" (section 26). That option is off by default, so the golden test is unaffected.
 - Settings marked "per filament" live in the filament preset, "printer" in the printer preset, all others in the
   print preset. Most are visible in **Expert** mode only.
 
@@ -41,6 +43,7 @@ Contents:
 23. [Paint-on brim](#23-paint-on-brim)
 24. [App name: SuperPSlicer](#24-app-name-superpslicer)
 25. [Project copy at every G-code export](#25-project-copy-at-every-g-code-export)
+26. [Arachne fix: thin walls with single perimeter on all top surfaces](#26-arachne-fix-thin-walls-with-single-perimeter-on-all-top-surfaces)
 25. [Testing](#testing)
 
 ---
@@ -855,6 +858,38 @@ before adding the new one. No change to slicing or G-code (golden test unchanged
 bar still shows the open project (with its `*` if modified). Export 11 times: 10 copies left, the oldest deleted, a
 non-matching 3mf in the folder kept. Send to printer: a copy named after the upload file name. Set the folder to a
 read-only path: warning notification, G-code still exported. Turn the option off: no copy.
+
+---
+
+## 26. Arachne fix: thin walls with single perimeter on all top surfaces
+
+**What it fixes.** With the Arachne perimeter generator and "Single perimeter on top surfaces"
+(`top_one_perimeter_type`) = "All top surfaces", walls a little too thin for three lines (about 1.0-1.1 mm with a
+0.4 mm nozzle at default Arachne settings) got two widened outer lines (up to about 0.55 mm instead of 0.40 mm) on
+every layer that had a top surface anywhere on that island. The widened outer lines show as shiny/rough patches on the
+side of the part. With "Disabled" or "Topmost surface only" the same walls got two normal outer lines and a thin middle
+line, as stock. No setting: the fix is always on.
+
+**Cause (stock PrusaSlicer 2.9.6).** For "All top surfaces", `PerimeterGenerator::process_arachne()` runs Arachne twice:
+first for the outer wall only (one inset = at most 2 lines across a wall), then for the inner walls on the non-top part
+of what is left inside. Arachne's `LimitedBeadingStrategy` caps the line count at 2 there, and between the point where
+a third line would be added and the thickness of three full lines it widens the two lines to fill the whole wall. Nothing
+is left for the inner pass, so the middle line is never added.
+
+**How it works.** `LimitedBeadingStrategy` has a new `split_at_parent_transition` mode (constructor argument, default
+off): the walled area ends already where the wrapped strategy would add the extra line, the capped lines keep their
+optimal width and the rest goes to the inner contour, as it already did for thicker walls. It is passed through
+`BeadingStrategyFactory::makeStrategy()` and a new `WallToolPaths` constructor argument `more_walls_inside`, which
+`process_arachne()` sets for the first pass only when inner walls follow (`inner_loop_number >= 0`). The inner pass then
+adds the middle line (on top surfaces the strip goes to top solid infill). Everything else (one perimeter only, "Topmost
+surface only", first layer, classic generator, ensuring infill) is unchanged.
+
+**How to test.** Unit test `[ArachneMoreWallsInside]` (test_arachne.cpp): a 1.04 mm wall with one inset gets 0.52 mm
+lines and no inner contour without the mode, 0.357 mm lines and a 0.33 mm inner contour strip with it. Manual: a part
+with ~1.06 mm walls and top surfaces, Arachne, "All top surfaces": in the G-code viewer (Width view) the outer wall of
+those walls is 0.40 mm with a thin perimeter between, as with "Topmost surface only". Checked on a real part
+(2026-10-18): wide outer wall (>0.43 mm) 4.56 m before, 3.11 m after (3.12 m with "Topmost surface only"); per-layer
+extruded area within 0.07 % of before on every layer (no new gaps).
 
 ---
 
