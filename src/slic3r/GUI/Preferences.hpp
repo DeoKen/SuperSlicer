@@ -69,6 +69,7 @@ class PreferencesDialog : public DPIDialog
 
 	DownloaderUtils::Worker*			downloader { nullptr };
 	wxTextCtrl*						m_export_project_copy_dir { nullptr };
+	wxTextCtrl*						m_export_project_autosave_dir { nullptr };
 
 	wxBookCtrlBase*						tabs {nullptr};
 
@@ -107,7 +108,8 @@ protected:
     void create_settings_mode_color_widget();
     void create_settings_font_widget();
     void create_downloader_path_sizer();
-    void create_export_project_copy_dir_sizer();
+    wxTextCtrl* create_dir_sizer(const std::string &opt_key, const wxString &title, const wxString &tooltip, const wxString &dialog_title);
+    void toggle_export_project_options();
 	void init_highlighter(const t_config_option_key& opt_key);
 	std::vector<ConfigOptionsGroup*> optgroups();
 

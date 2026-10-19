@@ -831,11 +831,17 @@ file and "Single instance" on in Preferences: the file opens in the running wind
 
 **What it does.** Every Export G-code, Export all beds, Send to printer (print host) and Send to Prusa Connect also
 saves the project as a 3mf into a local folder, so the exact objects and settings of every printed file can be
-reopened later. The copy is named as the G-code file plus the date and time,
-`<G-code name>_YYYY-MM-DD_HH-MM-SS.3mf` (for an upload, the file name entered in the send dialog). Export all beds /
-send all to Connect save one copy per export, named after the first bed's file. The newest copy is shown in
-File > Recent projects (only the newest, so the copies don't push your own projects out of the 9-entry list). Only
-the 10 newest copies are kept.
+reopened later. Two kinds of copy, each with its own check box and folder, both can be on:
+
+- **Backup** (on by default): named as the G-code file plus the date and time, `<G-code name>_YYYY-MM-DD_HH-MM-SS.3mf`.
+  Only the newest backups are kept (10 by default).
+- **Autosave** (off by default): named as the G-code file, `<G-code name>.3mf`, replacing the previous autosave with
+  that name. Never deleted. Saved only once its folder is set; while the folder is empty, each export shows a warning
+  notification instead.
+
+For an upload the name is the file name entered in the send dialog. Export all beds / send all to Connect save one
+copy per export, named after the first bed's file. The newest backup and the newest autosave are shown in
+File > Recent projects (only the newest of each, so the copies don't push your own projects out of the 9-entry list).
 
 The copy is a background save: the open project keeps its name and its modified state, File > Save still writes your
 own project file. SVG shapes added since the last real save are not stored in the copy (the copy skips the
@@ -844,23 +850,33 @@ says so and the G-code is exported anyway.
 
 **Settings** (Preferences > General, app settings, not in any profile):
 
-- `export_project_copy` "Save a project copy at every G-code export": on by default.
-- `export_project_copy_dir` "Project copies folder" (with a Browse button): empty = `exported_projects` in the
+- `export_project_copy` "Save a project backup at every G-code export": on by default.
+- `export_project_copy_keep` "Project backups kept": 10 by default (1-1000).
+- `export_project_autosave` "Autosave the project at every G-code export": off by default.
+- `export_project_copy_dir` "Project backups folder" (with a Browse button): empty = `exported_projects` in the
   configuration folder (`%APPDATA%\PrusaSlicer\exported_projects` on Windows).
+- `export_project_autosave_dir` "Project autosave folder" (with a Browse button): no default, must be set.
 
-Older copies are deleted when there are more than 10, newest by the time stamp in the name; only files matching the
-copy name pattern are ever deleted, so other 3mf files in a chosen folder are safe.
+The count and each folder row are greyed out while their check box is off. Older backups are deleted when there are
+more than "Project backups kept", newest by the time stamp in the name; only files matching the backup name pattern
+are ever deleted, so other 3mf files in a chosen folder (autosaves included) are safe. In Recent projects any other
+3mf in the autosave folder counts as an autosave, so your own projects stored there leave the list when an autosave
+is added (the files are not touched).
 
 **How it works.** `Plater::priv::save_export_project_copy()` (Plater.cpp), called from `Plater::priv::export_gcode()`
 (single export and print host upload) and from `export_all_gcodes()` / `connect_gcode_all()`, before the export is
 scheduled. It writes the model and `full_config_secure()` with `store_3mf()` and a thumbnail, as `export_3mf()` does,
-without `set_project_filename()`. `MainFrame::replace_in_recent_projects()` drops older copies from the recent list
-before adding the new one. No change to slicing or G-code (golden test unchanged).
+without `set_project_filename()`; one thumbnail for both copies. `MainFrame::replace_in_recent_projects()` drops the
+older backup / autosave from the recent list before adding the new one. No change to slicing or G-code (golden test
+unchanged).
 
 **How to test.** Export G-code: a `<name>_<date>_<time>.3mf` appears in the folder, Recent projects shows it, the title
 bar still shows the open project (with its `*` if modified). Export 11 times: 10 copies left, the oldest deleted, a
-non-matching 3mf in the folder kept. Send to printer: a copy named after the upload file name. Set the folder to a
-read-only path: warning notification, G-code still exported. Turn the option off: no copy.
+non-matching 3mf in the folder kept. Set "Project backups kept" to 3 and export: 3 left. Turn on autosave without a
+folder: warning notification, the backup is still saved. Set the autosave folder and export twice with the same name:
+one `<name>.3mf` with the newer date; Recent projects shows it and the newest backup. Send to printer: copies named
+after the upload file name. Set a folder to a read-only path: warning notification, G-code still exported. Turn both
+check boxes off: no copy.
 
 ---
 

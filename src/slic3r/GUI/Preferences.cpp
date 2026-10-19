@@ -107,6 +107,11 @@ static void update_color(wxColourPickerCtrl* color_pckr, const wxColour& color)
 	}
 }
 
+static int export_project_copies_kept(const AppConfig &app_config)
+{
+	return std::max(1, atoi(app_config.get("export_project_copy_keep").c_str()));
+}
+
 void PreferencesDialog::show(const std::string& highlight_opt_key /*= std::string()*/, const std::string& tab_name/*= std::string()*/)
 {
 	int selected_tab = 0;
@@ -149,7 +154,11 @@ void PreferencesDialog::show(const std::string& highlight_opt_key /*= std::strin
 		m_optgroup_general->set_value("default_action_on_dirty_project", app_config->get("default_action_on_dirty_project").empty());
 		m_optgroup_gui->set_value("seq_top_layer_only", app_config->get_bool("seq_top_layer_only"));
 		m_optgroup_general->set_value("export_project_copy", app_config->get_bool("export_project_copy"));
+		m_optgroup_general->set_value("export_project_copy_keep", export_project_copies_kept(*app_config));
+		m_optgroup_general->set_value("export_project_autosave", app_config->get_bool("export_project_autosave"));
 		m_export_project_copy_dir->ChangeValue(from_u8(app_config->get("export_project_copy_dir")));
+		m_export_project_autosave_dir->ChangeValue(from_u8(app_config->get("export_project_autosave_dir")));
+		toggle_export_project_options();
 
 		// update colors for color pickers of the labels
 		update_color(m_sys_colour, wxGetApp().get_label_clr_sys());
@@ -224,6 +233,29 @@ static void append_bool_option( std::shared_ptr<ConfigOptionsGroup> optgroup,
 	wxGetApp().searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
 }
 
+static void append_int_option(  std::shared_ptr<ConfigOptionsGroup> optgroup,
+								const std::string& opt_key,
+								const std::string& label,
+								const std::string& tooltip,
+								int def_val,
+								int min_val,
+								int max_val,
+								ConfigOptionMode mode = comSimple)
+{
+	ConfigOptionDef def = {opt_key, coInt};
+	def.label = label;
+	def.tooltip = tooltip;
+	def.mode = mode;
+	def.min = min_val;
+	def.max = max_val;
+	def.set_default_value(new ConfigOptionInt{ def_val });
+	Option option(def, opt_key);
+	optgroup->append_single_option_line(option);
+
+	// fill data to the Search Dialog
+	wxGetApp().searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
+}
+
 template<typename EnumType>
 static void append_enum_option( std::shared_ptr<ConfigOptionsGroup> optgroup,
 								const std::string& opt_key,
@@ -285,6 +317,12 @@ void PreferencesDialog::build()
 	// Add "General" tab
 	m_optgroup_general = create_options_tab(L("General"), tabs);
 	m_optgroup_general->on_change = [this](t_config_option_key opt_key, boost::any value) {
+		if (opt_key == "export_project_copy" || opt_key == "export_project_autosave")
+			toggle_export_project_options();
+		if (opt_key == "export_project_copy_keep") {
+			m_values[opt_key] = std::to_string(boost::any_cast<int>(value));
+			return;
+		}
 		if (auto it = m_values.find(opt_key); it != m_values.end()) {
 			m_values.erase(it); // we shouldn't change value, if some of those parameters were selected, and then deselected
 			return;
@@ -459,18 +497,40 @@ void PreferencesDialog::build()
 		app_config->get_bool("use_legacy_3DConnexion"));
 #endif // _WIN32 || __APPLE__
 
-	if (is_editor)
+	if (is_editor) {
 		append_bool_option(m_optgroup_general, "export_project_copy",
-			L("Save a project copy at every G-code export"),
+			L("Save a project backup at every G-code export"),
 			L("If enabled, every G-code export and every upload to a printer also saves the project (3mf) into the "
-			  "project copies folder, named as the G-code file plus the date and time. The newest copy is shown in "
-			  "Recent projects. Only the 10 newest copies are kept."),
+			  "project backups folder, named as the G-code file plus the date and time. The newest backup is shown in "
+			  "Recent projects. Only the newest backups are kept (\"Project backups kept\")."),
 			app_config->get_bool("export_project_copy"));
+
+		append_int_option(m_optgroup_general, "export_project_copy_keep",
+			L("Project backups kept"),
+			L("Number of newest project backups kept; older ones are deleted at every export. Only files named as the "
+			  "backups (<name>_YYYY-MM-DD_HH-MM-SS.3mf) are ever deleted."),
+			export_project_copies_kept(*app_config), 1, 1000);
+
+		append_bool_option(m_optgroup_general, "export_project_autosave",
+			L("Autosave the project at every G-code export"),
+			L("If enabled, every G-code export and every upload to a printer also saves the project (3mf) into the "
+			  "project autosave folder, named as the G-code file (<name>.3mf), replacing the previous file with the same "
+			  "name. Nothing is ever deleted. Nothing is saved until a folder is set. The newest autosave is shown in "
+			  "Recent projects."),
+			app_config->get_bool("export_project_autosave"));
+	}
 
 	activate_options_tab(m_optgroup_general);
 
-	if (is_editor)
-		create_export_project_copy_dir_sizer();
+	if (is_editor) {
+		m_export_project_copy_dir = create_dir_sizer("export_project_copy_dir", _L("Project backups folder"),
+			_L("Folder for the project backups. Empty = \"exported_projects\" in the configuration folder."),
+			_L("Choose the folder for the project backups:"));
+		m_export_project_autosave_dir = create_dir_sizer("export_project_autosave_dir", _L("Project autosave folder"),
+			_L("Folder for the autosaved projects. Must be set: nothing is autosaved while it is empty."),
+			_L("Choose the folder for the autosaved projects:"));
+		toggle_export_project_options();
+	}
 
 	// Add "Camera" tab
 	m_optgroup_camera = create_options_tab(L("Camera"), tabs);
@@ -878,6 +938,14 @@ void PreferencesDialog::revert(wxEvent&)
 			m_export_project_copy_dir->ChangeValue(from_u8(app_config->get(key)));
 			continue;
 		}
+		if (key == "export_project_autosave_dir") {
+			m_export_project_autosave_dir->ChangeValue(from_u8(app_config->get(key)));
+			continue;
+		}
+		if (key == "export_project_copy_keep") {
+			m_optgroup_general->set_value(key, export_project_copies_kept(*app_config));
+			continue;
+		}
 		if (key == "notify_release") {
 			m_optgroup_gui->set_value(key, s_keys_map_NotifyReleaseMode.at(app_config->get(key)));
 			continue;
@@ -1198,45 +1266,63 @@ void PreferencesDialog::create_downloader_path_sizer()
 }
 
 // Like the download path: a row of its own below the General options (a Line's extra widget
-// is not supported in the option groups of the Preferences pages).
-void PreferencesDialog::create_export_project_copy_dir_sizer()
+// is not supported in the option groups of the Preferences pages). Returns the text field.
+wxTextCtrl* PreferencesDialog::create_dir_sizer(const std::string &opt_key, const wxString &title, const wxString &tooltip, const wxString &dialog_title)
 {
 	wxWindow* parent = m_optgroup_general->parent();
 
-	const wxString    title   = _L("Project copies folder");
-	const std::string opt_key = "export_project_copy_dir";
-	const wxString    tooltip = _L("Folder for the project copies. Empty = \"exported_projects\" in the configuration folder. "
-								   "Older copies are deleted when there are more than 10; only files named as the copies "
-								   "(<name>_YYYY-MM-DD_HH-MM-SS.3mf) are ever deleted.");
 	m_blinkers[opt_key] = new BlinkingBitmap(parent);
 
 	auto label = new wxStaticText(parent, wxID_ANY, title + ":");
 	label->SetToolTip(tooltip);
-	m_export_project_copy_dir = new wxTextCtrl(parent, wxID_ANY, from_u8(get_app_config()->get(opt_key)),
+	wxTextCtrl* dir = new wxTextCtrl(parent, wxID_ANY, from_u8(get_app_config()->get(opt_key)),
 		wxDefaultPosition, wxSize(40 * em_unit(), -1));
-	m_export_project_copy_dir->SetToolTip(tooltip);
-	wxGetApp().UpdateDarkUI(m_export_project_copy_dir);
-	m_export_project_copy_dir->Bind(wxEVT_TEXT, [this, opt_key](wxCommandEvent&) {
-		m_values[opt_key] = into_u8(m_export_project_copy_dir->GetValue());
+	dir->SetToolTip(tooltip);
+	wxGetApp().UpdateDarkUI(dir);
+	dir->Bind(wxEVT_TEXT, [this, opt_key, dir](wxCommandEvent&) {
+		m_values[opt_key] = into_u8(dir->GetValue());
 	});
 
 	auto btn = new wxButton(parent, wxID_ANY, _L("Browse") + dots, wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 	wxGetApp().UpdateDarkUI(btn);
-	btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-		wxDirDialog dlg(this, _L("Choose the folder for the project copies:"), m_export_project_copy_dir->GetValue());
+	btn->Bind(wxEVT_BUTTON, [this, dir, dialog_title](wxCommandEvent&) {
+		wxDirDialog dlg(this, dialog_title, dir->GetValue());
 		if (dlg.ShowModal() == wxID_OK)
-			m_export_project_copy_dir->SetValue(dlg.GetPath()); // fires wxEVT_TEXT
+			dir->SetValue(dlg.GetPath()); // fires wxEVT_TEXT
 	});
 
 	auto sizer = new wxBoxSizer(wxHORIZONTAL);
 	sizer->Add(m_blinkers[opt_key], 0, wxRIGHT, 2);
 	sizer->Add(label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, em_unit());
-	sizer->Add(m_export_project_copy_dir, 1, wxALIGN_CENTER_VERTICAL);
+	sizer->Add(dir, 1, wxALIGN_CENTER_VERTICAL);
 	sizer->Add(btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, em_unit() / 2);
 
 	m_optgroup_general->sizer->Add(sizer, 0, wxEXPAND | wxTOP, em_unit());
 
 	append_preferences_option_to_searcher(m_optgroup_general, opt_key, title);
+	return dir;
+}
+
+// Greys out the project backup / autosave options that don't apply. Reads the check boxes, so it follows unsaved edits.
+void PreferencesDialog::toggle_export_project_options()
+{
+	auto checked = [this](const std::string &opt_key) {
+		Field *field = m_optgroup_general->get_field(opt_key);
+		return field != nullptr && boost::any_cast<bool>(field->get_value());
+	};
+	const bool copy     = checked("export_project_copy");
+	const bool autosave = checked("export_project_autosave");
+	// The whole folder row: label, text field and Browse button.
+	auto enable_row = [](wxTextCtrl *dir, bool enable) {
+		if (dir != nullptr && dir->GetContainingSizer() != nullptr)
+			for (wxSizerItem *item : dir->GetContainingSizer()->GetChildren())
+				if (item->IsWindow())
+					item->GetWindow()->Enable(enable);
+	};
+	if (Field *field = m_optgroup_general->get_field("export_project_copy_keep"))
+		field->toggle(copy);
+	enable_row(m_export_project_copy_dir, copy);
+	enable_row(m_export_project_autosave_dir, autosave);
 }
 
 void PreferencesDialog::init_highlighter(const t_config_option_key& opt_key)

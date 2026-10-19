@@ -566,7 +566,7 @@ struct Plater::priv
 		}
 	}
     void export_gcode(fs::path output_path, bool output_path_on_removable_media, PrintHostJob upload_job);
-    // Saves a copy of the project next to each G-code export / upload (Preferences "export_project_copy").
+    // Saves the project backup / autosave at each G-code export / upload (Preferences "export_project_copy", "export_project_autosave").
     void save_export_project_copy(const fs::path &gcode_path);
     void reload_from_disk();
     bool replace_volume_with_stl(int object_idx, int volume_idx, const fs::path& new_path, const wxString& snapshot = "");
@@ -2724,62 +2724,100 @@ void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_remova
     this->restart_background_process(priv::UPDATE_BACKGROUND_PROCESS_FORCE_EXPORT);
 }
 
-// Project copies are named "<G-code name>_YYYY-MM-DD_HH-MM-SS.3mf"; only files with this pattern are ever deleted.
+// Project backups are named "<G-code name>_YYYY-MM-DD_HH-MM-SS.3mf"; only files with this pattern are ever deleted.
+// Autosaved projects are named "<G-code name>.3mf", replace the previous file with that name and are never deleted.
 static const std::regex export_project_copy_regex(R"(^.+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.3mf$)", std::regex::icase);
-static constexpr size_t export_project_copies_kept = 10;
 
 void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
 {
     AppConfig &app_config = *wxGetApp().app_config;
-    if (!app_config.get_bool("export_project_copy") || gcode_path.empty() || model.objects.empty())
+    const bool backup   = app_config.get_bool("export_project_copy");
+    const bool autosave = app_config.get_bool("export_project_autosave");
+    if ((!backup && !autosave) || gcode_path.empty() || model.objects.empty())
         return;
 
-    const std::string dir_name = app_config.get("export_project_copy_dir");
-    // Paths through wxString: data_dir() and the app config are UTF-8.
-    const fs::path    dir      = into_path(from_u8(dir_name.empty() ? data_dir() + "/exported_projects" : dir_name)).make_preferred();
-    fs::path          copy_path;
-    try {
-        fs::create_directories(dir);
-        // Without the .gcode / .bgcode extension.
-        fs::path name = gcode_path.filename().replace_extension();
-        name += "_" + into_u8(wxDateTime::Now().Format("%Y-%m-%d_%H-%M-%S")) + ".3mf";
-        copy_path = dir / name;
-
-        // As Plater::export_3mf(), but without publish() (its SVG question): the copy doesn't change the open project.
-        DynamicPrintConfig cfg = wxGetApp().preset_bundle->full_config_secure();
-        ThumbnailData thumbnail_data;
-        ThumbnailsParams thumbnail_params = { {}, false, true, true, true };
-        generate_thumbnail(thumbnail_data, THUMBNAIL_SIZE_3MF.first, THUMBNAIL_SIZE_3MF.second, thumbnail_params, Camera::EType::Ortho);
-        if (!Slic3r::store_3mf(into_u8(from_path(copy_path)).c_str(), &model, &cfg, app_config.get_bool("export_sources_full_pathnames"), &thumbnail_data))
-            throw Slic3r::RuntimeError("store_3mf failed");
-        BOOST_LOG_TRIVIAL(info) << "Project copy saved to " << into_u8(from_path(copy_path));
-
-        // Keep the newest copies only.
-        std::vector<fs::path> copies;
-        for (const fs::directory_entry &entry : fs::directory_iterator(dir))
-            if (fs::is_regular_file(entry.status()) && std::regex_match(entry.path().filename().string(), export_project_copy_regex))
-                copies.emplace_back(entry.path());
-        // Newest first: by the time stamp at the end of the name.
-        auto time_stamp = [](const fs::path &p) { const std::string s = p.stem().string(); return s.substr(s.size() - 19); };
-        std::sort(copies.begin(), copies.end(), [&](const fs::path &a, const fs::path &b) { return time_stamp(a) > time_stamp(b); });
-        for (size_t i = export_project_copies_kept; i < copies.size(); ++ i) {
-            boost::system::error_code ec;
-            fs::remove(copies[i], ec);
-        }
-    } catch (const std::exception &ex) {
-        BOOST_LOG_TRIVIAL(error) << "Project copy not saved: " << ex.what();
+    const std::string autosave_dir_name = app_config.get("export_project_autosave_dir");
+    if (autosave && autosave_dir_name.empty())
         notification_manager->push_notification(NotificationType::CustomNotification,
             NotificationManager::NotificationLevel::WarningNotificationLevel,
-            format(_L("The project copy was not saved to %1%: %2%"), into_u8(from_path(dir)), ex.what()));
+            _u8L("The project was not autosaved: no project autosave folder is set in Preferences."));
+    if (!backup && autosave_dir_name.empty())
         return;
+
+    // Without the .gcode / .bgcode extension.
+    const fs::path gcode_name = gcode_path.filename().replace_extension();
+
+    // As Plater::export_3mf(), but without publish() (its SVG question): the copy doesn't change the open project.
+    DynamicPrintConfig cfg = wxGetApp().preset_bundle->full_config_secure();
+    ThumbnailData thumbnail_data;
+    ThumbnailsParams thumbnail_params = { {}, false, true, true, true };
+    generate_thumbnail(thumbnail_data, THUMBNAIL_SIZE_3MF.first, THUMBNAIL_SIZE_3MF.second, thumbnail_params, Camera::EType::Ortho);
+
+    // Saves <dir>/<name>, then calls after_save(dir). Shows a warning notification on failure.
+    auto save = [&](const fs::path &dir, const fs::path &name, const std::function<void(const fs::path&)> &after_save) -> fs::path {
+        try {
+            fs::create_directories(dir);
+            const fs::path path = dir / name;
+            if (!Slic3r::store_3mf(into_u8(from_path(path)).c_str(), &model, &cfg, app_config.get_bool("export_sources_full_pathnames"), &thumbnail_data))
+                throw Slic3r::RuntimeError("store_3mf failed");
+            BOOST_LOG_TRIVIAL(info) << "Project copy saved to " << into_u8(from_path(path));
+            after_save(dir);
+            return path;
+        } catch (const std::exception &ex) {
+            BOOST_LOG_TRIVIAL(error) << "Project copy not saved: " << ex.what();
+            notification_manager->push_notification(NotificationType::CustomNotification,
+                NotificationManager::NotificationLevel::WarningNotificationLevel,
+                format(_L("The project copy was not saved to %1%: %2%"), into_u8(from_path(dir)), ex.what()));
+            return {};
+        }
+    };
+
+    // Only the newest backup and the newest autosave in "Recent projects", so they don't push the user's own projects
+    // out of the list.
+    auto replace_in_recent = [](const fs::path &path, const fs::path &dir, bool backups) {
+        wxGetApp().mainframe->replace_in_recent_projects(from_path(path), [&dir, backups](const std::string &recent) {
+            const fs::path p = into_path(from_u8(recent));
+            boost::system::error_code ec;
+            if (!fs::equivalent(p.parent_path(), dir, ec) || !boost::iequals(p.extension().string(), ".3mf"))
+                return false;
+            // Autosaves have no name pattern: any other 3mf in the autosave folder counts as an autosave here.
+            return std::regex_match(p.filename().string(), export_project_copy_regex) == backups;
+        });
+    };
+
+    if (backup) {
+        const std::string dir_name = app_config.get("export_project_copy_dir");
+        // Paths through wxString: data_dir() and the app config are UTF-8.
+        const fs::path dir  = into_path(from_u8(dir_name.empty() ? data_dir() + "/exported_projects" : dir_name)).make_preferred();
+        fs::path       name = gcode_name;
+        name += "_" + into_u8(wxDateTime::Now().Format("%Y-%m-%d_%H-%M-%S")) + ".3mf";
+        const fs::path path = save(dir, name, [&app_config](const fs::path &dir) {
+            // Keep the newest backups only.
+            const size_t kept = size_t(std::max(1, atoi(app_config.get("export_project_copy_keep").c_str())));
+            std::vector<fs::path> copies;
+            for (const fs::directory_entry &entry : fs::directory_iterator(dir))
+                if (fs::is_regular_file(entry.status()) && std::regex_match(entry.path().filename().string(), export_project_copy_regex))
+                    copies.emplace_back(entry.path());
+            // Newest first: by the time stamp at the end of the name.
+            auto time_stamp = [](const fs::path &p) { const std::string s = p.stem().string(); return s.substr(s.size() - 19); };
+            std::sort(copies.begin(), copies.end(), [&](const fs::path &a, const fs::path &b) { return time_stamp(a) > time_stamp(b); });
+            for (size_t i = kept; i < copies.size(); ++ i) {
+                boost::system::error_code ec;
+                fs::remove(copies[i], ec);
+            }
+        });
+        if (!path.empty())
+            replace_in_recent(path, dir, true);
     }
 
-    // Only the newest copy in "Recent projects", so the copies don't push the user's own projects out of the list.
-    wxGetApp().mainframe->replace_in_recent_projects(from_path(copy_path), [&dir](const std::string &recent) {
-        const fs::path p = into_path(from_u8(recent));
-        boost::system::error_code ec;
-        return fs::equivalent(p.parent_path(), dir, ec) && std::regex_match(p.filename().string(), export_project_copy_regex);
-    });
+    if (autosave && !autosave_dir_name.empty()) {
+        const fs::path dir  = into_path(from_u8(autosave_dir_name)).make_preferred();
+        fs::path       name = gcode_name;
+        name += ".3mf";
+        const fs::path path = save(dir, name, [](const fs::path&) {});
+        if (!path.empty())
+            replace_in_recent(path, dir, false);
+    }
 }
 
 unsigned int Plater::priv::update_restart_background_process(bool force_update_scene, bool force_update_preview)
