@@ -2728,6 +2728,27 @@ void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_remova
 // Autosaved projects are named "<G-code name>.3mf", replace the previous file with that name and are never deleted.
 static const std::regex export_project_copy_regex(R"(^.+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.3mf$)", std::regex::icase);
 
+static fs::path export_project_backups_dir()
+{
+    const std::string dir_name = wxGetApp().app_config->get("export_project_copy_dir");
+    // Paths through wxString: data_dir() and the app config are UTF-8.
+    return into_path(from_u8(dir_name.empty() ? data_dir() + "/exported_projects" : dir_name)).make_preferred();
+}
+
+bool is_export_project_backup(const std::string &path)
+{
+    const fs::path p = into_path(from_u8(path));
+    boost::system::error_code ec;
+    return std::regex_match(p.filename().string(), export_project_copy_regex) && fs::equivalent(p.parent_path(), export_project_backups_dir(), ec);
+}
+
+// The G-code name of a backup: without the time stamp and the extension.
+static std::string export_project_backup_name(const std::string &path)
+{
+    const std::string stem = into_path(from_u8(path)).stem().string();
+    return stem.substr(0, stem.size() - 20);
+}
+
 void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
 {
     AppConfig &app_config = *wxGetApp().app_config;
@@ -2772,23 +2793,10 @@ void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
         }
     };
 
-    // Only the newest backup and the newest autosave in "Recent projects", so they don't push the user's own projects
-    // out of the list.
-    auto replace_in_recent = [](const fs::path &path, const fs::path &dir, bool backups) {
-        wxGetApp().mainframe->replace_in_recent_projects(from_path(path), [&dir, backups](const std::string &recent) {
-            const fs::path p = into_path(from_u8(recent));
-            boost::system::error_code ec;
-            if (!fs::equivalent(p.parent_path(), dir, ec) || !boost::iequals(p.extension().string(), ".3mf"))
-                return false;
-            // Autosaves have no name pattern: any other 3mf in the autosave folder counts as an autosave here.
-            return std::regex_match(p.filename().string(), export_project_copy_regex) == backups;
-        });
-    };
-
+    // "Recent projects" shows the newest backups of the last 2 G-code names and the newest autosave, so the copies don't
+    // push the user's own projects out of the list.
     if (backup) {
-        const std::string dir_name = app_config.get("export_project_copy_dir");
-        // Paths through wxString: data_dir() and the app config are UTF-8.
-        const fs::path dir  = into_path(from_u8(dir_name.empty() ? data_dir() + "/exported_projects" : dir_name)).make_preferred();
+        const fs::path dir  = export_project_backups_dir();
         fs::path       name = gcode_name;
         name += "_" + into_u8(wxDateTime::Now().Format("%Y-%m-%d_%H-%M-%S")) + ".3mf";
         const fs::path path = save(dir, name, [&app_config](const fs::path &dir) {
@@ -2806,8 +2814,20 @@ void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
                 fs::remove(copies[i], ec);
             }
         });
-        if (!path.empty())
-            replace_in_recent(path, dir, true);
+        if (!path.empty()) {
+            const std::string name = export_project_backup_name(into_u8(from_path(path)));
+            // Newest first: the newest backup of one other name stays, as the backup of this name is replaced.
+            std::set<std::string> replaced;
+            bool                  other_kept = false;
+            for (const std::string &recent : wxGetApp().mainframe->recent_projects())
+                if (is_export_project_backup(recent)) {
+                    if (export_project_backup_name(recent) == name || other_kept)
+                        replaced.insert(recent);
+                    else
+                        other_kept = true;
+                }
+            wxGetApp().mainframe->replace_in_recent_projects(from_path(path), [&replaced](const std::string &recent) { return replaced.count(recent) > 0; });
+        }
     }
 
     if (autosave && !autosave_dir_name.empty()) {
@@ -2816,7 +2836,13 @@ void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
         name += ".3mf";
         const fs::path path = save(dir, name, [](const fs::path&) {});
         if (!path.empty())
-            replace_in_recent(path, dir, false);
+            wxGetApp().mainframe->replace_in_recent_projects(from_path(path), [&dir](const std::string &recent) {
+                // Autosaves have no name pattern: any other 3mf in the autosave folder counts as an autosave here.
+                const fs::path p = into_path(from_u8(recent));
+                boost::system::error_code ec;
+                return fs::equivalent(p.parent_path(), dir, ec) && boost::iequals(p.extension().string(), ".3mf") &&
+                       !std::regex_match(p.filename().string(), export_project_copy_regex);
+            });
     }
 }
 

@@ -59,6 +59,20 @@ enum QuickSlice
     qsExportPNG = 8
 };
 
+// File > Recent projects: labels with the parent folder and the file name only, "Backup: <file name>" for the project
+// backups (Plater.cpp, is_export_project_backup()).
+class RecentProjectsHistory : public wxFileHistory
+{
+public:
+    static constexpr size_t max_files = 10;
+    RecentProjectsHistory() : wxFileHistory(max_files) {}
+    void AddFileToHistory(const wxString &file) override { wxFileHistory::AddFileToHistory(file); update_labels(); }
+    void RemoveFileFromHistory(size_t i) override { wxFileHistory::RemoveFileFromHistory(i); update_labels(); }
+
+private:
+    void update_labels();
+};
+
 struct PresetTab {
     std::string       name;
     Tab*              panel;
@@ -147,7 +161,7 @@ class MainFrame : public DPIFrame
     // vector of a MenuBar items changeable in respect to printer technology 
     std::vector<wxMenuItem*> m_changeable_menu_items;
 
-    wxFileHistory m_recent_projects;
+    RecentProjectsHistory m_recent_projects;
 
     enum class ESettingsLayout
     {
@@ -222,6 +236,8 @@ public:
     bool save_project_as(const wxString& filename = wxString());
 
     void        add_to_recent_projects(const wxString& filename);
+    // UTF-8 paths, newest first.
+    std::vector<std::string> recent_projects() const;
     // Removes the entries for which is_replaced(UTF-8 path) is true, then adds filename.
     void        replace_in_recent_projects(const wxString& filename, const std::function<bool(const std::string&)>& is_replaced);
     void        technology_changed();

@@ -59,6 +59,10 @@ namespace sla { class WorkflowManager; }
 
 namespace GUI {
 
+// True for a project backup saved at a G-code export (Preferences "export_project_copy"): in the backups folder and
+// named "<G-code name>_YYYY-MM-DD_HH-MM-SS.3mf". UTF-8 path.
+bool is_export_project_backup(const std::string &path);
+
 wxDECLARE_EVENT(EVT_SCHEDULE_BACKGROUND_PROCESS, SimpleEvent);
 wxDECLARE_EVENT(EVT_REGENERATE_BED_THUMBNAILS, SimpleEvent);
 wxDECLARE_EVENT(EVT_RELOAD_SLA_WORKFLOWS, SimpleEvent);

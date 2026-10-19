@@ -634,10 +634,13 @@ std::vector<std::string> AppConfig::get_recent_projects() const
     const auto it = m_storage.find("recent_projects");
     if (it != m_storage.end())
     {
+        // By the number of the key: with 10 or more entries, "10" sorts before "2" in the map.
+        std::vector<std::pair<int, std::string>> items;
         for (const std::map<std::string, std::string>::value_type& item : it->second)
-        {
+            items.emplace_back(atoi(item.first.c_str()), item.second);
+        std::stable_sort(items.begin(), items.end(), [](const auto &l, const auto &r) { return l.first < r.first; });
+        for (const auto &item : items)
             ret.push_back(item.second);
-        }
     }
     return ret;
 }

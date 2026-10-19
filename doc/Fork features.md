@@ -840,8 +840,12 @@ reopened later. Two kinds of copy, each with its own check box and folder, both 
   notification instead.
 
 For an upload the name is the file name entered in the send dialog. Export all beds / send all to Connect save one
-copy per export, named after the first bed's file. The newest backup and the newest autosave are shown in
-File > Recent projects (only the newest of each, so the copies don't push your own projects out of the 9-entry list).
+copy per export, named after the first bed's file.
+
+File > Recent projects shows the newest backups of the last 2 G-code names (one per name) and the newest autosave, so
+the copies don't push your own projects out of the list. The list now holds 10 projects (stock 9; the 10th has the
+shortcut 0) and shows only the parent folder and the file name (`Voron\part.3mf`); backups show as
+`Backup: <file name>`.
 
 The copy is a background save: the open project keeps its name and its modified state, File > Save still writes your
 own project file. SVG shapes added since the last real save are not stored in the copy (the copy skips the
@@ -861,20 +865,26 @@ The count and each folder row are greyed out while their check box is off. Older
 more than "Project backups kept", newest by the time stamp in the name; only files matching the backup name pattern
 are ever deleted, so other 3mf files in a chosen folder (autosaves included) are safe. In Recent projects any other
 3mf in the autosave folder counts as an autosave, so your own projects stored there leave the list when an autosave
-is added (the files are not touched).
+is added (the files are not touched). A backup counts as one only in the current backups folder: after changing the
+folder, older backups show as normal entries.
 
 **How it works.** `Plater::priv::save_export_project_copy()` (Plater.cpp), called from `Plater::priv::export_gcode()`
 (single export and print host upload) and from `export_all_gcodes()` / `connect_gcode_all()`, before the export is
 scheduled. It writes the model and `full_config_secure()` with `store_3mf()` and a thumbnail, as `export_3mf()` does,
 without `set_project_filename()`; one thumbnail for both copies. `MainFrame::replace_in_recent_projects()` drops the
-older backup / autosave from the recent list before adding the new one. No change to slicing or G-code (golden test
+older backups / autosave from the recent list before adding the new one. `RecentProjectsHistory` (MainFrame.hpp, a
+`wxFileHistory` of 10) relabels the menu after every change, `is_export_project_backup()` (Plater.cpp) tells the
+backups. `AppConfig::get_recent_projects()` sorts by the key number (with 10 entries the `[recent_projects]` key "10"
+sorted before "2"). No change to slicing or G-code (golden test
 unchanged).
 
 **How to test.** Export G-code: a `<name>_<date>_<time>.3mf` appears in the folder, Recent projects shows it, the title
 bar still shows the open project (with its `*` if modified). Export 11 times: 10 copies left, the oldest deleted, a
 non-matching 3mf in the folder kept. Set "Project backups kept" to 3 and export: 3 left. Turn on autosave without a
 folder: warning notification, the backup is still saved. Set the autosave folder and export twice with the same name:
-one `<name>.3mf` with the newer date; Recent projects shows it and the newest backup. Send to printer: copies named
+one `<name>.3mf` with the newer date; Recent projects shows it and the newest backup. Export A, B, A, C: Recent
+projects shows `Backup:` entries of C and A only, newest first. Open 11 projects: 10 entries, the order kept after a
+restart. Send to printer: copies named
 after the upload file name. Set a folder to a read-only path: warning notification, G-code still exported. Turn both
 check boxes off: no copy.
 

@@ -142,7 +142,6 @@ static wxIcon main_frame_icon(GUI_App::EAppMode app_mode)
 MainFrame::MainFrame(const int font_point_size) :
 DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE, "mainframe", font_point_size),
     m_printhost_queue_dlg(new PrintHostQueueDialog(this))
-    , m_recent_projects(9)
     , m_settings_dialog(this)
     , diff_dialog(this)
 {
@@ -1478,7 +1477,7 @@ void MainFrame::init_menubar_as_editor()
                     wxGetApp().app_config->set_recent_projects(recent_projects);
                 }
             }
-            }, wxID_FILE1, wxID_FILE9);
+            }, wxID_FILE1, wxID_FILE1 + int(RecentProjectsHistory::max_files) - 1);
 
         std::vector<std::string> recent_projects = wxGetApp().app_config->get_recent_projects();
         std::reverse(recent_projects.begin(), recent_projects.end());
@@ -2299,6 +2298,37 @@ void MainFrame::add_to_recent_projects(const wxString& filename)
             recent_projects.push_back(into_u8(m_recent_projects.GetHistoryFile(i)));
         }
         wxGetApp().app_config->set_recent_projects(recent_projects);
+    }
+}
+
+std::vector<std::string> MainFrame::recent_projects() const
+{
+    std::vector<std::string> out;
+    for (size_t i = 0; i < m_recent_projects.GetCount(); ++ i)
+        out.emplace_back(into_u8(m_recent_projects.GetHistoryFile(i)));
+    return out;
+}
+
+void RecentProjectsHistory::update_labels()
+{
+    for (wxList::compatibility_iterator node = GetMenus().GetFirst(); node; node = node->GetNext()) {
+        wxMenu *menu = static_cast<wxMenu*>(node->GetData());
+        for (size_t i = 0; i < GetCount(); ++ i) {
+            wxMenuItem *item = menu->FindItem(GetBaseId() + int(i));
+            if (item == nullptr)
+                continue;
+            const wxString   path = GetHistoryFile(i);
+            const wxFileName file_name(path);
+            wxString name = file_name.GetFullName();
+            if (is_export_project_backup(into_u8(path)))
+                name = _L("Backup") + ": " + name;
+            else if (file_name.GetDirCount() > 0)
+                name = file_name.GetDirs().Last() + wxFILE_SEP_PATH + name;
+            name.Replace("&", "&&");
+            // Keyboard shortcuts 1-9, then 0 for the 10th entry.
+            const wxString number = i < 9 ? wxString::Format("&%d", int(i + 1)) : i == 9 ? wxString("1&0") : wxString::Format("%d", int(i + 1));
+            item->SetItemLabel(number + " " + name);
+        }
     }
 }
 
