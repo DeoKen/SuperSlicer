@@ -697,6 +697,7 @@ void Tab::emplace_option(const std::string& opt_key, bool respect_vec_values/* =
         case coPoints:	add_correct_opts_to_options_list<ConfigOptionPoints		>(opt_key, m_options_list, this, m_opt_status_value);	break;
         case coFloatsOrPercents:	add_correct_opts_to_options_list<ConfigOptionFloatsOrPercents		>(opt_key, m_options_list, this, m_opt_status_value);	break;
         case coEnums:	add_correct_opts_to_options_list<ConfigOptionEnumsGeneric>(opt_key, m_options_list, this, m_opt_status_value);	break;
+        case coGraphs:	add_correct_opts_to_options_list<ConfigOptionGraphs		>(opt_key, m_options_list, this, m_opt_status_value);	break;
         default:		m_options_list.emplace(opt_key, m_opt_status_value);		break;
         }
     }
@@ -1426,8 +1427,9 @@ static void validate_custom_parameters(Tab* tab, const t_config_option_key& opt_
 
 // Append a line of several options with short labels, laid out as in SuperSlicer, for example
 // "Perimeter speed:  Internal: [ ] mm/s  External: [ ] mm/s".
+// graph_key: a graph option (SuperSlicer) at the end of the line, the button showing the curve without a sub-label.
 static void append_labelled_line(ConfigOptionsGroupShp optgroup, const char *label, std::initializer_list<std::pair<const char*, const char*>> options,
-                                 const std::string &label_path = std::string(), int field_width = 5, int opt_index = -1)
+                                 const std::string &label_path = std::string(), int field_width = 5, int opt_index = -1, const char *graph_key = nullptr)
 {
     Line line = { label, "" };
     line.label_path = label_path;
@@ -1437,6 +1439,12 @@ static void append_labelled_line(ConfigOptionsGroupShp optgroup, const char *lab
         option.opt.label = sublabel;
         if (field_width > 0)
             option.opt.width = field_width;
+        line.append_option(option);
+    }
+    if (graph_key != nullptr) {
+        Option option = optgroup->get_option(graph_key, opt_index);
+        option.opt.label = "";
+        option.opt.width = 8;
         line.append_option(option);
     }
     optgroup->append_line(line);
@@ -1629,11 +1637,10 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Infill speed"),        { { "solid_infill_speed", L("Solid") }, { "infill_speed", L("Sparse") }, { "top_solid_infill_speed", L("Top solid") } });
         append_labelled_line(optgroup, L("Support speed"),       { { "support_material_speed", L("Default") }, { "support_material_interface_speed", L("Interface") }, { "brim_speed", L("Brim & skirt") } });
         append_labelled_line(optgroup, L("Bridge infill speed"), { { "bridge_speed", L("External") }, { "internal_bridge_speed", L("Internal") }, { "over_bridge_speed", L("Over") } });
+        // SuperSlicer: overhangs speed, threshold of 0% overlap, dynamic speed switch and graph.
+        append_labelled_line(optgroup, L("Overhangs speed"),     { { "overhangs_speed", L("Maximum") }, { "overhangs_width_speed", L("Threshold") }, { "enable_dynamic_overhang_speeds", L("Dynamic") } },
+                             std::string(), 5, -1, "overhangs_dynamic_speed");
         append_labelled_line(optgroup, L("Other speed"),         { { "gap_fill_speed", L("Gap fill") }, { "ironing_speed", L("Ironing") } });
-
-        optgroup = page->new_optgroup(L("Dynamic overhang speed"));
-        optgroup->append_single_option_line("enable_dynamic_overhang_speeds");
-        append_labelled_line(optgroup, L("Speed for overlap"), { { "overhang_speed_0", L("0% (bridge)") }, { "overhang_speed_1", L("25%") }, { "overhang_speed_2", L("50%") }, { "overhang_speed_3", L("75%") } });
 
         optgroup = page->new_optgroup(L("Speed for non-print moves"));
         optgroup->sublabel_width = 7;
@@ -2287,15 +2294,13 @@ void TabFilament::build()
         append_labelled_line(optgroup, L("Solid infill fan speed"),       { { "solid_infill_fan_speed", L("Solid") }, { "top_fan_speed", L("Top solid") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Support material fan speed"),   { { "support_material_fan_speed", L("Default") }, { "support_material_interface_fan_speed", L("Interface") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Bridge infill fan speed"),      { { "bridge_fan_speed", L("External") }, { "internal_bridge_fan_speed", L("Internal") } }, category_path + "fan-settings");
-        append_labelled_line(optgroup, L("Overhang perimeter fan speed"), { { "overhangs_fan_speed", L("Overhangs") } }, category_path + "fan-settings");
+        // SuperSlicer: overhang perimeters fan speed, dynamic fan speed switch and graph.
+        append_labelled_line(optgroup, L("Overhang perimeter fan speed"), { { "overhangs_fan_speed", L("Overhangs") }, { "enable_dynamic_fan_speeds", L("Dynamic") } },
+                             category_path + "fan-settings", 5, -1, "overhangs_dynamic_fan_speed");
         append_labelled_line(optgroup, L("Gap fill fan speed"),           { { "gap_fill_fan_speed", L("Gap fill") } }, category_path + "fan-settings");
         append_labelled_line(optgroup, L("Auxiliary fan speed"),          { { "additional_cooling_fan_speed", L("Speed") } }, category_path + "fan-settings");
         // Same field width as the fan speeds above (the columns are shared by the group), short sub-label for the same reason.
         append_labelled_line(optgroup, L("Disable fan for the first"), { { "disable_fan_first_layers", "" }, { "full_fan_speed_layer", L("Full at layer") } }, category_path + "fan-settings");
-
-        optgroup = page->new_optgroup(L("Dynamic fan speeds"), 25);
-        optgroup->append_single_option_line("enable_dynamic_fan_speeds", category_path + "dynamic-fan-speeds");
-        append_labelled_line(optgroup, L("Speed for overlap"), { { "overhang_fan_speed_0", L("0% (bridge)") }, { "overhang_fan_speed_1", L("25%") }, { "overhang_fan_speed_2", L("50%") }, { "overhang_fan_speed_3", L("75%") } }, category_path + "dynamic-fan-speeds");
 
         optgroup = page->new_optgroup(L("Cooling thresholds"), 25);
         append_labelled_line(optgroup, L("Layer time below"), { { "fan_below_layer_time", L("Enable fan") }, { "slowdown_below_layer_time", L("Slow down") } }, category_path + "cooling-thresholds");
@@ -2479,10 +2484,10 @@ void TabFilament::toggle_options()
         for (auto el : { "disable_fan_first_layers", "full_fan_speed_layer" })
             toggle_option(el, fan_always_on || has_default_fan_speed);
 
-        bool dynamic_fan_speeds = m_config->opt_bool("enable_dynamic_fan_speeds", 0);
-        for (int i = 0; i < 4; i++) {
-            toggle_option("overhang_fan_speed_"+std::to_string(i),dynamic_fan_speeds);
-        }
+        // The dynamic overhang fan speeds replace the overhang perimeters fan speed.
+        const bool dynamic_fan_speeds = m_config->opt_bool("enable_dynamic_fan_speeds", 0);
+        toggle_option("overhangs_dynamic_fan_speed", dynamic_fan_speeds);
+        toggle_option("overhangs_fan_speed", ! dynamic_fan_speeds);
 
         // The auxiliary fan speed needs the auxiliary fan G-code of the printer.
         const DynamicPrintConfig &printer_config = m_preset_bundle->printers.get_edited_preset().config;

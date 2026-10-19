@@ -335,6 +335,16 @@ bool is_valid_object_type(const std::string& type)
 
 namespace Slic3r {
 
+    // Object and volume configs are loaded key by key, without PrintConfigDef::handle_legacy_composite().
+    static void convert_legacy_dynamic_overhangs(ModelConfig &config)
+    {
+        if (config.has("overhang_speed_0") || config.has("overhang_fan_speed_0")) {
+            DynamicPrintConfig converted = config.get();
+            PrintConfigDef::handle_legacy_dynamic_overhangs(converted);
+            config.assign_config(std::move(converted));
+        }
+    }
+
     // Base class with error messages management
     class _3MF_Base
     {
@@ -986,6 +996,7 @@ namespace Slic3r {
                     else
                         model_object->config.set_deserialize(metadata.key, metadata.value, config_substitutions);
                 }
+                convert_legacy_dynamic_overhangs(model_object->config);
 
                 // select object's detected volumes
                 volumes_ptr = &obj_metadata->second.volumes;
@@ -2720,6 +2731,7 @@ namespace Slic3r {
                 else
                     volume->config.set_deserialize(metadata.key, metadata.value, config_substitutions);
             }
+            convert_legacy_dynamic_overhangs(volume->config);
 
             // this may happen for 3mf saved by 3rd part softwares
             if (volume->name.empty()) {

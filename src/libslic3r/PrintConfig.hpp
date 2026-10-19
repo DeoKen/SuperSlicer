@@ -325,6 +325,9 @@ public:
 
     static void handle_legacy(t_config_option_key &opt_key, std::string &value);
     static void handle_legacy_composite(DynamicPrintConfig &config);
+    // PrusaSlicer 2.9 dynamic overhang speeds / fan speeds at fixed overlaps: converted to the graphs and removed.
+    // Called by handle_legacy_composite() and for the configs loaded key by key (config bundles, 3MF objects and volumes).
+    static void handle_legacy_dynamic_overhangs(DynamicPrintConfig &config);
 
     // Array options growing with the number of extruders
     const std::vector<std::string>& extruder_option_keys() const { return m_extruder_option_keys; }
@@ -758,10 +761,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,       external_perimeter_extrusion_width))
     ((ConfigOptionFloatOrPercent,       external_perimeter_speed))
     ((ConfigOptionBool,                 enable_dynamic_overhang_speeds))
-    ((ConfigOptionFloatOrPercent,       overhang_speed_0))
-    ((ConfigOptionFloatOrPercent,       overhang_speed_1))
-    ((ConfigOptionFloatOrPercent,       overhang_speed_2))
-    ((ConfigOptionFloatOrPercent,       overhang_speed_3))
+    ((ConfigOptionGraph,                overhangs_dynamic_speed))
+    ((ConfigOptionFloatOrPercent,       overhangs_speed))
+    ((ConfigOptionFloatOrPercent,       overhangs_width_speed))
     ((ConfigOptionBool,                 external_perimeters_first))
     ((ConfigOptionBool,                 extra_perimeters))
     ((ConfigOptionBool,                 extra_perimeters_on_overhangs))
@@ -1031,10 +1033,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionInts,               support_material_fan_speed))
     ((ConfigOptionInts,               support_material_interface_fan_speed))
     ((ConfigOptionBools,              enable_dynamic_fan_speeds))
-    ((ConfigOptionInts,               overhang_fan_speed_0))
-    ((ConfigOptionInts,               overhang_fan_speed_1))
-    ((ConfigOptionInts,               overhang_fan_speed_2))
-    ((ConfigOptionInts,               overhang_fan_speed_3))
+    ((ConfigOptionGraphs,             overhangs_dynamic_fan_speed))
     ((ConfigOptionInts,               chamber_temperature))
     ((ConfigOptionInts,               chamber_minimal_temperature))
     ((ConfigOptionBool,               complete_objects))

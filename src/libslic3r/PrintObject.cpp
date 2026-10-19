@@ -943,6 +943,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "support_material_speed"
             || opt_key == "support_material_interface_speed"
             || opt_key == "bridge_speed"
+            || opt_key == "overhangs_speed"
             || opt_key == "internal_bridge_speed"
             || opt_key == "external_perimeter_speed"
             || opt_key == "small_perimeter_speed"
@@ -963,10 +964,8 @@ bool PrintObject::invalidate_state_by_config_options(
             invalidated |= m_print->invalidate_step(psGCodeExport);
         } else if (
                opt_key == "enable_dynamic_overhang_speeds"
-            || opt_key == "overhang_speed_0"
-            || opt_key == "overhang_speed_1"
-            || opt_key == "overhang_speed_2"
-            || opt_key == "overhang_speed_3") {
+            || opt_key == "overhangs_dynamic_speed"
+            || opt_key == "overhangs_width_speed") {
             steps.emplace_back(posPerimeters);
         } else {
             // for legacy, if we can't handle this option let's invalidate all steps

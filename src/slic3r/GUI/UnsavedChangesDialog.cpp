@@ -1105,6 +1105,17 @@ static wxString get_full_label(std::string opt_key, const DynamicPrintConfig& co
     return opt->full_label.empty() ? opt->label : opt->full_label;
 }
 
+// Graph option (SuperSlicer): the type and the points as "x:y".
+static wxString graph_to_string(const GraphData &graph)
+{
+    if (graph.data().empty())
+        return _L("No points");
+    wxString out = graph.type == GraphData::GraphType::SQUARE ? _L("Square") : graph.type == GraphData::GraphType::SPLINE ? _L("Spline") : _L("Linear");
+    for (const Vec2d &pt : graph.data())
+        out += " " + double_to_string(pt.x()) + ":" + double_to_string(pt.y());
+    return out;
+}
+
 static wxString get_string_value(std::string opt_key, const DynamicPrintConfig& config)
 {
     size_t opt_idx = get_id_from_opt_key(opt_key);
@@ -1241,6 +1252,10 @@ static wxString get_string_value(std::string opt_key, const DynamicPrintConfig& 
         Vec2d val = config.opt<ConfigOptionPoints>(opt_key)->get_at(opt_idx);
         return from_u8((boost::format("[%1%]") % ConfigOptionPoint(val).serialize()).str());
     }
+    case coGraph:
+        return graph_to_string(config.option<ConfigOptionGraph>(opt_key)->value);
+    case coGraphs:
+        return graph_to_string(config.option<ConfigOptionGraphs>(opt_key)->get_at(opt_idx));
     default:
         break;
     }

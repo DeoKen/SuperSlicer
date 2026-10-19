@@ -260,6 +260,137 @@ std::vector<std::string> ConfigOptionDef::cli_args(const std::string &key) const
     return args;
 }
 
+bool GraphData::operator<(const GraphData &rhs) const
+{
+    const Pointfs lhs_data = this->data();
+    const Pointfs rhs_data = rhs.data();
+    if (lhs_data.size() != rhs_data.size())
+        return lhs_data.size() < rhs_data.size();
+    for (size_t i = 0; i < lhs_data.size(); ++ i) {
+        if (lhs_data[i].x() != rhs_data[i].x())
+            return lhs_data[i].x() < rhs_data[i].x();
+        if (lhs_data[i].y() != rhs_data[i].y())
+            return lhs_data[i].y() < rhs_data[i].y();
+    }
+    return this->type < rhs.type;
+}
+
+Pointfs GraphData::data() const
+{
+    if (! this->validate())
+        return this->graph_points;
+    return Pointfs(this->graph_points.begin() + this->begin_idx, this->graph_points.begin() + this->end_idx);
+}
+
+double GraphData::interpolate(double x_value) const
+{
+    const Pointfs pts = this->data();
+    if (pts.empty())
+        return 0.;
+    if (pts.size() == 1 || x_value <= pts.front().x())
+        return pts.front().y();
+    if (x_value >= pts.back().x())
+        return pts.back().y();
+    // pts[idx - 1].x() < x_value <= pts[idx].x()
+    size_t idx = 1;
+    while (pts[idx].x() < x_value)
+        ++ idx;
+    if (x_value == pts[idx].x())
+        return pts[idx].y();
+    const Vec2d &p0 = pts[idx - 1];
+    const Vec2d &p1 = pts[idx];
+    bool spline = this->type == GraphType::SPLINE;
+    for (size_t i = 1; spline && i < pts.size(); ++ i)
+        // Two points at the same x: no spline.
+        spline = pts[i].x() > pts[i - 1].x();
+    if (this->type == GraphType::SQUARE)
+        return p0.y();
+    if (! spline)
+        return p0.y() + (p1.y() - p0.y()) * (x_value - p0.x()) / (p1.x() - p0.x());
+
+    // Cubic spline with a zero first derivative at the first and the last point, as drawn by the graph dialog.
+    // See https://en.wikiversity.org/wiki/Cubic_Spline_Interpolation#Methods
+    const size_t        N = pts.size() - 1;
+    std::vector<double> diag(N + 1, 2.), mu(N + 1, 0.), lambda(N + 1, 0.), h(N + 1, 0.), rhs(N + 1, 0.);
+    for (size_t i = 1; i <= N; ++ i)
+        h[i] = pts[i].x() - pts[i - 1].x();
+    for (size_t i = 1; i < N; ++ i) {
+        mu[i]     = h[i] / (h[i] + h[i + 1]);
+        lambda[i] = 1. - mu[i];
+        rhs[i]    = 6. * ((pts[i + 1].y() - pts[i].y()) / (h[i + 1] * (pts[i + 1].x() - pts[i - 1].x())) -
+                          (pts[i].y() - pts[i - 1].y()) / (h[i] * (pts[i + 1].x() - pts[i - 1].x())));
+    }
+    lambda[0] = 1.;
+    mu[N]     = 1.;
+    rhs[0]    = (6. / h[1]) * ((pts[0].y() - pts[1].y()) / (pts[0].x() - pts[1].x()));
+    rhs[N]    = (6. / h[N]) * (- (pts[N - 1].y() - pts[N].y()) / (pts[N - 1].x() - pts[N].x()));
+    // Solve the tridiagonal system.
+    for (size_t i = 1; i <= N; ++ i) {
+        const double multiple = mu[i] / diag[i - 1];
+        diag[i] -= multiple * lambda[i - 1];
+        rhs[i]  -= multiple * rhs[i - 1];
+    }
+    rhs[N] /= diag[N];
+    for (int i = int(N) - 1; i >= 0; -- i)
+        rhs[i] = (rhs[i] - lambda[i] * rhs[i + 1]) / diag[i];
+    return (rhs[idx - 1] * std::pow(p1.x() - x_value, 3) + rhs[idx] * std::pow(x_value - p0.x(), 3)) / (6. * h[idx]) +
+           (p0.y() - rhs[idx - 1] * h[idx] * h[idx] / 6.) * (p1.x() - x_value) / h[idx] +
+           (p1.y() - rhs[idx] * h[idx] * h[idx] / 6.) * (x_value - p0.x()) / h[idx];
+}
+
+bool GraphData::validate() const
+{
+    if (this->end_idx < this->begin_idx || this->end_idx > this->graph_points.size())
+        return false;
+    for (size_t i = 1; i < this->graph_points.size(); ++ i)
+        if (this->graph_points[i - 1].x() > this->graph_points[i].x())
+            return false;
+    return true;
+}
+
+std::string GraphData::serialize() const
+{
+    std::string out = std::to_string(this->begin_idx) + ":" + std::to_string(this->end_idx) + ":" + std::to_string(int(this->type));
+    for (const Vec2d &pt : this->graph_points)
+        out += ":" + float_to_string_decimal_point(pt.x()) + "x" + float_to_string_decimal_point(pt.y());
+    return out;
+}
+
+bool GraphData::deserialize(const std::string &str_in)
+{
+    std::string str = str_in;
+    boost::trim(str);
+    // SuperSlicer marks a disabled graph with '!'. Here the graph options are switched on and off by other options.
+    if (! str.empty() && str.front() == '!')
+        str.erase(0, 1);
+    std::vector<std::string> items;
+    boost::split(items, str, boost::is_any_of(":"));
+    if (items.size() < 3)
+        return false;
+    GraphData out;
+    try {
+        out.begin_idx = std::stoul(items[0]);
+        out.end_idx   = std::stoul(items[1]);
+        const int type = std::stoi(items[2]);
+        if (type < 0 || type >= int(GraphType::COUNT))
+            return false;
+        out.type = GraphType(type);
+        for (size_t i = 3; i < items.size(); ++ i) {
+            const size_t sep = items[i].find('x');
+            if (sep == std::string::npos)
+                return false;
+            out.graph_points.emplace_back(string_to_double_decimal_point(items[i].substr(0, sep)),
+                                          string_to_double_decimal_point(items[i].substr(sep + 1)));
+        }
+    } catch (const std::exception &) {
+        return false;
+    }
+    if (! out.validate())
+        return false;
+    *this = std::move(out);
+    return true;
+}
+
 ConfigOption* ConfigOptionDef::create_empty_option() const
 {
 	if (this->nullable) {
@@ -290,6 +421,8 @@ ConfigOption* ConfigOptionDef::create_empty_option() const
 	    case coPoints:          return new ConfigOptionPoints();
 	    case coPoint3:          return new ConfigOptionPoint3();
 	//    case coPoint3s:         return new ConfigOptionPoint3s();
+	    case coGraph:           return new ConfigOptionGraph();
+	    case coGraphs:          return new ConfigOptionGraphs();
 	    case coBool:            return new ConfigOptionBool();
 	    case coBools:           return new ConfigOptionBools();
 	    case coEnum:            return new ConfigOptionEnumGeneric(this->enum_def->m_enum_keys_map);
@@ -1247,6 +1380,10 @@ CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionFloatsOrPercentsNullable)
 CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionPoint)
 CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionPoints)
 CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionPoint3)
+CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionSingle<Slic3r::GraphData>)
+CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionVector<Slic3r::GraphData>)
+CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionGraph)
+CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionGraphs)
 CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionBool)
 CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionBools)
 CEREAL_REGISTER_TYPE(Slic3r::ConfigOptionBoolsNullable)
@@ -1289,6 +1426,10 @@ CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionVector<Slic3r::FloatOrP
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionSingle<Slic3r::Vec2d>, Slic3r::ConfigOptionPoint)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionVector<Slic3r::Vec2d>, Slic3r::ConfigOptionPoints)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionSingle<Slic3r::Vec3d>, Slic3r::ConfigOptionPoint3)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOption, Slic3r::ConfigOptionSingle<Slic3r::GraphData>)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionVectorBase, Slic3r::ConfigOptionVector<Slic3r::GraphData>)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionSingle<Slic3r::GraphData>, Slic3r::ConfigOptionGraph)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionVector<Slic3r::GraphData>, Slic3r::ConfigOptionGraphs)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionSingle<bool>, Slic3r::ConfigOptionBool)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionVector<unsigned char>, Slic3r::ConfigOptionBools)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Slic3r::ConfigOptionVector<unsigned char>, Slic3r::ConfigOptionBoolsNullable)

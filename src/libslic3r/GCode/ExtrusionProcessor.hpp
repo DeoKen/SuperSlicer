@@ -280,11 +280,13 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(
     const AABBTreeLines::LinesDistancer<Linef>      &unscaled_prev_layer,
     const AABBTreeLines::LinesDistancer<CurledLine> &prev_layer_curled_lines);
 
+// Dynamic overhang speed and fan speed (SuperSlicer), -1 when not set. The speed is between overhangs_speed (0 % overlap with
+// the layer below) and perimeter_speed (100 % overlap).
 OverhangSpeeds calculate_overhang_speed(const ExtrusionAttributes  &attributes,
                                         const FullPrintConfig      &config,
                                         size_t                      extruder_id,
-                                        float                       external_perimeter_reference_speed,
-                                        float                       default_speed,
+                                        float                       overhangs_speed,
+                                        float                       perimeter_speed,
                                         const std::optional<float> &current_fan_speed);
 
 } // namespace Slic3r::ExtrusionProcessor

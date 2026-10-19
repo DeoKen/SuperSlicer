@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <string>
@@ -42,6 +43,12 @@ const std::vector<std::string> added_config_keys {
     "internal_bridge_shortest_span",
     "klipper_",
     "thumbnails_end_file",
+    "overhangs_dynamic_", "overhangs_speed", "overhangs_width_speed",
+};
+
+// Config keys of stock PrusaSlicer removed by this fork, skipped in the reference files.
+const std::vector<std::string> removed_config_keys {
+    "overhang_speed_", "overhang_fan_speed_",
 };
 
 bool is_added_config_line(const std::string &line)
@@ -50,6 +57,21 @@ bool is_added_config_line(const std::string &line)
         if (boost::starts_with(line, "; " + key))
             return true;
     return false;
+}
+
+std::string without_removed_config_keys(const std::string &gcode)
+{
+    std::istringstream in(gcode);
+    std::string        out;
+    out.reserve(gcode.size());
+    std::string line;
+    while (std::getline(in, line)) {
+        if (std::any_of(removed_config_keys.begin(), removed_config_keys.end(), [&line](const std::string &key) { return boost::starts_with(line, "; " + key); }))
+            continue;
+        out += line;
+        out += '\n';
+    }
+    return out;
 }
 
 // The Klipper limits (klipper_*) change the time estimate with the Klipper flavor: the estimated times written as
@@ -115,7 +137,8 @@ std::string first_difference(const std::string &a, const std::string &b)
 }
 
 // Settings resembling the user's Klipper profile: low base fan, high bridge fan, fan disabled on
-// the first layers, per-feature accelerations, dynamic overhang fan.
+// the first layers, per-feature accelerations. No dynamic overhang fan: this fork replaced it (SuperSlicer graphs),
+// the klipper reference files were regenerated without it by the stock build.
 DynamicPrintConfig klipper_config()
 {
     return DynamicPrintConfig::full_print_config_with({
@@ -130,11 +153,6 @@ DynamicPrintConfig klipper_config()
         { "full_fan_speed_layer",            { 4 } },
         { "fan_below_layer_time",            { 60 } },
         { "slowdown_below_layer_time",       { 5 } },
-        { "enable_dynamic_fan_speeds",       { 1 } },
-        { "overhang_fan_speed_0",            { 75 } },
-        { "overhang_fan_speed_1",            { 60 } },
-        { "overhang_fan_speed_2",            { 45 } },
-        { "overhang_fan_speed_3",            { 35 } },
         { "default_acceleration",            11000 },
         { "perimeter_acceleration",          9000 },
         { "external_perimeter_acceleration", 7000 },
@@ -173,7 +191,7 @@ void check_golden(const std::string &name, TestMesh mesh, const DynamicPrintConf
     }
 
     REQUIRE(boost::filesystem::exists(path));
-    const std::string expected = without_time_estimates(read_file(path));
+    const std::string expected = without_time_estimates(without_removed_config_keys(read_file(path)));
     const std::string actual   = without_time_estimates(gcode);
     INFO(name << ": " << first_difference(actual, expected));
     CHECK(actual == expected);

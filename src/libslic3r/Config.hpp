@@ -79,6 +79,66 @@ namespace Slic3r {
     inline bool operator==(const FloatOrPercent& l, const FloatOrPercent& r) noexcept { return l.value == r.value && l.percent == r.percent; }
     inline bool operator!=(const FloatOrPercent& l, const FloatOrPercent& r) noexcept { return !(l == r); }
     inline bool operator< (const FloatOrPercent& l, const FloatOrPercent& r) noexcept { return l.value < r.value || (l.value == r.value && int(l.percent) < int(r.percent)); }
+
+    // Graph of double -> double (ported from SuperSlicer), edited with the graph dialog.
+    // Serialized as "begin_idx:end_idx:type:x0xy0:x1xy1:...", the format of SuperSlicer.
+    struct GraphData
+    {
+        enum GraphType : uint8_t {
+            SQUARE,
+            LINEAR,
+            SPLINE,
+            COUNT
+        };
+
+        GraphData() {}
+        GraphData(Pointfs graph_data) : graph_points(std::move(graph_data)), begin_idx(0), end_idx(graph_points.size()) {}
+        GraphData(size_t begin, size_t end, GraphType graph_type, Pointfs graph_data)
+            : graph_points(std::move(graph_data)), begin_idx(begin), end_idx(end), type(graph_type) {}
+
+        bool operator==(const GraphData &rhs) const { return this->type == rhs.type && this->data() == rhs.data(); }
+        bool operator!=(const GraphData &rhs) const { return !(*this == rhs); }
+        bool operator< (const GraphData &rhs) const;
+
+        // The points used by the graph: graph_points[begin_idx, end_idx).
+        Pointfs data() const;
+        // Value of the graph at x_value. Outside of the points, the value of the first / last point. 0 without points.
+        double  interpolate(double x_value) const;
+        // Indices in range, x values not decreasing.
+        bool    validate() const;
+
+        std::string serialize() const;
+        bool        deserialize(const std::string &str);
+
+        Pointfs   graph_points;
+        size_t    begin_idx = 0; // included
+        size_t    end_idx   = 0; // excluded
+        GraphType type      = GraphType::LINEAR;
+
+    private:
+        friend class cereal::access;
+        template<class Archive> void save(Archive &ar) const { ar(this->serialize()); }
+        template<class Archive> void load(Archive &ar) { std::string str; ar(str); this->deserialize(str); }
+    };
+
+    // How the GUI shows a graph option and its graph dialog.
+    struct GraphSettings
+    {
+        // Title of the graph dialog.
+        std::string title;
+        // Text shown in the graph dialog, how to use the graph for this setting.
+        std::string description;
+        // Labels of the axes.
+        std::string x_label;
+        std::string y_label;
+        // Shown instead of the curve when there are no points.
+        std::string null_label;
+        // Range and step of the axes.
+        double      min_x = 0., max_x = 100., step_x = 1.;
+        double      min_y = 0., max_y = 100., step_y = 1.;
+        // Graph types offered by the "Change type" button.
+        std::vector<GraphData::GraphType> allowed_types;
+    };
 }
 
 namespace std {
@@ -86,6 +146,17 @@ namespace std {
         std::size_t operator()(const Slic3r::FloatOrPercent& v) const noexcept {
             std::size_t seed = std::hash<double>{}(v.value);
             return v.percent ? seed ^ 0x9e3779b9 : seed;
+        }
+    };
+
+    template<> struct hash<Slic3r::GraphData> {
+        std::size_t operator()(const Slic3r::GraphData& v) const noexcept {
+            std::size_t seed = std::hash<int>{}(int(v.type));
+            for (const Slic3r::Vec2d &pt : v.data()) {
+                boost::hash_combine(seed, std::hash<double>{}(pt.x()));
+                boost::hash_combine(seed, std::hash<double>{}(pt.y()));
+            }
+            return seed;
         }
     };
 
@@ -231,6 +302,10 @@ enum ConfigOptionType {
     coEnum          = 9,
     // vector of enum values
     coEnums         = coEnum + coVectorType,
+    // a graph of double -> double (SuperSlicer)
+    coGraph         = 10,
+    // vector of graphs, one per extruder (SuperSlicer)
+    coGraphs        = coGraph + coVectorType,
 };
 
 enum ConfigOptionMode {
@@ -373,6 +448,11 @@ template<> struct NilValueTempl<std::string> {
     using NilType = const char *;
 
     static constexpr const char* value = "";
+};
+
+template<> struct NilValueTempl<GraphData> {
+    using NilType = GraphData;
+    static inline const GraphData value = GraphData();
 };
 
 template<int N, class T> struct NilValueTempl<Vec<N, T>> {
@@ -1589,6 +1669,93 @@ private:
 	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<Vec3d>>(this)); }
 };
 
+class ConfigOptionGraph : public ConfigOptionSingle<GraphData>
+{
+public:
+    ConfigOptionGraph() : ConfigOptionSingle<GraphData>(GraphData()) {}
+    explicit ConfigOptionGraph(const GraphData &value) : ConfigOptionSingle<GraphData>(value) {}
+
+    static ConfigOptionType static_type() { return coGraph; }
+    ConfigOptionType        type()  const override { return static_type(); }
+    ConfigOption*           clone() const override { return new ConfigOptionGraph(*this); }
+    ConfigOptionGraph&      operator=(const ConfigOption *opt) { this->set(opt); return *this; }
+    bool                    operator==(const ConfigOptionGraph &rhs) const throw() { return this->value == rhs.value; }
+    bool                    operator< (const ConfigOptionGraph &rhs) const throw() { return this->value <  rhs.value; }
+
+    std::string serialize() const override { return this->value.serialize(); }
+
+    bool deserialize(const std::string &str, bool append = false) override
+    {
+        UNUSED(append);
+        GraphData data;
+        if (! data.deserialize(str))
+            return false;
+        this->value = std::move(data);
+        return true;
+    }
+
+private:
+	friend class cereal::access;
+	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionSingle<GraphData>>(this)); }
+};
+
+class ConfigOptionGraphs : public ConfigOptionVector<GraphData>
+{
+public:
+    ConfigOptionGraphs() : ConfigOptionVector<GraphData>() {}
+    explicit ConfigOptionGraphs(size_t n, const GraphData &value) : ConfigOptionVector<GraphData>(n, value) {}
+    explicit ConfigOptionGraphs(std::initializer_list<GraphData> il) : ConfigOptionVector<GraphData>(std::move(il)) {}
+    explicit ConfigOptionGraphs(const std::vector<GraphData> &values) : ConfigOptionVector<GraphData>(values) {}
+
+    static ConfigOptionType static_type() { return coGraphs; }
+    ConfigOptionType        type()  const override { return static_type(); }
+    ConfigOption*           clone() const override { return new ConfigOptionGraphs(*this); }
+    ConfigOptionGraphs&     operator=(const ConfigOption *opt) { this->set(opt); return *this; }
+    bool                    operator==(const ConfigOptionGraphs &rhs) const throw() { return this->values == rhs.values; }
+    bool                    operator< (const ConfigOptionGraphs &rhs) const throw()
+        { return std::lexicographical_compare(this->values.begin(), this->values.end(), rhs.values.begin(), rhs.values.end()); }
+    bool					is_nil(size_t) const override { return false; }
+
+    // The graphs are separated by commas, a graph contains no comma.
+    std::string serialize() const override
+    {
+        std::string out;
+        for (size_t i = 0; i < this->values.size(); ++ i) {
+            if (i > 0)
+                out += ",";
+            out += this->values[i].serialize();
+        }
+        return out;
+    }
+
+    std::vector<std::string> vserialize() const override
+    {
+        std::vector<std::string> vv;
+        for (const GraphData &graph : this->values)
+            vv.emplace_back(graph.serialize());
+        return vv;
+    }
+
+    bool deserialize(const std::string &str, bool append = false) override
+    {
+        if (! append)
+            this->values.clear();
+        std::istringstream is(str);
+        std::string graph_str;
+        while (std::getline(is, graph_str, ',')) {
+            GraphData graph;
+            if (! graph.deserialize(graph_str))
+                return false;
+            this->values.push_back(std::move(graph));
+        }
+        return true;
+    }
+
+private:
+	friend class cereal::access;
+	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionVector<GraphData>>(this)); }
+};
+
 class ConfigOptionBool : public ConfigOptionSingle<bool>
 {
 public:
@@ -2343,6 +2510,8 @@ public:
 		    case coPoint:           { auto opt = new ConfigOptionPoint(); 			archive(*opt); return opt; }
 		    case coPoints:          { auto opt = new ConfigOptionPoints(); 			archive(*opt); return opt; }
 		    case coPoint3:          { auto opt = new ConfigOptionPoint3(); 			archive(*opt); return opt; }
+		    case coGraph:           { auto opt = new ConfigOptionGraph(); 			archive(*opt); return opt; }
+		    case coGraphs:          { auto opt = new ConfigOptionGraphs(); 			archive(*opt); return opt; }
 		    case coBool:            { auto opt = new ConfigOptionBool(); 			archive(*opt); return opt; }
 		    case coBools:           { auto opt = new ConfigOptionBools(); 			archive(*opt); return opt; }
 		    case coEnum:            { auto opt = new ConfigOptionEnumGeneric(this->enum_def->m_enum_keys_map); archive(*opt); return opt; }
@@ -2380,6 +2549,8 @@ public:
 		    case coPoint:           archive(*static_cast<const ConfigOptionPoint*>(opt)); 			break;
 		    case coPoints:          archive(*static_cast<const ConfigOptionPoints*>(opt)); 			break;
 		    case coPoint3:          archive(*static_cast<const ConfigOptionPoint3*>(opt)); 			break;
+		    case coGraph:           archive(*static_cast<const ConfigOptionGraph*>(opt)); 			break;
+		    case coGraphs:          archive(*static_cast<const ConfigOptionGraphs*>(opt)); 			break;
 		    case coBool:            archive(*static_cast<const ConfigOptionBool*>(opt)); 			break;
 		    case coBools:           archive(*static_cast<const ConfigOptionBools*>(opt)); 			break;
 		    case coEnum:            archive(*static_cast<const ConfigOptionEnumGeneric*>(opt)); 	break;
@@ -2451,6 +2622,9 @@ public:
     std::vector<t_config_option_key>    shortcut;
 
     Slic3r::clonable_ptr<ConfigOptionEnumDef> enum_def;
+
+    // Set for type == coGraph / coGraphs: how the GUI shows the graph.
+    std::shared_ptr<GraphSettings>      graph_settings;
 
     void set_enum_values(const std::initializer_list<std::string_view> il) {
         this->enum_def_new();

@@ -1624,6 +1624,8 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
             } catch (const ConfigurationError &e) {
                 throw ConfigurationError(format("Invalid configuration bundle \"%1%\", section [%2%]: ", path, section.first) + e.what());
             }
+            // The keys are loaded one by one, without PrintConfigDef::handle_legacy_composite().
+            PrintConfigDef::handle_legacy_dynamic_overhangs(config);
             Preset::normalize(config);
             // Report configuration fields, which are misplaced into a wrong group.
             std::string incorrect_keys = Preset::remove_invalid_keys(config, *default_config);

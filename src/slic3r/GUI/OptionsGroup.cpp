@@ -89,6 +89,10 @@ const t_field& OptionsGroup::build_field(const t_config_option_key& id, const Co
             case coPoints:
                 m_fields.emplace(id, PointCtrl::Create<PointCtrl>(this->ctrl_parent(), opt, id));
 				break;
+            case coGraph:
+            case coGraphs:
+                m_fields.emplace(id, GraphButton::Create<GraphButton>(this->ctrl_parent(), opt, id));
+				break;
             case coNone:   break;
             default:
 				throw Slic3r::LogicError("This control doesn't exist till now"); break;
@@ -258,6 +262,13 @@ void OptionsGroup::change_opt_value(DynamicPrintConfig& config, const t_config_o
             config.option<ConfigOptionPoints>(opt_key)->set_at(vec_new, opt_index, 0);
         }
                      break;
+        case coGraph:
+            config.set_key_value(opt_key, new ConfigOptionGraph(boost::any_cast<GraphData>(value)));
+            break;
+        case coGraphs: {
+            const ConfigOptionGraphs vec_new{ boost::any_cast<GraphData>(value) };
+            config.option<ConfigOptionGraphs>(opt_key)->set_at(&vec_new, opt_index, 0);
+            break; }
         case coNone:
             break;
         default:
@@ -1165,6 +1176,12 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
 			ret = config.option<ConfigOptionPoints>(opt_key)->values;
 		else
 			ret = config.option<ConfigOptionPoints>(opt_key)->get_at(idx);
+		break;
+	case coGraph:
+		ret = config.option<ConfigOptionGraph>(opt_key)->value;
+		break;
+	case coGraphs:
+		ret = config.option<ConfigOptionGraphs>(opt_key)->get_at(idx);
 		break;
 	case coNone:
 	default:

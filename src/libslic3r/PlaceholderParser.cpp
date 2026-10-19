@@ -1013,7 +1013,8 @@ namespace client
             case coString:  output.set_s(static_cast<const ConfigOptionString*>(opt.opt)->value); break;
             case coPercent: output.set_d(opt.opt->getFloat());   break;
             case coEnum:
-            case coPoint:   output.set_s(opt.opt->serialize());  break;
+            case coPoint:
+            case coGraph:   output.set_s(opt.opt->serialize());  break;
             case coBool:    output.set_b(opt.opt->getBool());    break;
             case coFloatOrPercent:
             {
@@ -1081,6 +1082,7 @@ namespace client
             case coPercents: output.set_d(static_cast<const ConfigOptionPercents*>(opt.opt)->values[idx]); break;
             case coPoints:   output.set_s(to_string(static_cast<const ConfigOptionPoints*>(opt.opt)->values[idx])); break;
             case coBools:    output.set_b(static_cast<const ConfigOptionBools*>(opt.opt)->values[idx] != 0); break;
+            case coGraphs:   output.set_s(static_cast<const ConfigOptionGraphs*>(opt.opt)->values[idx].serialize()); break;
                 //case coEnums:    output.set_s(opt.opt->vserialize()[idx]); break;
             default:
                 ctx->throw_exception("Unsupported vector variable type", opt.it_range);

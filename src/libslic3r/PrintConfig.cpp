@@ -1033,7 +1033,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("overhangs_fan_speed", coInts);
     def->label = L("Overhang perimeters fan speed");
-    def->tooltip = L("This fan speed is enforced during all overhang perimeters. Can be disabled by \"Disable fan for the first\" layers and increased by a short layer time. The dynamic fan speeds, when enabled, are applied on top of it. Set -1 to use the bridges fan speed.");
+    def->tooltip = L("This fan speed is enforced during all overhang perimeters. Can be disabled by \"Disable fan for the first\" layers and increased by a short layer time. The dynamic overhang fan speeds, when enabled, replace it. Set -1 to use the bridges fan speed.");
     def->sidetext = L("%");
     def->min = -1;
     def->max = 100;
@@ -1097,99 +1097,103 @@ void PrintConfigDef::init_fff_params()
     def             = this->add("enable_dynamic_overhang_speeds", coBool);
     def->label      = L("Enable dynamic overhang speeds");
     def->category   = L("Speed");
-    def->tooltip    = L("This setting enables dynamic speed control on overhangs.");
+    def->tooltip    = L("Print the perimeters over an overhang at a speed taken from the \"Dynamic overhang speeds\" graph, "
+                        "between the overhangs speed and the perimeter speed, depending on how much of the extrusion lies on the layer below.");
     def->mode       = comExpert;
     def->set_default_value(new ConfigOptionBool(false));
 
-    // TRN PrintSettings : "Dynamic overhang speed"
-    auto overhang_speed_setting_description = L("Overhang size is expressed as a percentage of overlap of the extrusion with the previous layer: "
-                        "100% would be full overlap (no overhang), while 0% represents full overhang (floating extrusion, bridge). "
-                        "Speeds for overhang sizes in between are calculated via linear interpolation. "
-                        "If set as percentage, the speed is calculated over the external perimeter speed. "
-                        "Note that the speeds generated to gcode will never exceed the max volumetric speed value.");
-
-    def             = this->add("overhang_speed_0", coFloatOrPercent);
-    def->label      = L("speed for 0% overlap (bridge)");
+    def             = this->add("overhangs_speed", coFloatOrPercent);
+    def->label      = L("Overhangs");
+    def->full_label = L("Overhangs speed");
     def->category   = L("Speed");
-    def->tooltip    = overhang_speed_setting_description;
+    def->tooltip    = L("Speed for printing the overhang perimeters. Can be a % of the bridges speed."
+                        "\nWith dynamic overhang speeds, the speed for 0% overlap with the layer below.");
     def->sidetext   = L("mm/s or %");
+    def->ratio_over = "bridge_speed";
     def->min        = 0;
     def->mode       = comExpert;
-    def->set_default_value(new ConfigOptionFloatOrPercent(15, false));
+    def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
 
-    def             = this->add("overhang_speed_1", coFloatOrPercent);
-    def->label      = L("speed for 25% overlap");
+    def             = this->add("overhangs_width_speed", coFloatOrPercent);
+    def->label      = L("Threshold");
+    def->full_label = L("Overhangs speed threshold");
     def->category   = L("Speed");
-    def->tooltip    = overhang_speed_setting_description;
-    def->sidetext   = L("mm/s or %");
+    def->tooltip    = L("For the dynamic overhang speeds and fan speeds: how far an extrusion sticks out past the edge of the layer below "
+                        "at 0% overlap (not supported at all). An extrusion that doesn't stick out has 100% overlap. "
+                        "Can be in mm or a % of the nozzle diameter.");
+    def->sidetext   = L("mm or %");
+    def->ratio_over = "nozzle_diameter";
     def->min        = 0;
+    def->max_literal = 10;
     def->mode       = comExpert;
-    def->set_default_value(new ConfigOptionFloatOrPercent(15, false));
+    def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
 
-    def             = this->add("overhang_speed_2", coFloatOrPercent);
-    def->label      = L("speed for 50% overlap");
+    def             = this->add("overhangs_dynamic_speed", coGraph);
+    def->label      = L("Dynamic overhang speeds");
     def->category   = L("Speed");
-    def->tooltip    = overhang_speed_setting_description;
-    def->sidetext   = L("mm/s or %");
-    def->min        = 0;
+    def->tooltip    = L("Speed of the perimeters over an overhang, by % of overlap with the layer below: 100% is fully on the layer below "
+                        "(no overhang), 0% is sticking out by the overhangs speed threshold or more. The graph gives the speed as a % of the way "
+                        "from the overhangs speed (0%) to the perimeter or external perimeter speed (100%). At 100% overlap the speed is always "
+                        "the perimeter speed."
+                        "\nThe speed is still limited by the maximum volumetric speed.");
     def->mode       = comExpert;
-    def->set_default_value(new ConfigOptionFloatOrPercent(20, false));
-
-    def             = this->add("overhang_speed_3", coFloatOrPercent);
-    def->label      = L("speed for 75% overlap");
-    def->category   = L("Speed");
-    def->tooltip    = overhang_speed_setting_description;
-    def->sidetext   = L("mm/s or %");
-    def->min        = 0;
-    def->mode       = comExpert;
-    def->set_default_value(new ConfigOptionFloatOrPercent(25, false));
+    def->set_default_value(new ConfigOptionGraph(GraphData(0, 5, GraphData::GraphType::LINEAR,
+        { { 0, 0 }, { 25, 10 }, { 50, 40 }, { 75, 70 }, { 100, 100 } })));
+    def->graph_settings = std::make_shared<GraphSettings>();
+    def->graph_settings->title       = L("Overhangs speed by % of overlap");
+    def->graph_settings->description = L("Speed for each % of overlap with the layer below, as a % of the way from the overhangs speed (0%)\n"
+                                         "to the perimeter / external perimeter speed (100%).\n"
+                                         "100% overlap: the extrusion is fully on the layer below.\n"
+                                         "0% overlap: the extrusion sticks out past the edge of the layer below by the overhangs speed threshold or more.\n"
+                                         "At 100% overlap the speed is always the perimeter speed.");
+    def->graph_settings->x_label     = L("Overlap with the layer below (%)");
+    def->graph_settings->y_label     = L("Speed (%)");
+    def->graph_settings->null_label  = L("Linear");
+    def->graph_settings->allowed_types = { GraphData::GraphType::LINEAR, GraphData::GraphType::SQUARE, GraphData::GraphType::SPLINE };
 
     def          = this->add("enable_dynamic_fan_speeds", coBools);
     def->label   = L("Enable dynamic fan speeds");
-    def->tooltip = L("This setting enables dynamic fan speed control on overhangs.");
+    def->tooltip = L("Set the fan speed of the perimeters over an overhang from the \"Dynamic overhang fan speeds\" graph, "
+                     "depending on how much of the extrusion lies on the layer below. It replaces the overhang perimeters fan speed.");
     def->mode    = comExpert;
     def->set_default_value(new ConfigOptionBools{false});
 
-    // TRN FilamentSettings : "Dynamic fan speeds"
-    auto fan_speed_setting_description = L("Overhang size is expressed as a percentage of overlap of the extrusion with the previous layer: "
-        "100% would be full overlap (no overhang), while 0% represents full overhang (floating extrusion, bridge). "
-        "Fan speeds for overhang sizes in between are calculated via linear interpolation.");
-
-    def           = this->add("overhang_fan_speed_0", coInts);
-    def->label    = L("speed for 0% overlap (bridge)");
-    def->tooltip  = fan_speed_setting_description;
+    def          = this->add("overhangs_dynamic_fan_speed", coGraphs);
+    def->label   = L("Dynamic overhang fan speeds");
+    def->tooltip = L("Fan speed of the perimeters over an overhang, by % of overlap with the layer below: 100% is fully on the layer below, "
+                     "0% is sticking out by the overhangs speed threshold or more. The fan speed is used as it is (it can be lower than the "
+                     "fan speed of the layer), except for the layers with the fan disabled by \"Disable fan for the first\" layers. "
+                     "Extrusions that don't stick out keep the fan speed of their feature.");
     def->sidetext = L("%");
-    def->min      = 0;
-    def->max      = 100;
-    def->mode     = comExpert;
-    def->set_default_value(new ConfigOptionInts{0});
+    def->mode    = comExpert;
+    def->set_default_value(new ConfigOptionGraphs{ GraphData(0, 5, GraphData::GraphType::LINEAR,
+        { { 0, 100 }, { 25, 80 }, { 50, 60 }, { 75, 40 }, { 100, 20 } }) });
+    def->graph_settings = std::make_shared<GraphSettings>();
+    def->graph_settings->title       = L("Overhangs fan speed by % of overlap");
+    def->graph_settings->description = L("Fan speed for each % of overlap with the layer below.\n"
+                                         "100% overlap: the extrusion is fully on the layer below.\n"
+                                         "0% overlap: the extrusion sticks out past the edge of the layer below by the overhangs speed threshold or more.");
+    def->graph_settings->x_label     = L("Overlap with the layer below (%)");
+    def->graph_settings->y_label     = L("Fan speed (%)");
+    def->graph_settings->null_label  = L("No fan speed");
+    def->graph_settings->allowed_types = { GraphData::GraphType::LINEAR, GraphData::GraphType::SQUARE, GraphData::GraphType::SPLINE };
 
-    def           = this->add("overhang_fan_speed_1", coInts);
-    def->label    = L("speed for 25% overlap");
-    def->tooltip  = fan_speed_setting_description;
-    def->sidetext = L("%");
-    def->min      = 0;
-    def->max      = 100;
-    def->mode     = comExpert;
-    def->set_default_value(new ConfigOptionInts{0});
-
-    def           = this->add("overhang_fan_speed_2", coInts);
-    def->label    = L("speed for 50% overlap");
-    def->tooltip  = fan_speed_setting_description;
-    def->sidetext = L("%");
-    def->min      = 0;
-    def->max      = 100;
-    def->mode     = comExpert;
-    def->set_default_value(new ConfigOptionInts{0});
-
-    def           = this->add("overhang_fan_speed_3", coInts);
-    def->label    = L("speed for 75% overlap");
-    def->tooltip  = fan_speed_setting_description;
-    def->sidetext = L("%");
-    def->min      = 0;
-    def->max      = 100;
-    def->mode     = comExpert;
-    def->set_default_value(new ConfigOptionInts{0});
+    // PrusaSlicer 2.9 dynamic overhang speeds and fan speeds at fixed overlaps, replaced by the graphs above.
+    // Kept to read old configurations, converted and removed by PrintConfigDef::handle_legacy_composite().
+    for (const char *opt_key : { "overhang_speed_0", "overhang_speed_1", "overhang_speed_2", "overhang_speed_3" }) {
+        def           = this->add(opt_key, coFloatOrPercent);
+        def->label    = opt_key;
+        def->cli      = ConfigOptionDef::nocli;
+        def->mode     = comExpert;
+        def->set_default_value(new ConfigOptionFloatOrPercent(15, false));
+    }
+    for (const char *opt_key : { "overhang_fan_speed_0", "overhang_fan_speed_1", "overhang_fan_speed_2", "overhang_fan_speed_3" }) {
+        def           = this->add(opt_key, coInts);
+        def->label    = opt_key;
+        def->cli      = ConfigOptionDef::nocli;
+        def->mode     = comExpert;
+        def->set_default_value(new ConfigOptionInts{0});
+    }
 
     def = this->add("brim_width", coFloat);
     def->label = L("Brim width");
@@ -6089,6 +6093,75 @@ void PrintConfigDef::handle_legacy_composite(DynamicPrintConfig &config)
         }
         config.set_key_value("wiping_volumes_use_custom_matrix", new ConfigOptionBool(custom));
     }
+
+    handle_legacy_dynamic_overhangs(config);
+}
+
+void PrintConfigDef::handle_legacy_dynamic_overhangs(DynamicPrintConfig &config)
+{
+    static const std::array<const char*, 4> speed_keys { "overhang_speed_0", "overhang_speed_1", "overhang_speed_2", "overhang_speed_3" };
+    static const std::array<const char*, 4> fan_keys   { "overhang_fan_speed_0", "overhang_fan_speed_1", "overhang_fan_speed_2", "overhang_fan_speed_3" };
+    // The value in the config, or the default value.
+    auto option = [&config](const char *opt_key) -> const ConfigOption* {
+        return config.has(opt_key) ? config.option(opt_key) : config.def()->get(opt_key)->default_value.get();
+    };
+
+    // Speeds at 0, 25, 50 and 75 % overlap (mm/s or % of the external perimeter speed), the external perimeter speed at 100 %.
+    // Converted as SuperSlicer does: the slowest (or fastest) speed becomes the overhangs speed, the graph gives the other
+    // speeds as a % of the way from the overhangs speed to the external perimeter speed.
+    if (config.has(speed_keys[0]) && config.has("enable_dynamic_overhang_speeds") && config.opt_bool("enable_dynamic_overhang_speeds")) {
+        const auto  *external = static_cast<const ConfigOptionFloatOrPercent*>(option("external_perimeter_speed"));
+        const double perimeter_speed = static_cast<const ConfigOptionFloat*>(option("perimeter_speed"))->value;
+        const double external_speed  = external->get_abs_value(perimeter_speed);
+        std::array<double, 4> speeds;
+        for (size_t i = 0; i < speed_keys.size(); ++ i) {
+            const double speed = static_cast<const ConfigOptionFloatOrPercent*>(option(speed_keys[i]))->get_abs_value(external_speed);
+            // Zero used the external perimeter speed.
+            speeds[i] = speed < EPSILON ? external_speed : speed;
+        }
+        const auto [min_it, max_it] = std::minmax_element(speeds.begin(), speeds.end());
+        const double overhangs_speed = *min_it < external_speed ? *min_it : *max_it;
+        Pointfs points;
+        for (size_t i = 0; i < speeds.size(); ++ i) {
+            const double ratio = std::abs(external_speed - overhangs_speed) < EPSILON ? 1. :
+                std::clamp((speeds[i] - overhangs_speed) / (external_speed - overhangs_speed), 0., 1.);
+            points.emplace_back(25. * double(i), std::round(ratio * 100.));
+        }
+        points.emplace_back(100., 100.);
+        config.set_key_value("overhangs_speed", new ConfigOptionFloatOrPercent(overhangs_speed, false));
+        config.set_key_value("overhangs_dynamic_speed", new ConfigOptionGraph(GraphData(points)));
+    }
+
+    // Fan speeds at 0, 25, 50 and 75 % overlap, per extruder. At 100 % the (external) perimeter fan speed or the default
+    // fan speed if set, otherwise the 75 % value (as SuperSlicer does).
+    if (config.has(fan_keys[0]) && config.has("enable_dynamic_fan_speeds")) {
+        const auto *enabled = config.option<ConfigOptionBools>("enable_dynamic_fan_speeds");
+        if (std::any_of(enabled->values.begin(), enabled->values.end(), [](unsigned char v) { return v != 0; })) {
+            auto *graphs = static_cast<ConfigOptionGraphs*>(option("overhangs_dynamic_fan_speed")->clone());
+            graphs->resize(enabled->size());
+            for (size_t idx = 0; idx < enabled->size(); ++ idx) {
+                if (! enabled->get_at(idx))
+                    continue;
+                Pointfs points;
+                for (size_t i = 0; i < fan_keys.size(); ++ i)
+                    points.emplace_back(25. * double(i), double(static_cast<const ConfigOptionInts*>(option(fan_keys[i]))->get_at(idx)));
+                double fan_speed_100 = points.back().y();
+                for (const char *opt_key : { "external_perimeter_fan_speed", "perimeter_fan_speed", "default_fan_speed" })
+                    if (const int fan_speed = static_cast<const ConfigOptionInts*>(option(opt_key))->get_at(idx); fan_speed >= 0) {
+                        fan_speed_100 = double(fan_speed);
+                        break;
+                    }
+                points.emplace_back(100., fan_speed_100);
+                graphs->values[idx] = GraphData(points);
+            }
+            config.set_key_value("overhangs_dynamic_fan_speed", graphs);
+        }
+    }
+
+    for (const char *opt_key : speed_keys)
+        config.erase(opt_key);
+    for (const char *opt_key : fan_keys)
+        config.erase(opt_key);
 }
 
 const PrintConfigDef print_config_def;

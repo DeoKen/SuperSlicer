@@ -209,6 +209,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/SmallAreaFlowDialog.hpp
     GUI/RammingChart.cpp
     GUI/RammingChart.hpp
+    GUI/GraphChart.cpp
+    GUI/GraphChart.hpp
+    GUI/GraphDialog.cpp
+    GUI/GraphDialog.hpp
     GUI/RemovableDriveManager.cpp
     GUI/RemovableDriveManager.hpp
     GUI/SendSystemInfoDialog.cpp
@@ -337,6 +341,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Widgets/StaticBox.hpp
     GUI/Widgets/SpinInput.cpp
     GUI/Widgets/SpinInput.hpp
+    GUI/Widgets/GraphBitmapButton.cpp
+    GUI/Widgets/GraphBitmapButton.hpp
     GUI/Widgets/SwitchButton.cpp
     GUI/Widgets/SwitchButton.hpp
     GUI/Widgets/TextInput.cpp

@@ -484,7 +484,7 @@ static std::vector<std::string> s_Preset_print_options {
     "max_volumetric_extrusion_rate_slope_positive", "max_volumetric_extrusion_rate_slope_negative",
     "perimeter_speed", "small_perimeter_speed", "small_perimeter_min_length", "small_perimeter_max_length", "external_perimeter_speed", "infill_speed", "solid_infill_speed",
     "small_area_infill_flow_compensation", "small_area_infill_flow_compensation_model",
-    "enable_dynamic_overhang_speeds", "overhang_speed_0", "overhang_speed_1", "overhang_speed_2", "overhang_speed_3",
+    "enable_dynamic_overhang_speeds", "overhangs_dynamic_speed", "overhangs_speed", "overhangs_width_speed",
     "top_solid_infill_speed", "support_material_speed", "support_material_xy_spacing", "support_material_interface_speed",
     "bridge_speed", "over_bridge_speed", "internal_bridge_speed", "gap_fill_speed", "gap_fill_enabled", "travel_speed", "travel_speed_z", "first_layer_speed", "first_layer_infill_speed", "first_layer_speed_over_raft", "perimeter_acceleration", "infill_acceleration",
     "external_perimeter_acceleration", "top_solid_infill_acceleration", "solid_infill_acceleration", "travel_acceleration", "wipe_tower_acceleration",
@@ -527,7 +527,7 @@ static std::vector<std::string> s_Preset_filament_options {
     "cooling_perimeter_transition_distance", "min_fan_speed",
     "max_fan_speed", "bridge_fan_speed", "internal_bridge_fan_speed", "additional_cooling_fan_speed", "default_fan_speed", "perimeter_fan_speed", "external_perimeter_fan_speed", "overhangs_fan_speed", "infill_fan_speed", "solid_infill_fan_speed", "top_fan_speed", "gap_fill_fan_speed", "support_material_fan_speed", "support_material_interface_fan_speed", "disable_fan_first_layers", "full_fan_speed_layer", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed",
     "custom_parameters_filament", "start_filament_gcode", "end_filament_gcode", "enable_dynamic_fan_speeds", "chamber_temperature", "chamber_minimal_temperature",
-    "overhang_fan_speed_0", "overhang_fan_speed_1", "overhang_fan_speed_2", "overhang_fan_speed_3",
+    "overhangs_dynamic_fan_speed",
     // Retract overrides
     "filament_retract_length", "filament_retract_lift", "filament_retract_lift_above", "filament_retract_lift_below", "filament_retract_speed", "filament_deretract_speed", "filament_retract_restart_extra", "filament_retract_before_travel",
     "filament_retract_layer_change", "filament_wipe", "filament_retract_before_wipe", "filament_retract_length_toolchange", "filament_retract_restart_extra_toolchange", "filament_travel_ramping_lift",
@@ -1491,6 +1491,7 @@ inline t_config_option_keys deep_diff(const ConfigBase &config_this, const Confi
                 case coPoints:  add_correct_opts_to_diff<ConfigOptionPoints     >(opt_key, diff, config_other, config_this);  break;
                 case coFloatsOrPercents:    add_correct_opts_to_diff<ConfigOptionFloatsOrPercents   >(opt_key, diff, config_other, config_this);  break;
                 case coEnums:   add_correct_opts_to_diff<ConfigOptionEnumsGeneric>(opt_key, diff, config_other, config_this);  break;
+                case coGraphs:  add_correct_opts_to_diff<ConfigOptionGraphs     >(opt_key, diff, config_other, config_this);  break;
                 default:        diff.emplace_back(opt_key);     break;
                 }
                 // "nozzle_diameter" is a vector option which contain info about diameter for each nozzle

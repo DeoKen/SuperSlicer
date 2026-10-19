@@ -1,5 +1,6 @@
 #include "ExtrusionProcessor.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <iterator>
 #include <map>
@@ -172,113 +173,59 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
     return result;
 };
 
-static std::map<float, float> calc_print_speed_sections(const ExtrusionAttributes &attributes,
-                                                        const FullPrintConfig     &config,
-                                                        const float                external_perimeter_reference_speed,
-                                                        const float                default_speed)
+// Overlap with the layer below in %, from how far the extrusion sticks out past the edge of the layer below:
+// 100 % when it doesn't stick out, 0 % when it sticks out by the threshold or more (SuperSlicer).
+static double overlap_percent(const float distance, const float threshold)
 {
-    struct OverhangWithSpeed
-    {
-        int                        percent;
-        ConfigOptionFloatOrPercent print_speed;
-    };
-
-    std::vector<OverhangWithSpeed> overhangs_with_speeds = {{100, ConfigOptionFloatOrPercent{default_speed, false}}};
-    if (config.enable_dynamic_overhang_speeds) {
-        overhangs_with_speeds = {{  0, config.overhang_speed_0},
-                                 { 25, config.overhang_speed_1},
-                                 { 50, config.overhang_speed_2},
-                                 { 75, config.overhang_speed_3},
-                                 {100, ConfigOptionFloatOrPercent{default_speed, false}}};
-    }
-
-    const float            speed_base = external_perimeter_reference_speed > 0 ? external_perimeter_reference_speed : default_speed;
-    std::map<float, float> speed_sections;
-    for (OverhangWithSpeed &overhangs_with_speed : overhangs_with_speeds) {
-        const float distance = attributes.width * (1.f - (float(overhangs_with_speed.percent) / 100.f));
-        float       speed    = float(overhangs_with_speed.print_speed.get_abs_value(speed_base));
-
-        if (speed < EPSILON) {
-            speed = speed_base;
-        }
-
-        speed_sections[distance] = speed;
-    }
-
-    return speed_sections;
-}
-
-static std::map<float, float> calc_fan_speed_sections(const ExtrusionAttributes &attributes,
-                                                      const FullPrintConfig     &config,
-                                                      const size_t               extruder_id)
-{
-    struct OverhangWithFanSpeed
-    {
-        int              percent;
-        ConfigOptionInts fan_speed;
-    };
-
-    std::vector<OverhangWithFanSpeed> overhang_with_fan_speeds = {{100, ConfigOptionInts{0}}};
-    if (config.enable_dynamic_fan_speeds.get_at(extruder_id)) {
-        overhang_with_fan_speeds = {{  0, config.overhang_fan_speed_0},
-                                    { 25, config.overhang_fan_speed_1},
-                                    { 50, config.overhang_fan_speed_2},
-                                    { 75, config.overhang_fan_speed_3},
-                                    {100, ConfigOptionInts{0}}};
-    }
-
-    std::map<float, float> fan_speed_sections;
-    for (OverhangWithFanSpeed &overhang_with_fan_speed : overhang_with_fan_speeds) {
-        float distance               = attributes.width * (1.f - (float(overhang_with_fan_speed.percent) / 100.f));
-        float fan_speed              = float(overhang_with_fan_speed.fan_speed.get_at(extruder_id));
-        fan_speed_sections[distance] = fan_speed;
-    }
-
-    return fan_speed_sections;
+    if (threshold < EPSILON)
+        return distance > EPSILON ? 0. : 100.;
+    return 100. * (1. - std::clamp(double(distance / threshold), 0., 1.));
 }
 
 OverhangSpeeds calculate_overhang_speed(const ExtrusionAttributes  &attributes,
                                         const FullPrintConfig      &config,
                                         const size_t                extruder_id,
-                                        const float                 external_perimeter_reference_speed,
-                                        const float                 default_speed,
+                                        const float                 overhangs_speed,
+                                        const float                 perimeter_speed,
                                         const std::optional<float> &current_fan_speed)
 {
     assert(attributes.overhang_attributes.has_value());
+    const OverhangAttributes &overhang  = *attributes.overhang_attributes;
+    const float               threshold = float(config.overhangs_width_speed.get_abs_value(config.nozzle_diameter.get_at(extruder_id)));
+    const double              overlap_start = overlap_percent(overhang.start_distance_from_prev_layer, threshold);
+    const double              overlap_end   = overlap_percent(overhang.end_distance_from_prev_layer, threshold);
 
-    auto interpolate_speed = [](const std::map<float, float> &values, float distance) {
-        auto upper_dist = values.lower_bound(distance);
-        if (upper_dist == values.end()) {
-            return values.rbegin()->second;
-        } else if (upper_dist == values.begin()) {
-            return upper_dist->second;
-        }
+    OverhangSpeeds overhang_speeds = { -1.f, -1.f };
 
-        auto  lower_dist = std::prev(upper_dist);
-        float t          = (distance - lower_dist->first) / (upper_dist->first - lower_dist->first);
-        return (1.0f - t) * lower_dist->second + t * upper_dist->second;
-    };
-
-    const std::map<float, float> speed_sections     = calc_print_speed_sections(attributes, config, external_perimeter_reference_speed, default_speed);
-    const std::map<float, float> fan_speed_sections = calc_fan_speed_sections(attributes, config, extruder_id);
-
-    const float extrusion_speed   = std::min(interpolate_speed(speed_sections, attributes.overhang_attributes->start_distance_from_prev_layer),
-                                             interpolate_speed(speed_sections, attributes.overhang_attributes->end_distance_from_prev_layer));
-    const float curled_base_speed = interpolate_speed(speed_sections, attributes.width * attributes.overhang_attributes->proximity_to_curled_lines);
-
-    const float fan_speed         = std::min(interpolate_speed(fan_speed_sections, attributes.overhang_attributes->start_distance_from_prev_layer),
-                                             interpolate_speed(fan_speed_sections, attributes.overhang_attributes->end_distance_from_prev_layer));
-
-    OverhangSpeeds overhang_speeds = {std::min(curled_base_speed, extrusion_speed), fan_speed};
-    if (!config.enable_dynamic_overhang_speeds) {
-        overhang_speeds.print_speed = -1;
+    if (config.enable_dynamic_overhang_speeds) {
+        // The graph gives the speed as a % of the way from the overhangs speed to the perimeter speed.
+        // As PrusaSlicer, the extrusions over curled extrusions of the layer below are slowed down as well.
+        // As SuperSlicer, 100 % overlap is always the perimeter speed, without points the graph is linear.
+        Pointfs points = config.overhangs_dynamic_speed.value.data();
+        if (points.empty())
+            points.emplace_back(0., 0.);
+        while (! points.empty() && points.back().x() >= 100.)
+            points.pop_back();
+        points.emplace_back(100., 100.);
+        const GraphData graph(0, points.size(), config.overhangs_dynamic_speed.value.type, points);
+        const double    curled_overlap = overlap_percent(attributes.width * overhang.proximity_to_curled_lines, threshold);
+        const double    ratio = std::clamp(std::min({ graph.interpolate(overlap_start), graph.interpolate(overlap_end), graph.interpolate(curled_overlap) }), 0., 100.) / 100.;
+        overhang_speeds.print_speed = float(overhangs_speed * (1. - ratio) + perimeter_speed * ratio);
     }
 
-    if (!config.enable_dynamic_fan_speeds.get_at(extruder_id)) {
-        overhang_speeds.fan_speed = -1;
-    } else if (current_fan_speed.has_value() && (fan_speed < *current_fan_speed) && (*current_fan_speed - fan_speed) <= MIN_FAN_SPEED_NEGATIVE_CHANGE_TO_EMIT) {
-        // Always allow the fan speed to be increased without any hysteresis, but the speed will be decreased only when it exceeds a limit for minimum change.
-        overhang_speeds.fan_speed = *current_fan_speed;
+    // The fan speed of the graph for the extrusions sticking out past the edge of the layer below (SuperSlicer). The others keep the
+    // fan speed of their feature. Sticking out by less than 1 % of the threshold counts as not sticking out (rounding of the distances).
+    if (config.enable_dynamic_fan_speeds.get_at(extruder_id) &&
+        std::min(overhang.start_distance_from_prev_layer, overhang.end_distance_from_prev_layer) > 0.01f * threshold) {
+        const GraphData &graph = config.overhangs_dynamic_fan_speed.get_at(extruder_id);
+        if (! graph.data().empty()) {
+            const float fan_speed = float(std::clamp(std::min(graph.interpolate(overlap_start), graph.interpolate(overlap_end)), 0., 100.));
+            overhang_speeds.fan_speed = fan_speed;
+            if (current_fan_speed.has_value() && (fan_speed < *current_fan_speed) && (*current_fan_speed - fan_speed) <= MIN_FAN_SPEED_NEGATIVE_CHANGE_TO_EMIT) {
+                // Always allow the fan speed to be increased without any hysteresis, but the speed will be decreased only when it exceeds a limit for minimum change.
+                overhang_speeds.fan_speed = *current_fan_speed;
+            }
+        }
     }
 
     return overhang_speeds;

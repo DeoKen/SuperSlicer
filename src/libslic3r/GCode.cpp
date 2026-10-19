@@ -728,7 +728,8 @@ namespace DoExport {
 	                if (region.config().get_abs_value("perimeter_speed") == 0 ||
 	                    region.config().get_abs_value("small_perimeter_speed") == 0 ||
 	                    region.config().get_abs_value("external_perimeter_speed") == 0 ||
-	                    region.config().get_abs_value("bridge_speed") == 0)
+	                    region.config().get_abs_value("bridge_speed") == 0 ||
+	                    region.config().get_abs_value("overhangs_speed") == 0)
 	                    mm3_per_mm.push_back(layerm->perimeters().min_mm3_per_mm());
 	                if (region.config().get_abs_value("infill_speed") == 0 ||
 	                    region.config().get_abs_value("solid_infill_speed") == 0 ||
@@ -4157,6 +4158,9 @@ std::string GCodeGenerator::_extrude(
             if (path_attr.role == ExtrusionRole::InternalBridgeInfill)
                 // Percentage is relative to bridge_speed.
                 speed = m_config.get_abs_value("internal_bridge_speed", speed);
+            else if (path_attr.role.is_perimeter())
+                // Overhang perimeters (SuperSlicer), percentage is relative to bridge_speed.
+                speed = m_config.get_abs_value("overhangs_speed", speed);
         } else if (path_attr.role == ExtrusionRole::InternalInfill) {
             speed = m_config.get_abs_value("infill_speed");
         } else if (path_attr.role == ExtrusionRole::SolidInfill) {
@@ -4194,14 +4198,18 @@ std::string GCodeGenerator::_extrude(
 
     ExtrusionProcessor::OverhangSpeeds dynamic_print_and_fan_speeds = {-1.f, -1.f};
     if (path_attr.overhang_attributes.has_value()) {
-        double external_perimeter_reference_speed = m_config.get_abs_value("external_perimeter_speed");
-        if (external_perimeter_reference_speed == 0) {
-            external_perimeter_reference_speed = m_volumetric_speed / path_attr.mm3_per_mm;
-        }
-
-        external_perimeter_reference_speed = cap_speed(external_perimeter_reference_speed, m_config, m_writer.extruder()->id(), path_attr);
-        dynamic_print_and_fan_speeds       = ExtrusionProcessor::calculate_overhang_speed(path_attr, this->m_config, m_writer.extruder()->id(),
-                                                                                    float(external_perimeter_reference_speed), float(speed),
+        // Dynamic overhang speed (SuperSlicer): between the overhangs speed (0 % overlap with the layer below) and the speed of the
+        // perimeter (100 % overlap). For an overhang perimeter, the perimeter / external perimeter speed, else the speed set above.
+        double overhangs_speed = m_config.get_abs_value("overhangs_speed", m_config.bridge_speed.value);
+        double perimeter_speed = speed;
+        if (path_attr.role.is_bridge())
+            perimeter_speed = m_config.get_abs_value(path_attr.role.is_external_perimeter() ? "external_perimeter_speed" : "perimeter_speed");
+        if (overhangs_speed == 0)
+            overhangs_speed = m_volumetric_speed / path_attr.mm3_per_mm;
+        if (perimeter_speed == 0)
+            perimeter_speed = m_volumetric_speed / path_attr.mm3_per_mm;
+        dynamic_print_and_fan_speeds = ExtrusionProcessor::calculate_overhang_speed(path_attr, this->m_config, m_writer.extruder()->id(),
+                                                                                    float(overhangs_speed), float(perimeter_speed),
                                                                                     m_current_dynamic_fan_speed);
     }
 

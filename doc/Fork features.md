@@ -13,6 +13,8 @@ General rules followed by every feature:
   over sparse infill can take a different direction than stock. Turn it off for stock output; the golden test does.
   Also different from stock, as a fix and not a setting: Arachne with "Single perimeter on top surfaces" = "All top
   surfaces" (section 26). That option is off by default, so the golden test is unaffected.
+  Also different from stock when switched on: the dynamic overhang speeds and fan speeds now work as in SuperSlicer
+  (section 27). Both are off by default, so stock output is unaffected.
 - Settings marked "per filament" live in the filament preset, "printer" in the printer preset, all others in the
   print preset. Most are visible in **Expert** mode only.
 
@@ -44,6 +46,7 @@ Contents:
 24. [App name: SuperPSlicer](#24-app-name-superpslicer)
 25. [Project copy at every G-code export](#25-project-copy-at-every-g-code-export)
 26. [Arachne fix: thin walls with single perimeter on all top surfaces](#26-arachne-fix-thin-walls-with-single-perimeter-on-all-top-surfaces)
+27. [Dynamic overhang speeds and fan speeds with graphs](#27-dynamic-overhang-speeds-and-fan-speeds-with-graphs)
 25. [Testing](#testing)
 
 ---
@@ -97,7 +100,7 @@ Rules:
   except that short layers raise the features marked above towards `max_fan_speed`, as SuperSlicer does.
 - `disable_fan_first_layers` turns every fan off on the first layers.
 - `bridge_fan_speed` keeps the stock PrusaSlicer behaviour (it only raises the fan).
-- PrusaSlicer's dynamic overhang fan speeds (`enable_dynamic_fan_speeds`) still apply on top of a feature fan speed.
+- The dynamic overhang fan speeds (section 27), when on, replace `overhangs_fan_speed` and apply on top of any feature fan speed.
 - When `default_fan_speed` is set, it replaces "Keep fan always on" + "Min fan speed" (greyed out in the GUI).
 - "Max" fan speed is only the target of the short layer fan speed-up: greyed out unless auto cooling is on and "Enable fan
   if layer print time is below" is above 0 (without a default fan speed also when "Slow down if layer print time is below" is).
@@ -474,7 +477,7 @@ between pages); only the rows inside a group are combined:
   perimeter), Infill (sparse infill, anchor, solid patterns, ironing, infill angles), Skirt and brim (brim width and
   gap, brim ears), Support material (raft, contact Z, pattern, interface, organic branches), Speed (all), Multiple
   extruders (wipe tower, segmented regions, interlocking), Advanced (extrusion widths, Arachne).
-- Filament: Cooling (fan speeds, disable fan / full speed layer, dynamic fan speeds, layer time thresholds),
+- Filament: Cooling (fan speeds, disable fan / full speed layer, dynamic overhang fan on the overhang fan line, layer time thresholds),
   Advanced (max infill speeds, shrinkage, toolchange parameters, ramming, flush).
 - Printer: General (Z, firmware supports, extruder clearance, fan speedup), Extruder (layer height limits, retraction
   speed, wipe, tool change retraction).
@@ -891,6 +894,66 @@ those walls is 0.40 mm with a thin perimeter between, as with "Topmost surface o
 (2026-10-18): wide outer wall (>0.43 mm) 4.56 m before, 3.11 m after (3.12 m with "Topmost surface only"); per-layer
 extruded area within 0.07 % of before on every layer (no new gaps).
 
+## 27. Dynamic overhang speeds and fan speeds with graphs
+
+**What it does.** From SuperSlicer. Replaces PrusaSlicer's dynamic overhang speeds and fan speeds, which used four fixed
+values at 0 / 25 / 50 / 75 % overlap, with a graph per setting that you edit with the mouse, plus SuperSlicer's overhangs
+speed. "Overlap" is how much of an extrusion lies on the layer below: 100 % when it doesn't stick out past the edge of
+the layer below, 0 % when it sticks out by the threshold or more.
+
+**Settings.**
+- Print > Speed > "Overhangs speed" line (as in SuperSlicer):
+  - Maximum: `overhangs_speed`, mm/s or % of the bridges speed, default 100 %. Speed of the overhang perimeters (detected
+    with "Detect bridging perimeters"); stock printed them at the bridges speed, so the default keeps stock output.
+  - Threshold: `overhangs_width_speed`, mm or % of the nozzle diameter, default 100 %: how far an extrusion sticks out at 0 %
+    overlap. Used by the dynamic speeds and the dynamic fan speeds. (Stock used the extrusion width.)
+  - Dynamic: `enable_dynamic_overhang_speeds` (stock option, default off) and the graph `overhangs_dynamic_speed`: speed for
+    each % of overlap, as a % of the way from the overhangs speed (0 %) to the perimeter / external perimeter speed (100 %).
+    Default graph (SuperSlicer): 0 %: 0, 25 %: 10, 50 %: 40, 75 %: 70, 100 %: 100. 100 % overlap is always the perimeter
+    speed, whatever the graph says (as SuperSlicer); without points the graph is linear.
+- Filament > Cooling > "Overhang perimeter fan speed" line, per filament: Overhangs (`overhangs_fan_speed`, section 2),
+  Dynamic: `enable_dynamic_fan_speeds` (stock option, default off) and the graph `overhangs_dynamic_fan_speed`: fan speed
+  for each % of overlap. Default graph (SuperSlicer): 0 %: 100, 25 %: 80, 50 %: 60, 75 %: 40, 100 %: 20. While it is on,
+  `overhangs_fan_speed` is greyed out and not used.
+- Graph editor (click the curve): drag a point; left click selects it (yellow) and its values can be typed in the boxes
+  at the bottom right; right click deletes a point; right click or double click an empty spot adds one. "Change type":
+  linear, square (steps) or spline. "Reset": the default graph. The curve in the editor and on the button is drawn with
+  the same interpolation the slicer uses.
+
+**How it works.**
+- New option types `coGraph` / `coGraphs` (`GraphData`, `ConfigOptionGraph(s)` in `Config.hpp/.cpp`), stored in
+  SuperSlicer's format `begin:end:type:x0xy0:x1xy1...` (type 0 square, 1 linear, 2 spline), several graphs separated by
+  commas. A SuperSlicer value with its `!` (disabled) mark is read as well; here the graphs are switched on and off by
+  the stock `enable_dynamic_*` options. GUI: `GraphButton` field (`Field.cpp`), `GraphBitmapButton` widget, `GraphDialog`
+  and `GraphChart` (ported from SuperSlicer's generalized ramming chart; PrusaSlicer's ramming chart is untouched).
+- The overhanging perimeters are split by distance to the layer below as stock (`calculate_and_split_overhanging_extrusions()`).
+  `ExtrusionProcessor::calculate_overhang_speed()` turns the distance into an overlap with the threshold and reads the
+  graphs. Speed: the smallest graph value of the start, the end and the curled lines estimate of the path (as stock),
+  between the overhangs speed and the perimeter speed (external perimeter speed for external overhangs); 0 speeds use
+  the volumetric speed as stock. Fan: only for paths that stick out on both ends (by more than 1 % of the threshold,
+  against rounding); the others keep the fan speed of their feature.
+- Fan in `CoolingBuffer` (`;_SET_FAN_SPEED` / `;_RESET_FAN_SPEED` as stock): the graph value is used as it is, also lower
+  than the layer fan speed and without the `full_fan_speed_layer` ramp (stock only raised the fan, between the layer fan
+  speed and the ramp), but 0 on the layers with the fan disabled by `disable_fan_first_layers`. The overhang perimeters
+  feature fan (`overhangs_fan_speed`) and the stock bridge fan for overhang perimeters are ignored while the dynamic fan
+  is on (as SuperSlicer): the overhang perimeter parts that don't stick out keep the layer fan speed.
+- Old settings: `overhang_speed_0..3` and `overhang_fan_speed_0..3` are converted when a config is loaded
+  (`PrintConfigDef::handle_legacy_dynamic_overhangs()`: presets, config bundles, 3MF projects incl. object / volume
+  settings, G-code), then removed. Speeds, only when dynamic speeds were on (as SuperSlicer): the slowest of the four
+  becomes the overhangs speed in mm/s (the fastest, if all are faster than the external perimeter speed), the graph gets
+  the others as a % of the way to the external perimeter speed, 100 % at 100 % overlap. This is close to, not exactly,
+  stock: stock used the extrusion width as threshold and the perimeter's own speed at 100 %. Fan speeds, per filament
+  with the dynamic fan on: the four values, and at 100 % the external perimeter / perimeter / default fan speed if set,
+  else the 75 % value. An object or volume setting is converted only when it also overrides the enable option,
+  otherwise it is dropped.
+
+**How to test.** `[DynamicOverhang]` (test_dynamic_overhang.cpp): graph format and interpolation (linear, square,
+spline), conversion of the old settings, overhangs speed (default = bridges speed, %), dynamic speeds (overhangs speed
+when sticking out, perimeter speeds when supported, values in between on a sphere), dynamic fan (graph value used and
+`overhangs_fan_speed` replaced, lower than the layer fan, 0 on the disabled first layers, off = overhangs fan speed).
+Manual: Print > Speed, switch "Dynamic" on, click the curve, edit, slice an overhang (e.g. a 45 degree chamfer or a
+sphere) and look at Speed / Fan speed in the G-code viewer.
+
 ---
 
 ## Testing
@@ -903,5 +966,7 @@ extruded area within 0.07 % of before on every layer (no new gaps).
 `internal_bridge_shortest_span` (on by default, section 20) and maps
   `Internal bridge infill` back to `Bridge infill`. The estimated time comments are not compared: with the Klipper
   config the Klipper limits (section 15) change them. Regenerate the reference only from an unmodified stock build:
-  `PS_UPDATE_GOLDEN=1`.
+  `PS_UPDATE_GOLDEN=1`. The Klipper references were regenerated on 2026-10-19 by a stock build without the dynamic overhang
+  fan (this fork replaced it, section 27); the stock keys removed by this fork (`removed_config_keys`) are skipped in the
+  references.
 - Every feature has a tag listed in its section above.

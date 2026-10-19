@@ -1137,7 +1137,8 @@ static std::array<int, size_t(GCodeExtrusionRole::Count)> feature_fan_speeds(con
     auto at  = [&out](const GCodeExtrusionRole role) { return out[size_t(role)]; };
     set(GCodeExtrusionRole::Perimeter,                get(config.perimeter_fan_speed));
     set(GCodeExtrusionRole::ExternalPerimeter,        get(config.external_perimeter_fan_speed));
-    set(GCodeExtrusionRole::OverhangPerimeter,        get(config.overhangs_fan_speed));
+    // The dynamic overhang fan speeds replace the overhang perimeters fan speed.
+    set(GCodeExtrusionRole::OverhangPerimeter,        config.enable_dynamic_fan_speeds.get_at(extruder) ? -1 : get(config.overhangs_fan_speed));
     set(GCodeExtrusionRole::InternalInfill,           get(config.infill_fan_speed));
     set(GCodeExtrusionRole::SolidInfill,              get(config.solid_infill_fan_speed));
     set(GCodeExtrusionRole::TopSolidInfill,           get(config.top_fan_speed));
@@ -1251,14 +1252,6 @@ std::string CoolingBuffer::apply_layer_cooldown(
         int       disable_fan_first_layers = EXTRUDER_CONFIG(disable_fan_first_layers);
         int       fan_speed_new            = default_fan_speed >= 0 ? default_fan_speed : EXTRUDER_CONFIG(fan_always_on) ? min_fan_speed : 0;
 
-        struct FanSpeedRange
-        {
-            int min_speed;
-            int max_speed;
-        };
-
-        FanSpeedRange requested_fan_speed_limits{fan_speed_new, 100};
-
         feature_fan_speed.fill(0);
         feature_fan_control.fill(false);
         feature_fan_stock.fill(false);
@@ -1294,31 +1287,23 @@ std::string CoolingBuffer::apply_layer_cooldown(
             };
 
             if (default_fan_speed >= 0) {
-                fan_speed_new                        = speed_up(fan_speed_new);
-                requested_fan_speed_limits.min_speed = fan_speed_new;
-                if (ramp) {
-                    fan_speed_new                        = ramp_up(fan_speed_new);
-                    requested_fan_speed_limits.max_speed = fan_speed_new;
-                }
+                fan_speed_new = ramp_up(speed_up(fan_speed_new));
             } else {
                 if (cooling) {
                     if (layer_time < slowdown_below_layer_time) {
                         // Layer time very short. Enable the fan to a full throttle.
-                        fan_speed_new                        = max_fan_speed;
-                        requested_fan_speed_limits.min_speed = max_fan_speed;
+                        fan_speed_new = max_fan_speed;
                     } else if (layer_time < fan_below_layer_time) {
                         // Layer time quite short. Enable the fan proportionally according to the current layer time.
                         assert(layer_time >= slowdown_below_layer_time);
                         const double t = (layer_time - slowdown_below_layer_time) / (fan_below_layer_time - slowdown_below_layer_time);
 
-                        fan_speed_new                        = int(floor(t * min_fan_speed + (1. - t) * max_fan_speed) + 0.5);
-                        requested_fan_speed_limits.min_speed = fan_speed_new;
+                        fan_speed_new = int(floor(t * min_fan_speed + (1. - t) * max_fan_speed) + 0.5);
                     }
                 }
                 if (ramp) {
                     // Ramp up the fan speed from disable_fan_first_layers to full_fan_speed_layer.
-                    fan_speed_new                        = std::clamp(int(float(fan_speed_new) * ramp_factor + 0.5f), 0, 100);
-                    requested_fan_speed_limits.max_speed = fan_speed_new;
+                    fan_speed_new = std::clamp(int(float(fan_speed_new) * ramp_factor + 0.5f), 0, 100);
                 }
             }
 
@@ -1329,6 +1314,10 @@ std::string CoolingBuffer::apply_layer_cooldown(
                 bridge_fan_speed = std::clamp(int(float(bridge_fan_speed) * ramp_factor + 0.5f), 0, 100);
             const bool bridge_fan_control = bridge_fan_speed > fan_speed_new;
             for (const GCodeExtrusionRole role : { GCodeExtrusionRole::OverhangPerimeter, GCodeExtrusionRole::BridgeInfill, GCodeExtrusionRole::InternalBridgeInfill }) {
+                if (role == GCodeExtrusionRole::OverhangPerimeter && EXTRUDER_CONFIG(enable_dynamic_fan_speeds))
+                    // As SuperSlicer: with the dynamic overhang fan speeds, the overhang perimeters have no fan speed of their own,
+                    // the graph sets it where they stick out, elsewhere they keep the layer fan speed.
+                    continue;
                 feature_fan_speed[size_t(role)]   = bridge_fan_speed;
                 feature_fan_control[size_t(role)] = bridge_fan_control;
                 feature_fan_stock[size_t(role)]   = true;
@@ -1348,14 +1337,13 @@ std::string CoolingBuffer::apply_layer_cooldown(
                 }
 #undef EXTRUDER_CONFIG
         } else { // fan disabled
-            fan_speed_new                        = 0;
-            requested_fan_speed_limits.max_speed = 0;
+            fan_speed_new = 0;
         }
 
-        requested_fan_speed_limits.min_speed = std::min(requested_fan_speed_limits.min_speed, requested_fan_speed_limits.max_speed);
-        if (requested_fan_speed >= 0) {
-            fan_speed_new = std::clamp(requested_fan_speed, requested_fan_speed_limits.min_speed, requested_fan_speed_limits.max_speed);
-        }
+        // Dynamic overhang fan speed (SuperSlicer): used as it is, even lower than the layer fan speed,
+        // except for the layers with the fan disabled.
+        if (requested_fan_speed >= 0 && int(layer_id) >= disable_fan_first_layers)
+            fan_speed_new = std::clamp(requested_fan_speed, 0, 100);
 
         if (fan_speed_new != m_fan_speed) {
             m_fan_speed = fan_speed_new;

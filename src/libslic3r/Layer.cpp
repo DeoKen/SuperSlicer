@@ -638,10 +638,9 @@ inline bool has_compatible_dynamic_overhang_speed(const PrintRegionConfig &confi
 {
     bool dynamic_overhang_speed_compatibility = config.enable_dynamic_overhang_speeds == other_config.enable_dynamic_overhang_speeds;
     if (dynamic_overhang_speed_compatibility && config.enable_dynamic_overhang_speeds) {
-        dynamic_overhang_speed_compatibility = config.overhang_speed_0 == other_config.overhang_speed_0 &&
-                                               config.overhang_speed_1 == other_config.overhang_speed_1 &&
-                                               config.overhang_speed_2 == other_config.overhang_speed_2 &&
-                                               config.overhang_speed_3 == other_config.overhang_speed_3;
+        dynamic_overhang_speed_compatibility = config.overhangs_dynamic_speed == other_config.overhangs_dynamic_speed &&
+                                               config.overhangs_speed == other_config.overhangs_speed &&
+                                               config.overhangs_width_speed == other_config.overhangs_width_speed;
     }
 
     return dynamic_overhang_speed_compatibility;

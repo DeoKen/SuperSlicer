@@ -4818,7 +4818,7 @@ M84     ; disable motors
 ; draft_shield = disabled
 ; duplicate_distance = 6
 ; elefant_foot_compensation = 0
-; enable_dynamic_fan_speeds = 1
+; enable_dynamic_fan_speeds = 0
 ; enable_dynamic_overhang_speeds = 0
 ; end_filament_gcode = "; Filament-specific end gcode \n;END gcode for filament\n"
 ; end_gcode = M104 S0 ; turn off temperature\nG28 X0  ; home X axis\nM84     ; disable motors\n
@@ -4966,10 +4966,10 @@ M84     ; disable motors
 ; ooze_prevention = 0
 ; output_filename_format = [input_filename_base].gcode
 ; over_bridge_speed = 0
-; overhang_fan_speed_0 = 75
-; overhang_fan_speed_1 = 60
-; overhang_fan_speed_2 = 45
-; overhang_fan_speed_3 = 35
+; overhang_fan_speed_0 = 0
+; overhang_fan_speed_1 = 0
+; overhang_fan_speed_2 = 0
+; overhang_fan_speed_3 = 0
 ; overhang_speed_0 = 15
 ; overhang_speed_1 = 15
 ; overhang_speed_2 = 20

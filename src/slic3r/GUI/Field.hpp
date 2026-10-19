@@ -29,6 +29,7 @@
 #include "Widgets/SwitchButton.hpp"
 #include "Widgets/SpinInput.hpp"
 #include "Widgets/TextInput.hpp"
+#include "Widgets/GraphBitmapButton.hpp"
 
 #ifdef __WXMSW__
 #define wxMSW true
@@ -481,6 +482,32 @@ public:
     void			enable() override { dynamic_cast<wxColourPickerCtrl*>(window)->Enable(); }
     void			disable() override{ dynamic_cast<wxColourPickerCtrl*>(window)->Disable(); }
 	wxWindow*		getWindow() override { return window; }
+};
+
+// Graph option (coGraph / coGraphs, SuperSlicer): a button showing the curve, a click opens the graph dialog.
+class GraphButton : public Field {
+	using Field::Field;
+public:
+	GraphButton(const ConfigOptionDef& opt, const t_config_option_key& id) : Field(opt, id) {}
+	GraphButton(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : Field(parent, opt, id) {}
+	~GraphButton() {}
+
+	GraphBitmapButton*	window{ nullptr };
+	void			BUILD() override;
+
+	void			set_value(const boost::any& value, bool change_event = false) override;
+	boost::any&		get_value() override;
+	void			msw_rescale() override;
+	void			sys_color_changed() override;
+
+	void			enable() override { window->Enable(); }
+	void			disable() override { window->Disable(); }
+	wxWindow*		getWindow() override { return window; }
+
+private:
+	wxSize			bitmap_size() const;
+	void			update_bitmap();
+	GraphData		m_graph;
 };
 
 class PointCtrl : public Field {

@@ -28,6 +28,7 @@
 #include "OG_CustomCtrl.hpp"
 #include "MsgDialog.hpp"
 #include "BitmapComboBox.hpp"
+#include "GraphDialog.hpp"
 
 #include "Widgets/ComboBox.hpp"
 
@@ -111,7 +112,8 @@ void Field::PostInitialize()
 	case coFloats:
 	case coStrings:
 	case coBools:
-	case coInts: {
+	case coInts:
+	case coGraphs: {
 		auto tag_pos = m_opt_id.find("#");
 		if (tag_pos != std::string::npos)
 			m_opt_idx = stoi(m_opt_id.substr(tag_pos + 1, m_opt_id.size()));
@@ -1505,6 +1507,71 @@ void ColourPicker::sys_color_changed()
 		if (wxColourPickerCtrl* picker = dynamic_cast<wxColourPickerCtrl*>(win))
 			wxGetApp().UpdateDarkUI(picker->GetPickerCtrl(), true);
 #endif
+}
+
+wxSize GraphButton::bitmap_size() const
+{
+    return wxSize((m_opt.width >= 0 ? m_opt.width : def_width()) * m_em_unit,
+                  m_opt.height >= 0 ? m_opt.height * m_em_unit : lround(2.3 * m_em_unit));
+}
+
+void GraphButton::update_bitmap()
+{
+    window->update_bitmap(m_opt.graph_settings ? *m_opt.graph_settings : GraphSettings(), m_graph);
+}
+
+void GraphButton::BUILD()
+{
+    m_graph = m_opt.type == coGraphs ? m_opt.get_default_value<ConfigOptionGraphs>()->get_at(m_opt_idx) :
+                                       m_opt.get_default_value<ConfigOptionGraph>()->value;
+
+    window = new GraphBitmapButton(m_parent, bitmap_size());
+    window->SetFont(Slic3r::GUI::wxGetApp().normal_font());
+    wxGetApp().UpdateDarkUI(window);
+    update_bitmap();
+    if (parent_is_custom_ctrl && m_opt.height < 0)
+        opt_height = (double)window->GetSize().GetHeight() / m_em_unit;
+
+    window->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+        // The "Reset" button of the dialog sets the default value.
+        const GraphData reset_value = m_opt.type == coGraphs ? m_opt.get_default_value<ConfigOptionGraphs>()->get_at(m_opt_idx) :
+                                                               m_opt.get_default_value<ConfigOptionGraph>()->value;
+        GraphDialog dlg(window, m_graph, reset_value, m_opt.graph_settings ? *m_opt.graph_settings : GraphSettings());
+        if (dlg.ShowModal() == wxID_OK && dlg.get_data() != m_graph) {
+            m_graph = dlg.get_data();
+            update_bitmap();
+            on_change_field();
+        }
+    });
+
+    window->SetToolTip(get_tooltip_text(from_u8(m_graph.serialize())));
+}
+
+void GraphButton::set_value(const boost::any& value, bool change_event)
+{
+    m_disable_change_event = !change_event;
+    m_graph = boost::any_cast<GraphData>(value);
+    update_bitmap();
+    m_disable_change_event = false;
+}
+
+boost::any& GraphButton::get_value()
+{
+    m_value = m_graph;
+    return m_value;
+}
+
+void GraphButton::msw_rescale()
+{
+    Field::msw_rescale();
+    window->set_bitmap_size(bitmap_size());
+    update_bitmap();
+}
+
+void GraphButton::sys_color_changed()
+{
+    wxGetApp().UpdateDarkUI(window);
+    update_bitmap();
 }
 
 PointCtrl::~PointCtrl()
