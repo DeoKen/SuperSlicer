@@ -168,14 +168,33 @@ const std::vector<OG_CustomCtrl::Column>& OG_CustomCtrl::columns()
                     col.label = std::max({ col.label, text_width(sublabel_text(opt.opt)), wxCoord(opt_group->sublabel_width * m_em_unit) });
                 Field *field = opt_group->get_field(opt.opt_id);
                 complete &= field != nullptr;
-                col.field = std::max(col.field, field_width(opt, field));
-                if (! opt.opt.sidetext.empty() || opt_group->sidetext_width > 0)
-                    col.side = std::max({ col.side, text_width(_(opt.opt.sidetext)), wxCoord(opt_group->sidetext_width * m_em_unit) });
+                if (i + 1 < option_set.size()) {
+                    col.field = std::max(col.field, field_width(opt, field));
+                    col.side  = std::max(col.side, side_width(opt));
+                }
             }
         }
         m_columns_valid = complete;
     }
     return m_columns;
+}
+
+wxCoord OG_CustomCtrl::side_width(const Option &option)
+{
+    if (option.opt.sidetext.empty() && opt_group->sidetext_width <= 0)
+        return 0;
+    return std::max(text_width(_(option.opt.sidetext)), wxCoord(opt_group->sidetext_width * m_em_unit));
+}
+
+wxCoord OG_CustomCtrl::aligned_single_offset(const Line &line)
+{
+    const std::vector<Option> &option_set = line.get_options();
+    if (option_set.size() != 1 || line.force_sublabels || line.widget || ! line.get_extra_widgets().empty() ||
+        option_set.front().side_widget != nullptr || option_set.front().opt.full_width ||
+        option_set.front().opt.gui_type == ConfigOptionDef::GUIType::legend)
+        return 0;
+    const std::vector<Column> &cols = columns();
+    return cols.empty() || cols.front().label == 0 ? 0 : cols.front().label + m_h_gap;
 }
 
 int OG_CustomCtrl::get_height(const Line& line)
@@ -235,6 +254,9 @@ wxPoint OG_CustomCtrl::get_pos(const Line& line, Field* field_in/* = nullptr*/)
                 break;
             }
 
+            // A single field in the first column of the group.
+            h_pos += aligned_single_offset(line);
+
             // If we have a single option with no sidetext
             const std::vector<Option>& option_set = line.get_options();
             if (option_set.size() == 1 && option_set.front().opt.sidetext.size() == 0 &&
@@ -261,9 +283,10 @@ wxPoint OG_CustomCtrl::get_pos(const Line& line, Field* field_in/* = nullptr*/)
                         correct_horiz_pos(h_pos, field);
                         break;
                     }
-                    h_pos += cols[i].field + m_h_gap;
-                    if (cols[i].side > 0)
-                        h_pos += cols[i].side + m_h_gap;
+                    const bool last = i + 1 == option_set.size();
+                    h_pos += (last ? field_width(opt, field) : cols[i].field) + m_h_gap;
+                    if (const wxCoord side = last ? side_width(opt) : cols[i].side; side > 0)
+                        h_pos += side + m_h_gap;
                     h_pos += lround(0.6 * m_em_unit);
                 }
                 break;
@@ -777,6 +800,9 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
     // If we're here, we have more than one option or a single option with sidetext
     // so we need a horizontal sizer to arrange these things
 
+    // A single field in the first column of the group.
+    h_pos += ctrl->aligned_single_offset(og_line);
+
     // If we have a single option with no sidetext just add it directly to the grid sizer
     if (option_set.size() == 1 && option_set.front().opt.sidetext.size() == 0 &&
         option_set.front().side_widget == nullptr && og_line.get_extra_widgets().size() == 0)
@@ -814,11 +840,12 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
             if (field && field->has_undo_ui())
                 draw_act_bmps(dc, wxPoint(h_pos, v_pos), field->undo_to_sys_bitmap(), field->undo_bitmap(), field->blink(), bmp_rect_id++);
             h_pos += 3 * blinking_button_width;
-            h_pos += cols[i].field + ctrl->m_h_gap;
-            if (cols[i].side > 0) {
+            const bool last = i + 1 == option_set.size();
+            h_pos += (last ? ctrl->field_width(opt, field) : cols[i].field) + ctrl->m_h_gap;
+            if (const wxCoord side = last ? ctrl->side_width(opt) : cols[i].side; side > 0) {
                 if (! opt.opt.sidetext.empty())
-                    draw_text(dc, wxPoint(h_pos, v_pos), _(opt.opt.sidetext), nullptr, cols[i].side);
-                h_pos += cols[i].side + ctrl->m_h_gap;
+                    draw_text(dc, wxPoint(h_pos, v_pos), _(opt.opt.sidetext), nullptr, side);
+                h_pos += side + ctrl->m_h_gap;
             }
             h_pos += lround(0.6 * ctrl->m_em_unit);
         }

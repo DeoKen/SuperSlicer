@@ -377,6 +377,32 @@ std::string PresetHints::recommended_thin_wall_thickness(const PresetBundle &pre
 }
 
 
+std::optional<PresetHints::OverhangThresholdGeometry> PresetHints::overhang_threshold_geometry(const PresetBundle &preset_bundle)
+{
+    const DynamicPrintConfig &print_config   = preset_bundle.prints  .get_edited_preset().config;
+    const DynamicPrintConfig &printer_config = preset_bundle.printers.get_edited_preset().config;
+
+    const float  layer_height = float(print_config.opt_float("layer_height"));
+    const auto  *nozzles      = printer_config.option<ConfigOptionFloats>("nozzle_diameter");
+    const size_t extruder_idx = size_t(std::max(1, print_config.opt_int("perimeter_extruder"))) - 1;
+    if (layer_height <= 0.f || nozzles == nullptr || nozzles->empty())
+        return {};
+    const float nozzle_diameter = float(nozzles->get_at(extruder_idx < nozzles->size() ? extruder_idx : 0));
+    try {
+        const Flow external_perimeter_flow = Flow::new_from_config_width(
+            frExternalPerimeter, *print_config.opt<ConfigOptionFloatOrPercent>("external_perimeter_extrusion_width"),
+            nozzle_diameter, layer_height);
+        // The middle of the external perimeter past the edge of the layer below by the threshold: its outer edge sticks out by
+        // the threshold + half its width, on each layer.
+        const double threshold = print_config.opt<ConfigOptionFloatOrPercent>("overhangs_threshold")->get_abs_value(nozzle_diameter);
+        const double stick_out = threshold + 0.5 * external_perimeter_flow.width();
+        const double angle     = std::atan2(stick_out, double(layer_height)) * 180. / PI;
+        return OverhangThresholdGeometry{ angle, stick_out, layer_height, nozzle_diameter, external_perimeter_flow.width() };
+    } catch (const FlowErrorNegativeSpacing &) {
+        return std::nullopt;
+    }
+}
+
 // Produce a textual explanation of the combined effects of the top/bottom_solid_layers
 // versus top/bottom_min_shell_thickness. Which of the two values wins depends
 // on the active layer height.

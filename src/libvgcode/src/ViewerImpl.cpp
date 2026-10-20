@@ -1592,6 +1592,18 @@ void ViewerImpl::set_color_range_palette(EViewType type, const Palette& palette)
     m_settings.update_colors = true;
 }
 
+void ViewerImpl::set_color_ranges_discrete(bool discrete)
+{
+    if (m_color_ranges_discrete == discrete)
+        return;
+    m_color_ranges_discrete = discrete;
+    for (ColorRange* range : { &m_height_range, &m_width_range, &m_speed_range, &m_actual_speed_range, &m_fan_speed_range,
+                               &m_temperature_range, &m_volumetric_rate_range, &m_actual_volumetric_rate_range,
+                               &m_layer_time_range[0], &m_layer_time_range[1] })
+        range->set_discrete(discrete);
+    m_settings.update_colors = true;
+}
+
 void ViewerImpl::set_travels_radius(float radius)
 {
     m_travels_radius = std::clamp(radius, MIN_TRAVELS_RADIUS_MM, MAX_TRAVELS_RADIUS_MM);
@@ -1778,19 +1790,19 @@ void ViewerImpl::update_color_ranges()
     for (size_t i = 0; i < m_vertices.size(); i++) {
         const PathVertex& v = m_vertices[i];
         if (v.is_extrusion()) {
-            m_height_range.update(round_to_bin(v.height));
+            m_height_range.update(round_to_bin(v.height), v.interpolated);
             if (!v.is_custom_gcode() || m_settings.extrusion_roles_visibility[size_t(EGCodeExtrusionRole::Custom)]) {
-                m_width_range.update(round_to_bin(v.width));
-                m_volumetric_rate_range.update(round_to_bin(v.volumetric_rate()));
-                m_actual_volumetric_rate_range.update(round_to_bin(v.actual_volumetric_rate()));
+                m_width_range.update(round_to_bin(v.width), v.interpolated);
+                m_volumetric_rate_range.update(round_to_bin(v.volumetric_rate()), v.interpolated);
+                m_actual_volumetric_rate_range.update(round_to_bin(v.actual_volumetric_rate()), v.interpolated);
             }
-            m_fan_speed_range.update(round_to_bin(v.fan_speed));
-            m_temperature_range.update(round_to_bin(v.temperature));
+            m_fan_speed_range.update(round_to_bin(v.fan_speed), v.interpolated);
+            m_temperature_range.update(round_to_bin(v.temperature), v.interpolated);
         }
         if ((v.is_travel() && m_settings.options_visibility[size_t(EOptionType::Travels)]) ||
             (v.is_wipe() && m_settings.options_visibility[size_t(EOptionType::Wipes)]) ||
              v.is_extrusion()) {
-            m_speed_range.update(v.feedrate);
+            m_speed_range.update(v.feedrate, v.interpolated);
             m_actual_speed_range.update(v.actual_feedrate);
         }
     }

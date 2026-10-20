@@ -988,6 +988,7 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
     const bool required_top_layer_only = get_app_config()->get_bool("seq_top_layer_only");
     if (current_top_layer_only != required_top_layer_only)
         m_viewer.toggle_top_layer_only_view_range();
+    m_viewer.set_color_ranges_discrete(get_app_config()->get_bool("gcode_viewer_discrete_values"));
 
     // avoid processing if called with the same gcode_result
     if (m_last_result_id == gcode_result.id && ! s_beds_switched_since_last_gcode_load && wxGetApp().is_editor() && ! s_reload_preview_after_switching_beds) {
@@ -2208,7 +2209,15 @@ void GCodeViewer::render_legend(float& legend_height)
         };
 
         std::vector<float> values = range.get_values();
-        if (values.size() == 1)
+        if (range.is_discrete()) {
+            // a color per value (SuperSlicer)
+            for (auto it = values.rbegin(); it != values.rend(); ++it) {
+                char buf[1024];
+                ::sprintf(buf, "%.*f", decimals, *it);
+                append_item(EItemType::Rect, libvgcode::convert(range.get_color_at(*it)), buf);
+            }
+        }
+        else if (values.size() == 1)
             // single item use case
             append_range_item(0, values.front(), decimals);
         else if (values.size() == 2) {
@@ -2232,7 +2241,16 @@ void GCodeViewer::render_legend(float& legend_height)
         };
 
         std::vector<float> values = range.get_values();
-        if (values.size() == 1)
+        if (range.is_discrete()) {
+            // a color per value (SuperSlicer)
+            for (auto it = values.rbegin(); it != values.rend(); ++it) {
+                std::string str_value = get_time_dhms(*it);
+                if (str_value == "0s")
+                    str_value = "< 1s";
+                append_item(EItemType::Rect, libvgcode::convert(range.get_color_at(*it)), str_value);
+            }
+        }
+        else if (values.size() == 1)
             // single item use case
             append_range_item(0, values.front());
         else if (values.size() == 2) {
@@ -2627,6 +2645,22 @@ void GCodeViewer::render_legend(float& legend_height)
         }
         default: { break; }
         }
+    }
+
+    // Discrete values (SuperSlicer): a color per value, for the ranges with few distinct values.
+    if (const libvgcode::ColorRange& range = m_viewer.get_color_range(new_view_type); range.can_be_discrete()) {
+        ImGui::Spacing();
+        bool discrete = m_viewer.is_color_ranges_discrete();
+        if (ImGuiPureWrap::checkbox(_u8L("Discrete values"), discrete)) {
+            m_viewer.set_color_ranges_discrete(discrete);
+            get_app_config()->set("gcode_viewer_discrete_values", discrete ? "1" : "0");
+            wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();
+            wxGetApp().plater()->get_current_canvas3D()->request_extra_frame();
+        }
+        if (ImGui::IsItemHovered())
+            ImGuiPureWrap::tooltip(discrete ? _u8L("Click to return to the continuous scale.") :
+                format(_u8L("Click to show a different color for each value (%1% different values)."), range.get_discrete_count()),
+                ImGui::GetFontSize() * 20.0f);
     }
 
     // partial estimated printing time section

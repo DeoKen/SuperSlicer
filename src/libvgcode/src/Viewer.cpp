@@ -162,6 +162,16 @@ void Viewer::set_color_range_palette(EViewType type, const Palette& palette)
     m_impl->set_color_range_palette(type, palette);
 }
 
+bool Viewer::is_color_ranges_discrete() const
+{
+    return m_impl->is_color_ranges_discrete();
+}
+
+void Viewer::set_color_ranges_discrete(bool discrete)
+{
+    m_impl->set_color_ranges_discrete(discrete);
+}
+
 float Viewer::get_travels_radius() const
 {
     return m_impl->get_travels_radius();

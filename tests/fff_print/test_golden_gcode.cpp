@@ -43,7 +43,7 @@ const std::vector<std::string> added_config_keys {
     "internal_bridge_shortest_span",
     "klipper_",
     "thumbnails_end_file",
-    "overhangs_dynamic_", "overhangs_speed", "overhangs_width_speed",
+    "overhangs_dynamic_", "overhangs_speed", "overhangs_graph_range", "overhangs_threshold",
 };
 
 // Config keys of stock PrusaSlicer removed by this fork, skipped in the reference files.

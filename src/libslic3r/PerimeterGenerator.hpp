@@ -116,7 +116,9 @@ void process_classic(
     // Gaps without the thin walls
     ExtrusionEntityCollection  &out_gap_fill,
     // Infills without the gap fills
-    ExPolygons                 &out_fill_expolygons);
+    ExPolygons                 &out_fill_expolygons,
+    // Cache of the lower slices for the extra perimeters on overhangs with a non-default overhang threshold, per layer region.
+    Polygons                   *extra_perimeters_lower_slices_cache = nullptr);
 
 void process_arachne(
     // Inputs:
@@ -132,7 +134,9 @@ void process_arachne(
     // Gaps without the thin walls
     ExtrusionEntityCollection  &out_gap_fill,
     // Infills without the gap fills
-    ExPolygons                 &out_fill_expolygons);
+    ExPolygons                 &out_fill_expolygons,
+    // Cache of the lower slices for the extra perimeters on overhangs with a non-default overhang threshold, per layer region.
+    Polygons                   *extra_perimeters_lower_slices_cache = nullptr);
 
 ExtrusionMultiPath thick_polyline_to_multi_path(const ThickPolyline &thick_polyline, ExtrusionRole role, const Flow &flow, float tolerance, float merge_tolerance, const std::optional<uint32_t> &perimeter_index = std::nullopt);
 

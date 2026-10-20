@@ -174,12 +174,14 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
 };
 
 // Overlap with the layer below in %, from how far the extrusion sticks out past the edge of the layer below:
-// 100 % when it doesn't stick out, 0 % when it sticks out by the threshold or more (SuperSlicer).
-static double overlap_percent(const float distance, const float threshold)
+// 100 % when it sticks out by the start distance or less, 0 % when it sticks out by the end distance or more (SuperSlicer).
+static double overlap_percent(const float distance, const float end, const float start = 0.f)
 {
-    if (threshold < EPSILON)
-        return distance > EPSILON ? 0. : 100.;
-    return 100. * (1. - std::clamp(double(distance / threshold), 0., 1.));
+    if (distance <= start)
+        return 100.;
+    if (end - start < EPSILON)
+        return distance > start + EPSILON ? 0. : 100.;
+    return 100. * (1. - std::clamp(double((distance - start) / (end - start)), 0., 1.));
 }
 
 OverhangSpeeds calculate_overhang_speed(const ExtrusionAttributes  &attributes,
@@ -191,9 +193,15 @@ OverhangSpeeds calculate_overhang_speed(const ExtrusionAttributes  &attributes,
 {
     assert(attributes.overhang_attributes.has_value());
     const OverhangAttributes &overhang  = *attributes.overhang_attributes;
-    const float               threshold = float(config.overhangs_width_speed.get_abs_value(config.nozzle_diameter.get_at(extruder_id)));
-    const double              overlap_start = overlap_percent(overhang.start_distance_from_prev_layer, threshold);
-    const double              overlap_end   = overlap_percent(overhang.end_distance_from_prev_layer, threshold);
+    const float               nozzle_diameter = float(config.nozzle_diameter.get_at(extruder_id));
+    // The graphs start at the overhang threshold: the middle of the extrusion past the edge of the layer below by the threshold,
+    // so its outer edge by the threshold + half its width (the distances are measured from the outer edge). Sticking out less,
+    // it is not an overhang (100 % overlap). They end (0 %) the graph range further.
+    const float               range          = float(config.overhangs_graph_range.get_abs_value(nozzle_diameter));
+    const float               overhang_start = float(config.overhangs_threshold.get_abs_value(nozzle_diameter)) + 0.5f * attributes.width;
+    const float               overhang_end   = overhang_start + range;
+    const double              overlap_start  = overlap_percent(overhang.start_distance_from_prev_layer, overhang_end, overhang_start);
+    const double              overlap_end    = overlap_percent(overhang.end_distance_from_prev_layer, overhang_end, overhang_start);
 
     OverhangSpeeds overhang_speeds = { -1.f, -1.f };
 
@@ -208,15 +216,17 @@ OverhangSpeeds calculate_overhang_speed(const ExtrusionAttributes  &attributes,
             points.pop_back();
         points.emplace_back(100., 100.);
         const GraphData graph(0, points.size(), config.overhangs_dynamic_speed.value.type, points);
-        const double    curled_overlap = overlap_percent(attributes.width * overhang.proximity_to_curled_lines, threshold);
+        // Over curled lines as stock: the slow down grows over one nozzle diameter.
+        const double    curled_overlap = overlap_percent(attributes.width * overhang.proximity_to_curled_lines, nozzle_diameter);
         const double    ratio = std::clamp(std::min({ graph.interpolate(overlap_start), graph.interpolate(overlap_end), graph.interpolate(curled_overlap) }), 0., 100.) / 100.;
         overhang_speeds.print_speed = float(overhangs_speed * (1. - ratio) + perimeter_speed * ratio);
     }
 
-    // The fan speed of the graph for the extrusions sticking out past the edge of the layer below (SuperSlicer). The others keep the
-    // fan speed of their feature. Sticking out by less than 1 % of the threshold counts as not sticking out (rounding of the distances).
+    // The fan speed of the graph for the extrusions sticking out past the overhang threshold (SuperSlicer). The others keep the
+    // fan speed of their feature. One end past it is enough: the overhang perimeters start right at the threshold.
+    // Past it by less than 1 % of the nozzle diameter counts as not past it (rounding of the distances).
     if (config.enable_dynamic_fan_speeds.get_at(extruder_id) &&
-        std::min(overhang.start_distance_from_prev_layer, overhang.end_distance_from_prev_layer) > 0.01f * threshold) {
+        std::max(overhang.start_distance_from_prev_layer, overhang.end_distance_from_prev_layer) > overhang_start + 0.01f * nozzle_diameter) {
         const GraphData &graph = config.overhangs_dynamic_fan_speed.get_at(extruder_id);
         if (! graph.data().empty()) {
             const float fan_speed = float(std::clamp(std::min(graph.interpolate(overlap_start), graph.interpolate(overlap_end)), 0., 100.));

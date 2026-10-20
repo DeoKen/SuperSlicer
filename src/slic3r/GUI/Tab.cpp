@@ -61,6 +61,8 @@
 #include "wxExtensions.hpp"
 #include "PresetComboBoxes.hpp"
 #include <wx/wupdlock.h>
+#include <wx/dcbuffer.h>
+#include <wx/graphics.h>
 
 #include "GUI_App.hpp"
 #include "GUI_ObjectList.hpp"
@@ -1450,6 +1452,105 @@ static void append_labelled_line(ConfigOptionsGroupShp optgroup, const char *lab
     optgroup->append_line(line);
 }
 
+// The overhang threshold drawn as a wall at the steepest angle that is not an overhang: a few external perimeter lines,
+// each sticking out past the one below as much as allowed, the angle from vertical and the profile values it depends on.
+class OverhangAnglePreview : public wxPanel
+{
+public:
+    OverhangAnglePreview(wxWindow *parent)
+        : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(46 * wxGetApp().em_unit(), 7 * wxGetApp().em_unit()))
+    {
+        SetBackgroundStyle(wxBG_STYLE_PAINT);
+        Bind(wxEVT_PAINT, [this](wxPaintEvent &) { render(); });
+    }
+
+    void set(const std::optional<PresetHints::OverhangThresholdGeometry> &geometry)
+    {
+        m_geometry = geometry;
+        Refresh();
+    }
+
+private:
+    void render()
+    {
+        // Read the profiles at every paint: the printer tab (nozzle diameter) doesn't update the print tab.
+        m_geometry = PresetHints::overhang_threshold_geometry(*wxGetApp().preset_bundle);
+        wxAutoBufferedPaintDC dc(this);
+        dc.SetBackground(wxBrush(GetParent()->GetBackgroundColour()));
+        dc.Clear();
+        if (! m_geometry)
+            return;
+        std::unique_ptr<wxGraphicsContext> gc(wxGraphicsContext::Create(dc));
+        if (! gc)
+            return;
+
+        const PresetHints::OverhangThresholdGeometry &g = *m_geometry;
+        const double   em   = wxGetApp().em_unit();
+        const wxSize   size = GetClientSize();
+        const wxColour text = wxGetApp().get_label_clr_default();
+        const wxColour orange(237, 107, 33);
+        const wxColour bead(140, 140, 140);
+
+        // The wall: lines of the layer height and width, each shifted outwards by the stick out, fitted in the drawing area.
+        const int    layers  = 5;
+        const double margin  = 0.6 * em;
+        const double area_w  = 14. * em;
+        const double area_h  = size.y - 2. * margin;
+        const double model_w = g.width + (layers - 1) * g.stick_out;
+        const double model_h = layers * g.layer_height;
+        const double scale   = std::min((area_w - 2. * margin) / model_w, area_h / model_h);
+        const double bead_w  = g.width * scale;
+        const double bead_h  = g.layer_height * scale;
+        const double x0      = margin;
+        const double bottom  = size.y - margin;
+
+        gc->SetPen(*wxTRANSPARENT_PEN);
+        gc->SetBrush(wxBrush(bead));
+        for (int i = 0; i < layers; ++ i) {
+            const double x = x0 + i * g.stick_out * scale;
+            const double y = bottom - (i + 1) * bead_h;
+            gc->DrawRoundedRectangle(x, y + 0.05 * bead_h, bead_w, 0.9 * bead_h, 0.45 * std::min(bead_w, bead_h));
+        }
+
+        // Vertical reference and the wall along the outer edges of the lines, from the middle of the lowest one.
+        const double px    = x0 + bead_w;
+        const double py    = bottom - 0.5 * bead_h;
+        const double top_x = px + (layers - 1) * g.stick_out * scale;
+        const double top_y = py - (layers - 1) * bead_h;
+        gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(text, std::max(1., 0.1 * em), wxPENSTYLE_SHORT_DASH)));
+        gc->StrokeLine(px, py, px, top_y);
+        gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(orange, std::max(2., 0.2 * em))));
+        gc->StrokeLine(px, py, top_x, top_y);
+
+        // Arc from vertical to the wall.
+        const double   radius = std::min(0.6 * (py - top_y), 4. * em);
+        wxGraphicsPath arc    = gc->CreatePath();
+        arc.AddArc(px, py, radius, -PI / 2., -PI / 2. + g.angle * PI / 180., true);
+        gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(orange, std::max(1., 0.12 * em))));
+        gc->StrokePath(arc);
+
+        // The values, right of the drawing.
+        const wxString lines[] = {
+            format_wxstr(_L("%1%° from vertical"), int(std::round(g.angle))),
+            _L("Steeper walls are not overhangs."),
+            format_wxstr(_L("Layer %1% mm, nozzle %2% mm, line %3% mm"),
+                         double_to_string(g.layer_height, 2), double_to_string(g.nozzle_diameter, 2), double_to_string(g.width, 2))
+        };
+        double w, h;
+        gc->SetFont(wxGetApp().normal_font(), text);
+        gc->GetTextExtent(lines[0], &w, &h);
+        const double tx = x0 + area_w + em;
+        double       ty = 0.5 * (size.y - 3.4 * h);
+        gc->SetFont(wxGetApp().bold_font(), orange);
+        gc->DrawText(lines[0], tx, ty);
+        gc->SetFont(wxGetApp().normal_font(), text);
+        gc->DrawText(lines[1], tx, ty + 1.3 * h);
+        gc->DrawText(lines[2], tx, ty + 2.4 * h);
+    }
+
+    std::optional<PresetHints::OverhangThresholdGeometry> m_geometry;
+};
+
 void TabPrint::build()
 {
     m_presets = &m_preset_bundle->prints;
@@ -1500,7 +1601,16 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Between islands"), { { "avoid_travel_island", L("Find smallest crossing") }, { "avoid_travel_island_weight", L("Weight") } }, category_path + "avoid-crossing-perimeters", -1);
         optgroup->append_single_option_line("thin_walls", category_path + "detect-thin-walls");
         optgroup->append_single_option_line("thick_bridges", category_path + "thick_bridges");
-        optgroup->append_single_option_line("overhangs", category_path + "detect-bridging-perimeters");
+        append_labelled_line(optgroup, L("Detect bridging perimeters"), { { "overhangs", "" }, { "overhangs_threshold", L("Threshold") } }, category_path + "detect-bridging-perimeters", -1);
+        line = { "", "" };
+        line.full_width = 1;
+        line.widget = [this](wxWindow* parent) {
+            m_overhang_angle_preview = new OverhangAnglePreview(parent);
+            auto sizer = new wxBoxSizer(wxHORIZONTAL);
+            sizer->Add(m_overhang_angle_preview, 0, wxALIGN_CENTER_VERTICAL);
+            return sizer;
+        };
+        optgroup->append_line(line);
 
         optgroup = page->new_optgroup(L("Advanced"));
         append_labelled_line(optgroup, L("Seam"), { { "seam_position", L("Position") }, { "seam_gap_distance", L("Gap") } }, category_path + "seam-position", -1);
@@ -1637,8 +1747,8 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Infill speed"),        { { "solid_infill_speed", L("Solid") }, { "infill_speed", L("Sparse") }, { "top_solid_infill_speed", L("Top solid") } });
         append_labelled_line(optgroup, L("Support speed"),       { { "support_material_speed", L("Default") }, { "support_material_interface_speed", L("Interface") }, { "brim_speed", L("Brim & skirt") } });
         append_labelled_line(optgroup, L("Bridge infill speed"), { { "bridge_speed", L("External") }, { "internal_bridge_speed", L("Internal") }, { "over_bridge_speed", L("Over") } });
-        // SuperSlicer: overhangs speed, threshold of 0% overlap, dynamic speed switch and graph.
-        append_labelled_line(optgroup, L("Overhangs speed"),     { { "overhangs_speed", L("Maximum") }, { "overhangs_width_speed", L("Threshold") }, { "enable_dynamic_overhang_speeds", L("Dynamic") } },
+        // SuperSlicer: overhangs speed, range of the graphs past the overhang threshold, dynamic speed switch and graph.
+        append_labelled_line(optgroup, L("Overhangs speed"),     { { "overhangs_speed", L("Maximum") }, { "overhangs_graph_range", L("Range") }, { "enable_dynamic_overhang_speeds", L("Dynamic") } },
                              std::string(), 5, -1, "overhangs_dynamic_speed");
         append_labelled_line(optgroup, L("Other speed"),         { { "gap_fill_speed", L("Gap fill") }, { "ironing_speed", L("Ironing") } });
 
@@ -1830,6 +1940,8 @@ void TabPrint::update_description_lines()
         m_top_bottom_shell_thickness_explanation->SetText(
             from_u8(PresetHints::top_bottom_shell_thickness_explanation(*m_preset_bundle)));
     }
+    if (m_active_page && m_active_page->title() == "Layers and perimeters" && m_overhang_angle_preview)
+        m_overhang_angle_preview->set(PresetHints::overhang_threshold_geometry(*m_preset_bundle));
 
     if (m_active_page && m_active_page->title() == "Output options") {
         if (m_post_process_explanation) {
@@ -1899,6 +2011,7 @@ void TabPrint::clear_pages()
 
     m_recommended_thin_wall_thickness_description_line = nullptr;
     m_top_bottom_shell_thickness_explanation = nullptr;
+    m_overhang_angle_preview = nullptr;
     m_post_process_explanation = nullptr;
 
     m_del_all_substitutions_btn = nullptr;

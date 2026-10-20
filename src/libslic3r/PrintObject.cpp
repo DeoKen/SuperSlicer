@@ -904,6 +904,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "fuzzy_skin_thickness"
             || opt_key == "fuzzy_skin_point_dist"
             || opt_key == "overhangs"
+            || opt_key == "overhangs_threshold"
             || opt_key == "thin_walls"
             || opt_key == "thick_bridges") {
             steps.emplace_back(posPerimeters);
@@ -965,7 +966,7 @@ bool PrintObject::invalidate_state_by_config_options(
         } else if (
                opt_key == "enable_dynamic_overhang_speeds"
             || opt_key == "overhangs_dynamic_speed"
-            || opt_key == "overhangs_width_speed") {
+            || opt_key == "overhangs_graph_range") {
             steps.emplace_back(posPerimeters);
         } else {
             // for legacy, if we can't handle this option let's invalidate all steps

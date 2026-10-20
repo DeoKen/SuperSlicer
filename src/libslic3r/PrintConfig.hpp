@@ -763,7 +763,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                 enable_dynamic_overhang_speeds))
     ((ConfigOptionGraph,                overhangs_dynamic_speed))
     ((ConfigOptionFloatOrPercent,       overhangs_speed))
-    ((ConfigOptionFloatOrPercent,       overhangs_width_speed))
+    ((ConfigOptionFloatOrPercent,       overhangs_graph_range))
     ((ConfigOptionBool,                 external_perimeters_first))
     ((ConfigOptionBool,                 extra_perimeters))
     ((ConfigOptionBool,                 extra_perimeters_on_overhangs))
@@ -794,6 +794,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                ironing_speed))
     // Detect bridging perimeters
     ((ConfigOptionBool,                 overhangs))
+    ((ConfigOptionFloatOrPercent,       overhangs_threshold))
     ((ConfigOptionInt,                  perimeter_extruder))
     ((ConfigOptionFloatOrPercent,       perimeter_extrusion_width))
     ((ConfigOptionFloat,                perimeter_speed))

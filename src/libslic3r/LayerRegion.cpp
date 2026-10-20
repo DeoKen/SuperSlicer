@@ -143,6 +143,8 @@ void LayerRegion::make_perimeters(
     const ExPolygons *upper_slices = this->layer()->upper_layer ? &this->layer()->upper_layer->lslices : nullptr;
     // Cache for offsetted lower_slices
     Polygons          lower_layer_polygons_cache;
+    // Cache for the lower slices of the extra perimeters on overhangs (non-default overhang threshold).
+    Polygons          extra_perimeters_lower_slices_cache;
 
     for (const Surface &surface : slices) {
         auto perimeters_begin      = uint32_t(m_perimeters.size());
@@ -159,7 +161,8 @@ void LayerRegion::make_perimeters(
                 // output:
                 m_perimeters,
                 m_thin_fills,
-                fill_expolygons);
+                fill_expolygons,
+                &extra_perimeters_lower_slices_cache);
         else
             PerimeterGenerator::process_classic(
                 // input:
@@ -171,7 +174,8 @@ void LayerRegion::make_perimeters(
                 // output:
                 m_perimeters,
                 m_thin_fills,
-                fill_expolygons);
+                fill_expolygons,
+                &extra_perimeters_lower_slices_cache);
         perimeter_and_gapfill_ranges.emplace_back(
             ExtrusionRange{ perimeters_begin, uint32_t(m_perimeters.size()) }, 
             ExtrusionRange{ gap_fills_begin,  uint32_t(m_thin_fills.size()) });

@@ -47,6 +47,8 @@ Contents:
 25. [Project copy at every G-code export](#25-project-copy-at-every-g-code-export)
 26. [Arachne fix: thin walls with single perimeter on all top surfaces](#26-arachne-fix-thin-walls-with-single-perimeter-on-all-top-surfaces)
 27. [Dynamic overhang speeds and fan speeds with graphs](#27-dynamic-overhang-speeds-and-fan-speeds-with-graphs)
+28. [Overhang threshold](#28-overhang-threshold)
+29. [G-code viewer: discrete values](#29-g-code-viewer-discrete-values)
 25. [Testing](#testing)
 
 ---
@@ -484,8 +486,10 @@ between pages); only the rows inside a group are combined:
 Supporting GUI changes (`OG_CustomCtrl`): `Line::force_sublabels` shows a short label even for a single field; the
 lines with several fields of a group share columns (`OG_CustomCtrl::columns()`: each column is as wide as its widest
 sub-label, field and side text in the group), so the fields are aligned; sub-labels are right aligned up to the lock
-icon (over the slot of the search highlight arrow) and neither sub-labels nor side texts wrap. Lines with a single
-field are laid out as stock. Not regrouped: the machine limits page, the filament overrides page and the custom G-code
+icon (over the slot of the search highlight arrow) and neither sub-labels nor side texts wrap. Only the fields followed
+by another field set the width of their column, so a wide last field (a combo box) doesn't push the next columns away.
+Lines with a single field in a group with such lines have their field in the first column
+(`OG_CustomCtrl::aligned_single_offset()`), elsewhere they are laid out as stock. Not regrouped: the machine limits page, the filament overrides page and the custom G-code
 pages.
 ---
 
@@ -924,15 +928,22 @@ extruded area within 0.07 % of before on every layer (no new gaps).
 
 **What it does.** From SuperSlicer. Replaces PrusaSlicer's dynamic overhang speeds and fan speeds, which used four fixed
 values at 0 / 25 / 50 / 75 % overlap, with a graph per setting that you edit with the mouse, plus SuperSlicer's overhangs
-speed. "Overlap" is how much of an extrusion lies on the layer below: 100 % when it doesn't stick out past the edge of
-the layer below, 0 % when it sticks out by the threshold or more.
+speed. The graphs' axis ("overlap", as SuperSlicer) counts down from 100 % at the overhang threshold (section 28: where
+an extrusion starts to be an overhang) to 0 % at the threshold + the graph range; below the threshold an extrusion is
+not an overhang and keeps its speed and fan speed.
 
 **Settings.**
 - Print > Speed > "Overhangs speed" line (as in SuperSlicer):
   - Maximum: `overhangs_speed`, mm/s or % of the bridges speed, default 100 %. Speed of the overhang perimeters (detected
     with "Detect bridging perimeters"); stock printed them at the bridges speed, so the default keeps stock output.
-  - Threshold: `overhangs_width_speed`, mm or % of the nozzle diameter, default 100 %: how far an extrusion sticks out at 0 %
-    overlap. Used by the dynamic speeds and the dynamic fan speeds. (Stock used the extrusion width.)
+  - Range: `overhangs_graph_range`, mm or % of the nozzle diameter, default 50 %: how far past the overhang threshold the
+    graphs end, measured as the threshold (the middle of the extrusion past the edge of the layer below). Example, 0.4 mm
+    nozzle: threshold 55 % and range 50 % = the graphs go from 0.22 mm (100 %) to 0.42 mm (0 %). 0 = past the threshold
+    is 0 % right away. Used by the dynamic speeds and the dynamic fan speeds. Replaces SuperSlicer's
+    `overhangs_width_speed` (an end measured from the outer edge, which could end up before the threshold). A saved
+    `overhangs_width_speed` is converted on load: range = old value - 100 % of the nozzle (the default threshold 50 % + half
+    a line as wide as the nozzle), not below 0; a value in mm assumes a 0.4 mm nozzle; the old default 100 % gets the new
+    default.
   - Dynamic: `enable_dynamic_overhang_speeds` (stock option, default off) and the graph `overhangs_dynamic_speed`: speed for
     each % of overlap, as a % of the way from the overhangs speed (0 %) to the perimeter / external perimeter speed (100 %).
     Default graph (SuperSlicer): 0 %: 0, 25 %: 10, 50 %: 40, 75 %: 70, 100 %: 100. 100 % overlap is always the perimeter
@@ -956,8 +967,12 @@ the layer below, 0 % when it sticks out by the threshold or more.
   `ExtrusionProcessor::calculate_overhang_speed()` turns the distance into an overlap with the threshold and reads the
   graphs. Speed: the smallest graph value of the start, the end and the curled lines estimate of the path (as stock),
   between the overhangs speed and the perimeter speed (external perimeter speed for external overhangs); 0 speeds use
-  the volumetric speed as stock. Fan: only for paths that stick out on both ends (by more than 1 % of the threshold,
-  against rounding); the others keep the fan speed of their feature.
+  the volumetric speed as stock. Fan: only for paths with at least one end past the overhang threshold (by more than 1 %
+  of the nozzle diameter, against rounding; the overhang perimeters start right at the threshold); the others keep the
+  fan speed of their feature.
+- Graph start and end: the distances are measured from the outer edge, so the start is the overhang threshold + half
+  the extrusion width (100 % overlap up to there) and the end that + the graph range (0 %). The slow down over curled
+  lines is not affected (it grows over one nozzle diameter, as before).
 - Fan in `CoolingBuffer` (`;_SET_FAN_SPEED` / `;_RESET_FAN_SPEED` as stock): the graph value is used as it is, also lower
   than the layer fan speed and without the `full_fan_speed_layer` ramp (stock only raised the fan, between the layer fan
   speed and the ramp), but 0 on the layers with the fan disabled by `disable_fan_first_layers`. The overhang perimeters
@@ -971,7 +986,10 @@ the layer below, 0 % when it sticks out by the threshold or more.
   stock: stock used the extrusion width as threshold and the perimeter's own speed at 100 %. Fan speeds, per filament
   with the dynamic fan on: the four values, and at 100 % the external perimeter / perimeter / default fan speed if set,
   else the 75 % value. An object or volume setting is converted only when it also overrides the enable option,
-  otherwise it is dropped.
+  otherwise it is dropped. Stock spread its four values over one line width from where the line starts to stick out;
+  here the graphs start at the overhang threshold (section 28), so the conversion sets the graph range to 100 % (the
+  same width): the curve keeps its shape, the slow down and fan start at the threshold instead of the edge of the layer
+  below (not on a filament preset alone, which has no print settings).
 
 **How to test.** `[DynamicOverhang]` (test_dynamic_overhang.cpp): graph format and interpolation (linear, square,
 spline), conversion of the old settings, overhangs speed (default = bridges speed, %), dynamic speeds (overhangs speed
@@ -979,6 +997,75 @@ when sticking out, perimeter speeds when supported, values in between on a spher
 `overhangs_fan_speed` replaced, lower than the layer fan, 0 on the disabled first layers, off = overhangs fan speed).
 Manual: Print > Speed, switch "Dynamic" on, click the curve, edit, slice an overhang (e.g. a 45 degree chamfer or a
 sphere) and look at Speed / Fan speed in the G-code viewer.
+
+---
+
+## 28. Overhang threshold
+
+**What it does.** From SuperSlicer 2019-2020 ("'As bridge' threshold", `overhangs_width`, before it was split into the
+speed and flow thresholds). Sets how far a perimeter has to stick out past the layer below to be an overhang perimeter
+(bridge flow, overhangs speed and fan, "Overhang perimeter" in the G-code viewer). Stock PrusaSlicer hard-codes half the
+nozzle diameter. The dynamic overhang speeds and fan speeds (section 27) start at this threshold, so what is not an
+overhang keeps its speed and fan speed.
+
+**Settings.** Print > Layers and perimeters > Quality, "Detect bridging perimeters" line: Threshold
+(`overhangs_threshold`), mm or % of the nozzle diameter, default 50 % (stock), no negative values. It measures where the
+**middle** of the perimeter lies past the edge of the layer below; with a line as wide as the nozzle, 50 % means the whole
+line is past the edge. Below the line, a drawing shows the steepest wall that is not an overhang (a few external
+perimeter lines, each sticking out as far as allowed, and the angle from vertical), for the layer height, nozzle and
+external perimeter width of the current profiles:
+angle = atan((threshold + external perimeter width / 2) / layer height). For a 0.4 mm nozzle, 0.4 mm lines and 0.2 mm
+layers: 0 % = 45°, 25 % ≈ 56°, 50 % ≈ 63°. The same threshold is a steeper angle with lower layers or a smaller nozzle,
+which print steeper overhangs. The name is not SuperSlicer's `overhangs_width`: current SuperSlicer uses that name for its
+flow threshold, measured from the outer edge.
+
+**How it works.**
+- `PerimeterGenerator::process_classic()` / `process_arachne()`: the lower slices are grown by the threshold instead of
+  half the nozzle diameter (the parts of the perimeters outside become overhang perimeters). "Extra perimeters on
+  overhangs" keeps the stock half nozzle diameter (`extra_perimeters_lower_slices()`, computed once per layer region).
+- `ExtrusionProcessor::calculate_overhang_speed()`: the overlap of the graphs is 100 % up to the threshold + half the
+  extrusion width (the distance there is measured from the outer edge), see section 27.
+- GUI: `PresetHints::overhang_threshold_geometry()`, drawn by `OverhangAnglePreview` (Tab.cpp), read again at every paint
+  (a nozzle change in the printer tab shows when the print tab is shown again). The threshold is greyed out without
+  perimeters, or when neither "Detect bridging perimeters", the dynamic overhang speeds nor the filament's dynamic fan
+  speeds use it. The single option rows of a group with grouped rows have their field in the group's first column
+  (`OG_CustomCtrl::aligned_single_offset()`), so all the fields of a group line up in columns.
+
+**How to test.** `[DynamicOverhang]` (test_dynamic_overhang.cpp), "Overhang threshold": on a sphere at 0.2 mm layers the
+steepest overhang perimeter is at the expected angle for 50 %, 0 % and 0.1 mm, and 50 % gives the same G-code as 0.2 mm;
+"Dynamic overhang graphs start at the overhang threshold": with 0 % the dynamic speeds and fan speeds start at 45°;
+"... end the graph range past the overhang threshold": 0 % + 25 % reaches the overhangs speed at 56°.
+The golden test covers the default. Manual: slice a sphere or an overhang test, change the threshold, and look at
+"Overhang perimeter" in the G-code viewer.
+
+---
+
+## 29. G-code viewer: discrete values
+
+**What it does.** From SuperSlicer ("Discrete Values" in its legend). When a range view (height, width, speed, fan
+speed, temperature, volumetric flow, layer time) has few distinct values, each value gets its own color and its own
+legend line, instead of the continuous scale where close values get almost the same color and the legend shows evenly
+spaced values that may not exist in the G-code. On by default.
+
+**Settings.** Preview legend: "Discrete values" checkbox, shown when the current view has more than 2 and at most 21
+distinct values (rounded to 0.01). Remembered in the app config (`gcode_viewer_discrete_values`, default on), not in
+the presets. With 1 or 2 values, or more than 21, the stock legend is used. The points the time estimator inserts
+inside the moves for the actual speed view (`internal_only` moves, their fan speed, width, speed... blended between two
+moves) don't count as values; they get the color of the nearest value.
+
+**How it works.**
+- libvgcode `ColorRange`: besides the min / max, `update()` keeps the sorted distinct values (rounded to 0.01) until
+  there are more than `get_max_discrete_count()` (2 × palette size − 1 = 21). In discrete mode `get_color_at()` returns
+  the color of the nearest distinct value, and `get_values()` the distinct values. The colors are the palette and the
+  colors halfway between its colors, the values spread over them and the last one at the last color (SuperSlicer's
+  `compute_discrete_colors()` and `Range_Colors_Details`).
+- `PathVertex::interpolated` (set from `internal_only` in `LibVGCodeWrapper.cpp`, in the padding of the struct): skipped
+  for the distinct values by `ColorRange::update()`. Without it, a G-code with 3 fan speeds had 708 "values".
+- `Viewer::set_color_ranges_discrete()` switches all the ranges and recolors. `GCodeViewer::load_as_gcode()` applies the
+  app config setting; `render_legend()` lists one line per value and draws the checkbox.
+
+**How to test.** Manual: slice the fork feature test part, Preview > Fan speed or Speed: one legend line per value, the
+colors match the paths; untick "Discrete values": the stock scale. Restart: the setting is kept.
 
 ---
 

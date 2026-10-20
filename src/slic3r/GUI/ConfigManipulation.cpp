@@ -287,13 +287,18 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
                     "seam_position","staggered_inner_seams", "external_perimeters_first", "external_perimeter_extrusion_width",
                     "perimeter_speed", "small_perimeter_speed", "small_perimeter_min_length", "small_perimeter_max_length", "external_perimeter_speed", "enable_dynamic_overhang_speeds",
                     // Also used by the dynamic overhang fan speeds of the filament.
-                    "overhangs_width_speed" })
+                    "overhangs_graph_range" })
         toggle_field(el, have_perimeters);
 
     // The overhangs speed: overhang perimeters (detected with "overhangs") and 0% overlap of the dynamic overhang speeds.
     const bool dynamic_overhang_speeds = have_perimeters && config->opt_bool("enable_dynamic_overhang_speeds");
     toggle_field("overhangs_speed", have_perimeters && (config->opt_bool("overhangs") || dynamic_overhang_speeds));
     toggle_field("overhangs_dynamic_speed", dynamic_overhang_speeds);
+    // The overhang threshold: overhang perimeters and the start of the dynamic overhang speed and fan speed graphs (filament).
+    bool dynamic_overhang_fan_speeds = false;
+    if (const auto *fan = wxGetApp().preset_bundle->filaments.get_edited_preset().config.option<ConfigOptionBools>("enable_dynamic_fan_speeds"))
+        dynamic_overhang_fan_speeds = std::any_of(fan->values.begin(), fan->values.end(), [](unsigned char v) { return v != 0; });
+    toggle_field("overhangs_threshold", have_perimeters && (config->opt_bool("overhangs") || dynamic_overhang_speeds || dynamic_overhang_fan_speeds));
 
     const bool have_infill                      = config->option<ConfigOptionPercent>("fill_density")->value > 0;
     const bool has_automatic_infill_combination = config->option<ConfigOptionBool>("automatic_infill_combination")->value;

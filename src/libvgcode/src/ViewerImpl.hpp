@@ -161,6 +161,8 @@ public:
 
     const ColorRange& get_color_range(EViewType type) const;
     void set_color_range_palette(EViewType type, const Palette& palette);
+    bool is_color_ranges_discrete() const { return m_color_ranges_discrete; }
+    void set_color_ranges_discrete(bool discrete);
 
     float get_travels_radius() const { return m_travels_radius; }
     void set_travels_radius(float radius);
@@ -279,6 +281,7 @@ private:
     // Variables used for toolpaths coloring
     //
     std::optional<Settings> m_settings_used_for_ranges;
+    bool m_color_ranges_discrete{ false };
     ColorRange m_height_range;
     ColorRange m_width_range;
     ColorRange m_speed_range;

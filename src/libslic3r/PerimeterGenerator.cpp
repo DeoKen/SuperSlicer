@@ -783,6 +783,20 @@ ExtrusionPaths sort_extra_perimeters(const ExtrusionPaths& extra_perims, int ind
     return filtered;
 }
 
+// The extra perimeters on overhangs keep the stock overhang detection (lower slices grown by half the nozzle diameter, none
+// without "overhangs"), whatever the overhang threshold of the overhang perimeters. Computed once per layer region with a cache.
+static const Polygons& extra_perimeters_lower_slices(const PerimeterGenerator::Parameters &params, const ExPolygons &lower_slices,
+                                                     const Polygons &lower_slices_polygons_cache, Polygons *cache, Polygons &local)
+{
+    const double nozzle_diameter = params.print_config.nozzle_diameter.get_at(params.config.perimeter_extruder - 1);
+    if (! params.config.overhangs || std::abs(params.config.overhangs_threshold.get_abs_value(nozzle_diameter) - nozzle_diameter / 2) < EPSILON)
+        return lower_slices_polygons_cache;
+    Polygons &out = cache ? *cache : local;
+    if (out.empty())
+        out = offset(lower_slices, float(scale_(+nozzle_diameter / 2)));
+    return out;
+}
+
 #define EXTRA_PERIMETER_OFFSET_PARAMETERS ClipperLib::jtSquare, 0.
 // #define EXTRA_PERIM_DEBUG_FILES
 // Function will generate extra perimeters clipped over nonbridgeable areas of the provided surface and returns both the new perimeters and
@@ -1001,7 +1015,8 @@ void PerimeterGenerator::process_arachne(
     // Gaps without the thin walls
     ExtrusionEntityCollection  & /* out_gap_fill */,
     // Infills without the gap fills
-    ExPolygons                 &out_fill_expolygons)
+    ExPolygons                 &out_fill_expolygons,
+    Polygons                 *extra_perimeters_lower_slices_cache)
 {
     // other perimeters
     coord_t perimeter_width        = params.perimeter_flow.scaled_width();
@@ -1015,11 +1030,11 @@ void PerimeterGenerator::process_arachne(
 
     // prepare grown lower layer slices for overhang detection
     if (params.config.overhangs && lower_slices != nullptr && lower_slices_polygons_cache.empty()) {
-        // We consider overhang any part where the entire nozzle diameter is not supported by the
-        // lower layer, so we take lower slices and offset them by half the nozzle diameter used
-        // in the current layer
+        // We consider overhang any part where the middle of the extrusion lies further than the overhang threshold
+        // past the lower layer (SuperSlicer), so we take lower slices and offset them by the threshold.
+        // Stock: half the nozzle diameter used in the current layer (threshold default 50%).
         double nozzle_diameter = params.print_config.nozzle_diameter.get_at(params.config.perimeter_extruder-1);
-        lower_slices_polygons_cache = offset(*lower_slices, float(scale_(+nozzle_diameter/2)));
+        lower_slices_polygons_cache = offset(*lower_slices, float(scale_(params.config.overhangs_threshold.get_abs_value(nozzle_diameter))));
     }
 
     // we need to process each island separately because we might have different
@@ -1160,8 +1175,9 @@ void PerimeterGenerator::process_arachne(
     if (lower_slices != nullptr && params.config.overhangs && params.config.extra_perimeters_on_overhangs &&
         params.config.perimeters > 0 && params.layer_id > params.object_config.raft_layers) {
         // Generate extra perimeters on overhang areas, and cut them to these parts only, to save print time and material
+        Polygons extra_lower_slices;
         auto [extra_perimeters, filled_area] = generate_extra_perimeters_over_overhangs(infill_areas,
-                                                                                        lower_slices_polygons_cache,
+                                                                                        extra_perimeters_lower_slices(params, *lower_slices, lower_slices_polygons_cache, extra_perimeters_lower_slices_cache, extra_lower_slices),
                                                                                         loop_number + 1,
                                                                                         params.overhang_flow, params.scaled_resolution,
                                                                                         params.object_config, params.print_config);
@@ -1193,7 +1209,8 @@ void PerimeterGenerator::process_classic(
     // Gaps without the thin walls
     ExtrusionEntityCollection  &out_gap_fill,
     // Infills without the gap fills
-    ExPolygons                 &out_fill_expolygons)
+    ExPolygons                 &out_fill_expolygons,
+    Polygons                 *extra_perimeters_lower_slices_cache)
 {
     // other perimeters
     coord_t perimeter_width         = params.perimeter_flow.scaled_width();
@@ -1221,11 +1238,11 @@ void PerimeterGenerator::process_classic(
 
     // prepare grown lower layer slices for overhang detection
     if (params.config.overhangs && lower_slices != nullptr && lower_slices_polygons_cache.empty()) {
-        // We consider overhang any part where the entire nozzle diameter is not supported by the
-        // lower layer, so we take lower slices and offset them by half the nozzle diameter used 
-        // in the current layer
+        // We consider overhang any part where the middle of the extrusion lies further than the overhang threshold
+        // past the lower layer (SuperSlicer), so we take lower slices and offset them by the threshold.
+        // Stock: half the nozzle diameter used in the current layer (threshold default 50%).
         double nozzle_diameter = params.print_config.nozzle_diameter.get_at(params.config.perimeter_extruder-1);
-        lower_slices_polygons_cache = offset(*lower_slices, float(scale_(+nozzle_diameter/2)));
+        lower_slices_polygons_cache = offset(*lower_slices, float(scale_(params.config.overhangs_threshold.get_abs_value(nozzle_diameter))));
     }
 
     // we need to process each island separately because we might have different
@@ -1528,8 +1545,9 @@ void PerimeterGenerator::process_classic(
     if (lower_slices != nullptr && params.config.overhangs && params.config.extra_perimeters_on_overhangs &&
         params.config.perimeters > 0 && params.layer_id > params.object_config.raft_layers) {
         // Generate extra perimeters on overhang areas, and cut them to these parts only, to save print time and material
+        Polygons extra_lower_slices;
         auto [extra_perimeters, filled_area] = generate_extra_perimeters_over_overhangs(infill_areas,
-                                                                                        lower_slices_polygons_cache,
+                                                                                        extra_perimeters_lower_slices(params, *lower_slices, lower_slices_polygons_cache, extra_perimeters_lower_slices_cache, extra_lower_slices),
                                                                                         loop_number + 1,
                                                                                         params.overhang_flow, params.scaled_resolution,
                                                                                         params.object_config, params.print_config);

@@ -192,6 +192,11 @@ public:
     //
     void set_color_range_palette(EViewType type, const Palette& palette);
     //
+    // Discrete values (SuperSlicer): a color per distinct value for the ranges with few values (see ColorRange::is_discrete()).
+    //
+    bool is_color_ranges_discrete() const;
+    void set_color_ranges_discrete(bool discrete);
+    //
     // Get the radius, in mm, of the cylinders used to render the travel moves.
     //
     float get_travels_radius() const;

@@ -54,8 +54,23 @@ void ColorRange::set_palette(const Palette& palette)
         m_palette = palette;
 }
 
+// Rounding of the distinct values of the discrete mode.
+static float round_discrete(float value)
+{
+    return std::round(value * 100.0f) / 100.0f;
+}
+
 Color ColorRange::get_color_at(float value) const
 {
+    if (is_discrete()) {
+        // The color of the nearest distinct value.
+        const auto it = std::lower_bound(m_discrete_values.begin(), m_discrete_values.end(), value);
+        std::size_t id = std::distance(m_discrete_values.begin(), it);
+        if (id == m_discrete_values.size() || (id > 0 && value - m_discrete_values[id - 1] < *it - value))
+            --id;
+        return get_discrete_color(id);
+    }
+
     // Input value scaled to the colors range
     float global_t = 0.0f;
     value = std::clamp(value, m_range[0], m_range[1]);
@@ -84,11 +99,40 @@ const std::array<float, 2>& ColorRange::get_range() const
     return m_range;
 }
 
+Color ColorRange::get_discrete_color(std::size_t value_id) const
+{
+    // The palette and the colors halfway between its colors, the values spread over them, the last one at the last color
+    // (SuperSlicer).
+    const std::size_t details_count = get_max_discrete_count();
+    const std::size_t detail_id = (value_id + 1 == m_discrete_values.size()) ? details_count - 1 :
+        std::min(details_count - 1, static_cast<std::size_t>(0.01f + static_cast<float>(value_id * details_count) / static_cast<float>(m_discrete_values.size())));
+    const std::size_t palette_id = detail_id / 2;
+    return (detail_id % 2 == 0) ? m_palette[palette_id] : lerp(m_palette[palette_id], m_palette[palette_id + 1], 0.5f);
+}
+
+bool ColorRange::is_discrete() const
+{
+    return m_discrete && can_be_discrete();
+}
+
+bool ColorRange::can_be_discrete() const
+{
+    return ! m_too_many_values && m_discrete_values.size() > 2;
+}
+
+std::size_t ColorRange::get_discrete_count() const
+{
+    return m_too_many_values ? 0 : m_discrete_values.size();
+}
+
 std::vector<float> ColorRange::get_values() const
 {
     std::vector<float> ret;
 
-    if (m_count == 1) {
+    if (is_discrete()) {
+        ret = m_discrete_values;
+    }
+    else if (m_count == 1) {
         // single item use case
         ret.emplace_back(m_range[0]);
     }
@@ -117,22 +161,39 @@ std::vector<float> ColorRange::get_values() const
 size_t ColorRange::size_in_bytes_cpu() const
 {
     size_t ret = STDVEC_MEMSIZE(m_palette, Color);
+    ret += STDVEC_MEMSIZE(m_discrete_values, float);
     return ret;
 }
 
-void ColorRange::update(float value)
+void ColorRange::update(float value, bool interpolated)
 {
     if (value != m_range[0] && value != m_range[1])
         ++m_count;
 
     m_range[0] = std::min(m_range[0], value);
     m_range[1] = std::max(m_range[1], value);
+
+    if (! m_too_many_values && ! interpolated) {
+        const float rounded = round_discrete(value);
+        const auto  it = std::lower_bound(m_discrete_values.begin(), m_discrete_values.end(), rounded);
+        if (it == m_discrete_values.end() || *it != rounded) {
+            if (m_discrete_values.size() == get_max_discrete_count()) {
+                m_too_many_values = true;
+                m_discrete_values.clear();
+                m_discrete_values.shrink_to_fit();
+            }
+            else
+                m_discrete_values.insert(it, rounded);
+        }
+    }
 }
 
 void ColorRange::reset()
 {
     m_range = { FLT_MAX, -FLT_MAX };
     m_count = 0;
+    m_discrete_values.clear();
+    m_too_many_values = false;
 }
 
 } // namespace libvgcode

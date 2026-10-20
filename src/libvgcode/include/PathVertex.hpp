@@ -79,6 +79,11 @@ struct PathVertex
     //
     uint8_t color_id{ 0 };
     //
+    // Vertex inserted inside a move by the time estimator (actual speed), its values blended between the moves around it.
+    // Not counted as a value of the discrete color ranges (see ColorRange::is_discrete()).
+    //
+    bool interpolated{ false };
+    //
     // Segment estimated times
     //
     std::array<float, TIME_MODES_COUNT> times{ 0.0f, 0.0f };

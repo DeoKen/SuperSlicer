@@ -141,6 +141,8 @@ TEST_CASE("PrusaSlicer dynamic overhang settings are converted to graphs", "[Dyn
         // The slowest speed is the overhangs speed, the others a % of the way to the external perimeter speed (30 mm/s).
         CHECK(config.opt_serialize("overhangs_speed") == "15");
         CHECK(config.opt_serialize("overhangs_dynamic_speed") == "0:5:1:0x0:25x0:50x33:75x67:100x100");
+        // Stock spread the values over one line width: the same width past the overhang threshold.
+        CHECK(config.opt_serialize("overhangs_graph_range") == "100%");
     }
     SECTION("Speeds, disabled: only removed") {
         DynamicPrintConfig config;
@@ -174,6 +176,18 @@ TEST_CASE("PrusaSlicer dynamic overhang settings are converted to graphs", "[Dyn
         CHECK(graphs->values[0].serialize() == "0:5:1:0x75:25x60:50x45:75x35:100x40");
         // The disabled extruder keeps the default graph.
         CHECK(graphs->values[1] == print_config_def.get("overhangs_dynamic_fan_speed")->get_default_value<ConfigOptionGraphs>()->values.front());
+    }
+    SECTION("Old overhangs_width_speed: the graph range past the threshold (50%) + half the line width") {
+        const auto converted = [](const std::string &value) {
+            DynamicPrintConfig config;
+            config.set_deserialize_strict({ { "overhangs_width_speed", value } });
+            return config.has("overhangs_graph_range") ? config.opt_serialize("overhangs_graph_range") : std::string("default");
+        };
+        CHECK(converted("155%") == "55%");
+        CHECK(converted("30%") == "0%");
+        CHECK(converted("0.6") == "0.2");
+        // The old default: the new default.
+        CHECK(converted("100%") == "default");
     }
 }
 
@@ -218,7 +232,7 @@ TEST_CASE("Dynamic overhang speeds", "[DynamicOverhang]") {
             CHECK((speed == 60 || speed == 30));
     }
     SECTION("Partial overhangs between the overhangs speed and the perimeter speed") {
-        config.set_deserialize_strict({ { "overhangs_dynamic_speed", "0:2:1:0x0:100x100" }, { "overhangs_width_speed", "2" } });
+        config.set_deserialize_strict({ { "overhangs_dynamic_speed", "0:2:1:0x0:100x100" }, { "overhangs_graph_range", "2" } });
         const std::set<int> speeds = perimeter_speeds(walk_gcode(Test::slice({ TestMesh::sphere_50mm }, config)));
         CHECK(std::any_of(speeds.begin(), speeds.end(), [](int speed) { return speed > 7 && speed < 30; }));
     }
@@ -256,4 +270,119 @@ TEST_CASE("Dynamic overhang fan speeds", "[DynamicOverhang]") {
         const std::vector<Extrusion> extrusions = walk_gcode(Test::slice({ TestMesh::overhang }, config));
         CHECK(fans_of_type(extrusions, overhang_perimeter, 3) == std::set<int>{ 60 });
     }
+}
+
+namespace {
+
+// Sphere sliced at 0.2 mm with 0.4 mm perimeters (0.4 mm nozzle).
+DynamicPrintConfig sphere_config()
+{
+    DynamicPrintConfig config = base_config();
+    config.set_deserialize_strict({
+        { "layer_height",                       "0.2" },
+        { "first_layer_height",                 "0.2" },
+        { "nozzle_diameter",                    "0.4" },
+        { "perimeter_extrusion_width",          "0.4" },
+        { "external_perimeter_extrusion_width", "0.4" },
+    });
+    return config;
+}
+
+// Smallest wall angle from vertical (degrees) of the lower half of the sphere among the layers with an extrusion matching pred.
+// The sphere sits on the bed, its radius is half the height of the print.
+template<typename Pred>
+double steepest_wall_angle(const std::vector<Extrusion> &extrusions, Pred pred)
+{
+    int last_layer = 0;
+    for (const Extrusion &e : extrusions)
+        last_layer = std::max(last_layer, e.layer);
+    const double layer_height = 0.2;
+    const double radius       = 0.5 * (last_layer + 1) * layer_height;
+    double       angle        = 90.;
+    for (const Extrusion &e : extrusions)
+        if (e.layer >= 1 && pred(e)) {
+            const double z = (e.layer + 1) * layer_height;
+            if (z < radius)
+                angle = std::min(angle, std::asin(std::clamp((radius - z) / radius, 0., 1.)) * 180. / M_PI);
+        }
+    return angle;
+}
+
+} // namespace
+
+TEST_CASE("Overhang threshold", "[DynamicOverhang]") {
+    DynamicPrintConfig config = sphere_config();
+    const auto is_overhang = [](const Extrusion &e) { return e.type == overhang_perimeter; };
+    // The middle of the external perimeter past the edge of the layer below by the threshold: its outer edge sticks out by
+    // threshold + 0.2 mm on every 0.2 mm layer.
+    SECTION("Default 50%: the steepest overhang perimeter at atan(0.4 / 0.2)") {
+        REQUIRE(config.opt_serialize("overhangs_threshold") == "50%");
+        const double angle = steepest_wall_angle(walk_gcode(Test::slice({ TestMesh::sphere_50mm }, config)), is_overhang);
+        CHECK(angle == Approx(63.4).margin(3.));
+    }
+    SECTION("0%: atan(0.2 / 0.2)") {
+        config.set_deserialize_strict({ { "overhangs_threshold", "0%" } });
+        const double angle = steepest_wall_angle(walk_gcode(Test::slice({ TestMesh::sphere_50mm }, config)), is_overhang);
+        CHECK(angle == Approx(45.).margin(3.));
+    }
+    SECTION("In mm: 0.1 mm, atan(0.3 / 0.2)") {
+        config.set_deserialize_strict({ { "overhangs_threshold", "0.1" } });
+        const double angle = steepest_wall_angle(walk_gcode(Test::slice({ TestMesh::sphere_50mm }, config)), is_overhang);
+        CHECK(angle == Approx(56.3).margin(3.));
+    }
+    SECTION("50% and 0.2 mm give the same G-code") {
+        const std::string percent = Test::slice({ TestMesh::overhang }, config);
+        config.set_deserialize_strict({ { "overhangs_threshold", "0.2" } });
+        std::string mm = Test::slice({ TestMesh::overhang }, config);
+        // Only the header line (time) and the config block at the end differ.
+        const auto body = [](const std::string &gcode) {
+            const size_t begin = gcode.find('\n');
+            return gcode.substr(begin, gcode.find("; overhangs_threshold") - begin);
+        };
+        CHECK(body(percent) == body(mm));
+    }
+}
+
+TEST_CASE("Dynamic overhang graphs start at the overhang threshold", "[DynamicOverhang]") {
+    DynamicPrintConfig config = sphere_config();
+    config.set_deserialize_strict({
+        { "overhangs_threshold",  "0%" },
+        { "overhangs_graph_range", "2" },
+    });
+    SECTION("Speeds: the perimeters steeper than the threshold keep their speed") {
+        config.set_deserialize_strict({
+            { "enable_dynamic_overhang_speeds", "1" },
+            { "overhangs_speed",                "7" },
+            { "overhangs_dynamic_speed",        "0:2:1:0x0:100x100" },
+        });
+        const double angle = steepest_wall_angle(walk_gcode(Test::slice({ TestMesh::sphere_50mm }, config)), [](const Extrusion &e) {
+            const int speed = int(std::lround(e.F / 60.));
+            return is_perimeter(e.type) && speed != 60 && speed != 30;
+        });
+        CHECK(angle == Approx(45.).margin(3.));
+    }
+    SECTION("Fan speeds: the graph only past the threshold") {
+        config.set_deserialize_strict({
+            { "enable_dynamic_fan_speeds",   "1" },
+            { "overhangs_dynamic_fan_speed", "0:2:1:0x90:100x90" },
+        });
+        const std::vector<Extrusion> extrusions = walk_gcode(Test::slice({ TestMesh::sphere_50mm }, config));
+        const double angle = steepest_wall_angle(extrusions, [](const Extrusion &e) { return is_perimeter(e.type) && e.layer >= 3 && e.fan == 90; });
+        CHECK(angle == Approx(45.).margin(3.));
+    }
+}
+
+TEST_CASE("Dynamic overhang graphs end the graph range past the overhang threshold", "[DynamicOverhang]") {
+    DynamicPrintConfig config = sphere_config();
+    // Graphs from 0 mm (45°) to 0.1 mm (outer edge 0.3 mm per 0.2 mm layer: 56.3°) past the edge of the layer below.
+    config.set_deserialize_strict({
+        { "overhangs_threshold",            "0%" },
+        { "overhangs_graph_range",          "25%" },
+        { "enable_dynamic_overhang_speeds", "1" },
+        { "overhangs_speed",                "7" },
+        { "overhangs_dynamic_speed",        "0:2:1:0x0:100x100" },
+    });
+    const std::vector<Extrusion> extrusions = walk_gcode(Test::slice({ TestMesh::sphere_50mm }, config));
+    const double slowest = steepest_wall_angle(extrusions, [](const Extrusion &e) { return is_perimeter(e.type) && std::lround(e.F / 60.) == 7; });
+    CHECK(slowest == Approx(56.3).margin(3.));
 }

@@ -58,6 +58,7 @@ namespace GUI {
 
 class TabPresetComboBox;
 class OG_CustomCtrl;
+class OverhangAnglePreview;
 
 // G-code substitutions
 
@@ -454,6 +455,7 @@ public:
 
 private:
 	ogStaticText*	m_recommended_thin_wall_thickness_description_line = nullptr;
+	OverhangAnglePreview* m_overhang_angle_preview = nullptr;
 	ogStaticText*	m_top_bottom_shell_thickness_explanation = nullptr;
 	ogStaticText*	m_post_process_explanation = nullptr;
 	ScalableButton* m_del_all_substitutions_btn{nullptr};

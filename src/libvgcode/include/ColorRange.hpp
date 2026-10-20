@@ -8,6 +8,7 @@
 #include "../include/Types.hpp"
 
 #include <cfloat>
+#include <vector>
 
 namespace libvgcode {
 
@@ -64,8 +65,23 @@ public:
     // 1                    - If only one value was detected while setting up this ColorRange.
     // 2                    - If only two values were detected while setting up this ColorRange.
     // get_palette().size() - If more than two distinct values were detected while setting up this ColorRange.
+    // The distinct values  - In discrete mode (see is_discrete()).
     //
     std::vector<float> get_values() const;
+    //
+    // Discrete values (SuperSlicer): with more than two and at most get_max_discrete_count() distinct values, each value
+    // gets its own color, spread over the palette and the colors halfway between its colors, instead of the continuous scale.
+    //
+    bool is_discrete() const;
+    //
+    // Whether discrete mode applies to this ColorRange: more than two and at most get_max_discrete_count() distinct values.
+    //
+    bool can_be_discrete() const;
+    //
+    // Count of distinct values (rounded to 0.01), 0 if more than get_max_discrete_count().
+    //
+    std::size_t get_discrete_count() const;
+    std::size_t get_max_discrete_count() const { return 2 * m_palette.size() - 1; }
     //
     // Return the size of the palette, in bytes
     //
@@ -88,11 +104,21 @@ private:
     // Count of different values passed to update()
     // 
     std::size_t m_count{ 0 };
+    //
+    // Distinct values passed to update(), rounded to 0.01 and sorted; cleared when there are more than get_max_discrete_count().
+    //
+    std::vector<float> m_discrete_values;
+    bool m_too_many_values{ false };
+    bool m_discrete{ false };
+
+    void set_discrete(bool discrete) { m_discrete = discrete; }
+    Color get_discrete_color(std::size_t value_id) const;
 
     //
     // Use the passed value to update the range.
+    // A value blended between two others (interpolated vertex) updates the range but is not a value of the discrete mode.
     //
-    void update(float value);
+    void update(float value, bool interpolated = false);
     //
     // Reset the range
     // Call this method before reuse an instance of ColorRange.

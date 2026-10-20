@@ -640,7 +640,7 @@ inline bool has_compatible_dynamic_overhang_speed(const PrintRegionConfig &confi
     if (dynamic_overhang_speed_compatibility && config.enable_dynamic_overhang_speeds) {
         dynamic_overhang_speed_compatibility = config.overhangs_dynamic_speed == other_config.overhangs_dynamic_speed &&
                                                config.overhangs_speed == other_config.overhangs_speed &&
-                                               config.overhangs_width_speed == other_config.overhangs_width_speed;
+                                               config.overhangs_graph_range == other_config.overhangs_graph_range;
     }
 
     return dynamic_overhang_speed_compatibility;
@@ -655,6 +655,7 @@ inline bool has_compatible_layer_regions(const PrintRegionConfig &config, const 
            config.external_perimeter_speed                              == other_config.external_perimeter_speed &&
            (config.gap_fill_enabled ? config.gap_fill_speed.value : 0.) == (other_config.gap_fill_enabled ? other_config.gap_fill_speed.value : 0.) &&
            config.overhangs                                             == other_config.overhangs &&
+           config.overhangs_threshold                                   == other_config.overhangs_threshold &&
            config.opt_serialize("perimeter_extrusion_width")     == other_config.opt_serialize("perimeter_extrusion_width") &&
            config.thin_walls                                            == other_config.thin_walls &&
            config.external_perimeters_first                             == other_config.external_perimeters_first &&

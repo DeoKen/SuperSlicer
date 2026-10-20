@@ -1114,19 +1114,21 @@ void PrintConfigDef::init_fff_params()
     def->mode       = comExpert;
     def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
 
-    def             = this->add("overhangs_width_speed", coFloatOrPercent);
-    def->label      = L("Threshold");
-    def->full_label = L("Overhangs speed threshold");
+    def             = this->add("overhangs_graph_range", coFloatOrPercent);
+    def->label      = L("Range");
+    def->full_label = L("Overhangs graph range");
     def->category   = L("Speed");
-    def->tooltip    = L("For the dynamic overhang speeds and fan speeds: how far an extrusion sticks out past the edge of the layer below "
-                        "at 0% overlap (not supported at all). An extrusion that doesn't stick out has 100% overlap. "
-                        "Can be in mm or a % of the nozzle diameter.");
+    def->tooltip    = L("For the dynamic overhang speeds and fan speeds: how far past the overhang threshold (Layers and perimeters) "
+                        "the graphs end. The graphs start (100%) where the middle of a perimeter lies past the edge of the layer below "
+                        "by the overhang threshold, and end (0%) where it lies past it by the threshold + this range. "
+                        "Example with a 0.4 mm nozzle: threshold 55% and range 50% = the graphs go from 0.22 mm to 0.42 mm. "
+                        "Can be in mm or a % of the nozzle diameter. 0: past the threshold is 0% right away.");
     def->sidetext   = L("mm or %");
     def->ratio_over = "nozzle_diameter";
     def->min        = 0;
     def->max_literal = 10;
     def->mode       = comExpert;
-    def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
+    def->set_default_value(new ConfigOptionFloatOrPercent(50, true));
 
     def             = this->add("overhangs_dynamic_speed", coGraph);
     def->label      = L("Dynamic overhang speeds");
@@ -3089,6 +3091,23 @@ void PrintConfigDef::init_fff_params()
                    "to apply bridge speed to them and enable fan.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("overhangs_threshold", coFloatOrPercent);
+    def->label = L("Overhang threshold");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("How far the middle of a perimeter has to lie past the edge of the layer below to be an overhang perimeter "
+                   "(bridge flow, overhangs speed and fan). Can be in mm or a % of the nozzle diameter. "
+                   "50% is the PrusaSlicer default: with a line as wide as the nozzle, the whole line is past the edge. "
+                   "The angle from vertical next to the field is the steepest wall that is not an overhang, at the layer height "
+                   "and nozzle of the current profiles: lower layers and smaller nozzles give a steeper angle for the same value. "
+                   "The dynamic overhang speeds and fan speeds start at this threshold: below it, the perimeters keep their speed "
+                   "and fan speed.");
+    def->sidetext = L("mm or %");
+    def->ratio_over = "nozzle_diameter";
+    def->min = 0;
+    def->max_literal = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloatOrPercent(50, true));
 
     def = this->add("parking_pos_retraction", coFloat);
     def->label = L("Filament parking position");
@@ -6012,6 +6031,18 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
         opt_key = "printhost_apikey";
     } else if (opt_key == "preset_name") {
         opt_key = "preset_names";
+    } else if (opt_key == "overhangs_width_speed") {
+        // This fork (8113e854d1): where the dynamic overhang graphs end (0 %), measured from the edge of the layer below.
+        // Replaced by overhangs_graph_range, measured from the overhang threshold (default 50 %) + half the line width:
+        // with a line as wide as the nozzle, range = old value - 100 % of the nozzle. A value in mm assumes a 0.4 mm nozzle.
+        // The old default (100 %) gets the new default.
+        opt_key = "overhangs_graph_range";
+        ConfigOptionFloatOrPercent old;
+        if (old.deserialize(value) && ! (old.percent && is_approx(old.value, 100.))) {
+            const double range = std::max(0., old.value - (old.percent ? 100. : 0.4));
+            value = float_to_string_decimal_point(range) + (old.percent ? "%" : "");
+        } else
+            opt_key = {};
     } else if (opt_key == "ensure_vertical_shell_thickness") {
         if (value == "1") {
             value = "enabled";
@@ -6105,6 +6136,9 @@ void PrintConfigDef::handle_legacy_dynamic_overhangs(DynamicPrintConfig &config)
     auto option = [&config](const char *opt_key) -> const ConfigOption* {
         return config.has(opt_key) ? config.option(opt_key) : config.def()->get(opt_key)->default_value.get();
     };
+    // Speed graph converted (print settings), fan graphs converted (filament settings).
+    bool converted_speeds = false;
+    bool converted_fans   = false;
 
     // Speeds at 0, 25, 50 and 75 % overlap (mm/s or % of the external perimeter speed), the external perimeter speed at 100 %.
     // Converted as SuperSlicer does: the slowest (or fastest) speed becomes the overhangs speed, the graph gives the other
@@ -6130,6 +6164,7 @@ void PrintConfigDef::handle_legacy_dynamic_overhangs(DynamicPrintConfig &config)
         points.emplace_back(100., 100.);
         config.set_key_value("overhangs_speed", new ConfigOptionFloatOrPercent(overhangs_speed, false));
         config.set_key_value("overhangs_dynamic_speed", new ConfigOptionGraph(GraphData(points)));
+        converted_speeds = true;
     }
 
     // Fan speeds at 0, 25, 50 and 75 % overlap, per extruder. At 100 % the (external) perimeter fan speed or the default
@@ -6155,8 +6190,15 @@ void PrintConfigDef::handle_legacy_dynamic_overhangs(DynamicPrintConfig &config)
                 graphs->values[idx] = GraphData(points);
             }
             config.set_key_value("overhangs_dynamic_fan_speed", graphs);
+            converted_fans = true;
         }
     }
+
+    // Stock spread the four values over one line width, from where the line starts to stick out past the layer below. Here the
+    // graphs start at the overhang threshold: same width (100 % of the nozzle), the slow down and fan start at the threshold.
+    // A filament preset has no print settings: only a full config (project, G-code) gets the range for the fan graphs.
+    if (converted_speeds || (converted_fans && config.has("perimeters")))
+        config.set_key_value("overhangs_graph_range", new ConfigOptionFloatOrPercent(100., true));
 
     for (const char *opt_key : speed_keys)
         config.erase(opt_key);

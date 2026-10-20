@@ -82,7 +82,9 @@ class OG_CustomCtrl :public wxPanel
     std::vector<CtrlLine> ctrl_lines;
 
     // Lines with several fields (or forced sub-labels) are laid out in columns shared by the whole group: the n-th
-    // sub-label, field and side text of every such line have the same width, so the fields are aligned.
+    // sub-label, field and side text of every such line have the same width, so the fields are aligned. Only the fields
+    // followed by another one set the width of their column (the last field of a line doesn't move anything).
+    // The lines with a single field of a group with columns have their field in the first column (aligned_single_offset()).
     struct Column {
         wxCoord label { 0 };
         wxCoord field { 0 };
@@ -93,6 +95,8 @@ class OG_CustomCtrl :public wxPanel
     const std::vector<Column>& columns();
     wxCoord             text_width(const wxString &text);
     wxCoord             field_width(const Option &option, Field *field);
+    wxCoord             side_width(const Option &option);
+    wxCoord             aligned_single_offset(const Line &line);
 public:
     static bool         is_multioption_line(const Line &line);
     static wxString     sublabel_text(const ConfigOptionDef &option);
