@@ -10,6 +10,7 @@
 ///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
 ///|/
 #include "MainFrame.hpp"
+#include "CalibrationDialogs.hpp"
 
 #include <wx/panel.h>
 #include <wx/notebook.h>
@@ -1742,6 +1743,16 @@ void MainFrame::init_menubar_as_editor()
 #endif // __APPLE__
     }
 
+    // Calibration menu (SuperSlicer)
+    auto calibrationMenu = new wxMenu();
+    append_menu_item(calibrationMenu, wxID_ANY, _L("&Temperature tower") + dots, _L("Create a test print to choose the filament temperature."),
+        [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::Temperature); }, "", nullptr,
+        [this]() { return plater()->printer_technology() == ptFFF; }, this);
+    calibrationMenu->AppendSeparator();
+    append_menu_item(calibrationMenu, wxID_ANY, _L("&CaliFlower") + dots, _L("Load your CaliFlower model to measure the filament shrinkage."),
+        [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::CaliFlower); }, "", nullptr,
+        [this]() { return plater()->printer_technology() == ptFFF; }, this);
+
     // Help menu
     auto helpMenu = generate_help_menu();
 
@@ -1777,6 +1788,7 @@ void MainFrame::init_menubar_as_editor()
     if (viewMenu) m_menubar->Append(viewMenu, _L("&View"));
     // Add additional menus from C++
     m_menubar->Append(wxGetApp().get_config_menu(this), _L("&Configuration"));
+    m_menubar->Append(calibrationMenu, _L("C&alibration"));
     m_menubar->Append(helpMenu, _L("&Help"));
 
     SetMenuBar(m_menubar);

@@ -4694,10 +4694,10 @@ bool Plater::is_project_temp() const
     return false;
 }
 
-void Plater::new_project()
+bool Plater::new_project()
 {
     if (int saved_project = p->save_project_if_dirty(_L("Creating a new project while the current project is modified.")); saved_project == wxID_CANCEL)
-        return;
+        return false;
     else {
         wxString header = _L("Creating a new project while some presets are modified.") + "\n" + 
                           (saved_project == wxID_YES ? _L("You can keep presets modifications to the new project or discard them") :
@@ -4707,7 +4707,7 @@ void Plater::new_project()
         if (saved_project == wxID_NO)
             act_buttons |= ActionButtons::SAVE;
         if (!wxGetApp().check_and_keep_current_preset_changes(_L("Creating a new project"), header, act_buttons))
-            return;
+            return false;
     }
 
     p->select_view_3D("3D");
@@ -4720,6 +4720,7 @@ void Plater::new_project()
     wxGetApp().update_saved_preset_from_current_preset();
     // Update Project dirty state, update application title bar.
     update_project_dirty_from_presets();
+    return true;
 }
 
 void Plater::load_project()

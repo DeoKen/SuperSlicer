@@ -49,6 +49,7 @@ Contents:
 27. [Dynamic overhang speeds and fan speeds with graphs](#27-dynamic-overhang-speeds-and-fan-speeds-with-graphs)
 28. [Overhang threshold](#28-overhang-threshold)
 29. [G-code viewer: discrete values, selected layers](#29-g-code-viewer-discrete-values-selected-layers)
+30. [Calibration prints](#30-calibration-prints)
 31. [Own brim under the support](#31-own-brim-under-the-support)
 25. [Testing](#testing)
 
@@ -1114,6 +1115,39 @@ colors match the paths; untick "Discrete values": the stock scale. Restart: the 
 top of the vertical slider down to a few layers, tick "Selected layers": the legend shows the speeds of those layers
 (discrete if 3-21 values) with the whole print max/min in pink/purple, moving the slider updates it; untick: the
 whole print scale.
+
+---
+
+## 30. Calibration prints
+
+**What it does.** From SuperSlicer's Calibration menu, rewritten for PrusaSlicer 2.9.6: a Calibration menu (between
+Configuration and Help) with a temperature tower and the CaliFlower. Each item opens a small dialog with an explanation, a few fields and Generate. Generate starts a new project
+(it asks to save the current one first), loads the print with its own object / part settings and slices. SuperSlicer's
+HTML help pages, its introduction page and its other calibrations (bed leveling, filament / extruder flow, retraction,
+ironing, calibration cube) are not ported. The bridge flow and pressure advance calibrations were ported and removed
+(2026-10-20): without SuperSlicer's overhang / thin wall / bridge margin settings they couldn't match it.
+
+**Prints.**
+- Temperature tower: "Floors below" / "Floors above" the filament temperature (default 2 / 2), "Step" 5-20 °C
+  (default 10). The hottest floor at the bottom; each floor sets its temperature with an `M104` custom G-code at its
+  height (floor 0 at the second layer, after the first layer temperature). Temperatures from 180 to 285 °C that are a
+  multiple of 5 are engraved. Model scaled with the nozzle (made for 0.4 mm). Object settings as SuperSlicer: 1
+  perimeter, extra perimeters on overhangs, 2 bottom / 3 top layers, no gap fill, layer height half the nozzle, 7% infill,
+  rectilinear top, no ironing, no brim ears, brim at least 8 x nozzle. SuperSlicer's per-object temperature
+  (`print_temperature`) doesn't exist here: the custom G-code does it.
+- CaliFlower (Vector 3D, the model is not included): the location of your model file (remembered in the app settings,
+  `calibration_califlower_path`) and Browse. Loads it with 2 perimeters and 20% grid infill as object settings and sets
+  the filament shrinkage compensation XY and Z to 0% (no compensation, SuperSlicer's 100%) as an unsaved change of the
+  filament settings, for every extruder. More of Vector 3D's recommended settings can be added later.
+
+**How it works.** `CalibrationDialogs.cpp` (GUI): `CalibrationDialog` base (explanation, fields, Generate / Close,
+`add_part()` adds the volumes of a model file to an object as SuperSlicer does), one class per print,
+`show_calibration_dialog()` called by the menu (MainFrame.cpp). `Plater::new_project()` now returns false when cancelled.
+Models in `resources/calibration/filament_temp` from SuperSlicer (CC BY-SA 3.0, see its LICENCE.txt).
+
+**How to test.** Manual (GUI): Calibration > each item > Generate: the print is loaded and sliced; Preview: temperature
+tower `M104` per floor (Legend > Custom G-codes), CaliFlower with 2 perimeters, 20% grid and the filament shrinkage at
+0%.
 
 ---
 

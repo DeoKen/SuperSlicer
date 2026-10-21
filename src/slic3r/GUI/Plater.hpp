@@ -115,7 +115,8 @@ public:
     std::vector<std::unique_ptr<Print>>& get_fff_prints();
     const std::vector<GCodeProcessorResult>& get_gcode_results() const;
 
-    void new_project();
+    // False if cancelled.
+    bool new_project();
     void load_project();
     void load_project(const wxString& filename);
     void add_model(bool imperial_units = false);

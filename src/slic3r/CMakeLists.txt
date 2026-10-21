@@ -213,6 +213,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/GraphChart.hpp
     GUI/GraphDialog.cpp
     GUI/GraphDialog.hpp
+    GUI/CalibrationDialogs.cpp
+    GUI/CalibrationDialogs.hpp
     GUI/RemovableDriveManager.cpp
     GUI/RemovableDriveManager.hpp
     GUI/SendSystemInfoDialog.cpp
