@@ -19,7 +19,34 @@ namespace Slic3r::GUI {
 
 void GLGizmoBrimPaint::on_shutdown()
 {
+    // The clipper is shared with the other painting gizmos: don't leave them the first layer plane.
+    if (m_first_layer_only)
+        m_c->object_clipper()->set_position_by_ratio(0., false);
     m_parent.toggle_model_objects_visibility(true);
+}
+
+
+
+void GLGizmoBrimPaint::update_first_layer_clipping()
+{
+    const ModelObject *mo = m_c->selection_info()->model_object();
+    if (! m_first_layer_only || mo == nullptr)
+        return;
+    // The object's own setting, else the print settings. The facets of the first layer are the ones the brim uses
+    // (PrintObject::brim_paint_area()), so the plane is a hair above it.
+    auto option = [mo](const char *key) {
+        const ConfigOption *opt = mo->config.option(key);
+        return opt != nullptr ? opt : wxGetApp().plater()->config()->option(key);
+    };
+    // A percentage is of the layer height.
+    const auto         *first_layer_height = dynamic_cast<const ConfigOptionFloatOrPercent*>(option("first_layer_height"));
+    const ConfigOption *layer_height       = option("layer_height");
+    const double        z = (first_layer_height != nullptr ? first_layer_height->get_abs_value(layer_height != nullptr ? layer_height->getFloat() : 0.2) : 0.2) + 0.001;
+    const ClippingPlane plane(Vec3d::UnitZ(), z);
+    // Set again if anything else moved it (Ctrl + mouse wheel, the selection changed).
+    const ClippingPlane *current = m_c->object_clipper()->get_clipping_plane(true);
+    if (current == nullptr || ! (*current == plane) || m_c->object_clipper()->get_position() == 0.)
+        m_c->object_clipper()->set_range_and_pos(Vec3d::UnitZ(), z, 1.);
 }
 
 
@@ -42,6 +69,10 @@ bool GLGizmoBrimPaint::on_init()
     m_desc["no_brim_width"]    = _u8L("Brim width is 0: the painted brim needs a brim width (Print Settings > Skirt and brim, "
                                       "or a per-object setting).");
     m_desc["raft"]             = _u8L("No brim is made on a raft.");
+    m_desc["first_layer_only"] = _u8L("First layer only");
+    m_desc["first_layer_only_tooltip"] = _u8L("Shows and paints only the first layer of the part, the only one the brim uses. "
+                                              "From above, the Sphere brush paints the bottom face through the cut; "
+                                              "the Circle brush paints only facets facing you (look from below).");
     m_desc["hint"]             = _u8L("Paint the bottom edge of the part (the side walls near the bed or the bottom face). "
                                       "Enforced: a brim along the painted edge, also with the brim type \"No brim\". "
                                       "Blocked: no brim there. The brim width and separation come from the print settings.");
@@ -60,12 +91,15 @@ void GLGizmoBrimPaint::render_painter_gizmo()
 {
     const Selection& selection = m_parent.get_selection();
 
+    update_first_layer_clipping();
+
     glsafe(::glEnable(GL_BLEND));
     glsafe(::glEnable(GL_DEPTH_TEST));
 
     render_triangles(selection);
 
-    m_c->object_clipper()->render_cut();
+    // First layer only: a see-through cut, so the painting of the bottom face shows from above.
+    m_c->object_clipper()->render_cut(nullptr, m_first_layer_only ? 0.4f : 1.f);
     m_c->instances_hider()->render_cut();
     render_cursor();
 
@@ -174,23 +208,33 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
         ImGuiPureWrap::tooltip(_u8L("Ignores facets facing away from the camera."), max_tooltip_width);
 
     ImGui::Separator();
-    if (m_c->object_clipper()->get_position() == 0.f) {
-        ImGui::AlignTextToFramePadding();
-        ImGuiPureWrap::text(m_desc.at("clipping_of_view"));
+    if (ImGuiPureWrap::checkbox(m_desc.at("first_layer_only"), m_first_layer_only)) {
+        if (! m_first_layer_only)
+            wxGetApp().CallAfter([this]() { m_c->object_clipper()->set_position_by_ratio(0., false); });
+        m_parent.set_as_dirty();
     }
-    else {
-        if (ImGuiPureWrap::button(m_desc.at("reset_direction"))) {
-            wxGetApp().CallAfter([this](){
-                    m_c->object_clipper()->set_position_by_ratio(-1., false);
-                });
-        }
-    }
+    if (ImGui::IsItemHovered())
+        ImGuiPureWrap::tooltip(m_desc.at("first_layer_only_tooltip"), max_tooltip_width);
 
-    auto clp_dist = float(m_c->object_clipper()->get_position());
-    ImGui::SameLine(sliders_left_width);
-    ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
-    if (m_imgui->slider_float("##clp_dist", &clp_dist, 0.f, 1.f, "%.2f", 1.0f, true, from_u8(GUI::shortkey_ctrl_prefix()) + _L("Mouse wheel")))
-        m_c->object_clipper()->set_position_by_ratio(clp_dist, true);
+    if (! m_first_layer_only) {
+        if (m_c->object_clipper()->get_position() == 0.f) {
+            ImGui::AlignTextToFramePadding();
+            ImGuiPureWrap::text(m_desc.at("clipping_of_view"));
+        }
+        else {
+            if (ImGuiPureWrap::button(m_desc.at("reset_direction"))) {
+                wxGetApp().CallAfter([this](){
+                        m_c->object_clipper()->set_position_by_ratio(-1., false);
+                    });
+            }
+        }
+
+        auto clp_dist = float(m_c->object_clipper()->get_position());
+        ImGui::SameLine(sliders_left_width);
+        ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
+        if (m_imgui->slider_float("##clp_dist", &clp_dist, 0.f, 1.f, "%.2f", 1.0f, true, from_u8(GUI::shortkey_ctrl_prefix()) + _L("Mouse wheel")))
+            m_c->object_clipper()->set_position_by_ratio(clp_dist, true);
+    }
 
     ImGui::Separator();
     if (ImGuiPureWrap::button(m_desc.at("remove_all"))) {

@@ -519,6 +519,7 @@ void PrintObject::generate_support_material()
 {
     if (this->set_started(posSupportMaterial)) {
         this->clear_support_layers();
+        m_support_brim_pads.clear();
         if ((this->has_support() && m_layers.size() > 1) || (this->has_raft() && ! m_layers.empty())) {
             m_print->set_status(70, _u8L("Generating support material"));    
             this->_generate_support_material();
@@ -812,6 +813,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "support_material_xy_spacing"
             || opt_key == "support_material_spacing"
             || opt_key == "support_material_closing_radius"
+            || opt_key == "support_material_own_brim"
             || opt_key == "support_material_synchronize_layers"
             || opt_key == "support_material_threshold"
             || opt_key == "support_material_with_sheath"

@@ -710,6 +710,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionEnum<SupportMaterialInterfacePattern>, support_material_interface_pattern))
     // Morphological closing of support areas. Only used for "sung" supports.
     ((ConfigOptionFloat,               support_material_closing_radius))
+    // Fork: the first layer of the supports touching the brim printed as brim, cutting the brim around the part.
+    ((ConfigOptionBool,                support_material_own_brim))
     // Spacing between support material lines (the hatching distance).
     ((ConfigOptionFloat,               support_material_spacing))
     ((ConfigOptionFloat,               support_material_speed))

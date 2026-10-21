@@ -1726,6 +1726,7 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Interface layers"), { { "support_material_interface_layers", L("Top") }, { "support_material_bottom_interface_layers", L("Bottom") } }, category_path + "interface-layers", -1);
         append_labelled_line(optgroup, L("Interface pattern"), { { "support_material_interface_pattern", "" }, { "support_material_interface_spacing", L("Spacing") } }, category_path + "interface-pattern", -1);
         optgroup->append_single_option_line("support_material_interface_contact_loops", category_path + "interface-loops");
+        optgroup->append_single_option_line("support_material_own_brim");
         optgroup->append_single_option_line("support_material_buildplate_only", category_path + "support-on-build-plate-only");
         optgroup->append_single_option_line("support_material_xy_spacing", category_path + "xy-separation-between-an-object-and-its-support");
         optgroup->append_single_option_line("dont_support_bridges", category_path + "dont-support-bridges");

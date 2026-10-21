@@ -399,6 +399,11 @@ public:
     // Paint-on brim: XY area (same frame as the slices) of the brim enforcers or blockers painted at most one first layer
     // above the bed, side walls included (as thin bands).
     ExPolygons brim_paint_area(TriangleStateType type) const;
+    // Own brim under the support (fork): the first layer of the supports touching the brim (object coordinates). Those
+    // supports have no first layer, make_brim() prints these areas as brim. Set while generating the supports
+    // (generate_raft_base()), so the brim made afterwards finds it.
+    const ExPolygons& support_brim_pads() const { return m_support_brim_pads; }
+    void              set_support_brim_pads(ExPolygons pads) const { m_support_brim_pads = std::move(pads); }
 
 private:
     // to be called from Print only.
@@ -479,6 +484,7 @@ private:
     SlicingParameters                       m_slicing_params;
     LayerPtrs                               m_layers;
     SupportLayerPtrs                        m_support_layers;
+    mutable ExPolygons                      m_support_brim_pads;
 
     // this is set to true when LayerRegion->slices is split in top/internal/bottom
     // so that next call to make_perimeters() performs a union() before computing loops

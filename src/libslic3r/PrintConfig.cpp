@@ -4141,6 +4141,16 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(2));
 
+    def = this->add("support_material_own_brim", coBool);
+    def->label = L("Own brim under the support");
+    def->category = L("Support material");
+    def->tooltip = L("For the supports whose first layer touches the brim: their whole first layer is printed as brim (lines "
+                     "with a loop around), and the brim around the part stops at it. The other supports keep their own first "
+                     "layer. Off: as PrusaSlicer, the first layer of these supports is cut where it overlaps the brim (the "
+                     "support starts on the brim there) and the rest is printed as support.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("support_material_interface_spacing", coFloat);
     def->label = L("Interface pattern spacing");
     def->category = L("Support material");

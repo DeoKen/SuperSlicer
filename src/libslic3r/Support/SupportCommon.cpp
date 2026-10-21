@@ -18,6 +18,7 @@
 #include "libslic3r/ExtrusionEntityCollection.hpp"
 #include "libslic3r/Layer.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/Brim.hpp"
 #include "libslic3r/Fill/FillBase.hpp"
 #include "libslic3r/MutablePolygon.hpp"
 #include "libslic3r/Geometry.hpp"
@@ -347,9 +348,8 @@ SupportGeneratorLayersPtr generate_raft_base(
         // The object does not have a raft.
         // Calculate the area covered by the brim.
         const BrimType brim_type       = object.config().brim_type;
-        // Paint-on brim enforcers: keep the supports away from the whole outline (the painting only redoes the brim).
-        const bool     brim_outer      = brim_type == btOuterOnly || brim_type == btOuterAndInner || object.has_brim_enforcers();
-        const bool     brim_inner      = brim_type == btInnerOnly || brim_type == btOuterAndInner || object.has_brim_enforcers();
+        const bool     brim_outer      = brim_type == btOuterOnly || brim_type == btOuterAndInner;
+        const bool     brim_inner      = brim_type == btInnerOnly || brim_type == btOuterAndInner;
         const auto     brim_separation = scaled<float>(object.config().brim_separation.value + object.config().brim_width.value);
         for (const ExPolygon &ex : object.layers().front()->lslices) {
             if (brim_outer && brim_inner)
@@ -369,8 +369,15 @@ SupportGeneratorLayersPtr generate_raft_base(
                     polygons_append(brim, ex.holes);
             }
         }
+        // Paint-on brim: the brim added by the enforcers, without the brim removed by the blockers.
+        const BrimPaintAreas paint = brim_paint_areas(object);
+        polygons_append(brim, to_polygons(paint.enforced));
         brim = union_(brim);
+        if (! paint.blocked.empty())
+            brim = diff(brim, paint.blocked);
     }
+    // Brim under the supports (fork): set below.
+    object.set_support_brim_pads({});
 
     // How much to inflate the support columns to be stable. This also applies to the 1st layer, if no raft layers are to be printed.
     const float inflate_factor_fine      = float(scale_((slicing_params.raft_layers() > 1) ? 0.5 : EPSILON));
@@ -474,15 +481,30 @@ SupportGeneratorLayersPtr generate_raft_base(
             if (! interface_polygons.empty())
                 columns_base->polygons = diff(columns_base->polygons, interface_polygons);
         }
-        if (! brim.empty()) {
-            if (columns_base)
-                columns_base->polygons = diff(columns_base->polygons, brim);
-            if (contacts)
-                contacts->polygons = diff(contacts->polygons, brim);
-            if (interfaces)
-                interfaces->polygons = diff(interfaces->polygons, brim);
-            if (base_interfaces)
-                base_interfaces->polygons = diff(base_interfaces->polygons, brim);
+        if (! brim.empty() && ! object.config().support_material_own_brim) {
+            // Stock: the first layer of the supports is cut under the brim.
+            for (SupportGeneratorLayer *layer : { columns_base, contacts, interfaces, base_interfaces })
+                if (layer != nullptr)
+                    layer->polygons = diff(layer->polygons, brim);
+        } else if (! brim.empty()) {
+            // support_material_own_brim (fork): a support whose first layer touches the brim has no first layer; make_brim()
+            // prints all of its first layer as brim (the pads), the brim around the part stops at it. The other supports
+            // keep their first layer.
+            Polygons first_layer;
+            for (const SupportGeneratorLayer *layer : { columns_base, contacts, interfaces, base_interfaces })
+                if (layer != nullptr)
+                    polygons_append(first_layer, layer->polygons);
+            ExPolygons pads;
+            for (ExPolygon &island : union_ex(first_layer))
+                if (! intersection(to_polygons(island), brim).empty())
+                    pads.emplace_back(std::move(island));
+            if (! pads.empty()) {
+                const Polygons cut = offset(pads, float(SCALED_EPSILON));
+                for (SupportGeneratorLayer *layer : { columns_base, contacts, interfaces, base_interfaces })
+                    if (layer != nullptr)
+                        layer->polygons = diff(layer->polygons, cut);
+                object.set_support_brim_pads(std::move(pads));
+            }
         }
     }
 

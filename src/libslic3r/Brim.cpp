@@ -83,9 +83,9 @@ static std::vector<ExPolygons> get_print_bottom_layers_expolygons(const Print &p
     return bottom_layers_expolygons;
 }
 
-// Paint-on brim: bands along the painted parts of the outline (contours offset and holes shrunk by the brim separation),
-// reaching the brim width plus one line to both sides, butt ended where the painting ends. Enforcers add a brim there
-// (also with the brim type "No brim"), blockers remove it.
+// Paint-on brim: the zones of the brim nearer to the painted parts of the outline (contours offset and holes shrunk by
+// the brim separation) than to its other parts, up to the brim width plus one line. Enforcers add a brim there (also with
+// the brim type "No brim"), blockers remove it.
 struct BrimPaintZones
 {
     ExPolygons enforcers;
@@ -120,10 +120,50 @@ static BrimPaintZones brim_paint_zones(const PrintObject &object, const ExPolygo
                 pl.clip_end(tolerance + scaled<double>(0.1));
             }
         along.erase(std::remove_if(along.begin(), along.end(), [](const Polyline &pl) { return pl.size() < 2; }), along.end());
-        return along.empty() ? ExPolygons() : union_ex(offset(along, brim_width + spacing, ClipperLib::jtSquare));
+        if (along.empty())
+            return ExPolygons();
+        // The brim nearer to the painted parts than to the rest of the outline (of any part of the object): ring by ring,
+        // one line apart, the points within the ring's distance of the painted parts that are not nearer to the outline
+        // than the previous ring. A brim between a painted and an unpainted edge is split halfway, a brim beyond the end
+        // of the painting is cut square.
+        const float reach = brim_width + spacing;
+        const float step  = std::max(spacing, scaled<float>(0.1));
+        Polygons    out;
+        for (float inner = 0.f; inner < reach; inner += step) {
+            const float outer = std::min(inner + step, reach);
+            Polygons    ring  = offset(along, outer, ClipperLib::jtRound, scaled<double>(0.05));
+            if (inner > 0.f)
+                ring = diff(ring, contour_to_polygons(outlines, 2.f * inner, ClipperLib::jtRound, scaled<double>(0.05)));
+            polygons_append(out, std::move(ring));
+        }
+        return union_ex(out);
     };
     out.enforcers = zone(TriangleStateType::ENFORCER);
     out.blockers  = zone(TriangleStateType::BLOCKER);
+    return out;
+}
+
+BrimPaintAreas brim_paint_areas(const PrintObject &object)
+{
+    BrimPaintAreas out;
+    const float    brim_width = scaled<float>(object.config().brim_width.value);
+    if (! object.is_brim_painted() || brim_width <= 0.f || object.layers().empty())
+        return out;
+    const float          brim_separation = scaled<float>(object.config().brim_separation.value);
+    const ExPolygons     bottom_layer    = get_print_object_bottom_layer_expolygons(object);
+    const BrimPaintZones zones           = brim_paint_zones(object, bottom_layer, brim_width, brim_separation, float(object.print()->brim_flow().scaled_spacing()));
+    if (! zones.enforcers.empty()) {
+        // The rings of the brim width around the contours and inside the holes, where enforced.
+        Polygons rings;
+        for (const ExPolygon &ex_poly : bottom_layer) {
+            polygons_append(rings, diff(offset(ex_poly.contour, brim_width + brim_separation, ClipperLib::jtSquare), offset(ex_poly.contour, brim_separation, ClipperLib::jtSquare)));
+            Polygons holes_reversed = ex_poly.holes;
+            polygons_reverse(holes_reversed);
+            polygons_append(rings, diff(shrink(holes_reversed, brim_separation, ClipperLib::jtSquare), shrink(holes_reversed, brim_width + brim_separation, ClipperLib::jtSquare)));
+        }
+        out.enforced = intersection_ex(rings, zones.enforcers);
+    }
+    out.blocked = zones.blockers;
     return out;
 }
 
@@ -639,12 +679,17 @@ static Polylines connect_brim_lines(Polylines &&polylines, const Polygons &brim_
 static void make_inner_brim(const Print                   &print,
                             const ConstPrintObjectPtrs    &top_level_objects_with_brim,
                             const std::vector<ExPolygons> &bottom_layers_expolygons,
+                            const ExPolygons              &own_brim_pads,
                             ExtrusionEntityCollection     &brim)
 {
     assert(print.objects().size() == bottom_layers_expolygons.size());
     const auto                       scaled_resolution = scaled<double>(print.config().gcode_resolution.value);
     Flow                             flow              = print.brim_flow();
     std::vector<InnerBrimExPolygons> inner_brims_ex    = inner_brim_area(print, top_level_objects_with_brim, bottom_layers_expolygons, float(flow.scaled_spacing()));
+    // Own brim under the supports (fork): the loops go around them.
+    if (! own_brim_pads.empty())
+        for (InnerBrimExPolygons &inner_brim_ex : inner_brims_ex)
+            inner_brim_ex.brim_area = diff_ex(inner_brim_ex.brim_area, own_brim_pads);
     Polygons                         loops;
     std::mutex                       loops_mutex;
     tbb::parallel_for(tbb::blocked_range<size_t>(0, inner_brims_ex.size()), [&inner_brims_ex, &flow, &scaled_resolution, &loops, &loops_mutex](const tbb::blocked_range<size_t> &range) {
@@ -685,6 +730,22 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
     ExPolygons              rectilinear_ears;
     ExPolygons              islands_area_ex             = top_level_outer_brim_area(print, top_level_objects_with_brim, bottom_layers_expolygons, float(flow.scaled_spacing()), &rectilinear_ears);
     owners.clear();
+
+    // Own brim under the supports (fork): the first layer of the supports touching the brim (generate_raft_base()) is
+    // printed as brim, made last (a loop filled with lines); the other brim lines stop at it (half a line away).
+    ExPolygons own_brim_pads;
+    for (const PrintObject *object : print.objects())
+        for (const PrintInstance &instance : object->instances())
+            for (ExPolygon pad : object->support_brim_pads()) {
+                pad.translate(instance.shift);
+                own_brim_pads.emplace_back(std::move(pad));
+            }
+    if (! own_brim_pads.empty()) {
+        own_brim_pads    = offset_ex(own_brim_pads, 0.5f * float(flow.scaled_spacing()));
+        islands_area_ex  = diff_ex(islands_area_ex, own_brim_pads);
+        rectilinear_ears = diff_ex(rectilinear_ears, own_brim_pads);
+    }
+
 
     // Brim lines around the islands, clipped by the brim area, ordered and connected.
     auto brim_lines = [&](Polygons islands, const ExPolygons &area_ex, const float max_width) {
@@ -916,7 +977,7 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
     emit_rectilinear_ears(rectilinear_ears);
 
     const size_t inner_first = brim.entities.size();
-    make_inner_brim(print, top_level_objects_with_brim, bottom_layers_expolygons, brim);
+    make_inner_brim(print, top_level_objects_with_brim, bottom_layers_expolygons, own_brim_pads, brim);
     // The inner brim (holes, objects inside holes) is made for all objects together: a loop goes with the brim_per_object
     // instance whose first layer outline contains it (the innermost one), so that it is printed with its object.
     for (size_t entity_idx = inner_first; entity_idx < brim.entities.size(); ++ entity_idx) {
@@ -962,6 +1023,10 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
                 object_area = diff_ex(object_area, used_area);
                 object_ears = diff_ex(object_ears, used_area);
             }
+            if (! own_brim_pads.empty()) {
+                object_area = diff_ex(object_area, own_brim_pads);
+                object_ears = diff_ex(object_ears, own_brim_pads);
+            }
             const size_t first = brim.entities.size();
             emit_lines(brim_lines(top_level_outer_brim_islands(top_level_objects_with_brim, scaled_resolution, object, instance_idx),
                                   object_area, float(object->config().brim_width.value)));
@@ -976,6 +1041,24 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
             append(all_area, std::move(object_ears));
         }
     }
+
+    // Own brim under the supports (fork): the pads, see above.
+    if (! own_brim_pads.empty()) {
+        for (const PrintObject *object : print.objects())
+            for (size_t instance_idx = 0; instance_idx < object->instances().size() && ! object->support_brim_pads().empty(); ++ instance_idx) {
+                ExPolygons pads = object->support_brim_pads();
+                for (ExPolygon &pad : pads)
+                    pad.translate(object->instances()[instance_idx].shift);
+                const size_t first = brim.entities.size();
+                emit_rectilinear_ears(pads);
+                if (object->config().brim_per_object && brim.entities.size() > first) {
+                    owners.resize(first, { nullptr, 0 });
+                    owners.resize(brim.entities.size(), { object, instance_idx });
+                }
+                append(all_area, std::move(pads));
+            }
+    }
+
     if (! owners.empty())
         owners.resize(brim.entities.size(), { nullptr, 0 });
     // Shared entities first, owned by no object.

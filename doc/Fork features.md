@@ -49,6 +49,7 @@ Contents:
 27. [Dynamic overhang speeds and fan speeds with graphs](#27-dynamic-overhang-speeds-and-fan-speeds-with-graphs)
 28. [Overhang threshold](#28-overhang-threshold)
 29. [G-code viewer: discrete values, selected layers](#29-g-code-viewer-discrete-values-selected-layers)
+31. [Own brim under the support](#31-own-brim-under-the-support)
 25. [Testing](#testing)
 
 ---
@@ -760,8 +761,12 @@ seam painting: a new left toolbar tool "Brim painting" (after Fuzzy skin paintin
 - **Enforce brim** (left mouse button): a brim along the painted part of the bottom edge. Works also with the brim type
   "No brim", so a part can have a brim only at its corners or along one side.
 - **Block brim** (right mouse button): no brim there, with any brim type (outer and inner brim).
-- Shift + left mouse button removes the painting, "Remove all selection" clears it. Brush size and shape, and the
-  clipping plane, as in the seam painting.
+- Shift + left mouse button removes the painting, "Remove all selection" clears it. Brush size and shape as in the
+  seam painting.
+- "First layer only" (on by default): the part is cut at the first layer height (the only layer the brim uses), the
+  rest is hidden and can't be painted; the cut is see-through, so from above the Sphere brush paints the bottom face
+  through it (the Circle brush paints only facets facing you: look from below). Unticked: the whole part and the usual
+  clipping of view slider.
 
 Paint the bottom edge: the side walls near the bed or the bottom face. Painting higher up the walls does nothing (only
 the facets within the first layer height count). The brim width, separation and the other brim settings (brim ears,
@@ -780,19 +785,30 @@ the object or changing its mesh (repair, simplify...) removes it with the other 
 clips the painted facets at the top of the first layer and projects them to the bed (the walls as thin bands). In
 `Brim.cpp`, `brim_paint_zones()` takes the parts of the first layer outline (contours offset, holes shrunk by the brim
 separation) that lie in the painted area (grown by the elephant foot compensation + 0.1 mm) and shortens them at their
-ends by a bit more, so the brim does not turn around the corner next to a painted wall; a band of the brim width + one
-line on both sides of these parts, cut square at the ends, is the zone. The outer brim ring and the inner (hole) rings
+ends by a bit more, so the brim does not turn around the corner next to a painted wall. The zone is the brim nearer to
+these parts than to the rest of the outline, up to the brim width + one line: ring by ring, one line apart, the band
+around the painted parts reaching the ring minus what lies nearer to any outline than the previous ring. So a brim
+between a painted and an unpainted wall is split halfway, and the other walls within the brim width keep their brim
+(before 2026-10-21 the zone was a band of the brim width on both sides of the painted parts, and it also added or
+removed the brim of nearby walls). The outer brim ring and the inner (hole) rings
 are intersected with the enforcer zone where the brim type doesn't make them anyway, and the blocker zone is
 subtracted; the one line wide "no brim" band around parts without a brim is opened where enforced. A hole that is
 filled completely (the innermost hole) becomes a normal ring of the brim width when blocked, so the fill does not start
-again from the blocked edge. A part with enforcers counts as having a brim (`PrintObject::has_brim()`), and its supports
-keep away from the brim as with an outer and inner brim. Repainting only redoes the brim (and the supports of a part
+again from the blocked edge. A part with enforcers counts as having a brim (`PrintObject::has_brim()`). For the supports the brim area is the one of
+the brim type plus the painted brim (`brim_paint_areas()`, Brim.hpp: the enforced rings) minus the blocked zones; see
+section 31 (own brim under the support). The gizmo's first layer view is a horizontal clipping plane at the
+first layer height (`GLGizmoBrimPaint::update_first_layer_clipping()`, set again whenever something else moved it, and
+cleared when the gizmo closes since the clipper is shared with the other painting gizmos); `ObjectClipper::render_cut()`
+takes the cut's alpha. Repainting only redoes the brim (and the supports of a part
 that has supports), not the slicing.
 
 **How to test.** `fff_print_tests "[BrimPaint]"`: nothing painted gives the stock brim; an enforcer on one side wall
 of a cube with "No brim" gives a brim only in front of that wall, not longer than the wall and not wider than the brim;
 an enforcer on the bottom face gives the brim all around; painting the top face does nothing; a blocker on one wall
-with "Outer brim only" removes the brim there; blockers in a hole remove the inner brim; repainting keeps the slices
+with "Outer brim only" removes the brim there; a blocker on a wall facing another wall 4 mm away (same object) removes
+only the half of the gap's brim nearest to it; with supports standing on the bed next to the part and the brim enforced
+all around or with the outer brim, the supports have no first layer and every line of their second layer lies on brim
+lines (without a brim they keep their first layer); blockers in a hole remove the inner brim; repainting keeps the slices
 and only redoes the brim; the painting is saved and loaded with the 3mf. `arrange_tests "[BrimPaint]"`: arrange's brim offset counts the
 enforcers. Manually: open Brim painting on a part,
 paint two corners with "No brim", slice: brim only at those corners; set "Outer brim only", block one side: no brim
@@ -1098,6 +1114,38 @@ colors match the paths; untick "Discrete values": the stock scale. Restart: the 
 top of the vertical slider down to a few layers, tick "Selected layers": the legend shows the speeds of those layers
 (discrete if 3-21 values) with the whole print max/min in pink/purple, moving the slider updates it; untick: the
 whole print scale.
+
+---
+
+## 31. Own brim under the support
+
+**What it does.** For the supports whose first layer touches the brim (every brim: brim types, paint-on brim of section
+23, brim per object): their whole first layer is printed as brim (straight lines with a loop around them), and the brim
+around the part stops at it, half a line away. The support stands on its own piece of brim, part of the brim. The
+supports that don't touch the brim keep their own first layer on the bed.
+
+Off (default, stock): the first layer of these supports is cut where it overlaps the brim (there the support starts on
+the brim, on its second layer) and the rest of it is printed as support (raft first layer density).
+
+**Settings.** `support_material_own_brim` "Own brim under the support" (Print Settings > Support material > Options
+for support material and raft, per object too): off by default (stock output).
+
+**How it works.**
+- `generate_raft_base()` (Support/SupportCommon.cpp, used by the grid, snug and organic supports without a raft): the
+  brim area is stock's (brim type, brim width + separation) plus the painted brim (`brim_paint_areas()`, Brim.hpp: the
+  enforced rings) minus the blocked zones. Off: stock's cut of the support's first layer by it. On: the first-layer
+  support islands (base, contacts, interfaces) that intersect it are removed from the first layer and kept in
+  `PrintObject::support_brim_pads()` (cleared at each support generation).
+- `make_brim()` (Brim.cpp): the pads of each instance, half a line wider, are taken out of the brim areas (outer, per
+  object, ears; the inner brim loops go around them), and printed last, whole, with the rectilinear ears' fill (a loop
+  and lines); a pad belongs to its object's brim with brim per object and counts in the first layer area (skirt). The
+  supports change invalidates the brim, as stock.
+
+**How to test.** `fff_print_tests "[BrimPaint]"` "Own brim under the support": a cube with a plate overhanging 10 mm
+next to it (brim 5 mm). On, with the outer brim or the brim painted all around: no support on the first layer, every
+line of the support's second layer lies on brim lines; without a brim the support keeps its first layer. Off: stock (the
+support's first layer kept past the brim). Manually: a part with supports next to it and a brim, Preview layer 1 with
+the option on and off.
 
 ---
 
