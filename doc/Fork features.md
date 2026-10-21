@@ -1200,20 +1200,24 @@ the option on and off.
 - **No slicing while painting.** With background processing on, PrusaSlicer slices again after every stroke of a
   painting tool (support, seam, fuzzy skin, brim, multi-material painting), so painting stutters and a stroke can wait
   for the slicing. The fork doesn't slice while one of these tools is open; leaving the tool slices once.
-- **Delay after a change.** With background processing on, the slicing starts a few seconds after the last change (every
-  change restarts the count): a series of edits (part / modifier settings, moving parts, print settings) slices once.
+- **Delay after a change.** With background processing on, while editing in the Plater's 3D view, the slicing starts a
+  few seconds after the last change (every change restarts the count): a series of edits (part / modifier settings,
+  moving parts) slices once. In the Preview and on the settings tabs the slicing starts right away, as stock;
+  switching to the Preview slices right away too.
 
 **Settings.** Preferences > General: "Slicing delay after a change" (`background_processing_delay`, app setting, 0-60 s,
 default 3; 0 = right away as PrusaSlicer). Only with "Background processing" on; without it, the changes are applied
 right away as stock (the Slice now button and the errors don't wait).
 
 **How it works.** Plater's background process timer (`schedule_background_process()`, 0.1 s after a change in stock)
-starts after the delay, and does nothing while the current gizmo is one of the painting gizmos
+starts after the delay when the 3D view of the Plater tab is shown (`is_view3D_shown()`, the Plater page selected in the
+main tabs or not in them), and does nothing while the current gizmo is one of the painting gizmos
 (`GLGizmosManager::get_current_type()`); `GLGizmoPainterBase::on_set_state()` schedules the slicing when a painting gizmo
 closes. Changes made meanwhile are applied then. No change to slicing or G-code (golden test unchanged).
 
 **How to test.** Manual: background processing on. Open Brim (or Support) painting, paint several strokes: no slicing;
-close the tool: it slices once. Change a setting three times within 3 s: one slicing, 3 s after the last change.
+close the tool: it slices once. In the 3D view, change a part setting three times within 3 s: one slicing, 3 s after
+the last change. On the Print Settings tab or in the Preview: slicing right away after a change.
 
 ---
 

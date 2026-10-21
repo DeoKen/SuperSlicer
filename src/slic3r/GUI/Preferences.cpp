@@ -357,9 +357,10 @@ void PreferencesDialog::build()
 
 		append_int_option(m_optgroup_general, "background_processing_delay",
 			L("Slicing delay after a change"),
-			L("With background processing, the slicing starts this many seconds after the last change (every change "
-			  "restarts the count), so a series of edits slices once. 0: right away, as PrusaSlicer. Painting tools "
-			  "(supports, seam, brim...) never slice while they are open."),
+			L("With background processing, while editing in the 3D view of the Plater, the slicing starts this many "
+			  "seconds after the last change (every change restarts the count), so a series of edits slices once. In the "
+			  "Preview and on the settings tabs it starts right away. 0: always right away, as PrusaSlicer. Painting "
+			  "tools (supports, seam, brim...) never slice while they are open."),
 			background_processing_delay(*app_config), 0, 60);
 
 		append_bool_option(m_optgroup_general, "alert_when_supports_needed", 

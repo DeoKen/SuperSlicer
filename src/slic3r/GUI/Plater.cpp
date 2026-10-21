@@ -2285,10 +2285,16 @@ void Plater::priv::scale_selection_to_fit_print_volume()
 void Plater::priv::schedule_background_process()
 {
     delayed_error_message.clear();
-    // Trigger the timer event after 0.1s. Fork: with background processing, after the delay set in Preferences
-    // (restarted by every change, so the slicing starts once the changes stop).
+    // Trigger the timer event after 0.1s. Fork: with background processing, while editing in the Plater's 3D view, after
+    // the delay set in Preferences (restarted by every change, so the slicing starts once the changes stop). In the
+    // Preview and on the settings tabs as stock.
     const AppConfig &app_config = *wxGetApp().app_config;
-    const int        delay_ms   = app_config.get_bool("background_processing") ?
+    // The Plater tab selected (or the Plater not in the tabs: settings in a dialog). At startup the main frame doesn't
+    // exist yet (the Plater is made in its constructor): no tabs.
+    const wxBookCtrlBase *tabs        = wxGetApp().mainframe != nullptr ? wxGetApp().tab_panel() : nullptr;
+    const int             plater_page = tabs != nullptr ? tabs->FindPage(this->q) : wxNOT_FOUND;
+    const bool            plater_tab  = plater_page == wxNOT_FOUND || tabs->GetSelection() == plater_page;
+    const int        delay_ms   = app_config.get_bool("background_processing") && this->is_view3D_shown() && plater_tab ?
         std::clamp(atoi(app_config.get("background_processing_delay").c_str()), 0, 60) * 1000 : 0;
     this->background_process_timer.Start(std::max(100, delay_ms), wxTIMER_ONE_SHOT);
     // Notify the Canvas3D that something has changed, so it may invalidate some of the layer editing stuff.
