@@ -107,6 +107,11 @@ static void update_color(wxColourPickerCtrl* color_pckr, const wxColour& color)
 	}
 }
 
+static int background_processing_delay(const AppConfig &app_config)
+{
+	return std::clamp(atoi(app_config.get("background_processing_delay").c_str()), 0, 60);
+}
+
 static int export_project_copies_kept(const AppConfig &app_config)
 {
 	return std::max(1, atoi(app_config.get("export_project_copy_keep").c_str()));
@@ -155,6 +160,7 @@ void PreferencesDialog::show(const std::string& highlight_opt_key /*= std::strin
 		m_optgroup_gui->set_value("seq_top_layer_only", app_config->get_bool("seq_top_layer_only"));
 		m_optgroup_general->set_value("export_project_copy", app_config->get_bool("export_project_copy"));
 		m_optgroup_general->set_value("export_project_copy_keep", export_project_copies_kept(*app_config));
+		m_optgroup_general->set_value("background_processing_delay", background_processing_delay(*app_config));
 		m_optgroup_general->set_value("export_project_autosave", app_config->get_bool("export_project_autosave"));
 		m_export_project_copy_dir->ChangeValue(from_u8(app_config->get("export_project_copy_dir")));
 		m_export_project_autosave_dir->ChangeValue(from_u8(app_config->get("export_project_autosave_dir")));
@@ -319,7 +325,7 @@ void PreferencesDialog::build()
 	m_optgroup_general->on_change = [this](t_config_option_key opt_key, boost::any value) {
 		if (opt_key == "export_project_copy" || opt_key == "export_project_autosave")
 			toggle_export_project_options();
-		if (opt_key == "export_project_copy_keep") {
+		if (opt_key == "export_project_copy_keep" || opt_key == "background_processing_delay") {
 			m_values[opt_key] = std::to_string(boost::any_cast<int>(value));
 			return;
 		}
@@ -348,6 +354,13 @@ void PreferencesDialog::build()
 			L("If this is enabled, Slic3r will pre-process objects as soon "
 				"as they\'re loaded in order to save time when exporting G-code."),
 			app_config->get_bool("background_processing"));
+
+		append_int_option(m_optgroup_general, "background_processing_delay",
+			L("Slicing delay after a change"),
+			L("With background processing, the slicing starts this many seconds after the last change (every change "
+			  "restarts the count), so a series of edits slices once. 0: right away, as PrusaSlicer. Painting tools "
+			  "(supports, seam, brim...) never slice while they are open."),
+			background_processing_delay(*app_config), 0, 60);
 
 		append_bool_option(m_optgroup_general, "alert_when_supports_needed", 
 			L("Alert when supports needed"),
@@ -944,6 +957,10 @@ void PreferencesDialog::revert(wxEvent&)
 		}
 		if (key == "export_project_copy_keep") {
 			m_optgroup_general->set_value(key, export_project_copies_kept(*app_config));
+			continue;
+		}
+		if (key == "background_processing_delay") {
+			m_optgroup_general->set_value(key, background_processing_delay(*app_config));
 			continue;
 		}
 		if (key == "notify_release") {

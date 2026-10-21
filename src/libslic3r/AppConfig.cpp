@@ -66,6 +66,9 @@ void AppConfig::set_defaults()
         // Disable background processing by default as it is not stable.
         if (get("background_processing").empty())
             set("background_processing", "0");
+        // Fork: background processing starts this many seconds after the last change.
+        if (get("background_processing_delay").empty())
+            set("background_processing_delay", "3");
         // Enable support issues alerts by default
         if (get("alert_when_supports_needed").empty())
             set("alert_when_supports_needed", "1");

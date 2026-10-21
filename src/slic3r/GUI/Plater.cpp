@@ -774,7 +774,13 @@ void Plater::priv::init()
     this->background_process_timer.SetOwner(this->q, 0);
     this->q->Bind(wxEVT_TIMER, [this](wxTimerEvent &evt)
     {
-        if (!this->suppressed_backround_processing_update)
+        // Fork: no slicing while painting (support, seam, fuzzy skin, brim, multi-material painting): every stroke would
+        // slice again. Leaving the painting gizmo schedules it (GLGizmoPainterBase::on_set_state()).
+        using EType = GLGizmosManager::EType;
+        const EType gizmo = this->view3D->get_canvas3d()->get_gizmos_manager().get_current_type();
+        const bool painting = gizmo == EType::FdmSupports || gizmo == EType::Seam || gizmo == EType::FuzzySkin ||
+                              gizmo == EType::BrimPaint || gizmo == EType::MmSegmentation;
+        if (!this->suppressed_backround_processing_update && ! painting)
             this->update_restart_background_process(false, false);
     });
 
@@ -2279,8 +2285,12 @@ void Plater::priv::scale_selection_to_fit_print_volume()
 void Plater::priv::schedule_background_process()
 {
     delayed_error_message.clear();
-    // Trigger the timer event after 0.1s
-    this->background_process_timer.Start(100, wxTIMER_ONE_SHOT);
+    // Trigger the timer event after 0.1s. Fork: with background processing, after the delay set in Preferences
+    // (restarted by every change, so the slicing starts once the changes stop).
+    const AppConfig &app_config = *wxGetApp().app_config;
+    const int        delay_ms   = app_config.get_bool("background_processing") ?
+        std::clamp(atoi(app_config.get("background_processing_delay").c_str()), 0, 60) * 1000 : 0;
+    this->background_process_timer.Start(std::max(100, delay_ms), wxTIMER_ONE_SHOT);
     // Notify the Canvas3D that something has changed, so it may invalidate some of the layer editing stuff.
     this->view3D->get_canvas3d()->set_config(this->config);
 }

@@ -51,6 +51,7 @@ Contents:
 29. [G-code viewer: discrete values, selected layers](#29-g-code-viewer-discrete-values-selected-layers)
 30. [Calibration prints](#30-calibration-prints)
 31. [Own brim under the support](#31-own-brim-under-the-support)
+32. [Slicing: no slicing while painting, delay after a change](#32-slicing-no-slicing-while-painting-delay-after-a-change)
 25. [Testing](#testing)
 
 ---
@@ -1190,6 +1191,29 @@ next to it (brim 5 mm). On, with the outer brim or the brim painted all around: 
 line of the support's second layer lies on brim lines; without a brim the support keeps its first layer. Off: stock (the
 support's first layer kept past the brim). Manually: a part with supports next to it and a brim, Preview layer 1 with
 the option on and off.
+
+---
+
+## 32. Slicing: no slicing while painting, delay after a change
+
+**What it does.**
+- **No slicing while painting.** With background processing on, PrusaSlicer slices again after every stroke of a
+  painting tool (support, seam, fuzzy skin, brim, multi-material painting), so painting stutters and a stroke can wait
+  for the slicing. The fork doesn't slice while one of these tools is open; leaving the tool slices once.
+- **Delay after a change.** With background processing on, the slicing starts a few seconds after the last change (every
+  change restarts the count): a series of edits (part / modifier settings, moving parts, print settings) slices once.
+
+**Settings.** Preferences > General: "Slicing delay after a change" (`background_processing_delay`, app setting, 0-60 s,
+default 3; 0 = right away as PrusaSlicer). Only with "Background processing" on; without it, the changes are applied
+right away as stock (the Slice now button and the errors don't wait).
+
+**How it works.** Plater's background process timer (`schedule_background_process()`, 0.1 s after a change in stock)
+starts after the delay, and does nothing while the current gizmo is one of the painting gizmos
+(`GLGizmosManager::get_current_type()`); `GLGizmoPainterBase::on_set_state()` schedules the slicing when a painting gizmo
+closes. Changes made meanwhile are applied then. No change to slicing or G-code (golden test unchanged).
+
+**How to test.** Manual: background processing on. Open Brim (or Support) painting, paint several strokes: no slicing;
+close the tool: it slices once. Change a setting three times within 3 s: one slicing, 3 s after the last change.
 
 ---
 

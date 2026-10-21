@@ -930,6 +930,8 @@ void GLGizmoPainterBase::on_set_state()
         m_old_mo_id = -1;
         //m_iva.release_geometry();
         m_triangle_selectors.clear();
+        // Fork: no slicing while painting (Plater's background process timer), so slice now.
+        m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
     }
     m_old_state = m_state;
 }
