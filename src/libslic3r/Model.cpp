@@ -63,6 +63,7 @@ Model& Model::assign_copy(const Model &rhs)
     this->custom_gcode_per_print_z_vector = rhs.custom_gcode_per_print_z_vector;
     this->wipe_tower_vector = rhs.wipe_tower_vector;
     this->sla_workflow_uuid = rhs.sla_workflow_uuid;
+    this->output_filename_base = rhs.output_filename_base;
     this->virtual_extruders = rhs.virtual_extruders;
 
     return *this;
@@ -88,6 +89,7 @@ Model& Model::assign_copy(Model &&rhs)
     this->custom_gcode_per_print_z_vector = std::move(rhs.custom_gcode_per_print_z_vector);
     this->wipe_tower_vector = rhs.wipe_tower_vector;
     this->sla_workflow_uuid = rhs.sla_workflow_uuid;
+    this->output_filename_base = rhs.output_filename_base;
     this->virtual_extruders = std::move(rhs.virtual_extruders);
 
     return *this;

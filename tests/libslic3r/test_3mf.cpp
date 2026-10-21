@@ -133,3 +133,22 @@ SCENARIO("2D convex hull of sinking object", "[3mf]") {
     }
 }
 
+
+TEST_CASE("Project autosave keeps the G-code name base", "[3mf]") {
+    // Model::output_filename_base (fork): saved in the 3mf, loaded back; absent when empty.
+    for (const std::string base : { std::string("Body1 & co <merged>"), std::string() }) {
+        Model src_model;
+        load_stl((std::string(TEST_DATA_DIR) + "/test_3mf/Prusa.stl").c_str(), &src_model);
+        src_model.add_default_instances();
+        src_model.output_filename_base = base;
+        const auto path = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("output-base-%%%%-%%%%.3mf");
+        REQUIRE(store_3mf(path.string().c_str(), &src_model, nullptr, false));
+        Model                     dst_model;
+        DynamicPrintConfig        dst_config;
+        ConfigSubstitutionContext ctxt{ ForwardCompatibilitySubstitutionRule::Disable };
+        boost::optional<Semver>   version;
+        REQUIRE(load_3mf(path.string().c_str(), dst_config, ctxt, &dst_model, false, version));
+        boost::filesystem::remove(path);
+        CHECK(dst_model.output_filename_base == base);
+    }
+}

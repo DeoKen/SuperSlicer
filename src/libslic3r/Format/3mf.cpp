@@ -68,6 +68,8 @@ const unsigned int VERSION_3MF = 1;
 // Allow loading version 2 file as well.
 const unsigned int VERSION_3MF_COMPATIBLE = 2;
 const char* SLIC3RPE_3MF_VERSION = "slic3rpe:Version3mf"; // definition of the metadata name saved into .model file
+// Fork: Model::output_filename_base of a project autosave / backup.
+const char* SLIC3RPE_OUTPUT_FILENAME_BASE = "slic3rpe:OutputFilenameBase";
 
 // Painting gizmos data version numbers
 // 0 : 3MF files saved by older PrusaSlicer or the painting gizmo wasn't used. No version definition in them.
@@ -2280,7 +2282,9 @@ namespace Slic3r {
 
     bool _3MF_Importer::_handle_end_metadata()
     {
-        if (m_curr_metadata_name == SLIC3RPE_3MF_VERSION) {
+        if (m_curr_metadata_name == SLIC3RPE_OUTPUT_FILENAME_BASE)
+            m_model->output_filename_base = m_curr_characters;
+        else if (m_curr_metadata_name == SLIC3RPE_3MF_VERSION) {
             m_version = (unsigned int)atoi(m_curr_characters.c_str());
             if (m_check_version && (m_version > VERSION_3MF_COMPATIBLE)) {
                 // std::string msg = _u8L("The selected 3mf file has been saved with a newer version of " + std::string(SLIC3R_APP_NAME) + " and is not compatible.");
@@ -3094,6 +3098,8 @@ namespace Slic3r {
             stream << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
             stream << "<" << MODEL_TAG << " unit=\"millimeter\" xml:lang=\"en-US\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" xmlns:slic3rpe=\"http://schemas.slic3r.org/3mf/2017/06\">\n";
             stream << " <" << METADATA_TAG << " name=\"" << SLIC3RPE_3MF_VERSION << "\">" << VERSION_3MF << "</" << METADATA_TAG << ">\n";
+            if (! model.output_filename_base.empty())
+                stream << " <" << METADATA_TAG << " name=\"" << SLIC3RPE_OUTPUT_FILENAME_BASE << "\">" << xml_escape(model.output_filename_base) << "</" << METADATA_TAG << ">\n";
 
             if (model.is_fdm_support_painted()) {
                 stream << " <" << METADATA_TAG << " name=\"" << SLIC3RPE_FDM_SUPPORTS_PAINTING_VERSION << "\">"

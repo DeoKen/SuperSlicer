@@ -638,6 +638,12 @@ struct Plater::priv
     // extension should contain the leading dot, i.e.: ".3mf"
     wxString get_project_filename(const wxString& extension = wxEmptyString) const;
     void set_project_filename(const wxString& filename);
+    // The project path the G-code is named after: with the name kept by an opened project autosave / backup
+    // (Model::output_filename_base), if any.
+    fs::path output_project_path() const;
+    // The name the G-code is named after ({input_filename_base}): the kept one, else the project's, else the first
+    // printable object's (as PrintBase::update_object_placeholders()).
+    std::string output_filename_base() const;
     // Call after plater and Canvas#D is initialized
     void init_notification_manager();
 
@@ -1540,6 +1546,8 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                 // when for extruder colors are used filament colors
                 q->update_filament_colors_in_full_config();
                 is_project_file = true;
+                // An opened project autosave / backup names the G-code as the original project did.
+                this->model.output_filename_base = model.output_filename_base;
             }
 
             this->model.get_custom_gcode_per_print_z_vector() = model.get_custom_gcode_per_print_z_vector();
@@ -2175,6 +2183,7 @@ void Plater::priv::reset()
 	clear_warnings();
 
     set_project_filename(wxEmptyString);
+    model.output_filename_base.clear();
 
     if (view3D->is_layers_editing_enabled())
         view3D->enable_layers_editing(false);
@@ -2767,6 +2776,12 @@ void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
 
     // Without the .gcode / .bgcode extension.
     const fs::path gcode_name = gcode_path.filename().replace_extension();
+
+    // The copies are named after the G-code: they keep the name the G-code was named after, so that the G-code of an
+    // opened copy doesn't get the template's additions twice.
+    const std::string kept_base = model.output_filename_base;
+    model.output_filename_base  = output_filename_base();
+    ScopeGuard restore_base([this, &kept_base]() { model.output_filename_base = kept_base; });
 
     // As Plater::export_3mf(), but without publish() (its SVG question): the copy doesn't change the open project.
     DynamicPrintConfig cfg = wxGetApp().preset_bundle->full_config_secure();
@@ -3868,6 +3883,53 @@ ThumbnailsList Plater::priv::generate_thumbnails(const ThumbnailsParams& params,
 wxString Plater::priv::get_project_filename(const wxString& extension) const
 {
     return m_project_filename.empty() ? "" : m_project_filename + extension;
+}
+
+fs::path Plater::priv::output_project_path() const
+{
+    fs::path path = into_path(get_project_filename(".3mf"));
+    if (! path.empty())
+        path = path.parent_path() / into_path(from_u8(output_filename_base() + ".3mf"));
+    return path;
+}
+
+// Without the additions of the output file name template that the name already ends with (a name made from a G-code
+// name: a project copy saved before the name was kept, or a project saved under its G-code's name). With
+// "{input_filename_base}_[filament_preset]_SuperSlicer", "Body1_ABS_SuperSlicer_ABS_SuperSlicer" gives "Body1".
+static std::string strip_output_name_additions(const Print &print, std::string base)
+{
+    try {
+        auto stem = [&print](const std::string &b) { return into_u8(from_path(into_path(from_u8(print.output_filename(b))).stem())); };
+        // The additions: what follows the name, the same for any name.
+        const std::string a = stem("A"), b = stem("B");
+        if (a.size() < 2 || b.size() < 2 || a.front() != 'A' || b.front() != 'B' || a.substr(1) != b.substr(1))
+            return base;
+        const std::string additions = a.substr(1);
+        while (base.size() > additions.size() && boost::ends_with(base, additions))
+            base.resize(base.size() - additions.size());
+    } catch (const std::exception &) {
+        // No name from the template (placeholder error): the name as it is.
+    }
+    return base;
+}
+
+std::string Plater::priv::output_filename_base() const
+{
+    std::string base = model.output_filename_base;
+    if (base.empty() && ! m_project_filename.empty()) {
+        // Without the extension already.
+        const std::string project = into_u8(get_project_filename(".3mf"));
+        base = is_export_project_backup(project) ? export_project_backup_name(project) :
+            into_u8(from_path(into_path(m_project_filename).filename()));
+    }
+    if (! base.empty())
+        return strip_output_name_additions(q->active_fff_print(), base);
+    for (const ModelObject *mo : model.objects)
+        if (std::any_of(mo->instances.begin(), mo->instances.end(), [](const ModelInstance *mi) { return mi->is_printable(); })) {
+            const std::string name = into_path(from_u8(mo->name.empty() ? mo->input_file : mo->name)).filename().string();
+            return name.substr(0, name.find_last_of('.'));
+        }
+    return {};
 }
 
 void Plater::priv::set_project_filename(const wxString& filename)
@@ -5999,9 +6061,7 @@ std::optional<fs::path> Plater::get_default_output_file() {
             return std::nullopt;
         }
         const std::string path{
-            this->p->background_process.output_filepath_for_project(
-                into_path(get_project_filename(".3mf"))
-            )
+            this->p->background_process.output_filepath_for_project(this->p->output_project_path())
         };
         return fs::path(Slic3r::fold_utf8_to_ascii(path));
     } catch (const Slic3r::PlaceholderParserError &ex) {
@@ -6567,6 +6627,10 @@ bool Plater::export_3mf(const boost::filesystem::path& output_path)
     if (!path.Lower().EndsWith(".3mf"))
         return false;
 
+    // Saved under another name than the opened project autosave / backup: the G-code is named after this one from now on.
+    if (into_path(path).replace_extension() != into_path(p->get_project_filename()))
+        p->model.output_filename_base.clear();
+
     // take care about private data stored into .3mf
     // modify model
     publish(p->model);
@@ -6975,7 +7039,7 @@ std::string Plater::get_upload_filename()
         unsigned int state = this->p->update_restart_background_process(false, false);
         if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
             return {};
-        default_output_file = this->p->background_process.output_filepath_for_project(into_path(get_project_filename(".3mf")));
+        default_output_file = this->p->background_process.output_filepath_for_project(this->p->output_project_path());
     }
     catch (const Slic3r::PlaceholderParserError& ex) {
         // Show the error with monospaced font.
@@ -7005,7 +7069,7 @@ void Plater::send_gcode_inner(DynamicPrintConfig* physical_printer_config)
         unsigned int state = this->p->update_restart_background_process(false, false);
         if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
             return;
-        default_output_file = this->p->background_process.output_filepath_for_project(into_path(get_project_filename(".3mf")));
+        default_output_file = this->p->background_process.output_filepath_for_project(this->p->output_project_path());
     } catch (const Slic3r::PlaceholderParserError& ex) {
         // Show the error with monospaced font.
         show_error(this, ex.what(), true);

@@ -1294,6 +1294,10 @@ public:
     std::string sla_workflow_uuid; // This is a temporary place to put this, just for the 2.9.x series.
     // It is probably the less invasive way to make this propagate from the frontend to the backend.
 
+    // Project autosave / backup (fork): the name the G-code was named after ({input_filename_base}) when the copy was
+    // saved, kept in the 3mf, so that the G-code of the opened copy is named as before, not after the copy's file name.
+    std::string output_filename_base;
+
 private:
     // Wipe tower object.
     std::vector<ModelWipeTower> wipe_tower_vector = std::vector<ModelWipeTower>(MAX_NUMBER_OF_BEDS);

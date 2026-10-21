@@ -846,6 +846,15 @@ reopened later. Two kinds of copy, each with its own check box and folder, both 
 For an upload the name is the file name entered in the send dialog. Export all beds / send all to Connect save one
 copy per export, named after the first bed's file.
 
+Opening a copy names the G-code as the original project did: the copy keeps the name the G-code was named after
+(`{input_filename_base}`, normally the project's name). With the output file name
+`{input_filename_base}_[filament_preset]_SuperSlicer`, project `Body1` exports `Body1_ABS_SuperSlicer.gcode` and the
+autosave `Body1_ABS_SuperSlicer.3mf`; that autosave opened exports `Body1_ABS_SuperSlicer.gcode` again, not
+`Body1_ABS_SuperSlicer_ABS_SuperSlicer.gcode` (stock names the G-code after the open project file). File > Save keeps that name, Save as with another name drops it
+(the G-code is then named after the new project).
+A name that already ends with what the file name template adds (copies saved before the name was kept, a project
+saved under its G-code's name, the time stamp of a backup) is used without those additions, so the name never grows.
+
 File > Recent projects shows the newest backups of the last 2 G-code names (one per name) and the newest autosave, so
 the copies don't push your own projects out of the list. The list now holds 10 projects (stock 9; the 10th has the
 shortcut 0) and shows only the parent folder and the file name (`Voron\part.3mf`); backups show as
@@ -879,8 +888,12 @@ without `set_project_filename()`; one thumbnail for both copies. `MainFrame::rep
 older backups / autosave from the recent list before adding the new one. `RecentProjectsHistory` (MainFrame.hpp, a
 `wxFileHistory` of 10) relabels the menu after every change, `is_export_project_backup()` (Plater.cpp) tells the
 backups. `AppConfig::get_recent_projects()` sorts by the key number (with 10 entries the `[recent_projects]` key "10"
-sorted before "2"). No change to slicing or G-code (golden test
-unchanged).
+sorted before "2"). The name the G-code was named after (`Plater::priv::output_filename_base()`: the kept one, else the
+project's, else the first printable object's) is saved in the copies as `Model::output_filename_base` (3mf metadata
+`slic3rpe:OutputFilenameBase`, written only when set; `strip_output_name_additions()` removes the template's
+additions found by naming "A" and "B" with the current print); loading a project takes it, `output_project_path()` puts it in
+place of the project's file name for the G-code name (`output_filepath_for_project()` callers), `export_3mf()` drops it
+when saving under another name, a new project clears it. No change to slicing or G-code (golden test unchanged).
 
 **How to test.** Export G-code: a `<name>_<date>_<time>.3mf` appears in the folder, Recent projects shows it, the title
 bar still shows the open project (with its `*` if modified). Export 11 times: 10 copies left, the oldest deleted, a
@@ -890,7 +903,8 @@ one `<name>.3mf` with the newer date; Recent projects shows it and the newest ba
 projects shows `Backup:` entries of C and A only, newest first. Open 11 projects: 10 entries, the order kept after a
 restart. Send to printer: copies named
 after the upload file name. Set a folder to a read-only path: warning notification, G-code still exported. Turn both
-check boxes off: no copy.
+check boxes off: no copy. Export with a template adding to `{input_filename_base}`, open the autosave, export again:
+the same G-code and autosave name. `libslic3r_tests "[3mf]"`: the kept name is saved and loaded.
 
 ---
 
