@@ -8,6 +8,13 @@
 #include "slic3r/GUI/ImGuiWrapper.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/CameraUtils.hpp"
+#include "slic3r/GUI/OpenGLManager.hpp"
+#include "slic3r/GUI/GLShader.hpp"
+#include "slic3r/GUI/MeshUtils.hpp"
+#include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Geometry.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 
 #include <GL/glew.h>
@@ -22,31 +29,270 @@ void GLGizmoBrimPaint::on_shutdown()
     // The clipper is shared with the other painting gizmos: don't leave them the first layer plane.
     if (m_first_layer_only)
         m_c->object_clipper()->set_position_by_ratio(0., false);
+    m_hover_edge.clear();
+    m_hover_edge_model.reset();
+    m_outline.clear();
+    m_outline_key.clear();
     m_parent.toggle_model_objects_visibility(true);
 }
 
 
+
+// The first layer height of the object (its own setting, else the print settings).
+static double first_layer_height(const ModelObject &mo)
+{
+    auto option = [&mo](const char *key) {
+        const ConfigOption *opt = mo.config.option(key);
+        return opt != nullptr ? opt : wxGetApp().plater()->config()->option(key);
+    };
+    // A percentage is of the layer height.
+    const auto         *first_layer_height = dynamic_cast<const ConfigOptionFloatOrPercent*>(option("first_layer_height"));
+    const ConfigOption *layer_height       = option("layer_height");
+    return first_layer_height != nullptr ? first_layer_height->get_abs_value(layer_height != nullptr ? layer_height->getFloat() : 0.2) : 0.2;
+}
 
 void GLGizmoBrimPaint::update_first_layer_clipping()
 {
     const ModelObject *mo = m_c->selection_info()->model_object();
     if (! m_first_layer_only || mo == nullptr)
         return;
-    // The object's own setting, else the print settings. The facets of the first layer are the ones the brim uses
-    // (PrintObject::brim_paint_area()), so the plane is a hair above it.
-    auto option = [mo](const char *key) {
-        const ConfigOption *opt = mo->config.option(key);
-        return opt != nullptr ? opt : wxGetApp().plater()->config()->option(key);
-    };
-    // A percentage is of the layer height.
-    const auto         *first_layer_height = dynamic_cast<const ConfigOptionFloatOrPercent*>(option("first_layer_height"));
-    const ConfigOption *layer_height       = option("layer_height");
-    const double        z = (first_layer_height != nullptr ? first_layer_height->get_abs_value(layer_height != nullptr ? layer_height->getFloat() : 0.2) : 0.2) + 0.001;
+    // The facets of the first layer are the ones the brim uses (PrintObject::brim_paint_area()), so the plane is a hair
+    // above it.
+    const double        z = first_layer_height(*mo) + 0.001;
     const ClippingPlane plane(Vec3d::UnitZ(), z);
     // Set again if anything else moved it (Ctrl + mouse wheel, the selection changed).
     const ClippingPlane *current = m_c->object_clipper()->get_clipping_plane(true);
     if (current == nullptr || ! (*current == plane) || m_c->object_clipper()->get_position() == 0.)
         m_c->object_clipper()->set_range_and_pos(Vec3d::UnitZ(), z, 1.);
+}
+
+
+
+double GLGizmoBrimPaint::first_layer_mid_z() const
+{
+    const ModelObject *mo = m_c->selection_info()->model_object();
+    return mo == nullptr ? 0.1 : 0.5 * first_layer_height(*mo);
+}
+
+const ExPolygons& GLGizmoBrimPaint::first_layer_outline()
+{
+    const ModelObject *mo = m_c->selection_info()->model_object();
+    if (mo == nullptr) {
+        m_outline.clear();
+        m_outline_key.clear();
+        return m_outline;
+    }
+    const int         instance_idx = m_parent.get_selection().get_instance_idx();
+    const Transform3d instance     = mo->instances[instance_idx < 0 ? 0 : instance_idx]->get_transformation().get_matrix();
+    const double      z            = first_layer_mid_z();
+    // Sliced again when the object, its parts, their placement or the first layer height changed.
+    std::vector<double> key{ double(mo->id().id), z };
+    key.insert(key.end(), instance.data(), instance.data() + 16);
+    for (const ModelVolume *mv : mo->volumes)
+        if (mv->is_model_part()) {
+            const Transform3d m = mv->get_matrix();
+            key.emplace_back(double(mv->id().id));
+            key.emplace_back(double(mv->mesh().its.indices.size()));
+            key.insert(key.end(), m.data(), m.data() + 16);
+        }
+    if (key != m_outline_key) {
+        ExPolygons outline;
+        for (const ModelVolume *mv : mo->volumes)
+            if (mv->is_model_part()) {
+                MeshSlicingParamsEx params;
+                params.trafo = instance * mv->get_matrix();
+                append(outline, slice_mesh_ex(mv->mesh().its, { float(z) }, params).front());
+            }
+        m_outline     = union_ex(outline);
+        m_outline_key = std::move(key);
+    }
+    return m_outline;
+}
+
+std::vector<Vec3d> GLGizmoBrimPaint::edge_under_mouse(const Vec2d &mouse_position)
+{
+    std::vector<Vec3d> out;
+    const double z = first_layer_mid_z();
+    // The point of the first layer under the mouse: the mouse ray at the middle of the first layer.
+    Vec3d point, direction;
+    CameraUtils::ray_from_screen_pos(wxGetApp().plater()->get_camera(), mouse_position, point, direction);
+    if (std::abs(direction.z()) < EPSILON)
+        return out;
+    const double t = (z - point.z()) / direction.z();
+    if (t < 0.)
+        return out;
+    const Point mouse = Point::new_scale(point.x() + t * direction.x(), point.y() + t * direction.y());
+
+    // The nearest outline segment, within 2.5 mm.
+    const Polygon *best_polygon = nullptr;
+    size_t         best_idx     = 0;
+    double         best_dist    = scaled<double>(2.5);
+    for (const ExPolygon &expoly : first_layer_outline())
+        for (const Polygon *polygon : { &expoly.contour })
+            for (size_t i = 0; i < polygon->size(); ++ i)
+                if (const double d = Line(polygon->points[i], polygon->points[(i + 1) % polygon->size()]).distance_to(mouse); d < best_dist) {
+                    best_dist = d; best_polygon = polygon; best_idx = i;
+                }
+    for (const ExPolygon &expoly : first_layer_outline())
+        for (const Polygon &hole : expoly.holes)
+            for (size_t i = 0; i < hole.size(); ++ i)
+                if (const double d = Line(hole.points[i], hole.points[(i + 1) % hole.size()]).distance_to(mouse); d < best_dist) {
+                    best_dist = d; best_polygon = &hole; best_idx = i;
+                }
+    if (best_polygon == nullptr)
+        return out;
+
+    // From the segment both ways, up to the corners sharper than m_edge_angle (a turn of more than that between two
+    // segments), or around the whole outline when it has none.
+    const Points &pts   = best_polygon->points;
+    const size_t  n     = pts.size();
+    const double  limit = Geometry::deg2rad(double(m_edge_angle));
+    auto turn = [&pts, n](size_t v) {
+        const Vec2d a = (pts[v] - pts[(v + n - 1) % n]).cast<double>();
+        const Vec2d b = (pts[(v + 1) % n] - pts[v]).cast<double>();
+        return std::abs(std::atan2(a.x() * b.y() - a.y() * b.x(), a.dot(b)));
+    };
+    size_t first = best_idx, steps = 1;
+    while (steps < n && turn(first) <= limit) {
+        first = (first + n - 1) % n;
+        ++ steps;
+    }
+    size_t last = (best_idx + 1) % n;
+    while (steps < n && turn(last) <= limit) {
+        last = (last + 1) % n;
+        ++ steps;
+    }
+    const bool closed = steps >= n;
+    Polyline   edge;
+    for (size_t i = 0, v = first; i <= steps; ++ i, v = (v + 1) % n)
+        edge.points.emplace_back(pts[v]);
+    // Not past the corners: the brush is EdgeRadius wide, the next wall is not painted. An edge too short for that is
+    // not offered (Polyline::clip_end() must not get to an empty polyline), the brush paints it.
+    if (! closed) {
+        if (edge.length() < 3. * scaled<double>(EdgeRadius))
+            return out;
+        edge.clip_start(scaled<double>(EdgeRadius));
+        edge.clip_end(scaled<double>(EdgeRadius));
+    }
+    for (const Point &p : edge.points)
+        out.emplace_back(unscaled(p.x()), unscaled(p.y()), z);
+    return out;
+}
+
+void GLGizmoBrimPaint::paint_edge(const std::vector<Vec3d> &edge, TriangleStateType state)
+{
+    const ModelObject *mo = m_c->selection_info()->model_object();
+    if (mo == nullptr || edge.size() < 2)
+        return;
+    const ModelInstance *mi                   = mo->instances[m_parent.get_selection().get_instance_idx()];
+    const Transform3d    instance             = mi->get_transformation().get_matrix();
+    const Transform3d    instance_no_offset   = mi->get_transformation().get_matrix_no_offset();
+    const Camera        &camera               = wxGetApp().plater()->get_camera();
+    const std::vector<const MeshRaycaster*> raycasters = m_c->raycaster()->raycasters();
+    int idx = -1;
+    for (const ModelVolume *mv : mo->volumes) {
+        if (! mv->is_model_part())
+            continue;
+        ++ idx;
+        if (idx >= int(m_triangle_selectors.size()) || idx >= int(raycasters.size()))
+            break;
+        const Transform3d trafo            = instance * mv->get_matrix();
+        const Transform3d trafo_no_offset  = instance_no_offset * mv->get_matrix_no_offset();
+        const Transform3d inverse          = trafo.inverse();
+        const Vec3f       camera_pos       = (inverse * camera.get_position()).cast<float>();
+        const TriangleSelector::ClippingPlane clp = this->get_clipping_plane_in_volume_coordinates(trafo);
+        // A thin capsule along each segment of the edge, at the middle of the first layer: the wall band of the first
+        // layer (and a strip of the bottom face) is painted, the facets are split at the capsule.
+        for (size_t i = 0; i + 1 < edge.size(); ++ i) {
+            const Vec3f a = (inverse * edge[i]).cast<float>();
+            const Vec3f b = (inverse * edge[i + 1]).cast<float>();
+            if ((a - b).norm() < EPSILON)
+                continue;
+            const int facet = raycasters[idx]->get_closest_facet(a);
+            if (facet < 0)
+                continue;
+            m_triangle_selectors[idx]->select_patch(facet,
+                TriangleSelector::DoublePointCursor::cursor_factory(a, b, camera_pos, EdgeRadius, TriangleSelector::CursorType::SPHERE, trafo, clp),
+                state, trafo_no_offset, true);
+        }
+        m_triangle_selectors[idx]->request_update_render_data();
+    }
+}
+
+bool GLGizmoBrimPaint::gizmo_event(SLAGizmoEventType action, const Vec2d &mouse_position, bool shift_down, bool alt_down, bool control_down)
+{
+    if (! m_edge_tool)
+        return GLGizmoPainterBase::gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
+
+    switch (action) {
+    case SLAGizmoEventType::Moving: {
+        std::vector<Vec3d> edge = edge_under_mouse(mouse_position);
+        if (edge != m_hover_edge) {
+            m_hover_edge = std::move(edge);
+            m_hover_edge_model.reset();
+            m_parent.set_as_dirty();
+        }
+        return false;
+    }
+    case SLAGizmoEventType::LeftDown:
+    case SLAGizmoEventType::RightDown: {
+        m_hover_edge = edge_under_mouse(mouse_position);
+        m_hover_edge_model.reset();
+        if (m_hover_edge.size() < 2 || m_triangle_selectors.empty())
+            return false;
+        const bool left = action == SLAGizmoEventType::LeftDown;
+        paint_edge(m_hover_edge, shift_down ? TriangleStateType::NONE :
+                                 left       ? this->get_left_button_state_type() : this->get_right_button_state_type());
+        Plater::TakeSnapshot snapshot(wxGetApp().plater(), handle_snapshot_action_name(shift_down, left ? Button::Left : Button::Right),
+                                      UndoRedo::SnapshotType::GizmoAction);
+        update_model_object();
+        m_edge_clicked = true;
+        m_parent.set_as_dirty();
+        return true;
+    }
+    case SLAGizmoEventType::Dragging:
+        // No scene rotation while the button that painted an edge is down.
+        return m_edge_clicked;
+    case SLAGizmoEventType::LeftUp:
+    case SLAGizmoEventType::RightUp: {
+        const bool clicked = m_edge_clicked;
+        m_edge_clicked = false;
+        return clicked;
+    }
+    default:
+        return GLGizmoPainterBase::gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
+    }
+}
+
+void GLGizmoBrimPaint::render_hover_edge()
+{
+    if (m_hover_edge.size() < 2)
+        return;
+    if (! m_hover_edge_model.is_initialized()) {
+        GLModel::Geometry init_data;
+        init_data.format = { GLModel::Geometry::EPrimitiveType::LineStrip, GLModel::Geometry::EVertexLayout::P3 };
+        init_data.reserve_vertices(m_hover_edge.size());
+        init_data.reserve_indices(m_hover_edge.size());
+        for (const Vec3d &p : m_hover_edge) {
+            // Drawn at the top of the first layer, so the see-through cut doesn't hide it.
+            init_data.add_vertex(Vec3f(float(p.x()), float(p.y()), float(2. * p.z() + 0.01)));
+            init_data.add_index(unsigned(init_data.vertices_count() - 1));
+        }
+        m_hover_edge_model.init_from(std::move(init_data));
+    }
+    GLShaderProgram *shader = OpenGLManager::get_gl_info().is_core_profile() ? wxGetApp().get_shader("dashed_thick_lines") : wxGetApp().get_shader("flat");
+    if (shader == nullptr)
+        return;
+    const Camera &camera = wxGetApp().plater()->get_camera();
+    shader->start_using();
+    shader->set_uniform("view_model_matrix", camera.get_view_matrix());
+    shader->set_uniform("projection_matrix", camera.get_projection_matrix());
+    shader->set_uniform("width", 1.5f);
+    m_hover_edge_model.set_color(ColorRGBA::YELLOW());
+    glsafe(::glDisable(GL_DEPTH_TEST));
+    m_hover_edge_model.render();
+    glsafe(::glEnable(GL_DEPTH_TEST));
+    shader->stop_using();
 }
 
 
@@ -59,6 +305,12 @@ bool GLGizmoBrimPaint::on_init()
     m_desc["cursor_type"]      = _u8L("Brush shape") + ": ";
     m_desc["enforce_caption"]  = _u8L("Left mouse button") + ": ";
     m_desc["enforce"]          = _u8L("Enforce brim");
+    m_desc["tool_type"]        = _u8L("Tool type") + ": ";
+    m_desc["edge"]             = _u8L("Edge");
+    m_desc["brush"]            = _u8L("Brush");
+    m_desc["edge_angle"]       = _u8L("Corner angle") + ": ";
+    m_desc["edge_tooltip"]     = _u8L("A click paints the whole bottom edge under the cursor (highlighted), up to the "
+                                      "corners sharper than the corner angle: a round outline is painted all around.");
     m_desc["block_caption"]    = _u8L("Right mouse button") + ": ";
     m_desc["block"]            = _u8L("Block brim");
     m_desc["remove_caption"]   = _u8L("Shift + Left mouse button") + ": ";
@@ -101,7 +353,10 @@ void GLGizmoBrimPaint::render_painter_gizmo()
     // First layer only: a see-through cut, so the painting of the bottom face shows from above.
     m_c->object_clipper()->render_cut(nullptr, m_first_layer_only ? 0.4f : 1.f);
     m_c->instances_hider()->render_cut();
-    render_cursor();
+    if (m_edge_tool)
+        render_hover_edge();
+    else
+        render_cursor();
 
     glsafe(::glDisable(GL_BLEND));
 }
@@ -181,31 +436,58 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
 
     const float max_tooltip_width = ImGui::GetFontSize() * 20.0f;
 
+    // Tool type: Edge (fork, default) or the stock brush.
     ImGui::AlignTextToFramePadding();
-    ImGuiPureWrap::text(m_desc.at("cursor_size"));
+    ImGuiPureWrap::text(m_desc.at("tool_type"));
     ImGui::SameLine(sliders_left_width);
-    ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
-    m_imgui->slider_float("##cursor_radius", &m_cursor_radius, CursorRadiusMin, CursorRadiusMax, "%.2f", 1.0f, true, _L("Alt + Mouse wheel"));
-
-    ImGui::AlignTextToFramePadding();
-    ImGuiPureWrap::text(m_desc.at("cursor_type"));
-
-    float cursor_type_offset = cursor_type_radio_left + (window_width - cursor_type_radio_left - cursor_type_radio_sphere - cursor_type_radio_circle + m_imgui->scaled(0.5f)) / 2.f;
-    ImGui::SameLine(cursor_type_offset);
-    ImGui::PushItemWidth(cursor_type_radio_sphere);
-    if (ImGuiPureWrap::radio_button(m_desc["sphere"], m_cursor_type == TriangleSelector::CursorType::SPHERE))
-        m_cursor_type = TriangleSelector::CursorType::SPHERE;
-
+    if (ImGuiPureWrap::radio_button(m_desc.at("edge"), m_edge_tool)) {
+        m_edge_tool = true;
+        m_parent.set_as_dirty();
+    }
     if (ImGui::IsItemHovered())
-        ImGuiPureWrap::tooltip(_u8L("Paints all facets inside, regardless of their orientation."), max_tooltip_width);
+        ImGuiPureWrap::tooltip(m_desc.at("edge_tooltip"), max_tooltip_width);
+    ImGui::SameLine();
+    if (ImGuiPureWrap::radio_button(m_desc.at("brush"), ! m_edge_tool)) {
+        m_edge_tool = false;
+        m_hover_edge.clear();
+        m_hover_edge_model.reset();
+        m_parent.set_as_dirty();
+    }
 
-    ImGui::SameLine(cursor_type_offset + cursor_type_radio_sphere);
-    ImGui::PushItemWidth(cursor_type_radio_circle);
-    if (ImGuiPureWrap::radio_button(m_desc["circle"], m_cursor_type == TriangleSelector::CursorType::CIRCLE))
-        m_cursor_type = TriangleSelector::CursorType::CIRCLE;
+    if (m_edge_tool) {
+        ImGui::AlignTextToFramePadding();
+        ImGuiPureWrap::text(m_desc.at("edge_angle"));
+        ImGui::SameLine(sliders_left_width);
+        ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
+        if (m_imgui->slider_float("##edge_angle", &m_edge_angle, 5.f, 90.f, "%.0f°", 1.0f, true))
+            m_hover_edge.clear();
+    } else {
+        ImGui::AlignTextToFramePadding();
+        ImGuiPureWrap::text(m_desc.at("cursor_size"));
+        ImGui::SameLine(sliders_left_width);
+        ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
+        m_imgui->slider_float("##cursor_radius", &m_cursor_radius, CursorRadiusMin, CursorRadiusMax, "%.2f", 1.0f, true, _L("Alt + Mouse wheel"));
 
-    if (ImGui::IsItemHovered())
-        ImGuiPureWrap::tooltip(_u8L("Ignores facets facing away from the camera."), max_tooltip_width);
+        ImGui::AlignTextToFramePadding();
+        ImGuiPureWrap::text(m_desc.at("cursor_type"));
+
+        float cursor_type_offset = cursor_type_radio_left + (window_width - cursor_type_radio_left - cursor_type_radio_sphere - cursor_type_radio_circle + m_imgui->scaled(0.5f)) / 2.f;
+        ImGui::SameLine(cursor_type_offset);
+        ImGui::PushItemWidth(cursor_type_radio_sphere);
+        if (ImGuiPureWrap::radio_button(m_desc["sphere"], m_cursor_type == TriangleSelector::CursorType::SPHERE))
+            m_cursor_type = TriangleSelector::CursorType::SPHERE;
+
+        if (ImGui::IsItemHovered())
+            ImGuiPureWrap::tooltip(_u8L("Paints all facets inside, regardless of their orientation."), max_tooltip_width);
+
+        ImGui::SameLine(cursor_type_offset + cursor_type_radio_sphere);
+        ImGui::PushItemWidth(cursor_type_radio_circle);
+        if (ImGuiPureWrap::radio_button(m_desc["circle"], m_cursor_type == TriangleSelector::CursorType::CIRCLE))
+            m_cursor_type = TriangleSelector::CursorType::CIRCLE;
+
+        if (ImGui::IsItemHovered())
+            ImGuiPureWrap::tooltip(_u8L("Ignores facets facing away from the camera."), max_tooltip_width);
+    }
 
     ImGui::Separator();
     if (ImGuiPureWrap::checkbox(m_desc.at("first_layer_only"), m_first_layer_only)) {

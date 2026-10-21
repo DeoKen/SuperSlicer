@@ -764,6 +764,10 @@ seam painting: a new left toolbar tool "Brim painting" (after Fuzzy skin paintin
 - **Block brim** (right mouse button): no brim there, with any brim type (outer and inner brim).
 - Shift + left mouse button removes the painting, "Remove all selection" clears it. Brush size and shape as in the
   seam painting.
+- **Tool type: Edge** (default) or **Brush**. Edge: the bottom edge under the cursor is highlighted (yellow) from corner
+  to corner; a click paints all of it (left enforce, right block, Shift remove). A corner is a turn sharper than the
+  "Corner angle" (default 30 degrees), so curves and fillets count as one edge and a round outline is painted all around.
+  Brush: the stock painting brush.
 - "First layer only" (on by default): the part is cut at the first layer height (the only layer the brim uses), the
   rest is hidden and can't be painted; the cut is see-through, so from above the Sphere brush paints the bottom face
   through it (the Circle brush paints only facets facing you: look from below). Unticked: the whole part and the usual
@@ -800,7 +804,11 @@ the brim type plus the painted brim (`brim_paint_areas()`, Brim.hpp: the enforce
 section 31 (own brim under the support). The gizmo's first layer view is a horizontal clipping plane at the
 first layer height (`GLGizmoBrimPaint::update_first_layer_clipping()`, set again whenever something else moved it, and
 cleared when the gizmo closes since the clipper is shared with the other painting gizmos); `ObjectClipper::render_cut()`
-takes the cut's alpha. Repainting only redoes the brim (and the supports of a part
+takes the cut's alpha. `PrintObject::brim_paint_area()` keeps the edges (as thin bands) of the steep facets only and is cached on the object (key: first layer, placement, painting timestamps): a fine painting of 50 000 small facets took 12 s per call, 4 calls per slicing; now about 2 s once. The Edge tool (`GLGizmoBrimPaint::gizmo_event()`, `edge_under_mouse()`, `paint_edge()`) slices
+the model parts at the middle of the first layer (cached outline), meets the mouse ray with that height, takes the
+nearest outline segment within 2.5 mm and walks both ways while the turn at each vertex is under the corner angle; the
+edge, shortened by 0.3 mm at its corners (not the next wall), is painted with 0.3 mm capsules (`select_patch()`, the
+facets are split) along each segment, then one undo snapshot. Repainting only redoes the brim (and the supports of a part
 that has supports), not the slicing.
 
 **How to test.** `fff_print_tests "[BrimPaint]"`: nothing painted gives the stock brim; an enforcer on one side wall
@@ -810,7 +818,9 @@ with "Outer brim only" removes the brim there; a blocker on a wall facing anothe
 only the half of the gap's brim nearest to it; with supports standing on the bed next to the part and the brim enforced
 all around or with the outer brim, the supports have no first layer and every line of their second layer lies on brim
 lines (without a brim they keep their first layer); blockers in a hole remove the inner brim; repainting keeps the slices
-and only redoes the brim; the painting is saved and loaded with the 3mf. `arrange_tests "[BrimPaint]"`: arrange's brim offset counts the
+and only redoes the brim; the painting is saved and loaded with the 3mf. Edge tool, manually: hover a bottom edge, the
+highlight stops at the corners (change the corner angle: a rounded rectangle becomes one edge at 90 degrees), click: only
+that edge is painted (also from below and through the see-through cut), slice: brim only along it; undo. `arrange_tests "[BrimPaint]"`: arrange's brim offset counts the
 enforcers. Manually: open Brim painting on a part,
 paint two corners with "No brim", slice: brim only at those corners; set "Outer brim only", block one side: no brim
 there; save and reopen the project.

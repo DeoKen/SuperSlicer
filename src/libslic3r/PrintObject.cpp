@@ -3547,6 +3547,27 @@ ExPolygons PrintObject::brim_paint_area(TriangleStateType type) const
         return {};
     // Facets touching the first layer: clipped at its top, projected to the bed.
     const float z_top = float(m_layers.front()->print_z + EPSILON);
+    // Cached: the supports and the brim ask for the same areas. Computed again when the painting, the placement of the
+    // parts or the first layer changed.
+    std::vector<double> key{ double(z_top) };
+    const Transform3d   centered = this->trafo_centered();
+    key.insert(key.end(), centered.data(), centered.data() + 16);
+    for (const ModelVolume *mv : this->model_object()->volumes)
+        if (mv->is_model_part() && mv->is_brim_painted()) {
+            const Transform3d m = mv->get_matrix();
+            key.emplace_back(double(mv->id().id));
+            key.emplace_back(double(mv->brim_facets.timestamp()));
+            key.insert(key.end(), m.data(), m.data() + 16);
+        }
+    std::lock_guard<std::mutex> lock(m_brim_paint_area_mutex);
+    if (key != m_brim_paint_area_key) {
+        m_brim_paint_area_key = std::move(key);
+        m_brim_paint_area_cache[0].reset();
+        m_brim_paint_area_cache[1].reset();
+    }
+    std::optional<ExPolygons> &result = m_brim_paint_area_cache[type == TriangleStateType::ENFORCER ? 0 : 1];
+    if (result)
+        return *result;
     Polygons    areas;
     Polylines   edges;
     for (const ModelVolume *mv : this->model_object()->volumes) {
@@ -3573,10 +3594,16 @@ ExPolygons PrintObject::brim_paint_area(TriangleStateType type) const
             Polygon p;
             for (const Vec3f &v : clipped)
                 p.points.emplace_back(scaled<coord_t>(v.x()), scaled<coord_t>(v.y()));
-            // A side wall projects to a line: keep the edges, they are expanded below.
-            edges.emplace_back(p.points);
-            edges.back().points.push_back(p.points.front());
-            if (std::abs(p.area()) > double(SCALED_EPSILON) * double(SCALED_EPSILON)) {
+            // A steep facet (a side wall) projects to a line or a sliver: keep its edges, they are expanded below. The other
+            // facets are kept as they are: offsetting the edges of the thousands of small facets of a fine painting took
+            // seconds.
+            const double area = std::abs(p.area());
+            const Vec3f  normal = (poly[1] - poly[0]).cross(poly[2] - poly[0]);
+            if (clipped.size() < 3 || std::abs(normal.z()) < 0.2f * normal.norm()) {
+                edges.emplace_back(p.points);
+                edges.back().points.push_back(p.points.front());
+            }
+            if (area > double(SCALED_EPSILON) * double(SCALED_EPSILON)) {
                 if (! p.is_counter_clockwise())
                     p.reverse();
                 areas.emplace_back(std::move(p));
@@ -3584,7 +3611,8 @@ ExPolygons PrintObject::brim_paint_area(TriangleStateType type) const
         }
     }
     append(areas, offset(edges, scaled<float>(0.05)));
-    return union_ex(areas);
+    result = union_ex(areas);
+    return *result;
 }
 
 const Layer* PrintObject::get_layer_at_printz(coordf_t print_z) const {

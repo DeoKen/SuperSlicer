@@ -485,6 +485,10 @@ private:
     LayerPtrs                               m_layers;
     SupportLayerPtrs                        m_support_layers;
     mutable ExPolygons                      m_support_brim_pads;
+    // brim_paint_area() cache: key (first layer, placement, painting timestamps), enforcers / blockers.
+    mutable std::mutex                      m_brim_paint_area_mutex;
+    mutable std::vector<double>             m_brim_paint_area_key;
+    mutable std::optional<ExPolygons>       m_brim_paint_area_cache[2];
 
     // this is set to true when LayerRegion->slices is split in top/internal/bottom
     // so that next call to make_perimeters() performs a union() before computing loops
