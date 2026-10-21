@@ -197,6 +197,11 @@ public:
     bool is_color_ranges_discrete() const;
     void set_color_ranges_discrete(bool discrete);
     //
+    // Selected layers (SuperSlicer): the color range of the given view spans the values of the layers in view (false) or of
+    // the whole print (true, default). See ColorRange::is_whole_print().
+    //
+    void set_color_range_whole_print(EViewType type, bool whole_print);
+    //
     // Get the radius, in mm, of the cylinders used to render the travel moves.
     //
     float get_travels_radius() const;

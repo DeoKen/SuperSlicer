@@ -2208,6 +2208,16 @@ void GCodeViewer::render_legend(float& legend_height)
             append_item(EItemType::Rect, libvgcode::convert(range.get_palette()[i]), buf);
         };
 
+        // selected layers: the whole print min / max out of the range of the layers in view (SuperSlicer)
+        auto append_out_of_range_item = [append_item, decimals](const libvgcode::Color& color, float value) {
+            char buf[1024];
+            ::sprintf(buf, "%.*f", decimals, value);
+            append_item(EItemType::Rect, libvgcode::convert(color), buf);
+        };
+        const std::array<float, 2> current_range = range.get_current_range();
+        if (current_range[1] < range.get_range()[1])
+            append_out_of_range_item(libvgcode::ColorRange::TOO_HIGH_COLOR, range.get_range()[1]);
+
         std::vector<float> values = range.get_values();
         if (range.is_discrete()) {
             // a color per value (SuperSlicer)
@@ -2230,6 +2240,8 @@ void GCodeViewer::render_legend(float& legend_height)
                 append_range_item(i, values[i], decimals);
             }
         }
+        if (range.get_range()[0] < current_range[0])
+            append_out_of_range_item(libvgcode::ColorRange::TOO_LOW_COLOR, range.get_range()[0]);
     };
 
     auto append_time_range = [append_item](const libvgcode::ColorRange& range) {
@@ -2239,6 +2251,17 @@ void GCodeViewer::render_legend(float& legend_height)
                 str_value = "< 1s";
             append_item(EItemType::Rect, libvgcode::convert(range.get_palette()[i]), str_value);
         };
+
+        // selected layers: the whole print min / max out of the range of the layers in view (SuperSlicer)
+        auto append_out_of_range_item = [append_item](const libvgcode::Color& color, float value) {
+            std::string str_value = get_time_dhms(value);
+            if (str_value == "0s")
+                str_value = "< 1s";
+            append_item(EItemType::Rect, libvgcode::convert(color), str_value);
+        };
+        const std::array<float, 2> current_range = range.get_current_range();
+        if (current_range[1] < range.get_range()[1])
+            append_out_of_range_item(libvgcode::ColorRange::TOO_HIGH_COLOR, range.get_range()[1]);
 
         std::vector<float> values = range.get_values();
         if (range.is_discrete()) {
@@ -2263,6 +2286,8 @@ void GCodeViewer::render_legend(float& legend_height)
                 append_range_item(i, values[i]);
             }
         }
+        if (range.get_range()[0] < current_range[0])
+            append_out_of_range_item(libvgcode::ColorRange::TOO_LOW_COLOR, range.get_range()[0]);
     };
 
     auto append_headers = [](const std::array<std::string, 5>& texts, const std::array<float, 4>& offsets) {
@@ -2661,6 +2686,27 @@ void GCodeViewer::render_legend(float& legend_height)
             ImGuiPureWrap::tooltip(discrete ? _u8L("Click to return to the continuous scale.") :
                 format(_u8L("Click to show a different color for each value (%1% different values)."), range.get_discrete_count()),
                 ImGui::GetFontSize() * 20.0f);
+    }
+
+    // Selected layers (SuperSlicer): the colors span the values of the layers in view instead of the whole print.
+    // Not shown in whole print mode while all the layers are in view (nothing selected).
+    if (new_view_type == libvgcode::EViewType::Width || new_view_type == libvgcode::EViewType::Speed ||
+        new_view_type == libvgcode::EViewType::VolumetricFlowRate || new_view_type == libvgcode::EViewType::LayerTimeLinear ||
+        new_view_type == libvgcode::EViewType::LayerTimeLogarithmic) {
+        const libvgcode::ColorRange& range = m_viewer.get_color_range(new_view_type);
+        const libvgcode::Interval& layers = m_viewer.get_layers_view_range();
+        if (!range.is_whole_print() || layers[0] > 0 || layers[1] + 1 < m_viewer.get_layers_count()) {
+            ImGui::Spacing();
+            bool selected_layers = !range.is_whole_print();
+            if (ImGuiPureWrap::checkbox(_u8L("Selected layers"), selected_layers)) {
+                m_viewer.set_color_range_whole_print(new_view_type, !selected_layers);
+                wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();
+                wxGetApp().plater()->get_current_canvas3D()->request_extra_frame();
+            }
+            if (ImGui::IsItemHovered())
+                ImGuiPureWrap::tooltip(selected_layers ? _u8L("Click to use the whole print for min & max range.") :
+                    _u8L("Click to use the current selected layers for min & max range."), ImGui::GetFontSize() * 20.0f);
+        }
     }
 
     // partial estimated printing time section

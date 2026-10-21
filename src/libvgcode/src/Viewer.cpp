@@ -172,6 +172,11 @@ void Viewer::set_color_ranges_discrete(bool discrete)
     m_impl->set_color_ranges_discrete(discrete);
 }
 
+void Viewer::set_color_range_whole_print(EViewType type, bool whole_print)
+{
+    m_impl->set_color_range_whole_print(type, whole_print);
+}
+
 float Viewer::get_travels_radius() const
 {
     return m_impl->get_travels_radius();

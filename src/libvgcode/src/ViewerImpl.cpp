@@ -1253,7 +1253,8 @@ void ViewerImpl::update_colors()
     }
 
     update_color_ranges();
-    
+    update_layers_color_range();
+
     // Recalculate "normal" colors of all the vertices for current view settings.
     // If some part of the preview should be rendered in dark grey, it is taken
     // care of in update_colors_texture. That is to avoid the need to recalculate
@@ -1305,12 +1306,17 @@ void ViewerImpl::set_layers_view_range(Interval::value_type min, Interval::value
 {
     min = std::clamp<Interval::value_type>(min, 0, m_layers.count() - 1);
     max = std::clamp<Interval::value_type>(max, 0, m_layers.count() - 1);
+    const Interval old_layers_range = m_layers.get_view_range();
     m_layers.set_view_range(min, max);
     // force immediate update of the full range
     update_view_full_range();
     m_view_range.set_visible(m_view_range.get_enabled());
     m_settings.update_enabled_entities = true;
     //m_settings.update_colors = true;
+    // selected layers mode: the colors follow the layers in view
+    if (const ColorRange* range = get_color_range_ptr(m_settings.view_type);
+        range != nullptr && ! range->is_whole_print() && old_layers_range != m_layers.get_view_range())
+        m_settings.update_colors = true;
     update_colors_texture();
 }
 
@@ -1602,6 +1608,79 @@ void ViewerImpl::set_color_ranges_discrete(bool discrete)
                                &m_layer_time_range[0], &m_layer_time_range[1] })
         range->set_discrete(discrete);
     m_settings.update_colors = true;
+}
+
+void ViewerImpl::set_color_range_whole_print(EViewType type, bool whole_print)
+{
+    ColorRange* range = get_color_range_ptr(type);
+    if (range == nullptr || range->is_whole_print() == whole_print)
+        return;
+    range->set_whole_print(whole_print);
+    range->reset_layers();
+    m_settings.update_colors = true;
+}
+
+ColorRange* ViewerImpl::get_color_range_ptr(EViewType type)
+{
+    switch (type)
+    {
+    case EViewType::Height:                   { return &m_height_range; }
+    case EViewType::Width:                    { return &m_width_range; }
+    case EViewType::Speed:                    { return &m_speed_range; }
+    case EViewType::ActualSpeed:              { return &m_actual_speed_range; }
+    case EViewType::FanSpeed:                 { return &m_fan_speed_range; }
+    case EViewType::Temperature:              { return &m_temperature_range; }
+    case EViewType::VolumetricFlowRate:       { return &m_volumetric_rate_range; }
+    case EViewType::ActualVolumetricFlowRate: { return &m_actual_volumetric_rate_range; }
+    case EViewType::LayerTimeLinear:          { return &m_layer_time_range[0]; }
+    case EViewType::LayerTimeLogarithmic:     { return &m_layer_time_range[1]; }
+    default:                                  { return nullptr; }
+    }
+}
+
+void ViewerImpl::update_layers_color_range()
+{
+    ColorRange* range = get_color_range_ptr(m_settings.view_type);
+    if (range == nullptr || range->is_whole_print())
+        return;
+
+    // The values of the layers in view, with the same rules as update_color_ranges().
+    range->reset_layers();
+    const Interval& layers = m_layers.get_view_range();
+    if (m_settings.view_type == EViewType::LayerTimeLinear || m_settings.view_type == EViewType::LayerTimeLogarithmic) {
+        for (size_t layer_id = layers[0]; layer_id <= layers[1] && layer_id < m_layers.count(); ++layer_id) {
+            range->update_layers(m_layers.get_layer_time(m_settings.time_mode, layer_id));
+        }
+        return;
+    }
+    const bool custom_visible = m_settings.extrusion_roles_visibility[size_t(EGCodeExtrusionRole::Custom)];
+    // The points the time estimator inserts are values of the actual speed views only (as in update_color_ranges()).
+    const bool actual = m_settings.view_type == EViewType::ActualSpeed || m_settings.view_type == EViewType::ActualVolumetricFlowRate;
+    for (const PathVertex& v : m_vertices) {
+        if ((v.interpolated && ! actual) || v.layer_id < layers[0] || v.layer_id > layers[1])
+            continue;
+        switch (m_settings.view_type)
+        {
+        case EViewType::Speed:
+        case EViewType::ActualSpeed: {
+            if ((v.is_travel() && m_settings.options_visibility[size_t(EOptionType::Travels)]) ||
+                (v.is_wipe() && m_settings.options_visibility[size_t(EOptionType::Wipes)]) ||
+                 v.is_extrusion())
+                range->update_layers(m_settings.view_type == EViewType::Speed ? v.feedrate : v.actual_feedrate);
+            break;
+        }
+        case EViewType::Height:      { if (v.is_extrusion()) range->update_layers(round_to_bin(v.height)); break; }
+        case EViewType::FanSpeed:    { if (v.is_extrusion()) range->update_layers(round_to_bin(v.fan_speed)); break; }
+        case EViewType::Temperature: { if (v.is_extrusion()) range->update_layers(round_to_bin(v.temperature)); break; }
+        default: {
+            if (v.is_extrusion() && (! v.is_custom_gcode() || custom_visible))
+                range->update_layers(round_to_bin(
+                    m_settings.view_type == EViewType::Width ? v.width :
+                    m_settings.view_type == EViewType::VolumetricFlowRate ? v.volumetric_rate() : v.actual_volumetric_rate()));
+            break;
+        }
+        }
+    }
 }
 
 void ViewerImpl::set_travels_radius(float radius)

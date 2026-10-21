@@ -48,7 +48,7 @@ Contents:
 26. [Arachne fix: thin walls with single perimeter on all top surfaces](#26-arachne-fix-thin-walls-with-single-perimeter-on-all-top-surfaces)
 27. [Dynamic overhang speeds and fan speeds with graphs](#27-dynamic-overhang-speeds-and-fan-speeds-with-graphs)
 28. [Overhang threshold](#28-overhang-threshold)
-29. [G-code viewer: discrete values](#29-g-code-viewer-discrete-values)
+29. [G-code viewer: discrete values, selected layers](#29-g-code-viewer-discrete-values-selected-layers)
 25. [Testing](#testing)
 
 ---
@@ -1054,18 +1054,25 @@ The golden test covers the default. Manual: slice a sphere or an overhang test, 
 
 ---
 
-## 29. G-code viewer: discrete values
+## 29. G-code viewer: discrete values, selected layers
 
 **What it does.** From SuperSlicer ("Discrete Values" in its legend). When a range view (height, width, speed, fan
 speed, temperature, volumetric flow, layer time) has few distinct values, each value gets its own color and its own
 legend line, instead of the continuous scale where close values get almost the same color and the legend shows evenly
 spaced values that may not exist in the G-code. On by default.
+"Selected layers" (SuperSlicer, its "Selected layers" legend switch): the colors of the width, speed, volumetric flow
+and layer time views span the values of the layers in view (vertical slider) instead of the whole print, so a few
+layers get the whole palette, and can have few enough values for the discrete mode.
 
 **Settings.** Preview legend: "Discrete values" checkbox, shown when the current view has more than 2 and at most 21
 distinct values (rounded to 0.01). Remembered in the app config (`gcode_viewer_discrete_values`, default on), not in
 the presets. With 1 or 2 values, or more than 21, the stock legend is used. The points the time estimator inserts
 inside the moves for the actual speed view (`internal_only` moves, their fan speed, width, speed... blended between two
 moves) don't count as values; they get the color of the nearest value.
+"Selected layers" checkbox (Width, Speed, Volumetric flow rate, Layer time views, as SuperSlicer), shown when it is on
+or when the vertical slider doesn't show all the layers. Off by default, per view, not remembered (as SuperSlicer).
+When on, the legend shows the range of the layers in view, plus the whole print max on top (light pink) and min at the
+bottom (light purple) when they are out of it; the discrete count is the print's distinct values within that range.
 
 **How it works.**
 - libvgcode `ColorRange`: besides the min / max, `update()` keeps the sorted distinct values (rounded to 0.01) until
@@ -1074,12 +1081,23 @@ moves) don't count as values; they get the color of the nearest value.
   colors halfway between its colors, the values spread over them and the last one at the last color (SuperSlicer's
   `compute_discrete_colors()` and `Range_Colors_Details`).
 - `PathVertex::interpolated` (set from `internal_only` in `LibVGCodeWrapper.cpp`, in the padding of the struct): skipped
-  for the distinct values by `ColorRange::update()`. Without it, a G-code with 3 fan speeds had 708 "values".
+  for the distinct values by `ColorRange::update()`. Without it, a G-code with 3 fan speeds had 708 "values". The
+  'phantom' vertex added at the start of each path copies the flag of its move: when that move was an estimator point,
+  its blended value counted (214 fan "values" on a 3 fan speed print, no checkbox).
+- Selected layers: `ColorRange` keeps up to 3 × 21 − 1 distinct values (SuperSlicer keeps 63), `m_whole_print` and the
+  range of the layers in view (`update_layers()`); `get_current_range()` is the whole range clamped to it and is used
+  by `get_color_at()` (values out of it: SuperSlicer's too low / too high colors), `get_values()` and the discrete
+  count. `ViewerImpl::update_layers_color_range()` fills it for the current view in `update_colors()` (same vertex rules
+  as `update_color_ranges()`, layer times for the layer time views); `set_layers_view_range()` recolors when the
+  layers in view change and the current view is in selected layers mode. `Viewer::set_color_range_whole_print()`.
 - `Viewer::set_color_ranges_discrete()` switches all the ranges and recolors. `GCodeViewer::load_as_gcode()` applies the
   app config setting; `render_legend()` lists one line per value and draws the checkbox.
 
 **How to test.** Manual: slice the fork feature test part, Preview > Fan speed or Speed: one legend line per value, the
-colors match the paths; untick "Discrete values": the stock scale. Restart: the setting is kept.
+colors match the paths; untick "Discrete values": the stock scale. Restart: the setting is kept. Speed view, move the
+top of the vertical slider down to a few layers, tick "Selected layers": the legend shows the speeds of those layers
+(discrete if 3-21 values) with the whole print max/min in pink/purple, moving the slider updates it; untick: the
+whole print scale.
 
 ---
 

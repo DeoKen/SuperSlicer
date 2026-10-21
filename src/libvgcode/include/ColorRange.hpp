@@ -8,6 +8,7 @@
 #include "../include/Types.hpp"
 
 #include <cfloat>
+#include <utility>
 #include <vector>
 
 namespace libvgcode {
@@ -49,7 +50,8 @@ public:
     void set_palette(const Palette& palette);
     //
     // Return the interpolated color at the given value.
-    // Value is clamped to [get_range()[0]..get_range()[1]].
+    // Value is clamped to [get_current_range()[0]..get_current_range()[1]].
+    // Selected layers mode: a value outside the range of the selected layers gets TOO_LOW_COLOR / TOO_HIGH_COLOR.
     //
     Color get_color_at(float value) const;
     //
@@ -59,6 +61,17 @@ public:
     // [1] -> max
     //
     const std::array<float, 2>& get_range() const;
+    //
+    // Selected layers (SuperSlicer): when not in whole print mode, the colors span only the values of the layers in view,
+    // get_range() clamped to them. Whole print by default.
+    //
+    bool is_whole_print() const { return m_whole_print; }
+    std::array<float, 2> get_current_range() const;
+    //
+    // Colors of the values outside the range of the selected layers (SuperSlicer).
+    //
+    static const Color TOO_LOW_COLOR;
+    static const Color TOO_HIGH_COLOR;
     //
     // Return the values corresponding to the detected color bins of this ColorRange.
     // The size of the returned vector can be:
@@ -74,11 +87,12 @@ public:
     //
     bool is_discrete() const;
     //
-    // Whether discrete mode applies to this ColorRange: more than two and at most get_max_discrete_count() distinct values.
+    // Whether discrete mode applies to this ColorRange: more than two and at most get_max_discrete_count() distinct values
+    // within get_current_range().
     //
     bool can_be_discrete() const;
     //
-    // Count of distinct values (rounded to 0.01), 0 if more than get_max_discrete_count().
+    // Count of distinct values (rounded to 0.01) within get_current_range(), 0 if the print has too many values.
     //
     std::size_t get_discrete_count() const;
     std::size_t get_max_discrete_count() const { return 2 * m_palette.size() - 1; }
@@ -105,14 +119,33 @@ private:
     // 
     std::size_t m_count{ 0 };
     //
-    // Distinct values passed to update(), rounded to 0.01 and sorted; cleared when there are more than get_max_discrete_count().
+    // Distinct values passed to update(), rounded to 0.01 and sorted; cleared when there are 3 * get_max_discrete_count() or
+    // more (SuperSlicer keeps that many, so that the selected layers can still have few values).
     //
     std::vector<float> m_discrete_values;
     bool m_too_many_values{ false };
     bool m_discrete{ false };
+    //
+    // Selected layers mode: range of the values of the layers in view, see update_layers().
+    //
+    bool m_whole_print{ true };
+    std::array<float, 2> m_layers_range{ FLT_MAX, -FLT_MAX };
 
     void set_discrete(bool discrete) { m_discrete = discrete; }
-    Color get_discrete_color(std::size_t value_id) const;
+    void set_whole_print(bool whole_print) { m_whole_print = whole_print; }
+    //
+    // Ids in m_discrete_values of the distinct values within get_current_range(), [first, last).
+    //
+    std::pair<std::size_t, std::size_t> get_discrete_ids() const;
+    //
+    // Color of the value_id-th of count distinct values.
+    //
+    Color get_discrete_color(std::size_t value_id, std::size_t count) const;
+    //
+    // Selected layers mode: use the passed value (of a layer in view) to update the range of the selected layers.
+    //
+    void update_layers(float value);
+    void reset_layers();
 
     //
     // Use the passed value to update the range.

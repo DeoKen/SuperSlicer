@@ -163,6 +163,7 @@ public:
     void set_color_range_palette(EViewType type, const Palette& palette);
     bool is_color_ranges_discrete() const { return m_color_ranges_discrete; }
     void set_color_ranges_discrete(bool discrete);
+    void set_color_range_whole_print(EViewType type, bool whole_print);
 
     float get_travels_radius() const { return m_travels_radius; }
     void set_travels_radius(float radius);
@@ -455,6 +456,9 @@ private:
 
     void update_view_full_range();
     void update_color_ranges();
+    // Selected layers mode (SuperSlicer): range of the values of the layers in view, for the color range of the current view.
+    void update_layers_color_range();
+    ColorRange* get_color_range_ptr(EViewType type);
     void update_heights_widths();
     void render_segments(const Mat4x4& view_matrix, const Mat4x4& projection_matrix, const Vec3& camera_position);
     void render_options(const Mat4x4& view_matrix, const Mat4x4& projection_matrix);
