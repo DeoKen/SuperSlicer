@@ -37,10 +37,14 @@ bool find_initial_position(Itm &itm,
         bool only_keep_out = true;
         for (const auto &fixed : all_items_range(packing_context))
             only_keep_out = only_keep_out && is_keep_out(fixed);
-        auto clear_of_keep_out = [&packing_context](const BoundingBox &bb) {
-            for (const auto &fixed : all_items_range(packing_context))
-                if (bb.overlap(fixed_bounding_box(fixed)))
+        auto clear_of_keep_out = [&packing_context, &itm](const BoundingBox &bb) {
+            for (const auto &fixed : all_items_range(packing_context)) {
+                // A brim keeps its width from the zone (brim-aware arrange).
+                BoundingBox zone = fixed_bounding_box(fixed);
+                zone.offset(brim_gap(itm, fixed));
+                if (bb.overlap(zone))
                     return false;
+            }
             return true;
         };
 

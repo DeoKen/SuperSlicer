@@ -52,6 +52,8 @@ Contents:
 30. [Calibration prints](#30-calibration-prints)
 31. [Own brim under the support](#31-own-brim-under-the-support)
 32. [Slicing: no slicing while painting, delay after a change](#32-slicing-no-slicing-while-painting-delay-after-a-change)
+33. [Delete all: new project or erase objects](#33-delete-all-new-project-or-erase-objects)
+34. [Brim-aware arrange](#34-brim-aware-arrange)
 25. [Testing](#testing)
 
 ---
@@ -1242,6 +1244,39 @@ menu. "New Project" calls `Plater::new_project()` (it still asks about an unsave
 **How to test.** Manual: load two objects, click the garbage can: the three-button dialog shows. "Erase all objects":
 plate empty, project name kept, Ctrl+Z brings them back. "New Project": new untitled project. Same with Ctrl+Del and the
 menu. Turn the preference off: the garbage can erases without a dialog.
+
+---
+
+## 34. Brim-aware arrange
+
+**What it does.** Arrange (and fill bed) spaces the objects by their brims. Stock keeps every pair of objects the
+arrange "Spacing" apart whatever their brims, so a brim could run into a neighbour that has no brim. Now:
+
+- two objects with a brim, or two without: the spacing, as stock. Brims of neighbours may overlap and merge.
+- an object with a brim next to one without: the spacing plus the brim (width + separation), so the brim edge stays the
+  spacing away from the other object.
+- the same for a bed keep-out zone (section 3) and the wipe tower: a brim keeps the spacing away from them.
+
+A part counts as having a brim with the brim type "Outer brim only" / "Outer and inner brim", or with painted brim
+enforcers (section 23), brim width above 0 and no raft (as `PrintObject::has_brim()`); its own settings override the
+print settings. A painted brim counts as all around the part (simple and safe; it uses a little more room). Brim ears
+use the brim width, so they are covered too.
+
+No setting. Without brims arrange is unchanged (stock).
+
+**How it works.** `arrange-wrapper/SceneBuilder.cpp` `model_object_brim()` computes the brim of each ModelObject from
+its config over the print's (no PrintObject needed, so also for the objects of the other beds); the instance
+arrangeables write it into the arrange item's data store (`"brim"`). In the kernel, `brim_gap()`
+(`arrange/DataStoreTraits.hpp`) gives the extra gap of a pair: 0 when both or neither have a brim, else the brim. The
+no-fit polygon of each fixed item is grown by that gap for the item being placed (`ArrangeItem.hpp`
+`calculate_nfp_unnormalized`; the convex pieces stay convex). The keep-out start position check (`KernelUtils.hpp`) and
+the keep-out re-centering (`RectangleOverfitPackingStrategy.hpp`) grow the zones the same way. The bed is still shrunk by
+the widest brim, as stock.
+
+**How to test.** `arrange_tests "[BrimArrange]"`: 8 cubes with an 8 mm brim and 8 without, 2 mm spacing, with keep-out
+zones, two strategies and two geometry handlings: brim to no-brim gaps >= 10 mm, zone gaps >= brim + 1 mm, and two
+brimmed cubes end up closer than the brim width (brims merge). Manual: per-object brim on a few parts (right click >
+Add settings > Skirt and brim), arrange: parts without a brim stay clear of the brims, brimmed parts pack together.
 
 ---
 

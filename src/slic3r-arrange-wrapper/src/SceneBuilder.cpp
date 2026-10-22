@@ -60,6 +60,23 @@ coord_t brim_offset(const PrintObject &po)
     return has_outer_brim ? scaled(brim_width + brim_separation) : 0;
 }
 
+coord_t model_object_brim(const ModelObject &mo, const PrintObjectConfig &print_object_config)
+{
+    auto option = [&mo, &print_object_config](const char *key) {
+        const ConfigOption *opt = mo.config.option(key);
+        return opt != nullptr ? opt : print_object_config.option(key);
+    };
+    const auto brim_type  = BrimType(option("brim_type")->getInt());
+    const bool enforcers  = std::any_of(mo.volumes.begin(), mo.volumes.end(), [](const ModelVolume *mv) {
+        return mv->is_model_part() && mv->is_brim_painted() && mv->brim_facets.has_facets(*mv, TriangleStateType::ENFORCER);
+    });
+    const double width    = option("brim_width")->getFloat();
+    // As PrintObject::has_brim(): no brim on a raft.
+    if ((brim_type != btOuterOnly && brim_type != btOuterAndInner && ! enforcers) || width <= 0. || option("raft_layers")->getInt() > 0)
+        return 0;
+    return scaled(width + option("brim_separation")->getFloat());
+}
+
 size_t model_instance_count (const Model &m)
 {
     return std::accumulate(m.objects.begin(),
@@ -240,6 +257,10 @@ void SceneBuilder::build_arrangeable_slicer_model(ArrangeableSlicerModel &amodel
     amodel.m_wths = std::move(m_wipetower_handlers);
     amodel.m_bed_constraints = std::move(m_bed_constraints);
     amodel.m_considered_instances = std::move(m_considered_instances);
+    if (m_fff_print && !m_sla_print)
+        for (const ModelObject *mo : amodel.m_model->objects)
+            if (const coord_t brim = model_object_brim(*mo, m_fff_print->default_object_config()); brim > 0)
+                amodel.m_brims[mo->id()] = brim;
 
     for (auto &wth : amodel.m_wths) {
         wth->set_selection_predicate(
@@ -570,6 +591,12 @@ bool should_include_instance(
     return true;
 }
 
+static coord_t get_brim(const ObjectID &model_object_id, const std::map<ObjectID, coord_t> &brims)
+{
+    const auto it = brims.find(model_object_id);
+    return it == brims.end() ? 0 : it->second;
+}
+
 template<class Self, class Fn>
 void ArrangeableSlicerModel::for_each_arrangeable_(Self &&self, Fn &&fn)
 {
@@ -582,7 +609,8 @@ void ArrangeableSlicerModel::for_each_arrangeable_(Self &&self, Fn &&fn)
                     self.m_vbed_handler.get(),
                     self.m_selmask.get(),
                     pos,
-                    get_bed_constraint(inst->id(), self.m_bed_constraints)
+                    get_bed_constraint(inst->id(), self.m_bed_constraints),
+                    get_brim(obj->id(), self.m_brims)
                 };
                 fn(ainst);
             }
@@ -611,7 +639,8 @@ void ArrangeableSlicerModel::visit_arrangeable_(Self &&self, const ObjectID &id,
             self.m_vbed_handler.get(),
             self.m_selmask.get(),
             pos,
-            get_bed_constraint(id, self.m_bed_constraints)
+            get_bed_constraint(id, self.m_bed_constraints),
+            get_brim(inst->get_object()->id(), self.m_brims)
         };
         fn(ainst);
     }

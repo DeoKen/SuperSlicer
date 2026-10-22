@@ -5,6 +5,8 @@
 #ifndef DATASTORETRAITS_HPP
 #define DATASTORETRAITS_HPP
 
+#include <algorithm>
+#include <string>
 #include <string_view>
 
 #include "libslic3r/libslic3r.h"
@@ -72,6 +74,22 @@ template<class T, class ArrItem>
 void set_data(ArrItem &itm, const std::string &key, T &&data)
 {
     WritableDataStoreTraits<ArrItem>::template set<>(itm, key, std::forward<T>(data));
+}
+
+// Brim-aware arrange (fork): the outer brim of an item (width + separation, scaled; "brim" key), 0 = no brim.
+template<class ArrItem> coord_t item_brim(const ArrItem &itm)
+{
+    const coord_t *brim = get_data<const coord_t>(itm, "brim");
+    return brim != nullptr ? *brim : 0;
+}
+
+// The gap two items need on top of the object distance: brims may merge, so two items with a brim (or two without) need
+// none, but a brim must not reach an item without one (also a bed keep-out zone or the wipe tower): the wider brim.
+template<class ArrItemA, class ArrItemB> coord_t brim_gap(const ArrItemA &a, const ArrItemB &b)
+{
+    const coord_t brim_a = item_brim(a);
+    const coord_t brim_b = item_brim(b);
+    return (brim_a > 0) == (brim_b > 0) ? 0 : std::max(brim_a, brim_b);
 }
 
 template<class T> constexpr bool IsReadWritableDataStore = IsDataStore<T> && IsWritableDataStore<T>;

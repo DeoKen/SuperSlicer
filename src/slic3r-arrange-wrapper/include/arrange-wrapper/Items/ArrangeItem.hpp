@@ -7,6 +7,7 @@
 
 #include <boost/variant.hpp>
 #include <libslic3r/ClipperUtils.hpp>
+#include <libslic3r/Geometry/ConvexHull.hpp>
 #include <assert.h>
 #include <stddef.h>
 #include <optional>
@@ -333,8 +334,17 @@ static Polygons calculate_nfp_unnormalized(const ArrangeItem    &item,
         // fixed_polys should already be a set of strictly convex polygons,
         // as ArrangeItem stores convex-decomposed polygons
         const Polygons & fixed_polys = fixed.shape().transformed_outline();
+        // Brim-aware arrange (fork): the fixed item grown by the brim one of the two items has and the other hasn't.
+        const coord_t gap = brim_gap(item, fixed);
+        Polygons      grown;
+        if (gap > 0) {
+            grown.reserve(fixed_polys.size());
+            for (const Polygon &fixed_poly : fixed_polys)
+                // Still convex, as the NFP below needs.
+                grown.emplace_back(Geometry::convex_hull(offset(fixed_poly, float(gap))));
+        }
 
-        for (const Polygon &fixed_poly : fixed_polys) {
+        for (const Polygon &fixed_poly : gap > 0 ? grown : fixed_polys) {
             Point max_fixed = Slic3r::reference_vertex(fixed_poly);
             for (size_t mi = 0; mi < item_outlines.size(); ++mi) {
                 const Polygon &movable = item_outlines[mi];

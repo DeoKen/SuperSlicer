@@ -69,14 +69,19 @@ struct RectangleOverfitPackingContext : public DefaultPackingContext<ArrItem>
                 ebb.translate(t);
                 if (!limits.contains(ebb))
                     return false;
-                for (const auto &zone : fixed)
-                    if (ebb.overlap(fixed_bounding_box(zone))) {
+                for (const auto &zone : fixed) {
+                    // A brim keeps its width from the zone (brim-aware arrange).
+                    const coord_t gap = brim_gap(itm, zone);
+                    BoundingBox   zbb = fixed_bounding_box(zone);
+                    zbb.offset(gap);
+                    if (ebb.overlap(zbb)) {
                         Polygons moved = envelope_outline(itm);
                         for (Polygon &p : moved)
                             p.translate(t);
-                        if (!intersection(moved, fixed_outline(zone)).empty())
+                        if (!intersection(moved, gap > 0 ? offset(fixed_outline(zone), float(gap)) : fixed_outline(zone)).empty())
                             return false;
                     }
+                }
             }
             return true;
         };

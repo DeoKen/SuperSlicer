@@ -41,6 +41,7 @@ class SLAPrint;
 class SLAPrintObject;
 class PrintObject;
 class DynamicPrintConfig;
+class PrintObjectConfig;
 
 namespace arr2 {
 
@@ -217,6 +218,8 @@ protected:
     AnyPtr<const SelectionMask> m_selmask;  // Determines which objects are selected/unselected
     BedConstraints m_bed_constraints;
     std::optional<std::set<ObjectID>> m_considered_instances;
+    // Brim-aware arrange (fork): the outer brim of each ModelObject (by its id), see model_object_brim().
+    std::map<ObjectID, coord_t> m_brims;
 
 private:
     friend class SceneBuilder;
@@ -404,6 +407,9 @@ std::vector<size_t> selected_instance_indices(int obj_idx, const SelectionMask &
 coord_t get_skirt_inset(const Print &fffprint);
 
 coord_t brim_offset(const PrintObject &po);
+// The outer brim of a ModelObject (width + separation, scaled; 0 = none) from its own settings over the print's, as
+// brim_offset() but without a PrintObject, so also for the objects of the other beds. A painted brim counts as all around.
+coord_t model_object_brim(const ModelObject &mo, const PrintObjectConfig &print_object_config);
 
 // unscaled coords are necessary to be able to handle bigger coordinate range
 // than what is available with scaled coords. This is useful when working with
@@ -453,14 +459,16 @@ class ArrangeableModelInstance : public Arrangeable, VBedPlaceable
     const SelectionMask *m_selmask;
     InstPos m_pos_within_model;
     std::optional<int> m_bed_constraint;
+    coord_t m_brim = 0;
 
 public:
     explicit ArrangeableModelInstance(InstPtr *mi,
                                       VBedHPtr *vbedh,
                                       const SelectionMask *selmask,
                                       const InstPos &pos,
-                                      const std::optional<int> bed_constraint)
-        : m_mi{mi}, m_vbedh{vbedh}, m_selmask{selmask}, m_pos_within_model{pos}, m_bed_constraint(bed_constraint)
+                                      const std::optional<int> bed_constraint,
+                                      coord_t brim = 0)
+        : m_mi{mi}, m_vbedh{vbedh}, m_selmask{selmask}, m_pos_within_model{pos}, m_bed_constraint(bed_constraint), m_brim{brim}
     {
         assert(m_mi != nullptr && m_vbedh != nullptr);
     }
@@ -478,6 +486,13 @@ public:
     bool       assign_bed(int bed_idx) override;
 
     std::optional<int> bed_constraint() const override { return m_bed_constraint; }
+
+    // Brim-aware arrange (fork): the outer brim, read by the arrange kernel (brim_gap()).
+    void imbue_data(AnyWritable &datastore) const override
+    {
+        if (m_brim > 0)
+            datastore.write("brim", m_brim);
+    }
 
     // VBedPlaceable:
     BoundingBoxf bounding_box() const override { return to_2d(instance_bounding_box(*m_mi)); }

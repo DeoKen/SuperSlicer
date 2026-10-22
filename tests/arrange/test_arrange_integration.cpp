@@ -1317,3 +1317,72 @@ TEST_CASE("Arrangement leaves room for a painted brim", "[arrange2][integration]
     print.apply(model, cfg);
     CHECK(arr2::brim_offset(*print.objects().front()) == scaled(5.));
 }
+
+// Brim-aware arrange: brims may merge, but a brim stays the object distance away from an object without a brim and
+// from a bed keep-out zone.
+TEST_CASE("Arrangement keeps a brim away from objects without a brim", "[arrange2][integration][BrimArrange]")
+{
+    using namespace Slic3r;
+    constexpr double Brim = 8., Distance = 2., Eps = 0.05;
+
+    Model model;
+    for (int i = 0; i < 16; ++ i) {
+        ModelObject *mo = model.add_object();
+        mo->name = i % 2 == 0 ? "brim" : "no brim";
+        mo->add_volume(TriangleMesh(its_make_cube(20., 20., 10.)));
+        mo->add_instance();
+        if (i % 2 == 0) {
+            mo->config.set_key_value("brim_type", new ConfigOptionEnum<BrimType>(btOuterOnly));
+            mo->config.set_key_value("brim_width", new ConfigOptionFloat(Brim));
+            mo->config.set_key_value("brim_separation", new ConfigOptionFloat(0.));
+        }
+    }
+    DynamicPrintConfig cfg = DynamicPrintConfig::full_print_config();
+    cfg.set_deserialize_strict({ { "bed_shape", "0x0,350x0,350x350,0x350" }, { "brim_type", "no_brim" }, { "bed_keep_out_zones", "0,0,40,40;310,0,350,40" } });
+    const std::vector<BoundingBoxf> zones { BoundingBoxf(Vec2d(0, 0), Vec2d(40, 40)), BoundingBoxf(Vec2d(310, 0), Vec2d(350, 40)) };
+    Print print;
+    print.apply(model, cfg);
+    CHECK(arr2::model_object_brim(*model.objects[0], print.default_object_config()) == scaled(Brim));
+    CHECK(arr2::model_object_brim(*model.objects[1], print.default_object_config()) == 0);
+
+    auto strategy = GENERATE(arr2::ArrangeSettingsView::asAuto, arr2::ArrangeSettingsView::asPullToCenter);
+    INFO("Strategy = " << strategy);
+    auto geometry = GENERATE(arr2::ArrangeSettingsView::ghConvex, arr2::ArrangeSettingsView::ghBalanced);
+    INFO("Geometry = " << geometry);
+
+    auto settings = arr2::ArrangeSettings{}.set_distance_from_objects(Distance).set_arrange_strategy(strategy).set_geometry_handling(geometry);
+    arr2::SceneBuilder builder = arr2::SceneBuilder{}.set_model(model).set_fff_print(&print).set_arrange_settings(settings).set_bed(cfg, Point::new_scale(10, 10));
+    builder.set_wipe_tower_handlers(arr2::bed_keep_out_handlers(cfg, 1));
+    arr2::Scene scene{ std::move(builder) };
+    auto task   = arr2::ArrangeTask<arr2::ArrangeItem>::create(scene);
+    auto result = task->process_native(arr2::DummyCtl{});
+    REQUIRE(result);
+    REQUIRE(result->apply_on(scene.model()));
+
+    auto bbox = [](const ModelObject *mo) { const BoundingBoxf3 bb = mo->instance_bounding_box(0); return BoundingBoxf(to_2d(bb.min), to_2d(bb.max)); };
+    auto gap  = [](const BoundingBoxf &a, const BoundingBoxf &b) {
+        const double dx = std::max(0., std::max(a.min.x() - b.max.x(), b.min.x() - a.max.x()));
+        const double dy = std::max(0., std::max(a.min.y() - b.max.y(), b.min.y() - a.max.y()));
+        return std::sqrt(dx * dx + dy * dy);
+    };
+    double min_brim_brim = std::numeric_limits<double>::max();
+    for (size_t i = 0; i < model.objects.size(); ++ i) {
+        const BoundingBoxf a      = bbox(model.objects[i]);
+        const bool         brim_a = i % 2 == 0;
+        for (const BoundingBoxf &zone : zones)
+            CHECK(gap(a, zone) > (brim_a ? Brim : 0.) + Distance / 2. - Eps);
+        for (size_t j = i + 1; j < model.objects.size(); ++ j) {
+            const double d      = gap(a, bbox(model.objects[j]));
+            const bool   brim_b = j % 2 == 0;
+            INFO("objects " << i << " and " << j);
+            if (brim_a != brim_b)
+                CHECK(d > Brim + Distance - Eps);
+            else
+                CHECK(d > Distance - Eps);
+            if (brim_a && brim_b)
+                min_brim_brim = std::min(min_brim_brim, d);
+        }
+    }
+    // Brims of neighbours may merge: two parts with a brim are not kept a brim width apart.
+    CHECK(min_brim_brim < Brim);
+}
