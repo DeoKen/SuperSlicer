@@ -883,8 +883,11 @@ autosave `Body1_ABS_SuperSlicer.3mf`; that autosave opened exports `Body1_ABS_Su
 A name that already ends with what the file name template adds (copies saved before the name was kept, a project
 saved under its G-code's name, the time stamp of a backup) is used without those additions, so the name never grows.
 
-File > Recent projects shows the newest backups of the last 2 G-code names (one per name) and the newest autosave, so
-the copies don't push your own projects out of the list. The list now holds 10 projects (stock 9; the 10th has the
+File > Recent projects shows the newest backups of the last 2 G-code names (one per name), so the backups don't push
+your own projects out of the list: the two backup entries are two different projects, a backup of a third project
+replaces the older of the two. Autosaves are normal entries: each one stays, exporting the same name again moves it
+to the top. Up to 30 entries are remembered (stock: only the shown ones), so when an entry is removed (an older
+backup replaced, a missing file removed) the next older one moves up and the menu stays full. The list now holds 10 projects (stock 9; the 10th has the
 shortcut 0) and shows only the parent folder and the file name (`Voron\part.3mf`); backups show as
 `Backup: <file name>`.
 
@@ -904,17 +907,16 @@ says so and the G-code is exported anyway.
 
 The count and each folder row are greyed out while their check box is off. Older backups are deleted when there are
 more than "Project backups kept", newest by the time stamp in the name; only files matching the backup name pattern
-are ever deleted, so other 3mf files in a chosen folder (autosaves included) are safe. In Recent projects any other
-3mf in the autosave folder counts as an autosave, so your own projects stored there leave the list when an autosave
-is added (the files are not touched). A backup counts as one only in the current backups folder: after changing the
+are ever deleted, so other 3mf files in a chosen folder (autosaves included) are safe. A backup counts as one only in the current backups folder: after changing the
 folder, older backups show as normal entries.
 
 **How it works.** `Plater::priv::save_export_project_copy()` (Plater.cpp), called from `Plater::priv::export_gcode()`
 (single export and print host upload) and from `export_all_gcodes()` / `connect_gcode_all()`, before the export is
 scheduled. It writes the model and `full_config_secure()` with `store_3mf()` and a thumbnail, as `export_3mf()` does,
 without `set_project_filename()`; one thumbnail for both copies. `MainFrame::replace_in_recent_projects()` drops the
-older backups / autosave from the recent list before adding the new one. `RecentProjectsHistory` (MainFrame.hpp, a
-`wxFileHistory` of 10) relabels the menu after every change, `is_export_project_backup()` (Plater.cpp) tells the
+older backups from the recent list before adding the new one; autosaves go through `add_to_recent_projects()`. `RecentProjectsHistory` (MainFrame.hpp, a
+`wxFileHistory` of 10) keeps all remembered entries (30) in its own list, rebuilds the 10 shown from it and relabels
+the menu after every change; `[recent_projects]` in the app config stores all 30, the backup rule applies to all 30; `is_export_project_backup()` (Plater.cpp) tells the
 backups. `AppConfig::get_recent_projects()` sorts by the key number (with 10 entries the `[recent_projects]` key "10"
 sorted before "2"). The name the G-code was named after (`Plater::priv::output_filename_base()`: the kept one, else the
 project's, else the first printable object's) is saved in the copies as `Model::output_filename_base` (3mf metadata
@@ -927,9 +929,11 @@ when saving under another name, a new project clears it. No change to slicing or
 bar still shows the open project (with its `*` if modified). Export 11 times: 10 copies left, the oldest deleted, a
 non-matching 3mf in the folder kept. Set "Project backups kept" to 3 and export: 3 left. Turn on autosave without a
 folder: warning notification, the backup is still saved. Set the autosave folder and export twice with the same name:
-one `<name>.3mf` with the newer date; Recent projects shows it and the newest backup. Export A, B, A, C: Recent
+one `<name>.3mf` with the newer date; Recent projects shows it once, on top. Autosave A, B, C: all three in Recent
+projects, C on top; export A again: A moves to the top, B and C stay. Export A, B, A, C: Recent
 projects shows `Backup:` entries of C and A only, newest first. Open 11 projects: 10 entries, the order kept after a
-restart. Send to printer: copies named
+restart. With 10 entries, export a backup of a third name: still 10 entries (the oldest hidden one moves up). Rename a
+listed project on disk, click it, answer Yes: still 10 entries. Send to printer: copies named
 after the upload file name. Set a folder to a read-only path: warning notification, G-code still exported. Turn both
 check boxes off: no copy. Export with a template adding to `{input_filename_base}`, open the autosave, export again:
 the same G-code and autosave name. `libslic3r_tests "[3mf]"`: the kept name is saved and loaded.

@@ -60,17 +60,27 @@ enum QuickSlice
 };
 
 // File > Recent projects: labels with the parent folder and the file name only, "Backup: <file name>" for the project
-// backups (Plater.cpp, is_export_project_backup()).
+// backups (Plater.cpp, is_export_project_backup()). The menu shows the newest max_files; up to reserve_files are
+// remembered, so the menu fills up again from the older ones when entries are removed.
 class RecentProjectsHistory : public wxFileHistory
 {
 public:
-    static constexpr size_t max_files = 10;
+    static constexpr size_t max_files     = 10;
+    static constexpr size_t reserve_files = 30;
     RecentProjectsHistory() : wxFileHistory(max_files) {}
-    void AddFileToHistory(const wxString &file) override { wxFileHistory::AddFileToHistory(file); update_labels(); }
-    void RemoveFileFromHistory(size_t i) override { wxFileHistory::RemoveFileFromHistory(i); update_labels(); }
+    void AddFileToHistory(const wxString &file) override;
+    // i = index in the menu.
+    void RemoveFileFromHistory(size_t i) override;
+    // Removes the remembered files (menu and reserve) for which is_removed() returns true.
+    void remove_files(const std::function<bool(const wxString&)> &is_removed);
+    // All remembered files, newest first; the menu shows the first max_files.
+    const std::vector<wxString>& all_files() const { return m_all; }
 
 private:
+    void update_menu();
     void update_labels();
+
+    std::vector<wxString> m_all;
 };
 
 struct PresetTab {

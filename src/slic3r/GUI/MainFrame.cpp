@@ -1469,13 +1469,7 @@ void MainFrame::init_menubar_as_editor()
                 if (msg.ShowModal() == wxID_YES)
                 {
                     m_recent_projects.RemoveFileFromHistory(file_id);
-                        std::vector<std::string> recent_projects;
-                        size_t count = m_recent_projects.GetCount();
-                        for (size_t i = 0; i < count; ++i)
-                        {
-                            recent_projects.push_back(into_u8(m_recent_projects.GetHistoryFile(i)));
-                        }
-                    wxGetApp().app_config->set_recent_projects(recent_projects);
+                    wxGetApp().app_config->set_recent_projects(this->recent_projects());
                 }
             }
             }, wxID_FILE1, wxID_FILE1 + int(RecentProjectsHistory::max_files) - 1);
@@ -2303,22 +2297,52 @@ void MainFrame::add_to_recent_projects(const wxString& filename)
     if (wxFileExists(filename))
     {
         m_recent_projects.AddFileToHistory(filename);
-        std::vector<std::string> recent_projects;
-        size_t count = m_recent_projects.GetCount();
-        for (size_t i = 0; i < count; ++i)
-        {
-            recent_projects.push_back(into_u8(m_recent_projects.GetHistoryFile(i)));
-        }
-        wxGetApp().app_config->set_recent_projects(recent_projects);
+        wxGetApp().app_config->set_recent_projects(recent_projects());
     }
 }
 
 std::vector<std::string> MainFrame::recent_projects() const
 {
     std::vector<std::string> out;
-    for (size_t i = 0; i < m_recent_projects.GetCount(); ++ i)
-        out.emplace_back(into_u8(m_recent_projects.GetHistoryFile(i)));
+    for (const wxString &file : m_recent_projects.all_files())
+        out.emplace_back(into_u8(file));
     return out;
+}
+
+void RecentProjectsHistory::AddFileToHistory(const wxString &file)
+{
+    const wxFileName file_name(file);
+    remove_files([&file_name](const wxString &f) { return file_name.SameAs(wxFileName(f)); });
+    m_all.insert(m_all.begin(), file);
+    if (m_all.size() > reserve_files)
+        m_all.resize(reserve_files);
+    update_menu();
+}
+
+void RecentProjectsHistory::RemoveFileFromHistory(size_t i)
+{
+    if (i < m_all.size()) {
+        m_all.erase(m_all.begin() + i);
+        update_menu();
+    }
+}
+
+void RecentProjectsHistory::remove_files(const std::function<bool(const wxString&)> &is_removed)
+{
+    const size_t old_size = m_all.size();
+    m_all.erase(std::remove_if(m_all.begin(), m_all.end(), is_removed), m_all.end());
+    if (m_all.size() != old_size)
+        update_menu();
+}
+
+void RecentProjectsHistory::update_menu()
+{
+    // Rebuilds the base list (and its menu items) from the newest max_files.
+    while (wxFileHistory::GetCount() > 0)
+        wxFileHistory::RemoveFileFromHistory(wxFileHistory::GetCount() - 1);
+    for (size_t i = std::min(m_all.size(), max_files); i > 0; -- i)
+        wxFileHistory::AddFileToHistory(m_all[i - 1]);
+    update_labels();
 }
 
 void RecentProjectsHistory::update_labels()
@@ -2346,9 +2370,7 @@ void RecentProjectsHistory::update_labels()
 
 void MainFrame::replace_in_recent_projects(const wxString& filename, const std::function<bool(const std::string&)>& is_replaced)
 {
-    for (size_t i = m_recent_projects.GetCount(); i > 0; -- i)
-        if (is_replaced(into_u8(m_recent_projects.GetHistoryFile(i - 1))))
-            m_recent_projects.RemoveFileFromHistory(i - 1);
+    m_recent_projects.remove_files([&is_replaced](const wxString &file) { return is_replaced(into_u8(file)); });
     // Also stores the list in the app config.
     add_to_recent_projects(filename);
 }

@@ -529,8 +529,8 @@ void PreferencesDialog::build()
 			L("Autosave the project at every G-code export"),
 			L("If enabled, every G-code export and every upload to a printer also saves the project (3mf) into the "
 			  "project autosave folder, named as the G-code file (<name>.3mf), replacing the previous file with the same "
-			  "name. Nothing is ever deleted. Nothing is saved until a folder is set. The newest autosave is shown in "
-			  "Recent projects."),
+			  "name. Nothing is ever deleted. Nothing is saved until a folder is set. Every autosave is shown in "
+			  "Recent projects like a project you saved."),
 			app_config->get_bool("export_project_autosave"));
 	}
 

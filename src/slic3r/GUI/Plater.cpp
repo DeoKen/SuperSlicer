@@ -2824,8 +2824,8 @@ void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
         }
     };
 
-    // "Recent projects" shows the newest backups of the last 2 G-code names and the newest autosave, so the copies don't
-    // push the user's own projects out of the list.
+    // "Recent projects" shows the newest backups of the last 2 G-code names, so the backups don't push the user's own
+    // projects out of the list, and the autosaves as normal entries.
     if (backup) {
         const fs::path dir  = export_project_backups_dir();
         fs::path       name = gcode_name;
@@ -2866,14 +2866,9 @@ void Plater::priv::save_export_project_copy(const fs::path &gcode_path)
         fs::path       name = gcode_name;
         name += ".3mf";
         const fs::path path = save(dir, name, [](const fs::path&) {});
+        // A normal recent entry: each autosave stays in the list, the same name again moves to the top.
         if (!path.empty())
-            wxGetApp().mainframe->replace_in_recent_projects(from_path(path), [&dir](const std::string &recent) {
-                // Autosaves have no name pattern: any other 3mf in the autosave folder counts as an autosave here.
-                const fs::path p = into_path(from_u8(recent));
-                boost::system::error_code ec;
-                return fs::equivalent(p.parent_path(), dir, ec) && boost::iequals(p.extension().string(), ".3mf") &&
-                       !std::regex_match(p.filename().string(), export_project_copy_regex);
-            });
+            wxGetApp().mainframe->add_to_recent_projects(from_path(path));
     }
 }
 
