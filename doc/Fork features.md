@@ -763,15 +763,15 @@ seam painting: a new left toolbar tool "Brim painting" (after Fuzzy skin paintin
 - **Enforce brim** (left mouse button): a brim along the painted part of the bottom edge. Works also with the brim type
   "No brim", so a part can have a brim only at its corners or along one side.
 - **Block brim** (right mouse button): no brim there, with any brim type (outer and inner brim).
-- Shift + left mouse button removes the painting, "Remove all selection" clears it. Brush size and shape as in the
-  seam painting.
+- Shift + left mouse button removes the painting, "Remove all selection" clears it. Brush size as in the seam
+  painting; the brush is always the circle (paints the facets facing you), the sphere shape was removed (2026-10-22).
 - **Tool type: Edge** (default) or **Brush**. Edge: the bottom edge under the cursor is highlighted (yellow) from corner
   to corner; a click paints all of it (left enforce, right block, Shift remove). A corner is a turn sharper than the
   "Corner angle" (default 30 degrees), so curves and fillets count as one edge and a round outline is painted all around.
   Brush: the stock painting brush.
 - "First layer only" (on by default): the part is cut at the first layer height (the only layer the brim uses), the
-  rest is hidden and can't be painted; the cut is see-through, so from above the Sphere brush paints the bottom face
-  through it (the Circle brush paints only facets facing you: look from below). Unticked: the whole part and the usual
+  rest is hidden and can't be painted; the cut is see-through; the brush paints only facets facing you, so look from
+  below to paint the bottom face. Unticked: the whole part and the usual
   clipping of view slider.
 
 Paint the bottom edge: the side walls near the bed or the bottom face. Painting higher up the walls does nothing (only

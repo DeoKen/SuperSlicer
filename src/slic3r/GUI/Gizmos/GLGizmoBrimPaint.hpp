@@ -13,7 +13,11 @@ class GLGizmoBrimPaint : public GLGizmoPainterBase
 {
 public:
     GLGizmoBrimPaint(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id)
-        : GLGizmoPainterBase(parent, icon_filename, sprite_id) {}
+        : GLGizmoPainterBase(parent, icon_filename, sprite_id)
+    {
+        // The brush is the circle only (no sphere): it paints the facets facing the camera.
+        m_cursor_type = TriangleSelector::CursorType::CIRCLE;
+    }
 
     void render_painter_gizmo() override;
     // Edge tool: the mouse events go to it, else to the brush (GLGizmoPainterBase).

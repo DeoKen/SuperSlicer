@@ -302,7 +302,6 @@ bool GLGizmoBrimPaint::on_init()
     m_desc["clipping_of_view"] = _u8L("Clipping of view") + ": ";
     m_desc["reset_direction"]  = _u8L("Reset direction");
     m_desc["cursor_size"]      = _u8L("Brush size") + ": ";
-    m_desc["cursor_type"]      = _u8L("Brush shape") + ": ";
     m_desc["enforce_caption"]  = _u8L("Left mouse button") + ": ";
     m_desc["enforce"]          = _u8L("Enforce brim");
     m_desc["tool_type"]        = _u8L("Tool type") + ": ";
@@ -316,15 +315,12 @@ bool GLGizmoBrimPaint::on_init()
     m_desc["remove_caption"]   = _u8L("Shift + Left mouse button") + ": ";
     m_desc["remove"]           = _u8L("Remove selection");
     m_desc["remove_all"]       = _u8L("Remove all selection");
-    m_desc["circle"]           = _u8L("Circle");
-    m_desc["sphere"]           = _u8L("Sphere");
     m_desc["no_brim_width"]    = _u8L("Brim width is 0: the painted brim needs a brim width (Print Settings > Skirt and brim, "
                                       "or a per-object setting).");
     m_desc["raft"]             = _u8L("No brim is made on a raft.");
     m_desc["first_layer_only"] = _u8L("First layer only");
     m_desc["first_layer_only_tooltip"] = _u8L("Shows and paints only the first layer of the part, the only one the brim uses. "
-                                              "From above, the Sphere brush paints the bottom face through the cut; "
-                                              "the Circle brush paints only facets facing you (look from below).");
+                                              "The brush paints only facets facing you: look from below to paint the bottom face.");
     m_desc["hint"]             = _u8L("Paint the bottom edge of the part (the side walls near the bed or the bottom face). "
                                       "Enforced: a brim along the painted edge, also with the brim type \"No brim\". "
                                       "Blocked: no brim there. The brim width and separation come from the print settings.");
@@ -379,10 +375,6 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
                                            + m_imgui->scaled(1.5f);
     const float cursor_size_slider_left = ImGuiPureWrap::calc_text_size(m_desc.at("cursor_size")).x + m_imgui->scaled(1.f);
 
-    const float cursor_type_radio_left   = ImGuiPureWrap::calc_text_size(m_desc["cursor_type"]).x + m_imgui->scaled(1.f);
-    const float cursor_type_radio_sphere = ImGuiPureWrap::calc_text_size(m_desc["sphere"]).x + m_imgui->scaled(2.5f);
-    const float cursor_type_radio_circle = ImGuiPureWrap::calc_text_size(m_desc["circle"]).x + m_imgui->scaled(2.5f);
-
     const float button_width = ImGuiPureWrap::calc_text_size(m_desc.at("remove_all")).x + m_imgui->scaled(1.f);
     const float minimal_slider_width = m_imgui->scaled(4.f);
 
@@ -400,7 +392,6 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
     float       window_width       = minimal_slider_width + sliders_left_width + slider_icon_width;
     window_width = std::max(window_width, total_text_max);
     window_width = std::max(window_width, button_width);
-    window_width = std::max(window_width, cursor_type_radio_left + cursor_type_radio_sphere + cursor_type_radio_circle);
 
     auto draw_text_with_caption = [&caption_max](const std::string& caption, const std::string& text) {
         ImGuiPureWrap::text_colored(ImGuiPureWrap::COL_ORANGE_LIGHT, caption);
@@ -467,26 +458,6 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
         ImGui::SameLine(sliders_left_width);
         ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
         m_imgui->slider_float("##cursor_radius", &m_cursor_radius, CursorRadiusMin, CursorRadiusMax, "%.2f", 1.0f, true, _L("Alt + Mouse wheel"));
-
-        ImGui::AlignTextToFramePadding();
-        ImGuiPureWrap::text(m_desc.at("cursor_type"));
-
-        float cursor_type_offset = cursor_type_radio_left + (window_width - cursor_type_radio_left - cursor_type_radio_sphere - cursor_type_radio_circle + m_imgui->scaled(0.5f)) / 2.f;
-        ImGui::SameLine(cursor_type_offset);
-        ImGui::PushItemWidth(cursor_type_radio_sphere);
-        if (ImGuiPureWrap::radio_button(m_desc["sphere"], m_cursor_type == TriangleSelector::CursorType::SPHERE))
-            m_cursor_type = TriangleSelector::CursorType::SPHERE;
-
-        if (ImGui::IsItemHovered())
-            ImGuiPureWrap::tooltip(_u8L("Paints all facets inside, regardless of their orientation."), max_tooltip_width);
-
-        ImGui::SameLine(cursor_type_offset + cursor_type_radio_sphere);
-        ImGui::PushItemWidth(cursor_type_radio_circle);
-        if (ImGuiPureWrap::radio_button(m_desc["circle"], m_cursor_type == TriangleSelector::CursorType::CIRCLE))
-            m_cursor_type = TriangleSelector::CursorType::CIRCLE;
-
-        if (ImGui::IsItemHovered())
-            ImGuiPureWrap::tooltip(_u8L("Ignores facets facing away from the camera."), max_tooltip_width);
     }
 
     ImGui::Separator();
