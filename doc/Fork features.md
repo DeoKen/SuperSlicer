@@ -1225,6 +1225,26 @@ the last change. On the Print Settings tab or in the Preview: slicing right away
 
 ---
 
+## 33. Delete all: new project or erase objects
+
+**What it does.** As SuperSlicer: "Delete all" (the garbage can in the 3D view toolbar, Ctrl+Del, Edit > Delete All)
+asks what to do: **New Project** (default button), **Erase all objects** (keeps the project, its name and the presets;
+undoable), or Cancel. With no objects on the plate it asks "Create a new project?". Stock PrusaSlicer erased the
+objects without asking from the toolbar and Ctrl+Del, and asked "continue?" from the menu.
+
+**Settings.** Preferences > General > "Ask for 'new project' on 'Delete all'" (`default_action_delete_all` in
+PrusaSlicer.ini, default on). Off: every "Delete all" erases the objects without asking.
+
+**How it works.** `EVT_GLTOOLBAR_DELETE_ALL` (toolbar and Ctrl+Del) now calls `Plater::reset_with_confirm()`, like the
+menu. "New Project" calls `Plater::new_project()` (it still asks about an unsaved project and modified presets);
+"Erase all objects" calls `delete_all_objects_from_model()`. No change to slicing or G-code.
+
+**How to test.** Manual: load two objects, click the garbage can: the three-button dialog shows. "Erase all objects":
+plate empty, project name kept, Ctrl+Z brings them back. "New Project": new untitled project. Same with Ctrl+Del and the
+menu. Turn the preference off: the garbage can erases without a dialog.
+
+---
+
 ## Testing
 
 - Build and run all tests: see CLAUDE.md. `ctest -C Release --output-on-failure` in `build\`, or a single test program,

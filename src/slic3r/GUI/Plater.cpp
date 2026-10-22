@@ -842,8 +842,8 @@ void Plater::priv::init()
         // 3DScene/Toolbar:
         view3D_canvas->Bind(EVT_GLTOOLBAR_ADD, &priv::on_action_add, this);
         view3D_canvas->Bind(EVT_GLTOOLBAR_DELETE, [this](SimpleEvent&) { q->remove_selected(); });
-        view3D_canvas->Bind(EVT_GLTOOLBAR_DELETE_ALL, [this](SimpleEvent&) { delete_all_objects_from_model(); });
-//        view3D_canvas->Bind(EVT_GLTOOLBAR_DELETE_ALL, [q](SimpleEvent&) { q->reset_with_confirm(); });
+        // As SuperSlicer: ask "new project or erase all objects" (Preferences: default_action_delete_all).
+        view3D_canvas->Bind(EVT_GLTOOLBAR_DELETE_ALL, [this](SimpleEvent&) { q->reset_with_confirm(); });
         view3D_canvas->Bind(EVT_GLTOOLBAR_ARRANGE, [this](SimpleEvent&) { this->q->arrange(false); });
         view3D_canvas->Bind(EVT_GLTOOLBAR_ARRANGE_CURRENT_BED, [this](SimpleEvent&) { this->q->arrange(true); });
         view3D_canvas->Bind(EVT_GLTOOLBAR_COPY, [this](SimpleEvent&) { q->copy_selection_to_clipboard(); });
@@ -5726,10 +5726,27 @@ void Plater::remove(size_t obj_idx) { p->remove(obj_idx); }
 void Plater::reset() { p->reset(); }
 void Plater::reset_with_confirm()
 {
-    if (p->model.objects.empty() ||
-        //wxMessageDialog(static_cast<wxWindow*>(this), _L("All objects will be removed, continue?"), wxString(SLIC3R_APP_NAME) + " - " + _L("Delete all"), wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxCENTRE).ShowModal() == wxID_YES)
-        MessageDialog(static_cast<wxWindow*>(this), _L("All objects will be removed, continue?"), wxString(SLIC3R_APP_NAME) + " - " + _L("Delete all"), wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxCENTRE).ShowModal() == wxID_YES)
-        reset();
+    // As SuperSlicer: offer a new project or erasing the objects only. Without the preference, erase without asking.
+    if (!get_app_config()->get_bool("default_action_delete_all")) {
+        p->delete_all_objects_from_model();
+        return;
+    }
+    const wxString caption = wxString(SLIC3R_APP_NAME) + " - " + _L("Delete all");
+    if (!p->model.objects.empty()) {
+        MessageDialog dialog(static_cast<wxWindow*>(this), _L("All objects will be removed, continue?"), caption, wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxCENTRE);
+#ifdef _WIN32
+        dialog.SetButtonLabel(wxID_NO, _L("Erase all objects"));
+        dialog.SetButtonLabel(wxID_YES, _L("New Project"), true);
+#else
+        dialog.SetYesNoCancelLabels(_L("New Project"), _L("Erase all objects"), _L("Cancel"));
+#endif
+        const int result = dialog.ShowModal();
+        if (result == wxID_YES)
+            new_project();
+        else if (result == wxID_NO)
+            p->delete_all_objects_from_model();
+    } else if (MessageDialog(static_cast<wxWindow*>(this), _L("Create a new project?"), caption, wxYES | wxCANCEL | wxYES_DEFAULT | wxCENTRE).ShowModal() == wxID_YES)
+        new_project();
 }
 
 bool Plater::delete_object_from_model(size_t obj_idx) { return p->delete_object_from_model(obj_idx); }

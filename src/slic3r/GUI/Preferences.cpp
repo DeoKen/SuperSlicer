@@ -504,6 +504,12 @@ void PreferencesDialog::build()
 		L("Clear Undo / Redo stack on new project or when an existing project is loaded."),
 		app_config->get_bool("clear_undo_redo_stack_on_new_project"));
 
+	append_bool_option(m_optgroup_general, "default_action_delete_all",
+		L("Ask for 'new project' on 'Delete all'"),
+		L("When you click on the garbage can (or Ctrl+Del), ask whether to start a new project or only erase all objects. "
+		  "If disabled, all objects are erased without asking."),
+		app_config->get_bool("default_action_delete_all"));
+
 #if defined(_WIN32) || defined(__APPLE__)
 	append_bool_option(m_optgroup_general, "use_legacy_3DConnexion",
 		L("Enable support for legacy 3DConnexion devices"),

@@ -173,6 +173,10 @@ void AppConfig::set_defaults()
 
         if (get("clear_undo_redo_stack_on_new_project").empty())
             set("clear_undo_redo_stack_on_new_project", "1");
+
+        // As SuperSlicer: "Delete all" asks "new project or erase all objects".
+        if (get("default_action_delete_all").empty())
+            set("default_action_delete_all", "1");
     }
     else {
 #ifdef _WIN32
