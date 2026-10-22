@@ -366,6 +366,10 @@ enum class ModelVolumeType : int {
     PARAMETER_MODIFIER,
     SUPPORT_BLOCKER,
     SUPPORT_ENFORCER,
+    // Seam attractors (SuperSlicer): the seams go to the point of each loop nearest to the attractor. Sphere: on every
+    // layer, the sphere nearest in Z wins. Cylinder: only on the layers within its height, at the center of its section.
+    SEAM_POSITION_CENTER,
+    SEAM_POSITION_CENTER_Z,
 };
 
 // A printable object, possibly having multiple print volumes (each with its own set of parameters and materials),
@@ -853,6 +857,7 @@ public:
 	bool                is_support_enforcer()   const { return m_type == ModelVolumeType::SUPPORT_ENFORCER; }
 	bool                is_support_blocker()    const { return m_type == ModelVolumeType::SUPPORT_BLOCKER; }
 	bool                is_support_modifier()   const { return m_type == ModelVolumeType::SUPPORT_BLOCKER || m_type == ModelVolumeType::SUPPORT_ENFORCER; }
+    bool                is_seam_attractor()     const { return m_type == ModelVolumeType::SEAM_POSITION_CENTER || m_type == ModelVolumeType::SEAM_POSITION_CENTER_Z; }
     bool                is_text()               const { return text_configuration.has_value(); }
     bool                is_svg() const { return emboss_shape.has_value()  && !text_configuration.has_value(); }
     bool                is_the_only_one_part() const; // behave like an object

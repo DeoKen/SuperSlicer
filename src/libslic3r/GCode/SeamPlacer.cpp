@@ -175,6 +175,11 @@ void Placer::init(
     this->params = params;
     this->seams_per_object = precalculate_seams(params, std::move(perimeters_for_precalculation), throw_if_canceled);
 
+    this->attractors_per_object.clear();
+    for (const PrintObject *print_object : objects)
+        if (Attractor::LayerAttractors attractors = Attractor::get_layer_attractors(*print_object); ! attractors.empty())
+            this->attractors_per_object.emplace(print_object, std::move(attractors));
+
     BOOST_LOG_TRIVIAL(debug) << "SeamPlacer: init: end";
 }
 
@@ -532,6 +537,14 @@ int get_perimeter_count(const Layer *layer){
     return count;
 }
 
+const std::vector<Vec2d> *Placer::attractors(const PrintObject *print_object, size_t layer_index) const
+{
+    const auto it = this->attractors_per_object.find(print_object);
+    if (it == this->attractors_per_object.end() || layer_index >= it->second.size() || it->second[layer_index].empty())
+        return nullptr;
+    return &it->second[layer_index];
+}
+
 boost::variant<Point, Scarf::Scarf> Placer::place_seam(
     const Layer *layer, const PrintRegion *region, const ExtrusionLoop &loop, const bool flipped, const Point &last_pos
 ) const {
@@ -544,13 +557,21 @@ boost::variant<Point, Scarf::Scarf> Placer::place_seam(
 
     const bool thick_bridges{po->config().thick_bridges.value};
 
+    // Seam attractors (fork): the seam of the perimeter goes to the point nearest to the attractor, whatever
+    // seam_position is (painting still wins).
+    const std::vector<Vec2d> *layer_attractors{this->attractors(po, layer_index)};
+    auto attract = [layer_attractors](const SeamChoice &choice, const Perimeters::Perimeter &perimeter) {
+        return layer_attractors == nullptr || perimeter.is_degenerate ? choice :
+            Attractor::choose_seam_point(perimeter, *layer_attractors);
+    };
+
     if (po->config().seam_position.value == spNearest) {
         const std::vector<Perimeters::BoundedPerimeter> &perimeters{
             this->perimeters_per_layer.at(po)[layer_index]};
         const auto [seam_choice, perimeter_index] =
             place_seam_near(perimeters, loop, last_pos, this->params.max_nearest_detour);
         return finalize_seam_position(
-            loop, region, seam_choice, perimeters[perimeter_index].perimeter,
+            loop, region, attract(seam_choice, perimeters[perimeter_index].perimeter), perimeters[perimeter_index].perimeter,
             this->params.staggered_inner_seams, flipped, thick_bridges
         );
     } else {
@@ -568,7 +589,7 @@ boost::variant<Point, Scarf::Scarf> Placer::place_seam(
                     seams_on_perimeters[0].perimeter.is_hole ? seams_on_perimeters[1] :
                                                                seams_on_perimeters[0]};
                 return finalize_seam_position(
-                    loop, region, seam_perimeter_choice.choice, seam_perimeter_choice.perimeter,
+                    loop, region, attract(seam_perimeter_choice.choice, seam_perimeter_choice.perimeter), seam_perimeter_choice.perimeter,
                     this->params.staggered_inner_seams, flipped, thick_bridges
                 );
             }
@@ -577,7 +598,7 @@ boost::variant<Point, Scarf::Scarf> Placer::place_seam(
         const SeamPerimeterChoice &seam_perimeter_choice{
             choose_closest_seam(seams_on_perimeters, Geometry::to_polygon(loop))};
         return finalize_seam_position(
-            loop, region, seam_perimeter_choice.choice, seam_perimeter_choice.perimeter,
+            loop, region, attract(seam_perimeter_choice.choice, seam_perimeter_choice.perimeter), seam_perimeter_choice.perimeter,
             this->params.staggered_inner_seams, flipped, thick_bridges
         );
     }

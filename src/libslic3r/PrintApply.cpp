@@ -42,7 +42,7 @@ using Slic3r::FullSpectrum::VirtualExtruderGradientStop;
 namespace Slic3r {
 
 // Add or remove support modifier ModelVolumes from model_object_dst to match the ModelVolumes of model_object_new
-// in the exact order and with the same IDs.
+// in the exact order and with the same IDs. Also the seam attractors (fork), which are synchronized the same way.
 // It is expected, that the model_object_dst already contains the non-support volumes of model_object_new in the correct order.
 // Friend to ModelVolume to allow copying.
 // static is not accepted by gcc if declared as a friend of ModelObject.
@@ -67,9 +67,11 @@ namespace Slic3r {
             it->second = true;
             ModelVolume *model_volume_dst = const_cast<ModelVolume*>(it->first);
             // For support modifiers, the type may have been switched from blocker to enforcer and vice versa.
-            assert((model_volume_dst->is_support_modifier() && model_volume_src->is_support_modifier()) || model_volume_dst->type() == model_volume_src->type());
+            // Seam attractors: from sphere to cylinder, or from / to a support modifier.
+            auto is_aux = [](const ModelVolume *mv) { return mv->is_support_modifier() || mv->is_seam_attractor(); };
+            assert((is_aux(model_volume_dst) && is_aux(model_volume_src)) || model_volume_dst->type() == model_volume_src->type());
             model_object_dst.volumes.emplace_back(model_volume_dst);
-            if (model_volume_dst->is_support_modifier()) {
+            if (is_aux(model_volume_dst)) {
                 // For support modifiers, the type may have been switched from blocker to enforcer and vice versa.
                 model_volume_dst->set_type(model_volume_src->type());
                 model_volume_dst->set_transformation(model_volume_src->get_transformation());
@@ -77,7 +79,7 @@ namespace Slic3r {
             assert(model_volume_dst->get_matrix().isApprox(model_volume_src->get_matrix()));
         } else {
             // The volume was not found in the old list. Create a new copy.
-            assert(model_volume_src->is_support_modifier());
+            assert(model_volume_src->is_support_modifier() || model_volume_src->is_seam_attractor());
             model_object_dst.volumes.emplace_back(new ModelVolume(*model_volume_src));
             model_object_dst.volumes.back()->set_model_object(&model_object_dst);
         }
@@ -1404,6 +1406,9 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                                           model_fuzzy_skin_data_changed(model_object, model_object_new);
         bool supports_differ            = model_volume_list_changed(model_object, model_object_new, ModelVolumeType::SUPPORT_BLOCKER) ||
                                           model_volume_list_changed(model_object, model_object_new, ModelVolumeType::SUPPORT_ENFORCER);
+        // Seam attractors (fork): added, removed, moved or switched sphere / cylinder.
+        bool seam_attractors_differ     = model_volume_list_changed(model_object, model_object_new,
+                                              { ModelVolumeType::SEAM_POSITION_CENTER, ModelVolumeType::SEAM_POSITION_CENTER_Z });
         bool layer_height_ranges_differ = ! layer_height_ranges_equal(model_object.layer_config_ranges, model_object_new.layer_config_ranges, model_object_new.layer_height_profile.empty());
         bool model_origin_translation_differ = model_object.origin_translation != model_object_new.origin_translation;
         auto print_objects_range        = print_object_status_db.get_range(model_object);
@@ -1452,6 +1457,14 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 }
             } else if (model_custom_seam_data_changed(model_object, model_object_new)) {
                 update_apply_status(this->invalidate_step(psGCodeExport));
+            }
+            // Seam attractors: only the G-code export reads them.
+            if (seam_attractors_differ) {
+                // First stop background processing before shuffling or deleting the ModelVolumes in the ModelObject's list.
+                this->call_cancel_callback();
+                update_apply_status(false);
+                update_apply_status(this->invalidate_step(psGCodeExport));
+                model_volume_list_update_supports(model_object, model_object_new);
             }
             // Paint-on brim: only the brim is made again (the painting is copied with the volume configs below), and the
             // supports, which keep away from the brim of a part with brim enforcers.

@@ -188,13 +188,15 @@ wxBitmapBundle* SettingsFactory::get_category_bitmap(const std::string& category
 //-------------------------------------
 
 // Note: id accords to type of the sub-object (adding volume), so sequence of the menu items is important
-static const constexpr std::array<std::pair<const char *, const char *>, 5> ADD_VOLUME_MENU_ITEMS = {{
+static const constexpr std::array<std::pair<const char *, const char *>, 7> ADD_VOLUME_MENU_ITEMS = {{
     //       menu_item Name              menu_item bitmap name
     {L("Add part"),              "add_part" },           // ~ModelVolumeType::MODEL_PART
     {L("Add negative volume"),   "add_negative" },       // ~ModelVolumeType::NEGATIVE_VOLUME
     {L("Add modifier"),          "add_modifier"},        // ~ModelVolumeType::PARAMETER_MODIFIER
     {L("Add support blocker"),   "support_blocker"},     // ~ModelVolumeType::SUPPORT_BLOCKER
     {L("Add support enforcer"),  "support_enforcer"},    // ~ModelVolumeType::SUPPORT_ENFORCER
+    {L("Seam attractor (sphere)"),   "seam"},            // ~ModelVolumeType::SEAM_POSITION_CENTER (fork)
+    {L("Seam attractor (cylinder)"), "seam"},            // ~ModelVolumeType::SEAM_POSITION_CENTER_Z (fork)
 }};
 
 // Note: id accords to type of the sub-object (adding volume), so sequence of the menu items is important
@@ -640,6 +642,10 @@ void MenuFactory::append_menu_items_add_volume(MenuType menu_type)
             menu->Destroy(item_id);
     }
 
+    // Seam attractors (fork): one submenu for both.
+    if (const auto seam_id = menu->FindItem(_L("Add seam attractor")); seam_id != wxNOT_FOUND)
+        menu->Destroy(seam_id);
+
     // Update "Height range Modifier" item (delete old & create new)
     if (const auto range_id = menu->FindItem(_L("Height range Modifier")); range_id != wxNOT_FOUND)
         menu->Destroy(range_id);
@@ -667,6 +673,8 @@ void MenuFactory::append_menu_items_add_volume(MenuType menu_type)
         auto& item = ADD_VOLUME_MENU_ITEMS[type];
         if (menu_type == mtObjectSLA && ModelVolumeType(type) == ModelVolumeType::PARAMETER_MODIFIER)
             continue;
+        if (ModelVolumeType(type) == ModelVolumeType::SEAM_POSITION_CENTER || ModelVolumeType(type) == ModelVolumeType::SEAM_POSITION_CENTER_Z)
+            continue;
         wxMenu* sub_menu = append_submenu_add_generic(menu, ModelVolumeType(type));
         append_submenu(menu, sub_menu, wxID_ANY, _(item.first), "", item.second,
             [type]() { 
@@ -675,8 +683,24 @@ void MenuFactory::append_menu_items_add_volume(MenuType menu_type)
             }, m_parent);
     }
 
-    if (menu_type == mtObjectFFF)
+    if (menu_type == mtObjectFFF) {
+        // Seam attractors (fork, SuperSlicer): the seams go to the point nearest to them.
+        wxMenu *sub_menu = new wxMenu;
+        for (const auto &[type, shape] : { std::make_pair(ModelVolumeType::SEAM_POSITION_CENTER, "SeamSphere"),
+                                           std::make_pair(ModelVolumeType::SEAM_POSITION_CENTER_Z, "SeamCylinder") }) {
+            const auto &item = ADD_VOLUME_MENU_ITEMS[int(type)];
+            append_menu_item(sub_menu, wxID_ANY, _(item.first),
+                type == ModelVolumeType::SEAM_POSITION_CENTER ?
+                    _L("The seams of every layer go to the point nearest to the sphere (the sphere nearest in height wins).") :
+                    _L("The seams of the layers within the cylinder's height go to the point nearest to its axis."),
+                [type = type, shape = shape](wxCommandEvent&) { obj_list()->load_generic_subobject(shape, type); }, item.second, nullptr,
+                []() { return obj_list()->is_instance_or_object_selected(); }, m_parent);
+        }
+        append_submenu(menu, sub_menu, wxID_ANY, _L("Add seam attractor"), "", "seam",
+            []() { return obj_list()->is_instance_or_object_selected(); }, m_parent);
+
         append_menu_item_layers_editing(menu);
+    }
 }
 
 wxMenuItem* MenuFactory::append_menu_item_layers_editing(wxMenu* menu)

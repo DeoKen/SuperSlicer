@@ -18,6 +18,7 @@
 #include "libslic3r/Point.hpp"
 #include "libslic3r/GCode/SeamPerimeters.hpp"
 #include "libslic3r/GCode/SeamChoice.hpp"
+#include "libslic3r/GCode/SeamAttractor.hpp"
 #include "libslic3r/GCode/ModelVisibility.hpp"
 
 namespace Slic3r::Seams {
@@ -62,6 +63,11 @@ private:
     Params params;
     ObjectSeams seams_per_object;
     ObjectLayerPerimeters perimeters_per_layer;
+    // Seam attractors (fork): only the objects that have some.
+    std::unordered_map<const PrintObject *, Attractor::LayerAttractors> attractors_per_object;
+
+    // The seam attractor points of the layer, nullptr if none applies.
+    const std::vector<Vec2d> *attractors(const PrintObject *print_object, size_t layer_index) const;
 };
 
 } // namespace Slic3r::Seams

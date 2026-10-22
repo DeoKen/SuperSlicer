@@ -233,6 +233,8 @@ const ColorRGBA GLVolume::NEGATIVE_VOLUME_COLOR     = { 0.2f, 0.2f, 0.2f, 0.5f }
 const ColorRGBA GLVolume::PARAMETER_MODIFIER_COLOR  = { 1.0, 1.0f, 0.2f, 0.5f };
 const ColorRGBA GLVolume::SUPPORT_BLOCKER_COLOR     = { 1.0f, 0.2f, 0.2f, 0.5f };
 const ColorRGBA GLVolume::SUPPORT_ENFORCER_COLOR    = { 0.2f, 0.2f, 1.0f, 0.5f };
+// Seam attractors (fork): the SuperSlicer color.
+const ColorRGBA GLVolume::SEAM_ATTRACTOR_COLOR      = { 0.8f, 0.9f, 0.2f, 0.5f };
 
 GLVolume::GLVolume(float r, float g, float b, float a)
     : m_sla_shift_z(0.0)
@@ -279,7 +281,8 @@ void GLVolume::set_render_color(bool force_transparent)
             set_render_color(HOVER_DESELECT_COLOR);
         else if (hover == HS_Select || selected) {
             const ColorRGBA rc = outside ? SELECTED_OUTSIDE_COLOR : SELECTED_COLOR;
-            if (color == NEGATIVE_VOLUME_COLOR || color == PARAMETER_MODIFIER_COLOR || color == SUPPORT_BLOCKER_COLOR || color == SUPPORT_ENFORCER_COLOR)
+            if (color == NEGATIVE_VOLUME_COLOR || color == PARAMETER_MODIFIER_COLOR || color == SUPPORT_BLOCKER_COLOR || color == SUPPORT_ENFORCER_COLOR ||
+                color == SEAM_ATTRACTOR_COLOR)
                 set_render_color(ColorRGBA(rc.r() * color.r(), rc.g() * color.g(), rc.b() * color.b(), rc.a() * color.a()));
             else
                 set_render_color(rc);
@@ -310,6 +313,8 @@ ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
         color = GLVolume::SUPPORT_BLOCKER_COLOR;
     else if (model_volume.is_support_enforcer())
         color = GLVolume::SUPPORT_ENFORCER_COLOR;
+    else if (model_volume.is_seam_attractor())
+        color = GLVolume::SEAM_ATTRACTOR_COLOR;
 
     return color;
 }

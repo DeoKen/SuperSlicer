@@ -1690,6 +1690,12 @@ static TriangleMesh create_mesh(const std::string& type_name, const BoundingBoxf
     else if (type_name == "Slab")
         // Sitting on the print bed, left front front corner at (0, 0).
         mesh = its_make_cube(bb.size().x() * 1.5, bb.size().y() * 1.5, bb.size().z() * 0.5);
+    else if (type_name == "SeamSphere")
+        // Seam attractor (fork): a small sphere.
+        mesh = its_make_sphere(2., PI / 18);
+    else if (type_name == "SeamCylinder")
+        // Seam attractor (fork): a thin cylinder as high as the object.
+        mesh = its_make_cylinder(1.5, std::max(bb.size().z(), 1.));
     return TriangleMesh(mesh);
 }
 
@@ -1739,13 +1745,23 @@ void ObjectList::load_generic_subobject(const std::string& type_name, const Mode
         // Slab: Lift to print bed and and push to the center of instance
         offset = Vec3d(inst_center.x(), inst_center.y(), 0.5 * mesh_bb.size().z() + instance_bb.min.z() - v->get_instance_offset().z());
     }
+    else if (new_volume->is_seam_attractor()) {
+        // Seam attractor: just behind the middle of the rear side (a rear seam to start with), the sphere at half height,
+        // the cylinder from the bed to the top.
+        const Vec3d inst_center = instance_bb.center();
+        offset = Vec3d(inst_center.x(), instance_bb.max.y() + 0.5 * mesh_bb.size().y(),
+                       type == ModelVolumeType::SEAM_POSITION_CENTER ? inst_center.z() : instance_bb.min.z() + 0.5 * mesh_bb.size().z()) -
+                 v->get_instance_offset();
+    }
     else {
         // Translate the new modifier to be pickable: move to the left front corner of the instance's bounding box, lift to print bed.
         offset = Vec3d(instance_bb.max.x(), instance_bb.min.y(), instance_bb.min.z()) + 0.5 * mesh_bb.size() - v->get_instance_offset();
     }
     new_volume->set_offset(v->get_instance_transformation().get_matrix_no_offset().inverse() * offset);
 
-    const wxString name = _L("Generic") + "-" + _(type_name);
+    const wxString name = type_name == "SeamSphere"   ? _L("Seam attractor") + "-" + _L("Sphere") :
+                          type_name == "SeamCylinder" ? _L("Seam attractor") + "-" + _L("Cylinder") :
+                          _L("Generic") + "-" + _(type_name);
     new_volume->name = into_u8(name);
     // set a default extruder value, since user can't add it manually
     new_volume->config.set_key_value("extruder", new ConfigOptionInt(0));
@@ -2888,7 +2904,8 @@ wxDataViewItem ObjectList::add_settings_item(wxDataViewItem parent_item, const D
     const bool is_object_settings = m_objects_model->GetItemType(parent_item) == itObject;
     if (!is_object_settings) {
         ModelVolumeType volume_type = m_objects_model->GetVolumeType(parent_item);
-        if (volume_type == ModelVolumeType::NEGATIVE_VOLUME || volume_type == ModelVolumeType::SUPPORT_BLOCKER || volume_type == ModelVolumeType::SUPPORT_ENFORCER)
+        if (volume_type == ModelVolumeType::NEGATIVE_VOLUME || volume_type == ModelVolumeType::SUPPORT_BLOCKER || volume_type == ModelVolumeType::SUPPORT_ENFORCER ||
+            volume_type == ModelVolumeType::SEAM_POSITION_CENTER || volume_type == ModelVolumeType::SEAM_POSITION_CENTER_Z)
             return ret;
     }
 
@@ -4361,6 +4378,13 @@ void ObjectList::change_part_type()
             names.Add(name);
         for (const ModelVolumeType  type_id : { ModelVolumeType::SUPPORT_BLOCKER, ModelVolumeType::SUPPORT_ENFORCER })
             types.emplace_back(type_id);
+        // Seam attractors (fork).
+        if (printer_technology() != ptSLA) {
+            for (const wxString&        name    : { _L("Seam attractor (sphere)"),           _L("Seam attractor (cylinder)") })
+                names.Add(name);
+            for (const ModelVolumeType  type_id : { ModelVolumeType::SEAM_POSITION_CENTER, ModelVolumeType::SEAM_POSITION_CENTER_Z })
+                types.emplace_back(type_id);
+        }
     }
 
     int selection = 0;

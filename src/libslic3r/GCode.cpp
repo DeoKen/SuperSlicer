@@ -1036,8 +1036,8 @@ struct SeamPlacerCache
 };
 
 // Everything Seams::Placer::init() depends on: the object steps (any re-slice or new perimeters gets new timestamps; the
-// only region data it reads, the external perimeter width, invalidates the perimeters), seam_position, the seam painting and
-// the object transformation (seam painting and seam_position only invalidate the G-code export step), and the config
+// only region data it reads, the external perimeter width, invalidates the perimeters), seam_position, the seam painting,
+// the seam attractors and the object transformation (these only invalidate the G-code export step), and the config
 // values read by Seams::Placer::get_params(). The region settings used when placing a seam (scarf seam...) are read at
 // export time, not cached.
 static std::string seam_placer_cache_key(const Print &print)
@@ -1054,8 +1054,16 @@ static std::string seam_placer_cache_key(const Print &print)
         const Transform3d trafo = object->trafo_centered();
         for (int i = 0; i < 16; ++ i)
             key << ' ' << trafo.data()[i];
-        for (const ModelVolume *volume : object->model_object()->volumes)
+        for (const ModelVolume *volume : object->model_object()->volumes) {
             key << " v" << volume->id().id << ':' << volume->seam_facets.timestamp();
+            // Seam attractors: their type, mesh and placement.
+            if (volume->is_seam_attractor()) {
+                key << " a" << int(volume->type()) << ':' << volume->mesh().its.vertices.size();
+                const Transform3d matrix = volume->get_matrix();
+                for (int i = 0; i < 16; ++ i)
+                    key << ' ' << matrix.data()[i];
+            }
+        }
         key << " seam_position " << int(object->config().seam_position.value) << '\n';
     }
     return key.str();

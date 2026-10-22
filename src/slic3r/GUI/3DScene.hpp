@@ -77,6 +77,7 @@ public:
     static const ColorRGBA PARAMETER_MODIFIER_COLOR;
     static const ColorRGBA SUPPORT_BLOCKER_COLOR;
     static const ColorRGBA SUPPORT_ENFORCER_COLOR;
+    static const ColorRGBA SEAM_ATTRACTOR_COLOR;
 
     enum EHoverState : unsigned char
     {

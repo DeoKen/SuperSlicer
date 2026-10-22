@@ -1425,6 +1425,12 @@ ModelVolumeType ModelVolume::type_from_string(const std::string &s)
 		return ModelVolumeType::SUPPORT_ENFORCER;
     if (s == "SupportBlocker")
 		return ModelVolumeType::SUPPORT_BLOCKER;
+    // Seam attractors, SuperSlicer names. Its "inside shape" seam enforcers are not ported: taken as attractors (at the
+    // center of the shape) rather than as printed parts.
+    if (s == "SeamPositionCenter" || s == "SeamPosition" || s == "SeamPositionInsideCenter")
+        return ModelVolumeType::SEAM_POSITION_CENTER;
+    if (s == "SeamPositionCenterZ" || s == "SeamPositionInside")
+        return ModelVolumeType::SEAM_POSITION_CENTER_Z;
     assert(s == "0");
     // Default value if invalud type string received.
 	return ModelVolumeType::MODEL_PART;
@@ -1438,6 +1444,8 @@ std::string ModelVolume::type_to_string(const ModelVolumeType t)
 	case ModelVolumeType::PARAMETER_MODIFIER: return "ParameterModifier";
 	case ModelVolumeType::SUPPORT_ENFORCER:   return "SupportEnforcer";
 	case ModelVolumeType::SUPPORT_BLOCKER:    return "SupportBlocker";
+    case ModelVolumeType::SEAM_POSITION_CENTER:   return "SeamPositionCenter";
+    case ModelVolumeType::SEAM_POSITION_CENTER_Z: return "SeamPositionCenterZ";
     default:
         assert(false);
         return "ModelPart";

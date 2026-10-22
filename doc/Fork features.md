@@ -54,6 +54,7 @@ Contents:
 32. [Slicing: no slicing while painting, delay after a change](#32-slicing-no-slicing-while-painting-delay-after-a-change)
 33. [Delete all: new project or erase objects](#33-delete-all-new-project-or-erase-objects)
 34. [Brim-aware arrange](#34-brim-aware-arrange)
+35. [Seam attractors](#35-seam-attractors)
 25. [Testing](#testing)
 
 ---
@@ -1277,6 +1278,52 @@ the widest brim, as stock.
 zones, two strategies and two geometry handlings: brim to no-brim gaps >= 10 mm, zone gaps >= brim + 1 mm, and two
 brimmed cubes end up closer than the brim width (brims merge). Manual: per-object brim on a few parts (right click >
 Add settings > Skirt and brim), arrange: parts without a brim stay clear of the brims, brimmed parts pack together.
+
+---
+
+## 35. Seam attractors
+
+**What it does.** As SuperSlicer: a small part that pulls the seam towards it, for a straight seam at a chosen place
+without painting every layer. Right click an object > **Add seam attractor** >
+
+- **Seam attractor (sphere)**: on every layer, the seam of every loop (outer, inner perimeters and holes) goes to the
+  point nearest to the sphere's center. So the seam is a straight vertical line where the object's side is straight.
+  With several spheres, each layer uses the one nearest in height.
+- **Seam attractor (cylinder)**: only on the layers within the cylinder's height, the seam goes to the point nearest to
+  its axis (the center of its section, so a tilted cylinder works too). It starts as high as the object; scale it in Z
+  to limit it to some layers. Layers outside every cylinder use the spheres, or else the normal `seam_position`.
+
+A cylinder covering a layer wins over the spheres there. When several attractors are equally near (two cylinders on two
+islands), each loop takes the one nearest to it. The attractor overrides `seam_position` (aligned, rear, nearest,
+random) wherever it applies. **Seam painting still wins** (user's choice; SuperSlicer ignores the painting): on a loop
+with painted enforcers the seam goes to the enforced point nearest to the attractor, and blocked points are used only if
+the whole loop is blocked. Staggered inner seams, scarf seams and the seam notch work as usual from the chosen point.
+
+The attractors are shown yellow (SuperSlicer's color), are not printed, and can be moved, scaled, deleted and changed
+with "Change type" like support enforcers. Moving one only exports the G-code again (no re-slice). Saved in the 3mf with
+SuperSlicer's type names (`SeamPositionCenter`, `SeamPositionCenterZ`), so SuperSlicer projects with attractors load
+with them and SuperSlicer loads ours. SuperSlicer's "Enforce seam position (inside shape)" is not ported; its parts load
+as attractors (`SeamPositionInside` as a cylinder, `SeamPositionInsideCenter` as a sphere). Stock PrusaSlicer loads the
+attractors of a fork project as printed parts.
+
+No setting; no attractor = stock seams (golden test unchanged).
+
+**How it works.** `ModelVolumeType::SEAM_POSITION_CENTER` / `SEAM_POSITION_CENTER_Z` (`ModelVolume::is_seam_attractor()`).
+`GCode/SeamAttractor.cpp`: `get_layer_attractors()` computes per object layer the attractor points in the object's
+slicing coordinates (`trafo_centered()`, as the seam painting): sphere = center of its bounding box, cylinder = center of
+its section sliced at the layer's `slice_z`, keeping the ones nearest in Z. `Seams::Placer::init()` stores them per
+object; `place_seam()` replaces the seam choice of the perimeter by `Attractor::choose_seam_point()` (the nearest point
+among the enforced points, else the common ones, else the blocked ones) before `finalize_seam_position()`, for every
+`seam_position`. `PrintApply.cpp`: attractor changes invalidate only `psGCodeExport` and are synchronized like the
+support enforcers; the seam placer cache key (section 21) includes their type, mesh size and matrix. GUI: menu in
+`GUI_Factories.cpp`, shapes and placement (behind the middle of the rear side) in `GUI_ObjectList.cpp`
+`load_generic_subobject()`, color in `3DScene.cpp`.
+
+**How to test.** `fff_print_tests "[SeamAttractor]"`: sphere at the right side, every `seam_position`: every layer's seam
+on the right side at the sphere's Y; a cylinder up to 10 mm and a sphere above: cylinder below 10 mm, sphere above;
+painted left side wins over a sphere on the right; moving the sphere keeps the perimeters and rebuilds the seam placer;
+3mf round trip with the SuperSlicer names. Manual: right click a part > Add seam attractor > sphere, move it around the
+part, look at the seams in the preview (Legend > Seams); add a cylinder, scale it in Z, check the layers above it.
 
 ---
 
