@@ -39,6 +39,7 @@
 #include "libslic3r/PresetBundle.hpp"
 
 #include "Tab.hpp"
+#include "GCodeSettingsLoader.hpp"
 #include "3DScene.hpp"
 #include "PrintHostDialogs.hpp"
 #include "wxExtensions.hpp"
@@ -1520,6 +1521,16 @@ void MainFrame::init_menubar_as_editor()
         append_menu_item(import_menu, wxID_ANY, _L("Import Config from &Project") + dots +"\tCtrl+Alt+L", _L("Load configuration from project file"),
             [this](wxCommandEvent&) { if (m_plater) m_plater->extract_config_from_project(); }, "import_config", nullptr,
             []() {return true; }, this);
+        // Fork: the settings of a G-code (SuperPSlicer, PrusaSlicer or SuperSlicer) over the presets for its nozzle, in a new window.
+        append_menu_item(import_menu, wxID_ANY, _L("Open Settings from &G-code in a New Window") + dots,
+            _L("Load the settings of a G-code file over the presets matching its nozzle, in a new window"),
+            [this](wxCommandEvent&) {
+                wxFileDialog dialog(this, _L("Select a G-code file:"), from_u8(wxGetApp().app_config->get_last_dir()), "",
+                    file_wildcards(FT_GCODE), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+                if (dialog.ShowModal() == wxID_OK)
+                    open_gcode_settings_in_new_window(dialog.GetPath());
+            }, "import_config", nullptr,
+            []() {return true; }, this);
         import_menu->AppendSeparator();
         append_menu_item(import_menu, wxID_ANY, _L("Import Config &Bundle") + dots, _L("Load presets from a bundle"),
             [this](wxCommandEvent&) { load_configbundle(); }, "import_config_bundle", nullptr,
@@ -1840,6 +1851,10 @@ void MainFrame::init_menubar_as_gcodeviewer()
             _L("Reload the plater from disk"), [this](wxCommandEvent&) { m_plater->reload_gcode_from_disk(); },
             "", nullptr, [this]() { return !m_plater->get_last_loaded_gcode().empty(); }, this);
 #endif // __APPLE__
+        // Fork: the settings of the G-code in a new slicer window.
+        append_menu_item(fileMenu, wxID_ANY, _L("Open &settings in SuperPSlicer"), _L("Open the settings of this G-code in a new SuperPSlicer window"),
+            [this](wxCommandEvent&) { open_gcode_settings_in_new_window(m_plater->get_last_loaded_gcode()); },
+            "", nullptr, [this]() { return !m_plater->get_last_loaded_gcode().empty(); }, this);
         fileMenu->AppendSeparator();
         append_menu_item(fileMenu, wxID_ANY, _L("Convert ASCII G-code to &binary") + dots, _L("Convert a G-code file from ASCII to binary format"),
             [this](wxCommandEvent&) { if (m_plater != nullptr) m_plater->convert_gcode_to_binary(); }, "convert_file", nullptr,

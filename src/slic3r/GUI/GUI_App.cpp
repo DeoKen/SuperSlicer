@@ -86,6 +86,7 @@
 #include "FirmwareDialog.hpp"
 #include "slic3r/GUI/Preferences.hpp" // IWYU pragma: keep
 #include "Tab.hpp"
+#include "GCodeSettingsLoader.hpp"
 #include "SysInfoDialog.hpp"
 #include "KBShortcutsDialog.hpp"
 #include "UpdateDialogs.hpp"
@@ -815,6 +816,8 @@ void GUI_App::post_init()
         }
         if (! this->init_params->extra_config.empty())
             this->mainframe->load_config(this->init_params->extra_config);
+        if (! this->init_params->gcode_settings.empty())
+            load_gcode_settings(this->init_params->gcode_settings);
 
         if (this->init_params->selected_presets.has_valid_data()) {
             if (Tab* printer_tab = get_tab(Preset::TYPE_PRINTER))

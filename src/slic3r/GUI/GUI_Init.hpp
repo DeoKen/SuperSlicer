@@ -35,6 +35,8 @@ struct GUI_InitParams
 	PresetsConfigSubstitutions  preset_substitutions;
 
     std::vector<std::string>    load_configs;
+    // Fork: G-code file whose settings are loaded at startup (--gcode-settings).
+    std::string                 gcode_settings;
     DynamicPrintConfig          extra_config;
     std::vector<std::string>    input_files;
     CLISelectedProfiles         selected_presets;

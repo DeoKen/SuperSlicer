@@ -241,6 +241,8 @@ set(SLIC3R_SOURCES
     GCode.hpp
     GCodeReader.cpp
     GCodeReader.hpp
+    GCodeSettingsImport.cpp
+    GCodeSettingsImport.hpp
     # GCodeSender.cpp
     # GCodeSender.hpp
     Geometry.cpp

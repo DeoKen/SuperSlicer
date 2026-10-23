@@ -7036,6 +7036,11 @@ CLIMiscConfigDef::CLIMiscConfigDef()
     def->label = L("Delete files after loading");
     def->tooltip = L("Delete files after loading.");
 
+    // Fork: used by "Open settings in SuperPSlicer" of the G-code viewer.
+    def = this->add("gcode-settings", coString);
+    def->label = L("Settings from G-code");
+    def->tooltip = L("Load the settings stored in a G-code file over the presets matching its nozzle, as unsaved changes.");
+
 #if (defined(_MSC_VER) || defined(__MINGW32__)) && defined(SLIC3R_GUI)
     def = this->add("sw_renderer", coBool);
     def->label = L("Render with a software renderer");

@@ -106,6 +106,7 @@
 #include "Camera.hpp"
 #include "Mouse3DController.hpp"
 #include "Tab.hpp"
+#include "GCodeSettingsLoader.hpp"
 #include "Jobs/ArrangeJob2.hpp"
 #include "ConfigWizardWebViewPage.hpp"
 
@@ -4908,8 +4909,14 @@ void Plater::load_gcode(const wxString& filename)
             wxString(GCODEVIEWER_APP_NAME) + " - " + _L("Error while loading .gcode file"), wxOK | wxICON_WARNING | wxCENTRE).ShowModal();
         set_project_filename(wxEmptyString);
     }
-    else
+    else {
         set_project_filename(filename);
+        // Fork: offer the settings of the G-code in a new slicer window.
+        p->notification_manager->close_notification_of_type(NotificationType::GCodeSettingsAvailable);
+        p->notification_manager->push_notification(NotificationType::GCodeSettingsAvailable,
+            NotificationManager::NotificationLevel::RegularNotificationLevel, _u8L("Settings of this G-code:"), _u8L("Open in SuperPSlicer"),
+            [filename](wxEvtHandler*) { open_gcode_settings_in_new_window(filename); return true; });
+    }
 }
 
 void Plater::reload_gcode_from_disk()

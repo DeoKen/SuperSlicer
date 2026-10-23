@@ -147,7 +147,9 @@ enum class NotificationType
     // Transient error on Prusa Account communication - user is informed and has option to cancel (logout)
     AccountTransientRetry,
     // Failed to download secret repo archive
-    FailedSecretVendorUpdateSync
+    FailedSecretVendorUpdateSync,
+    // Fork: G-code viewer, link to open the settings of the loaded G-code in SuperPSlicer.
+    GCodeSettingsAvailable
 };
 
 class NotificationManager

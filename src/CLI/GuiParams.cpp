@@ -73,6 +73,11 @@ bool init_gui_params(GUI::GUI_InitParams& gui_params, int argc, char** argv, Dat
         gui_params.delete_after_load = true;
     }
 
+    if (cli.misc_config.has("gcode-settings")) {
+        start_gui = true;
+        gui_params.gcode_settings = cli.misc_config.opt_string("gcode-settings");
+    }
+
     if (!gui_params.start_as_gcodeviewer && !cli.input_config.has("load")) {
         // Read input file(s) if any and check if can start GcodeViewer
         if (cli.input_files.size() == 1 && is_gcode_file(cli.input_files[0]) && boost::filesystem::exists(cli.input_files[0]))

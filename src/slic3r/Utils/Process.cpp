@@ -37,7 +37,8 @@ enum class NewSlicerInstanceType {
 
 // Start a new Slicer process instance either in a Slicer mode or in a G-code mode.
 // Optionally load a 3MF, STL or a G-code on start.
-static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance_type, const std::vector<wxString> paths_to_open, bool single_instance, bool delete_after_load)
+static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance_type, const std::vector<wxString> paths_to_open, bool single_instance, bool delete_after_load,
+	const std::vector<wxString> &extra_args = {})
 {
 #ifdef _WIN32
 	wxString path;
@@ -55,6 +56,8 @@ static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance
 		args.emplace_back(L"--single-instance");
 	if(delete_after_load && !paths_to_open.empty())
 		args.emplace_back(L"--delete-after-load=1");
+	for (const wxString &arg : extra_args)
+		args.emplace_back(arg.wc_str());
 
 	args.emplace_back(nullptr);
 	BOOST_LOG_TRIVIAL(info) << "Trying to spawn a new slicer \"" << into_u8(path) << "\"";
@@ -86,6 +89,8 @@ static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance
 				args.emplace_back("--single-instance");
 			if (delete_after_load && !paths_to_open.empty())
 				args.emplace_back("--delete-after-load=1");
+			for (const wxString &arg : extra_args)
+				args.emplace_back(into_u8(arg));
 			boost::process::spawn(bin_path, args);
 		    // boost::process::spawn() sets SIGCHLD to SIGIGN for the child process, thus if a child PrusaSlicer spawns another
 		    // subprocess and the subrocess dies, the child PrusaSlicer will not receive information on end of subprocess
@@ -132,6 +137,11 @@ static void start_new_slicer_or_gcodeviewer(const NewSlicerInstanceType instance
 			args.emplace_back("--single-instance");
 		if (delete_after_load && !paths_to_open.empty())
 			args.emplace_back("--delete-after-load=1");
+		std::vector<std::string> extra_args_u8;
+		for (const wxString &arg : extra_args)
+			extra_args_u8.emplace_back(into_u8(arg));
+		for (const std::string &arg : extra_args_u8)
+			args.emplace_back(arg.c_str());
 		args.emplace_back(nullptr);
 		BOOST_LOG_TRIVIAL(info) << "Trying to spawn a new slicer \"" << args[0] << "\"";
 		if (wxExecute(const_cast<char**>(args.data()), wxEXEC_ASYNC | wxEXEC_MAKE_GROUP_LEADER) <= 0)
@@ -155,6 +165,13 @@ void start_new_slicer(const wxString *path_to_open, bool single_instance/*=false
 void start_new_slicer(const std::vector<wxString>& files, bool single_instance/*=false*/, bool delete_after_load/*=false*/)
 {
 	start_new_slicer_or_gcodeviewer(NewSlicerInstanceType::Slicer, files, single_instance, delete_after_load);
+}
+
+void start_new_slicer_with_gcode_settings(const wxString &gcode_path)
+{
+	// Fork: always a new window, whatever the single instance preference says.
+	start_new_slicer_or_gcodeviewer(NewSlicerInstanceType::Slicer, std::vector<wxString>(), false, false,
+		{ wxString("--gcode-settings"), gcode_path, wxString("--no-single-instance") });
 }
 
 void start_new_gcodeviewer(const wxString *path_to_open)
