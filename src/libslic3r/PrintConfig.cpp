@@ -6280,10 +6280,12 @@ void DynamicPrintConfig::normalize_fdm()
         }
     }
 
-    if (this->has("wipe_tower_extruder")) {
+    // Fork: a print preset loaded on its own (command line --load) has no nozzle_diameter, stock dereferenced a null pointer.
+    const auto *nozzle_diameter = this->opt<ConfigOptionFloats>("nozzle_diameter");
+    if (this->has("wipe_tower_extruder") && nozzle_diameter) {
         // If invalid, replace with 0.
         int extruder = this->opt<ConfigOptionInt>("wipe_tower_extruder")->value;
-        int num_extruders = this->opt<ConfigOptionFloats>("nozzle_diameter")->size();
+        int num_extruders = nozzle_diameter->size();
         if (extruder < 0 || extruder > num_extruders)
             this->option("wipe_tower_extruder")->setInt(0);
     }
@@ -6291,8 +6293,8 @@ void DynamicPrintConfig::normalize_fdm()
     if (!this->has("solid_infill_extruder") && this->has("infill_extruder"))
         this->option("solid_infill_extruder", true)->setInt(this->option("infill_extruder")->getInt());
 
-    if (this->has("bed_temperature_extruder")) {
-        const size_t num_extruders = this->opt<ConfigOptionFloats>("nozzle_diameter")->size();
+    if (this->has("bed_temperature_extruder") && nozzle_diameter) {
+        const size_t num_extruders = nozzle_diameter->size();
         const int    extruder      = this->opt<ConfigOptionInt>("bed_temperature_extruder")->value;
 
         // Replace invalid values with 0.

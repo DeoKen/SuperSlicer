@@ -105,6 +105,9 @@ std::string normalize_gcode(const std::string &gcode)
             continue;
         if (line == ";TYPE:Internal bridge infill")
             line = ";TYPE:Bridge infill";
+        // Stock ConfigOptionEnums::serialize() wrote the default config's value as empty (fixed here, doc section 37).
+        if (boost::starts_with(line, "; cooling_slowdown_logic = "))
+            line = "; cooling_slowdown_logic = ";
         out += line;
         out += '\n';
     }

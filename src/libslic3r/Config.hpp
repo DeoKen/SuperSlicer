@@ -2028,8 +2028,10 @@ public:
         std::ostringstream ss;
         for (const T& v : this->values) {
             assert(static_cast<int>(v) < int(names.size()));
+            // Fork: stock wrote the names after the first one only, so a single value serialized as an empty string.
             if (&v != &this->values.front())
-                ss << "," << names[static_cast<int>(v)];
+                ss << ",";
+            ss << names[static_cast<int>(v)];
         }
         return ss.str();
     }

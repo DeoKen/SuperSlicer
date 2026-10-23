@@ -56,6 +56,7 @@ Contents:
 34. [Brim-aware arrange](#34-brim-aware-arrange)
 35. [Seam attractors](#35-seam-attractors)
 36. [Open the settings of a G-code](#36-open-the-settings-of-a-g-code)
+37. [Stock bug fixes](#37-stock-bug-fixes)
 25. [Testing](#testing)
 
 ---
@@ -1361,9 +1362,8 @@ templates are fixed (`extruder_temperature_offset`, per-filament variables witho
 layer G-code). Not converted: the converter's rules for the user's own printers (AWD keep-out zones from
 `avoid_bed_notches`, Klipper limits): the printer preset keeps its own.
 
-Stock bug found on the way: `ConfigOptionEnums::serialize()` drops the first value, so G-code sliced from the default
-config (command line without presets, tests) has `cooling_slowdown_logic = ` (empty). Such an empty list is listed as
-unreadable and the preset keeps its value. GUI exports are not affected (their options are the generic type).
+An empty list value where values are required (`cooling_slowdown_logic = `, written by G-code from the default config
+before the fix in section 37) is listed as unreadable and the preset keeps its value.
 
 **How it works.** `libslic3r/GCodeSettingsImport.cpp`: `read_gcode_settings()` reads the key / value pairs of the block
 (tail of the file first, the whole file if needed; binary G-code: the slicer metadata block) and the generator from the
@@ -1379,6 +1379,29 @@ unreadable values are listed and not loaded; a SuperSlicer block is converted (w
 -> -1, `first_layer_size_compensation`, `seam_position = cost`, thumbnails, vector variable in the start G-code). Manual:
 open a G-code in the viewer, click the notification link; check the presets and the orange values in the new window;
 do the same with a SuperSlicer G-code and read the list.
+
+---
+
+## 37. Stock bug fixes
+
+Two PrusaSlicer 2.9.6 bugs found while testing (2026-10-23):
+
+- **Command line crash loading a print preset on its own.** `--load "<print preset>.ini"` (without the printer preset
+  in the same file) crashed: `DynamicPrintConfig::normalize_fdm()` (`PrintConfig.cpp`) read `nozzle_diameter` to check
+  `wipe_tower_extruder` and `bed_temperature_extruder`, which every 2.9 print preset has, without checking that the key
+  exists. Now the check is skipped when there is no `nozzle_diameter` (it runs again on the full config). The GUI was not
+  affected. Not in 2.9.0.
+- **Empty `cooling_slowdown_logic` in the settings block.** `ConfigOptionEnums<T>::serialize()` (`Config.hpp`) wrote only
+  the values after the first one, so a typed list of enums with one value serialized as an empty string. It showed in
+  G-code and configs written from the default config (command line without presets, tests): `; cooling_slowdown_logic = `;
+  loading that back gave an empty list, and the cooling read its first value (undefined). GUI exports were not affected
+  (their options are the generic type, which was correct).
+
+Output: the settings block of G-code from the default config now has `cooling_slowdown_logic = uniform_cooling` instead
+of an empty value (a comment, the moves are unchanged). The golden test treats that line as equal to stock's empty one.
+
+**How to test.** `libslic3r_tests "[Config]"`: "Typed enum vector serializes every value", "normalize_fdm without
+nozzle_diameter". Manually: `superpslicer-console --export-gcode --load "<print preset>.ini" model.stl` no longer crashes.
 
 ---
 

@@ -484,3 +484,32 @@ SCENARIO("DynamicPrintConfig serialization", "[Config]") {
         }
     }
 }
+
+// Fork: stock ConfigOptionEnums<T>::serialize() wrote the names after the first one only.
+TEST_CASE("Typed enum vector serializes every value", "[Config]") {
+    ConfigOptionEnums<CoolingSlowdownLogicType> one{ CoolingSlowdownLogicType::ConsistentSurface };
+    CHECK(one.serialize() == "consistent_surface");
+    ConfigOptionEnums<CoolingSlowdownLogicType> two{ CoolingSlowdownLogicType::UniformCooling, CoolingSlowdownLogicType::ConsistentSurface };
+    CHECK(two.serialize() == "uniform_cooling,consistent_surface");
+    // Read back the way configs are loaded (the generic option; the typed deserialize() reads numbers only, stock).
+    DynamicPrintConfig back;
+    back.set_deserialize_strict("cooling_slowdown_logic", two.serialize());
+    CHECK(back.option("cooling_slowdown_logic")->getInts() == two.getInts());
+    // The default config writes the value (it was an empty string).
+    CHECK(DynamicPrintConfig::full_print_config().opt_serialize("cooling_slowdown_logic") == "uniform_cooling");
+}
+
+// Fork: a print preset loaded on its own (command line --load) has no nozzle_diameter; stock dereferenced a null pointer.
+TEST_CASE("normalize_fdm without nozzle_diameter", "[Config]") {
+    DynamicPrintConfig config;
+    config.set_deserialize_strict({ { "bed_temperature_extruder", "3" }, { "wipe_tower_extruder", "2" }, { "perimeters", "4" } });
+    REQUIRE_NOTHROW(config.normalize_fdm());
+    // Nothing to check the extruder numbers against: left as they are.
+    CHECK(config.opt_int("bed_temperature_extruder") == 3);
+    CHECK(config.opt_int("wipe_tower_extruder") == 2);
+    // With nozzle_diameter the invalid numbers are still reset.
+    config.set_deserialize_strict("nozzle_diameter", "0.4");
+    config.normalize_fdm();
+    CHECK(config.opt_int("bed_temperature_extruder") == 0);
+    CHECK(config.opt_int("wipe_tower_extruder") == 0);
+}
