@@ -1158,7 +1158,9 @@ ironing, calibration cube) are not ported. The bridge flow and pressure advance 
   multiple of 5 are engraved. Model scaled with the nozzle (made for 0.4 mm). Object settings as SuperSlicer: 1
   perimeter, extra perimeters on overhangs, 2 bottom / 3 top layers, no gap fill, layer height half the nozzle, 7% infill,
   rectilinear top, no ironing, no brim ears, brim at least 8 x nozzle. SuperSlicer's per-object temperature
-  (`print_temperature`) doesn't exist here: the custom G-code does it.
+  (`print_temperature`) doesn't exist here: the custom G-code does it. The tower is half as thick as the model (Y scale
+  0.5, as SuperSlicer), but the cone of each floor is a part of its own and stays round (2026-10-23): squashed, its tip was
+  thinner than a line and printed as dots in the air.
 - CaliFlower (Vector 3D, the model is not included): the location of your model file (remembered in the app settings,
   `calibration_califlower_path`) and Browse. Loads it without object settings (the print profile applies; before
   2026-10-23 it forced 2 perimeters and 20% grid infill) and sets the filament shrinkage compensation XY and Z to 0% (no

@@ -184,6 +184,23 @@ static std::vector<wxString> choices(std::initializer_list<const char*> values)
 // Temperature tower
 // ------------------------------------------------------------------------------------------------------------------------
 
+// The cone of a floor is a shell of its own: a part of its own, round (scale s), while the floor is at half thickness. Squashed
+// with the floor its tip is thinner than a line and prints as dots in the air.
+static void round_cone(ModelObject *object, ModelVolume *floor, double s)
+{
+    std::vector<TriangleMesh> shells = floor->mesh().split();
+    if (shells.size() != 2)
+        return;
+    if (shells[0].volume() < shells[1].volume())
+        std::swap(shells[0], shells[1]);
+    ModelVolume *cone = object->add_volume(*floor, std::move(shells[1]));
+    cone->set_scaling_factor(Y, s);
+    cone->name = "cone";
+    floor->set_mesh(std::move(shells[0]));
+    floor->calculate_convex_hull();
+    object->invalidate_bounding_box();
+}
+
 class CalibrationTemperatureDialog : public CalibrationDialog
 {
 public:
@@ -248,11 +265,15 @@ protected:
             if (label != nullptr)
                 label->set_offset(floor->get_offset() + label_offset);
         };
-        add_label(object->volumes.front(), hottest);
+        ModelVolume *first = object->volumes.front();
+        add_label(first, hottest);
+        round_cone(object, first, s);
         for (int i = 1; i < nb_floors; ++ i) {
-            const ModelVolume *floor = add_part(object, item, Vec3d(0., 0., i * 10. * s), Vec3d(s, s * 0.5, s));
-            if (floor != nullptr)
+            ModelVolume *floor = add_part(object, item, Vec3d(0., 0., i * 10. * s), Vec3d(s, s * 0.5, s));
+            if (floor != nullptr) {
                 add_label(floor, hottest - i * step_t);
+                round_cone(object, floor, s);
+            }
         }
 
         // The temperature of each floor: M104 at its height. The first floor from the second layer, after the first layer
