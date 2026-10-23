@@ -328,6 +328,10 @@ in object modifiers).
   boundary lazily from the layer current at the first travel, which at a layer change is still the previous layer, and
   the order of `Layer::lslices` changes from run to run. Mixing the two layers made the output differ between runs
   (fixed 2026-10-13: 60 slices of the test plate identical).
+- speed (2026-10-23, same output): stock calls `init_layer()` again for every instance of an object and rebuilt the
+  boundaries each time; the boundaries built from the same layer are now kept (`m_init_layer`, `m_external_layer`).
+  The island search limits the nearest-point radius to the gap that could still beat the best crossing found so far.
+  Plate of 6 objects with the user's profile: G-code export 7.8 s -> 5.8 s.
 
 **How to test.** `fff_print_tests "[AvoidCrossing]"` (and PrusaSlicer's `"[AvoidCrossingPerimeters]"`). Manually: turn on
 avoid crossing perimeters, slice a plate of small parts close together as one object (or a part with separate islands)

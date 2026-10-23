@@ -79,6 +79,12 @@ private:
     // Store all needed data for travels outside object
     Boundary m_external;
 
+    // Fork: layer of the last init_layer(). It is called again for every instance of the object: the data built from the
+    // same layer is kept then (GCodeGenerator lives for one export only, so the layer pointers stay valid).
+    const Layer   *m_init_layer { nullptr };
+    // Layer m_external was built from.
+    const Layer   *m_external_layer { nullptr };
+
     // avoid_travel_island: travel between two islands crossing the gap where they are nearest.
     Polyline travel_between_islands(const Layer &layer, const Point &start, const Point &end, double weight);
     // Layer m_internal was built from (stock builds it lazily from the layer current at the first travel, which may still be

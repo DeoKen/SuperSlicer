@@ -1233,8 +1233,10 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCodeGenerator &gcodegen, cons
         }
     } else if(use_external) {
         // Initialize m_external only when exist any external travel for the current layer.
-        if (m_external.boundaries.empty())
+        if (m_external.boundaries.empty()) {
             init_boundary(&m_external, get_boundary_external(*gcodegen.layer()));
+            m_external_layer = gcodegen.layer();
+        }
 
         // Trim the travel line by the bounding box.
         if (!m_external.boundaries.empty() && Geometry::liang_barsky_line_clipping(startf, endf, m_external.bbox)) {
@@ -1351,7 +1353,19 @@ Polyline AvoidCrossingPerimeters::travel_between_islands(const Layer &layer, con
                 const size_t n  = std::max<size_t>(1, size_t(ab.norm() / step));
                 for (size_t k = 0; k < n; ++ k) {
                     const Point q = a + (ab * (double(k) / double(n))).cast<coord_t>();
-                    const EdgeGrid::Grid::ClosestPointResult cp = other.second.closest_point_signed_distance(q, coord_t(std::min(best_cost, 1e9)));
+                    // Longest gap that can still beat best_cost: the search cost grows with the square of the radius.
+                    // From q's own island: gap < best_cost - weight * |q - its end of the travel|. With weight < 1, as the
+                    // distance from the other point to the other end is at least |q - other end| - gap:
+                    // gap < (best_cost - weight * (|q - start| + |q - end|)) / (1 - weight). Plus a slack for the rounding.
+                    const double to_start   = (q - start).cast<double>().norm();
+                    const double to_end     = (end - q).cast<double>().norm();
+                    double       max_gap    = best_cost - weight * (sampled_is_start ? to_start : to_end);
+                    if (weight < 1.)
+                        max_gap = std::min(max_gap, (best_cost - weight * (to_start + to_end)) / (1. - weight));
+                    if (max_gap <= 0.)
+                        continue;
+                    // Never above best_cost: a farther point could only win by the rounding of its position.
+                    const EdgeGrid::Grid::ClosestPointResult cp = other.second.closest_point_signed_distance(q, coord_t(std::min({ max_gap + 16., best_cost, 1e9 })));
                     if (! cp.valid())
                         continue;
                     const Polygon &op = other.first[cp.contour_idx];
@@ -1405,9 +1419,26 @@ Polyline AvoidCrossingPerimeters::travel_between_islands(const Layer &layer, con
 
 void AvoidCrossingPerimeters::init_layer(const Layer &layer)
 {
+    if (&layer == m_init_layer) {
+        // The next instance of the same object layer (fork): the offset slices only depend on the layer, the boundaries are
+        // kept if they were built from it (stock builds them from the layer current at the first travel, see travel_to()).
+        if (m_internal_layer != &layer) {
+            m_internal.clear();
+            m_internal_layer = nullptr;
+            m_internal_boundary_island.clear();
+            m_island_boundaries.clear();
+        }
+        if (m_external_layer != &layer) {
+            m_external.clear();
+            m_external_layer = nullptr;
+        }
+        return;
+    }
+    m_init_layer = &layer;
     m_internal.clear();
     m_internal_layer = nullptr;
     m_external.clear();
+    m_external_layer = nullptr;
     m_internal_boundary_island.clear();
     m_island_boundaries.clear();
     m_lslices_offset.clear();
