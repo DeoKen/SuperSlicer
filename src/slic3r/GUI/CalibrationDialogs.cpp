@@ -302,8 +302,9 @@ class CalibrationCaliFlowerDialog : public CalibrationDialog
 public:
     CalibrationCaliFlowerDialog()
         : CalibrationDialog(_L("CaliFlower"),
-            _L("Loads your CaliFlower model (Vector 3D, not included) with 2 perimeters and 20% grid infill as object settings, "
-               "and switches the filament shrinkage compensation off (XY and Z 0%, an unsaved change of the filament settings), "
+            _L("Loads your CaliFlower model (Vector 3D, not included) with the print settings as they are, "
+               "switches the filament shrinkage compensation off (XY and Z 0%) and adds SET_SKEW CLEAR=1 (Klipper: no skew "
+               "correction) to the filament start G-code, after the printer's start G-code (unsaved changes of the filament settings), "
                "so that you measure the real shrinkage.\n"
                "Measure the print and enter the values in Vector 3D's calculator."))
     {
@@ -333,21 +334,25 @@ protected:
             return false;
 
         Plater *plater = wxGetApp().plater();
+        // No object settings: the print profile applies.
         std::vector<size_t> objs = plater->load_files(std::vector<std::string>{ path }, true, false);
         if (objs.empty())
             return false;
-        for (size_t idx : objs) {
-            ModelConfig &oc = plater->model().objects[idx]->config;
-            oc.set_key_value("perimeters",   new ConfigOptionInt(2));
-            oc.set_key_value("fill_density", new ConfigOptionPercent(20));
-            oc.set_key_value("fill_pattern", new ConfigOptionEnum<InfillPattern>(ipGrid));
-        }
 
         // No shrinkage compensation (PrusaSlicer 0% = SuperSlicer 100%), for every filament.
         DynamicPrintConfig filament = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
         for (const char *key : { "filament_shrinkage_compensation_xy", "filament_shrinkage_compensation_z" }) {
             auto *opt = filament.option<ConfigOptionPercents>(key, true);
             opt->values.assign(std::max<size_t>(1, opt->values.size()), 0.);
+        }
+        // No Klipper skew correction either: the filament start G-code runs after the printer's start G-code (PRINT_START).
+        {
+            auto *opt = filament.option<ConfigOptionStrings>("start_filament_gcode", true);
+            if (opt->values.empty())
+                opt->values.emplace_back();
+            for (std::string &gcode : opt->values)
+                if (gcode.find("SET_SKEW CLEAR=1") == std::string::npos)
+                    gcode += (gcode.empty() || gcode.back() == '\n' ? "" : "\n") + std::string("SET_SKEW CLEAR=1\n");
         }
         load_tab_config(Preset::TYPE_FILAMENT, filament);
 

@@ -1154,9 +1154,11 @@ ironing, calibration cube) are not ported. The bridge flow and pressure advance 
   rectilinear top, no ironing, no brim ears, brim at least 8 x nozzle. SuperSlicer's per-object temperature
   (`print_temperature`) doesn't exist here: the custom G-code does it.
 - CaliFlower (Vector 3D, the model is not included): the location of your model file (remembered in the app settings,
-  `calibration_califlower_path`) and Browse. Loads it with 2 perimeters and 20% grid infill as object settings and sets
-  the filament shrinkage compensation XY and Z to 0% (no compensation, SuperSlicer's 100%) as an unsaved change of the
-  filament settings, for every extruder. More of Vector 3D's recommended settings can be added later.
+  `calibration_califlower_path`) and Browse. Loads it without object settings (the print profile applies; before
+  2026-10-23 it forced 2 perimeters and 20% grid infill) and sets the filament shrinkage compensation XY and Z to 0% (no
+  compensation, SuperSlicer's 100%) and adds `SET_SKEW CLEAR=1` (Klipper skew correction off, user 2026-10-23) at the
+  end of the filament start G-code, which runs after the printer's start G-code (PRINT_START); both are unsaved changes
+  of the filament settings, for every extruder. The line is not added twice.
 
 **How it works.** `CalibrationDialogs.cpp` (GUI): `CalibrationDialog` base (explanation, fields, Generate / Close,
 `add_part()` adds the volumes of a model file to an object as SuperSlicer does), one class per print,
@@ -1164,8 +1166,8 @@ ironing, calibration cube) are not ported. The bridge flow and pressure advance 
 Models in `resources/calibration/filament_temp` from SuperSlicer (CC BY-SA 3.0, see its LICENCE.txt).
 
 **How to test.** Manual (GUI): Calibration > each item > Generate: the print is loaded and sliced; Preview: temperature
-tower `M104` per floor (Legend > Custom G-codes), CaliFlower with 2 perimeters, 20% grid and the filament shrinkage at
-0%.
+tower `M104` per floor (Legend > Custom G-codes), CaliFlower with the print profile's perimeters and infill (no object
+settings in the object list), the filament shrinkage at 0% and `SET_SKEW CLEAR=1` after the start G-code.
 
 ---
 
