@@ -1148,11 +1148,14 @@ whole print scale.
 ## 30. Calibration prints
 
 **What it does.** From SuperSlicer's Calibration menu, rewritten for PrusaSlicer 2.9.6: a Calibration menu (between
-Configuration and Help) with a temperature tower and the CaliFlower. Each item opens a small dialog with an explanation, a few fields and Generate. Generate starts a new project
+Configuration and Help) with a temperature tower, a pressure advance pattern, SuperSlicer's pressure calibration and the CaliFlower. Each item opens a small dialog with an explanation, a few fields and Generate. Generate starts a new project
 (it asks to save the current one first), loads the print with its own object / part settings and slices. SuperSlicer's
 HTML help pages, its introduction page and its other calibrations (bed leveling, filament / extruder flow, retraction,
 ironing, calibration cube) are not ported. The bridge flow and pressure advance calibrations were ported and removed
-(2026-10-20): without SuperSlicer's overhang / thin wall / bridge margin settings they couldn't match it.
+(2026-10-20): without SuperSlicer's overhang / thin wall / bridge margin settings they couldn't match it. Ellis' pattern
+was added instead (2026-10-23), which writes its G-code directly and needs no slicing setting. SuperSlicer's pressure
+calibration is back the same day (user: sliced in the plater, so the normal preview shows layers, moves and G-code),
+without the per-part accelerations (see below).
 
 **Prints.**
 - Temperature tower: "Floors below" / "Floors above" the filament temperature (default 2 / 2), "Step" 5-20 °C
@@ -1170,15 +1173,133 @@ ironing, calibration cube) are not ported. The bridge flow and pressure advance 
   compensation, SuperSlicer's 100%) and adds `SET_SKEW CLEAR=1` (Klipper skew correction off, user 2026-10-23) at the
   end of the filament start G-code, which runs after the printer's start G-code (PRINT_START); both are unsaved changes
   of the filament settings, for every extruder. The line is not added twice.
+- Pressure advance pattern (Klipper only; menu item disabled (greyed out) since 2026-10-23, the code kept: the pressure
+  calibration below prints Ellis' chevrons sliced in the plater), ported from Ellis' Pressure Advance / Linear Advance Calibration Tool
+  (https://github.com/AndrewEllis93/Pressure_Linear_Advance_Tool, GPL-3.0, original Marlin tool by Sineos): chevrons of a few
+  walls, one per `SET_PRESSURE_ADVANCE ADVANCE=` value, on an anchor frame, with every other value printed next to them.
+  Like the original, the G-code is written directly, not sliced. Fields (Ellis' defaults): start / end / step (0 / 0.08 /
+  0.005), print speed 100 mm/s, first layer speed (print settings), acceleration (0 = no `SET_VELOCITY_LIMIT`), fan and
+  first layer fan (filament: the fan of an external perimeter on a long layer, i.e. `external_perimeter_fan_speed` >
+  `perimeter_fan_speed` > `default_fan_speed` > `min_fan_speed` if always on; first layer 0 if `disable_fan_first_layers`
+  > 0), layers 4, walls 3, side 30 mm, spacing 2 mm, corner angle 90°, print direction, anchor frame / layer / none, numbers.
+  Not in the dialog (Ellis' expert values): line width 112.5% / anchor 140% of the nozzle, 4 anchor perimeters, no
+  retraction for travels under 2 mm, `M117 PA <value>` with every value. Not ported: Marlin / RRF, `SMOOTH_TIME`, extruder
+  name / tool index, round beds, origin at the center. From the presets: bed (pattern at the center of `bed_shape`; refused
+  if it doesn't fit or overlaps a `bed_keep_out_zones` zone), nozzle and filament diameter, extrusion multiplier, layer and
+  first layer height, travel speed, retraction (length, speeds, firmware retraction, `retract_lift` as Z hop), first layer
+  temperatures. The file is built as a print: PrusaSlicer header, `M190` / `M104` before and `M109` after the start
+  G-code when it doesn't set them (`autoemit_temperature_commands`), start G-code and filament start G-code with the print
+  placeholders (`total_layer_count`, `first_layer_print_min`, ... of the pattern), Klipper speed mode macro, `G21 G90 M83`,
+  the pattern with `;TYPE:` (anchor Skirt/Brim, walls External perimeter, numbers Perimeter), `;WIDTH:`, `;LAYER_CHANGE` /
+  `;Z:` / `;HEIGHT:`, then PA back to the start value, retract, Z +5, `M104 S0 M140 S0 M107`, filament end and end G-code,
+  and the settings block, so the G-code viewer shows it as a sliced print (features, widths, layers, time estimate) and
+  "Open settings" works. No thumbnails, no `EXCLUDE_OBJECT`. Generate asks where to save it (`pa_pattern.gcode`, last output
+  folder) and opens it in the G-code viewer. The numbers on the first layer without an anchor use the first layer height
+  (Ellis used the layer height).
+- Pressure calibration (SuperSlicer's `CalibrationPressureAdvDialog`, menu "Pressure calibration (SuperSlicer)"): loaded
+  as models and sliced in the plater, so the preview, the layer slider, the moves and the G-code panel work as for any
+  print.
+  - Settings, at the top of the dialog, filled in with Ellis' defaults (his tool's `DEFAULT_SETTINGS`,
+    `pressure_linear_advance.js`; user 2026-10-23: "the recommended or default settings that Ellis uses"): Bends "Ellis'
+    settings" (default) or "Extrusion role (SuperSlicer)", print speed 100 mm/s, line width 112.5 % of the nozzle, layers 4,
+    first layer speed 30 mm/s, layer height 0.2, first layer height 0.25, fan 100 %, first layer fan 0 % (0 or the fan:
+    PrusaSlicer has no fan of its own for the first layer), acceleration 0 = disabled. Generate writes them into the print
+    and filament settings as unsaved changes (`pressure_calibration_apply_settings()`): layer heights, first layer speed,
+    every acceleration = the default acceleration (0: no acceleration command), default fan speed = the fan with the feature
+    fan speeds at -1, no `full_fan_speed_layer` ramp, no layer time cooling (`fan_below_layer_time` and
+    `slowdown_below_layer_time` 0), `disable_fan_first_layers` 1 (first layer fan 0) or 0. The printer and filament settings
+    (temperatures, retraction, travel speed) stay the user's, as Ellis asks for them.
+  - How the user knows what was used: the same settings and the values of every test as comments (Ellis writes them at the
+    top of his G-code), a custom G-code at the first layer height (`pressure_calibration_summary()`): in the G-code at the
+    start of the first layer, a Custom G-code mark in the preview; the object is named after its test (`PA test 0
+    ExternalPerimeter 0 - 0.08 by 0.005`, also its `EXCLUDE_OBJECT` name); the changed settings show as unsaved changes in
+    the tabs and are in the settings block of the G-code.
+  - Tests: "Number of PA tests" 1-10, one row per test: first layer value, start / end / increment (SuperSlicer's lists with
+    Ellis' values added, values can be typed, defaults 0.0 / 0.0 / 0.08 / 0.005 as Ellis), extrusion role (14 roles +
+    CheckAll, the first row ExternalPerimeter, each new row the next role) and Smooth time (`SET_PRESSURE_ADVANCE
+    SMOOTH_TIME=` instead of `ADVANCE=`). Klipper `SET_PRESSURE_ADVANCE`, Marlin `M900 K`, RepRap `M572 S`, other firmwares
+    refused.
+  - "Ellis' settings" (default): Ellis' chevrons, `wall_count` open lines (Walls 3) of the line width at the print speed,
+    `side_length` 30 mm arms at 90°, `pattern_spacing` 2 mm between chevrons (dialog fields Walls / Side length / Spacing,
+    Ellis' defaults), walls `line spacing / sin 45°` apart (Ellis: the line spacing, width - layer height x (1 - pi/4)),
+    "Layers" high, pointing down and stacked as SuperSlicer's bends. Each wall is a strip one line wide with square ends half
+    a width beyond the end of the line and a round outer corner (the shape such a line leaves), sliced with Arachne into one
+    open external perimeter from the end of one arm through the corner to the end of the other, 0.45 mm wide (wider only on
+    a few moves within 0.15 mm of the corner, up to 0.51 mm: the inside of a 90° corner is thicker). Classic perimeters vary
+    the width (0.32-0.57 mm). Ellis' walls overlap a little (spacing 0.407 mm for 0.45 mm lines) and overlapping parts of
+    one object clip each other (`PrintObjectSlice.cpp`, the later part wins), so each wall is an object of its own: "PA test
+    0 ... wall 1/2/3" holds wall k of every chevron, one part per chevron with its value as per region G-code. The objects of
+    the walls use PrusaSlicer's default Arachne settings (`min_bead_width`, `min_feature_size`, `wall_transition_*`,
+    `wall_distribution_count`): with the user's (min bead width 40 %, filter deviation 5 %) Arachne split the corner into
+    two thin beads, the line stopped before the corner, travelled, and a blob printed at the corner on its own. The base
+    object ("PA test 0 ... frame") holds the frame and the numbers. The dialog loads the base plate once per object, builds
+    the frames, arranges (the objects of the walls still the empty base plate), gives the walls the instance transformation
+    of their frame and builds them (`pressure_calibration_build_walls()`).
+  - "Extrusion role (SuperSlicer)" and CheckAll: SuperSlicer's 90° bends (`90_bend_<nozzle>.3mf`, 0.1 to 2.0 mm nozzles),
+    closed loops scaled with SuperSlicer's `magical_scaling()` to 2 loops of the role's width without gap fill, parts of the
+    base object with the role's width (perimeter and external perimeter width), speed (perimeter, external perimeter and
+    gap fill speed) and their value as per region G-code (section 38), 5 layers high (InternalInfill with
+    `infill_every_layers` > 1 and FirstLayer get a layer range with that layer height).
+  - Frame on the first layer, as Ellis' anchor frame: 4 borders (`pa_border.3mf`) sized from the chevrons / bends and the
+    numbers, so it follows the number of values, the right one a solid tab under the numbers, with the test number; around
+    Ellis' chevrons it touches them (the arm ends touch the left border and the tab), SuperSlicer's left border reaches a
+    little into its bends. At least 2 values. SuperSlicer centred the sides on the middle bend: with an even number of values
+    the frame was open (sides short at one end, the bottom border apart); here they are centred between the first and the
+    last (2026-10-23). `base_plate.3mf` is a 0.3 mm placeholder under the first layer that doesn't print. Every second
+    value engraved next to its chevron / bend with the digit / point models (6 decimals, as SuperSlicer); with Ellis'
+    settings the numbers' second layer at the first layer speed (object perimeter speeds), as Ellis.
+  - The object's per region G-code sets the first layer value for the base, borders and numbers on all their layers (the
+    numbers are two layers high; SuperSlicer sets it on the first layer only, so their second layer printed with the last
+    bend's value, Ellis prints the numbers with the start value). Object settings as SuperSlicer: monotonic bottom, thin
+    walls, 1 bottom / 0 top layers, no brim, 0% infill, gap fill, no single perimeter on top / first layer, rear seam; and,
+    not in SuperSlicer, classic perimeters (Arachne widened the inner loop and added a tiny loop with its own retract /
+    travel 1 mm from the corner of every bend). Print settings as SuperSlicer: no avoid crossing perimeters, no sequential
+    printing, no elephant foot / XY size compensation. Arranged, then sliced (CheckAll is not sliced: one bend per role, the
+    value to type in the per region G-code of each bend). The models are SuperSlicer's (`resources/calibration/filament_pressure`).
+  - Not as SuperSlicer: no per-part accelerations (one acceleration for all, as Ellis; per-part accelerations need them as
+    region settings), the SuperSlicer-only widths / speeds (overhangs_width, thin walls, default_speed) fall back to the
+    defaults (default_speed = perimeter speed), no `filament_pressure_advance` reset, no SuperSlicer help page.
+  - Compared like for like with Ellis' pattern (2026-10-23), Ellis' defaults on both, the user's printer and filament
+    (`.2 .4voron - slow`, `ABS-Sparta3D-slow`, Voron 0.4): the same 17 values; per chevron and layer 3 open external
+    perimeters of 60 mm (179.8 mm, Ellis 180), 3 travels and 3 retractions as Ellis, 100 mm/s, 0.45 mm; 4 layers at the same
+    heights (0.25, 0.2, 0.2, 0.2), 3057 mm of walls per layer (Ellis 3060); the numbers at 30 mm/s with the start value; no
+    acceleration commands; the fan off on the first layer and 100 % from the second (the same layer change). Still different:
+    the walls print wall by wall over all the chevrons (one object per wall), each with its `SET_PRESSURE_ADVANCE` (3 per
+    chevron and layer, Ellis 1 per chevron, which prints its walls one after the other); the corner of each line is 4 short
+    moves up to 0.51 mm wide over 0.3 mm (Ellis: a sharp turn at 0.45 mm); SuperSlicer's frame is 4 borders of about 4
+    lines with a solid tab beside the chevrons, Ellis' 4 perimeters of 140 % with a filled tab above them; the numbers set
+    the value on every island (Ellis once).
 
 **How it works.** `CalibrationDialogs.cpp` (GUI): `CalibrationDialog` base (explanation, fields, Generate / Close,
 `add_part()` adds the volumes of a model file to an object as SuperSlicer does), one class per print,
-`show_calibration_dialog()` called by the menu (MainFrame.cpp). `Plater::new_project()` now returns false when cancelled.
-Models in `resources/calibration/filament_temp` from SuperSlicer (CC BY-SA 3.0, see its LICENCE.txt).
+`show_calibration_dialog()` called by the menu (MainFrame.cpp). The pressure calibration's models and settings are built in
+`libslic3r/PressureCalibration.cpp` (`pressure_calibration_build()`, also used by the tests); the dialog collects the rows,
+loads the base plates, calls it and arranges. `Plater::new_project()` now returns false when cancelled.
+Models in `resources/calibration/filament_temp` from SuperSlicer (CC BY-SA 3.0, see its LICENCE.txt). The pressure
+advance pattern: `libslic3r/GCode/PressureAdvancePattern.cpp` (`pressure_advance_pattern_gcode()`, the geometry of Ellis'
+`pressure_linear_advance.js` with its formulas), the dialog only collects the fields, saves and calls
+`start_new_gcodeviewer()`.
 
 **How to test.** Manual (GUI): Calibration > each item > Generate: the print is loaded and sliced; Preview: temperature
 tower `M104` per floor (Legend > Custom G-codes), CaliFlower with the print profile's perimeters and infill (no object
-settings in the object list), the filament shrinkage at 0% and `SET_SKEW CLEAR=1` after the start G-code.
+settings in the object list), the filament shrinkage at 0% and `SET_SKEW CLEAR=1` after the start G-code; pressure
+advance: saved and opened in the G-code viewer, anchor / walls / numbers as feature types, the values in the G-code panel;
+pressure calibration (SuperSlicer): one object per test named after it with the bends, borders and digits as parts (each
+bend's per region G-code in the object list), sliced, each bend's `SET_PRESSURE_ADVANCE ADVANCE=` before it on every layer
+in the G-code panel, the first layer value for the base, borders and numbers, the settings summary at the start of the first
+layer (Custom G-code), Ellis' settings as unsaved changes in the print and filament tabs. Automatic:
+`fff_print_tests "[PressureCalibration]"` (the real models built as the dialog does, with Ellis' settings and the user's
+Arachne settings: summary before the first extrusion, each chevron with its value on its 4 layers, base / borders / numbers
+with the first layer value, per layer 3 walls of each chevron as open external perimeters of 60 mm at 100 mm/s, 0.45 mm
+wide but on the few corner moves, whatever the generator, small perimeter or layer time settings, fan 0 then 100 %, no
+acceleration command; with the extrusion role: 5 layers at the role's speed;
+the settings written into a config, the first layer fan refused unless 0 or the fan; the frame for 2 to 30 values: closed,
+the chevrons between its top and bottom borders, its left border and the tab without overlapping them, the numbers on the tab; fewer than 2 values refused); the like for
+like comparison with Ellis: `fff_print_tests "[.PACompare]"` with `PA_CMP_INI` (print|filament|printer .ini) and
+`PA_CMP_OUT` (folder) writes both G-codes, `python Stuff/compare_pa.py <ellis> <superslicer>` compares them; `fff_print_tests "[PAPattern]"` (one pattern per value and reset, header / start G-code placeholders /
+temperatures / speed mode / settings block, extrusions on the bed and E from the cross section, read by the G-code
+processor with the feature types and a time estimate, refused for non-Klipper / keep-out zone / too small bed / bad
+values, print direction rotates the print).
 
 ---
 
@@ -1407,6 +1528,31 @@ of an empty value (a comment, the moves are unchanged). The golden test treats t
 
 **How to test.** `libslic3r_tests "[Config]"`: "Typed enum vector serializes every value", "normalize_fdm without
 nozzle_diameter". Manually: `superpslicer-console --export-gcode --load "<print preset>.ini" model.stl` no longer crashes.
+
+---
+
+## 38. Per region G-code
+
+**What it does.** From SuperSlicer: `region_gcode` ("Per region G-code"), custom G-code inserted each time a region starts
+to print its perimeters, infill or ironing on a layer (on every island), before its first extrusion. Mainly useful as an
+object or part setting (right click > Add settings > Output options), e.g. a pressure advance value per part; the pressure
+calibration (section 30) uses it. Empty by default: no change to the G-code.
+
+**Settings.** Print Settings > Output options > Per region G-code (Expert), also an object / part setting. Placeholders: all
+the settings, `[layer_num]` (0 = first layer) and `[layer_z]`. The code should not move the print head.
+
+**How it works.** `PrintRegionConfig::region_gcode` (`PrintConfig.cpp/.hpp`). `GCodeGenerator::region_gcode()` (`GCode.cpp`)
+runs it through the placeholder parser after the region config is applied in `extrude_perimeters()` and
+`extrude_infill_ranges()` (infill and ironing). Regions with a different code are never merged: the perimeter merge
+(`Layer.cpp`, `has_compatible_layer_regions`) and the infill merge (`Fill.cpp`, `SurfaceFillParams`) compare it, so each
+part prints its own code. Changing it redoes the perimeters and infill, as the merge may change (`PrintObject.cpp`). Checked for unknown custom G-code
+tags like the other custom G-codes. Differences from SuperSlicer: SuperSlicer queues the code with the object label start;
+here it is written directly before the region's first travel. Ported and removed on 2026-10-20 with the first SuperSlicer
+pressure calibration, back on 2026-10-23.
+
+**How to test.** `fff_print_tests "[RegionGcode]"`: empty by default; as a print setting it is written on every layer before
+the first `;TYPE:` with `[layer_num]` filled in; as part settings two parts of one object each write their own code on every
+layer. The golden test keeps it empty.
 
 ---
 

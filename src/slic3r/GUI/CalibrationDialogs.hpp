@@ -1,8 +1,9 @@
 #ifndef slic3r_GUI_CalibrationDialogs_hpp_
 #define slic3r_GUI_CalibrationDialogs_hpp_
 
-// Calibration prints (Calibration menu): the temperature tower ported from SuperSlicer and the CaliFlower (Vector 3D, the
-// user's own model file).
+// Calibration prints (Calibration menu): the temperature tower and the pressure calibration ported from SuperSlicer, Ellis'
+// pressure advance pattern (G-code written directly, opened in the G-code viewer) and the CaliFlower (Vector 3D, the user's
+// own model file).
 
 #include "GUI_Utils.hpp"
 #include "libslic3r/Point.hpp"
@@ -23,6 +24,8 @@ namespace GUI {
 
 enum class CalibrationType {
     Temperature,
+    PressureAdvance,
+    Pressure,
     CaliFlower,
 };
 

@@ -656,6 +656,8 @@ inline bool has_compatible_layer_regions(const PrintRegionConfig &config, const 
            (config.gap_fill_enabled ? config.gap_fill_speed.value : 0.) == (other_config.gap_fill_enabled ? other_config.gap_fill_speed.value : 0.) &&
            config.overhangs                                             == other_config.overhangs &&
            config.overhangs_threshold                                   == other_config.overhangs_threshold &&
+           // Each region prints its own region G-code.
+           config.region_gcode.value                                    == other_config.region_gcode.value &&
            config.opt_serialize("perimeter_extrusion_width")     == other_config.opt_serialize("perimeter_extrusion_width") &&
            config.thin_walls                                            == other_config.thin_walls &&
            config.external_perimeters_first                             == other_config.external_perimeters_first &&

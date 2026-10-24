@@ -228,6 +228,8 @@ set(SLIC3R_SOURCES
     GCode/AvoidCrossingPerimeters.cpp
     GCode/BedKeepOut.cpp
     GCode/BedKeepOut.hpp
+    GCode/PressureAdvancePattern.cpp
+    GCode/PressureAdvancePattern.hpp
     GCode/FanMover.cpp
     GCode/FanMover.hpp
     GCode/SmallAreaFlowCompensation.cpp
@@ -326,6 +328,8 @@ set(SLIC3R_SOURCES
     Preset.hpp
     PresetBundle.cpp
     PresetBundle.hpp
+    PressureCalibration.cpp
+    PressureCalibration.hpp
     PrincipalComponents2D.hpp
     PrincipalComponents2D.cpp
     AppConfig.cpp

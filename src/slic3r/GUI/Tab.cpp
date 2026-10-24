@@ -1905,6 +1905,12 @@ void TabPrint::build()
         option.opt.height = 5;//50;
         optgroup->append_single_option_line(option);
 
+        // SuperSlicer: custom G-code when a region starts to print, mostly used as an object / part setting.
+        optgroup = page->new_optgroup(L("Per region G-code"), 0);
+        option = optgroup->get_option("region_gcode");
+        option.opt.full_width = true;
+        optgroup->append_single_option_line(option);
+
     page = add_options_page(L("Notes"), "note");
         optgroup = page->new_optgroup(L("Notes"), 0);
         option = optgroup->get_option("notes");

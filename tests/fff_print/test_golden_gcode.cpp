@@ -44,6 +44,7 @@ const std::vector<std::string> added_config_keys {
     "support_material_own_brim",
     "klipper_",
     "thumbnails_end_file",
+    "region_gcode",
     "overhangs_dynamic_", "overhangs_speed", "overhangs_graph_range", "overhangs_threshold",
 };
 

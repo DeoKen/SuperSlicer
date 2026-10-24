@@ -314,6 +314,8 @@ private:
         const InstanceToPrint &print_instance
     );
 
+    // Per region G-code (SuperSlicer), when a region starts to print.
+    std::string region_gcode(const PrintRegion &region);
     std::string extrude_infill_ranges(
         const std::vector<InfillRange> &infill_ranges,
         const std::string &commment

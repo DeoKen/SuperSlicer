@@ -766,6 +766,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionGraph,                overhangs_dynamic_speed))
     ((ConfigOptionFloatOrPercent,       overhangs_speed))
     ((ConfigOptionFloatOrPercent,       overhangs_graph_range))
+    // Custom G-code when a region starts to print (SuperSlicer).
+    ((ConfigOptionString,               region_gcode))
     ((ConfigOptionBool,                 external_perimeters_first))
     ((ConfigOptionBool,                 extra_perimeters))
     ((ConfigOptionBool,                 extra_perimeters_on_overhangs))

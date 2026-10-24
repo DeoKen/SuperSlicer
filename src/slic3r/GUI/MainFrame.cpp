@@ -1753,6 +1753,15 @@ void MainFrame::init_menubar_as_editor()
     append_menu_item(calibrationMenu, wxID_ANY, _L("&Temperature tower") + dots, _L("Create a test print to choose the filament temperature."),
         [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::Temperature); }, "", nullptr,
         [this]() { return plater()->printer_technology() == ptFFF; }, this);
+    // Disabled (user, 2026-10-23): the pressure calibration below prints Ellis' chevrons sliced in the plater. Kept in.
+    append_menu_item(calibrationMenu, wxID_ANY, _L("&Pressure advance pattern") + dots,
+        _L("Disabled: use \"Pressure calibration (SuperSlicer)\", Ellis' chevrons sliced in the plater."),
+        [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::PressureAdvance); }, "", nullptr,
+        []() { return false; }, this);
+    append_menu_item(calibrationMenu, wxID_ANY, _L("P&ressure calibration (SuperSlicer)") + dots,
+        _L("Create SuperSlicer's pressure advance test print: 90° bends with their own value, sliced in the plater."),
+        [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::Pressure); }, "", nullptr,
+        [this]() { return plater()->printer_technology() == ptFFF; }, this);
     calibrationMenu->AppendSeparator();
     append_menu_item(calibrationMenu, wxID_ANY, _L("&CaliFlower") + dots, _L("Load your CaliFlower model to measure the filament shrinkage."),
         [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::CaliFlower); }, "", nullptr,

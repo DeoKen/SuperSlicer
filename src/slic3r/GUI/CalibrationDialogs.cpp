@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include <wx/button.h>
+#include <wx/checkbox.h>
 #include <wx/combobox.h>
 #include <wx/filedlg.h>
 #include <wx/sizer.h>
@@ -13,12 +14,15 @@
 #include <wx/textctrl.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/nowide/fstream.hpp>
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/FileReader.hpp"
+#include "libslic3r/GCode/PressureAdvancePattern.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/PressureCalibration.hpp"
 #include "libslic3r/Utils.hpp"
 
 #include "GUI.hpp"
@@ -30,6 +34,7 @@
 #include "Plater.hpp"
 #include "Tab.hpp"
 #include "format.hpp"
+#include "../Utils/Process.hpp"
 
 namespace Slic3r {
 namespace GUI {
@@ -118,25 +123,7 @@ std::string CalibrationDialog::resource(const std::string &dir, const std::strin
 
 ModelVolume* CalibrationDialog::add_part(ModelObject *object, const std::string &file, const Vec3d &move, const Vec3d &scale)
 {
-    Model        model = FileReader::load_model(file);
-    ModelVolume *added = nullptr;
-    for (ModelObject *part_object : model.objects) {
-        // The object was centered when it was loaded: move the part as the object was moved.
-        Vec3d delta = Vec3d::Zero();
-        if (object->origin_translation != Vec3d::Zero()) {
-            part_object->center_around_origin();
-            delta = object->origin_translation - part_object->origin_translation;
-        }
-        for (ModelVolume *volume : part_object->volumes) {
-            volume->translate(delta + move);
-            if (scale != Vec3d(1., 1., 1.))
-                volume->scale(scale);
-            added = object->add_volume(*volume, ModelVolumeType::MODEL_PART);
-            added->name = boost::filesystem::path(file).filename().string();
-        }
-    }
-    object->invalidate_bounding_box();
-    return added;
+    return calibration_add_part(object, file, move, scale);
 }
 
 // The current print, filament and printer settings (first extruder).
@@ -154,15 +141,20 @@ static bool start_calibration_project()
     return wxGetApp().plater()->new_project();
 }
 
-// Updates the plater after the objects were changed and slices.
-static void finish_calibration_project(const std::vector<size_t> &objects)
+// Updates the plater after the objects were changed, arranges (if asked) and slices (unless asked not to).
+static void finish_calibration_project(const std::vector<size_t> &objects, bool arrange = false, bool slice = true)
 {
     Plater *plater = wxGetApp().plater();
     for (size_t idx : objects)
         plater->model().objects[idx]->ensure_on_bed();
     plater->changed_objects(objects);
     wxGetApp().obj_list()->update_after_undo_redo();
-    plater->reslice();
+    if (arrange) {
+        plater->arrange(false);
+        plater->get_ui_job_worker().wait_for_current_job(20000);
+    }
+    if (slice)
+        plater->reslice();
 }
 
 // Loads the settings into a tab as unsaved changes.
@@ -313,6 +305,385 @@ private:
 };
 
 // ------------------------------------------------------------------------------------------------------------------------
+// Pressure advance pattern (Ellis)
+// ------------------------------------------------------------------------------------------------------------------------
+
+// The fan of an external perimeter on a long layer (CoolingBuffer): its own fan speed, the perimeter one, the default fan
+// speed, else min_fan_speed if the fan is always on.
+static int external_perimeter_fan(const DynamicPrintConfig &config)
+{
+    for (const char *key : { "external_perimeter_fan_speed", "perimeter_fan_speed", "default_fan_speed" })
+        if (const int fan = config.opt<ConfigOptionInts>(key)->get_at(0); fan >= 0)
+            return fan;
+    return config.opt<ConfigOptionBools>("fan_always_on")->get_at(0) ? config.opt<ConfigOptionInts>("min_fan_speed")->get_at(0) : 0;
+}
+
+class CalibrationPressureAdvanceDialog : public CalibrationDialog
+{
+public:
+    CalibrationPressureAdvanceDialog()
+        : CalibrationDialog(_L("Pressure advance calibration"),
+            _L("Ellis' pressure advance pattern: chevrons of a few walls, one per pressure advance value, with the values printed "
+               "next to them. The G-code is written directly (not sliced) from the printer, filament and print settings: bed "
+               "(centered), temperatures, retraction, layer heights, start / end G-code and Klipper speed mode. It is saved and "
+               "opened in the G-code viewer. Klipper only.\n"
+               "Print it and pick the pattern with the sharpest corners and no gaps or bulges at the ends of the walls; set that "
+               "value with SET_PRESSURE_ADVANCE in your Klipper config or the filament start G-code."))
+    {
+        const DynamicPrintConfig config = current_config();
+        const int    fan          = external_perimeter_fan(config);
+        const bool   fan_off      = config.opt<ConfigOptionInts>("disable_fan_first_layers")->get_at(0) > 0;
+        const auto   number       = [](double v) { return wxString::FromCDouble(v); };
+
+        m_pa_start   = add_text(_L("Start value"), _L("Pressure advance of the first pattern."), "0");
+        m_pa_end     = add_text(_L("End value"), _L("Pressure advance of the last pattern."), "0.08");
+        m_pa_step    = add_text(_L("Step"), _L("Pressure advance difference between two patterns."), "0.005");
+        m_speed      = add_text(_L("Print speed (mm/s)"), _L("Speed of the pattern walls."), "100");
+        m_first_speed = add_text(_L("First layer speed (mm/s)"), _L("Speed of the first layer, the anchor and the numbers. From the print settings."),
+                                 number(config.get_abs_value("first_layer_speed", 30.)));
+        m_accel      = add_text(_L("Acceleration (mm/s²)"), _L("SET_VELOCITY_LIMIT ACCEL= before the pattern. 0: no command (the Klipper "
+                                                              "config or the speed mode applies). Calibrate at the acceleration you print with."), "0");
+        m_fan        = add_text(_L("Fan (%)"), _L("From the second layer. From the filament settings: the fan of an external perimeter on a long layer."),
+                                number(fan));
+        m_first_fan  = add_text(_L("First layer fan (%)"), _L("0 when the filament disables the fan on the first layers."), number(fan_off ? 0 : fan));
+        m_layers     = add_text(_L("Layers"), _L("Number of layers of the pattern."), "4");
+        m_walls      = add_text(_L("Walls"), _L("Number of walls of each chevron."), "3");
+        m_side       = add_text(_L("Side length (mm)"), _L("Length of one side of a chevron."), "30");
+        m_spacing    = add_text(_L("Spacing (mm)"), _L("Gap between two patterns."), "2");
+        m_angle      = add_text(_L("Corner angle (°)"), _L("Angle of the chevron corners."), "90");
+        m_direction  = add_combo(_L("Print direction (°)"), _L("Rotation of the whole print (clockwise) around the bed center."),
+                                 choices({ "0", "45", "90", "135", "180", "225", "270", "315" }), "0");
+        m_anchor     = add_combo(_L("Anchor"), _L("Frame: perimeters around the patterns on the first layer. Layer: a full first layer "
+                                                  "under the patterns. None: the patterns start on the bed."),
+                                 { _L("Frame"), _L("Layer"), _L("None") }, _L("Frame"));
+        m_anchor->SetEditable(false);
+        m_numbers    = add_combo(_L("Numbers"), _L("Print the value next to every other pattern."), { _L("Yes"), _L("No") }, _L("Yes"));
+        m_numbers->SetEditable(false);
+        finish_layout();
+    }
+
+protected:
+    bool generate() override
+    {
+        PressureAdvancePatternParams p;
+        double layers, walls, fan, first_fan;
+        if (! get_number(m_pa_start, _L("Start value"), p.pa_start) || ! get_number(m_pa_end, _L("End value"), p.pa_end) ||
+            ! get_number(m_pa_step, _L("Step"), p.pa_step) || ! get_number(m_speed, _L("Print speed (mm/s)"), p.speed) ||
+            ! get_number(m_first_speed, _L("First layer speed (mm/s)"), p.first_layer_speed) ||
+            ! get_number(m_accel, _L("Acceleration (mm/s²)"), p.acceleration) || ! get_number(m_fan, _L("Fan (%)"), fan) ||
+            ! get_number(m_first_fan, _L("First layer fan (%)"), first_fan) || ! get_number(m_layers, _L("Layers"), layers) ||
+            ! get_number(m_walls, _L("Walls"), walls) || ! get_number(m_side, _L("Side length (mm)"), p.side_length) ||
+            ! get_number(m_spacing, _L("Spacing (mm)"), p.spacing) || ! get_number(m_angle, _L("Corner angle (°)"), p.corner_angle) ||
+            ! get_number(m_direction, _L("Print direction (°)"), p.print_dir))
+            return false;
+        p.layers          = int(layers);
+        p.wall_count      = int(walls);
+        p.fan             = int(fan);
+        p.first_layer_fan = int(first_fan);
+        p.anchor          = m_anchor->GetSelection() == 1 ? PressureAdvancePatternParams::Anchor::Layer :
+                            m_anchor->GetSelection() == 2 ? PressureAdvancePatternParams::Anchor::None : PressureAdvancePatternParams::Anchor::Frame;
+        p.numbers         = m_numbers->GetSelection() != 1;
+
+        std::string gcode;
+        try {
+            gcode = pressure_advance_pattern_gcode(current_config(), p);
+        } catch (const std::exception &ex) {
+            show_error(this, from_u8(ex.what()));
+            return false;
+        }
+
+        AppConfig  &app_config = *wxGetApp().app_config;
+        wxFileDialog dlg(this, _L("Save the pressure advance pattern as:"), from_u8(app_config.get_last_output_dir("", false)),
+                         "pa_pattern.gcode", file_wildcards(FT_GCODE), wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+        if (dlg.ShowModal() != wxID_OK)
+            return false;
+        const wxString path = dlg.GetPath();
+        {
+            boost::nowide::ofstream f(into_u8(path), std::ios::binary);
+            f << gcode;
+            if (! f.good()) {
+                show_error(this, format_wxstr(_L("Failed to write %1%."), path));
+                return false;
+            }
+        }
+        app_config.update_last_output_dir(boost::filesystem::path(into_u8(path)).parent_path().string(), false);
+        start_new_gcodeviewer(&path);
+        return true;
+    }
+
+private:
+    wxTextCtrl *m_pa_start { nullptr }, *m_pa_end { nullptr }, *m_pa_step { nullptr }, *m_speed { nullptr }, *m_first_speed { nullptr };
+    wxTextCtrl *m_accel { nullptr }, *m_fan { nullptr }, *m_first_fan { nullptr }, *m_layers { nullptr }, *m_walls { nullptr };
+    wxTextCtrl *m_side { nullptr }, *m_spacing { nullptr }, *m_angle { nullptr };
+    wxComboBox *m_direction { nullptr }, *m_anchor { nullptr }, *m_numbers { nullptr };
+};
+
+// ------------------------------------------------------------------------------------------------------------------------
+// Pressure calibration (SuperSlicer's CalibrationPressureAdvDialog): 90° bends, each a part with its own value as per region
+// G-code, sliced in the plater.
+// ------------------------------------------------------------------------------------------------------------------------
+
+class CalibrationPressureDialog : public CalibrationDialog
+{
+public:
+    CalibrationPressureDialog()
+        : CalibrationDialog(_L("Pressure calibration"),
+            _L("SuperSlicer's pressure calibration with Ellis' chevrons: a row of chevrons in a frame, each with its own pressure "
+               "(linear) advance as per region G-code, from the start to the end value; every second value is engraved next to its "
+               "chevron. Each wall is an open line as in Ellis' pattern (one object per wall). The frame and numbers print with the "
+               "first layer value. Generate loads the print in the plater and slices it, so you can "
+               "check it in the preview (layers, moves, G-code).\n"
+               "The settings below are Ellis' defaults (his pressure advance tool): Generate puts them in the print and filament "
+               "settings (unsaved changes) and writes them as comments at the start of the first layer (preview: Custom G-codes). "
+               "The printer and filament settings (temperatures, retraction, travel) are yours.\n"
+               "\"CheckAll\": one bend per extrusion role, not sliced: type the value in the per region G-code of each bend first.\n"
+               "Pick the sharpest bend without a bulge or a gap and set the value in the filament start G-code."))
+    {
+        const auto flavor = current_config().opt_enum<GCodeFlavor>("gcode_flavor");
+        const PressureCalibrationSettings ellis;
+        const auto number = [](double v) { return wxString::FromCDouble(v); };
+        m_bends       = add_combo(_L("Bends"), _L("Ellis: his chevrons, \"Walls\" open lines of the line width at the print speed, "
+                                                  "\"Layers\" high, in the frame. Extrusion role: SuperSlicer's 90° bends (closed loops) with "
+                                                  "the width and speed of the extrusion role of each test in your print settings, 5 layers "
+                                                  "high. CheckAll always uses SuperSlicer's bends."),
+                                  { _L("Ellis' settings"), _L("Extrusion role (SuperSlicer)") }, _L("Ellis' settings"));
+        m_bends->SetEditable(false);
+        m_speed       = add_text(_L("Print speed (mm/s)"), _L("Speed of the bends (Ellis: 100)."), number(ellis.speed));
+        m_line_ratio  = add_text(_L("Line width (% of the nozzle)"), _L("Width of the bends (Ellis: 112.5)."), number(ellis.line_ratio));
+        m_layers      = add_text(_L("Layers"), _L("Height of the bends in layers, with the first one (Ellis: 4)."), number(ellis.layers));
+        m_walls       = add_text(_L("Walls"), _L("Number of walls (open lines) of each chevron (Ellis: 3)."), number(ellis.wall_count));
+        m_side        = add_text(_L("Side length (mm)"), _L("Length of one side of a chevron (Ellis: 30)."), number(ellis.side_length));
+        m_spacing     = add_text(_L("Spacing (mm)"), _L("Gap between two chevrons (Ellis: 2)."), number(ellis.pattern_spacing));
+        m_first_speed = add_text(_L("First layer speed (mm/s)"), _L("First layer, and the numbers (Ellis: 30). Print settings."), number(ellis.first_layer_speed));
+        m_layer       = add_text(_L("Layer height (mm)"), _L("Ellis: 0.2. Print settings."), number(ellis.layer_height));
+        m_first_layer = add_text(_L("First layer height (mm)"), _L("Ellis: 0.25. Print settings."), number(ellis.first_layer_height));
+        m_fan         = add_text(_L("Fan (%)"), _L("From the second layer (Ellis: 100). Filament settings: default fan speed, no ramp, no "
+                                                   "layer time cooling (no fan speed-up, no slowdown)."), number(ellis.fan));
+        m_first_fan   = add_text(_L("First layer fan (%)"), _L("Ellis: 0. 0 (off on the first layer) or the same as the fan: PrusaSlicer has no "
+                                                               "fan speed of its own for the first layer."), number(ellis.first_layer_fan));
+        m_accel       = add_text(_L("Acceleration (mm/s²)"), _L("Every acceleration of the print settings. 0: no acceleration command, the "
+                                                                "Klipper config or the speed mode applies (Ellis: disabled)."), number(ellis.acceleration));
+        m_prefix = flavor == gcfMarlinFirmware ? " LA " : (flavor == gcfKlipper || flavor == gcfRepRapFirmware) ? " PA " : "";
+        if (m_prefix.empty()) {
+            auto *text = new wxStaticText(this, wxID_ANY, _L("unsupported firmware type"));
+            text->SetForegroundColour(*wxRED);
+            GetSizer()->Add(text, 0, wxALL, em_unit());
+        } else {
+            m_nb_tests = new wxComboBox(this, wxID_ANY, "1", wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_READONLY);
+            for (int i = 1; i <= 10; ++ i)
+                m_nb_tests->Append(std::to_string(i));
+            m_nb_tests->SetSelection(0);
+            m_nb_tests->SetToolTip(_L("Select the number of tests to generate, max 6 is recommended due to bed size limits"));
+            auto *line = new wxBoxSizer(wxHORIZONTAL);
+            line->Add(new wxStaticText(this, wxID_ANY, _L("Number of" + m_prefix + "tests: ")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, em_unit() / 2);
+            line->Add(m_nb_tests, 0, wxALIGN_CENTER_VERTICAL);
+            GetSizer()->Add(line, 0, wxALL, em_unit());
+            m_rows_sizer = new wxBoxSizer(wxVERTICAL);
+            GetSizer()->Add(m_rows_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT, em_unit());
+            add_rows(1);
+            m_nb_tests->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent &) {
+                const int count = m_nb_tests->GetSelection() + 1;
+                if (count > int(m_rows.size()))
+                    add_rows(count - int(m_rows.size()));
+                while (int(m_rows.size()) > count) {
+                    m_rows_sizer->Detach(m_rows.back().sizer);
+                    m_rows.back().sizer->Clear(true);
+                    delete m_rows.back().sizer;
+                    m_rows.pop_back();
+                }
+                wxGetApp().UpdateDlgDarkUI(this);
+                GetSizer()->SetSizeHints(this);
+                Layout();
+            });
+        }
+        finish_layout();
+    }
+
+protected:
+    struct Row {
+        wxComboBox *first       { nullptr };
+        wxComboBox *start       { nullptr };
+        wxComboBox *end         { nullptr };
+        wxComboBox *increment   { nullptr };
+        wxComboBox *role        { nullptr };
+        wxCheckBox *smooth_time { nullptr };
+        wxBoxSizer *sizer       { nullptr };
+    };
+
+    void add_rows(int count)
+    {
+        std::vector<wxString> roles;
+        for (const std::string &role : pressure_calibration_roles())
+            roles.emplace_back(role);
+        roles.emplace_back("CheckAll");
+        // Start at ExternalPerimeter, then the role after the one of the last row.
+        int selection = 2;
+        if (! m_rows.empty())
+            selection = std::min(m_rows.back().role->GetSelection() + 1, int(roles.size()) - 1);
+        const wxSize size(8 * em_unit(), -1);
+        for (int i = 0; i < count; ++ i) {
+            Row   row;
+            auto *sizer = new wxBoxSizer(wxHORIZONTAL);
+            const auto add = [this, sizer](const wxString &label, wxWindow *field) {
+                sizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL | wxALL, em_unit() / 2);
+                sizer->Add(field, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, em_unit());
+            };
+            const auto combo = [this, &size](const std::vector<wxString> &values, int selection, const wxString &tooltip) {
+                auto *c = new wxComboBox(this, wxID_ANY, values[selection], wxDefaultPosition, size, int(values.size()), values.data());
+                c->SetToolTip(tooltip);
+                return c;
+            };
+            row.first     = combo(choices({ "0.0", "0.025", "0.030", "0.035", "0.040", "0.045", "0.050" }), 0,
+                                  _L("Select the" + m_prefix + "value to be used for the first layer only (base, borders and numbers)."));
+            row.start     = combo(choices({ "0.0", "0.010", "0.020", "0.030", "0.040", "0.050" }), 0,
+                                  _L("Select the starting" + m_prefix + "value to be used.\n (you can manually type in values!)"));
+            row.end       = combo(choices({ "0.08", "0.10", "0.20", "0.30", "0.40", "0.50", "0.60", "0.70", "0.80", "0.90", "1.00" }), 0,
+                                  _L("Select the ending" + m_prefix + "value to be used.\n (you can manually type in values!)"));
+            row.increment = combo(choices({ "0.0010", "0.0025", "0.0035", "0.005", "0.006", "0.007", "0.01", "0.1" }), 3,
+                                  _L("Select the incremental value.\n (you can manually type in values!)"));
+            row.role      = new wxComboBox(this, wxID_ANY, roles[selection], wxDefaultPosition, wxSize(18 * em_unit(), -1), int(roles.size()), roles.data(), wxCB_READONLY);
+            row.role->SetSelection(selection);
+            row.role->SetToolTip(_L("Select the extrusion role you want to generate a calibration for"));
+            add(_L("First Layers" + m_prefix + "value: "), row.first);
+            add(_L("Start value: "), row.start);
+            add(_L("End value: "), row.end);
+            add(_L("Increment by: "), row.increment);
+            add(_L("Extrusion role: "), row.role);
+            if (m_prefix == " PA ") {
+                row.smooth_time = new wxCheckBox(this, wxID_ANY, wxEmptyString);
+                row.smooth_time->SetToolTip(_L("This parameter defines the duration over which extruder velocity changes are averaged, "
+                    "helping to smooth out rapid changes in extrusion pressure. Shorter times (e.g., 0.01 seconds) are beneficial for "
+                    "fast printing, while longer times (e.g., 0.4 seconds) are better for slower printing. The default value is 0.04 seconds."));
+                add(_L("Smooth time: "), row.smooth_time);
+            }
+            row.sizer = sizer;
+            m_rows_sizer->Add(sizer, 0, wxALL, 2);
+            m_rows.emplace_back(row);
+            if (++ selection >= int(roles.size()))
+                selection = 0;
+        }
+    }
+
+    bool generate() override
+    {
+        if (m_prefix.empty()) {
+            show_error(this, _L("unsupported firmware type"));
+            return false;
+        }
+        std::vector<PressureCalibrationTest> tests;
+        for (const Row &row : m_rows) {
+            double first, start, end, increment;
+            if (! get_number(row.first, _L("First layer value"), first) || ! get_number(row.start, _L("Start value"), start) ||
+                ! get_number(row.end, _L("End value"), end) || ! get_number(row.increment, _L("Increment"), increment))
+                return false;
+            if (increment <= 0. || end < start) {
+                show_error(this, _L("The increment must be above 0 and the end value at least the start value."));
+                return false;
+            }
+            PressureCalibrationTest test { first, pressure_calibration_values(start, end, increment), into_u8(row.role->GetValue()), row.smooth_time && row.smooth_time->GetValue() };
+            if (test.values.size() > 100) {
+                show_error(this, format_wxstr(_L("%1% values: too many. Use a larger increment."), test.values.size()));
+                return false;
+            }
+            if (test.values.size() < 2 && test.role != "CheckAll") {
+                show_error(this, _L("At least 2 values: the end value must be at least one increment above the start value."));
+                return false;
+            }
+            tests.emplace_back(std::move(test));
+        }
+
+        PressureCalibrationSettings settings;
+        double layers, fan, first_fan, wall_count;
+        if (! get_number(m_speed, _L("Print speed (mm/s)"), settings.speed) || ! get_number(m_line_ratio, _L("Line width"), settings.line_ratio) ||
+            ! get_number(m_layers, _L("Layers"), layers) || ! get_number(m_first_speed, _L("First layer speed (mm/s)"), settings.first_layer_speed) ||
+            ! get_number(m_layer, _L("Layer height (mm)"), settings.layer_height) ||
+            ! get_number(m_first_layer, _L("First layer height (mm)"), settings.first_layer_height) ||
+            ! get_number(m_fan, _L("Fan (%)"), fan) || ! get_number(m_first_fan, _L("First layer fan (%)"), first_fan) ||
+            ! get_number(m_accel, _L("Acceleration (mm/s²)"), settings.acceleration) || ! get_number(m_walls, _L("Walls"), wall_count) ||
+            ! get_number(m_side, _L("Side length (mm)"), settings.side_length) || ! get_number(m_spacing, _L("Spacing (mm)"), settings.pattern_spacing))
+            return false;
+        settings.wall_count      = int(wall_count);
+        settings.ellis_bends     = m_bends->GetSelection() != 1;
+        settings.layers          = int(layers);
+        settings.fan             = int(fan);
+        settings.first_layer_fan = int(first_fan);
+        // The settings into the print and filament settings (unsaved changes), the print ones also as SuperSlicer changes them.
+        DynamicPrintConfig print    = wxGetApp().preset_bundle->prints.get_edited_preset().config;
+        DynamicPrintConfig filament = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
+        DynamicPrintConfig config   = current_config();
+        try {
+            pressure_calibration_apply_settings(print, settings);
+            pressure_calibration_apply_settings(filament, settings);
+            pressure_calibration_apply_settings(config, settings);
+        } catch (const std::exception &ex) {
+            show_error(this, from_u8(ex.what()));
+            return false;
+        }
+        pressure_calibration_print_config(print);
+        pressure_calibration_print_config(config);
+        const double nozzle = nozzle_diameter(config);
+        const bool   bends  = std::any_of(tests.begin(), tests.end(), [&settings](const PressureCalibrationTest &t) {
+            return pressure_calibration_wall_objects(settings, t) == 0; });
+        if (bends && pressure_calibration_bend_file(resources_dir(), nozzle).empty()) {
+            show_error(this, format_wxstr(_L("There is no 90° bend model for a %1% mm nozzle (0.1 to 2.0 mm by 0.1 mm)."), nozzle));
+            return false;
+        }
+        if (! start_calibration_project())
+            return false;
+
+        Plater *plater = wxGetApp().plater();
+        Model  &model  = plater->model();
+        // Per test: the base (frame, numbers) and the objects of the walls of Ellis' chevrons, all from the base plate.
+        size_t nb_objects = 0;
+        for (const PressureCalibrationTest &t : tests)
+            nb_objects += 1 + pressure_calibration_wall_objects(settings, t);
+        std::vector<size_t> objs = plater->load_files(std::vector<std::string>(nb_objects, pressure_calibration_base_file(resources_dir())), true, false);
+        if (objs.size() != nb_objects)
+            return false;
+        bool slice = true;
+        std::vector<ModelObject*>              frames;
+        std::vector<std::vector<ModelObject*>> walls;
+        for (size_t id_item = 0, i = 0; id_item < tests.size(); ++ id_item) {
+            frames.emplace_back(model.objects[objs[i ++]]);
+            walls.emplace_back();
+            for (size_t k = 0; k < pressure_calibration_wall_objects(settings, tests[id_item]); ++ k)
+                walls.back().emplace_back(model.objects[objs[i ++]]);
+            if (! pressure_calibration_build(*frames.back(), config, settings, tests[id_item], id_item, resources_dir()))
+                slice = false;
+        }
+        // How the test was made, as comments at the start of the first layer (Ellis writes them at the top of his G-code).
+        CustomGCode::Info &custom = model.custom_gcode_per_print_z();
+        custom.mode = wxGetApp().extruders_edited_cnt() > 1 ? CustomGCode::MultiAsSingle : CustomGCode::SingleExtruder;
+        custom.gcodes.push_back({ settings.first_layer_height, CustomGCode::Custom, -1, "", pressure_calibration_summary(config, settings, tests) });
+
+        load_tab_config(Preset::TYPE_PRINT, print);
+        load_tab_config(Preset::TYPE_FILAMENT, filament);
+
+        // Arrange the frames while the objects of the walls are still the empty base plate, then the walls on their frame (same
+        // instance transformation, same coordinates). CheckAll: not sliced, so that the values can be typed in first.
+        finish_calibration_project(objs, true, false);
+        for (size_t id_item = 0; id_item < tests.size(); ++ id_item)
+            if (! walls[id_item].empty()) {
+                for (ModelObject *wall : walls[id_item])
+                    wall->instances.front()->set_transformation(frames[id_item]->instances.front()->get_transformation());
+                pressure_calibration_build_walls(walls[id_item], config, settings, tests[id_item], id_item);
+            }
+        finish_calibration_project(objs, false, slice);
+        return true;
+    }
+
+private:
+    std::string      m_prefix;
+    wxComboBox      *m_bends      { nullptr };
+    wxTextCtrl      *m_speed { nullptr }, *m_line_ratio { nullptr }, *m_layers { nullptr }, *m_first_speed { nullptr };
+    wxTextCtrl      *m_layer { nullptr }, *m_first_layer { nullptr }, *m_fan { nullptr }, *m_first_fan { nullptr }, *m_accel { nullptr };
+    wxTextCtrl      *m_walls { nullptr }, *m_side { nullptr }, *m_spacing { nullptr };
+    wxComboBox      *m_nb_tests   { nullptr };
+    wxBoxSizer      *m_rows_sizer { nullptr };
+    std::vector<Row> m_rows;
+};
+
+// ------------------------------------------------------------------------------------------------------------------------
 // CaliFlower (Vector 3D)
 // ------------------------------------------------------------------------------------------------------------------------
 
@@ -392,6 +763,8 @@ void show_calibration_dialog(CalibrationType type)
     std::unique_ptr<CalibrationDialog> dlg;
     switch (type) {
     case CalibrationType::Temperature:     dlg = std::make_unique<CalibrationTemperatureDialog>(); break;
+    case CalibrationType::PressureAdvance: dlg = std::make_unique<CalibrationPressureAdvanceDialog>(); break;
+    case CalibrationType::Pressure:        dlg = std::make_unique<CalibrationPressureDialog>(); break;
     case CalibrationType::CaliFlower:      dlg = std::make_unique<CalibrationCaliFlowerDialog>(); break;
     }
     dlg->ShowModal();

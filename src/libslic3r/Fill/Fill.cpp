@@ -92,6 +92,9 @@ struct SurfaceFillParams
 	// For the output
 	ExtrusionRole	extrusion_role{ ExtrusionRole::None };
 
+	// Per region G-code: the regions with different codes are not merged, each prints its own code.
+	std::string     region_gcode;
+
 	// Various print settings?
 
 	// Index of this entry in a linear vector.
@@ -120,6 +123,7 @@ struct SurfaceFillParams
 		RETURN_COMPARE_NON_EQUAL(flow.height());
 		RETURN_COMPARE_NON_EQUAL(flow.nozzle_diameter());
 		RETURN_COMPARE_NON_EQUAL_TYPED(unsigned, bridge);
+		RETURN_COMPARE_NON_EQUAL(region_gcode);
 		return this->extrusion_role.lower(rhs.extrusion_role);
 	}
 
@@ -137,6 +141,7 @@ struct SurfaceFillParams
 				this->anchor_length  	== rhs.anchor_length    &&
 				this->anchor_length_max == rhs.anchor_length_max &&
 				this->flow 				== rhs.flow 			&&
+				this->region_gcode		== rhs.region_gcode		&&
 				this->extrusion_role	== rhs.extrusion_role;
 	}
 };
@@ -187,6 +192,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer)
 		        FlowRole extrusion_role = surface.is_top() ? frTopSolidInfill : (surface.is_solid() ? frSolidInfill : frInfill);
 		        bool     is_bridge 	    = layer.id() > 0 && surface.is_bridge();
 		        params.extruder 	 = layerm.region().extruder(extrusion_role);
+		        params.region_gcode  = region_config.region_gcode.value;
 		        params.pattern 		 = region_config.fill_pattern.value;
 		        params.density       = float(region_config.fill_density);
 
@@ -350,6 +356,7 @@ std::vector<SurfaceFill> group_fills(const Layer &layer)
 	        if (internal_solid_fill == nullptr) {
 	        	// Produce another solid fill.
 		        params.extruder 	 = layerm.region().extruder(frSolidInfill);
+		        params.region_gcode  = layerm.region().config().region_gcode.value;
 	            params.pattern 		 = fill_type_monotonic(layerm.region().config().top_fill_pattern) ? ipMonotonic : ipRectilinear;
 	            params.density 		 = 100.f;
 		        params.extrusion_role = ExtrusionRole::InternalInfill;

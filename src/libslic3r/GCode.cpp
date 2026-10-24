@@ -558,6 +558,8 @@ namespace DoExport {
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Tool change G-code"), config.toolchange_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Between objects G-code (for sequential printing)"), config.between_objects_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("After extrusion type change G-code"), config.feature_gcode.value);
+        for (size_t region_id = 0; region_id < print.num_print_regions() && ret.size() < MAX_TAGS_COUNT; ++ region_id)
+            check(_u8L("Per region G-code"), print.get_print_region(region_id).config().region_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Auxiliary fan G-code"), print.config().auxiliary_fan_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Color Change G-code"), config.color_change_gcode.value);
         if (ret.size() < MAX_TAGS_COUNT) check(_u8L("Pause Print G-code"), config.pause_print_gcode.value);
@@ -3802,6 +3804,21 @@ std::string GCodeGenerator::extrude_skirt(
     return gcode;
 }
 
+// Per region G-code (SuperSlicer), when a region starts to print.
+std::string GCodeGenerator::region_gcode(const PrintRegion &region)
+{
+    const std::string &region_gcode = region.config().region_gcode.value;
+    if (region_gcode.empty())
+        return {};
+    DynamicConfig config;
+    config.set_key_value("layer_num", new ConfigOptionInt(m_layer_index));
+    config.set_key_value("layer_z",   new ConfigOptionFloat(m_last_layer_z));
+    std::string gcode = this->placeholder_parser_process("region_gcode", region_gcode, m_writer.extruder()->id(), &config);
+    if (! gcode.empty() && gcode.back() != '\n')
+        gcode += '\n';
+    return gcode;
+}
+
 std::string GCodeGenerator::extrude_infill_ranges(
     const std::vector<InfillRange> &infill_ranges,
     const std::string &comment
@@ -3810,6 +3827,7 @@ std::string GCodeGenerator::extrude_infill_ranges(
     for (const InfillRange &infill_range : infill_ranges) {
         if (!infill_range.items.empty()) {
             this->m_config.apply(infill_range.region->config());
+            gcode += this->region_gcode(*infill_range.region);
             for (const GCode::SmoothPath &path : infill_range.items) {
                 gcode += this->extrude_smooth_path(path, false, comment, -1.0);
             }
@@ -3823,11 +3841,11 @@ std::string GCodeGenerator::extrude_perimeters(
     const std::vector<GCode::ExtrusionOrder::Perimeter> &perimeters,
     const InstanceToPrint &print_instance
 ) {
+    std::string gcode{};
     if (!perimeters.empty()) {
         m_config.apply(region.config());
+        gcode += this->region_gcode(region);
     }
-
-    std::string gcode{};
 
     for (const GCode::ExtrusionOrder::Perimeter &perimeter : perimeters) {
         // Apply the small perimeter speed.

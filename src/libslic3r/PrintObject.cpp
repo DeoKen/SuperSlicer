@@ -958,6 +958,9 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "first_layer_infill_speed"
             || opt_key == "top_solid_infill_speed") {
             invalidated |= m_print->invalidate_step(psGCodeExport);
+        } else if (opt_key == "region_gcode") {
+            // Regions with a different code are not merged (perimeters, infill).
+            steps.emplace_back(posPerimeters);
         } else if (
                opt_key == "wipe_into_infill"
             || opt_key == "wipe_into_objects"
