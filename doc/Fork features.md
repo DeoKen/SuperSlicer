@@ -842,6 +842,9 @@ dialogs, menus, the About and System Information dialogs and the Windows file pr
 (`SuperPSlicer-2.9.6 based on Slic3r`; the full build ID `SuperPSlicer-2.9.6+fork` is in Help > System Info), the G-code viewer "SuperPSlicer G-code Viewer". The Windows programs
 are `superpslicer.exe`, `superpslicer-console.exe` and `superpslicer-gcodeviewer.exe`. Online services (Prusa
 Account, Printables, Prusa Connect, preset updates) see the fork as `SuperPSlicer/2.9.6` (HTTP user agent).
+The app icon (2026-10-23) is SuperSlicer's glossy icon in PrusaSlicer's colours (its blue half recoloured to the orange
+`#ed6b21`): `resources/icons/PrusaSlicer.ico` (exe, taskbar), `PrusaSlicer*.png` (About, wizard, window icon). The file
+names stay, so no code changes; the G-code viewer keeps the stock icon.
 
 Unchanged on purpose:
 
