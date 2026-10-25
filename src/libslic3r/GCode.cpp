@@ -3376,32 +3376,21 @@ double GCodeGenerator::feature_acceleration(const ExtrusionRole role) const
     auto resolve = [this](const ConfigOptionFloatOrPercent &opt, const double base) {
         return opt.percent ? base * opt.value / 100. : opt.value;
     };
-    // Support: 0 = default acceleration.
-    auto support_acceleration = [&]() {
-        const double a = resolve(m_config.support_material_acceleration, default_acceleration);
-        return a > 0 ? a : default_acceleration;
-    };
-    if (role == ExtrusionRole::GapFill) {
-        const double perimeter = m_config.perimeter_acceleration.value > 0 ? m_config.perimeter_acceleration.value : default_acceleration;
-        return resolve(m_config.gap_fill_acceleration, perimeter);
-    }
+    // All the percentages are of the default acceleration (user, 2026-10-24; SuperSlicer: of a parent feature).
+    if (role == ExtrusionRole::GapFill)
+        return resolve(m_config.gap_fill_acceleration, default_acceleration);
     if (role == ExtrusionRole::SupportMaterial)
         return resolve(m_config.support_material_acceleration, default_acceleration);
     if (role == ExtrusionRole::SupportMaterialInterface) {
         // 0 = the support acceleration, which is the default acceleration if not set either.
-        const double a = resolve(m_config.support_material_interface_acceleration, support_acceleration());
+        const double a = resolve(m_config.support_material_interface_acceleration, default_acceleration);
         return a > 0 ? a : resolve(m_config.support_material_acceleration, default_acceleration);
     }
-    if (role == ExtrusionRole::Ironing) {
-        // Base of a percentage: top solid infill acceleration, falling back to solid infill, infill, default acceleration.
-        // At 0 the stock logic below applies (solid infill acceleration for ironing).
-        const double top = m_config.top_solid_infill_acceleration.value > 0 ? m_config.top_solid_infill_acceleration.value :
-                           m_config.solid_infill_acceleration.value > 0     ? m_config.solid_infill_acceleration.value :
-                           m_config.infill_acceleration.value > 0           ? m_config.infill_acceleration.value : default_acceleration;
-        return resolve(m_config.ironing_acceleration, top);
-    }
+    // At 0 the stock logic below applies (solid infill acceleration for ironing).
+    if (role == ExtrusionRole::Ironing)
+        return resolve(m_config.ironing_acceleration, default_acceleration);
     if (role.is_skirt())
-        return resolve(m_config.brim_acceleration, support_acceleration());
+        return resolve(m_config.brim_acceleration, default_acceleration);
     return 0.;
 }
 
@@ -4139,27 +4128,28 @@ std::string GCodeGenerator::_extrude(
 
     // adjust acceleration
     if (m_config.default_acceleration.value > 0) {
+        // mm/s² or % of the default acceleration.
         double acceleration;
-        if (this->on_first_layer() && m_config.first_layer_acceleration.value > 0) {
-            acceleration = m_config.first_layer_acceleration.value;
-        } else if (this->object_layer_over_raft() && m_config.first_layer_acceleration_over_raft.value > 0) {
-            acceleration = m_config.first_layer_acceleration_over_raft.value;
+        if (const double a = this->acceleration(m_config.first_layer_acceleration); this->on_first_layer() && a > 0) {
+            acceleration = a;
+        } else if (const double a = this->acceleration(m_config.first_layer_acceleration_over_raft); this->object_layer_over_raft() && a > 0) {
+            acceleration = a;
         } else if (const double feature_acceleration = this->feature_acceleration(path_attr.role); feature_acceleration > 0) {
             acceleration = feature_acceleration;
-        } else if (m_config.internal_bridge_acceleration.value > 0 && path_attr.role == ExtrusionRole::InternalBridgeInfill) {
-            acceleration = m_config.internal_bridge_acceleration.value;
-        } else if (m_config.bridge_acceleration.value > 0 && path_attr.role.is_bridge()) {
-            acceleration = m_config.bridge_acceleration.value;
-        } else if (m_config.top_solid_infill_acceleration > 0 && path_attr.role == ExtrusionRole::TopSolidInfill) {
-            acceleration = m_config.top_solid_infill_acceleration.value;
-        } else if (m_config.solid_infill_acceleration > 0 && path_attr.role.is_solid_infill()) {
-            acceleration = m_config.solid_infill_acceleration.value;
-        } else if (m_config.infill_acceleration.value > 0 && path_attr.role.is_infill()) {
-            acceleration = m_config.infill_acceleration.value;
-        } else if (m_config.external_perimeter_acceleration > 0 && path_attr.role.is_external_perimeter()) {
-            acceleration = m_config.external_perimeter_acceleration.value;
-        } else if (m_config.perimeter_acceleration.value > 0 && path_attr.role.is_perimeter()) {
-            acceleration = m_config.perimeter_acceleration.value;
+        } else if (const double a = this->acceleration(m_config.internal_bridge_acceleration); a > 0 && path_attr.role == ExtrusionRole::InternalBridgeInfill) {
+            acceleration = a;
+        } else if (const double a = this->acceleration(m_config.bridge_acceleration); a > 0 && path_attr.role.is_bridge()) {
+            acceleration = a;
+        } else if (const double a = this->acceleration(m_config.top_solid_infill_acceleration); a > 0 && path_attr.role == ExtrusionRole::TopSolidInfill) {
+            acceleration = a;
+        } else if (const double a = this->acceleration(m_config.solid_infill_acceleration); a > 0 && path_attr.role.is_solid_infill()) {
+            acceleration = a;
+        } else if (const double a = this->acceleration(m_config.infill_acceleration); a > 0 && path_attr.role.is_infill()) {
+            acceleration = a;
+        } else if (const double a = this->acceleration(m_config.external_perimeter_acceleration); a > 0 && path_attr.role.is_external_perimeter()) {
+            acceleration = a;
+        } else if (const double a = this->acceleration(m_config.perimeter_acceleration); a > 0 && path_attr.role.is_perimeter()) {
+            acceleration = a;
         } else {
             acceleration = m_config.default_acceleration.value;
         }
@@ -4409,8 +4399,8 @@ std::string GCodeGenerator::generate_travel_gcode(
 
     // As SuperSlicer: default_acceleration 0 = no acceleration commands at all, travel included.
     const bool     have_acceleration                  = m_config.default_acceleration.value > 0;
-    const unsigned travel_acceleration                = have_acceleration ? static_cast<unsigned>(m_config.travel_acceleration.value + 0.5) : 0;
-    const unsigned travel_short_distance_acceleration = have_acceleration ? static_cast<unsigned>(m_config.travel_short_distance_acceleration.value + 0.5) : 0;
+    const unsigned travel_acceleration                = have_acceleration ? static_cast<unsigned>(this->acceleration(m_config.travel_acceleration) + 0.5) : 0;
+    const unsigned travel_short_distance_acceleration = have_acceleration ? static_cast<unsigned>(this->acceleration(m_config.travel_short_distance_acceleration) + 0.5) : 0;
 
     std::string gcode;
     // Generate G-code for the travel move.
@@ -4627,7 +4617,7 @@ std::string GCodeGenerator::travel_to(
     }
     travel.emplace_back(end_point);
 
-    if (this->config().travel_short_distance_acceleration > 0.) {
+    if (this->config().travel_short_distance_acceleration.value > 0.) {
         return wipe_retract_gcode + generate_travel_gcode(travel, comment, insert_gcode, enforce_first_z, [&]() {
                    return role.is_external_perimeter() && xy_path.length() < scaled<double>(EXTRUDER_CONFIG(retract_before_travel));
                });

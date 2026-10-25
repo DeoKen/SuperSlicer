@@ -11,6 +11,8 @@ General rules followed by every feature:
   type name, differ; with the Klipper flavor also the estimated times, see section 15). This is checked by the golden test, see [Testing](#testing).
   **One exception:** `internal_bridge_shortest_span` (section 20) is on by default (user's choice), so internal bridges
   over sparse infill can take a different direction than stock. Turn it off for stock output; the golden test does.
+  **Second exception:** `overhangs_hysteresis` (section 39) is 15 % by default (user's choice, 2026-10-24), so perimeters
+  along the overhang threshold don't flip between overhang and perimeter as in stock. 0 = stock; the golden test sets 0.
   Also different from stock, as a fix and not a setting: Arachne with "Single perimeter on top surfaces" = "All top
   surfaces" (section 26). That option is off by default, so the golden test is unaffected.
   Also different from stock when switched on: the dynamic overhang speeds and fan speeds now work as in SuperSlicer
@@ -57,6 +59,8 @@ Contents:
 35. [Seam attractors](#35-seam-attractors)
 36. [Open the settings of a G-code](#36-open-the-settings-of-a-g-code)
 37. [Stock bug fixes](#37-stock-bug-fixes)
+38. [Per region G-code](#38-per-region-g-code)
+40. [The other form of a value or percentage next to the field](#40-the-other-form-of-a-value-or-percentage-next-to-the-field)
 25. [Testing](#testing)
 
 ---
@@ -181,15 +185,30 @@ acceleration"). On the first layer, the first layer acceleration and speed still
 
 | Setting | Default | Meaning (mm/s² or %) |
 |---|---|---|
-| `gap_fill_acceleration` | `0` | % of the perimeter acceleration. 0 = default acceleration (stock). |
+| `gap_fill_acceleration` | `0` | % of the default acceleration. 0 = default acceleration (stock). |
 | `support_material_acceleration` | `0` | % of the default acceleration. 0 = default acceleration. |
-| `support_material_interface_acceleration` | `0` | % of the support acceleration. 0 = support acceleration. |
-| `ironing_acceleration` | `0` | % of the top solid infill acceleration. 0 = stock (solid infill acceleration). |
-| `brim_acceleration` (brim and skirt) | `0` | % of the support acceleration. 0 = default acceleration. |
+| `support_material_interface_acceleration` | `0` | % of the default acceleration. 0 = support acceleration. |
+| `ironing_acceleration` | `0` | % of the default acceleration. 0 = stock (solid infill acceleration). |
+| `brim_acceleration` (brim and skirt) | `0` | % of the default acceleration. 0 = default acceleration. |
 | `brim_speed` (brim and skirt) | `0` | mm/s or % of the support material speed. 0 = support material speed (stock). |
 
-Note: in SuperSlicer, 0 for gap fill / ironing / brim acceleration means "same as perimeter / top solid / support". The
-profile converter writes `100%` for those to keep the SuperSlicer behaviour.
+Note: in SuperSlicer, 0 for gap fill / ironing / brim acceleration means "same as perimeter / top solid / support", and
+their percentages are of those parents. Since 2026-10-24 (user: every percentage of the default acceleration) a
+percentage here is of the default acceleration for all of them (before: the SuperSlicer parents). The profile converter
+and the settings import (section 36) write the parent's value for a SuperSlicer 0 (before: `100%`) and convert
+SuperSlicer percentages to mm/s². A profile with `100%` from the old converter: 100 % of the default acceleration now
+(the user's `TPU .2`: the same values, its parents are all its default acceleration).
+
+**The stock accelerations in % (2026-10-24, user).** Perimeters, external perimeters, infill, solid infill, top solid
+infill, bridge, internal bridge, first layer, first object layer over raft, wipe tower, travel and travel short distance
+acceleration take mm/s² or a percentage of the default acceleration (they were mm/s² only), e.g. external perimeters 50 %
+with a default acceleration of 5000 = 2500. 0 keeps its meaning (disabled / the parent value), so existing profiles and
+the G-code at the defaults are unchanged. The fork's own five above too (same date). Code:
+`GCodeGenerator::acceleration()` (`GCode.hpp`), used by the acceleration chain in `_extrude()`, `feature_acceleration()`
+and the travel; the wipe tower (`WipeTowerIntegration.cpp`) and the support spots search (`PrintObject.cpp`) resolve it
+the same way. Settings import from a G-code (section 36): a SuperSlicer first layer acceleration in % (of the feature's
+acceleration there) is no longer passed through as a % of the default acceleration. A profile with a % value doesn't
+load in stock PrusaSlicer.
 
 **Default acceleration 0 = no acceleration at all (as SuperSlicer).** With `default_acceleration = 0` no acceleration
 command is written, the travel acceleration included, so the firmware's own value (Klipper `max_accel`) is used for
@@ -200,7 +219,8 @@ Those two are now greyed out with the others. Stock output is unchanged at Prusa
 **How it works.** `GCodeGenerator::feature_acceleration()` and `brim_speed()` in `GCode.cpp`, checked before the stock
 acceleration chain in `_extrude()`. Travel: `generate_travel_gcode()`.
 
-**How to test.** `fff_print_tests "[FeatureAccel]"`. Manually: set distinct values, slice a supported model with
+**How to test.** `fff_print_tests "[FeatureAccel]"` (also "Stock feature accelerations in % of the default acceleration":
+the same G-code as with the values in mm/s²). Manually: set distinct values, slice a supported model with
 ironing and a skirt, and check the `M204` values per `;TYPE:` block in the G-code. Set the default acceleration to 0 with
 a travel acceleration set: the G-code has no `M204` at all.
 
@@ -1067,9 +1087,11 @@ nozzle diameter. The dynamic overhang speeds and fan speeds (section 27) start a
 overhang keeps its speed and fan speed.
 
 **Settings.** Print > Layers and perimeters > Quality, "Detect bridging perimeters" line: Threshold
-(`overhangs_threshold`), mm or % of the nozzle diameter, default 50 % (stock), no negative values. It measures where the
-**middle** of the perimeter lies past the edge of the layer below; with a line as wide as the nozzle, 50 % means the whole
-line is past the edge. Below the line, a drawing shows the steepest wall that is not an overhang (a few external
+(`overhangs_threshold`), mm or % of the nozzle diameter, default 50 % (stock), down to -40 % of the nozzle diameter
+(`Print::validate()`, as the option's minimum can't tell mm from %; further in, even vertical walls would be overhangs).
+It measures where the **middle** of the perimeter lies past the edge of the layer below; with a line as wide as the
+nozzle, 50 % means the whole line is past the edge, a negative value makes overhangs of lines whose middle is still a
+little inside the edge (-5 % ≈ 42° for the example below). Below the line, a drawing shows the steepest wall that is not an overhang (a few external
 perimeter lines, each sticking out as far as allowed, and the angle from vertical), for the layer height, nozzle and
 external perimeter width of the current profiles:
 angle = atan((threshold + external perimeter width / 2) / layer height). For a 0.4 mm nozzle, 0.4 mm lines and 0.2 mm
@@ -1148,7 +1170,7 @@ whole print scale.
 ## 30. Calibration prints
 
 **What it does.** From SuperSlicer's Calibration menu, rewritten for PrusaSlicer 2.9.6: a Calibration menu (between
-Configuration and Help) with a temperature tower, a pressure advance pattern, SuperSlicer's pressure calibration and the CaliFlower. Each item opens a small dialog with an explanation, a few fields and Generate. Generate starts a new project
+Configuration and Help) with a temperature tower, a pressure advance pattern, SuperSlicer's pressure calibration, the CaliFlower and Klipper's ringing tower. Each item opens a small dialog with an explanation, a few fields and Generate. Generate starts a new project
 (it asks to save the current one first), loads the print with its own object / part settings and slices. SuperSlicer's
 HTML help pages, its introduction page and its other calibrations (bed leveling, filament / extruder flow, retraction,
 ironing, calibration cube) are not ported. The bridge flow and pressure advance calibrations were ported and removed
@@ -1173,6 +1195,29 @@ without the per-part accelerations (see below).
   compensation, SuperSlicer's 100%) and adds `SET_SKEW CLEAR=1` (Klipper skew correction off, user 2026-10-23) at the
   end of the filament start G-code, which runs after the printer's start G-code (PRINT_START); both are unsaved changes
   of the filament settings, for every extruder. The line is not added twice.
+- Ringing tower (Klipper, 2026-10-24; the model is not included, e.g. Klipper's `docs/prints/ringing_tower.stl`): the
+  location of your model file and Browse, as the CaliFlower (`calibration_ringing_path`), and the values of Klipper's
+  ringing test: velocity limit (default 100 mm/s), shaper type X / Y (zv, mzv, zvd, ei, 2hump_ei, 3hump_ei; default mzv),
+  shaper frequency X / Y (default 0 = no input shaper on that axis), start acceleration (1500 mm/s²), step delta
+  (500 mm/s²), step height (5 mm); all remembered (`calibration_ringing_*`). Loads the model without object settings,
+  sets Klipper's recommended slicing (docs/Resonance_Compensation.md, user 2026-10-24) as unsaved changes of the print
+  settings: vase mode (`spiral_vase`, perimeters 1, top solid layers 0, fill density 0, no supports / enforced support
+  layers, thin walls off, as the vase mode check in the GUI asks), a 1 mm base (bottom solid layers = 1 mm / layer
+  height, rounded up), layer height 0.2 mm (0.25 mm kept when the profile has it), external perimeter and perimeter speed
+  = the velocity limit (the V of Klipper's frequency V x N / D); in the filament settings the minimum layer time
+  (`slowdown_below_layer_time`) is capped at 3 s. Then it adds at the end of the filament start G-code (after the printer's start G-code), for every extruder:
+  ```
+  ; Ringing tower (Calibration menu)
+  SET_VELOCITY_LIMIT VELOCITY=<velocity> MINIMUM_CRUISE_RATIO=0
+  SET_PRESSURE_ADVANCE ADVANCE=0
+  SET_INPUT_SHAPER SHAPER_TYPE_X=<type X> SHAPER_FREQ_X=<freq X> SHAPER_TYPE_Y=<type Y> SHAPER_FREQ_Y=<freq Y>   (SHAPER_TYPE_<axis> left out when its frequency is 0,
+                    e.g. SET_INPUT_SHAPER SHAPER_FREQ_X=0 SHAPER_FREQ_Y=0)
+  TUNING_TOWER COMMAND=SET_VELOCITY_LIMIT PARAMETER=ACCEL START=<start> STEP_DELTA=<delta> STEP_HEIGHT=<height>
+  ; Ringing tower end
+  ```
+  Generated again, the block between the two comment lines is replaced. So that nothing overrides it, the print's
+  default acceleration is set to 0 (no acceleration commands at all, section 4) and the filament's Klipper speed mode to
+  Off (its macro runs after the filament start G-code, section 22). All unsaved changes of the print / filament settings.
 - Pressure advance pattern (Klipper only; menu item disabled (greyed out) since 2026-10-23, the code kept: the pressure
   calibration below prints Ellis' chevrons sliced in the plater), ported from Ellis' Pressure Advance / Linear Advance Calibration Tool
   (https://github.com/AndrewEllis93/Pressure_Linear_Advance_Tool, GPL-3.0, original Marlin tool by Sineos): chevrons of a few
@@ -1203,7 +1248,8 @@ without the per-part accelerations (see below).
     `pressure_linear_advance.js`; user 2026-10-23: "the recommended or default settings that Ellis uses"): Bends "Ellis'
     settings" (default) or "Extrusion role (SuperSlicer)", print speed 100 mm/s, line width 112.5 % of the nozzle, layers 4,
     first layer speed 30 mm/s, layer height 0.2, first layer height 0.25, fan 100 %, first layer fan 0 % (0 or the fan:
-    PrusaSlicer has no fan of its own for the first layer), acceleration 0 = disabled. Generate writes them into the print
+    PrusaSlicer has no fan of its own for the first layer), acceleration 0 = disabled, frame lines 8 (not Ellis', see the
+    frame below). Generate writes them into the print
     and filament settings as unsaved changes (`pressure_calibration_apply_settings()`): layer heights, first layer speed,
     every acceleration = the default acceleration (0: no acceleration command), default fan speed = the fan with the feature
     fan speeds at -1, no `full_fan_speed_layer` ramp, no layer time cooling (`fan_below_layer_time` and
@@ -1240,7 +1286,9 @@ without the per-part accelerations (see below).
     base object with the role's width (perimeter and external perimeter width), speed (perimeter, external perimeter and
     gap fill speed) and their value as per region G-code (section 38), 5 layers high (InternalInfill with
     `infill_every_layers` > 1 and FirstLayer get a layer range with that layer height).
-  - Frame on the first layer, as Ellis' anchor frame: 4 borders (`pa_border.3mf`) sized from the chevrons / bends and the
+  - Frame on the first layer, as Ellis' anchor frame: 4 borders (`pa_border.3mf`), each `frame_lines` first layer lines
+    wide (dialog "Frame lines", default 8, 1 to 50, both bends; SuperSlicer's are 4 lines: poor bed adhesion, user
+    2026-10-25), widened outwards so the inner edges stay where 4 lines put them. Sized from the chevrons / bends and the
     numbers, so it follows the number of values, the right one a solid tab under the numbers, with the test number; around
     Ellis' chevrons it touches them (the arm ends touch the left border and the tab), SuperSlicer's left border reaches a
     little into its bends. At least 2 values. SuperSlicer centred the sides on the middle bend: with an even number of values
@@ -1282,7 +1330,9 @@ advance pattern: `libslic3r/GCode/PressureAdvancePattern.cpp` (`pressure_advance
 
 **How to test.** Manual (GUI): Calibration > each item > Generate: the print is loaded and sliced; Preview: temperature
 tower `M104` per floor (Legend > Custom G-codes), CaliFlower with the print profile's perimeters and infill (no object
-settings in the object list), the filament shrinkage at 0% and `SET_SKEW CLEAR=1` after the start G-code; pressure
+settings in the object list), the filament shrinkage at 0% and `SET_SKEW CLEAR=1` after the start G-code; ringing tower:
+the block after the start G-code with the values typed in, no `M204` / `ACCEL=` in the G-code, default acceleration
+0, vase mode, layer height, speeds and speed mode Off as unsaved changes, minimum layer time 3 s at most, Generate twice gives one block; pressure
 advance: saved and opened in the G-code viewer, anchor / walls / numbers as feature types, the values in the G-code panel;
 pressure calibration (SuperSlicer): one object per test named after it with the bends, borders and digits as parts (each
 bend's per region G-code in the object list), sliced, each bend's `SET_PRESSURE_ADVANCE ADVANCE=` before it on every layer
@@ -1293,7 +1343,8 @@ Arachne settings: summary before the first extrusion, each chevron with its valu
 with the first layer value, per layer 3 walls of each chevron as open external perimeters of 60 mm at 100 mm/s, 0.45 mm
 wide but on the few corner moves, whatever the generator, small perimeter or layer time settings, fan 0 then 100 %, no
 acceleration command; with the extrusion role: 5 layers at the role's speed;
-the settings written into a config, the first layer fan refused unless 0 or the fan; the frame for 2 to 30 values: closed,
+the settings written into a config, the first layer fan refused unless 0 or the fan; frame lines 8 vs 4: every border 4
+first layer spacings wider outwards, the inner edges unchanged (both bends); the frame for 2 to 30 values: closed,
 the chevrons between its top and bottom borders, its left border and the tab without overlapping them, the numbers on the tab; fewer than 2 values refused); the like for
 like comparison with Ellis: `fff_print_tests "[.PACompare]"` with `PA_CMP_INI` (print|filament|printer .ini) and
 `PA_CMP_OUT` (folder) writes both G-codes, `python Stuff/compare_pa.py <ellis> <superslicer>` compares them; `fff_print_tests "[PAPattern]"` (one pattern per value and reset, header / start G-code placeholders /
@@ -1556,6 +1607,76 @@ layer. The golden test keeps it empty.
 
 ---
 
+## 39. Overhang hysteresis
+
+**What it does.** Own feature (2026-10-24). A wall about as steep as the overhang threshold angle (section 28), e.g. a
+45° chamfer with a 0 % threshold, has the middle of its perimeters right on the grown edge of the layer below; the facets
+of the mesh and the slicing put it a little in front of or behind it, so stock PrusaSlicer cuts each loop into many short
+pieces flipping between overhang perimeter and perimeter (speed, flow, fan changing every few mm; 27 pieces per layer
+on the user's LeftUmbilicalMount2 chamfers, 80 on a test cone). With a hysteresis, each stretch of perimeter that stays
+within the hysteresis of the threshold is an overhang or not as a whole, so a loop changes role once per real crossing.
+
+**Settings.** Print > Layers and perimeters > Quality, "Detect bridging perimeters" line: Hysteresis
+(`overhangs_hysteresis`), mm or % of the nozzle diameter, **default 15 %** (user, 2026-10-24: the smallest value that
+works for the 0.25 mm nozzle too, see the tests below); 0 = off (stock), which the golden test sets. Greyed out without
+perimeters or "Detect bridging perimeters".
+
+**How it works.** `apply_overhang_hysteresis()` in PerimeterGenerator.cpp, for the classic and the Arachne generator,
+between the clipping of a perimeter by the grown lower slices and the extrusion paths (Arachne keeps its widths: the
+clipped pieces still carry them):
+- Only when the perimeter has both supported and overhang pieces and the hysteresis is > 0.
+- Each piece is sampled (every half hysteresis, at least 0.05 mm) for its distance to the edge of the grown lower slices
+  (`AABBTreeLines`, the lower slices clipped to the perimeter's box grown by 2 x hysteresis + 1 mm, so that the cut
+  along the box is not taken for an edge). A piece that gets further than the hysteresis from the edge is *strong* and
+  keeps its role; the others are *weak*.
+- The pieces are put back in order along the perimeter by their end points (the clipping keeps neither the order nor
+  the direction); a closed loop is walked from a strong piece.
+- Each run of weak pieces between strong ones gets one role: overhang if its average distance past the edge (length
+  weighted, inside negative) is positive. A perimeter with no strong piece is one run.
+- Neighbouring pieces of the same role are joined into one path.
+Negative thresholds (section 28) use the same code.
+
+**How to test.** `[OverhangHysteresis]` (test_overhang_hysteresis.cpp), both generators, 0.4 mm nozzle and lines,
+0.2 mm layers, 0 % threshold (45°): a 180-facet cone at 46° flips (> 4 overhang runs in a layer) at 0 and has at most
+one run per loop at 10 %; a straight 46° face (no facets) gives the same overhang as stock; a cylinder leaning 60°
+keeps its overhang (±5 %); 40° walls stay walls. "Negative overhang threshold": -10 % makes a 42° face an overhang and
+not a 36° one; -40 % is accepted, -45 % and -0.2 mm are refused. The golden test keeps the default 0.
+Matrix run 2026-10-24 (scratchpad script, CLI): 5 shapes (cones of 48 and 180 facets, a hole narrowing like the user's,
+a leaning cylinder, a straight face) x 11 angles (20-70° + the threshold angle -3/-1/0/+1/+3°) x nozzle/layer
+0.25/0.08, 0.25/0.15, 0.4/0.1, 0.4/0.2, 0.4/0.3, 0.6/0.2, 0.6/0.4 x threshold -5/0/25/50 % x both generators, 3060
+objects per hysteresis value. Objects with more than one overhang run per loop: 392 at 0, 90 at 5 %, 10 at 10 %,
+3 at 15 % (the 3 = a seam inside the overhang of a 70° leaning cylinder, same as stock); overhang runs shorter than
+1 mm: 144618 / 9163 / 2606 / 2480. No object that was clean in stock changed its overhang (> 5 % and > 2 mm).
+The 0.25 mm nozzle needs 15 % (10 % = 0.025 mm is below the slicing noise there). Manual: the user's
+LeftUmbilicalMount2 project, 0 % threshold, chamfer rings 39-49 pieces per layer -> 3 at 15 %.
+
+---
+
+## 40. The other form of a value or percentage next to the field
+
+**What it does.** In the settings tabs and the object settings, a field taking a value or a percentage (unit "mm or %",
+"mm/s or %", "mm/s² or %") shows after its unit the other form of its value, as the slicer computes it: for a percentage
+its absolute value, `[225%] mm or %  (0.45 mm)`; for an absolute value its percentage, `[0.45] mm or %  (225 %)`. Nothing
+for 0 (auto / disabled) or when the base is unknown or 0. Extrusion widths are a percentage of the layer height
+in PrusaSlicer (the first layer width: of the first layer height), not of the nozzle as in SuperSlicer: 100 % at 0.2 mm
+layers is 0.2 mm. The other settings follow their base, also chains (top solid infill speed % of solid infill speed % of
+infill speed); the accelerations: % of the default acceleration (section 4). It changes when the value is entered (Enter /
+leaving the field), when a setting it depends on is changed on the shown page, and when a page is shown or settings are
+loaded. (2026-10-24, user.)
+
+**How it works.** `percent_value_hint()` (`libslic3r/PercentValue.cpp`): the base of the setting's percentage
+(`percent_base_value()`: its `ratio_over`, resolved through chains; widths: the layer height, as
+`Flow::new_from_config_width()`; `nozzle_diameter` the first extruder), then value x base / 100 or value / base x 100.
+`ConfigOptionsGroup::update_value_hints()` (`OptionsGroup.cpp`) computes the texts with the presets' full config plus the
+group's config (object settings) from `reload_config()` and `on_change_OG()`; `Tab::on_value_change()` updates the groups
+of the shown page; `OG_CustomCtrl` draws the text after the unit, its column wide enough for "(0000 unit)" so the layout
+doesn't move when a value becomes a percentage (room for the wider of "(0000 unit)" and "(000.0 %)").
+
+**How to test.** `fff_print_tests "[PercentValue]"`. Manual (GUI): Print Settings > Advanced: extrusion width `225%` and
+Tab: `(0.45 mm)` with 0.2 mm layers, `0.45`: `(225 %)`; change the layer height on its page and come back: the value follows.
+
+---
+
 ## Testing
 
 - Build and run all tests: see CLAUDE.md. `ctest -C Release --output-on-failure` in `build\`, or a single test program,
@@ -1563,7 +1684,7 @@ layer. The golden test keeps it empty.
 - **Golden test** (`fff_print_tests "[Golden]"`): slices 4 models with PrusaSlicer defaults and with a Klipper config, and
   compares with the stock PrusaSlicer 2.9.6 G-code in `tests/data/golden`. It strips the header line and the keys added
   by this fork (list `added_config_keys` in `tests/fff_print/test_golden_gcode.cpp`, add new keys there), turns off
-`internal_bridge_shortest_span` (on by default, section 20) and maps
+`internal_bridge_shortest_span` (on by default, section 20) and `overhangs_hysteresis` (15 % by default, section 39) and maps
   `Internal bridge infill` back to `Bridge infill`. The estimated time comments are not compared: with the Klipper
   config the Klipper limits (section 15) change them. Regenerate the reference only from an unmodified stock build:
   `PS_UPDATE_GOLDEN=1`. The Klipper references were regenerated on 2026-10-19 by a stock build without the dynamic overhang

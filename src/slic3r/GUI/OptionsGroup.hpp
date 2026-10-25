@@ -142,6 +142,7 @@ public:
     wxFont			sidetext_font {wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT) };
     wxFont			label_font {wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT) };
 	int				sidetext_width{ -1 };
+	std::map<t_config_option_key, wxString> m_value_hints;
 	int				sublabel_width{ -1 };
 
     /// Returns a copy of the pointer of the parent wxWindow.
@@ -189,6 +190,17 @@ public:
 								out = m_fields.at(id)->get_value();
 							return out;
     }
+
+	// A setting taking a value or a percentage: the other form of its value, drawn after its unit by OG_CustomCtrl: the
+	// absolute value of a percentage ("(0.45 mm)"), the percentage of an absolute value ("(225 %)"). Empty if unknown.
+	wxString		value_hint(const t_config_option_key& opt_id) const {
+							auto it = m_value_hints.find(opt_id);
+							return it == m_value_hints.end() ? wxString() : it->second;
+	}
+	// Whether such a hint can be shown for the setting (a unit "... or %" and a known base), to reserve its space.
+	static bool		can_have_value_hint(const ConfigOptionDef &def);
+	// Computes the hints again (ConfigOptionsGroup), after a value or the settings changed.
+	virtual void	update_value_hints() {}
 
 	void			show_field(const t_config_option_key& opt_key, bool show = true);
 	void			hide_field(const t_config_option_key& opt_key) {  show_field(opt_key, false);  }
@@ -312,6 +324,7 @@ public:
 	void		back_to_config_value(const DynamicPrintConfig& config, const std::string& opt_key);
     void		on_kill_focus(const std::string& opt_key) override;
 	void		reload_config();
+	void		update_value_hints() override;
     // return value shows visibility : false => all options are hidden
     void        Hide();
     void        Show(const bool show);

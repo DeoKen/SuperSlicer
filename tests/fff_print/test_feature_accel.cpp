@@ -96,13 +96,13 @@ TEST_CASE("Feature accelerations", "[FeatureAccel]") {
         check_type(accels, gap_fill,          1111, false);
     }
 
-    SECTION("percentages of the parent feature") {
+    SECTION("percentages of the default acceleration (5000), as all the accelerations") {
         config.set_deserialize_strict({
-            { "gap_fill_acceleration",                   "50%" },   // of perimeter 3000
-            { "support_material_acceleration",           "40%" },   // of default 5000
-            { "support_material_interface_acceleration", "50%" },   // of support 2000
-            { "ironing_acceleration",                    "25%" },   // of top solid infill 4000
-            { "brim_acceleration",                       "150%" },  // of support 2000
+            { "gap_fill_acceleration",                   "30%" },
+            { "support_material_acceleration",           "40%" },
+            { "support_material_interface_acceleration", "20%" },
+            { "ironing_acceleration",                    "20%" },
+            { "brim_acceleration",                       "60%" },
         });
         const auto accels = by_type(walk_gcode(Test::slice({ TestMesh::overhang }, config)));
         check_type(accels, support,           2000);
@@ -145,9 +145,9 @@ TEST_CASE("Gap fill acceleration", "[FeatureAccel]") {
     DynamicPrintConfig config = base_config();
     config.set_deserialize_strict({ { "support_material", false }, { "ironing", false }, { "perimeter_generator", "classic" },
                                     { "perimeters", 1 }, { "perimeter_extrusion_width", 0.35 }, { "first_layer_extrusion_width", 0.35 },
-                                    { "gap_fill_acceleration", "50%" } });
+                                    { "gap_fill_acceleration", "30%" } });
     const auto accels = by_type(walk_gcode(Test::slice({ TestMesh::two_hollow_squares }, config)));
-    check_type(accels, gap_fill, 1500);   // 50% of the perimeter acceleration
+    check_type(accels, gap_fill, 1500);   // 30% of the default acceleration
 }
 
 TEST_CASE("Default acceleration 0 writes no acceleration at all, as SuperSlicer", "[FeatureAccel]") {
@@ -169,4 +169,34 @@ TEST_CASE("Default acceleration 0 writes no acceleration at all, as SuperSlicer"
         config.set_deserialize_strict({ { "default_acceleration", 0 } });
         CHECK(count_accel(Test::slice({ TestMesh::overhang }, config)) == 0);
     }
+}
+
+TEST_CASE("Stock feature accelerations in % of the default acceleration", "[FeatureAccel]") {
+    // Same accelerations as base_config() in mm/s², as % of the default acceleration (5000).
+    DynamicPrintConfig config = base_config();
+    config.set_deserialize_strict({ { "perimeter_acceleration", "60%" }, { "external_perimeter_acceleration", "50%" },
+                                    { "top_solid_infill_acceleration", "80%" }, { "solid_infill_acceleration", "70%" },
+                                    { "infill_acceleration", "90%" }, { "first_layer_acceleration", "40%" },
+                                    { "travel_acceleration", "160%" } });
+    const std::string gcode  = Test::slice({ TestMesh::overhang }, config);
+    const auto        accels = by_type(walk_gcode(gcode));
+    check_type(accels, "Perimeter",          3000);
+    check_type(accels, "External perimeter", 2500, false);
+    check_type(accels, "Solid infill",       3500, false);
+    check_type(accels, ironing,              3500);  // stock: the solid infill acceleration
+    check_type(accels, gap_fill,             5000, false);
+    // The first layer and travel.
+    for (const Extrusion &e : walk_gcode(gcode))
+        if (e.layer == 0)
+            CHECK(e.accel == 2000);
+    CHECK(gcode.find("\nM204 S8000") != std::string::npos);
+    // The same G-code as with the values in mm/s².
+    DynamicPrintConfig mm = base_config();
+    mm.set_deserialize_strict({ { "first_layer_acceleration", 2000 }, { "travel_acceleration", 8000 } });
+    // Without the header line (time stamp) and the settings block at the end.
+    const auto moves = [](const std::string &g) {
+        const size_t begin = g.find('\n') + 1;
+        return g.substr(begin, g.find("; prusaslicer_config = begin") - begin);
+    };
+    CHECK(moves(gcode) == moves(Test::slice({ TestMesh::overhang }, mm)));
 }

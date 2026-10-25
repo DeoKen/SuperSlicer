@@ -34,10 +34,12 @@ add_executable(${_TEST_NAME}_tests
 	test_layer_placeholders.cpp
 	test_small_area_flow.cpp
 	test_dynamic_overhang.cpp
+	test_overhang_hysteresis.cpp
 	test_gcode_settings_import.cpp
 	test_pa_pattern.cpp
 	test_region_gcode.cpp
 	test_pressure_calibration.cpp
+	test_percent_value.cpp
 	gcode_walk.hpp
     test_infill_above_bridges.cpp
     test_seam_perimeters.cpp

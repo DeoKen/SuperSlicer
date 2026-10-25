@@ -1089,6 +1089,11 @@ void Tab::on_value_change(const std::string& opt_key, const boost::any& value)
         return;
     }
 
+    // The absolute values of percentages may depend on the changed value (other pages: when they are shown).
+    if (m_active_page)
+        for (auto group : m_active_page->m_optgroups)
+            group->update_value_hints();
+
     if (opt_key == "compatible_prints")
         this->compatible_widget_reload(m_compatible_prints);
     if (opt_key == "compatible_printers")
@@ -1601,7 +1606,7 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Between islands"), { { "avoid_travel_island", L("Find smallest crossing") }, { "avoid_travel_island_weight", L("Weight") } }, category_path + "avoid-crossing-perimeters", -1);
         optgroup->append_single_option_line("thin_walls", category_path + "detect-thin-walls");
         optgroup->append_single_option_line("thick_bridges", category_path + "thick_bridges");
-        append_labelled_line(optgroup, L("Detect bridging perimeters"), { { "overhangs", "" }, { "overhangs_threshold", L("Threshold") } }, category_path + "detect-bridging-perimeters", -1);
+        append_labelled_line(optgroup, L("Detect bridging perimeters"), { { "overhangs", "" }, { "overhangs_threshold", L("Threshold") }, { "overhangs_hysteresis", L("Hysteresis") } }, category_path + "detect-bridging-perimeters", -1);
         line = { "", "" };
         line.full_width = 1;
         line.widget = [this](wxWindow* parent) {

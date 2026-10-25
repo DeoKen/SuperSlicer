@@ -75,7 +75,9 @@ struct Parameters {
             scaled_resolution(scaled<double>(print_config.gcode_resolution.value)),
             mm3_per_mm(perimeter_flow.mm3_per_mm()),
             ext_mm3_per_mm(ext_perimeter_flow.mm3_per_mm()), 
-            mm3_per_mm_overhang(overhang_flow.mm3_per_mm())
+            mm3_per_mm_overhang(overhang_flow.mm3_per_mm()),
+            overhangs_hysteresis(scaled<double>(config.overhangs_hysteresis.get_abs_value(
+                print_config.nozzle_diameter.get_at(config.perimeter_extruder - 1))))
         {
         }
 
@@ -97,6 +99,8 @@ struct Parameters {
     double                       ext_mm3_per_mm;
     double                       mm3_per_mm;
     double                       mm3_per_mm_overhang;
+    // Scaled, 0 = off (stock): see apply_overhang_hysteresis().
+    double                       overhangs_hysteresis;
 
 private:
     Parameters() = delete;

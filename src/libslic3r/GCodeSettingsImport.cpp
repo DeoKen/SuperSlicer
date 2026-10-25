@@ -182,6 +182,11 @@ const std::map<std::string, SSPercent> ss_percent {
     { "external_perimeter_extrusion_width",       { 'f', "nozzle_diameter", true } },
     { "extrusion_width",                          { 'f', "nozzle_diameter", true } },
     { "first_layer_acceleration",                 { 'f', "depends", true } },
+    { "gap_fill_acceleration",                    { 'f', "perimeter_acceleration", true } },
+    { "ironing_acceleration",                     { 'f', "top_solid_infill_acceleration", true } },
+    { "support_material_acceleration",            { 'f', "default_acceleration", true } },
+    { "support_material_interface_acceleration",  { 'f', "support_material_acceleration", true } },
+    { "brim_acceleration",                        { 'f', "support_material_acceleration", true } },
     { "first_layer_acceleration_over_raft",       { 'f', nullptr, true } },
     { "first_layer_extrusion_width",              { 'f', "nozzle_diameter", true } },
     { "first_layer_height",                       { 'f', "nozzle_diameter", true } },
@@ -332,8 +337,10 @@ private:
         if (v.find('%') != std::string::npos && typ != coString && typ != coStrings) {
             if (auto it = ss_percent.find(key); it != ss_percent.end() && it->second.convert) {
                 const bool pct_here = typ == coFloatOrPercent || typ == coFloatsOrPercents || typ == coPercent || typ == coPercents;
-                if (it->second.ratio_over && std::string(it->second.ratio_over) == "depends" && pct_here)
-                    // A percentage of the feature speed in both.
+                if (it->second.ratio_over && std::string(it->second.ratio_over) == "depends" && pct_here &&
+                    key.find("acceleration") == std::string::npos)
+                    // A percentage of the feature speed in both. Not the first layer acceleration: a percentage of the
+                    // default acceleration here.
                     return v;
                 if (it->second.type == 'p' && (typ == coFloat || typ == coFloats)) {
                     std::vector<std::string> items;
@@ -413,13 +420,16 @@ private:
             }
             take("brim_width_interior");
         }
-        // Per feature accelerations: 0 falls back to a parent feature in SuperSlicer, to the stock acceleration here.
-        for (const auto &[key, parent] : { std::pair<const char*, const char*>{ "gap_fill_acceleration", "perimeter" },
-                                           { "ironing_acceleration", "top solid infill" }, { "brim_acceleration", "support material" } })
-            if (const std::string *v = get(key); v && *v == "0") {
-                out[key] = "100%";
-                note(format("%1% = 0 -> 100%% (SuperSlicer: 0 = %2% acceleration)", key, parent));
-            }
+        // Per feature accelerations: 0 falls back to a parent feature in SuperSlicer, to the stock acceleration here: the
+        // parent's value (a percentage here is of the default acceleration).
+        for (const auto &[key, parent] : { std::pair<const char*, const char*>{ "gap_fill_acceleration", "perimeter_acceleration" },
+                                           { "ironing_acceleration", "top_solid_infill_acceleration" },
+                                           { "brim_acceleration", "support_material_acceleration" } })
+            if (const std::string *v = get(key); v && *v == "0")
+                if (const std::optional<double> a = resolve_abs(parent); a && *a > 0.) {
+                    out[key] = fmt_g(*a, "%.4g");
+                    note(format("%1% = 0 -> %2% (SuperSlicer: 0 = the %3%)", key, out[key], parent));
+                }
         if (const std::string *v = get("small_perimeter_min_length"); v && *v == "0") {
             out["small_perimeter_min_length"] = "0.001";
             note("small_perimeter_min_length = 0 -> 0.001 (SuperSlicer: 0 = no small perimeters, here: 0 = stock threshold)");

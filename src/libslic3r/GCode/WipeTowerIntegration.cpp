@@ -115,7 +115,7 @@ std::string WipeTowerIntegration::append_tcr(GCodeGenerator &gcodegen, const Wip
     unescape_string_cstyle(tcr_rotated_gcode, tcr_gcode);
 
     if (gcodegen.config().default_acceleration > 0)
-        gcode += gcodegen.writer().set_print_acceleration(fast_round_up<unsigned int>(gcodegen.config().wipe_tower_acceleration.value));
+        gcode += gcodegen.writer().set_print_acceleration(fast_round_up<unsigned int>(gcodegen.config().wipe_tower_acceleration.get_abs_value(gcodegen.config().default_acceleration.value)));
     gcode += tcr_gcode;
     gcode += gcodegen.writer().set_print_acceleration(fast_round_up<unsigned int>(gcodegen.config().default_acceleration.value));
 

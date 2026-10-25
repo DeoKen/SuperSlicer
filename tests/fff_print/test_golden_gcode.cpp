@@ -45,7 +45,7 @@ const std::vector<std::string> added_config_keys {
     "klipper_",
     "thumbnails_end_file",
     "region_gcode",
-    "overhangs_dynamic_", "overhangs_speed", "overhangs_graph_range", "overhangs_threshold",
+    "overhangs_dynamic_", "overhangs_speed", "overhangs_graph_range", "overhangs_threshold", "overhangs_hysteresis",
 };
 
 // Config keys of stock PrusaSlicer removed by this fork, skipped in the reference files.
@@ -175,7 +175,7 @@ DynamicPrintConfig klipper_config()
 // Fork options that are on by default and change the output: turned off for the comparison with stock.
 DynamicPrintConfig with_stock_behaviour(DynamicPrintConfig config)
 {
-    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "0" } });
+    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "0" }, { "overhangs_hysteresis", "0" } });
     return config;
 }
 

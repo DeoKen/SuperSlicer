@@ -18,6 +18,7 @@
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/Exception.hpp"
 #include "libslic3r/FileReader.hpp"
+#include "libslic3r/Flow.hpp"
 #include "libslic3r/GCodeReader.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
@@ -249,6 +250,58 @@ TEST_CASE("Pressure calibration with the extrusion role's settings (SuperSlicer)
     CHECK(bend_speeds == std::set<long>{ 40 });
 }
 
+// frame_lines widens the borders outwards (both bends): each border frame_lines - 4 first layer spacings wider than
+// SuperSlicer's 4 lines, the inner edges (towards the bends / chevrons) where they were.
+TEST_CASE("Pressure calibration frame lines", "[PressureCalibration]") {
+    for (bool ellis : { true, false }) {
+        DYNAMIC_SECTION((ellis ? "Ellis' chevrons" : "SuperSlicer's bends")) {
+            const auto borders_of = [ellis](int lines, double &spacing) {
+                DynamicPrintConfig          config = test_config();
+                PressureCalibrationSettings settings;
+                settings.ellis_bends = ellis;
+                settings.frame_lines = lines;
+                pressure_calibration_apply_settings(config, settings);
+                PressureCalibrationTest test;
+                test.values = pressure_calibration_values(0., 0.03, 0.005);
+                Model        model;
+                ModelObject *object = load_base(model);
+                REQUIRE(pressure_calibration_build(*object, config, settings, test, 0, resources()));
+                std::vector<BoundingBoxf3> borders;
+                for (const ModelVolume *v : object->volumes)
+                    if (v->name == "pa_border.3mf")
+                        borders.emplace_back(v->mesh().transformed_bounding_box(v->get_matrix()));
+                REQUIRE(borders.size() == 4);
+                const double first_layer = config.get_abs_value("first_layer_height", config.opt_float("layer_height"));
+                const double nozzle      = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
+                // As pressure_calibration_build(): the first layer width, else the perimeter width, else the default width.
+                const ConfigOptionFloatOrPercent *width = nullptr;
+                for (const char *key : { "first_layer_extrusion_width", "perimeter_extrusion_width", "extrusion_width" })
+                    if (width == nullptr && (config.option<ConfigOptionFloatOrPercent>(key)->value > 0. || std::string(key) == "extrusion_width"))
+                        width = config.option<ConfigOptionFloatOrPercent>(key);
+                spacing = Flow::new_from_config_width(frPerimeter, *width, float(nozzle), float(first_layer)).spacing();
+                return borders;
+            };
+            double spacing = 0.;
+            const std::vector<BoundingBoxf3> four  = borders_of(4, spacing);
+            const std::vector<BoundingBoxf3> eight = borders_of(8, spacing);
+            const double extra = 4. * spacing, eps = 0.001;
+            REQUIRE(spacing > 0.);
+            // Left, right (the tab), bottom, top.
+            CHECK(std::abs(eight[0].size().x() - four[0].size().x() - extra) < eps);
+            CHECK(std::abs(eight[1].size().x() - four[1].size().x() - extra) < eps);
+            CHECK(std::abs(eight[2].size().y() - four[2].size().y() - extra) < eps);
+            CHECK(std::abs(eight[3].size().y() - four[3].size().y() - extra) < eps);
+            CHECK(std::abs(eight[0].max.x() - four[0].max.x()) < eps);
+            CHECK(std::abs(eight[1].min.x() - four[1].min.x()) < eps);
+            CHECK(std::abs(eight[2].max.y() - four[2].max.y()) < eps);
+            CHECK(std::abs(eight[3].min.y() - four[3].min.y()) < eps);
+            // Outer edges further out.
+            CHECK(eight[2].min.x() < four[2].min.x() - extra + eps);
+            CHECK(eight[2].max.x() > four[2].max.x() + extra - eps);
+        }
+    }
+}
+
 // The frame (SuperSlicer's 4 borders, the right one the tab of the numbers) follows the number of bends: closed, the bends
 // between the top and bottom borders and inside the outer edges (their ends touch the left border and the tab, as Ellis'
 // chevrons touch his frame), the numbers and the test number on the tab. SuperSlicer's frame was open with an even number of
@@ -344,7 +397,7 @@ TEST_CASE("Pressure calibration settings", "[PressureCalibration]") {
     CHECK(config.opt_float("layer_height") == 0.2);
     CHECK(config.get_abs_value("first_layer_height", 0.2) == 0.25);
     CHECK(config.opt_float("default_acceleration") == 0.);
-    CHECK(config.opt_float("perimeter_acceleration") == 0.);
+    CHECK(config.get_abs_value("perimeter_acceleration", 1000.) == 0.);
     CHECK(config.opt<ConfigOptionInts>("default_fan_speed")->get_at(0) == 100);
     CHECK(config.opt<ConfigOptionInts>("disable_fan_first_layers")->get_at(0) == 1);
     CHECK(config.opt<ConfigOptionInts>("slowdown_below_layer_time")->get_at(0) == 0);

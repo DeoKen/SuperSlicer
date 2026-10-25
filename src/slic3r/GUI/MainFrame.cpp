@@ -1766,6 +1766,10 @@ void MainFrame::init_menubar_as_editor()
     append_menu_item(calibrationMenu, wxID_ANY, _L("&CaliFlower") + dots, _L("Load your CaliFlower model to measure the filament shrinkage."),
         [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::CaliFlower); }, "", nullptr,
         [this]() { return plater()->printer_technology() == ptFFF; }, this);
+    append_menu_item(calibrationMenu, wxID_ANY, _L("R&inging tower (Klipper)") + dots,
+        _L("Load your ringing test model with Klipper's TUNING_TOWER acceleration test in the filament start G-code."),
+        [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::Ringing); }, "", nullptr,
+        [this]() { return plater()->printer_technology() == ptFFF; }, this);
 
     // Help menu
     auto helpMenu = generate_help_menu();

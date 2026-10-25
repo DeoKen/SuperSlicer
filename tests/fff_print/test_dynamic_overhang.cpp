@@ -345,9 +345,11 @@ TEST_CASE("Overhang threshold", "[DynamicOverhang]") {
 
 TEST_CASE("Dynamic overhang graphs start at the overhang threshold", "[DynamicOverhang]") {
     DynamicPrintConfig config = sphere_config();
+    // No overhang hysteresis (default 15 %): it moves the switch to overhang by up to 0.06 mm either way, here 45° -> 49.5°.
     config.set_deserialize_strict({
         { "overhangs_threshold",  "0%" },
         { "overhangs_graph_range", "2" },
+        { "overhangs_hysteresis", "0" },
     });
     SECTION("Speeds: the perimeters steeper than the threshold keep their speed") {
         config.set_deserialize_strict({

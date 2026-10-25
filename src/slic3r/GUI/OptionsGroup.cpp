@@ -22,12 +22,15 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include "slic3r/GUI/Search.hpp" // IWYU pragma: keep
 #include "slic3r/GUI/Field.hpp"
 #include "libslic3r/Exception.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/PercentValue.hpp"
 #include "libslic3r/Preset.hpp"
+#include "libslic3r/PresetBundle.hpp"
 #include "I18N.hpp"
 
 namespace Slic3r { namespace GUI {
@@ -784,6 +787,7 @@ void ConfigOptionsGroup::on_change_OG(const t_config_option_key& opt_id, const b
 	}
 
 	OptionsGroup::on_change_OG(opt_id, value);
+	update_value_hints();
 }
 
 void ConfigOptionsGroup::back_to_initial_value(const std::string& opt_key)
@@ -854,6 +858,45 @@ void ConfigOptionsGroup::reload_config()
 		int 			   opt_index = kvp.second.second;
 		const ConfigOptionDef &option = m_options.at(opt_id).opt;
 		this->set_value(opt_id, config_value(opt_key, opt_index, option.gui_flags == "serialized"));
+	}
+	update_value_hints();
+}
+
+bool OptionsGroup::can_have_value_hint(const ConfigOptionDef &def)
+{
+	return (def.type == coFloatOrPercent || def.type == coFloatsOrPercents) && ! percent_value_unit(def).empty() &&
+		   (! def.ratio_over.empty() || boost::ends_with(def.opt_key, "extrusion_width"));
+}
+
+void ConfigOptionsGroup::update_value_hints()
+{
+	// Drawn by the custom control of the settings tabs and the object settings only.
+	if (m_config == nullptr || custom_ctrl == nullptr || wxGetApp().preset_bundle == nullptr)
+		return;
+	std::map<t_config_option_key, wxString> hints;
+	std::optional<DynamicPrintConfig>       full;
+	for (const auto &[opt_id, option] : m_options) {
+		if (! can_have_value_hint(option.opt))
+			continue;
+		auto it = m_opt_map.find(opt_id);
+		const std::string &key = it == m_opt_map.end() ? opt_id : it->second.first;
+		if (! m_config->has(key))
+			continue;
+		if (! full) {
+			// The settings of the presets, with these on top (the object settings).
+			full = wxGetApp().preset_bundle->full_config();
+			full->apply(*m_config);
+		}
+		// A percentage: its absolute value; an absolute value: its percentage.
+		if (const std::optional<PercentValueHint> hint = percent_value_hint(*full, key); hint) {
+			char buf[64];
+			snprintf(buf, sizeof(buf), hint->value >= 1000. ? "%.0f" : hint->value >= 100. && ! hint->percent ? "%.0f" : "%.4g", hint->value);
+			hints[opt_id] = "(" + from_u8(buf) + " " + (hint->percent ? wxString("%") : _(percent_value_unit(option.opt))) + ")";
+		}
+	}
+	if (hints != m_value_hints) {
+		m_value_hints = std::move(hints);
+		custom_ctrl->Refresh();
 	}
 }
 

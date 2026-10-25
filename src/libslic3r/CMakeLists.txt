@@ -328,6 +328,8 @@ set(SLIC3R_SOURCES
     Preset.hpp
     PresetBundle.cpp
     PresetBundle.hpp
+    PercentValue.cpp
+    PercentValue.hpp
     PressureCalibration.cpp
     PressureCalibration.hpp
     PrincipalComponents2D.hpp

@@ -3,7 +3,7 @@
 
 // Calibration prints (Calibration menu): the temperature tower and the pressure calibration ported from SuperSlicer, Ellis'
 // pressure advance pattern (G-code written directly, opened in the G-code viewer) and the CaliFlower (Vector 3D, the user's
-// own model file).
+// own model file) and Klipper's ringing tower (TUNING_TOWER, the user's own model file).
 
 #include "GUI_Utils.hpp"
 #include "libslic3r/Point.hpp"
@@ -27,6 +27,7 @@ enum class CalibrationType {
     PressureAdvance,
     Pressure,
     CaliFlower,
+    Ringing,
 };
 
 // Opens the dialog of a calibration print (modal).

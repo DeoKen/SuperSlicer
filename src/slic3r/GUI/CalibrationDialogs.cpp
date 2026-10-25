@@ -463,6 +463,8 @@ public:
                                                                "fan speed of its own for the first layer."), number(ellis.first_layer_fan));
         m_accel       = add_text(_L("Acceleration (mm/s²)"), _L("Every acceleration of the print settings. 0: no acceleration command, the "
                                                                 "Klipper config or the speed mode applies (Ellis: disabled)."), number(ellis.acceleration));
+        m_frame_lines = add_text(_L("Frame lines"), _L("Width of each border of the frame, in first layer lines (SuperSlicer: 4). "
+                                                       "More lines hold the print better on the bed."), number(ellis.frame_lines));
         m_prefix = flavor == gcfMarlinFirmware ? " LA " : (flavor == gcfKlipper || flavor == gcfRepRapFirmware) ? " PA " : "";
         if (m_prefix.empty()) {
             auto *text = new wxStaticText(this, wxID_ANY, _L("unsupported firmware type"));
@@ -593,16 +595,18 @@ protected:
         }
 
         PressureCalibrationSettings settings;
-        double layers, fan, first_fan, wall_count;
+        double layers, fan, first_fan, wall_count, frame_lines;
         if (! get_number(m_speed, _L("Print speed (mm/s)"), settings.speed) || ! get_number(m_line_ratio, _L("Line width"), settings.line_ratio) ||
             ! get_number(m_layers, _L("Layers"), layers) || ! get_number(m_first_speed, _L("First layer speed (mm/s)"), settings.first_layer_speed) ||
             ! get_number(m_layer, _L("Layer height (mm)"), settings.layer_height) ||
             ! get_number(m_first_layer, _L("First layer height (mm)"), settings.first_layer_height) ||
             ! get_number(m_fan, _L("Fan (%)"), fan) || ! get_number(m_first_fan, _L("First layer fan (%)"), first_fan) ||
             ! get_number(m_accel, _L("Acceleration (mm/s²)"), settings.acceleration) || ! get_number(m_walls, _L("Walls"), wall_count) ||
-            ! get_number(m_side, _L("Side length (mm)"), settings.side_length) || ! get_number(m_spacing, _L("Spacing (mm)"), settings.pattern_spacing))
+            ! get_number(m_side, _L("Side length (mm)"), settings.side_length) || ! get_number(m_spacing, _L("Spacing (mm)"), settings.pattern_spacing) ||
+            ! get_number(m_frame_lines, _L("Frame lines"), frame_lines))
             return false;
         settings.wall_count      = int(wall_count);
+        settings.frame_lines     = int(frame_lines);
         settings.ellis_bends     = m_bends->GetSelection() != 1;
         settings.layers          = int(layers);
         settings.fan             = int(fan);
@@ -677,6 +681,7 @@ private:
     wxComboBox      *m_bends      { nullptr };
     wxTextCtrl      *m_speed { nullptr }, *m_line_ratio { nullptr }, *m_layers { nullptr }, *m_first_speed { nullptr };
     wxTextCtrl      *m_layer { nullptr }, *m_first_layer { nullptr }, *m_fan { nullptr }, *m_first_fan { nullptr }, *m_accel { nullptr };
+    wxTextCtrl      *m_frame_lines { nullptr };
     wxTextCtrl      *m_walls { nullptr }, *m_side { nullptr }, *m_spacing { nullptr };
     wxComboBox      *m_nb_tests   { nullptr };
     wxBoxSizer      *m_rows_sizer { nullptr };
@@ -757,6 +762,166 @@ private:
 };
 
 // ------------------------------------------------------------------------------------------------------------------------
+// Ringing tower (Klipper TUNING_TOWER)
+// ------------------------------------------------------------------------------------------------------------------------
+
+static const char *RINGING_PATH_KEY    = "calibration_ringing_path";
+// The block written into the filament start G-code, between these lines (replaced when generated again).
+static const char *RINGING_BLOCK_START = "; Ringing tower (Calibration menu)";
+static const char *RINGING_BLOCK_END   = "; Ringing tower end";
+
+class CalibrationRingingDialog : public CalibrationDialog
+{
+public:
+    CalibrationRingingDialog()
+        : CalibrationDialog(_L("Ringing tower"),
+            _L("Loads your ringing test model (e.g. Klipper's ringing_tower.stl, not included; don't rotate it) with Klipper's "
+               "recommended print settings: vase mode (one perimeter, no infill, no top layers) on a 1 mm base, layer height "
+               "0.2 mm (0.25 mm kept), external perimeters at the velocity limit, minimum layer time 3 s at most. "
+               "Adds Klipper's ringing test to the filament start G-code, after the printer's start G-code: velocity limit, "
+               "no pressure advance, the input shaper below and TUNING_TOWER raising the acceleration with the height. "
+               "So that nothing overrides it, the print writes no acceleration commands (default acceleration 0) and the "
+               "filament's Klipper speed mode is Off. All are unsaved changes of the print and filament settings.\n"
+               "Ringing frequency = velocity limit x oscillations / distance (mm).\n"
+               "Shaper frequency 0 = no input shaper on that axis. Acceleration of a height: start + step delta x (height / step height)."))
+    {
+        const auto remembered = [](const std::string &key, const char *def) {
+            const std::string value = wxGetApp().app_config->get("calibration_ringing_" + key);
+            return from_u8(value.empty() ? std::string(def) : value);
+        };
+        const std::vector<wxString> shapers = choices({ "zv", "mzv", "zvd", "ei", "2hump_ei", "3hump_ei" });
+        m_path        = add_text(_L("Model file"), _L("Location of your ringing test model file (STL, 3MF, OBJ or STEP). It is remembered."),
+                                 from_u8(wxGetApp().app_config->get(RINGING_PATH_KEY)));
+        m_velocity    = add_text(_L("Velocity limit (mm/s)"), "SET_VELOCITY_LIMIT VELOCITY=, also the external perimeter speed",
+                                 remembered("velocity", "100"));
+        m_shaper_x    = add_combo(_L("Shaper type X"), "SET_INPUT_SHAPER SHAPER_TYPE_X=", shapers, remembered("shaper_type_x", "mzv"));
+        m_freq_x      = add_text(_L("Shaper frequency X (Hz)"), "SET_INPUT_SHAPER SHAPER_FREQ_X= (0 = off)", remembered("shaper_freq_x", "0"));
+        m_shaper_y    = add_combo(_L("Shaper type Y"), "SET_INPUT_SHAPER SHAPER_TYPE_Y=", shapers, remembered("shaper_type_y", "mzv"));
+        m_freq_y      = add_text(_L("Shaper frequency Y (Hz)"), "SET_INPUT_SHAPER SHAPER_FREQ_Y= (0 = off)", remembered("shaper_freq_y", "0"));
+        m_start_accel = add_text(_L("Start acceleration (mm/s²)"), "TUNING_TOWER START=", remembered("start_accel", "1500"));
+        m_step_delta  = add_text(_L("Step delta (mm/s²)"), "TUNING_TOWER STEP_DELTA=", remembered("step_delta", "500"));
+        m_step_height = add_text(_L("Step height (mm)"), "TUNING_TOWER STEP_HEIGHT=", remembered("step_height", "5"));
+        auto *browse = new wxButton(this, wxID_ANY, _L("Browse") + dots);
+        GetSizer()->Add(browse, 0, wxALIGN_RIGHT | wxRIGHT | wxTOP, em_unit());
+        browse->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+            wxFileDialog dlg(this, _L("Choose the ringing test model file"), wxEmptyString, wxEmptyString, file_wildcards(FT_MODEL),
+                             wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+            if (dlg.ShowModal() == wxID_OK)
+                m_path->SetValue(dlg.GetPath());
+        });
+        finish_layout();
+    }
+
+protected:
+    bool generate() override
+    {
+        const std::string path = into_u8(m_path->GetValue().Trim(true).Trim(false));
+        if (path.empty() || ! boost::filesystem::exists(path)) {
+            show_error(this, _L("Choose your ringing test model file first."));
+            return false;
+        }
+        double velocity, freq_x, freq_y, start_accel, step_delta, step_height;
+        if (! get_number(m_velocity, _L("Velocity limit (mm/s)"), velocity) ||
+            ! get_number(m_freq_x, _L("Shaper frequency X (Hz)"), freq_x) || ! get_number(m_freq_y, _L("Shaper frequency Y (Hz)"), freq_y) ||
+            ! get_number(m_start_accel, _L("Start acceleration (mm/s²)"), start_accel) ||
+            ! get_number(m_step_delta, _L("Step delta (mm/s²)"), step_delta) || ! get_number(m_step_height, _L("Step height (mm)"), step_height))
+            return false;
+        if (velocity <= 0. || start_accel <= 0. || step_height <= 0. || freq_x < 0. || freq_y < 0.) {
+            show_error(this, _L("The velocity limit, start acceleration and step height must be above 0, the shaper frequencies 0 or more."));
+            return false;
+        }
+        const auto shaper = [](wxComboBox *combo) { return into_u8(combo->GetValue().Trim(true).Trim(false)); };
+        const std::string shaper_x = shaper(m_shaper_x), shaper_y = shaper(m_shaper_y);
+        if (shaper_x.empty() || shaper_y.empty() || shaper_x.find_first_of(" \t\r\n") != std::string::npos ||
+            shaper_y.find_first_of(" \t\r\n") != std::string::npos) {
+            show_error(this, _L("Choose a shaper type for X and Y."));
+            return false;
+        }
+        // The numbers as typed (decimal point, no trailing zeros).
+        const auto num = [](double v) { std::string s = float_to_string_decimal_point(v, 6);
+            if (s.find('.') != std::string::npos) { s.erase(s.find_last_not_of('0') + 1); if (s.back() == '.') s.pop_back(); }
+            return s; };
+        AppConfig &app = *wxGetApp().app_config;
+        app.set(RINGING_PATH_KEY, path);
+        app.set("calibration_ringing_velocity", num(velocity));
+        app.set("calibration_ringing_shaper_type_x", shaper_x);
+        app.set("calibration_ringing_shaper_freq_x", num(freq_x));
+        app.set("calibration_ringing_shaper_type_y", shaper_y);
+        app.set("calibration_ringing_shaper_freq_y", num(freq_y));
+        app.set("calibration_ringing_start_accel", num(start_accel));
+        app.set("calibration_ringing_step_delta", num(step_delta));
+        app.set("calibration_ringing_step_height", num(step_height));
+        if (! start_calibration_project())
+            return false;
+
+        Plater *plater = wxGetApp().plater();
+        // No object settings: the print profile applies.
+        std::vector<size_t> objs = plater->load_files(std::vector<std::string>{ path }, true, false);
+        if (objs.empty())
+            return false;
+
+        const std::string block = std::string(RINGING_BLOCK_START) + "\n" +
+            "SET_VELOCITY_LIMIT VELOCITY=" + num(velocity) + " MINIMUM_CRUISE_RATIO=0\n"
+            "SET_PRESSURE_ADVANCE ADVANCE=0\n"
+            // Frequency 0 = no shaper on that axis: no shaper type for it.
+            "SET_INPUT_SHAPER" + (freq_x > 0. ? " SHAPER_TYPE_X=" + shaper_x : std::string()) + " SHAPER_FREQ_X=" + num(freq_x) +
+                (freq_y > 0. ? " SHAPER_TYPE_Y=" + shaper_y : std::string()) + " SHAPER_FREQ_Y=" + num(freq_y) + "\n"
+            "TUNING_TOWER COMMAND=SET_VELOCITY_LIMIT PARAMETER=ACCEL START=" + num(start_accel) +
+                " STEP_DELTA=" + num(step_delta) + " STEP_HEIGHT=" + num(step_height) + "\n" +
+            RINGING_BLOCK_END + "\n";
+        DynamicPrintConfig filament = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
+        {
+            // At the end of the filament start G-code (after its own SET_PRESSURE_ADVANCE), for every filament; an earlier block replaced.
+            auto *opt = filament.option<ConfigOptionStrings>("start_filament_gcode", true);
+            if (opt->values.empty())
+                opt->values.emplace_back();
+            for (std::string &gcode : opt->values) {
+                if (size_t a = gcode.find(RINGING_BLOCK_START); a != std::string::npos) {
+                    size_t b = gcode.find(RINGING_BLOCK_END, a);
+                    b = b == std::string::npos ? gcode.size() : std::min(gcode.size(), b + strlen(RINGING_BLOCK_END) + 1);
+                    gcode.erase(a, b - a);
+                }
+                gcode += (gcode.empty() || gcode.back() == '\n' ? "" : "\n") + block;
+            }
+        }
+        // The speed mode macro runs after the filament start G-code and would set its own velocity and acceleration.
+        if (auto *opt = filament.option<ConfigOptionStrings>("klipper_speed_mode"); opt)
+            opt->values.assign(std::max<size_t>(1, opt->values.size()), "Off");
+        // Klipper: minimum layer time at most 3 s, else the cooling slowdown lowers the perimeter speed.
+        if (auto *opt = filament.option<ConfigOptionInts>("slowdown_below_layer_time"); opt)
+            for (int &t : opt->values)
+                t = std::min(t, 3);
+        load_tab_config(Preset::TYPE_FILAMENT, filament);
+        // No acceleration commands (M204 / SET_VELOCITY_LIMIT ACCEL), which would override TUNING_TOWER's.
+        DynamicPrintConfig print = wxGetApp().preset_bundle->prints.get_edited_preset().config;
+        print.set_key_value("default_acceleration", new ConfigOptionFloat(0.));
+        // Klipper's recommended slicing: layer height 0.2 or 0.25 mm, vase mode with a 1-2 mm base (the settings vase
+        // mode needs, as ConfigManipulation), external perimeters at the speed used for the frequency (V x N / D).
+        const double layer_height = std::abs(print.opt_float("layer_height") - 0.25) < EPSILON ? 0.25 : 0.2;
+        print.set_key_value("layer_height",                    new ConfigOptionFloat(layer_height));
+        print.set_key_value("spiral_vase",                     new ConfigOptionBool(true));
+        print.set_key_value("perimeters",                      new ConfigOptionInt(1));
+        print.set_key_value("top_solid_layers",                new ConfigOptionInt(0));
+        print.set_key_value("bottom_solid_layers",             new ConfigOptionInt(int(std::ceil(1. / layer_height - EPSILON))));
+        print.set_key_value("fill_density",                    new ConfigOptionPercent(0));
+        print.set_key_value("support_material",                new ConfigOptionBool(false));
+        print.set_key_value("support_material_enforce_layers", new ConfigOptionInt(0));
+        print.set_key_value("thin_walls",                      new ConfigOptionBool(false));
+        print.set_key_value("external_perimeter_speed",        new ConfigOptionFloatOrPercent(velocity, false));
+        print.set_key_value("perimeter_speed",                 new ConfigOptionFloat(velocity));
+        load_tab_config(Preset::TYPE_PRINT, print);
+
+        finish_calibration_project(objs);
+        return true;
+    }
+
+private:
+    wxTextCtrl *m_path { nullptr }, *m_velocity { nullptr }, *m_freq_x { nullptr }, *m_freq_y { nullptr };
+    wxTextCtrl *m_start_accel { nullptr }, *m_step_delta { nullptr }, *m_step_height { nullptr };
+    wxComboBox *m_shaper_x { nullptr }, *m_shaper_y { nullptr };
+};
+
+// ------------------------------------------------------------------------------------------------------------------------
 
 void show_calibration_dialog(CalibrationType type)
 {
@@ -766,6 +931,7 @@ void show_calibration_dialog(CalibrationType type)
     case CalibrationType::PressureAdvance: dlg = std::make_unique<CalibrationPressureAdvanceDialog>(); break;
     case CalibrationType::Pressure:        dlg = std::make_unique<CalibrationPressureDialog>(); break;
     case CalibrationType::CaliFlower:      dlg = std::make_unique<CalibrationCaliFlowerDialog>(); break;
+    case CalibrationType::Ringing:         dlg = std::make_unique<CalibrationRingingDialog>(); break;
     }
     dlg->ShowModal();
 }

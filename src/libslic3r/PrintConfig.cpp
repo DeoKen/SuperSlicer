@@ -831,14 +831,15 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->set_default_value(new ConfigOptionFloat(0.));
 
-    def = this->add("bridge_acceleration", coFloat);
+    def = this->add("bridge_acceleration", coFloatOrPercent);
     def->label = L("Bridge");
     def->tooltip = L("This is the acceleration your printer will use for bridges. "
-                   "Set zero to disable acceleration control for bridges.");
-    def->sidetext = L("mm/s²");
+                   "Set zero to disable acceleration control for bridges. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
     def = this->add("bridge_angle", coFloat);
     def->label = L("Bridging angle");
@@ -929,9 +930,9 @@ void PrintConfigDef::init_fff_params()
     def = this->add("gap_fill_acceleration", coFloatOrPercent);
     def->label = L("Gap fill");
     def->full_label = L("Gap fill acceleration");
-    def->tooltip = L("This is the acceleration your printer will use for gap fill. Can be a percentage of the perimeter acceleration. Set zero to use the default acceleration.");
+    def->tooltip = L("This is the acceleration your printer will use for gap fill. Can be a percentage of the default acceleration. Set zero to use the default acceleration.");
     def->sidetext = L("mm/s² or %");
-    def->ratio_over = "perimeter_acceleration";
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
@@ -949,9 +950,9 @@ void PrintConfigDef::init_fff_params()
     def = this->add("support_material_interface_acceleration", coFloatOrPercent);
     def->label = L("Support interface");
     def->full_label = L("Support material interface acceleration");
-    def->tooltip = L("This is the acceleration your printer will use for support material interfaces. Can be a percentage of the support material acceleration. Set zero to use the support material acceleration.");
+    def->tooltip = L("This is the acceleration your printer will use for support material interfaces. Can be a percentage of the default acceleration. Set zero to use the support material acceleration.");
     def->sidetext = L("mm/s² or %");
-    def->ratio_over = "support_material_acceleration";
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
@@ -959,9 +960,9 @@ void PrintConfigDef::init_fff_params()
     def = this->add("ironing_acceleration", coFloatOrPercent);
     def->label = L("Ironing");
     def->full_label = L("Ironing acceleration");
-    def->tooltip = L("This is the acceleration your printer will use for ironing. Can be a percentage of the top solid infill acceleration. Set zero to use the solid infill acceleration.");
+    def->tooltip = L("This is the acceleration your printer will use for ironing. Can be a percentage of the default acceleration. Set zero to use the solid infill acceleration.");
     def->sidetext = L("mm/s² or %");
-    def->ratio_over = "top_solid_infill_acceleration";
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
@@ -969,9 +970,9 @@ void PrintConfigDef::init_fff_params()
     def = this->add("brim_acceleration", coFloatOrPercent);
     def->label = L("Brim");
     def->full_label = L("Brim and skirt acceleration");
-    def->tooltip = L("This is the acceleration your printer will use for the brim and the skirt. Can be a percentage of the support material acceleration. Set zero to use the default acceleration. The first layer acceleration takes precedence on the first layer.");
+    def->tooltip = L("This is the acceleration your printer will use for the brim and the skirt. Can be a percentage of the default acceleration. Set zero to use the default acceleration. The first layer acceleration takes precedence on the first layer.");
     def->sidetext = L("mm/s² or %");
-    def->ratio_over = "support_material_acceleration";
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
@@ -987,14 +988,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("internal_bridge_acceleration", coFloat);
+    def = this->add("internal_bridge_acceleration", coFloatOrPercent);
     def->label = L("Internal bridge");
     def->tooltip = L("This is the acceleration your printer will use for internal bridges. "
-                   "Set zero to use the bridge acceleration.");
-    def->sidetext = L("mm/s²");
+                   "Set zero to use the bridge acceleration. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
     def = this->add("additional_cooling_fan_speed", coInts);
     def->label = L("Auxiliary fan speed");
@@ -2093,23 +2095,25 @@ void PrintConfigDef::init_fff_params()
     });
     def->set_default_value(new ConfigOptionEnum<InfillPattern>(ipStars));
 
-    def = this->add("first_layer_acceleration", coFloat);
+    def = this->add("first_layer_acceleration", coFloatOrPercent);
     def->label = L("First layer");
     def->tooltip = L("This is the acceleration your printer will use for first layer. Set zero "
-                   "to disable acceleration control for first layer.");
-    def->sidetext = L("mm/s²");
+                   "to disable acceleration control for first layer. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("first_layer_acceleration_over_raft", coFloat);
+    def = this->add("first_layer_acceleration_over_raft", coFloatOrPercent);
     def->label = L("First object layer over raft interface");
     def->tooltip = L("This is the acceleration your printer will use for first layer of object above raft interface. Set zero "
-                   "to disable acceleration control for first layer of object above raft interface.");
-    def->sidetext = L("mm/s²");
+                   "to disable acceleration control for first layer of object above raft interface. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
     def = this->add("first_layer_bed_temperature", coInts);
     def->label = L("First layer");
@@ -2309,58 +2313,64 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(0));
 
-    def = this->add("infill_acceleration", coFloat);
+    def = this->add("infill_acceleration", coFloatOrPercent);
     def->label = L("Infill");
     def->tooltip = L("This is the acceleration your printer will use for infill. Set zero to disable "
-                     "acceleration control for infill.");
-    def->sidetext = L("mm/s²");
+                     "acceleration control for infill. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("solid_infill_acceleration", coFloat);
+    def = this->add("solid_infill_acceleration", coFloatOrPercent);
     def->label = L("Solid infill");
     def->tooltip = L("This is the acceleration your printer will use for solid infill. Set zero to use "
-                     "the value for infill.");
-    def->sidetext = L("mm/s²");
+                     "the value for infill. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("top_solid_infill_acceleration", coFloat);
+    def = this->add("top_solid_infill_acceleration", coFloatOrPercent);
     def->label = L("Top solid infill");
     def->tooltip = L("This is the acceleration your printer will use for top solid infill. Set zero to use "
-                     "the value for solid infill.");
-    def->sidetext = L("mm/s²");
+                     "the value for solid infill. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("wipe_tower_acceleration", coFloat);
+    def = this->add("wipe_tower_acceleration", coFloatOrPercent);
     def->label = L("Wipe tower");
     def->tooltip = L("This is the acceleration your printer will use for wipe tower. Set zero to disable "
-                     "acceleration control for the wipe tower.");
-    def->sidetext = L("mm/s²");
+                     "acceleration control for the wipe tower. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("travel_acceleration", coFloat);
+    def = this->add("travel_acceleration", coFloatOrPercent);
     def->label = L("Travel");
     def->tooltip = L("This is the acceleration your printer will use for travel moves. Set zero to disable "
-                     "acceleration control for travel. Ignored when the default acceleration is zero.");
-    def->sidetext = L("mm/s²");
+                     "acceleration control for travel. Ignored when the default acceleration is zero. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("travel_short_distance_acceleration", coFloat);
+    def = this->add("travel_short_distance_acceleration", coFloatOrPercent);
     def->label = L("Travel short distance acceleration");
-    def->tooltip = L("Acceleration used for short travel moves. Short travel distance is determined by the retract_before_travel setting.");
-    def->sidetext = L("mm/s²");
+    def->tooltip = L("Acceleration used for short travel moves. Short travel distance is determined by the retract_before_travel setting. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
     def = this->add("infill_every_layers", coInt);
     def->label = L("Combine infill every");
@@ -3112,16 +3122,34 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("How far the middle of a perimeter has to lie past the edge of the layer below to be an overhang perimeter "
                    "(bridge flow, overhangs speed and fan). Can be in mm or a % of the nozzle diameter. "
                    "50% is the PrusaSlicer default: with a line as wide as the nozzle, the whole line is past the edge. "
+                   "Negative values (down to -40%) make overhangs of perimeters whose middle is still a little inside the edge. "
                    "The angle from vertical next to the field is the steepest wall that is not an overhang, at the layer height "
                    "and nozzle of the current profiles: lower layers and smaller nozzles give a steeper angle for the same value. "
                    "The dynamic overhang speeds and fan speeds start at this threshold: below it, the perimeters keep their speed "
                    "and fan speed.");
     def->sidetext = L("mm or %");
     def->ratio_over = "nozzle_diameter";
-    def->min = 0;
+    // Checked against -40% of the nozzle diameter in Print::validate(), as the minimum does not know mm from %.
+    def->min = -40;
     def->max_literal = 10;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(50, true));
+
+    def = this->add("overhangs_hysteresis", coFloatOrPercent);
+    def->label = L("Overhang hysteresis");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("Stops a perimeter from flipping between overhang and normal perimeter when it runs along the overhang threshold "
+                   "(a wall about as steep as the threshold angle, where the facets of the model put it a little in front of or "
+                   "behind the threshold). Each stretch of perimeter that stays within this distance of the threshold is an "
+                   "overhang or not as a whole, from its average; it changes only where the perimeter gets further than this "
+                   "from the threshold, either way. Can be in mm or a % of the nozzle diameter. 0 = off (PrusaSlicer).");
+    def->sidetext = L("mm or %");
+    def->ratio_over = "nozzle_diameter";
+    def->min = 0;
+    def->max_literal = 1;
+    def->mode = comAdvanced;
+    // 15 % (user, 2026-10-24): changes stock output, as internal_bridge_shortest_span; the golden test turns it off.
+    def->set_default_value(new ConfigOptionFloatOrPercent(15, true));
 
     def = this->add("parking_pos_retraction", coFloat);
     def->label = L("Filament parking position");
@@ -3149,21 +3177,23 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(140.));
 
-    def = this->add("perimeter_acceleration", coFloat);
+    def = this->add("perimeter_acceleration", coFloatOrPercent);
     def->label = L("Perimeters");
     def->tooltip = L("This is the acceleration your printer will use for perimeters. "
-                     "Set zero to disable acceleration control for perimeters.");
-    def->sidetext = L("mm/s²");
+                     "Set zero to disable acceleration control for perimeters. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
-    def = this->add("external_perimeter_acceleration", coFloat);
+    def = this->add("external_perimeter_acceleration", coFloatOrPercent);
     def->label = L("External perimeters");
     def->tooltip = L("This is the acceleration your printer will use for external perimeters. "
-                     "Set zero to use the value for perimeters.");
-    def->sidetext = L("mm/s²");
+                     "Set zero to use the value for perimeters. If expressed as percentage, it is computed over the default acceleration.");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "default_acceleration";
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
     def = this->add("perimeter_extruder", coInt);
     def->label = L("Perimeter extruder");

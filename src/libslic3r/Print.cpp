@@ -832,12 +832,17 @@ std::string Print::validate(std::vector<std::string>* warnings) const
             return std::string("Unable to parse custom parameters: " + error_out);
     }
     for (const PrintObject *object : m_objects)
-        for (const PrintRegion &region : object->all_regions())
+        for (const PrintRegion &region : object->all_regions()) {
             if (region.config().small_area_infill_flow_compensation) {
                 std::string error_out;
                 if (! SmallAreaFlowModel::parse(region.config().small_area_infill_flow_compensation_model.value, &error_out))
                     return error_out;
             }
+            // Further in, even vertical walls would be overhangs.
+            const double nozzle_diameter = m_config.nozzle_diameter.get_at(region.config().perimeter_extruder - 1);
+            if (region.config().overhangs_threshold.get_abs_value(nozzle_diameter) < -0.4 * nozzle_diameter - EPSILON)
+                return _u8L("The overhang threshold can't be below -40% of the nozzle diameter.");
+        }
 
     return std::string();
 }

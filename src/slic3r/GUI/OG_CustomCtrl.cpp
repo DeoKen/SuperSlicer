@@ -8,6 +8,7 @@
 #include "GUI_App.hpp"
 #include "MsgDialog.hpp"
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/PercentValue.hpp"
 
 #include <wx/utils.h>
 #include <boost/algorithm/string/split.hpp>
@@ -183,7 +184,22 @@ wxCoord OG_CustomCtrl::side_width(const Option &option)
 {
     if (option.opt.sidetext.empty() && opt_group->sidetext_width <= 0)
         return 0;
-    return std::max(text_width(_(option.opt.sidetext)), wxCoord(opt_group->sidetext_width * m_em_unit));
+    return std::max(text_width(side_text(option, true)), wxCoord(opt_group->sidetext_width * m_em_unit));
+}
+
+wxString OG_CustomCtrl::side_text(const Option &option, bool sample) const
+{
+    wxString text = _(option.opt.sidetext);
+    // A setting taking a value or a percentage: the absolute value of a percentage after the unit, space reserved for it.
+    if (OptionsGroup::can_have_value_hint(option.opt)) {
+        // Sample: the wider of an absolute value and a percentage.
+        const wxString unit = _(percent_value_unit(option.opt));
+        const wxString hint = ! sample ? opt_group->value_hint(option.opt_id) :
+                              unit.length() + 4 > 7 ? "(0000 " + unit + ")" : wxString("(000.0 %)");
+        if (! hint.empty())
+            text += "  " + hint;
+    }
+    return text;
 }
 
 wxCoord OG_CustomCtrl::aligned_single_offset(const Line &line)
@@ -844,7 +860,7 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
             h_pos += (last ? ctrl->field_width(opt, field) : cols[i].field) + ctrl->m_h_gap;
             if (const wxCoord side = last ? ctrl->side_width(opt) : cols[i].side; side > 0) {
                 if (! opt.opt.sidetext.empty())
-                    draw_text(dc, wxPoint(h_pos, v_pos), _(opt.opt.sidetext), nullptr, side);
+                    draw_text(dc, wxPoint(h_pos, v_pos), ctrl->side_text(opt, false), nullptr, side);
                 h_pos += side + ctrl->m_h_gap;
             }
             h_pos += lround(0.6 * ctrl->m_em_unit);
@@ -891,11 +907,12 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
 
         // add sidetext if any
         if (!option.sidetext.empty() || ctrl->opt_group->sidetext_width > 0) {
+            const wxString side_text = ctrl->side_text(opt, false);
             wxCoord side_w = ctrl->opt_group->sidetext_width * ctrl->m_em_unit;
-            if (is_multioption_line && !option.sidetext.empty())
+            if ((is_multioption_line && !option.sidetext.empty()) || ! ctrl->opt_group->value_hint(opt.opt_id).empty())
                 // Not wrapped on lines with several fields: it would overlap the next sub-label.
-                side_w = std::max(side_w, dc.GetMultiLineTextExtent(_(option.sidetext)).x);
-            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), _(option.sidetext), nullptr, side_w);
+                side_w = std::max(side_w, std::max(dc.GetMultiLineTextExtent(side_text).x, ctrl->text_width(ctrl->side_text(opt, true))));
+            h_pos = draw_text(dc, wxPoint(h_pos, v_pos), side_text, nullptr, side_w);
         }
 
         if (opt.opt_id != option_set.back().opt_id) //! istead of (opt != option_set.back())

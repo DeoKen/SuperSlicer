@@ -142,10 +142,10 @@ void pressure_calibration_apply_settings(DynamicPrintConfig &config, const Press
 {
     if (s.speed <= 0. || s.first_layer_speed <= 0. || s.line_ratio <= 0. || s.layers < 2 || s.layer_height <= 0. ||
         s.first_layer_height <= 0. || s.fan < 0 || s.fan > 100 || s.acceleration < 0. || s.wall_count < 1 || s.wall_count > 10 ||
-        s.side_length < 5. || s.pattern_spacing < 0.)
+        s.side_length < 5. || s.pattern_spacing < 0. || s.frame_lines < 1 || s.frame_lines > 50)
         throw Slic3r::RuntimeError(_u8L("Invalid pressure calibration settings: speeds, line width and layer heights above 0, "
                                         "at least 2 layers, fan 0 to 100 %, acceleration 0 or more, 1 to 10 walls, side length at "
-                                        "least 5 mm, spacing 0 or more."));
+                                        "least 5 mm, spacing 0 or more, 1 to 50 frame lines."));
     if (s.first_layer_fan != 0 && s.first_layer_fan != s.fan)
         throw Slic3r::RuntimeError(_u8L("First layer fan: 0 (off) or the same as the fan. PrusaSlicer has no fan speed of its "
                                         "own for the first layer."));
@@ -171,9 +171,8 @@ void pressure_calibration_apply_settings(DynamicPrintConfig &config, const Press
     for (const char *key : { "perimeter_acceleration", "external_perimeter_acceleration", "first_layer_acceleration",
                              "first_layer_acceleration_over_raft", "travel_acceleration", "travel_short_distance_acceleration",
                              "infill_acceleration", "solid_infill_acceleration", "top_solid_infill_acceleration",
-                             "bridge_acceleration", "internal_bridge_acceleration", "wipe_tower_acceleration" })
-        set_float(key, 0.);
-    for (const char *key : { "gap_fill_acceleration", "ironing_acceleration", "support_material_acceleration",
+                             "bridge_acceleration", "internal_bridge_acceleration", "wipe_tower_acceleration",
+                             "gap_fill_acceleration", "ironing_acceleration", "support_material_acceleration",
                              "support_material_interface_acceleration", "brim_acceleration" })
         set_float_or_percent(key, 0.);
     // Filament: the fan from the second layer (or from the first one), no ramp, no layer time cooling (fan speed-up or
@@ -225,6 +224,7 @@ std::string pressure_calibration_summary(const DynamicPrintConfig &config, const
     line(" - Layer height: " + num(s.layer_height) + " mm");
     line(" - First layer height: " + num(s.first_layer_height) + " mm");
     line(" - First layer printing speed: " + num(s.first_layer_speed) + " mm/s");
+    line(" - Frame: " + std::to_string(s.frame_lines) + " lines");
     line(" - Acceleration: " + (s.acceleration > 0. ? num(s.acceleration) + " mm/s^2" : std::string("Disabled")));
     line(" - Fan speed: " + std::to_string(s.fan) + " %");
     line(" - First layer fan speed: " + std::to_string(s.first_layer_fan) + " %");
@@ -428,7 +428,13 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
     const double z_scale_others       = first_layer_height / initial_model_height;
     const double z_others_pos         = first_layer_height / 2.;
     const double z_scaled_model_height = initial_model_height * (first_layer_height / initial_model_height);
-    const double first_layer_border   = first_layer_flow.width() + 3. * first_layer_flow.spacing() + (first_layer_flow.width() - first_layer_flow.spacing());
+    // The width of a border: frame_lines first layer lines and an overlap (SuperSlicer: 4 lines). It grows outwards: the inner
+    // edges stay where SuperSlicer's 4 lines put them.
+    const auto   border_of = [&first_layer_flow](int lines) {
+        return first_layer_flow.width() + (lines - 1) * first_layer_flow.spacing() + (first_layer_flow.width() - first_layer_flow.spacing());
+    };
+    const double first_layer_border   = border_of(ps.frame_lines);
+    const double extra_border         = first_layer_border - border_of(4);
 
     const bool   check_all = test.role == CHECK_ALL;
     const size_t count     = check_all ? roles.size() : test.values.size();
@@ -523,9 +529,9 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
             const Vec3d  number_last  = number_positions.back();
             const double numbers_total_width  = (number_last.x() + xy_scaled_number_x / 2.) - (number_first.x() - xy_scaled_number_x / 2.);
             const double total_height         = (bend_last.y() + xy_scaled_90_bend_y / 2.) - (bend_first.y() - xy_scaled_90_bend_y / 2.);
-            const double right_border_x_mm    = numbers_total_width + nozzle * 2.;
+            const double right_border_x_mm    = numbers_total_width + nozzle * 2. + extra_border;
             // SuperSlicer's left border reaches a little into the bends; around Ellis' chevrons (other objects) it touches them.
-            const double left_inset           = ps.ellis_bends ? first_layer_border / 2. : nozzle;
+            const double left_inset           = ps.ellis_bends ? first_layer_border / 2. : nozzle + extra_border / 2.;
             const double left_border_x_offset = (bend_mid.x() - xy_scaled_90_bend_x / 2. - left_inset + first_layer_border / 2.) - (bend_mid.x() - xy_scaled_90_bend_x / 2.);
             const double tb_total_width_mm    = (first_layer_border - left_border_x_offset) + xy_scaled_90_bend_x + right_border_x_mm;
             const double left_border_x_pos    = bend_mid.x() - xy_scaled_90_bend_x / 2. - left_inset;

@@ -96,6 +96,9 @@ class OG_CustomCtrl :public wxPanel
     wxCoord             text_width(const wxString &text);
     wxCoord             field_width(const Option &option, Field *field);
     wxCoord             side_width(const Option &option);
+    // The text after a field: its unit, and for a setting taking a value or a percentage the absolute value of a percentage
+    // (sample: the widest such text, for the space to reserve).
+    wxString            side_text(const Option &option, bool sample) const;
     wxCoord             aligned_single_offset(const Line &line);
 public:
     static bool         is_multioption_line(const Line &line);

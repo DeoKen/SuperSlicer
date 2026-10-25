@@ -201,6 +201,174 @@ public:
 
 using PerimeterGeneratorLoops = std::vector<PerimeterGeneratorLoop>;
 
+// Overhang hysteresis (fork): a perimeter running along the overhang threshold (a wall as steep as the threshold angle) is cut
+// by the clipping into many short pieces flipping between overhang and supported, as the facets of the mesh put its middle
+// a little in front of or behind the grown lower slices. A piece whose middle gets further than the hysteresis band from the
+// threshold (strong) keeps its role; each run of pieces between them that stay within the band (weak) gets one role, from
+// the average distance of the run past the threshold. So a perimeter only changes its role once per crossing.
+namespace overhang_hysteresis {
+inline Points                   &points(Polyline &p)                       { return p.points; }
+inline const Points             &points(const Polyline &p)                 { return p.points; }
+inline ClipperLib_Z::Path       &points(ClipperLib_Z::Path &p)             { return p; }
+inline const ClipperLib_Z::Path &points(const ClipperLib_Z::Path &p)       { return p; }
+inline Point                     to_point(const Point &p)                  { return p; }
+inline Point                     to_point(const ClipperLib_Z::IntPoint &p) { return { p.x(), p.y() }; }
+} // namespace overhang_hysteresis
+
+// supported / overhangs: the pieces of one perimeter inside / outside the grown lower slices, as clipped. bbox: of the perimeter.
+// band: scaled. Rewritten in place, the neighbouring pieces of the same role joined.
+template<typename PathsT, typename PathT = typename PathsT::value_type>
+static void apply_overhang_hysteresis(PathsT &supported, PathsT &overhangs, const Polygons &grown_lower_slices,
+                                      BoundingBox bbox, const double band, const bool closed)
+{
+    using namespace overhang_hysteresis;
+    if (band <= 0. || supported.empty() || overhangs.empty())
+        return;
+    // Distances to the boundary of the grown lower slices. Clipped further out than the band, so that the edges the clipping
+    // adds along the bounding box are not taken for the boundary by the strength test.
+    bbox.offset(2. * band + scaled<double>(1.));
+    Lines lines = to_lines(ClipperUtils::clip_clipper_polygons_with_subject_bbox(grown_lower_slices, bbox));
+    if (lines.empty())
+        return;
+    AABBTreeLines::LinesDistancer<Line> distancer(std::move(lines));
+
+    struct Piece { PathT path; bool overhang; bool strong = false; double signed_area = 0.; };
+    std::vector<Piece> pieces;
+    pieces.reserve(supported.size() + overhangs.size());
+    for (PathT &path : supported)
+        if (points(path).size() >= 2)
+            pieces.push_back({ std::move(path), false });
+    for (PathT &path : overhangs)
+        if (points(path).size() >= 2)
+            pieces.push_back({ std::move(path), true });
+    supported.clear();
+    overhangs.clear();
+
+    const double step = std::max(0.5 * band, scaled<double>(0.05));
+    for (Piece &piece : pieces) {
+        const auto &pts = points(piece.path);
+        double max_dist = 0.;
+        double prev_dist = 0.;
+        Point  prev;
+        auto sample = [&](const Point &p, bool first) {
+            const double d = distancer.distance_from_lines<false>(p);
+            max_dist = std::max(max_dist, d);
+            if (! first)
+                piece.signed_area += 0.5 * (prev_dist + d) * (p - prev).cast<double>().norm();
+            prev = p;
+            prev_dist = d;
+        };
+        sample(to_point(pts.front()), true);
+        for (size_t i = 1; i < pts.size(); ++ i) {
+            const Point  a = to_point(pts[i - 1]);
+            const Point  b = to_point(pts[i]);
+            const size_t n = size_t((b - a).cast<double>().norm() / step);
+            for (size_t k = 1; k <= n; ++ k)
+                sample(a + ((b - a).cast<double>() * (double(k) / double(n + 1))).cast<coord_t>(), false);
+            sample(b, false);
+        }
+        piece.strong = max_dist > band;
+        if (! piece.overhang)
+            piece.signed_area = - piece.signed_area;
+    }
+
+    // Order the pieces along the perimeter by their end points (the clipping does not keep the order nor the direction).
+    const size_t n = pieces.size();
+    auto end_point = [&pieces](size_t i, bool last) { const auto &pts = points(pieces[i].path); return to_point(last ? pts.back() : pts.front()); };
+    auto nearest_end = [&](const Point &p, size_t self) {
+        double best = std::numeric_limits<double>::max();
+        for (size_t j = 0; j < n; ++ j)
+            if (j != self)
+                for (bool last : { false, true })
+                    best = std::min(best, (end_point(j, last) - p).cast<double>().squaredNorm());
+        return best;
+    };
+    // Start with a piece whose start is free: an open perimeter starts at its end, which no other piece touches.
+    size_t start = 0;
+    bool   start_reversed = false;
+    if (! closed) {
+        double best = -1.;
+        for (size_t i = 0; i < n; ++ i)
+            for (bool last : { false, true })
+                if (double d = nearest_end(end_point(i, last), i); d > best) {
+                    best           = d;
+                    start          = i;
+                    start_reversed = last;
+                }
+    }
+    std::vector<std::pair<size_t, bool>> order{ { start, start_reversed } };
+    std::vector<bool>                    used(n, false);
+    used[start] = true;
+    for (size_t k = 1; k < n; ++ k) {
+        const Point exit = end_point(order.back().first, ! order.back().second);
+        double best = std::numeric_limits<double>::max();
+        std::pair<size_t, bool> next{ size_t(-1), false };
+        for (size_t j = 0; j < n; ++ j)
+            if (! used[j])
+                for (bool last : { false, true })
+                    if (double d = (end_point(j, last) - exit).cast<double>().squaredNorm(); d < best) {
+                        best = d;
+                        next = { j, last };
+                    }
+        used[next.first] = true;
+        order.push_back(next);
+    }
+
+    // The strong pieces keep their role, each run of weak pieces between them gets one role from its average.
+    // Closed: around from a strong piece, so that no run is cut at the start.
+    std::vector<bool> overhang(n);
+    size_t first = 0;
+    if (closed)
+        for (size_t k = 0; k < n; ++ k)
+            if (pieces[order[k].first].strong) {
+                first = k;
+                break;
+            }
+    std::vector<size_t> run;
+    double              run_sum = 0.;
+    auto flush_run = [&]() {
+        for (size_t idx : run)
+            overhang[idx] = run_sum > 0.;
+        run.clear();
+        run_sum = 0.;
+    };
+    for (size_t k = 0; k < n; ++ k) {
+        const size_t idx   = (first + k) % n;
+        const Piece &piece = pieces[order[idx].first];
+        if (piece.strong) {
+            flush_run();
+            overhang[idx] = piece.overhang;
+        } else {
+            run.push_back(idx);
+            run_sum += piece.signed_area;
+        }
+    }
+    flush_run();
+
+    // Join the neighbours of the same role.
+    std::vector<std::pair<PathT, bool>> joined;
+    for (size_t k = 0; k < n; ++ k) {
+        PathT path = std::move(pieces[order[k].first].path);
+        if (order[k].second)
+            std::reverse(points(path).begin(), points(path).end());
+        if (! joined.empty() && joined.back().second == overhang[k]) {
+            auto &dst = points(joined.back().first);
+            const auto &src = points(path);
+            dst.insert(dst.end(), src.begin() + (to_point(src.front()) == to_point(dst.back()) ? 1 : 0), src.end());
+        } else
+            joined.emplace_back(std::move(path), overhang[k]);
+    }
+    if (closed && joined.size() > 1 && joined.front().second == joined.back().second) {
+        auto &dst = points(joined.back().first);
+        const auto &src = points(joined.front().first);
+        dst.insert(dst.end(), src.begin() + (to_point(src.front()) == to_point(dst.back()) ? 1 : 0), src.end());
+        joined.front() = std::move(joined.back());
+        joined.pop_back();
+    }
+    for (auto &[path, is_overhang] : joined)
+        (is_overhang ? overhangs : supported).emplace_back(std::move(path));
+}
+
 static ExtrusionEntityCollection traverse_loops_classic(const PerimeterGenerator::Parameters &params, const Polygons &lower_slices_polygons_cache, const PerimeterGeneratorLoops &loops, ThickPolylines &thin_walls)
 {
     using namespace Slic3r::Feature::FuzzySkin;
@@ -235,10 +403,13 @@ static ExtrusionEntityCollection traverse_loops_classic(const PerimeterGenerator
             BoundingBox bbox(polygon.points);
             bbox.offset(SCALED_EPSILON);
             Polygons lower_slices_polygons_clipped = ClipperUtils::clip_clipper_polygons_with_subject_bbox(lower_slices_polygons_cache, bbox);
+            Polylines supported = intersection_pl({ polygon }, lower_slices_polygons_clipped);
+            Polylines overhangs = diff_pl({ polygon }, lower_slices_polygons_clipped);
+            apply_overhang_hysteresis(supported, overhangs, lower_slices_polygons_cache, bbox, params.overhangs_hysteresis, true);
             // get non-overhang paths by intersecting this loop with the grown lower slices
             extrusion_paths_append(
                 paths,
-                intersection_pl({ polygon }, lower_slices_polygons_clipped),
+                std::move(supported),
                 ExtrusionAttributes{
                     role_normal,
                     ExtrusionFlow{ is_external ? params.ext_mm3_per_mm : params.mm3_per_mm,
@@ -252,7 +423,7 @@ static ExtrusionEntityCollection traverse_loops_classic(const PerimeterGenerator
             // the loop centerline and original lower slices is >= half nozzle diameter
             extrusion_paths_append(
                 paths,
-                diff_pl({ polygon }, lower_slices_polygons_clipped),
+                std::move(overhangs),
                 ExtrusionAttributes{
                     role_overhang,
                     ExtrusionFlow{ params.mm3_per_mm_overhang, params.overhang_flow.width(), params.overhang_flow.height() },
@@ -468,14 +639,18 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator::P
                 }
             }
 
+            ClipperLib_Z::Paths supported = clip_extrusion(extrusion_path, lower_slices_paths, ClipperLib_Z::ctIntersection);
+            ClipperLib_Z::Paths overhangs = clip_extrusion(extrusion_path, lower_slices_paths, ClipperLib_Z::ctDifference);
+            apply_overhang_hysteresis(supported, overhangs, lower_slices_polygons_cache, extrusion_path_bbox, params.overhangs_hysteresis, extrusion.is_closed);
+
             // get non-overhang paths by intersecting this loop with the grown lower slices
-            extrusion_paths_append(paths, clip_extrusion(extrusion_path, lower_slices_paths, ClipperLib_Z::ctIntersection), role_normal,
+            extrusion_paths_append(paths, supported, role_normal,
                                    is_external ? params.ext_perimeter_flow : params.perimeter_flow, extrusion.inset_idx);
 
             // get overhang paths by checking what parts of this loop fall
             // outside the grown lower slices (thus where the distance between
             // the loop centerline and original lower slices is >= half nozzle diameter
-            extrusion_paths_append(paths, clip_extrusion(extrusion_path, lower_slices_paths, ClipperLib_Z::ctDifference), role_overhang,
+            extrusion_paths_append(paths, overhangs, role_overhang,
                                    params.overhang_flow, extrusion.inset_idx);
 
             // Reapply the nearest point search for starting point.

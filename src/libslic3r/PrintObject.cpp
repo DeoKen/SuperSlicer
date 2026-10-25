@@ -499,7 +499,7 @@ void PrintObject::generate_support_spots()
         if (!this->shared_regions()->generated_support_points.has_value()) {
             PrintTryCancel                cancel_func = m_print->make_try_cancel();
             SupportSpotsGenerator::Params params{this->print()->m_config.filament_type.values,
-                                                 float(this->print()->m_config.perimeter_acceleration.getFloat()),
+                                                 float(this->print()->m_config.perimeter_acceleration.get_abs_value(this->print()->m_config.default_acceleration.value)),
                                                  this->config().raft_layers.getInt(), this->config().brim_type.value,
                                                  float(this->config().brim_width.getFloat())};
             auto [supp_points, partial_objects] = SupportSpotsGenerator::full_search(this, cancel_func, params);
@@ -549,7 +549,7 @@ void PrintObject::estimate_curled_extrusions()
             // Estimate curling of support material and add it to the malformaition lines of each layer
             float                         support_flow_width = support_material_flow(this, this->config().layer_height).width();
             SupportSpotsGenerator::Params params{this->print()->m_config.filament_type.values,
-                                                 float(this->print()->m_config.perimeter_acceleration.getFloat()),
+                                                 float(this->print()->m_config.perimeter_acceleration.get_abs_value(this->print()->m_config.default_acceleration.value)),
                                                  this->config().raft_layers.getInt(), this->config().brim_type.value,
                                                  float(this->config().brim_width.getFloat())};
             SupportSpotsGenerator::estimate_supports_malformations(this->support_layers(), support_flow_width, params);
@@ -907,6 +907,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "fuzzy_skin_point_dist"
             || opt_key == "overhangs"
             || opt_key == "overhangs_threshold"
+            || opt_key == "overhangs_hysteresis"
             || opt_key == "thin_walls"
             || opt_key == "thick_bridges") {
             steps.emplace_back(posPerimeters);

@@ -299,6 +299,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     if (const auto *fan = wxGetApp().preset_bundle->filaments.get_edited_preset().config.option<ConfigOptionBools>("enable_dynamic_fan_speeds"))
         dynamic_overhang_fan_speeds = std::any_of(fan->values.begin(), fan->values.end(), [](unsigned char v) { return v != 0; });
     toggle_field("overhangs_threshold", have_perimeters && (config->opt_bool("overhangs") || dynamic_overhang_speeds || dynamic_overhang_fan_speeds));
+    toggle_field("overhangs_hysteresis", have_perimeters && config->opt_bool("overhangs"));
 
     const bool have_infill                      = config->option<ConfigOptionPercent>("fill_density")->value > 0;
     const bool has_automatic_infill_combination = config->option<ConfigOptionBool>("automatic_infill_combination")->value;
