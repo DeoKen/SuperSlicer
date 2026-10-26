@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
@@ -23,6 +24,8 @@
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/TriangleMeshSlicer.hpp"
+#include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/PressureCalibration.hpp"
 #include "libslic3r/GCode/PressureAdvancePattern.hpp"
 #include "test_data.hpp"
@@ -138,6 +141,20 @@ DynamicPrintConfig test_config()
     return config;
 }
 
+// The width of a border of the frame, with the settings applied: 4 lines of the first layer flow (the first layer width, else
+// the perimeter width, else the default width), as pressure_calibration_build() for Ellis' frame (no overlap).
+double frame_border(const DynamicPrintConfig &config)
+{
+    const double first_layer = config.get_abs_value("first_layer_height", config.opt_float("layer_height"));
+    const double nozzle      = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
+    const ConfigOptionFloatOrPercent *width = nullptr;
+    for (const char *key : { "first_layer_extrusion_width", "perimeter_extrusion_width", "extrusion_width" })
+        if (width == nullptr && (config.option<ConfigOptionFloatOrPercent>(key)->value > 0. || std::string(key) == "extrusion_width"))
+            width = config.option<ConfigOptionFloatOrPercent>(key);
+    const Flow flow = Flow::new_from_config_width(frPerimeter, *width, float(nozzle), float(first_layer));
+    return flow.width() + 3 * flow.spacing();
+}
+
 } // namespace
 
 TEST_CASE("Pressure calibration with Ellis' settings", "[PressureCalibration]") {
@@ -191,11 +208,19 @@ TEST_CASE("Pressure calibration with Ellis' settings", "[PressureCalibration]") 
             for (const auto &[type, n] : bend_types)
                 types += type + " " + std::to_string(n) + "; ";
             INFO(types);
-            // Ellis' walls: open lines (external perimeters) from end to end (2 x 30 mm), 3 per chevron, 3 chevrons, on every
-            // layer, at Ellis' speed and width (100 mm/s, 112.5 % of 0.4 mm) whatever the print settings (generator, small
-            // perimeter or layer time slowdown); wider only on the few short moves at the corner.
+            // Ellis' walls: open lines (external perimeters) from end to end (2 x 30 mm, both arms longer from the second layer:
+            // over the left border and as far into the tab), 3 per chevron, 3 chevrons, on every layer, at Ellis' speed and width (100 mm/s, 112.5 % of
+            // 0.4 mm) whatever the print settings (generator, small perimeter or layer time slowdown); wider only on the few
+            // short moves at the corner.
+            DynamicPrintConfig applied = config;
+            pressure_calibration_apply_settings(applied, settings);
+            const double line_length = 60. + 2. * (frame_border(applied) - applied.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0) * settings.line_ratio / 200.) * std::sqrt(2.);
             CHECK(bend_types.size() == 1);
             CHECK(bend_types.count("External perimeter") == 1);
+            // The second layer too: the ends of the arms lie on the frame (another object), not printed as overhangs.
+            CHECK(std::none_of(extrusions.begin(), extrusions.end(), [](const PAExtrusion &e) { return e.type == "Overhang perimeter"; }));
+            // The frame without gap fill (its borders whole lines wide).
+            CHECK(std::none_of(extrusions.begin(), extrusions.end(), [](const PAExtrusion &e) { return e.layer == 0 && e.type == "Gap fill"; }));
             std::map<int, std::vector<double>> paths_per_layer;
             {
                 std::set<size_t> seen;
@@ -207,7 +232,7 @@ TEST_CASE("Pressure calibration with Ellis' settings", "[PressureCalibration]") 
                 INFO("layer " << layer);
                 CHECK(lengths.size() == 9);
                 for (double l : lengths)
-                    CHECK(std::abs(l - 60.) < 0.5);
+                    CHECK(std::abs(l - line_length) < 0.5);
             }
             CHECK(bend_speeds == std::set<long>{ 100 });
             size_t moves = 0;
@@ -223,6 +248,25 @@ TEST_CASE("Pressure calibration with Ellis' settings", "[PressureCalibration]") 
             CHECK(accel_commands == 0);
         }
     }
+}
+
+// The user's print profile (0.4 mm widths, 0.25 mm first layer, 4 perimeters) printed a line of gap fill in every border of the
+// frame (2026-10-26): its borders were a little wider than the 4 lines.
+TEST_CASE("Pressure calibration frame without gap fill", "[PressureCalibration]") {
+    PressureCalibrationTest test;
+    test.values = pressure_calibration_values(0., 0.01, 0.005);
+    const PressureCalibrationSettings settings;
+    for (const char *first_layer_height : { "0.2", "0.25", "0.3" })
+        for (const char *perimeters : { "2", "4" }) {
+            DYNAMIC_SECTION("first layer " << first_layer_height << " perimeters " << perimeters) {
+                DynamicPrintConfig config = test_config();
+                config.set_deserialize_strict({ { "first_layer_height", first_layer_height }, { "perimeters", perimeters },
+                                                { "first_layer_extrusion_width", "0.4" }, { "perimeter_extrusion_width", "0.4" },
+                                                { "external_perimeter_extrusion_width", "0.4" }, { "extrusion_width", "0.4" } });
+                const std::vector<PAExtrusion> extrusions = walk(slice_calibration(config, settings, { test }));
+                CHECK(std::none_of(extrusions.begin(), extrusions.end(), [](const PAExtrusion &e) { return e.layer == 0 && e.type == "Gap fill"; }));
+            }
+        }
 }
 
 TEST_CASE("Pressure calibration with the extrusion role's settings (SuperSlicer)", "[PressureCalibration]") {
@@ -250,62 +294,10 @@ TEST_CASE("Pressure calibration with the extrusion role's settings (SuperSlicer)
     CHECK(bend_speeds == std::set<long>{ 40 });
 }
 
-// frame_lines widens the borders outwards (both bends): each border frame_lines - 4 first layer spacings wider than
-// SuperSlicer's 4 lines, the inner edges (towards the bends / chevrons) where they were.
-TEST_CASE("Pressure calibration frame lines", "[PressureCalibration]") {
-    for (bool ellis : { true, false }) {
-        DYNAMIC_SECTION((ellis ? "Ellis' chevrons" : "SuperSlicer's bends")) {
-            const auto borders_of = [ellis](int lines, double &spacing) {
-                DynamicPrintConfig          config = test_config();
-                PressureCalibrationSettings settings;
-                settings.ellis_bends = ellis;
-                settings.frame_lines = lines;
-                pressure_calibration_apply_settings(config, settings);
-                PressureCalibrationTest test;
-                test.values = pressure_calibration_values(0., 0.03, 0.005);
-                Model        model;
-                ModelObject *object = load_base(model);
-                REQUIRE(pressure_calibration_build(*object, config, settings, test, 0, resources()));
-                std::vector<BoundingBoxf3> borders;
-                for (const ModelVolume *v : object->volumes)
-                    if (v->name == "pa_border.3mf")
-                        borders.emplace_back(v->mesh().transformed_bounding_box(v->get_matrix()));
-                REQUIRE(borders.size() == 4);
-                const double first_layer = config.get_abs_value("first_layer_height", config.opt_float("layer_height"));
-                const double nozzle      = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
-                // As pressure_calibration_build(): the first layer width, else the perimeter width, else the default width.
-                const ConfigOptionFloatOrPercent *width = nullptr;
-                for (const char *key : { "first_layer_extrusion_width", "perimeter_extrusion_width", "extrusion_width" })
-                    if (width == nullptr && (config.option<ConfigOptionFloatOrPercent>(key)->value > 0. || std::string(key) == "extrusion_width"))
-                        width = config.option<ConfigOptionFloatOrPercent>(key);
-                spacing = Flow::new_from_config_width(frPerimeter, *width, float(nozzle), float(first_layer)).spacing();
-                return borders;
-            };
-            double spacing = 0.;
-            const std::vector<BoundingBoxf3> four  = borders_of(4, spacing);
-            const std::vector<BoundingBoxf3> eight = borders_of(8, spacing);
-            const double extra = 4. * spacing, eps = 0.001;
-            REQUIRE(spacing > 0.);
-            // Left, right (the tab), bottom, top.
-            CHECK(std::abs(eight[0].size().x() - four[0].size().x() - extra) < eps);
-            CHECK(std::abs(eight[1].size().x() - four[1].size().x() - extra) < eps);
-            CHECK(std::abs(eight[2].size().y() - four[2].size().y() - extra) < eps);
-            CHECK(std::abs(eight[3].size().y() - four[3].size().y() - extra) < eps);
-            CHECK(std::abs(eight[0].max.x() - four[0].max.x()) < eps);
-            CHECK(std::abs(eight[1].min.x() - four[1].min.x()) < eps);
-            CHECK(std::abs(eight[2].max.y() - four[2].max.y()) < eps);
-            CHECK(std::abs(eight[3].min.y() - four[3].min.y()) < eps);
-            // Outer edges further out.
-            CHECK(eight[2].min.x() < four[2].min.x() - extra + eps);
-            CHECK(eight[2].max.x() > four[2].max.x() + extra - eps);
-        }
-    }
-}
-
-// The frame (SuperSlicer's 4 borders, the right one the tab of the numbers) follows the number of bends: closed, the bends
-// between the top and bottom borders and inside the outer edges (their ends touch the left border and the tab, as Ellis'
-// chevrons touch his frame), the numbers and the test number on the tab. SuperSlicer's frame was open with an even number of
-// bends.
+// The frame follows the number of chevrons: one solid part on the first layer around them (a ring), the tab of the numbers on
+// the right with 2 mm between the numbers and its edges. On the first layer the ends of the lines reach half a line width into
+// the frame; above it the left arms run over the whole left border to its outer edge, the right ones as far into the tab (over
+// its perimeters, short of the numbers). With the walls the frame is one piece (closed). SuperSlicer's frame was open with an even number of bends.
 TEST_CASE("Pressure calibration frame for any number of bends", "[PressureCalibration]") {
     DynamicPrintConfig config = test_config();
     const PressureCalibrationSettings settings;
@@ -315,6 +307,13 @@ TEST_CASE("Pressure calibration frame for any number of bends", "[PressureCalibr
         snprintf(buf, sizeof(buf), "x %.2f..%.2f y %.2f..%.2f", bb.min.x(), bb.max.x(), bb.min.y(), bb.max.y());
         return std::string(buf);
     };
+    const auto bbox = [](const ModelVolume *v) { return v->mesh().transformed_bounding_box(v->get_matrix()); };
+    const auto slice = [](const ModelVolume *v, double z) {
+        MeshSlicingParamsEx params;
+        params.trafo = v->get_matrix();
+        return slice_mesh_ex(v->mesh().its, { float(z) }, params).front();
+    };
+    const double margin = 2., eps = 0.01;
     for (int count : { 2, 3, 4, 5, 7, 16, 17, 30 }) {
         DYNAMIC_SECTION(count << " bends") {
             PressureCalibrationTest test;
@@ -327,60 +326,106 @@ TEST_CASE("Pressure calibration frame for any number of bends", "[PressureCalibr
             for (size_t k = 0; k < pressure_calibration_wall_objects(settings, test); ++ k)
                 walls.emplace_back(load_base(model));
             pressure_calibration_build_walls(walls, config, settings, test, 0);
-            std::vector<BoundingBoxf3> bends, borders, numbers;
+            const ModelVolume         *frame = nullptr;
+            std::vector<BoundingBoxf3> bends, numbers;
             // The first volume is the base plate (a 0.3 mm placeholder under the first layer).
             for (size_t i = 1; i < object->volumes.size(); ++ i) {
-                const ModelVolume  *v  = object->volumes[i];
-                const BoundingBoxf3 bb = v->mesh().transformed_bounding_box(v->get_matrix());
-                if (v->name == "pa_border.3mf")
-                    borders.emplace_back(bb);
+                if (object->volumes[i]->name == "frame")
+                    frame = object->volumes[i];
                 else
                     // The digits and points of the values and the test number.
-                    numbers.emplace_back(bb);
+                    numbers.emplace_back(bbox(object->volumes[i]));
             }
-            // The walls of each chevron (the base plate is the first volume of the objects of the walls too).
+            REQUIRE(frame != nullptr);
+            const BoundingBoxf3 fb = bbox(frame);
+            const double        z  = fb.center().z();
+            // The walls of each chevron (the base plate is the first volume of the objects of the walls too), on the first and the
+            // second layer.
+            const double z2 = fb.max.z() + 0.1;
+            Polygons     walls_first_layer, walls_second_layer;
             for (int j = 0; j < count; ++ j) {
                 BoundingBoxf3 bb;
-                for (const ModelObject *wall : walls)
-                    bb.merge(wall->volumes[1 + j]->mesh().transformed_bounding_box(wall->volumes[1 + j]->get_matrix()));
+                for (const ModelObject *wall : walls) {
+                    bb.merge(bbox(wall->volumes[1 + j]));
+                    append(walls_first_layer, to_polygons(slice(wall->volumes[1 + j], z)));
+                    append(walls_second_layer, to_polygons(slice(wall->volumes[1 + j], z2)));
+                }
                 bends.emplace_back(bb);
             }
             REQUIRE(walls.size() == 3);
             REQUIRE(int(bends.size()) == count);
-            REQUIRE(borders.size() == 4);
-            const BoundingBoxf3 &left = borders[0], &right = borders[1], &bottom = borders[2], &top = borders[3];
-            const double eps = 0.01;
-            INFO("left " << text(left) << ", right " << text(right) << ", bottom " << text(bottom) << ", top " << text(top));
-            // Closed: the sides reach the top and bottom borders, which reach the outer edges of the sides.
-            CHECK(left.min.y() <= bottom.max.y() + eps);
-            CHECK(left.max.y() >= top.min.y() - eps);
-            CHECK(right.min.y() <= bottom.max.y() + eps);
-            CHECK(right.max.y() >= top.min.y() - eps);
-            CHECK(bottom.min.x() <= left.min.x() + eps);
-            CHECK(bottom.max.x() >= right.max.x() - eps);
-            CHECK(top.min.x() <= left.min.x() + eps);
-            CHECK(top.max.x() >= right.max.x() - eps);
-            // Every chevron between the top and bottom borders and between the left border and the tab, not overlapping them
-            // (other objects: both would print), the chevrons not overlapping each other.
+            INFO("frame " << text(fb));
+            // Solid: a ring, its hole the inside of the frame.
+            const ExPolygons frame_first_layer = slice(frame, z);
+            REQUIRE(frame_first_layer.size() == 1);
+            REQUIRE(frame_first_layer.front().holes.size() == 1);
+            const BoundingBox inner = frame_first_layer.front().holes.front().bounding_box();
+            const BoundingBox first = get_extents(walls_first_layer), second = get_extents(walls_second_layer);
+            const double      line  = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0) * settings.line_ratio / 100.;
+            // First layer: the ends of the lines half a line width into the left border and the tab. Above: the left arms to the outer
+            // edge of the frame, the right ones a border width into the tab.
+            CHECK(std::abs(unscaled(inner.min.x()) - (unscaled(first.min.x()) + line / 2.)) < eps);
+            CHECK(std::abs(unscaled(inner.max.x()) - (unscaled(first.max.x()) - line / 2.)) < eps);
+            CHECK(std::abs(unscaled(second.min.x()) - fb.min.x()) < eps);
+            const double border = unscaled(inner.min.x()) - fb.min.x();
+            CHECK(std::abs(unscaled(second.max.x()) - (unscaled(inner.max.x()) + border)) < eps);
+            const double box_right = unscaled(first.max.x());
+            CHECK(unscaled(second.max.x()) < box_right + margin);
+            // The first layer of the chevrons between the top and bottom borders; above it inside the frame (the left arm of the
+            // last one over the corner of the frame); the chevrons not overlapping each other.
+            CHECK(first.min.y() > inner.min.y());
+            CHECK(first.max.y() < inner.max.y());
             for (size_t i = 0; i < bends.size(); ++ i) {
                 INFO("chevron " << i << " " << text(bends[i]));
-                CHECK(bends[i].min.y() > bottom.max.y());
-                CHECK(bends[i].max.y() < top.min.y());
-                CHECK(bends[i].min.x() >= left.max.x() - eps);
-                CHECK(bends[i].max.x() <= right.min.x() + eps);
+                CHECK(bends[i].min.y() > fb.min.y());
+                CHECK(bends[i].max.y() < fb.max.y());
                 if (i > 0)
                     CHECK(bends[i].min.y() > bends[i - 1].min.y());
             }
-            // The numbers on the tab (the top row may reach onto the top border, which runs over the tab).
+            // One piece with the walls.
+            CHECK(union_ex(to_polygons(frame_first_layer), walls_first_layer).size() == 1);
+            // The numbers on the tab, 2 mm from its edges (the top row may reach onto the top border, which runs over the tab).
             REQUIRE(! numbers.empty());
+            double numbers_min_x = std::numeric_limits<double>::max(), numbers_max_x = std::numeric_limits<double>::lowest();
             for (size_t i = 0; i < numbers.size(); ++ i) {
                 INFO("number part " << i << " " << text(numbers[i]));
-                CHECK(numbers[i].min.x() >= right.min.x() - eps);
-                CHECK(numbers[i].max.x() <= right.max.x() + eps);
-                CHECK(numbers[i].min.y() >= bottom.min.y() - eps);
-                CHECK(numbers[i].max.y() <= top.max.y() + eps);
+                CHECK(numbers[i].min.x() >= box_right + margin - eps);
+                CHECK(numbers[i].max.x() <= fb.max.x() - margin + eps);
+                CHECK(numbers[i].min.y() >= fb.min.y() - eps);
+                CHECK(numbers[i].max.y() <= fb.max.y() + eps);
+                numbers_min_x = std::min(numbers_min_x, numbers[i].min.x());
+                numbers_max_x = std::max(numbers_max_x, numbers[i].max.x());
             }
+            CHECK(std::abs(numbers_min_x - (box_right + margin)) < eps);
+            CHECK(std::abs(numbers_max_x - (fb.max.x() - margin)) < eps);
         }
+    }
+    SECTION("SuperSlicer's bends: 4 borders, 2 mm around the numbers") {
+        PressureCalibrationSettings ss = settings;
+        ss.ellis_bends = false;
+        PressureCalibrationTest test;
+        test.values = pressure_calibration_values(0., 0.02, 0.005);
+        Model        model;
+        ModelObject *object = load_base(model);
+        REQUIRE(pressure_calibration_build(*object, config, ss, test, 0, resources()));
+        std::vector<BoundingBoxf3> borders, numbers;
+        for (size_t i = 1; i < object->volumes.size(); ++ i) {
+            const std::string &name = object->volumes[i]->name;
+            if (name == "pa_border.3mf")
+                borders.emplace_back(bbox(object->volumes[i]));
+            else if (name.rfind("90_bend", 0) != 0)
+                numbers.emplace_back(bbox(object->volumes[i]));
+        }
+        REQUIRE(borders.size() == 4);
+        REQUIRE(! numbers.empty());
+        const BoundingBoxf3 &tab = borders[1];
+        double numbers_min_x = std::numeric_limits<double>::max(), numbers_max_x = std::numeric_limits<double>::lowest();
+        for (const BoundingBoxf3 &n : numbers) {
+            numbers_min_x = std::min(numbers_min_x, n.min.x());
+            numbers_max_x = std::max(numbers_max_x, n.max.x());
+        }
+        CHECK(std::abs(numbers_min_x - (tab.min.x() + margin)) < eps);
+        CHECK(std::abs(numbers_max_x - (tab.max.x() - margin)) < eps);
     }
     SECTION("At least 2 values") {
         PressureCalibrationTest test;

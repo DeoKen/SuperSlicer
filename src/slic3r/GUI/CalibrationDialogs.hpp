@@ -43,7 +43,8 @@ public:
 protected:
     // Fields, in a two column grid under the explanation.
     wxComboBox* add_combo(const wxString &label, const wxString &tooltip, const std::vector<wxString> &choices, const wxString &value);
-    wxTextCtrl* add_text(const wxString &label, const wxString &tooltip, const wxString &value);
+    // A number field, or a wide one (wide: file paths).
+    wxTextCtrl* add_text(const wxString &label, const wxString &tooltip, const wxString &value, bool wide = false);
     // Call at the end of the derived constructor.
     void        finish_layout();
     // Value of a combo box or a text field, also with a decimal comma; false and an error message if it isn't a number.

@@ -8,6 +8,7 @@
 
 #include <boost/filesystem.hpp>
 
+#include "ClipperUtils.hpp"
 #include "Exception.hpp"
 #include "FileReader.hpp"
 #include "Flow.hpp"
@@ -142,10 +143,10 @@ void pressure_calibration_apply_settings(DynamicPrintConfig &config, const Press
 {
     if (s.speed <= 0. || s.first_layer_speed <= 0. || s.line_ratio <= 0. || s.layers < 2 || s.layer_height <= 0. ||
         s.first_layer_height <= 0. || s.fan < 0 || s.fan > 100 || s.acceleration < 0. || s.wall_count < 1 || s.wall_count > 10 ||
-        s.side_length < 5. || s.pattern_spacing < 0. || s.frame_lines < 1 || s.frame_lines > 50)
+        s.side_length < 5. || s.pattern_spacing < 0.)
         throw Slic3r::RuntimeError(_u8L("Invalid pressure calibration settings: speeds, line width and layer heights above 0, "
                                         "at least 2 layers, fan 0 to 100 %, acceleration 0 or more, 1 to 10 walls, side length at "
-                                        "least 5 mm, spacing 0 or more, 1 to 50 frame lines."));
+                                        "least 5 mm, spacing 0 or more."));
     if (s.first_layer_fan != 0 && s.first_layer_fan != s.fan)
         throw Slic3r::RuntimeError(_u8L("First layer fan: 0 (off) or the same as the fan. PrusaSlicer has no fan speed of its "
                                         "own for the first layer."));
@@ -224,7 +225,6 @@ std::string pressure_calibration_summary(const DynamicPrintConfig &config, const
     line(" - Layer height: " + num(s.layer_height) + " mm");
     line(" - First layer height: " + num(s.first_layer_height) + " mm");
     line(" - First layer printing speed: " + num(s.first_layer_speed) + " mm/s");
-    line(" - Frame: " + std::to_string(s.frame_lines) + " lines");
     line(" - Acceleration: " + (s.acceleration > 0. ? num(s.acceleration) + " mm/s^2" : std::string("Disabled")));
     line(" - Fan speed: " + std::to_string(s.fan) + " %");
     line(" - First layer fan speed: " + std::to_string(s.first_layer_fan) + " %");
@@ -238,6 +238,36 @@ std::string pressure_calibration_summary(const DynamicPrintConfig &config, const
         line(" - " + std::string(t.smooth_time ? "Smooth time" : "PA") + " values (" + std::to_string(t.values.size()) + "): " + values);
     }
     return out;
+}
+
+// A prism of the polygons from z0 to z1.
+static indexed_triangle_set prism(const ExPolygons &polys, double z0, double z1)
+{
+    indexed_triangle_set its;
+    for (const ExPolygon &poly : polys) {
+        its_merge(its, wall_strip(poly.contour, z0, z1));
+        for (const Polygon &hole : poly.holes)
+            its_merge(its, wall_strip(hole, z0, z1));
+    }
+    its_merge(its, triangulate_expolygons_3d(polys, z1, true));
+    its_merge(its, triangulate_expolygons_3d(polys, z0, false));
+    its_merge_vertices(its);
+    return its;
+}
+
+// The width of a border of the frame: SuperSlicer's 4 lines of the first layer flow (the first layer width, else the
+// perimeter width, else the default width) and an overlap. Without the overlap (Ellis' frame) the 4 lines fill it exactly: with
+// it PrusaSlicer printed a line of gap fill in the middle of every border (0.11 mm wide on the user's profile, 2026-10-26).
+static double frame_border(const DynamicPrintConfig &config, bool superslicer_overlap)
+{
+    const double nozzle             = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
+    const double first_layer_height = config.get_abs_value("first_layer_height", config.opt_float("layer_height"));
+    const auto  &first_width_opt = config.option<ConfigOptionFloatOrPercent>("first_layer_extrusion_width")->value > 0. ?
+        *config.option<ConfigOptionFloatOrPercent>("first_layer_extrusion_width") :
+        (config.option<ConfigOptionFloatOrPercent>("perimeter_extrusion_width")->value > 0. ?
+            *config.option<ConfigOptionFloatOrPercent>("perimeter_extrusion_width") : *config.option<ConfigOptionFloatOrPercent>("extrusion_width"));
+    const Flow   flow = Flow::new_from_config_width(frPerimeter, first_width_opt, float(nozzle), float(first_layer_height));
+    return flow.width() + 3 * flow.spacing() + (superslicer_overlap ? flow.width() - flow.spacing() : 0.);
 }
 
 // Ellis' chevrons pointing to -Y (as SuperSlicer's bends), 90°, stacked along Y: wall k of chevron j has its apex at
@@ -257,7 +287,7 @@ struct EllisChevrons
         pitch         = ps.pattern_spacing + width + (ps.wall_count - 1) * spacing_angle;
         BoundingBoxf bb;
         for (int k : { 0, ps.wall_count - 1 })
-            for (const Vec2d &p : outline(Vec2d(0., k * spacing_angle), ps.side_length))
+            for (const Vec2d &p : outline(Vec2d(0., k * spacing_angle), ps.side_length, ps.side_length))
                 bb.merge(p);
         box_size   = bb.size();
         box_center = bb.center();
@@ -268,12 +298,12 @@ struct EllisChevrons
     // square ends half a width beyond the ends of the line and a round outer corner, the shape such a line leaves. Arachne
     // slices it into one open line of the width from end to end (wider only within 0.15 mm of the corner, the thicker inside
     // of the corner); classic perimeters vary it.
-    std::vector<Vec2d> outline(const Vec2d &apex, double side) const
+    std::vector<Vec2d> outline(const Vec2d &apex, double side_left, double side_right) const
     {
         const Vec2d  dL = Vec2d(-1., 1.).normalized(), dR = Vec2d(1., 1.).normalized();
         const Vec2d  nL = Vec2d(-1., -1.).normalized(), nR = Vec2d(1., -1.).normalized();
         const double r  = width / 2.;
-        const Vec2d  eL = apex + dL * (side + r), eR = apex + dR * (side + r);
+        const Vec2d  eL = apex + dL * (side_left + r), eR = apex + dR * (side_right + r);
         std::vector<Vec2d> out;
         const double aL = std::atan2(nL.y(), nL.x()), aR = std::atan2(nR.y(), nR.x());
         for (int i = 0; i <= 16; ++ i) {
@@ -283,6 +313,30 @@ struct EllisChevrons
         for (const Vec2d &p : { Vec2d(eR + nR * r), Vec2d(eR - nR * r), Vec2d(apex + Vec2d(0., r * std::sqrt(2.))), Vec2d(eL - nL * r), Vec2d(eL + nL * r) })
             out.emplace_back(p);
         return out;
+    }
+
+    // Wall k of the chevron whose box is centered on center, scaled, as long as its box.
+    Polygons wall(const Vec2d &center, int k, double side) const
+    {
+        Polygon poly;
+        for (const Vec2d &p : outline(apex(center, k), side, side))
+            poly.points.emplace_back(Point::new_scale(p.x(), p.y()));
+        poly.make_counter_clockwise();
+        return { poly };
+    }
+    // The same with the arms running over the frame, the left one to left_end, the right one to right_end, cut there square to
+    // the edge (above the first layer, user 2026-10-25/26).
+    Polygons wall(const Vec2d &center, int k, double side, double left_end, double right_end) const
+    {
+        const Vec2d a = apex(center, k);
+        Polygon     poly;
+        for (const Vec2d &p : outline(a, std::max(side, (a.x() - left_end) * std::sqrt(2.) + width), std::max(side, (right_end - a.x()) * std::sqrt(2.) + width)))
+            poly.points.emplace_back(Point::new_scale(p.x(), p.y()));
+        poly.make_counter_clockwise();
+        const BoundingBox bb = poly.bounding_box();
+        const Polygon     keep({ Point(scaled(left_end), bb.min.y() - 1), Point(scaled(right_end), bb.min.y() - 1),
+                                 Point(scaled(right_end), bb.max.y() + 1), Point(scaled(left_end), bb.max.y() + 1) });
+        return intersection(Polygons{ poly }, Polygons{ keep });
     }
 };
 
@@ -305,20 +359,21 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
     const double        first_layer = config.get_abs_value("first_layer_height", layer);
     const double        height      = first_layer + layer * (ps.layers - 1);
     const EllisChevrons chevrons(nozzle, layer, ps);
+    const double        border      = frame_border(config, false);
     for (size_t k = 0; k < walls.size(); ++ k) {
         ModelObject *object = walls[k];
         for (size_t j = 0; j < test.values.size(); ++ j) {
             // In the coordinates of the base (as calibration_add_part() places the parts of the frame).
-            const Vec2d center(X_OFFSET_90_BEND + object->origin_translation.x(), double(j) * chevrons.pitch + object->origin_translation.y());
-            Polygon     poly;
-            for (const Vec2d &p : chevrons.outline(chevrons.apex(center, int(k)), ps.side_length))
-                poly.points.emplace_back(scaled(p.x()), scaled(p.y()));
-            poly.make_counter_clockwise();
-            const double z0 = object->origin_translation.z();
-            indexed_triangle_set its = wall_strip(poly, z0, z0 + height);
-            its_merge(its, triangulate_expolygon_3d(ExPolygon(poly), z0 + height, true));
-            its_merge(its, triangulate_expolygon_3d(ExPolygon(poly), z0, false));
-            its_merge_vertices(its);
+            const Vec2d  center(X_OFFSET_90_BEND + object->origin_translation.x(), double(j) * chevrons.pitch + object->origin_translation.y());
+            // The first layer within the box of the chevron, its ends half a line width into the frame; above it (no frame there) the
+            // arms over the frame: the left ones over the whole left border, to its outer edge, the right ones as far into the tab
+            // (over its perimeters, short of the numbers 2 mm from the box). The first layer anchors the lines by half a line width,
+            // the layers above by the whole border (user 2026-10-25, the right side 2026-10-26).
+            const double z0   = object->origin_translation.z();
+            const double half = chevrons.box_size.x() / 2. - chevrons.width / 2. + border;
+            indexed_triangle_set its = prism(union_ex(chevrons.wall(center, int(k), ps.side_length)), z0, z0 + first_layer);
+            its_merge(its, prism(union_ex(chevrons.wall(center, int(k), ps.side_length, center.x() - half, center.x() + half)),
+                                 z0 + first_layer, z0 + height));
             ModelVolume *wall = object->add_volume(TriangleMesh(std::move(its)));
             wall->name = "wall " + std::to_string(k + 1) + " " + num(test.values[j]);
             wall->config.set_key_value("region_gcode", new ConfigOptionString(
@@ -335,6 +390,10 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
         oc.set_key_value("external_perimeter_speed",           new ConfigOptionFloatOrPercent(ps.speed, false));
         oc.set_key_value("small_perimeter_speed",              new ConfigOptionFloatOrPercent(100., true));
         oc.set_key_value("thin_walls",                         new ConfigOptionBool(false));
+        // The left arms above the first layer lie on the frame, another object: no overhang (bridge flow, overhang speed and fan,
+        // the value set after the first piece) where this object has nothing below.
+        oc.set_key_value("overhangs",                          new ConfigOptionBool(false));
+        oc.set_key_value("enable_dynamic_overhang_speeds",     new ConfigOptionBool(false));
         oc.set_key_value("fill_density",                       new ConfigOptionPercent(0));
         oc.set_key_value("top_solid_layers",                   new ConfigOptionInt(0));
         oc.set_key_value("bottom_solid_layers",                new ConfigOptionInt(0));
@@ -384,12 +443,6 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
         default_width = nozzle;
     // SuperSlicer's default_speed doesn't exist here: the perimeter speed.
     const double default_speed = config.get_abs_value("perimeter_speed");
-    // The first layer flow (first layer width, else the perimeter width).
-    const auto  &first_width_opt = config.option<ConfigOptionFloatOrPercent>("first_layer_extrusion_width")->value > 0. ?
-        *config.option<ConfigOptionFloatOrPercent>("first_layer_extrusion_width") :
-        (config.option<ConfigOptionFloatOrPercent>("perimeter_extrusion_width")->value > 0. ?
-            *config.option<ConfigOptionFloatOrPercent>("perimeter_extrusion_width") : *config.option<ConfigOptionFloatOrPercent>("extrusion_width"));
-    const Flow   first_layer_flow = Flow::new_from_config_width(frPerimeter, first_width_opt, float(nozzle), float(first_layer_height));
 
     // The width and speed of a role.
     struct RoleSettings { double width; double speed; std::string comment; };
@@ -428,13 +481,10 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
     const double z_scale_others       = first_layer_height / initial_model_height;
     const double z_others_pos         = first_layer_height / 2.;
     const double z_scaled_model_height = initial_model_height * (first_layer_height / initial_model_height);
-    // The width of a border: frame_lines first layer lines and an overlap (SuperSlicer: 4 lines). It grows outwards: the inner
-    // edges stay where SuperSlicer's 4 lines put them.
-    const auto   border_of = [&first_layer_flow](int lines) {
-        return first_layer_flow.width() + (lines - 1) * first_layer_flow.spacing() + (first_layer_flow.width() - first_layer_flow.spacing());
-    };
-    const double first_layer_border   = border_of(ps.frame_lines);
-    const double extra_border         = first_layer_border - border_of(4);
+    const double first_layer_border   = frame_border(config, ! ps.ellis_bends);
+    // Between the numbers and the inner (the ends of the bends) and outer edges of the tab (SuperSlicer: a nozzle on the inner
+    // side, about none on the outer one; user 2026-10-25: "the frame that has the numbers is too small").
+    const double tab_margin           = 2.;
 
     const bool   check_all = test.role == CHECK_ALL;
     const size_t count     = check_all ? roles.size() : test.values.size();
@@ -529,25 +579,47 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
             const Vec3d  number_last  = number_positions.back();
             const double numbers_total_width  = (number_last.x() + xy_scaled_number_x / 2.) - (number_first.x() - xy_scaled_number_x / 2.);
             const double total_height         = (bend_last.y() + xy_scaled_90_bend_y / 2.) - (bend_first.y() - xy_scaled_90_bend_y / 2.);
-            const double right_border_x_mm    = numbers_total_width + nozzle * 2. + extra_border;
-            // SuperSlicer's left border reaches a little into the bends; around Ellis' chevrons (other objects) it touches them.
-            const double left_inset           = ps.ellis_bends ? first_layer_border / 2. : nozzle + extra_border / 2.;
-            const double left_border_x_offset = (bend_mid.x() - xy_scaled_90_bend_x / 2. - left_inset + first_layer_border / 2.) - (bend_mid.x() - xy_scaled_90_bend_x / 2.);
-            const double tb_total_width_mm    = (first_layer_border - left_border_x_offset) + xy_scaled_90_bend_x + right_border_x_mm;
-            const double left_border_x_pos    = bend_mid.x() - xy_scaled_90_bend_x / 2. - left_inset;
-            const double right_border_x_pos   = bend_mid.x() + xy_scaled_90_bend_x / 2. + right_border_x_mm / 2.;
-            const double left_edge_pos        = bend_mid.x() - xy_scaled_90_bend_x / 2. - first_layer_border + left_border_x_offset;
-            const double right_edge_pos       = xy_scaled_90_bend_x / 2. + right_border_x_mm + bend_mid.x();
-            const double tb_border_x_pos      = (left_edge_pos + right_edge_pos) / 2.;
-            const std::string border          = resource("pa_border.3mf");
-            calibration_add_part(object, border, Vec3d(left_border_x_pos, center_y, z_others_pos),
-                                 Vec3d(first_layer_border / initial_border_x, (total_height + first_layer_border) / initial_90_bend_y, z_scale_others));
-            calibration_add_part(object, border, Vec3d(right_border_x_pos, center_y, z_others_pos),
-                                 Vec3d(right_border_x_mm / initial_border_x, (total_height + first_layer_border) / initial_90_bend_y, z_scale_others));
-            calibration_add_part(object, border, Vec3d(tb_border_x_pos, bend_first.y() - xy_scaled_90_bend_y / 2. - first_layer_border / 2. - nozzle, z_others_pos),
-                                 Vec3d(tb_total_width_mm / initial_border_x, first_layer_border / initial_border_y, z_scale_others));
-            calibration_add_part(object, border, Vec3d(tb_border_x_pos, bend_last.y() + xy_scaled_90_bend_y / 2. + first_layer_border / 2. + nozzle, z_others_pos),
-                                 Vec3d(tb_total_width_mm / initial_border_x, first_layer_border / initial_border_y, z_scale_others));
+            const double box_left             = bend_mid.x() - xy_scaled_90_bend_x / 2.;
+            const double box_right            = bend_mid.x() + xy_scaled_90_bend_x / 2.;
+            const double right_outer          = box_right + numbers_total_width + 2. * tab_margin;
+            const double bottom_inner         = bend_first.y() - xy_scaled_90_bend_y / 2. - nozzle;
+            const double top_inner            = bend_last.y() + xy_scaled_90_bend_y / 2. + nozzle;
+            if (ps.ellis_bends) {
+                // One solid part, the outer rectangle without the inner one. The left border and the tab reach half a line width
+                // into the chevrons (other objects), anchoring the ends of the lines: 0.13 mm overlap with the frame's lines on the
+                // user's profile, as Ellis' pattern (0.132 mm; a whole line width: 0.36 mm; touching only, the lines stopped
+                // 0.09 mm short). The frame is not cut around the walls (user 2026-10-25: "the frame should be a solid line",
+                // "Maybe half a line width instead").
+                // As wide as the other borders: half a line wider, it printed a line of gap fill.
+                const double left_outer  = box_left + chevrons.width / 2. - first_layer_border;
+                const double left_inner  = box_left + chevrons.width / 2.;
+                const double right_inner = box_right - chevrons.width / 2.;
+                const Vec2d  o           = object->origin_translation.head<2>();
+                const auto   rect        = [&o](double x0, double y0, double x1, double y1) {
+                    return Polygon({ Point::new_scale(x0 + o.x(), y0 + o.y()), Point::new_scale(x1 + o.x(), y0 + o.y()),
+                                     Point::new_scale(x1 + o.x(), y1 + o.y()), Point::new_scale(x0 + o.x(), y1 + o.y()) });
+                };
+                const double z0    = object->origin_translation.z();
+                ModelVolume *frame = object->add_volume(TriangleMesh(prism(diff_ex(Polygons{ rect(left_outer, bottom_inner - first_layer_border,
+                    right_outer, top_inner + first_layer_border) }, Polygons{ rect(left_inner, bottom_inner, right_inner, top_inner) }),
+                    z0, z0 + first_layer_height)));
+                frame->name = "frame";
+            } else {
+                // SuperSlicer's 4 borders, the left one reaching a little into the bends.
+                const double left_inner        = box_left - nozzle + first_layer_border / 2.;
+                const double left_outer        = left_inner - first_layer_border;
+                const double tb_border_x_pos   = (left_outer + right_outer) / 2.;
+                const double tb_total_width_mm = right_outer - left_outer;
+                const std::string border       = resource("pa_border.3mf");
+                calibration_add_part(object, border, Vec3d((left_outer + left_inner) / 2., center_y, z_others_pos),
+                                     Vec3d(first_layer_border / initial_border_x, (total_height + first_layer_border) / initial_90_bend_y, z_scale_others));
+                calibration_add_part(object, border, Vec3d((box_right + right_outer) / 2., center_y, z_others_pos),
+                                     Vec3d((right_outer - box_right) / initial_border_x, (total_height + first_layer_border) / initial_90_bend_y, z_scale_others));
+                calibration_add_part(object, border, Vec3d(tb_border_x_pos, bottom_inner - first_layer_border / 2., z_others_pos),
+                                     Vec3d(tb_total_width_mm / initial_border_x, first_layer_border / initial_border_y, z_scale_others));
+                calibration_add_part(object, border, Vec3d(tb_border_x_pos, top_inner + first_layer_border / 2., z_others_pos),
+                                     Vec3d(tb_total_width_mm / initial_border_x, first_layer_border / initial_border_y, z_scale_others));
+            }
             if (id_item < 10)
                 calibration_add_part(object, resource(std::to_string(id_item) + ".3mf"),
                                      Vec3d(number_mid.x(), bend_first.y() - xy_scaled_90_bend_y / 2. + xy_scaled_number_y / 2., z_scaled_model_height),
@@ -558,7 +630,7 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
         // The value, right of its bend: SuperSlicer engraves std::to_string() (6 decimals).
         const Vec3d      &bend   = bend_positions[nb];
         const std::string value  = std::to_string(test.values[nb]);
-        double            xpos   = bend.x() + xy_scaled_90_bend_x / 2. + xy_scaled_number_x / 2. + nozzle;
+        double            xpos   = bend.x() + xy_scaled_90_bend_x / 2. + xy_scaled_number_x / 2. + tab_margin;
         const double      ypos   = bend.y() + xy_scaled_90_bend_y / 2. - xy_scaled_number_y / 2. + nozzle * 3.;
         const double      space  = xy_scaled_number_x / 2. + nozzle + xy_scaled_number_x / 2.;
         for (size_t j = 0; j < value.size(); ++ j) {
@@ -569,8 +641,10 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
                 const double left_edge_of_right_number = xpos + xy_scaled_number_x / 2. + nozzle * 2. + xy_scaled_number_x / 2. - space;
                 const double point_xpos                = (right_edge_of_left_number + left_edge_of_right_number) / 2.;
                 const Vec3d  pos(point_xpos, ypos - xy_scaled_number_y / 2. + xy_scaled_point_y / 2., z_scaled_model_height);
+                // As wide as the strokes of the digits (0.4 of 2 mm), printed as they are (a thin wall). SuperSlicer's 0.6 mm was
+                // too wide for a thin wall and too narrow for a loop: PrusaSlicer left the point out (user 2026-10-25).
                 calibration_add_part(object, resource("point.3mf"), pos,
-                                     Vec3d(xyz_scale * scale_role, (xyz_scale + xyz_scale / 2.) * scale_role, z_scale_others * 2.));
+                                     Vec3d(0.4 / initial_point_xy * xyz_scale * scale_role, (xyz_scale + xyz_scale / 2.) * scale_role, z_scale_others * 2.));
                 number_positions.emplace_back(pos);
                 xpos -= xy_scaled_number_x / 2.;
             } else if (std::isdigit(static_cast<unsigned char>(value[j]))) {

@@ -1170,7 +1170,7 @@ whole print scale.
 ## 30. Calibration prints
 
 **What it does.** From SuperSlicer's Calibration menu, rewritten for PrusaSlicer 2.9.6: a Calibration menu (between
-Configuration and Help) with a temperature tower, a pressure advance pattern, SuperSlicer's pressure calibration, the CaliFlower and Klipper's ringing tower. Each item opens a small dialog with an explanation, a few fields and Generate. Generate starts a new project
+Configuration and Help) with a temperature tower, SuperSlicer's pressure calibration, the filament shrinkage calibration (CaliFlower) and Klipper's ringing tower. Each item opens a small dialog with an explanation, a few fields and Generate. Generate starts a new project
 (it asks to save the current one first), loads the print with its own object / part settings and slices. SuperSlicer's
 HTML help pages, its introduction page and its other calibrations (bed leveling, filament / extruder flow, retraction,
 ironing, calibration cube) are not ported. The bridge flow and pressure advance calibrations were ported and removed
@@ -1189,7 +1189,7 @@ without the per-part accelerations (see below).
   (`print_temperature`) doesn't exist here: the custom G-code does it. The tower is half as thick as the model (Y scale
   0.5, as SuperSlicer), but the cone of each floor is a part of its own and stays round (2026-10-23): squashed, its tip was
   thinner than a line and printed as dots in the air.
-- CaliFlower (Vector 3D, the model is not included): the location of your model file (remembered in the app settings,
+- Filament shrinkage calibration (menu item and dialog named "CaliFlower" until 2026-10-26; Vector 3D's CaliFlower, the model is not included): the location of your model file (remembered in the app settings,
   `calibration_califlower_path`) and Browse. Loads it without object settings (the print profile applies; before
   2026-10-23 it forced 2 perimeters and 20% grid infill) and sets the filament shrinkage compensation XY and Z to 0% (no
   compensation, SuperSlicer's 100%) and adds `SET_SKEW CLEAR=1` (Klipper skew correction off, user 2026-10-23) at the
@@ -1218,7 +1218,8 @@ without the per-part accelerations (see below).
   Generated again, the block between the two comment lines is replaced. So that nothing overrides it, the print's
   default acceleration is set to 0 (no acceleration commands at all, section 4) and the filament's Klipper speed mode to
   Off (its macro runs after the filament start G-code, section 22). All unsaved changes of the print / filament settings.
-- Pressure advance pattern (Klipper only; menu item disabled (greyed out) since 2026-10-23, the code kept: the pressure
+- Pressure advance pattern (Klipper only; menu item disabled (greyed out) 2026-10-23, removed from the menu 2026-10-26 by
+  the user, the code kept (`CalibrationType::PressureAdvance`, `[PAPattern]` tests): the pressure
   calibration below prints Ellis' chevrons sliced in the plater), ported from Ellis' Pressure Advance / Linear Advance Calibration Tool
   (https://github.com/AndrewEllis93/Pressure_Linear_Advance_Tool, GPL-3.0, original Marlin tool by Sineos): chevrons of a few
   walls, one per `SET_PRESSURE_ADVANCE ADVANCE=` value, on an anchor frame, with every other value printed next to them.
@@ -1244,12 +1245,14 @@ without the per-part accelerations (see below).
 - Pressure calibration (SuperSlicer's `CalibrationPressureAdvDialog`, menu "Pressure calibration (SuperSlicer)"): loaded
   as models and sliced in the plater, so the preview, the layer slider, the moves and the G-code panel work as for any
   print.
+  - Dialog (2026-10-26): number fields 8 characters wide (file path fields stay wide), the test rows narrower; End value
+    choices 0.02 to 0.5 (0.02, 0.04, 0.06, 0.08 = default, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50; any value can be typed).
+    The "Bends" choice (Ellis' chevrons or SuperSlicer's 90° bends with the extrusion role's width and speed) was removed
+    by the user: always Ellis' chevrons. SuperSlicer's bends stay in the code for CheckAll (one bend per extrusion role).
   - Settings, at the top of the dialog, filled in with Ellis' defaults (his tool's `DEFAULT_SETTINGS`,
-    `pressure_linear_advance.js`; user 2026-10-23: "the recommended or default settings that Ellis uses"): Bends "Ellis'
-    settings" (default) or "Extrusion role (SuperSlicer)", print speed 100 mm/s, line width 112.5 % of the nozzle, layers 4,
+    `pressure_linear_advance.js`; user 2026-10-23: "the recommended or default settings that Ellis uses"): print speed 100 mm/s, line width 112.5 % of the nozzle, layers 4,
     first layer speed 30 mm/s, layer height 0.2, first layer height 0.25, fan 100 %, first layer fan 0 % (0 or the fan:
-    PrusaSlicer has no fan of its own for the first layer), acceleration 0 = disabled, frame lines 8 (not Ellis', see the
-    frame below). Generate writes them into the print
+    PrusaSlicer has no fan of its own for the first layer), acceleration 0 = disabled. Generate writes them into the print
     and filament settings as unsaved changes (`pressure_calibration_apply_settings()`): layer heights, first layer speed,
     every acceleration = the default acceleration (0: no acceleration command), default fan speed = the fan with the feature
     fan speeds at -1, no `full_fan_speed_layer` ramp, no layer time cooling (`fan_below_layer_time` and
@@ -1281,20 +1284,38 @@ without the per-part accelerations (see below).
     object ("PA test 0 ... frame") holds the frame and the numbers. The dialog loads the base plate once per object, builds
     the frames, arranges (the objects of the walls still the empty base plate), gives the walls the instance transformation
     of their frame and builds them (`pressure_calibration_build_walls()`).
-  - "Extrusion role (SuperSlicer)" and CheckAll: SuperSlicer's 90° bends (`90_bend_<nozzle>.3mf`, 0.1 to 2.0 mm nozzles),
+  - CheckAll (and "Extrusion role (SuperSlicer)" until 2026-10-26, now only in the code and tests): SuperSlicer's 90° bends (`90_bend_<nozzle>.3mf`, 0.1 to 2.0 mm nozzles),
     closed loops scaled with SuperSlicer's `magical_scaling()` to 2 loops of the role's width without gap fill, parts of the
     base object with the role's width (perimeter and external perimeter width), speed (perimeter, external perimeter and
     gap fill speed) and their value as per region G-code (section 38), 5 layers high (InternalInfill with
     `infill_every_layers` > 1 and FirstLayer get a layer range with that layer height).
-  - Frame on the first layer, as Ellis' anchor frame: 4 borders (`pa_border.3mf`), each `frame_lines` first layer lines
-    wide (dialog "Frame lines", default 8, 1 to 50, both bends; SuperSlicer's are 4 lines: poor bed adhesion, user
-    2026-10-25), widened outwards so the inner edges stay where 4 lines put them. Sized from the chevrons / bends and the
-    numbers, so it follows the number of values, the right one a solid tab under the numbers, with the test number; around
-    Ellis' chevrons it touches them (the arm ends touch the left border and the tab), SuperSlicer's left border reaches a
-    little into its bends. At least 2 values. SuperSlicer centred the sides on the middle bend: with an even number of values
+  - Frame on the first layer, as Ellis' anchor frame: borders of SuperSlicer's 4 first layer lines, without SuperSlicer's
+    extra (line width - spacing) on Ellis' frame: with it PrusaSlicer printed a 0.11 mm line of gap fill in the middle of every
+    border on the user's profile (0.4 mm lines, 0.25 mm first layer; 2026-10-26). (A "Frame lines" field
+    of 1-50 lines, 2026-10-25, was removed the same day: the wider borders printed inconsistently; the user adds a brim for
+    adhesion). Sized from the chevrons / bends and the numbers, so it follows the number of values, the right side a solid
+    tab under the numbers, with the test number, 2 mm between the numbers and both edges of the tab (SuperSlicer: a nozzle
+    on the inner side, none on the outer one; user 2026-10-25: the tab was too small). Around Ellis' chevrons the frame is
+    one solid part (`frame`, the outer rectangle without the inner one). On the first layer the left border and the tab
+    reach half a line width into the chevrons, anchoring the ends of the lines: 0.13 mm overlap
+    with the frame's lines on the user's profile, as Ellis' pattern (0.132 mm; a whole line width gave 0.36 mm, touching
+    only left the lines 0.09 mm short; user 2026-10-25: "Maybe half a line width instead"). Above
+    the first layer (no frame there) the left arm of every wall runs on over the whole left border to its outer edge, cut
+    there square to it, printed on the frame; the right arms run as far (a border width) into the tab, over its perimeters,
+    cut square there too, short of the numbers 2 mm from the chevrons (user 2026-10-26: the right side did not reach onto
+    the frame like the left one). User 2026-10-25: "The first layer should only attach to the frame by 1 line width. The layers above
+    will attach to the whole frame." Cutting the frame around full-length arms was tried the same day and rejected (the
+    left border in islands, a jagged tab: "the frame should be a solid line"). The lines above the first layer are so 60
+    mm + 2 x 1.4 x (the border width - half a line width) long (63.4 mm on the user's profile; the left border is as wide as the
+    others: half a line wider, it printed a line of gap fill). The objects of the walls have `overhangs` and dynamic
+    overhang speeds off: the frame under the arms is another object, so PrusaSlicer printed that piece as an overhang
+    (bridge flow, overhang speed and fan, with the previous chevron's value). With SuperSlicer's bends: 4 borders (`pa_border.3mf`), the left
+    one reaching a little into the bends. At least 2 values. SuperSlicer centred the sides on the middle bend: with an even number of values
     the frame was open (sides short at one end, the bottom border apart); here they are centred between the first and the
     last (2026-10-23). `base_plate.3mf` is a 0.3 mm placeholder under the first layer that doesn't print. Every second
-    value engraved next to its chevron / bend with the digit / point models (6 decimals, as SuperSlicer); with Ellis'
+    value engraved next to its chevron / bend with the digit / point models (6 decimals, as SuperSlicer; the point as wide
+    as the strokes of the digits, so it prints as they do: SuperSlicer's 0.6 mm was too wide for a thin wall and too narrow
+    for a loop, PrusaSlicer left it out, 2026-10-25); with Ellis'
     settings the numbers' second layer at the first layer speed (object perimeter speeds), as Ellis.
   - The object's per region G-code sets the first layer value for the base, borders and numbers on all their layers (the
     numbers are two layers high; SuperSlicer sets it on the first layer only, so their second layer printed with the last
@@ -1340,12 +1361,14 @@ in the G-code panel, the first layer value for the base, borders and numbers, th
 layer (Custom G-code), Ellis' settings as unsaved changes in the print and filament tabs. Automatic:
 `fff_print_tests "[PressureCalibration]"` (the real models built as the dialog does, with Ellis' settings and the user's
 Arachne settings: summary before the first extrusion, each chevron with its value on its 4 layers, base / borders / numbers
-with the first layer value, per layer 3 walls of each chevron as open external perimeters of 60 mm at 100 mm/s, 0.45 mm
+with the first layer value, per layer 3 walls of each chevron as open external perimeters of 60 mm + both arms over the frame at 100 mm/s, 0.45 mm
 wide but on the few corner moves, whatever the generator, small perimeter or layer time settings, fan 0 then 100 %, no
 acceleration command; with the extrusion role: 5 layers at the role's speed;
-the settings written into a config, the first layer fan refused unless 0 or the fan; frame lines 8 vs 4: every border 4
-first layer spacings wider outwards, the inner edges unchanged (both bends); the frame for 2 to 30 values: closed,
-the chevrons between its top and bottom borders, its left border and the tab without overlapping them, the numbers on the tab; fewer than 2 values refused); the like for
+the settings written into a config, the first layer fan refused unless 0 or the fan; no overhang perimeters; the frame for 2 to 30 values: a
+solid ring around the chevrons, on the first layer the ends of the lines half a line width into the left border and the tab,
+above it the left arms to its outer edge and the right ones a border width into the tab, short of the numbers, one piece with the walls, the numbers on the tab 2 mm from both its edges (also with SuperSlicer's bends);
+fewer than 2 values refused; no gap fill in the frame with 0.4 mm lines, a 0.2 / 0.25 / 0.3 mm first layer and 2 or 4
+perimeters); the like for
 like comparison with Ellis: `fff_print_tests "[.PACompare]"` with `PA_CMP_INI` (print|filament|printer .ini) and
 `PA_CMP_OUT` (folder) writes both G-codes, `python Stuff/compare_pa.py <ellis> <superslicer>` compares them; `fff_print_tests "[PAPattern]"` (one pattern per value and reset, header / start G-code placeholders /
 temperatures / speed mode / settings block, extrusions on the bed and E from the cross section, read by the G-code

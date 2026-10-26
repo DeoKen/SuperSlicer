@@ -50,7 +50,7 @@ CalibrationDialog::CalibrationDialog(const wxString &title, const wxString &expl
     SetFont(wxGetApp().normal_font());
     auto *sizer = new wxBoxSizer(wxVERTICAL);
     auto *text  = new wxStaticText(this, wxID_ANY, explanation);
-    text->Wrap(50 * em_unit());
+    text->Wrap(40 * em_unit());
     sizer->Add(text, 0, wxALL, em_unit());
     m_grid = new wxFlexGridSizer(2, em_unit() / 2, em_unit());
     m_grid->AddGrowableCol(1);
@@ -67,12 +67,12 @@ wxComboBox* CalibrationDialog::add_combo(const wxString &label, const wxString &
     return combo;
 }
 
-wxTextCtrl* CalibrationDialog::add_text(const wxString &label, const wxString &tooltip, const wxString &value)
+wxTextCtrl* CalibrationDialog::add_text(const wxString &label, const wxString &tooltip, const wxString &value, bool wide)
 {
     m_grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
-    auto *text = new wxTextCtrl(this, wxID_ANY, value, wxDefaultPosition, wxSize(40 * em_unit(), -1));
+    auto *text = new wxTextCtrl(this, wxID_ANY, value, wxDefaultPosition, wxSize((wide ? 40 : 8) * em_unit(), -1));
     text->SetToolTip(tooltip);
-    m_grid->Add(text, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL);
+    m_grid->Add(text, wide ? 1 : 0, (wide ? wxEXPAND : 0) | wxALIGN_CENTER_VERTICAL);
     return text;
 }
 
@@ -442,12 +442,6 @@ public:
         const auto flavor = current_config().opt_enum<GCodeFlavor>("gcode_flavor");
         const PressureCalibrationSettings ellis;
         const auto number = [](double v) { return wxString::FromCDouble(v); };
-        m_bends       = add_combo(_L("Bends"), _L("Ellis: his chevrons, \"Walls\" open lines of the line width at the print speed, "
-                                                  "\"Layers\" high, in the frame. Extrusion role: SuperSlicer's 90° bends (closed loops) with "
-                                                  "the width and speed of the extrusion role of each test in your print settings, 5 layers "
-                                                  "high. CheckAll always uses SuperSlicer's bends."),
-                                  { _L("Ellis' settings"), _L("Extrusion role (SuperSlicer)") }, _L("Ellis' settings"));
-        m_bends->SetEditable(false);
         m_speed       = add_text(_L("Print speed (mm/s)"), _L("Speed of the bends (Ellis: 100)."), number(ellis.speed));
         m_line_ratio  = add_text(_L("Line width (% of the nozzle)"), _L("Width of the bends (Ellis: 112.5)."), number(ellis.line_ratio));
         m_layers      = add_text(_L("Layers"), _L("Height of the bends in layers, with the first one (Ellis: 4)."), number(ellis.layers));
@@ -463,8 +457,6 @@ public:
                                                                "fan speed of its own for the first layer."), number(ellis.first_layer_fan));
         m_accel       = add_text(_L("Acceleration (mm/s²)"), _L("Every acceleration of the print settings. 0: no acceleration command, the "
                                                                 "Klipper config or the speed mode applies (Ellis: disabled)."), number(ellis.acceleration));
-        m_frame_lines = add_text(_L("Frame lines"), _L("Width of each border of the frame, in first layer lines (SuperSlicer: 4). "
-                                                       "More lines hold the print better on the bed."), number(ellis.frame_lines));
         m_prefix = flavor == gcfMarlinFirmware ? " LA " : (flavor == gcfKlipper || flavor == gcfRepRapFirmware) ? " PA " : "";
         if (m_prefix.empty()) {
             auto *text = new wxStaticText(this, wxID_ANY, _L("unsupported firmware type"));
@@ -522,7 +514,7 @@ protected:
         int selection = 2;
         if (! m_rows.empty())
             selection = std::min(m_rows.back().role->GetSelection() + 1, int(roles.size()) - 1);
-        const wxSize size(8 * em_unit(), -1);
+        const wxSize size(7 * em_unit(), -1);
         for (int i = 0; i < count; ++ i) {
             Row   row;
             auto *sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -539,11 +531,11 @@ protected:
                                   _L("Select the" + m_prefix + "value to be used for the first layer only (base, borders and numbers)."));
             row.start     = combo(choices({ "0.0", "0.010", "0.020", "0.030", "0.040", "0.050" }), 0,
                                   _L("Select the starting" + m_prefix + "value to be used.\n (you can manually type in values!)"));
-            row.end       = combo(choices({ "0.08", "0.10", "0.20", "0.30", "0.40", "0.50", "0.60", "0.70", "0.80", "0.90", "1.00" }), 0,
+            row.end       = combo(choices({ "0.02", "0.04", "0.06", "0.08", "0.10", "0.15", "0.20", "0.30", "0.40", "0.50" }), 3,
                                   _L("Select the ending" + m_prefix + "value to be used.\n (you can manually type in values!)"));
             row.increment = combo(choices({ "0.0010", "0.0025", "0.0035", "0.005", "0.006", "0.007", "0.01", "0.1" }), 3,
                                   _L("Select the incremental value.\n (you can manually type in values!)"));
-            row.role      = new wxComboBox(this, wxID_ANY, roles[selection], wxDefaultPosition, wxSize(18 * em_unit(), -1), int(roles.size()), roles.data(), wxCB_READONLY);
+            row.role      = new wxComboBox(this, wxID_ANY, roles[selection], wxDefaultPosition, wxSize(14 * em_unit(), -1), int(roles.size()), roles.data(), wxCB_READONLY);
             row.role->SetSelection(selection);
             row.role->SetToolTip(_L("Select the extrusion role you want to generate a calibration for"));
             add(_L("First Layers" + m_prefix + "value: "), row.first);
@@ -595,19 +587,16 @@ protected:
         }
 
         PressureCalibrationSettings settings;
-        double layers, fan, first_fan, wall_count, frame_lines;
+        double layers, fan, first_fan, wall_count;
         if (! get_number(m_speed, _L("Print speed (mm/s)"), settings.speed) || ! get_number(m_line_ratio, _L("Line width"), settings.line_ratio) ||
             ! get_number(m_layers, _L("Layers"), layers) || ! get_number(m_first_speed, _L("First layer speed (mm/s)"), settings.first_layer_speed) ||
             ! get_number(m_layer, _L("Layer height (mm)"), settings.layer_height) ||
             ! get_number(m_first_layer, _L("First layer height (mm)"), settings.first_layer_height) ||
             ! get_number(m_fan, _L("Fan (%)"), fan) || ! get_number(m_first_fan, _L("First layer fan (%)"), first_fan) ||
             ! get_number(m_accel, _L("Acceleration (mm/s²)"), settings.acceleration) || ! get_number(m_walls, _L("Walls"), wall_count) ||
-            ! get_number(m_side, _L("Side length (mm)"), settings.side_length) || ! get_number(m_spacing, _L("Spacing (mm)"), settings.pattern_spacing) ||
-            ! get_number(m_frame_lines, _L("Frame lines"), frame_lines))
+            ! get_number(m_side, _L("Side length (mm)"), settings.side_length) || ! get_number(m_spacing, _L("Spacing (mm)"), settings.pattern_spacing))
             return false;
         settings.wall_count      = int(wall_count);
-        settings.frame_lines     = int(frame_lines);
-        settings.ellis_bends     = m_bends->GetSelection() != 1;
         settings.layers          = int(layers);
         settings.fan             = int(fan);
         settings.first_layer_fan = int(first_fan);
@@ -678,10 +667,8 @@ protected:
 
 private:
     std::string      m_prefix;
-    wxComboBox      *m_bends      { nullptr };
     wxTextCtrl      *m_speed { nullptr }, *m_line_ratio { nullptr }, *m_layers { nullptr }, *m_first_speed { nullptr };
     wxTextCtrl      *m_layer { nullptr }, *m_first_layer { nullptr }, *m_fan { nullptr }, *m_first_fan { nullptr }, *m_accel { nullptr };
-    wxTextCtrl      *m_frame_lines { nullptr };
     wxTextCtrl      *m_walls { nullptr }, *m_side { nullptr }, *m_spacing { nullptr };
     wxComboBox      *m_nb_tests   { nullptr };
     wxBoxSizer      *m_rows_sizer { nullptr };
@@ -698,7 +685,7 @@ class CalibrationCaliFlowerDialog : public CalibrationDialog
 {
 public:
     CalibrationCaliFlowerDialog()
-        : CalibrationDialog(_L("CaliFlower"),
+        : CalibrationDialog(_L("Filament shrinkage calibration"),
             _L("Loads your CaliFlower model (Vector 3D, not included) with the print settings as they are, "
                "switches the filament shrinkage compensation off (XY and Z 0%) and adds SET_SKEW CLEAR=1 (Klipper: no skew "
                "correction) to the filament start G-code, after the printer's start G-code (unsaved changes of the filament settings), "
@@ -706,7 +693,7 @@ public:
                "Measure the print and enter the values in Vector 3D's calculator."))
     {
         m_path = add_text(_L("CaliFlower file"), _L("Location of your CaliFlower model file (STL, 3MF, OBJ or STEP). It is remembered."),
-                          from_u8(wxGetApp().app_config->get(CALIFLOWER_PATH_KEY)));
+                          from_u8(wxGetApp().app_config->get(CALIFLOWER_PATH_KEY)), true);
         auto *browse = new wxButton(this, wxID_ANY, _L("Browse") + dots);
         GetSizer()->Add(browse, 0, wxALIGN_RIGHT | wxRIGHT | wxTOP, em_unit());
         browse->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
@@ -791,7 +778,7 @@ public:
         };
         const std::vector<wxString> shapers = choices({ "zv", "mzv", "zvd", "ei", "2hump_ei", "3hump_ei" });
         m_path        = add_text(_L("Model file"), _L("Location of your ringing test model file (STL, 3MF, OBJ or STEP). It is remembered."),
-                                 from_u8(wxGetApp().app_config->get(RINGING_PATH_KEY)));
+                                 from_u8(wxGetApp().app_config->get(RINGING_PATH_KEY)), true);
         m_velocity    = add_text(_L("Velocity limit (mm/s)"), "SET_VELOCITY_LIMIT VELOCITY=, also the external perimeter speed",
                                  remembered("velocity", "100"));
         m_shaper_x    = add_combo(_L("Shaper type X"), "SET_INPUT_SHAPER SHAPER_TYPE_X=", shapers, remembered("shaper_type_x", "mzv"));

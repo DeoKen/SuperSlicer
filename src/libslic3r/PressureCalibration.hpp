@@ -45,7 +45,6 @@ struct PressureCalibrationSettings
     int    fan                { 100 };   // %, from the second layer
     int    first_layer_fan    { 0 };     // %, 0 or the fan (PrusaSlicer has no fan of its own for the first layer)
     double acceleration       { 0. };    // mm/s², 0 = no acceleration command (Ellis: "Acceleration: Disabled")
-    int    frame_lines        { 8 };     // first layer lines of each border of the frame, both bends (SuperSlicer: 4)
 };
 
 // Writes the settings into a print or a filament config (the keys it has): layer heights, first layer speed, accelerations
