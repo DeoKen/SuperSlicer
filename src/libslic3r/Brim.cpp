@@ -988,7 +988,63 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
     for (const PrintObject *object : print.objects())
         if (! object->config().brim_per_object && (object->config().brim_type != btNoBrim || object->has_brim_enforcers()))
             shared_width = std::max(shared_width, float(object->config().brim_width.value));
-    emit_lines(brim_lines(islands, islands_area_ex, shared_width));
+    // Painted-only brims (fork): the lines of the shared brim are offsets of all the islands with a brim together, clipped
+    // by the brim area. A part whose outer brim is only painted would bend the lines of a neighbour's brim around it where
+    // it has no brim, leaving pieces of lines in the neighbour's brim. So each instance of such a part is a group of its
+    // own (its brim area, lines around its islands only), the other brims are one group as stock, and the groups whose
+    // areas touch are merged (their brims merge as stock). The brim area itself is not changed. Nothing painted: stock.
+    ConstPrintObjectPtrs painted_only, stock_objects;
+    for (const PrintObject *object : top_level_objects_with_brim) {
+        const size_t   idx = std::find(print.objects().begin(), print.objects().end(), object) - print.objects().begin();
+        const BrimType bt  = object->config().brim_type.value;
+        if (! object->config().brim_per_object && bt != btOuterOnly && bt != btOuterAndInner && ! paint_zones[idx].enforcers.empty())
+            painted_only.emplace_back(object);
+        else
+            stock_objects.emplace_back(object);
+    }
+    if (painted_only.empty())
+        emit_lines(brim_lines(islands, islands_area_ex, shared_width));
+    else {
+        struct Group {
+            Polygons   islands;
+            ExPolygons area;
+            float      width;
+        };
+        std::vector<Group> groups;
+        ExPolygons         painted_area;
+        for (const PrintObject *object : painted_only)
+            for (size_t instance_idx = 0; instance_idx < object->instances().size(); ++ instance_idx) {
+                try_cancel();
+                ExPolygons area = intersection_ex(top_level_outer_brim_area(print, top_level_objects_with_brim, bottom_layers_expolygons,
+                                                  paint_zones, float(flow.scaled_spacing()), nullptr, object, instance_idx), islands_area_ex);
+                if (area.empty())
+                    continue;
+                append(painted_area, area);
+                groups.push_back({ top_level_outer_brim_islands(top_level_objects_with_brim, scaled_resolution, object, instance_idx),
+                                   std::move(area), float(object->config().brim_width.value) });
+            }
+        float stock_width = 0.f;
+        for (const PrintObject *object : stock_objects)
+            if (! object->config().brim_per_object && (object->config().brim_type != btNoBrim || object->has_brim_enforcers()))
+                stock_width = std::max(stock_width, float(object->config().brim_width.value));
+        if (ExPolygons stock_area = diff_ex(islands_area_ex, painted_area); ! stock_area.empty())
+            groups.push_back({ top_level_outer_brim_islands(stock_objects, scaled_resolution), std::move(stock_area), stock_width });
+        // Merge the groups whose areas touch (within a line).
+        for (bool merged = true; merged;) {
+            merged = false;
+            for (size_t a = 0; a < groups.size() && ! merged; ++ a)
+                for (size_t b = a + 1; b < groups.size() && ! merged; ++ b)
+                    if (! intersection_ex(offset_ex(groups[a].area, float(flow.scaled_spacing())), groups[b].area).empty()) {
+                        append(groups[a].islands, std::move(groups[b].islands));
+                        groups[a].area  = union_ex(groups[a].area, groups[b].area);
+                        groups[a].width = std::max(groups[a].width, groups[b].width);
+                        groups.erase(groups.begin() + b);
+                        merged = true;
+                    }
+        }
+        for (Group &group : groups)
+            emit_lines(brim_lines(std::move(group.islands), group.area, group.width));
+    }
     emit_rectilinear_ears(rectilinear_ears);
 
     const size_t inner_first = brim.entities.size();

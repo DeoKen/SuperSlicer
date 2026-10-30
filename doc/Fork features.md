@@ -823,6 +823,8 @@ seam painting: a new left toolbar tool "Brim painting" (after Fuzzy skin paintin
 - **Tool type: Edge** (default) or **Brush**. Edge: the bottom edge under the cursor is highlighted (yellow) from corner
   to corner; a click paints all of it (left enforce, right block, Shift remove). A corner is a turn sharper than the
   "Corner angle" (default 30 degrees), so curves and fillets count as one edge and a round outline is painted all around.
+  "Max length" (mm, 0 = whole edge, the default): only that much of the edge, centered on the cursor, kept within the
+  edge near a corner; the highlight shows it. Both reset to their default at every start.
   Brush: the stock painting brush.
 - "First layer only" (on by default): the part is cut at the first layer height (the only layer the brim uses), the
   rest is hidden and can't be painted; the cut is see-through; the brush paints only facets facing you, so look from
@@ -853,7 +855,13 @@ between a painted and an unpainted wall is split halfway, and the other walls wi
 (before 2026-10-21 the zone was a band of the brim width on both sides of the painted parts, and it also added or
 removed the brim of nearby walls). The outer brim ring and the inner (hole) rings
 are intersected with the enforcer zone where the brim type doesn't make them anyway, and the blocker zone is
-subtracted; the one line wide "no brim" band around parts without a brim is opened where enforced. A hole that is
+subtracted; the one line wide "no brim" band around parts without a brim is opened where enforced. The lines of the
+shared brim are stock offsets of all the parts with a brim together, clipped by the brim area; a part whose outer brim
+is only painted (brim type without outer brim + enforcers, not brim per object) would bend the lines of a neighbour's
+brim around it where it has no brim, leaving pieces of lines in the neighbour's brim. So each instance of such a part
+is a group of its own (its brim area, lines around its own outline), the other brims one group as stock, and groups
+whose areas come within a line of each other are merged (their brims merge as stock); only the lines change, not the
+area (2026-10-30). Nothing painted: one group, stock. A hole that is
 filled completely (the innermost hole) becomes a normal ring of the brim width when blocked, so the fill does not start
 again from the blocked edge. A part with enforcers counts as having a brim (`PrintObject::has_brim()`). For the supports the brim area is the one of
 the brim type plus the painted brim (`brim_paint_areas()`, Brim.hpp: the enforced rings) minus the blocked zones; see
@@ -863,20 +871,26 @@ cleared when the gizmo closes since the clipper is shared with the other paintin
 takes the cut's alpha. `PrintObject::brim_paint_area()` keeps the edges (as thin bands) of the steep facets only and is cached on the object (key: first layer, placement, painting timestamps): a fine painting of 50 000 small facets took 12 s per call, 4 calls per slicing; now about 2 s once. The Edge tool (`GLGizmoBrimPaint::gizmo_event()`, `edge_under_mouse()`, `paint_edge()`) slices
 the model parts at the middle of the first layer (cached outline), meets the mouse ray with that height, takes the
 nearest outline segment within 2.5 mm and walks both ways while the turn at each vertex is under the corner angle; the
-edge, shortened by 0.3 mm at its corners (not the next wall), is painted with 0.3 mm capsules (`select_patch()`, the
+edge, shortened by 0.3 mm at its corners (not the next wall), cut to the tool's "Max length" when that is set (0 =
+whole edge, the default; reset at every start like the corner angle): the part of that length centered on the point
+of the edge nearest to the mouse, moved along to stay within the edge, over the start of a closed outline (2026-10-30),
+is painted with 0.3 mm capsules (`select_patch()`, the
 facets are split) along each segment, then one undo snapshot. Repainting only redoes the brim (and the supports of a part
 that has supports), not the slicing.
 
 **How to test.** `fff_print_tests "[BrimPaint]"`: nothing painted gives the stock brim; an enforcer on one side wall
 of a cube with "No brim" gives a brim only in front of that wall, not longer than the wall and not wider than the brim;
-an enforcer on the bottom face gives the brim all around; painting the top face does nothing; a blocker on one wall
+an enforcer on the bottom face gives the brim all around; a cube painted all around next to a cube painted only on its
+far wall (6 mm gap) has the same brim lines as alone; painting the top face does nothing; a blocker on one wall
 with "Outer brim only" removes the brim there; a blocker on a wall facing another wall 4 mm away (same object) removes
 only the half of the gap's brim nearest to it; with supports standing on the bed next to the part and the brim enforced
 all around or with the outer brim, the supports have no first layer and every line of their second layer lies on brim
 lines (without a brim they keep their first layer); blockers in a hole remove the inner brim; repainting keeps the slices
 and only redoes the brim; the painting is saved and loaded with the 3mf. Edge tool, manually: hover a bottom edge, the
 highlight stops at the corners (change the corner angle: a rounded rectangle becomes one edge at 90 degrees), click: only
-that edge is painted (also from below and through the see-through cut), slice: brim only along it; undo. `arrange_tests "[BrimPaint]"`: arrange's brim offset counts the
+that edge is painted (also from below and through the see-through cut), slice: brim only along it; undo. Set
+"Max length" to 10 mm: the highlight is 10 mm long centered on the cursor, stays within the edge near a corner, the whole
+edge when it is shorter; on a cylinder it goes around over the outline's start; click: brim only along those 10 mm. `arrange_tests "[BrimPaint]"`: arrange's brim offset counts the
 enforcers. Manually: open Brim painting on a part,
 paint two corners with "No brim", slice: brim only at those corners; set "Outer brim only", block one side: no brim
 there; save and reopen the project.

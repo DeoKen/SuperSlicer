@@ -60,6 +60,8 @@ private:
     static constexpr float EdgeRadius = 0.3f;
     bool                m_edge_tool{ true };
     float               m_edge_angle{ 30.f };
+    // At most this long (mm), centered on the cursor; 0 = the whole edge.
+    float               m_edge_max_length{ 0.f };
     std::vector<Vec3d>  m_hover_edge;
     GLModel             m_hover_edge_model;
     bool                m_edge_clicked{ false };

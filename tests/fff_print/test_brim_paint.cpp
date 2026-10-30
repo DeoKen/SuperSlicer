@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <limits>
@@ -38,9 +39,9 @@ DynamicPrintConfig brim_config(const char *brim_type)
 }
 
 // Paints the facets of the first volume whose normal is close to `normal` (all of them for a zero normal).
-void paint(Model &model, const Vec3f &normal, TriangleStateType state)
+void paint(Model &model, const Vec3f &normal, TriangleStateType state, size_t object_idx = 0)
 {
-    ModelVolume                &volume = *model.objects.front()->volumes.front();
+    ModelVolume                &volume = *model.objects[object_idx]->volumes.front();
     const indexed_triangle_set &its    = volume.mesh().its;
     TriangleSelector            selector(volume.mesh());
     selector.deserialize(volume.brim_facets.get_data(), false);
@@ -128,6 +129,43 @@ TEST_CASE("Paint-on brim: enforcer on one side wall adds a brim along that side 
             CHECK(p.x() > r.box.min.x() - 0.5);
             CHECK(p.x() < r.box.max.x() + 0.5);
         }
+}
+
+TEST_CASE("Paint-on brim: the lines do not bend around a part without a brim there", "[BrimPaint]") {
+    // Cube A painted all around, cube B 6 mm to its right painted only on its far (right) wall, brim 5 mm: the brim lines
+    // of A are the same as with A alone (they used to bend around B in the gap, leaving pieces of lines).
+    auto brim_of_a = [](bool with_b) {
+        Print print;
+        Model model;
+        const DynamicPrintConfig config = brim_config("no_brim");
+        if (with_b)
+            Test::init_print({ TestMesh::cube_20x20x20, TestMesh::cube_20x20x20 }, print, model, config);
+        else
+            Test::init_print({ TestMesh::cube_20x20x20 }, print, model, config);
+        for (size_t i = 0; i < model.objects.size(); ++ i) {
+            ModelInstance &instance = *model.objects[i]->instances.front();
+            instance.set_offset(Vec3d(100. + 26. * double(i), 100., instance.get_offset().z()));
+        }
+        paint(model, Bottom, TriangleStateType::ENFORCER, 0);
+        if (with_b)
+            paint(model, Vec3f::UnitX(), TriangleStateType::ENFORCER, 1);
+        // A's brim: left of the middle of the gap.
+        const double middle = model.objects.front()->instance_bounding_box(0).max.x() + 3.;
+        print.apply(model, config);
+        std::vector<std::array<long, 4>> out;
+        for (const Linef &l : brim_moves(Test::gcode(print)))
+            if (l.a.x() < middle && l.b.x() < middle) {
+                std::array<long, 4> s{ std::lround(l.a.x() * 100.), std::lround(l.a.y() * 100.), std::lround(l.b.x() * 100.), std::lround(l.b.y() * 100.) };
+                if (std::make_pair(s[0], s[1]) > std::make_pair(s[2], s[3]))
+                    s = { s[2], s[3], s[0], s[1] };
+                out.push_back(s);
+            }
+        std::sort(out.begin(), out.end());
+        return out;
+    };
+    const auto alone = brim_of_a(false);
+    REQUIRE(! alone.empty());
+    CHECK(brim_of_a(true) == alone);
 }
 
 TEST_CASE("Paint-on brim: enforcer on the bottom face adds the brim all around", "[BrimPaint]") {

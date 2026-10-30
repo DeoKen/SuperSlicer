@@ -174,6 +174,51 @@ std::vector<Vec3d> GLGizmoBrimPaint::edge_under_mouse(const Vec2d &mouse_positio
         edge.clip_start(scaled<double>(EdgeRadius));
         edge.clip_end(scaled<double>(EdgeRadius));
     }
+    // Max length: the part of the edge of that length centered on the cursor, moved along so it stays within the edge
+    // (an edge not longer is painted whole); around a closed outline it may go over the outline's start.
+    if (const double max_length = scaled<double>(m_edge_max_length), length = edge.length(); max_length > 0. && max_length < length) {
+        // Distance along the edge of the point nearest to the cursor.
+        double along = 0., best = std::numeric_limits<double>::max(), at = 0.;
+        for (size_t i = 0; i + 1 < edge.size(); ++ i) {
+            const Line   line(edge.points[i], edge.points[i + 1]);
+            const Vec2d  v   = (line.b - line.a).cast<double>();
+            const double len = v.norm();
+            const double t   = len > 0. ? std::clamp((mouse - line.a).cast<double>().dot(v) / (len * len), 0., 1.) : 0.;
+            if (const double d = (line.a.cast<double>() + t * v - mouse.cast<double>()).norm(); d < best) {
+                best = d;
+                at   = along + t * len;
+            }
+            along += len;
+        }
+        double start = at - 0.5 * max_length;
+        if (closed) {
+            if (start < 0.)
+                start += length;
+            // Twice around, so that the part may go over the start.
+            Points twice = edge.points;
+            twice.insert(twice.end(), edge.points.begin() + 1, edge.points.end());
+            edge.points = std::move(twice);
+        } else
+            start = std::clamp(start, 0., length - max_length);
+        // The part from `start` to `start + max_length`.
+        Polyline part;
+        along = 0.;
+        for (size_t i = 0; i + 1 < edge.size() && along < start + max_length; ++ i) {
+            const Vec2d  a   = edge.points[i].cast<double>();
+            const Vec2d  v   = edge.points[i + 1].cast<double>() - a;
+            const double len = v.norm();
+            if (len > 0. && along + len > start) {
+                if (part.empty())
+                    part.points.emplace_back((a + v * ((start - along) / len)).cast<coord_t>());
+                if (along + len >= start + max_length)
+                    part.points.emplace_back((a + v * ((start + max_length - along) / len)).cast<coord_t>());
+                else
+                    part.points.emplace_back(edge.points[i + 1]);
+            }
+            along += len;
+        }
+        edge = std::move(part);
+    }
     for (const Point &p : edge.points)
         out.emplace_back(unscaled(p.x()), unscaled(p.y()), z);
     return out;
@@ -308,8 +353,13 @@ bool GLGizmoBrimPaint::on_init()
     m_desc["edge"]             = _u8L("Edge");
     m_desc["brush"]            = _u8L("Brush");
     m_desc["edge_angle"]       = _u8L("Corner angle") + ": ";
-    m_desc["edge_tooltip"]     = _u8L("A click paints the whole bottom edge under the cursor (highlighted), up to the "
-                                      "corners sharper than the corner angle: a round outline is painted all around.");
+    m_desc["edge_tooltip"]     = _u8L("A click paints the bottom edge under the cursor (highlighted), up to the "
+                                      "corners sharper than the corner angle: a round outline is painted all around. "
+                                      "With a max length, only that much of it, centered on the cursor.");
+    m_desc["edge_max_length"]  = _u8L("Max length") + ": ";
+    m_desc["edge_max_length_tooltip"] = _u8L("Paints at most this length of the edge, centered on the cursor; near a corner "
+                                             "it stays within the edge. 0 = the whole edge.");
+    m_desc["edge_whole"]       = _u8L("whole edge");
     m_desc["block_caption"]    = _u8L("Right mouse button") + ": ";
     m_desc["block"]            = _u8L("Block brim");
     m_desc["remove_caption"]   = _u8L("Shift + Left mouse button") + ": ";
@@ -452,6 +502,20 @@ void GLGizmoBrimPaint::on_render_input_window(float x, float y, float bottom_lim
         ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
         if (m_imgui->slider_float("##edge_angle", &m_edge_angle, 5.f, 90.f, "%.0f°", 1.0f, true))
             m_hover_edge.clear();
+        ImGui::AlignTextToFramePadding();
+        ImGuiPureWrap::text(m_desc.at("edge_max_length"));
+        if (ImGui::IsItemHovered())
+            ImGuiPureWrap::tooltip(m_desc.at("edge_max_length_tooltip"), max_tooltip_width);
+        ImGui::SameLine(sliders_left_width);
+        ImGui::PushItemWidth(window_width - sliders_left_width - slider_icon_width);
+        // 0 shown as "0 (whole edge)".
+        const std::string whole = "%.0f (" + m_desc.at("edge_whole") + ")";
+        if (m_imgui->slider_float("##edge_max_length", &m_edge_max_length, 0.f, 100.f,
+                                  m_edge_max_length > 0.f ? "%.1f mm" : whole.c_str(), 1.0f, true,
+                                  from_u8(m_desc.at("edge_max_length_tooltip")))) {
+            m_edge_max_length = std::max(0.f, m_edge_max_length);
+            m_hover_edge.clear();
+        }
     } else {
         ImGui::AlignTextToFramePadding();
         ImGuiPureWrap::text(m_desc.at("cursor_size"));
