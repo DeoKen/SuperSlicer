@@ -441,7 +441,7 @@ TEST_CASE("Pressure calibration settings", "[PressureCalibration]") {
     pressure_calibration_apply_settings(config, settings);
     CHECK(config.opt_float("layer_height") == 0.2);
     CHECK(config.get_abs_value("first_layer_height", 0.2) == 0.25);
-    CHECK(config.opt_float("default_acceleration") == 0.);
+    CHECK(config.option<ConfigOptionFloatOrPercent>("default_acceleration")->value == 0.);
     CHECK(config.get_abs_value("perimeter_acceleration", 1000.) == 0.);
     CHECK(config.opt<ConfigOptionInts>("default_fan_speed")->get_at(0) == 100);
     CHECK(config.opt<ConfigOptionInts>("disable_fan_first_layers")->get_at(0) == 1);

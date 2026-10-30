@@ -194,8 +194,10 @@ wxString OG_CustomCtrl::side_text(const Option &option, bool sample) const
     if (OptionsGroup::can_have_value_hint(option.opt)) {
         // Sample: the wider of an absolute value and a percentage.
         const wxString unit = _(percent_value_unit(option.opt));
+        // Accelerations take 5 digits (18200 mm/s²: in 4 digits of room the hint wrapped onto two lines).
+        const wxString digits = unit.Find(wxString::FromUTF8("²")) != wxNOT_FOUND ? "00000 " : "0000 ";
         const wxString hint = ! sample ? opt_group->value_hint(option.opt_id) :
-                              unit.length() + 4 > 7 ? "(0000 " + unit + ")" : wxString("(000.0 %)");
+                              unit.length() + 4 > 7 ? "(" + digits + unit + ")" : wxString("(000.0 %)");
         if (! hint.empty())
             text += "  " + hint;
     }

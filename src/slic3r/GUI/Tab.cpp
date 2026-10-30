@@ -45,6 +45,7 @@
 #include <wx/button.h>
 #include <wx/scrolwin.h>
 #include <wx/sizer.h>
+#include <wx/wrapsizer.h>
 
 #include <wx/bmpcbox.h>
 #include <wx/bmpbuttn.h>
@@ -1463,7 +1464,7 @@ class OverhangAnglePreview : public wxPanel
 {
 public:
     OverhangAnglePreview(wxWindow *parent)
-        : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(46 * wxGetApp().em_unit(), 7 * wxGetApp().em_unit()))
+        : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(37 * wxGetApp().em_unit(), 7 * wxGetApp().em_unit()))
     {
         SetBackgroundStyle(wxBG_STYLE_PAINT);
         Bind(wxEVT_PAINT, [this](wxPaintEvent &) { render(); });
@@ -1556,6 +1557,153 @@ private:
     std::optional<PresetHints::OverhangThresholdGeometry> m_geometry;
 };
 
+// The overhangs cut (overhangs_max_slope) drawn on the top half of a 10 mm horizontal hole: the layers of the wall around
+// the hole as cut (each layer at most the max slope past the layer below, then a flat bridge), the material of the model
+// that is cut away and the round hole of the model, from the layer height, the nozzle diameter and the overhang cut
+// options of the edited profiles. Approximate: the slicer works on the real outlines.
+class OverhangCutPreview : public wxPanel
+{
+public:
+    OverhangCutPreview(wxWindow *parent)
+        : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(36 * wxGetApp().em_unit(), 7 * wxGetApp().em_unit()))
+    {
+        SetBackgroundStyle(wxBG_STYLE_PAINT);
+        Bind(wxEVT_PAINT, [this](wxPaintEvent &) { render(); });
+    }
+
+private:
+    static constexpr double hole_diameter = 10.;
+
+    struct Layer { double half_width; bool bridge; };
+
+    // Hole half width per layer from the bottom of the hole: the circle, or with the cut each layer at most `slope` narrower
+    // than the one below; where the circle closes, a bridge over what is left (if bridges are kept and short enough).
+    static std::vector<Layer> hole_layers(double layer_height, double slope, double bridge_max)
+    {
+        const double r = 0.5 * hole_diameter;
+        std::vector<Layer> layers;
+        double prev = 0;
+        for (int i = 0; ; ++ i) {
+            const double z      = (i + 0.5) * layer_height;
+            const double circle = z < 2. * r ? std::sqrt(std::max(0., r * r - (z - r) * (z - r))) : 0.;
+            double       half   = circle;
+            if (slope > 0 && z > r)
+                half = std::max(circle, prev - slope);
+            if (slope > 0 && circle == 0. && half > 0. && bridge_max != 0. && (bridge_max < 0 || 2. * prev <= bridge_max)) {
+                layers.push_back({ prev, true });
+                break;
+            }
+            if (half <= 0.)
+                break;
+            layers.push_back({ half, false });
+            prev = half;
+            if (i > 1000)
+                break;
+        }
+        return layers;
+    }
+
+    void render()
+    {
+        wxAutoBufferedPaintDC dc(this);
+        dc.SetBackground(wxBrush(GetParent()->GetBackgroundColour()));
+        dc.Clear();
+        const PresetBundle &bundle = *wxGetApp().preset_bundle;
+        const DynamicPrintConfig &print   = bundle.prints.get_edited_preset().config;
+        const DynamicPrintConfig &printer = bundle.printers.get_edited_preset().config;
+        const auto *slope_opt  = print.option<ConfigOptionFloatOrPercent>("overhangs_max_slope");
+        const auto *nozzle_opt = printer.option<ConfigOptionFloats>("nozzle_diameter");
+        if (slope_opt == nullptr || nozzle_opt == nullptr || nozzle_opt->values.empty())
+            return;
+        const double nozzle       = *std::max_element(nozzle_opt->values.begin(), nozzle_opt->values.end());
+        const double layer_height = std::max(0.05, print.opt_float("layer_height"));
+        const double slope        = slope_opt->get_abs_value(nozzle);
+        const double bridge_max   = print.opt_float("overhangs_bridge_threshold");
+        std::unique_ptr<wxGraphicsContext> gc(wxGraphicsContext::Create(dc));
+        if (! gc)
+            return;
+
+        const double   em     = wxGetApp().em_unit();
+        const wxSize   size   = GetClientSize();
+        const wxColour text   = wxGetApp().get_label_clr_default();
+        const wxColour orange(237, 107, 33);
+        const wxColour cut_away(237, 107, 33, 110);
+        const wxColour bead(140, 140, 140);
+        const wxColour bridge(60, 90, 220);
+
+        const std::vector<Layer> model = hole_layers(layer_height, 0., -1.);
+        const std::vector<Layer> cut   = slope > 0 ? hole_layers(layer_height, slope, bridge_max) : model;
+
+        // The top half of the hole: from a little below its middle to a little above the highest layer of the hole.
+        const double d       = hole_diameter;
+        const double view_lo = 0.45 * d;
+        const double view_hi = std::max(model.size(), cut.size()) * layer_height + 0.1 * d;
+        const double margin  = 0.5 * em;
+        const double scale   = (size.y - 2. * margin) / (view_hi - view_lo);
+        const double view_w  = 1.2 * d * scale;
+        const double cx      = margin + 0.5 * view_w;
+        const double bottom  = size.y - margin + view_lo * scale; // y of z = 0
+        const double bead_h  = layer_height * scale;
+        gc->Clip(margin, margin, view_w, size.y - 2. * margin);
+        gc->SetPen(*wxTRANSPARENT_PEN);
+        const auto band = [&](const wxColour &colour, double x0, double x1, double y) {
+            if (x1 > x0) {
+                gc->SetBrush(wxBrush(colour));
+                gc->DrawRectangle(cx + x0 * scale, y, (x1 - x0) * scale, bead_h);
+            }
+        };
+        const size_t layers = size_t(std::ceil(view_hi / layer_height));
+        for (size_t i = 0; i < layers; ++ i) {
+            const double y = bottom - (i + 1) * bead_h;
+            if (y > size.y)
+                continue;
+            const double m = i < model.size() ? model[i].half_width : 0.;
+            const double c = i < cut.size() ? cut[i].half_width : 0.;
+            const bool   b = i < cut.size() && cut[i].bridge;
+            band(bead, -0.6 * d, -c, y);
+            band(bead, c, 0.6 * d, y);
+            if (b)
+                band(bridge, -c, c, y);
+            else if (c > m) {
+                // Material of the model that the cut removes.
+                band(cut_away, -c, -m, y);
+                band(cut_away, m, c, y);
+            }
+        }
+        // The round hole of the model.
+        gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(text, std::max(1., 0.1 * em), wxPENSTYLE_SHORT_DASH)));
+        gc->SetBrush(*wxTRANSPARENT_BRUSH);
+        gc->DrawEllipse(cx - 0.5 * d * scale, bottom - d * scale, d * scale, d * scale);
+        gc->ResetClip();
+
+        // The values, right of the drawing.
+        std::vector<wxString> lines;
+        if (slope > 0) {
+            lines.push_back(format_wxstr(_L("Cut: max %1% mm per layer"), double_to_string(slope, 2)));
+            const double flat  = cut.empty() || ! cut.back().bridge ? 0. : 2. * cut.back().half_width;
+            const size_t extra = cut.size() > model.size() ? cut.size() - model.size() : 0;
+            wxString line = flat > 0 ? format_wxstr(_L("Flat top %1% mm"), double_to_string(flat, 1)) : _L("No flat bridge");
+            if (extra > 0)
+                line += ", " + format_wxstr(_L("hole %1% layer(s) taller"), extra);
+            lines.push_back(line);
+            lines.push_back(format_wxstr(_L("%1% mm hole: orange cut away, blue bridge"), int(d)));
+        } else {
+            lines.push_back(_L("Overhangs cut off"));
+            lines.push_back(format_wxstr(_L("Top of a %1% mm hole, layer %2% mm"), int(d), double_to_string(layer_height, 2)));
+        }
+        double w, h;
+        gc->SetFont(wxGetApp().normal_font(), text);
+        gc->GetTextExtent(lines.front(), &w, &h);
+        const double tx = margin + view_w + em;
+        double       ty = 0.5 * (size.y - (1.3 * lines.size() - 0.3) * h);
+        for (size_t i = 0; i < lines.size(); ++ i) {
+            gc->SetFont(i == 0 ? wxGetApp().bold_font() : wxGetApp().normal_font(), i == 0 ? orange : text);
+            gc->DrawText(lines[i], tx, ty);
+            ty += 1.3 * h;
+        }
+    }
+};
+
 void TabPrint::build()
 {
     m_presets = &m_preset_bundle->prints;
@@ -1607,12 +1755,18 @@ void TabPrint::build()
         optgroup->append_single_option_line("thin_walls", category_path + "detect-thin-walls");
         optgroup->append_single_option_line("thick_bridges", category_path + "thick_bridges");
         append_labelled_line(optgroup, L("Detect bridging perimeters"), { { "overhangs", "" }, { "overhangs_threshold", L("Threshold") }, { "overhangs_hysteresis", L("Hysteresis") } }, category_path + "detect-bridging-perimeters", -1);
+        // SuperSlicer: overhangs cut.
+        append_labelled_line(optgroup, L("Overhangs cut"), { { "overhangs_max_slope", L("Max slope") }, { "overhangs_bridge_threshold", L("Bridge max length") } }, std::string(), -1);
+        optgroup->append_single_option_line("floating_hole_bridges");
+        // The overhang threshold and the shape the overhangs cut gives a horizontal hole, side by side (wrapped when narrow).
         line = { "", "" };
         line.full_width = 1;
         line.widget = [this](wxWindow* parent) {
             m_overhang_angle_preview = new OverhangAnglePreview(parent);
-            auto sizer = new wxBoxSizer(wxHORIZONTAL);
-            sizer->Add(m_overhang_angle_preview, 0, wxALIGN_CENTER_VERTICAL);
+            m_overhang_cut_preview   = new OverhangCutPreview(parent);
+            auto sizer = new wxWrapSizer(wxHORIZONTAL);
+            sizer->Add(m_overhang_angle_preview, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 2 * wxGetApp().em_unit());
+            sizer->Add(m_overhang_cut_preview, 0, wxALIGN_CENTER_VERTICAL);
             return sizer;
         };
         optgroup->append_line(line);
@@ -1624,6 +1778,7 @@ void TabPrint::build()
 
         const std::string scarf_seam_path{"seam-position_151069#"};
         append_labelled_line(optgroup, L("Scarf joint"), { { "scarf_seam_placement", L("Placement") }, { "scarf_seam_only_on_smooth", L("Only on smooth perimeters") } }, scarf_seam_path + "scarf-joint-placement", -1);
+        append_labelled_line(optgroup, L("Plain seam instead of scarf"), { { "scarf_seam_not_near_overhangs", L("Near overhangs or corners") }, { "scarf_seam_overhang_distance", L("Overhang distance") } }, std::string(), -1);
         append_labelled_line(optgroup, L("Scarf joint shape"), { { "scarf_seam_start_height", L("Start height") }, { "scarf_seam_length", L("Length") }, { "scarf_seam_max_segment_length", L("Max segment") } }, scarf_seam_path + "scarf-start-height");
         append_labelled_line(optgroup, L("Scarf joint on"), { { "scarf_seam_entire_loop", L("Entire loop") }, { "scarf_seam_on_inner_perimeters", L("Inner perimeters") } }, scarf_seam_path + "scarf-joint-around-entire-perimeter", -1);
 
@@ -1954,6 +2109,8 @@ void TabPrint::update_description_lines()
     }
     if (m_active_page && m_active_page->title() == "Layers and perimeters" && m_overhang_angle_preview)
         m_overhang_angle_preview->set(PresetHints::overhang_threshold_geometry(*m_preset_bundle));
+    if (m_active_page && m_active_page->title() == "Layers and perimeters" && m_overhang_cut_preview)
+        m_overhang_cut_preview->Refresh();
 
     if (m_active_page && m_active_page->title() == "Output options") {
         if (m_post_process_explanation) {
@@ -2024,6 +2181,7 @@ void TabPrint::clear_pages()
     m_recommended_thin_wall_thickness_description_line = nullptr;
     m_top_bottom_shell_thickness_explanation = nullptr;
     m_overhang_angle_preview = nullptr;
+    m_overhang_cut_preview = nullptr;
     m_post_process_explanation = nullptr;
 
     m_del_all_substitutions_btn = nullptr;
@@ -3025,7 +3183,7 @@ void TabPrinter::build_fff()
 
         // As in SuperSlicer.
         optgroup = page->new_optgroup(L("Cooling fan"));
-        append_labelled_line(optgroup, L("Speedup time"), { { "fan_speedup_time", "" }, { "fan_speedup_overhangs", L("Only for overhangs") } }, std::string(), -1);
+        append_labelled_line(optgroup, L("Speedup time"), { { "fan_speedup_time", "" }, { "fan_speedup_overhangs", L("Only for overhangs") }, { "fan_slowdown_min_time", L("Min. time at lower speed") } }, std::string(), -1);
         {
             // Auxiliary part cooling fan (OrcaSlicer), with the G-code set by the user instead of a fixed M106 P2.
             Option option = optgroup->get_option("auxiliary_fan_gcode");

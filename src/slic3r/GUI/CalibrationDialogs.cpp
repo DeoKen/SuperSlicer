@@ -49,18 +49,32 @@ CalibrationDialog::CalibrationDialog(const wxString &title, const wxString &expl
 {
     SetFont(wxGetApp().normal_font());
     auto *sizer = new wxBoxSizer(wxVERTICAL);
-    auto *text  = new wxStaticText(this, wxID_ANY, explanation);
-    text->Wrap(40 * em_unit());
-    sizer->Add(text, 0, wxALL, em_unit());
+    m_explanation_text = explanation;
+    m_explanation      = new wxStaticText(this, wxID_ANY, explanation);
+    m_explanation->Wrap(40 * em_unit());
+    sizer->Add(m_explanation, 0, wxALL, em_unit());
     m_grid = new wxFlexGridSizer(2, em_unit() / 2, em_unit());
     m_grid->AddGrowableCol(1);
     sizer->Add(m_grid, 0, wxEXPAND | wxLEFT | wxRIGHT, em_unit());
     SetSizer(sizer);
 }
 
+void CalibrationDialog::set_columns(int fields_per_row)
+{
+    m_grid->SetCols(2 * fields_per_row);
+    m_grid->RemoveGrowableCol(1);
+}
+
+// A label in the grid, apart from the field before it on the same row.
+void CalibrationDialog::add_label(const wxString &label)
+{
+    const bool first_column = m_grid->GetChildren().size() % size_t(m_grid->GetCols()) == 0;
+    m_grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL | (first_column ? 0 : wxLEFT), 2 * em_unit());
+}
+
 wxComboBox* CalibrationDialog::add_combo(const wxString &label, const wxString &tooltip, const std::vector<wxString> &choices, const wxString &value)
 {
-    m_grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+    add_label(label);
     auto *combo = new wxComboBox(this, wxID_ANY, value, wxDefaultPosition, wxSize(10 * em_unit(), -1), int(choices.size()), choices.data(), wxCB_DROPDOWN);
     combo->SetToolTip(tooltip);
     m_grid->Add(combo, 0, wxALIGN_CENTER_VERTICAL);
@@ -69,7 +83,7 @@ wxComboBox* CalibrationDialog::add_combo(const wxString &label, const wxString &
 
 wxTextCtrl* CalibrationDialog::add_text(const wxString &label, const wxString &tooltip, const wxString &value, bool wide)
 {
-    m_grid->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+    add_label(label);
     auto *text = new wxTextCtrl(this, wxID_ANY, value, wxDefaultPosition, wxSize((wide ? 40 : 8) * em_unit(), -1));
     text->SetToolTip(tooltip);
     m_grid->Add(text, wide ? 1 : 0, (wide ? wxEXPAND : 0) | wxALIGN_CENTER_VERTICAL);
@@ -91,6 +105,12 @@ void CalibrationDialog::finish_layout()
     });
     generate->SetDefault();
     wxGetApp().UpdateDlgDarkUI(this);
+    // The explanation as wide as the fields under it (no empty space beside it).
+    const int width = GetSizer()->CalcMin().x - 2 * em_unit();
+    if (width > 40 * em_unit()) {
+        m_explanation->SetLabel(m_explanation_text);
+        m_explanation->Wrap(width);
+    }
     GetSizer()->SetSizeHints(this);
 }
 
@@ -442,8 +462,17 @@ public:
         const auto flavor = current_config().opt_enum<GCodeFlavor>("gcode_flavor");
         const PressureCalibrationSettings ellis;
         const auto number = [](double v) { return wxString::FromCDouble(v); };
-        m_speed       = add_text(_L("Print speed (mm/s)"), _L("Speed of the bends (Ellis: 100)."), number(ellis.speed));
-        m_line_ratio  = add_text(_L("Line width (% of the nozzle)"), _L("Width of the bends (Ellis: 112.5)."), number(ellis.line_ratio));
+        set_columns(4);
+        // Ellis' tool: "Use your external perimeter speed from your slicer settings - if it's reasonably fast (>60mm/s)", "Match
+        // your thickest perimeter" (line width). The speed of the selected print profile (user 2026-10-26: the speed they print
+        // at), his 100 mm/s if it has none; line width 100 % (user, the widths of the user's profiles are the nozzle size).
+        const double ext_speed = current_config().get_abs_value("external_perimeter_speed");
+        m_speed       = add_text(_L("Print speed (mm/s)"), _L("Speed of the bends. Default: the external perimeter speed of the selected print "
+                                                              "profile, as Ellis recommends (\"if it's reasonably fast (>60mm/s)\"; if the "
+                                                              "results are hard to read, try a faster speed). His tool's default: 100."),
+                                 number(ext_speed > 0. ? std::round(ext_speed) : ellis.speed));
+        m_line_ratio  = add_text(_L("Line width (% of the nozzle)"), _L("Width of the bends. Ellis: match your thickest perimeter (internal or "
+                                                                        "external). His tool's default: 112.5."), number(100.));
         m_layers      = add_text(_L("Layers"), _L("Height of the bends in layers, with the first one (Ellis: 4)."), number(ellis.layers));
         m_walls       = add_text(_L("Walls"), _L("Number of walls (open lines) of each chevron (Ellis: 3)."), number(ellis.wall_count));
         m_side        = add_text(_L("Side length (mm)"), _L("Length of one side of a chevron (Ellis: 30)."), number(ellis.side_length));
@@ -881,7 +910,7 @@ protected:
         load_tab_config(Preset::TYPE_FILAMENT, filament);
         // No acceleration commands (M204 / SET_VELOCITY_LIMIT ACCEL), which would override TUNING_TOWER's.
         DynamicPrintConfig print = wxGetApp().preset_bundle->prints.get_edited_preset().config;
-        print.set_key_value("default_acceleration", new ConfigOptionFloat(0.));
+        print.set_key_value("default_acceleration", new ConfigOptionFloatOrPercent(0., false));
         // Klipper's recommended slicing: layer height 0.2 or 0.25 mm, vase mode with a 1-2 mm base (the settings vase
         // mode needs, as ConfigManipulation), external perimeters at the speed used for the frequency (V x N / D).
         const double layer_height = std::abs(print.opt_float("layer_height") - 0.25) < EPSILON ? 0.25 : 0.2;

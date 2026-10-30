@@ -216,11 +216,22 @@ everything. Stock PrusaSlicer already ignored the per-feature and first layer ac
 `travel_acceleration` / `travel_short_distance_acceleration` (and with Klipper `M204 S` is the print acceleration too).
 Those two are now greyed out with the others. Stock output is unchanged at PrusaSlicer defaults (travel acceleration 0).
 
+**Default acceleration in % of the Klipper max accel** (user, 2026-10-30). `default_acceleration` takes mm/s² or a
+percentage of `klipper_max_accel` (Printer Settings > Machine limits, Klipper's `max_accel`; SuperSlicer takes the
+percentage of the max X acceleration instead, its values are still converted to mm/s² on import). The accelerations given
+as a percentage of the default one use its value in mm/s² (`default_acceleration_value()` in `PrintConfig.hpp`, used by
+the G-code generator, the wipe tower and the overhang perimeter detection; custom G-code placeholders and the value hints
+resolve the chain through `ratio_over`). The field shows the value in mm/s² next to it like the other % fields (section
+40), e.g. `[50%] mm/s² or %  (14000 mm/s²)`. 0 is still "no acceleration at all"; changing the Klipper max accel only
+regenerates the G-code. In the aligned rows of the acceleration page the hint has room for 5 digits (an acceleration
+like `(18200 mm/s²)` wrapped onto two lines in the room of 4).
+
 **How it works.** `GCodeGenerator::feature_acceleration()` and `brim_speed()` in `GCode.cpp`, checked before the stock
 acceleration chain in `_extrude()`. Travel: `generate_travel_gcode()`.
 
 **How to test.** `fff_print_tests "[FeatureAccel]"` (also "Stock feature accelerations in % of the default acceleration":
-the same G-code as with the values in mm/s²). Manually: set distinct values, slice a supported model with
+the same G-code as with the values in mm/s²; "Default acceleration in % of the Klipper max accel": 50 % of 10000 gives
+the same G-code as 5000, the % of the default ones follow). Manually: set distinct values, slice a supported model with
 ironing and a skirt, and check the `M204` values per `;TYPE:` block in the G-code. Set the default acceleration to 0 with
 a travel acceleration set: the G-code has no `M204` at all.
 
@@ -235,6 +246,17 @@ starts (ported from SuperSlicer). Slowing the fan down is never moved.
 |---|---|---|---|
 | `fan_speedup_time` | Printer > General > Cooling fan > Speedup time | `0` | Seconds. 0 = off. |
 | `fan_speedup_overhangs` | same row: *Only for overhangs* | on | Only move the fan increases of overhang perimeters (greyed out while the delay is 0). |
+| `fan_slowdown_min_time` | same row: *Min. time at lower speed* | `0` s | No slow down when the fan would speed up again within this time (fork, 2026-10-28). 0 = off. |
+
+**Minimum time at a lower speed** (`fan_slowdown_min_time`, fork). Short overhangs (the top of a horizontal hole) set
+the overhang fan for each small segment, with the normal fan in between: without the mover 0.02 s pulses, with a 2 s
+startup delay still dips of 0.3-0.6 s that the fan can't follow; they only make the cooling uneven next to the hole.
+With this time the fan stays at the higher speed across a dip shorter than it; with a startup delay the dip is measured
+to the moment the fan starts speeding up. Only dips are erased: a speed up from a lower speed (0 -> 40 % -> 100 %) is
+kept, and a longer stretch at the lower speed slows down as before. The buffer holds startup delay + minimum time, the
+speed up is inserted into it instead of written out at once (`FanMover::speed_up_in_buffer()`); with 0 the code path
+is the one above. The mover runs when either time is above 0. Default 0 = stock output; 3 s is the suggested value (the user's
+printer profile).
 
 **How it works.** `GCode/FanMover.cpp`, a filter after the cooling buffer. It estimates the time of each move from its
 feed rate (ignoring acceleration), keeps a buffer of `fan_speedup_time` seconds and writes a fan increase that much
@@ -242,10 +264,14 @@ earlier, splitting a move when needed. Rules as in SuperSlicer: a fan command is
 slower fan commands within the delay are dropped while speeding up, and fan commands inside custom G-code are not moved
 (custom G-code is tagged `; custom gcode: <name>` / `; custom gcode end: <name>` while the mover is on). Custom G-code
 blocks without fan commands are looked through, and their moves are never split. SuperSlicer's fan kickstart is not
-ported (Klipper `[fan] kick_start_time` covers it).
+ported (Klipper `[fan] kick_start_time` covers it). Fix against SuperSlicer (2026-10-28): when a slow down in between was
+dropped, the fan is already at the new speed, so the increase is not written again (SuperSlicer wrote one duplicate
+`M106` per dropped slow down; 690 of them on a user's 4-part plate).
 
 **How to test.** `fff_print_tests "[FanMover]"`. Manually: set 2 s, slice a model with overhangs, compare the `M106`
-positions with the delay at 0: the increases come earlier, the extrusion is identical.
+positions with the delay at 0: the increases come earlier, the extrusion is identical. Minimum time: a part with a
+horizontal hole and an overhang fan above the normal fan; G-code viewer "Fan speed" view: with 0 the hole layers
+flicker between the two speeds beside the hole, with 3 s they stay at the overhang speed.
 
 ---
 
@@ -1245,12 +1271,16 @@ without the per-part accelerations (see below).
 - Pressure calibration (SuperSlicer's `CalibrationPressureAdvDialog`, menu "Pressure calibration (SuperSlicer)"): loaded
   as models and sliced in the plater, so the preview, the layer slider, the moves and the G-code panel work as for any
   print.
-  - Dialog (2026-10-26): number fields 8 characters wide (file path fields stay wide), the test rows narrower; End value
+  - Dialog (2026-10-26): number fields 8 characters wide (file path fields stay wide), the settings 4 per row, the
+    explanation as wide as the fields under it (every calibration dialog), the test rows narrower; End value
     choices 0.02 to 0.5 (0.02, 0.04, 0.06, 0.08 = default, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50; any value can be typed).
     The "Bends" choice (Ellis' chevrons or SuperSlicer's 90° bends with the extrusion role's width and speed) was removed
     by the user: always Ellis' chevrons. SuperSlicer's bends stay in the code for CheckAll (one bend per extrusion role).
   - Settings, at the top of the dialog, filled in with Ellis' defaults (his tool's `DEFAULT_SETTINGS`,
-    `pressure_linear_advance.js`; user 2026-10-23: "the recommended or default settings that Ellis uses"): print speed 100 mm/s, line width 112.5 % of the nozzle, layers 4,
+    `pressure_linear_advance.js`; user 2026-10-23: "the recommended or default settings that Ellis uses"): print speed = the external perimeter speed of the
+    selected print profile (2026-10-26, Ellis' tool: "Use your external perimeter speed from your slicer settings - if it's
+    reasonably fast (>60mm/s)"; his default 100 mm/s when the profile has none), line width 100 % of the nozzle (2026-10-26,
+    user; Ellis: "Match your thickest perimeter", his default 112.5 %), layers 4,
     first layer speed 30 mm/s, layer height 0.2, first layer height 0.25, fan 100 %, first layer fan 0 % (0 or the fan:
     PrusaSlicer has no fan of its own for the first layer), acceleration 0 = disabled. Generate writes them into the print
     and filament settings as unsaved changes (`pressure_calibration_apply_settings()`): layer heights, first layer speed,
@@ -1558,8 +1588,14 @@ block). SuperSlicer values are converted with the rules of the bundle converter 
 speeds and accelerations in % of another option than here are resolved to mm or mm/s, disabled fan speeds (`!x`) become
 -1, SuperSlicer-only options with an equivalent here are mapped (`first_layer_size_compensation`, `only_one_perimeter_top`,
 interior brim, `filament_shrink`, dynamic overhang switches, infill direction, small area flow, thumbnails), G-code
-templates are fixed (`extruder_temperature_offset`, per-filament variables without an index, `layer_num` in the before
-layer G-code). Not converted: the converter's rules for the user's own printers (AWD keep-out zones from
+templates are fixed (`extruder_temperature_offset`, per-filament variables without an index, also with spaces inside the
+braces, `layer_num` in the before layer G-code). Widths set as a spacing in SuperSlicer (the width is written empty,
+2026-10-27): width = spacing + layer height × (1 − π/4) × overlap (SuperSlicer `Flow::new_from_config()`: overlap =
+`perimeter_overlap` / `solid_infill_overlap` / `external_perimeter_overlap`, 1 for infill and top infill, capped by
+`filament_max_overlap`; the external perimeter spacing is a half spacing: overlap − 0.5; the first layer width uses the
+first layer height; spacing 0 = auto width 0). A value whose type refuses it (a graph it cannot read) is listed as
+unreadable instead of stopping the import. The G-code viewer loads SuperSlicer G-code with this same conversion
+(section 37). Not converted: the converter's rules for the user's own printers (AWD keep-out zones from
 `avoid_bed_notches`, Klipper limits): the printer preset keeps its own.
 
 An empty list value where values are required (`cooling_slowdown_logic = `, written by G-code from the default config
@@ -1576,7 +1612,10 @@ applies the values to the tabs' edited configs (vectors resized to the preset's 
 
 **How to test.** `fff_print_tests "[GCodeSettings]"`: a sliced G-code reads back with the values set; unknown and
 unreadable values are listed and not loaded; a SuperSlicer block is converted (width in % of the nozzle -> mm, `!0` fan
--> -1, `first_layer_size_compensation`, `seam_position = cost`, thumbnails, vector variable in the start G-code). Manual:
+-> -1, `first_layer_size_compensation`, `seam_position = cost`, thumbnails, vector variable in the start G-code);
+"every SuperSlicer conversion" checks each rule of the converter (all fan keys, disabled values, enum maps, every
+percentage option and its base, graphs, layer times, mapped options, spacing widths, brim, 0 accelerations, filament,
+printer). Manual:
 open a G-code in the viewer, click the notification link; check the presets and the orange values in the new window;
 do the same with a SuperSlicer G-code and read the list.
 
@@ -1584,7 +1623,7 @@ do the same with a SuperSlicer G-code and read the list.
 
 ## 37. Stock bug fixes
 
-Two PrusaSlicer 2.9.6 bugs found while testing (2026-10-23):
+PrusaSlicer 2.9.6 bugs found while testing (2026-10-23, 2026-10-27):
 
 - **Command line crash loading a print preset on its own.** `--load "<print preset>.ini"` (without the printer preset
   in the same file) crashed: `DynamicPrintConfig::normalize_fdm()` (`PrintConfig.cpp`) read `nozzle_diameter` to check
@@ -1596,12 +1635,25 @@ Two PrusaSlicer 2.9.6 bugs found while testing (2026-10-23):
   G-code and configs written from the default config (command line without presets, tests): `; cooling_slowdown_logic = `;
   loading that back gave an empty list, and the cooling read its first value (undefined). GUI exports were not affected
   (their options are the generic type, which was correct).
+- **SuperSlicer G-code did not open in the G-code viewer** (2026-10-27). The viewer read the settings of a SuperSlicer
+  G-code backwards from the last 64 kB and took the values as they are (stock `load_from_superslicer_gcode_file()`,
+  `GCodeProcessor.cpp`). With SuperSlicer's `thumbnails_end_file` the thumbnails come after the settings, so it found
+  none ("Suspiciously low number of configuration values extracted from ...: 0"); a SuperSlicer disabled value stopped it
+  ("Invalid value provided for parameter support_material_bottom_interface_layers: !0"). Now the viewer reads and
+  converts the settings as "Open settings in SuperPSlicer" does (section 36, `read_gcode_settings()` +
+  `import_gcode_settings()`); values that still cannot be read keep the default. `read_gcode_settings()` also reads
+  G-code without a `..._config = begin/end` block (older Slic3r / PrusaSlicer / SuperSlicer, at least 80 `; key = value`
+  lines at the end, as stock), past thumbnails at the end of the file.
 
 Output: the settings block of G-code from the default config now has `cooling_slowdown_logic = uniform_cooling` instead
 of an empty value (a comment, the moves are unchanged). The golden test treats that line as equal to stock's empty one.
 
 **How to test.** `libslic3r_tests "[Config]"`: "Typed enum vector serializes every value", "normalize_fdm without
 nozzle_diameter". Manually: `superpslicer-console --export-gcode --load "<print preset>.ini" model.stl` no longer crashes.
+`fff_print_tests "[GCodeSettings]"`: "G-code viewer: SuperSlicer G-code opens" (with / without the block delimiters,
+with / without thumbnails at the end, disabled values); real files: `set SS_GCODE_FILES=a.gcode;b.gcode` then
+`fff_print_tests "[.GCodeFiles]"` (each must open in the viewer, lists what was not converted). Manually: open a
+SuperSlicer G-code sliced with "Thumbnails at the end of the file" in the G-code viewer.
 
 ---
 
@@ -1692,11 +1744,240 @@ loaded. (2026-10-24, user.)
 `Flow::new_from_config_width()`; `nozzle_diameter` the first extruder), then value x base / 100 or value / base x 100.
 `ConfigOptionsGroup::update_value_hints()` (`OptionsGroup.cpp`) computes the texts with the presets' full config plus the
 group's config (object settings) from `reload_config()` and `on_change_OG()`; `Tab::on_value_change()` updates the groups
-of the shown page; `OG_CustomCtrl` draws the text after the unit, its column wide enough for "(0000 unit)" so the layout
+of the shown page; `OG_CustomCtrl` draws the text after the unit, its column wide enough for "(0000 unit)" ("(00000 mm/s²)" for accelerations) so the layout
 doesn't move when a value becomes a percentage (room for the wider of "(0000 unit)" and "(000.0 %)").
 
 **How to test.** `fff_print_tests "[PercentValue]"`. Manual (GUI): Print Settings > Advanced: extrusion width `225%` and
 Tab: `(0.45 mm)` with 0.2 mm layers, `0.45`: `(225 %)`; change the layer height on its page and come back: the value follows.
+
+---
+
+## 41. Plain seam instead of the scarf joint near overhangs or corners
+
+**What it does.** A normal seam instead of the scarf joint when an overhang is on the scarf joint or near it. The scarf
+joint runs `scarf_seam_length` back from the seam and stops at the first overhang point. Next to the edge of a horizontal
+hole the hole's overhanging top cuts it short at a different place on every layer, and the ramps leave streaks on the
+wall beside the hole (seen on a user's part, 2026-10-28). On the layers below the top of the hole, where the hole splits the
+wall, the scarf joint runs along the face and around the edge of the hole, which also moves on every layer: same streaks.
+So the option also drops a scarf joint that goes around a sharp corner. Those loops get a normal seam; a scarf joint
+along one flat face stays. A scarf joint around any other corner (an inside corner, a short face) is dropped too, even
+where that corner is the same on every layer; the corner the seam sits on doesn't count.
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `scarf_seam_not_near_overhangs` | Print > Layers and perimeters > Advanced > Plain seam instead of scarf: *Near overhangs or corners* (renamed 2026-10-28 from "Scarf joint near overhangs or corners: None") | off | Off = stock. |
+| `scarf_seam_overhang_distance` | same row: *Overhang distance* | `5` mm | Along the perimeter: from the start of the scarf joint (scarf length + this from the seam), and from the seam on the other side. |
+
+Both are greyed out without a scarf joint, the distance also while the option is off.
+
+**How it works.** `finalize_seam_position()` (`GCode/SeamPlacer.cpp`) already drops the scarf when the seam point itself
+is on an overhang with thick bridges; with the option it also drops it when `is_overhang_near()` finds a perimeter point
+classified as overhang (the seam placer's own overhang detection) within scarf length + distance in the scarf direction
+or within the distance in the other direction (the whole loop with `scarf_seam_entire_loop`), walking the perimeter
+with `offset_along_perimeter()`. `is_corner_on_scarf()` walks the scarf joint the same way and stops at a point the seam
+placer marks as not smooth (`angle_types`: convex over 10°, concave over 15°, 0.25 / 0.5 mm arms, so curves under about
+3 mm radius count too). The seam's own corner is skipped: a run of corner points of one kind (convex or concave) that
+starts within 1 mm of the seam, however long (rounded corners). Decided per loop at G-code export, so the seam placer cache (section 21) is unaffected.
+
+**How to test.** `fff_print_tests "[Scarf]"` (`cube_with_hole` on its side, a horizontal hole: fewer scarf joints on the overhang layers, the other
+layers fewer too, where the scarf joint would go around the hole edge; a 20 mm cube with a 10 mm scarf joint keeps all of
+them). Manual: scarf joint "Everywhere", seam "Rear", a part with a horizontal hole in its rear wall; without
+the option the scarf ramps (Z rising inside the external perimeter) start beside the hole on the hole layers, with it
+those layers have a plain seam. On the user's plate (`WoodHolderSide_PLA-PolyMaker.3mf`, 2026-10-28) the tab with the
+hole on Banister2StudSide has no scarf on the hole layers (34.3-39.5 mm), the faces above and below keep theirs.
+
+**Seeing the scarf joints in the preview.** With the legend's *Seams* option on, the preview shows a seam marker at
+both ends of each scarf joint ramp, besides the stock marker where the loop ends. `GCodeProcessor::process_G1()` stores
+an `EMoveType::Seam` vertex at the start of the first and of the first-after-last move of a run of external (or
+overhang) perimeter extrusions raising Z (not in spiral vase mode). Only the preview changes, not the G-code. Test:
+`fff_print_tests "[Scarf]"` ("Seam markers at both ends of a scarf joint": two more markers per ramp).
+
+---
+
+## 42. Preview: no fade after an overhang piece (stock bug fix)
+
+**What it was.** In the Speed, Height, Width and Volumetric flow views, a long wall move right after an overhang
+perimeter piece was drawn fading from the overhang's values to the wall's over most of its length, although the G-code
+has constant values on it (seen at the top of horizontal holes, 2026-10-28). Stock PrusaSlicer 2.9.6 does the same;
+upstream master (3.0 alpha, `libpgcode/TimeMachine.cpp`) still has the code. No G-code change.
+
+**Why.** For the Actual speed view the time estimator inserts points inside each move where the acceleration ends and
+where the braking starts (`internal_only` vertices). Stock gave those points the feed rate, width, height, flow, fan and
+temperature blended between the previous move and this one (`lerp(prev_move.X, curr_move.X, t)` when both are
+extrusions). The preview colors each piece between two points from its ends and blends in between, so the long piece
+between the two inserted points faded. Only visible where an extrusion follows another one without a travel and with
+other values: an overhang piece inside a wall loop (every other feature change has a travel in between, which stops the
+blend).
+
+**Fix.** `TimeMachine::calculate_time()` (`GCode/GCodeProcessor.cpp`): the inserted points get the move's own values; only
+their actual speed (the trapezoid's cruise feed rate) differs, as before. The position and the extruder value are
+unchanged.
+
+**How to test.** `fff_print_tests "[Preview]"`: a G-code snippet (overhang piece then a 130 mm wall move: both inserted
+points have the wall's width, height and speed; fails with the stock code) and a sliced cube with a horizontal hole
+(every inserted point matches its move). Models: `Stuff/hole_trail_test.stl` (60 x 10 x 30 wall, 5.5 and 8 mm holes,
+`Stuff/hole_trail_test.py`) and `Stuff/overhang_test.stl` (159 x 10 x 40 wall: round holes 3 / 5.5 / 8 / 12 mm,
+teardrop, diamond, 12 x 6 mm window, arch in the bottom edge, 60 degree slope, 45 degree slope and a 6 mm ledge;
+`Stuff/overhang_test.py`). Slice with the user's profile and look at Speed / Height / Width / Volumetric flow at the
+top of the holes: no fade along the wall; Actual speed still ramps.
+
+---
+
+## 43. Overhangs cut (SuperSlicer)
+
+**What it does.** From SuperSlicer 2.5.60 ("Overhangs cut", `overhangs_max_slope`). Before perimeters and infill are made,
+each layer is cut back where it would stick out past the layer below by more than the max slope. A round horizontal
+hole gets steep sides and a short flat bridge on top instead of a top that closes with ever longer overhangs (left: model,
+right: cut, as in the SuperSlicer release notes). Areas that can be bridged are not cut. The printed part is smaller than the model there (the cut only removes material: a hole can end a layer higher).
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `overhangs_max_slope` | Print > Layers and perimeters > Quality > Overhangs cut: *Max slope* | `0` = off | mm or % of the (largest) nozzle diameter that a layer may stick out past the layer below. SuperSlicer's example: 50 %. |
+| `overhangs_bridge_threshold` | same row: *Bridge max length* | `-1` = any length | Areas bridged with lines up to this long are kept; 0 = no bridges kept (everything cut). SuperSlicer: disabled = any length. |
+
+Region options (per object / modifier). The row is right under "Detect bridging perimeters"; the bridge options are
+greyed out while the max slope is 0, the upper layers also with a bridge max length of 0. Below the two rows, next to the
+overhang threshold drawing (`OverhangAnglePreview`, both in one wrapping line), `OverhangCutPreview` draws the top half of
+a 10 mm horizontal hole as cut: the layers, the material of the model cut away (light orange), the flat bridge (blue) and
+the round hole of the model (dashed), from the layer height, the nozzle and these options (approximate: the slicer works
+on the real outlines), with the slope per layer, the width of the flat top and how many layers the hole gets taller.
+
+**How it works.** `PrintObject::apply_overhangs_cut()` (`PrintObjectSlice.cpp`), a port of SuperSlicer 2.7.63
+`PrintObject::_max_overhang_threshold()`, called in `PrintObject::slice()` right after `slice_volumes()` (so after the XY
+and hole size compensations). Layer by layer from the bottom (each layer uses the already cut layer below): supported
+area = layer ∩ layer below; for each region with a max slope, the unsupported part wider than a nozzle goes through
+PrusaSlicer's `BridgeDetector` (direction) and `overhangs_cut_bridge_coverage()` (lines at that direction, spaced by the
+bridge spacing, anchored on two separate pieces of the layer below, not longer than the bridge max length): that part
+is kept. Rules of our own, found on the user's screw hole block with their profile (25 %, 0.2 mm layers), 2026-10-28:
+- The test lines are clipped half as far out as the anchors reach (their ends inside the anchors, not on the edge, where
+  rounding rejected most of them) and to the material of the layer shrunk by as much, so a line passing over or grazing
+  empty space of the layer (a screw hole, also when it splits the area in two) is not anchored: the edge of a bridged
+  part next to a hole is one straight line, not kinked toward the hole (those kinks were in the perimeters along it).
+- An unsupported area around a hole that closes in the layer above (any material of the next layer more than 0.02 mm
+  inside it: a dome closes by only the slope per layer) is a slope, decided on the whole area before the nozzle-width
+  filter (which breaks a thin ring into arcs): no bridge there. Chords across the ring had turned the dome's round steps
+  into a lumpy polygon.
+- Around a hole that stays open (a screw hole over a counterbore or a countersink, also one the cut itself left
+  floating) the unsupported area is kept as the model has it: PrusaSlicer bridges it in one layer with overhang
+  perimeters around the hole. The cut makes no bridges there (user, 2026-10-30: "with overhangs cut on and floating
+  holes off, do not create any bridges on unsupported holes. let the checkbox handle that"): bridge layers under a
+  floating hole are "Support floating holes" (section 44). Until 2026-10-30 the cut printed bridges beside the hole, then
+  across the band over it, leaving a square for the round hole (rules for the band, the square's corners and the
+  extension to the hole's tangents; the extension in `overhangs_cut_bridge_coverage()` is still there for other holes
+  next to bridged areas). The floating holes found by section 44 are also marked on their ceiling layer
+  (`Layer::floating_hole_zones`) and left as sliced, with the option on or off.
+- A ring around an open hole that is near the support all around but touches it nowhere, with the layer below cut next
+  to it (a dome closing faster than the slope follows it: the last ring around the hole) is left to the slope until it
+  touches (then kept, above): printed as is it was a full loop of overhang perimeters, bridged its chords gave flat
+  sides. "Touches": within a quarter of a line width (at half a line width the touch came at 0.22 mm, and the hole's
+  outer perimeter, 0.2 mm off the edge, was overhang).
+
+SuperSlicer's third option, `overhangs_bridge_upper_layers` ("Consider upper bridges": leave empty, on the layers under
+a bridge, the area that bridge will cover, instead of growing overhangs into it), was ported, renamed "Look ahead for
+bridges", fixed (it did nothing under a pocket closing with a flat ceiling) and then removed on 2026-10-30: on a test
+pocket at 25 % it only kept the last layers under the bridge from narrowing by 0.1 mm a side and made the bridge
+longer (12.4 -> 12.8 mm at its default), and the user saw no purpose in it. The key is ignored when a profile or a
+SuperSlicer G-code has it (`PrintConfigDef_ignore`; also dropped by `build/convert_ss_bundle.py`).
+The region slices are then cut to the supported area grown by the slope (limited
+to 1.5 x the slope, at least 0.5 x, plus the bridges), with SuperSlicer's `smoothen()` against zig-zags, and the layer
+outlines are rebuilt (`make_slices()`). The cut outlines are put in a fixed order (each starting at its lowest point,
+holes and islands sorted: `overhangs_cut_canonical()`): the layers come out of the parallel slicing in an order that
+changes from run to run, the cut followed it, and two exports of the same plate gave different G-code (found
+2026-10-30: 2 outcomes in 10 slices of `Stuff/overhang_test.stl`; now 12 of 12 identical). Off (0) = nothing runs, stock
+slices.
+
+Differences to SuperSlicer: PrusaSlicer's bridge detector is used for the direction (SuperSlicer's was rewritten; ours
+also drives the normal bridges, so it is left unchanged); SuperSlicer's bridge max length test is never reached
+(`good_line` is still false in `BridgeDetector::detect_angle`), here the length is applied. SuperSlicer "!x" (disabled)
+values are converted to -1 (G-code settings import, `build/convert_ss_bundle.py`); the user's SuperSlicer profile has
+the defaults (0, disabled, 2).
+
+**How to test.** `fff_print_tests "[OverhangsCut]"`: `tests/data/wall_round_hole.obj` (30 x 10 x 30 mm wall, 12 mm hole):
+without the cut the top closes by more than 0.6 mm per layer, at 50 % (0.2 mm) by at most 0.4 mm (both sides) with a flat
+bridge over 3 mm wide; bridge max length 0 cuts to the top; the options don't change anything while the slope is 0.
+`tests/data/screw_holes.obj` (the screw hole block of `Stuff/overhang_test.py`, written by
+`python overhang_test.py overhang_test.stl ../tests/data/screw_holes.obj`), 0.2 mm layers, 4 perimeters, 25 %, overhang
+threshold 0: for the counterbores M2..M8, no overhang below the ceiling, the ceiling as sliced (overhang perimeters
+around the hole), from there one hole of the model's size per layer and no overhang above the ceiling; for the domes,
+never an overhang perimeter, one hole per layer narrowing by at most the slope, the model's size from 2.5 mm above the
+dome (with the slope ring rule taken out, the domes fail).
+Manual: `Stuff/overhang_test.stl` at 50 %: the 12 mm hole narrows by 0.40 mm per layer and closes with a 6.3 mm bridge
+(stock: up to 2.66 mm per layer, 1.3 mm last gap); overhang perimeter moves 606 -> 286. The user's plate slices in the
+same time (5.7 / 5.8 s). The model also has a 82.9 x 80 x 15 mm block (behind: the floating holes row of section 44 and a countersink) with screw holes M2 / M3 / M4 / M5 / M6 / M8
+printed from below (clearance hole 2.4 / 3.4 / 4.5 / 5.5 / 6.6 / 9 mm; front row counterbores 4.4 / 6.5 / 8 / 10 / 11 / 15
+mm, 4 mm deep with a flat ceiling; back row bores of the same sizes whose domes narrow into the holes): with the user's
+profile (25 %) each counterbore ceiling is printed as sliced (one bridge layer); the domes are cut to round steps of the slope
+(0.1 mm per layer, 72-point circles) without any overhang perimeter. Checked by rendering the sliced layers with the
+user's own print / filament / printer presets, also rotated 30 and 65 degrees (2026-10-28, with the counterbore rules
+since removed).
+
+---
+
+## 44. Support floating holes (bridge layers)
+
+**What it does.** A hole floating over a void, with material all around the void on the layer below (a screw hole over a
+counterbore printed from below, a hole in a ceiling over a cavity), is printed on sacrificial bridge layers: each layer
+over the void has two parallel bridges, one on each side of the hole and touching it, and each layer is turned by
+180 / N degrees from the one below (2 layers 90 degrees apart, 4 layers 45 degrees apart). After N layers the opening is a
+regular polygon with 2N sides around the hole (a square, a hexagon, an octagon...) and the hole is printed on it, round.
+Without it, the first layer over the void is bridged with a direction each piece picks for itself (the two sides were not
+parallel, the square skewed) and the round hole's perimeters cross the corners, with bridge infill in the bigger corners
+(user's screenshots 2026-10-30). The drawing `Stuff/Hole bridges drawing.png` / `.svg` (made with the user 2026-10-30)
+shows the layers for M3 / M5 / M8 / 20 mm holes and N = 2 / 3 / 4 / 6, with the bridge lengths and corner gaps.
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `floating_hole_bridges` | Print > Layers and perimeters > Quality, below Overhangs cut: *Support floating holes* (named "Floating holes: bridge layers" until 2026-10-30) | off | Region option (per object / modifier). On: the bridge layers above. Off: the layer over the void as sliced (one PrusaSlicer bridge layer; the overhangs cut leaves it too), and a warning (below). |
+
+- **N** is chosen per hole (the user asked for automatic, 2026-10-30): the smallest N (2 to 16) whose polygon corners stay
+  within half an external perimeter width of the hole. Round holes with 0.45 mm walls: M2 3 layers, M3 / M4 4, M5 / M6 5,
+  M8 6. The limit is fixed for now (user: "lets try fixed for now"). A larger N does not shorten the first layer's bridges
+  (they cross the void beside the hole); it shrinks the corners the hole's perimeters have to cross.
+- **Direction of the first layer**: per direction (whole degrees), the layers it needs; the fewest layers first (a hexagon
+  hole: 3 layers along its sides; across its corners the polygon never fits it), then the closest fit, then the shortest
+  bridges (the longest bridge line of the first layer, lines laid from the hole's tangents outwards); X when that is as
+  short (a round void). A 4 mm hole in a 16 x 8 mm cavity gets its first bridges across the 8 mm.
+- **Any shape**: the strips touch the hole in each direction, so a slot, a square or a hexagon gets the polygon around it;
+  the void can have any shape. Needed: the void is a hole of the layer below with the hole inside it and at least an
+  external perimeter width of material around it, one hole in the void, nothing inside the hole or the void, the ceiling
+  closed around the hole, and the same hole on the next layer (the steps of a countersink printed from below narrow on
+  every layer: a slope, not a floating hole). The upper part of a stepped pocket (an 8 mm pocket over a 12 mm one) is
+  one: it floats over the void for the layers it goes up. The layers go on while the layer above still has the same hole (same place, area within 10 %)
+  and closes the void; a hole that ends earlier gets fewer layers. Two holes over one void, or a hole partly over open air
+  (a ledge), are left as they are: the bridges need material at both ends.
+- **Only removes material**: the bridge layers' opening is larger than the model's hole.
+- **Warning** (option off): after slicing, one notification per object: "N floating hole(s) wider than 2 mm over a void
+  (the widest X mm, at Z mm)...", with the option's name. Width = the largest width of the hole over the directions; the
+  1.6 mm test hole gives none (user, 2026-10-30: warn above about 2 mm).
+
+**How it works.** `PrintObject::apply_floating_hole_bridges()` (`PrintObjectSlice.cpp`), in `PrintObject::slice()` after
+`slice_volumes()` and before the overhangs cut, and again after the cut (when it ran) for the holes the cut itself left
+floating: the cut widens the last steps of a countersink printed from below, so its screw hole starts over a void of about
+9 mm (user's screenshot 2026-10-30: that hole had no bridge layers). Holes found by the first pass are skipped; one warning
+for both passes. Layer by layer from the bottom: finds the floating holes (above), picks
+the direction and N, and cuts the region slices of the N layers to the void minus the strips of the layers so far
+(`floating_hole_opening()`; outlines put in a fixed order as the overhangs cut does, for repeatable G-code). Per layer it
+stores the bridge pieces with their direction in `Layer::forced_bridges` and the void in `Layer::floating_hole_zones` (also
+on the layer with the hole on the polygon). `LayerRegion::process_external_surfaces()` gives each bridge surface over a
+piece that direction instead of the detected one; a surface over the pieces of two holes with different directions
+(PrusaSlicer merges bridges whose anchors touch) is split between them, each part to the nearest piece. The overhangs cut
+keeps the zones as they are. Overhang perimeters along the slot edges are the usual "Detect bridging perimeters" ones.
+
+**How to test.** `fff_print_tests "[FloatingHoles]"` on `tests/data/screw_holes.obj` (the screw hole block of
+`Stuff/overhang_test.py`, now Y 20..100, its third row at Y 70: a 1.6 mm round hole, a 3 x 7 mm slot, a 5 mm square turned
+20 degrees, a 4 mm hole off center in a 16 x 8 mm cavity, a 6 mm hexagon in a 12 mm hexagon cavity; each over a 4 mm
+deep cavity; a fourth row at Y 90 has a 10 mm countersink printed from below into a 3.4 mm hole): off by default, no
+bridge layers, the voids marked on the ceiling layer only (11), and the warning counts 10 holes (6 counterbores + 4; not
+the 1.6 mm one); on
+(overhangs cut off and at 25 %): consecutive bridge layers from 4.2 mm, each turned by 180 / N, round holes with the
+expected N, first direction X for round voids and Y for the 16 x 8 mm one, 2 layers for the square and 3 for the hexagon,
+the last opening around the hole with corners within the limit, the model's hole on the next layer, every bridge infill
+line of a hole's pieces along its layer's direction; two slices give the same layers; with the overhangs cut at 25 % the
+countersink's hole (left floating by the cut) gets bridge layers from 5.2 mm, and with the option off the warning counts
+11 holes. With `FLOATING_HOLES_SVG=<folder>`
+the test draws the layers 3.8 to 6 mm there (slices, extrusions by role). Manual: slice `Stuff/overhang_test.stl` with the
+user's profile and the option on, look at the bridge layers in the preview (Feature type) above the counterbores and the
+Y 70 row; with it off, the warning.
 
 ---
 

@@ -168,7 +168,7 @@ void pressure_calibration_apply_settings(DynamicPrintConfig &config, const Press
     set_float_or_percent("first_layer_height", s.first_layer_height);
     set_float_or_percent("first_layer_speed", s.first_layer_speed);
     // Every acceleration the default one: Ellis sets one acceleration for everything, or none.
-    set_float("default_acceleration", s.acceleration);
+    set_float_or_percent("default_acceleration", s.acceleration);
     for (const char *key : { "perimeter_acceleration", "external_perimeter_acceleration", "first_layer_acceleration",
                              "first_layer_acceleration_over_raft", "travel_acceleration", "travel_short_distance_acceleration",
                              "infill_acceleration", "solid_infill_acceleration", "top_solid_infill_acceleration",

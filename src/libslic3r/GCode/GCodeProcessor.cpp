@@ -11,6 +11,7 @@
 #include "libslic3r/GCode/GCodeWriter.hpp"
 #include "libslic3r/I18N.hpp"
 #include "libslic3r/Geometry/ArcWelder.hpp"
+#include "libslic3r/GCodeSettingsImport.hpp"
 #include "GCodeProcessor.hpp"
 
 #include <boost/algorithm/string/case_conv.hpp>
@@ -440,13 +441,17 @@ void GCodeProcessor::TimeMachine::calculate_time(GCodeProcessorResult& result, P
                     const Vec3f position = lerp(prev_move.position, curr_move.position, t);
                     if ((position - prev_move.position).norm() > EPSILON &&
                         (position - curr_move.position).norm() > EPSILON) {
+                        // Fork: the point lies inside the current move, so it has the move's own feed rate, width, height,
+                        // flow, fan and temperature (stock blended them with the previous move's: the Speed, Height, Width
+                        // and Volumetric flow views drew a fade over a long move after a move with other values, e.g.
+                        // after an overhang perimeter piece). Only its actual speed (cruise feed rate) differs.
                         const float delta_extruder = interpolate ? lerp(prev_move.delta_extruder, curr_move.delta_extruder, t) : curr_move.delta_extruder;
-                        const float feedrate = interpolate ? lerp(prev_move.feedrate, curr_move.feedrate, t) : curr_move.feedrate;
-                        const float width = interpolate ? lerp(prev_move.width, curr_move.width, t) : curr_move.width;
-                        const float height = interpolate ? lerp(prev_move.height, curr_move.height, t) : curr_move.height;
-                        const float mm3_per_mm = interpolate ? lerp(prev_move.mm3_per_mm, curr_move.mm3_per_mm, t) : curr_move.mm3_per_mm;
-                        const float fan_speed = interpolate ? lerp(prev_move.fan_speed, curr_move.fan_speed, t) : curr_move.fan_speed;
-                        const float temperature = interpolate ? lerp(prev_move.temperature, curr_move.temperature, t) : curr_move.temperature;
+                        const float feedrate = curr_move.feedrate;
+                        const float width = curr_move.width;
+                        const float height = curr_move.height;
+                        const float mm3_per_mm = curr_move.mm3_per_mm;
+                        const float fan_speed = curr_move.fan_speed;
+                        const float temperature = curr_move.temperature;
                         actual_speed_moves.push_back({
                             block.move_id,
                             position,
@@ -468,13 +473,17 @@ void GCodeProcessor::TimeMachine::calculate_time(GCodeProcessorResult& result, P
                     const Vec3f position = lerp(prev_move.position, curr_move.position, t);
                     if ((position - prev_move.position).norm() > EPSILON &&
                         (position - curr_move.position).norm() > EPSILON) {
+                        // Fork: the point lies inside the current move, so it has the move's own feed rate, width, height,
+                        // flow, fan and temperature (stock blended them with the previous move's: the Speed, Height, Width
+                        // and Volumetric flow views drew a fade over a long move after a move with other values, e.g.
+                        // after an overhang perimeter piece). Only its actual speed (cruise feed rate) differs.
                         const float delta_extruder = interpolate ? lerp(prev_move.delta_extruder, curr_move.delta_extruder, t) : curr_move.delta_extruder;
-                        const float feedrate = interpolate ? lerp(prev_move.feedrate, curr_move.feedrate, t) : curr_move.feedrate;
-                        const float width = interpolate ? lerp(prev_move.width, curr_move.width, t) : curr_move.width;
-                        const float height = interpolate ? lerp(prev_move.height, curr_move.height, t) : curr_move.height;
-                        const float mm3_per_mm = interpolate ? lerp(prev_move.mm3_per_mm, curr_move.mm3_per_mm, t) : curr_move.mm3_per_mm;
-                        const float fan_speed = interpolate ? lerp(prev_move.fan_speed, curr_move.fan_speed, t) : curr_move.fan_speed;
-                        const float temperature = interpolate ? lerp(prev_move.temperature, curr_move.temperature, t) : curr_move.temperature;
+                        const float feedrate = curr_move.feedrate;
+                        const float width = curr_move.width;
+                        const float height = curr_move.height;
+                        const float mm3_per_mm = curr_move.mm3_per_mm;
+                        const float fan_speed = curr_move.fan_speed;
+                        const float temperature = curr_move.temperature;
                         actual_speed_moves.push_back({
                             block.move_id,
                             position,
@@ -1287,6 +1296,7 @@ void GCodeProcessor::reset()
     m_result.id = ++s_result_id;
 
     m_use_volumetric_e = false;
+    m_in_scarf_ramp = false;
     m_last_default_color_id = 0;
 
     m_options_z_corrector.reset();
@@ -1644,36 +1654,16 @@ std::vector<std::pair<CustomGCode::Type, std::pair<float, float>>> GCodeProcesso
     return ret;
 }
 
-ConfigSubstitutions load_from_superslicer_gcode_file(const std::string& filename, DynamicPrintConfig& config, ForwardCompatibilitySubstitutionRule compatibility_rule)
-{
-    // for reference, see: ConfigBase::load_from_gcode_file()
-
-    boost::nowide::ifstream ifs(filename);
-
-    auto                      header_end_pos = ifs.tellg();
-    ConfigSubstitutionContext substitutions_ctxt(compatibility_rule);
-    size_t                    key_value_pairs = 0;
-
-    ifs.seekg(0, ifs.end);
-    auto file_length = ifs.tellg();
-    auto data_length = std::min<std::fstream::pos_type>(65535, file_length - header_end_pos);
-    ifs.seekg(file_length - data_length, ifs.beg);
-    std::vector<char> data(size_t(data_length) + 1, 0);
-    ifs.read(data.data(), data_length);
-    ifs.close();
-    key_value_pairs = ConfigBase::load_from_gcode_string_legacy(config, data.data(), substitutions_ctxt);
-
-    if (key_value_pairs < 80)
-        throw Slic3r::RuntimeError(format("Suspiciously low number of configuration values extracted from %1%: %2%", filename, key_value_pairs));
-
-    return std::move(substitutions_ctxt.substitutions);
-}
-
 void GCodeProcessor::apply_config_superslicer(const std::string& filename)
 {
     DynamicPrintConfig config;
     config.apply(FullPrintConfig::defaults());
-    load_from_superslicer_gcode_file(filename, config, ForwardCompatibilitySubstitutionRule::EnableSilent);
+    // Fork: the settings are read and converted as "Open settings in SuperPSlicer" does (GCodeSettingsImport): the stock
+    // reader took SuperSlicer values as they are, so a "!0" (disabled) value or the thumbnails at the end of the file
+    // (thumbnails_end_file) made it fail. Values that cannot be converted keep the default.
+    GCodeSettings settings = read_gcode_settings(filename);
+    settings.generator = "SuperSlicer";
+    config.apply(import_gcode_settings(settings).config);
     // Fork: SuperSlicer has no Klipper limits, keep its machine limits estimate.
     keep_klipper_limits_of_gcode(config, false);
     apply_config(config);
@@ -3240,6 +3230,19 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
         m_seams_detector.activate(false);
     } else if (type == EMoveType::Extrude && m_extrusion_role == GCodeExtrusionRole::ExternalPerimeter) {
         m_seams_detector.activate(true);
+    }
+
+    // Fork: a seam marker where a scarf joint ramp starts and where it ends (the "Seams" option of the preview), at the
+    // start of this move. The ramp is a run of external perimeter extrusions raising Z; not in spiral vase mode.
+    const bool scarf_ramp_move = !m_result.spiral_vase_mode && type == EMoveType::Extrude &&
+        (m_extrusion_role == GCodeExtrusionRole::ExternalPerimeter || m_extrusion_role == GCodeExtrusionRole::OverhangPerimeter) &&
+        m_end_position[Z] > m_start_position[Z] + EPSILON;
+    if (scarf_ramp_move != m_in_scarf_ramp) {
+        m_in_scarf_ramp = scarf_ramp_move;
+        const AxisCoords curr_pos = m_end_position;
+        m_end_position = m_start_position;
+        store_move_vertex(EMoveType::Seam);
+        m_end_position = curr_pos;
     }
 
     // store move

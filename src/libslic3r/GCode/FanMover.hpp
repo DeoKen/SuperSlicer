@@ -21,9 +21,12 @@ namespace Slic3r {
 class FanMover
 {
 public:
-    FanMover(const GCodeFlavor flavor, const float nb_seconds_delay, const bool relative_e, const bool only_overhangs)
+    // slowdown_min_time (fork, fan_slowdown_min_time): a slow down is erased when the fan would speed up again within
+    // this time, so that the fan stays up across short dips.
+    FanMover(const GCodeFlavor flavor, const float nb_seconds_delay, const bool relative_e, const bool only_overhangs,
+             const float slowdown_min_time = 0)
         : m_flavor(flavor), m_nb_seconds_delay(nb_seconds_delay > 0 ? std::max(0.01f, nb_seconds_delay) : 0),
-          m_relative_e(relative_e), m_only_overhangs(only_overhangs)
+          m_relative_e(relative_e), m_only_overhangs(only_overhangs), m_slowdown_min_time(std::max(0.f, slowdown_min_time))
     {}
 
     // Process the G-code of a layer and return it with the fan speed increases moved back in time.
@@ -60,12 +63,17 @@ private:
     void print_in_middle_G1(BufferData &line_to_split, float nb_sec_from_item_start, const std::string &line_to_write);
     // Remove the fan commands lower than min_speed from the last past_sec of the buffer.
     void remove_slow_fan(int16_t min_speed, float past_sec);
+    // With m_slowdown_min_time: insert the speed up delay seconds before the back of the buffer, after erasing the
+    // slower fan commands after that point and the short slow downs before it.
+    void speed_up_in_buffer(const std::string &line, int16_t fan_speed, float delay);
+    int16_t fan_speed_before(std::list<BufferData>::iterator data) const;
     void write_buffer_data();
 
     const GCodeFlavor m_flavor;
     const float       m_nb_seconds_delay;
     const bool        m_relative_e;
     const bool        m_only_overhangs;
+    const float       m_slowdown_min_time;
 
     GCodeReader        m_parser;
     // Role of the extrusions at the back of the buffer.

@@ -169,6 +169,101 @@ void FanMover::remove_slow_fan(int16_t min_speed, float past_sec)
     }
 }
 
+// Fan speed in effect just before data: the last fan command before it in the buffer, else the last one written out.
+int16_t FanMover::fan_speed_before(std::list<BufferData>::iterator data) const
+{
+    while (data != m_buffer.begin()) {
+        -- data;
+        if (data->fan_speed >= 0)
+            return data->fan_speed;
+    }
+    return int16_t(m_front_buffer_fan_speed);
+}
+
+void FanMover::speed_up_in_buffer(const std::string &line, const int16_t fan_speed, const float delay)
+{
+    // The buffer item containing the insertion point, delay seconds before the back of the buffer
+    // (end() for the back), and the start time of that item from the front of the buffer.
+    // Items without time (fan commands among them) are never the insertion item, so it is not erased below.
+    const double insert_time = std::max(0., m_buffer_time_size - delay);
+    double start = 0;
+    auto it = delay > 0 ? m_buffer.begin() : m_buffer.end();
+    while (it != m_buffer.end() && (it->time <= 0 || start + it->time <= insert_time)) {
+        start += it->time;
+        ++ it;
+    }
+    // Don't slow down while speeding up: erase the slower fan commands after the insertion point.
+    for (auto next = it; next != m_buffer.end();)
+        next = next->fan_speed >= 0 && next->fan_speed < fan_speed ? this->remove_from_buffer(next) : std::next(next);
+    // Erase the slow downs that would last less than m_slowdown_min_time before the insertion point: the fan stays up
+    // across the dip. A speed up from lower (not a dip) or a speed at least as high ends the search.
+    double elapsed = it == m_buffer.end() ? 0. : insert_time - start;
+    for (auto at = it; at != m_buffer.begin() && elapsed < m_slowdown_min_time;) {
+        auto prev = std::prev(at);
+        if (prev->fan_speed >= 0) {
+            if (prev->fan_speed >= fan_speed || prev->fan_speed >= this->fan_speed_before(prev))
+                break;
+            this->remove_from_buffer(prev);
+            continue;
+        }
+        elapsed += prev->time;
+        at = prev;
+    }
+    // Already at this speed (the dip was erased): nothing to write.
+    if (this->fan_speed_before(it) == fan_speed)
+        return;
+
+    BufferData fan_data(line, 0, fan_speed);
+    if (it == m_buffer.end()) {
+        m_buffer.emplace_back(std::move(fan_data));
+        return;
+    }
+    // As print_in_middle_G1(): before or after a short item near its ends, else split a G1.
+    const float offset = float(insert_time - start);
+    if (offset > it->time * 0.9 && it->time < delay / 4) {
+        m_buffer.insert(std::next(it), std::move(fan_data));
+    } else if (offset <= 0 || (offset < it->time * 0.1 && it->time < delay / 4) || ! is_G1(it->raw) || it->in_custom) {
+        m_buffer.insert(it, std::move(fan_data));
+    } else {
+        const float percent = offset / it->time;
+        BufferData before = *it;
+        BufferData &after = *it;
+        before.time = it->time * percent;
+        after.time  = it->time - before.time;
+        if (after.dx != 0) {
+            change_axis_value(before.raw, 'X', after.x + after.dx * percent, 3);
+            after.x  += after.dx * percent;
+            after.dx *= 1 - percent;
+            before.dx = after.x - before.x;
+        }
+        if (after.dy != 0) {
+            change_axis_value(before.raw, 'Y', after.y + after.dy * percent, 3);
+            after.y  += after.dy * percent;
+            after.dy *= 1 - percent;
+            before.dy = after.y - before.y;
+        }
+        if (after.dz != 0) {
+            change_axis_value(before.raw, 'Z', after.z + after.dz * percent, 3);
+            after.z  += after.dz * percent;
+            after.dz *= 1 - percent;
+            before.dz = after.z - before.z;
+        }
+        if (after.de != 0) {
+            if (m_relative_e) {
+                change_axis_value(before.raw, 'E', after.de * percent, 5);
+                change_axis_value(after.raw, 'E', after.de * (1 - percent), 5);
+            } else {
+                change_axis_value(before.raw, 'E', after.e + after.de * percent, 5);
+                after.e += after.de * percent;
+            }
+            before.de = after.de * percent;
+            after.de *= 1 - percent;
+        }
+        m_buffer.insert(it, std::move(before));
+        m_buffer.insert(it, std::move(fan_data));
+    }
+}
+
 void FanMover::process_gcode_line(GCodeReader &reader, const GCodeReader::GCodeLine &line)
 {
     bool    need_flush = false;
@@ -196,14 +291,24 @@ void FanMover::process_gcode_line(GCodeReader &reader, const GCodeReader::GCodeL
             fan_speed = get_fan_speed(line.raw(), m_flavor);
             if (fan_speed >= 0) {
                 if (! m_is_custom_gcode) {
-                    if (m_back_buffer_fan_speed < fan_speed && m_nb_seconds_delay > 0 &&
-                        (! m_only_overhangs || m_current_role == GCodeExtrusionRole::OverhangPerimeter)) {
+                    const bool move_it = m_nb_seconds_delay > 0 &&
+                        (! m_only_overhangs || m_current_role == GCodeExtrusionRole::OverhangPerimeter);
+                    if (m_back_buffer_fan_speed < fan_speed && m_slowdown_min_time > 0) {
+                        // Fork (fan_slowdown_min_time): the speed up is inserted into the buffer, so that a short slow
+                        // down before it can still be erased.
+                        time = -1;
+                        this->speed_up_in_buffer(line.raw(), fan_speed, move_it ? m_nb_seconds_delay : 0.f);
+                    } else if (m_back_buffer_fan_speed < fan_speed && move_it) {
                         // This speed up goes back in time: don't put it in the buffer.
                         time = -1;
                         // First erase everything slower than it,
                         this->remove_slow_fan(fan_speed, float(m_buffer_time_size) + 1);
                         // then write the fan command in the past.
-                        if (! m_buffer.empty() && (m_buffer_time_size - m_buffer.front().time * 0.1) > m_nb_seconds_delay) {
+                        if (m_front_buffer_fan_speed == fan_speed &&
+                            std::none_of(m_buffer.begin(), m_buffer.end(), [](const BufferData &data) { return data.fan_speed >= 0; })) {
+                            // Fork: the slow down in between was erased, so the fan is already at this speed: don't write
+                            // the same command again (SuperSlicer wrote it once more for every erased slow down).
+                        } else if (! m_buffer.empty() && (m_buffer_time_size - m_buffer.front().time * 0.1) > m_nb_seconds_delay) {
                             this->print_in_middle_G1(m_buffer.front(), float(m_buffer_time_size - m_nb_seconds_delay), line.raw());
                             this->remove_from_buffer(m_buffer.begin());
                         } else {
@@ -257,7 +362,7 @@ void FanMover::process_gcode_line(GCodeReader &reader, const GCodeReader::GCodeL
         }
         // Write out what is older than the delay. EPSILON keeps a buffer even with a 0 time, so that multiple
         // consecutive fan commands can be culled.
-        while (! m_buffer.empty() && (need_flush || m_buffer_time_size - m_buffer.front().time > m_nb_seconds_delay + EPSILON))
+        while (! m_buffer.empty() && (need_flush || m_buffer_time_size - m_buffer.front().time > m_nb_seconds_delay + m_slowdown_min_time + EPSILON))
             this->write_buffer_data();
     }
 }

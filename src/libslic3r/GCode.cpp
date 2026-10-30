@@ -1179,11 +1179,12 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
         m_pressure_equalizer = make_unique<PressureEqualizer>(print.config());
     m_enable_extrusion_role_markers = (bool)m_pressure_equalizer;
 
-    // Fan mover (fan_speedup_time): fan speed increases are started earlier.
+    // Fan mover (fan_speedup_time): fan speed increases are started earlier; short slow downs are skipped (fan_slowdown_min_time).
     m_fan_mover.reset();
-    if (print.config().fan_speedup_time.value > 0)
+    if (print.config().fan_speedup_time.value > 0 || print.config().fan_slowdown_min_time.value > 0)
         m_fan_mover = make_unique<FanMover>(print.config().gcode_flavor.value, float(print.config().fan_speedup_time.value),
-                                            print.config().use_relative_e_distances.value, print.config().fan_speedup_overhangs.value);
+                                            print.config().use_relative_e_distances.value, print.config().fan_speedup_overhangs.value,
+                                            float(print.config().fan_slowdown_min_time.value));
 
     if (print.config().avoid_crossing_curled_overhangs){
         this->m_avoid_crossing_curled_overhangs.init_bed_shape(get_bed_shape(print.config()));
@@ -3372,7 +3373,7 @@ std::string GCodeGenerator::change_layer(
 // acceleration the parent feature actually gets.
 double GCodeGenerator::feature_acceleration(const ExtrusionRole role) const
 {
-    const double default_acceleration = m_config.default_acceleration.value;
+    const double default_acceleration = default_acceleration_value(m_config);
     auto resolve = [this](const ConfigOptionFloatOrPercent &opt, const double base) {
         return opt.percent ? base * opt.value / 100. : opt.value;
     };
@@ -3759,7 +3760,7 @@ std::string GCodeGenerator::extrude_smooth_path(
     }
 
     // reset acceleration
-    gcode += m_writer.set_print_acceleration(fast_round_up<unsigned int>(m_config.default_acceleration.value));
+    gcode += m_writer.set_print_acceleration(fast_round_up<unsigned int>(default_acceleration_value(m_config)));
 
     if (is_loop) {
         GCode::SmoothPath wipe{smooth_path.begin() + wipe_offset, smooth_path.end()};
@@ -4127,7 +4128,7 @@ std::string GCodeGenerator::_extrude(
     }
 
     // adjust acceleration
-    if (m_config.default_acceleration.value > 0) {
+    if (default_acceleration_value(m_config) > 0) {
         // mm/s² or % of the default acceleration.
         double acceleration;
         if (const double a = this->acceleration(m_config.first_layer_acceleration); this->on_first_layer() && a > 0) {
@@ -4151,7 +4152,7 @@ std::string GCodeGenerator::_extrude(
         } else if (const double a = this->acceleration(m_config.perimeter_acceleration); a > 0 && path_attr.role.is_perimeter()) {
             acceleration = a;
         } else {
-            acceleration = m_config.default_acceleration.value;
+            acceleration = default_acceleration_value(m_config);
         }
         gcode += m_writer.set_print_acceleration((unsigned int)floor(acceleration + 0.5));
     }
@@ -4398,7 +4399,7 @@ std::string GCodeGenerator::generate_travel_gcode(
     }
 
     // As SuperSlicer: default_acceleration 0 = no acceleration commands at all, travel included.
-    const bool     have_acceleration                  = m_config.default_acceleration.value > 0;
+    const bool     have_acceleration                  = default_acceleration_value(m_config) > 0;
     const unsigned travel_acceleration                = have_acceleration ? static_cast<unsigned>(this->acceleration(m_config.travel_acceleration) + 0.5) : 0;
     const unsigned travel_short_distance_acceleration = have_acceleration ? static_cast<unsigned>(this->acceleration(m_config.travel_short_distance_acceleration) + 0.5) : 0;
 

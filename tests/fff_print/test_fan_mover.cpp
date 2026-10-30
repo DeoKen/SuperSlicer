@@ -57,6 +57,11 @@ TEST_CASE("Fan mover: a fan speed increase starts earlier", "[FanMover]") {
         const std::string out = move("G1 F600\nG1 X10 E1\nM106 S255\nG1 X20 E1\n", 5.f);
         CHECK(out == "M106 S255\nG1 F600\nG1 X10 E1\nG1 X20 E1\n");
     }
+    SECTION("a short slow down is erased without writing the speed again") {
+        // The slow down to 40 % comes back up within the delay: it is erased, and the fan already is at 100 %.
+        const std::string out = move("M106 S255\n" + moves_before + "M106 S102\nG1 X40 E1\nM106 S255\nG1 X50 E1\n", 2.f);
+        CHECK(out == "M106 S255\n" + moves_before + "G1 X40 E1\nG1 X50 E1\n");
+    }
     SECTION("the extrusion is unchanged") {
         const std::string in  = moves_before + "M106 S255\nG1 X40 E1\n";
         const auto before = extrusion_and_last_x(in);
@@ -108,6 +113,42 @@ TEST_CASE("Fan mover: what is not moved", "[FanMover]") {
     }
 }
 
+// fan_slowdown_min_time (fork): no slow down when the fan would speed up again within that time.
+TEST_CASE("Fan mover: minimum time at a lower speed", "[FanMover]") {
+    auto hold = [](const std::string &gcode, float delay, float min_time) {
+        FanMover mover(gcfKlipper, delay, true, false, min_time);
+        return mover.process_gcode(gcode, true);
+    };
+    // 100 %, then 40 % for 2 s, then 100 % again.
+    const std::string dip = "M106 S255\n" + moves_before + "M106 S102\nG1 X40 E1\nG1 X50 E1\nM106 S255\nG1 X60 E1\n";
+    SECTION("a dip shorter than the minimum time is erased") {
+        CHECK(hold(dip, 0.f, 3.f) == "M106 S255\n" + moves_before + "G1 X40 E1\nG1 X50 E1\nG1 X60 E1\n");
+    }
+    SECTION("a dip longer than the minimum time is kept") {
+        CHECK(hold(dip, 0.f, 1.5f) == dip);
+    }
+    SECTION("with a startup delay the dip is measured to the earlier speed up") {
+        // The speed up starts 1 s earlier, so the fan would stay at 40 % for 1 s only.
+        CHECK(hold(dip, 1.f, 1.5f) == "M106 S255\n" + moves_before + "G1 X40 E1\nG1 X50 E1\nG1 X60 E1\n");
+        // 0.5 s minimum: the 1 s dip stays, the speed up starts in the middle of the first 40 % move.
+        CHECK(hold(dip, 1.f, 0.5f) == "M106 S255\n" + moves_before + "M106 S102\nG1 X40 E1\nM106 S255\nG1 X50 E1\nG1 X60 E1\n");
+    }
+    SECTION("a speed up from a lower speed is not a dip") {
+        // 0 -> 40 % -> 100 %: the 40 % stays.
+        const std::string in = moves_before + "M106 S102\nG1 X40 E1\nM106 S255\nG1 X50 E1\n";
+        CHECK(hold(in, 0.f, 3.f) == in);
+    }
+    SECTION("the extrusion is unchanged") {
+        const auto before = extrusion_and_last_x(dip);
+        const auto after  = extrusion_and_last_x(hold(dip, 1.3f, 3.f));
+        CHECK(std::abs(before.first - after.first) < 1e-4);
+        CHECK(before.second == after.second);
+    }
+    SECTION("a minimum time of 0 changes nothing") {
+        CHECK(hold(dip, 1.f, 0.f) == move(dip, 1.f));
+    }
+}
+
 TEST_CASE("Fan mover in sliced G-code", "[FanMover]") {
     auto config = DynamicPrintConfig::full_print_config_with({
         { "gcode_flavor",             "klipper" },
@@ -118,6 +159,7 @@ TEST_CASE("Fan mover in sliced G-code", "[FanMover]") {
         { "bridge_fan_speed",         { 75 } },
         { "fan_below_layer_time",     { 0 } },
         { "fan_speedup_overhangs",    false },
+        { "fan_slowdown_min_time",    0 },
     });
     const std::string without = Test::slice({ TestMesh::bridge }, config);
     config.set_deserialize_strict({ { "fan_speedup_time", 2 } });

@@ -453,6 +453,13 @@ private:
     void calculate_overhanging_perimeters();
 
     void slice_volumes();
+    // Fork: overhangs cut (overhangs_max_slope), after slice_volumes(). False if no region has it (nothing done).
+    bool apply_overhangs_cut();
+    // Fork: support floating holes (floating_hole_bridges), after slice_volumes(): before the overhangs cut, and after it
+    // (after_cut) for the holes the cut left floating. Floating holes wider than 2 mm without the option are counted in
+    // the warning.
+    struct FloatingHoleWarning { size_t count = 0; double width = 0.; double z = 0.; };
+    void apply_floating_hole_bridges(bool after_cut, FloatingHoleWarning &warning);
     // Has any support (not counting the raft).
     void detect_surfaces_type();
     void process_external_surfaces();

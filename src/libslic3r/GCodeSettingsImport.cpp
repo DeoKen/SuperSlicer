@@ -7,6 +7,7 @@
 #include <optional>
 #include <regex>
 #include <set>
+#include <tuple>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/nowide/cstdio.hpp>
@@ -139,6 +140,39 @@ GCodeSettings read_gcode_settings(const std::string &path)
         if (tail == length)
             break;
     }
+    // No delimiters (Slic3r, PrusaSlicer before 2.4, older SuperSlicer): "; key = value" lines at the end of the file,
+    // read backwards as stock ConfigBase::load_from_gcode_string_legacy(), past the thumbnails if they follow them.
+    {
+        std::vector<std::string> lines;
+        boost::split(lines, text, boost::is_any_of("\n"));
+        auto it = lines.rbegin();
+        auto blank = [](std::string &l) { boost::trim_right(l); return l.empty() || l == ";"; };
+        for (;;) {
+            for (; it != lines.rend() && blank(*it); ++ it) ;
+            // One thumbnail block per size ("; thumbnail end" ... "; thumbnail begin", also QOI / JPG).
+            if (it == lines.rend() || ! (boost::starts_with(*it, "; thumbnail") && boost::ends_with(*it, " end")))
+                break;
+            for (; it != lines.rend() && ! (boost::starts_with(*it, "; thumbnail") && boost::contains(*it, " begin ")); ++ it) ;
+            if (it != lines.rend())
+                ++ it;
+        }
+        std::vector<std::pair<std::string, std::string>> values;
+        std::string key, value;
+        for (; it != lines.rend(); ++ it) {
+            boost::trim_right(*it);
+            if (! parse_key_value(*it, key, value) || ! std::isalpha((unsigned char)key.front()) ||
+                ! std::all_of(key.begin(), key.end(), [](char c) { return std::isalnum((unsigned char)c) || c == '_'; }))
+                break;
+            values.emplace_back(key, value);
+        }
+        // As stock: fewer values is not a settings block.
+        if (values.size() >= 80) {
+            out.values.assign(values.rbegin(), values.rend());
+            if (out.generator.empty())
+                out.generator = "PrusaSlicer";
+            return out;
+        }
+    }
     throw RuntimeError(format("No settings found in %1%", path));
 }
 
@@ -158,6 +192,7 @@ const std::map<std::string, std::string> ss_disabled_to {
     { "idle_temperature", "nil" },
     { "first_layer_infill_speed", "0" },
     { "first_layer_extrusion_width", "0" },                 // use the default extrusion width
+    { "overhangs_bridge_threshold", "-1" },                 // any length
 };
 const std::map<std::string, std::map<std::string, std::string>> ss_enum_map {
     { "ensure_vertical_shell_thickness", { { "enabled_old", "enabled" }, { "1", "enabled" }, { "0", "disabled" } } },
@@ -430,6 +465,43 @@ private:
                     out[key] = fmt_g(*a, "%.4g");
                     note(format("%1% = 0 -> %2% (SuperSlicer: 0 = the %3%)", key, out[key], parent));
                 }
+        // Widths set as a spacing in SuperSlicer: the width is written empty. Width at the print layer height, as SuperSlicer's
+        // Flow::new_from_config(): spacing + layer_height * (1 - pi/4) * overlap; the external perimeter spacing is a half
+        // spacing (overlap - 0.5). Spacing 0 = auto width (0 here too).
+        {
+            auto ratio = [this](const char *key) {
+                const std::string *v = get(key);
+                return v == nullptr || v->empty() || boost::starts_with(*v, "!") ? 1. :
+                       std::atof(first_item(*v).c_str()) / (boost::ends_with(first_item(*v), "%") ? 100. : 1.);
+            };
+            const double max_overlap = ratio("filament_max_overlap");
+            for (const auto &[width_key, spacing_key, overlap_key] : std::initializer_list<std::tuple<const char*, const char*, const char*>> {
+                     { "extrusion_width", "extrusion_spacing", nullptr },
+                     { "external_perimeter_extrusion_width", "external_perimeter_extrusion_spacing", "external_perimeter_overlap" },
+                     { "perimeter_extrusion_width", "perimeter_extrusion_spacing", "perimeter_overlap" },
+                     { "infill_extrusion_width", "infill_extrusion_spacing", nullptr },
+                     { "solid_infill_extrusion_width", "solid_infill_extrusion_spacing", "solid_infill_overlap" },
+                     { "top_infill_extrusion_width", "top_infill_extrusion_spacing", nullptr },
+                     { "first_layer_extrusion_width", "first_layer_extrusion_spacing", nullptr } }) {
+                take(spacing_key);
+                const std::string *w = get(width_key);
+                const std::string *s = get(spacing_key);
+                if (w == nullptr || ! w->empty() || s == nullptr || s->empty())
+                    continue;
+                const double spacing = boost::ends_with(*s, "%") ? std::atof(s->c_str()) / 100. * nozzle() : std::atof(s->c_str());
+                if (spacing <= 0.) {
+                    out[width_key] = "0";
+                    continue;
+                }
+                const bool   first_layer  = boost::starts_with(width_key, "first_layer_");
+                const double layer_height = resolve_abs(first_layer ? "first_layer_height" : "layer_height").value_or(0.2);
+                const double rounding     = layer_height * (1. - 0.25 * PI);
+                const double overlap      = overlap_key ? std::min(ratio(overlap_key), max_overlap) : std::min(1., max_overlap);
+                const double width        = spacing + rounding * (std::string(width_key) == "external_perimeter_extrusion_width" ? overlap - 0.5 : overlap);
+                out[width_key] = fmt_g(width, "%.4g");
+                note(format("%1% = %2% -> %3% = %4% (SuperSlicer width from the spacing at layer height %5%)", spacing_key, *s,
+                            width_key, out[width_key], fmt_g(layer_height)));            }
+        }
         if (const std::string *v = get("small_perimeter_min_length"); v && *v == "0") {
             out["small_perimeter_min_length"] = "0.001";
             note("small_perimeter_min_length = 0 -> 0.001 (SuperSlicer: 0 = no small perimeters, here: 0 = stock threshold)");
@@ -531,7 +603,8 @@ private:
             note(format("%1%: removed +extruder_temperature_offset[...] (SuperSlicer only)", key));
         // Vector variables without an index inside {} are refused here, SuperSlicer tolerates them.
         {
-            static const std::regex re(R"(\{([a-z_0-9]+)\})");
+            // Spaces allowed: "{first_layer_temperature + extruder_temperature_offset[0]}" leaves "{first_layer_temperature }".
+            static const std::regex re(R"(\{\s*([a-z_0-9]+)\s*\})");
             std::string res;
             auto last = s.cbegin();
             for (std::sregex_iterator it(s.begin(), s.end(), re), end; it != end; ++ it) {
@@ -617,6 +690,12 @@ GCodeSettingsImport import_gcode_settings(const GCodeSettings &settings)
             out.config.set_deserialize(key, value, ctxt);
         } catch (const UnknownOptionException &) {
             out.not_imported.emplace_back(orig_key + " = " + orig_value);
+            continue;
+        } catch (const BadOptionValueException &) {
+            // Not substituted (graphs, ...): the preset keeps its value, the G-code still opens.
+            out.invalid.emplace_back(orig_key + " = " + orig_value);
+            // set_deserialize() created the option before failing.
+            out.config.erase(key);
             continue;
         }
         // An empty list where values are required (stock ConfigOptionEnums::serialize() drops the first value, so G-code

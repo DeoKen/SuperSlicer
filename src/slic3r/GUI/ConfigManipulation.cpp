@@ -300,6 +300,9 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
         dynamic_overhang_fan_speeds = std::any_of(fan->values.begin(), fan->values.end(), [](unsigned char v) { return v != 0; });
     toggle_field("overhangs_threshold", have_perimeters && (config->opt_bool("overhangs") || dynamic_overhang_speeds || dynamic_overhang_fan_speeds));
     toggle_field("overhangs_hysteresis", have_perimeters && config->opt_bool("overhangs"));
+    // Overhangs cut (SuperSlicer): the bridge options only with a max slope.
+    const bool overhangs_cut = config->option<ConfigOptionFloatOrPercent>("overhangs_max_slope")->value > 0;
+    toggle_field("overhangs_bridge_threshold", overhangs_cut);
 
     const bool have_infill                      = config->option<ConfigOptionPercent>("fill_density")->value > 0;
     const bool has_automatic_infill_combination = config->option<ConfigOptionBool>("automatic_infill_combination")->value;
@@ -341,7 +344,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     for (auto el : { "top_infill_extrusion_width", "top_solid_infill_speed" })
         toggle_field(el, has_top_solid_infill || (has_spiral_vase && has_bottom_solid_infill));
 
-    bool have_default_acceleration = config->opt_float("default_acceleration") > 0;
+    bool have_default_acceleration = config->option<ConfigOptionFloatOrPercent>("default_acceleration")->value > 0;
     for (auto el : { "perimeter_acceleration", "infill_acceleration", "top_solid_infill_acceleration",
                     "solid_infill_acceleration", "external_perimeter_acceleration",
                     "bridge_acceleration", "internal_bridge_acceleration", "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration", "ironing_acceleration", "brim_acceleration", "first_layer_acceleration", "wipe_tower_acceleration",
@@ -434,6 +437,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     const auto scarf_seam_placement{config->opt_enum<ScarfSeamPlacement>("scarf_seam_placement")};
     const bool uses_scarf_seam{!has_spiral_vase && scarf_seam_placement != ScarfSeamPlacement::nowhere};
     toggle_field("scarf_seam_only_on_smooth", uses_scarf_seam);
+    toggle_field("scarf_seam_not_near_overhangs", uses_scarf_seam);
+    toggle_field("scarf_seam_overhang_distance", uses_scarf_seam && config->opt_bool("scarf_seam_not_near_overhangs"));
     toggle_field("scarf_seam_start_height", uses_scarf_seam);
     toggle_field("scarf_seam_entire_loop", uses_scarf_seam);
     toggle_field("scarf_seam_length", uses_scarf_seam);

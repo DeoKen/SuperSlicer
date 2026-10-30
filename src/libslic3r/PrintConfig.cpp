@@ -434,6 +434,19 @@ void PrintConfigDef::init_common_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
 
+    def = this->add("fan_slowdown_min_time", coFloat);
+    def->label = L("Min. time at lower speed");
+    def->full_label = L("Fan minimum time at a lower speed");
+    def->tooltip = L("Don't slow the fan down when it would speed up again within this many seconds: the fan stays at the "
+                     "higher speed across the short dip (for example between the overhangs at the top of a horizontal hole), "
+                     "which the fan could not follow anyway. With a fan startup delay, the dip is measured to the moment the "
+                     "fan starts speeding up. The time is estimated from the feed rates of the moves, ignoring acceleration; "
+                     "a dip across a layer change is kept. Set zero to disable.");
+    def->sidetext = L("s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0));
+
     def = this->add("auxiliary_fan_gcode", coString);
     def->label = L("Auxiliary fan G-code");
     def->tooltip = L("G-code setting the speed of an auxiliary part cooling fan, at the speed of the filament "
@@ -1394,16 +1407,20 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(5.));
 
-    def = this->add("default_acceleration", coFloat);
+    def = this->add("default_acceleration", coFloatOrPercent);
     def->label = L("Default");
+    def->full_label = L("Default acceleration");
     def->tooltip = L("This is the acceleration your printer will be reset to after "
                    "the role-specific acceleration values are used (perimeter/infill). "
+                   "Can be a percentage of the Klipper max accel (Printer Settings > Machine limits: klipper_max_accel, "
+                   "max_accel of printer.cfg). The accelerations given as a percentage of this one use its value in mm/s². "
                    "Set zero to prevent setting acceleration at all: no acceleration command is written, "
                    "the role-specific, first layer and travel accelerations are ignored.");
-    def->sidetext = L("mm/s²");
+    def->sidetext = L("mm/s² or %");
+    def->ratio_over = "klipper_max_accel";
     def->min = 0;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionFloat(0));
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
     // Text values shown in a closed combo box: the stock ConfigOptionEnums<T> neither deserializes nor serializes names.
     def = this->add("klipper_speed_mode", coStrings);
@@ -3151,6 +3168,54 @@ void PrintConfigDef::init_fff_params()
     // 15 % (user, 2026-10-24): changes stock output, as internal_bridge_shortest_span; the golden test turns it off.
     def->set_default_value(new ConfigOptionFloatOrPercent(15, true));
 
+    // SuperSlicer (overhangs cut): the slices are cut so that no layer sticks out past the layer below by more than this.
+    def = this->add("overhangs_max_slope", coFloatOrPercent);
+    def->label = L("Overhangs max slope");
+    def->full_label = L("Overhangs cut: max slope");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("Changes the shape of the model so that overhangs are printable: where a layer would stick out past the layer "
+                   "below by more than this, the layer is cut back. The top of a horizontal hole becomes steep sides with a "
+                   "short flat bridge. Areas that can be bridged are not cut (see \"Bridge max length\"). The printed part "
+                   "is smaller there than the model."
+                   "\nCan be in mm or a % of the nozzle diameter. 0 = off.");
+    def->sidetext = L("mm or %");
+    def->ratio_over = "nozzle_diameter";
+    def->min = 0;
+    def->max_literal = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("overhangs_bridge_threshold", coFloat);
+    def->label = L("Bridge max length");
+    def->full_label = L("Overhangs cut: bridge max length");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("With \"Overhangs max slope\": an area that can be bridged with lines up to this long is kept as a bridge "
+                   "instead of being cut. Longer spans are cut as overhangs."
+                   "\n-1 = any length. 0 = never keep bridges (everything is cut).");
+    def->sidetext = L("mm");
+    def->min = -1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(-1));
+
+    // Fork: sacrificial bridge layers under a hole floating over a void (a screw hole above a counterbore).
+    def = this->add("floating_hole_bridges", coBool);
+    def->label = L("Support floating holes");
+    def->full_label = L("Support floating holes (bridge layers)");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("For a hole floating over a void that has material all around it on the layer below (a screw hole over a "
+                   "counterbore printed from below, a hole in a ceiling over a cavity): the layers over the void are printed "
+                   "as two parallel bridges each, one on each side of the hole and touching it, every layer turned by "
+                   "180 / N degrees. After N layers the opening is a regular polygon with 2N sides around the hole "
+                   "(2 layers: a square, 3: a hexagon, 4: an octagon) and the round hole is printed on it. N is chosen per "
+                   "hole: the smallest number whose polygon corners stay within half an external perimeter width of the "
+                   "hole, so bigger holes get more layers. The first layer goes in the direction with the shortest bridges "
+                   "(for a hole that isn't round, along its sides first)."
+                   "\nOnly removes material: the opening of these layers is larger than the model's hole."
+                   "\nWhile it's off, the layer over the void is printed as sliced (one bridge layer, also with \"Overhangs "
+                   "max slope\"), and a warning lists the floating holes wider than 2 mm.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("parking_pos_retraction", coFloat);
     def->label = L("Filament parking position");
     def->tooltip = L("Distance of the extruder tip from the position where the filament is parked "
@@ -3554,6 +3619,27 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Only use the scarf joint when the perimeter is smooth.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("scarf_seam_not_near_overhangs", coBool);
+    def->label = L("Plain seam near overhangs or corners");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("Use a normal seam instead of the scarf joint when an overhang is on the scarf joint or closer to it "
+                     "than the distance below, measured along the perimeter, or when the scarf joint goes around a sharp "
+                     "corner (the corner the seam is on doesn't count). Next to the edge of a horizontal hole the scarf joint "
+                     "is cut short by the overhang, or goes around the edge of the hole, at a different place on every layer, "
+                     "and its ramps leave streaks on the wall. A scarf joint along one flat face is kept.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("scarf_seam_overhang_distance", coFloat);
+    def->label = L("Plain seam: overhang distance");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("With \"Plain seam near overhangs or corners\": no scarf joint when an overhang is on the scarf joint or closer "
+                     "than this to it, along the perimeter: from the start of the scarf joint, and from the seam on the other side.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(5));
 
     def = this->add("scarf_seam_start_height", coPercent);
     def->label = L("Scarf start height");
@@ -6014,6 +6100,8 @@ static std::set<std::string> PrintConfigDef_ignore = {
     "wiping_volumes_extruders", // Removed in 2.7.3-alpha1.
     "wipe_tower_x", "wipe_tower_y", "wipe_tower_rotation_angle", // Removed in 2.9.0
     "support_points_minimal_distance", // End of the using in 2.9.1 (change algorithm for the support generator)
+    // Fork: SuperSlicer's "Consider upper bridges" (overhangs cut), ported then removed on 2026-10-30 (no use found).
+    "overhangs_bridge_upper_layers",
 };
 
 void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &value)

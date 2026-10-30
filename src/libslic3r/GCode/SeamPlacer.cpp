@@ -270,6 +270,62 @@ unsigned get_seam_choice_value(const SeamChoice &seam_choice, const Perimeters::
     return std::max(previous_value, next_value);
 }
 
+// Fork: true if a point of the perimeter classified as overhang is along the perimeter closer to the seam than
+// scarf_side_distance in the direction of the scarf joint, or than other_side_distance in the other direction.
+static bool is_overhang_near(
+    const SeamChoice &seam_choice, const Perimeters::Perimeter &perimeter, const Geometry::Direction1D scarf_direction,
+    const double scarf_side_distance, const double other_side_distance)
+{
+    const auto is_overhang_point = [](const Perimeters::Perimeter &perimeter, const std::size_t index) {
+        return perimeter.point_classifications[index] == Perimeters::PointClassification::overhang;
+    };
+    const Geometry::Direction1D other_direction{
+        scarf_direction == Geometry::Direction1D::forward ? Geometry::Direction1D::backward : Geometry::Direction1D::forward};
+    for (const auto &[direction, distance] : { std::pair{ scarf_direction, scarf_side_distance }, std::pair{ other_direction, other_side_distance } }) {
+        if (distance <= 0)
+            continue;
+        const std::optional<Perimeters::PointOnPerimeter> point{
+            Perimeters::offset_along_perimeter(seam_choice, perimeter, distance, direction, is_overhang_point)};
+        // offset_along_perimeter() stops before the first overhang point and returns the point before it with
+        // previous_index == next_index; a point found at the distance has two different indices.
+        if (point && point->previous_index == point->next_index)
+            return true;
+    }
+    return false;
+}
+
+// Fork: true if the scarf joint (scarf_length along the perimeter from the seam, in the scarf direction) goes around a
+// sharp corner. The corner the seam itself sits on is skipped: a run of non smooth points of one kind (convex or concave)
+// starting within seam_corner_distance of the seam, however long (a rounded corner).
+static bool is_corner_on_scarf(
+    const SeamChoice &seam_choice, const Perimeters::Perimeter &perimeter, const Geometry::Direction1D scarf_direction,
+    const double scarf_length)
+{
+    constexpr double seam_corner_distance{1.0};
+    enum class Phase { before_seam_corner, seam_corner, after_seam_corner } phase{Phase::before_seam_corner};
+    Perimeters::AngleType seam_corner_type{};
+    const auto is_corner_point = [&](const Perimeters::Perimeter &perimeter, const std::size_t index) {
+        const Perimeters::AngleType type{perimeter.angle_types[index]};
+        const bool near_seam{(perimeter.positions[index] - seam_choice.position).norm() <= seam_corner_distance};
+        if (phase == Phase::before_seam_corner && type != Perimeters::AngleType::smooth && near_seam) {
+            phase = Phase::seam_corner;
+            seam_corner_type = type;
+        }
+        if (phase == Phase::seam_corner && type == seam_corner_type)
+            return false;
+        if (type == Perimeters::AngleType::smooth) {
+            if (phase == Phase::seam_corner || ! near_seam)
+                phase = Phase::after_seam_corner;
+            return false;
+        }
+        return true;
+    };
+    const std::optional<Perimeters::PointOnPerimeter> point{
+        Perimeters::offset_along_perimeter(seam_choice, perimeter, scarf_length, scarf_direction, is_corner_point)};
+    // Stopped at a corner: see is_overhang_near().
+    return point && point->previous_index == point->next_index;
+}
+
 boost::variant<Point, Scarf::Scarf> finalize_seam_position(
     const ExtrusionLoop &loop,
     const PrintRegion *region,
@@ -364,6 +420,21 @@ boost::variant<Point, Scarf::Scarf> finalize_seam_position(
 
     if (thick_bridges && is_overhang) {
         place_scarf_seam = false;
+    }
+
+    // Fork: no scarf joint near an overhang (scarf_seam_not_near_overhangs). The scarf joint stops at an overhang (see
+    // offset_stop_condition), so next to the edge of a horizontal hole it is cut short at a different place on every
+    // layer and the ramps leave streaks on the wall; the normal seam is used there. Checked over the scarf joint
+    // (scarf_seam_length, the whole loop with scarf_seam_entire_loop) plus the distance, and the distance on the other side.
+    // Also no scarf joint around a sharp corner: where a horizontal hole splits a wall, the scarf joint runs along the
+    // face and around the edge of the hole, which moves on every layer, with the same streaks.
+    if (place_scarf_seam && region->config().scarf_seam_not_near_overhangs.value) {
+        const double distance{region->config().scarf_seam_overhang_distance.value};
+        const double scarf_length{region->config().scarf_seam_entire_loop ? std::numeric_limits<double>::max() :
+                                                                            region->config().scarf_seam_length.value};
+        if (is_overhang || is_overhang_near(seam_choice, perimeter, offset_direction, scarf_length + distance, distance) ||
+            is_corner_on_scarf(seam_choice, perimeter, offset_direction, scarf_length))
+            place_scarf_seam = false;
     }
 
     if (place_scarf_seam) {

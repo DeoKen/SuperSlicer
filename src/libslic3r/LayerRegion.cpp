@@ -527,6 +527,49 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
         bridges.surfaces = custom_angle > 0 ?
             expand_merge_surfaces(m_fill_surfaces.surfaces, stBottomBridge, expansion_zones, closing_radius, this->custom_bridge_angle(Geometry::deg2rad(custom_angle))) :
             expand_bridges_detect_orientations(m_fill_surfaces.surfaces, expansion_zones, closing_radius);
+        // Fork: the bridge layers of a floating hole keep the direction chosen when slicing (two parallel bridges per layer;
+        // detected here, each piece got its own direction).
+        // A bridge surface over the pieces of two holes with different directions (merged by their anchors) is split
+        // between them.
+        if (const std::vector<Layer::ForcedBridge> &forced = this->layer()->forced_bridges; ! forced.empty()) {
+            Surfaces out;
+            for (Surface &bridge : bridges.surfaces) {
+                std::vector<size_t> over;
+                // Mostly over one of the pieces (each piece on its own: a surface may hold one of the two pieces of a hole).
+                for (size_t i = 0; i < forced.size(); ++ i)
+                    for (const ExPolygon &piece : forced[i].area) {
+                        const double overlap = Slic3r::area(intersection(to_polygons(bridge.expolygon), to_polygons(piece)));
+                        if (overlap > 0.5 * std::min(piece.area(), bridge.area())) {
+                            over.push_back(i);
+                            break;
+                        }
+                    }
+                if (over.empty()) {
+                    out.push_back(std::move(bridge));
+                } else if (std::all_of(over.begin(), over.end(), [&](size_t i) { return forced[i].angle == forced[over.front()].angle; })) {
+                    bridge.bridge_angle = forced[over.front()].angle;
+                    out.push_back(std::move(bridge));
+                } else {
+                    // Each part to the nearest piece (within the anchoring reach), the rest keeps the detected direction.
+                    // Grown together in steps of 0.25 mm up to 3 mm.
+                    ExPolygons rest{ bridge.expolygon };
+                    for (int step = 0; step <= 12 && ! rest.empty(); ++ step)
+                        for (size_t i : over) {
+                            ExPolygons part = intersection_ex(rest, offset_ex(forced[i].area, scaled<float>(0.25 * step) + float(SCALED_EPSILON)));
+                            if (part.empty())
+                                continue;
+                            rest = diff_ex(rest, part);
+                            for (ExPolygon &expoly : part) {
+                                out.emplace_back(bridge, std::move(expoly));
+                                out.back().bridge_angle = forced[i].angle;
+                            }
+                        }
+                    for (ExPolygon &expoly : rest)
+                        out.emplace_back(bridge, std::move(expoly));
+                }
+            }
+            bridges.surfaces = std::move(out);
+        }
         BOOST_LOG_TRIVIAL(trace) << "Processing external surface, detecting bridges - done";
 #if 0
         {

@@ -472,10 +472,10 @@ static std::vector<std::string> s_Preset_print_options {
     "layer_height", "first_layer_height", "perimeters", "spiral_vase", "slice_closing_radius", "slicing_mode",
     "top_solid_layers", "top_solid_min_thickness", "bottom_solid_layers", "bottom_solid_min_thickness",
     "ensure_vertical_shell_thickness", "extra_perimeters", "extra_perimeters_on_overhangs",
-    "avoid_crossing_curled_overhangs", "avoid_crossing_perimeters", "thin_walls", "overhangs", "overhangs_threshold", "overhangs_hysteresis",
+    "avoid_crossing_curled_overhangs", "avoid_crossing_perimeters", "thin_walls", "overhangs", "overhangs_threshold", "overhangs_hysteresis", "overhangs_max_slope", "overhangs_bridge_threshold", "floating_hole_bridges",
     "seam_position", "staggered_inner_seams", "seam_gap_distance", "seam_notch_all", "seam_notch_inner", "seam_notch_outer", "seam_notch_angle",
     "external_perimeters_first", "fill_density", "fill_pattern", "top_fill_pattern", "bottom_fill_pattern",
-    "scarf_seam_placement", "scarf_seam_only_on_smooth", "scarf_seam_start_height", "scarf_seam_entire_loop", "scarf_seam_length", "scarf_seam_max_segment_length", "scarf_seam_on_inner_perimeters",
+    "scarf_seam_placement", "scarf_seam_only_on_smooth", "scarf_seam_not_near_overhangs", "scarf_seam_overhang_distance","scarf_seam_start_height", "scarf_seam_entire_loop", "scarf_seam_length", "scarf_seam_max_segment_length", "scarf_seam_on_inner_perimeters",
     "infill_every_layers", /*"infill_only_where_needed",*/ "solid_infill_every_layers", "fill_angle", "solid_infill_direction", "rotate_solid_infill_direction", "internal_bridge_shortest_span", "align_infill_direction_to_model", "bridge_angle",
     "solid_infill_below_area", "only_retract_when_crossing_perimeters", "infill_first",
     "ironing", "ironing_type", "ironing_flowrate", "ironing_speed", "ironing_spacing",
@@ -554,7 +554,7 @@ static std::vector<std::string> s_Preset_machine_limits_options {
 
 static std::vector<std::string> s_Preset_printer_options {
     "printer_technology", "autoemit_temperature_commands",
-    "bed_shape", "bed_custom_texture", "bed_custom_model", "bed_keep_out_zones", "fan_speedup_time", "fan_speedup_overhangs", "auxiliary_fan_gcode","binary_gcode", "z_offset", "gcode_flavor", "use_relative_e_distances",
+    "bed_shape", "bed_custom_texture", "bed_custom_model", "bed_keep_out_zones", "fan_speedup_time", "fan_speedup_overhangs", "fan_slowdown_min_time", "auxiliary_fan_gcode","binary_gcode", "z_offset", "gcode_flavor", "use_relative_e_distances",
     "use_firmware_retraction", "use_volumetric_e", "variable_layer_height", "prefer_clockwise_movements",
     //FIXME the print host keys are left here just for conversion from the Printer preset to Physical Printer preset.
     "host_type", "print_host", "printhost_apikey", "printhost_cafile",

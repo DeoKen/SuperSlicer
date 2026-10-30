@@ -800,6 +800,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                 overhangs))
     ((ConfigOptionFloatOrPercent,       overhangs_threshold))
     ((ConfigOptionFloatOrPercent,       overhangs_hysteresis))
+    ((ConfigOptionFloatOrPercent,       overhangs_max_slope))
+    ((ConfigOptionFloat,                overhangs_bridge_threshold))
+    ((ConfigOptionBool,                 floating_hole_bridges))
     ((ConfigOptionInt,                  perimeter_extruder))
     ((ConfigOptionFloatOrPercent,       perimeter_extrusion_width))
     ((ConfigOptionFloat,                perimeter_speed))
@@ -832,6 +835,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,       seam_notch_outer))
     ((ConfigOptionFloat,                seam_notch_angle))
     ((ConfigOptionBool,                     scarf_seam_only_on_smooth))
+    ((ConfigOptionBool,                     scarf_seam_not_near_overhangs))
+    ((ConfigOptionFloat,                    scarf_seam_overhang_distance))
     ((ConfigOptionPercent,                  scarf_seam_start_height))
     ((ConfigOptionBool,                     scarf_seam_entire_loop))
     ((ConfigOptionFloat,                    scarf_seam_length))
@@ -1014,6 +1019,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionPoints,             bed_shape))
     ((ConfigOptionString,             bed_keep_out_zones))
     ((ConfigOptionFloat,              fan_speedup_time))
+    ((ConfigOptionFloat,              fan_slowdown_min_time))
     ((ConfigOptionBool,               fan_speedup_overhangs))
     ((ConfigOptionString,             auxiliary_fan_gcode))
     ((ConfigOptionInts,               bed_temperature))
@@ -1047,7 +1053,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionBools,              cooling))
     ((ConfigOptionEnums<CoolingSlowdownLogicType>, cooling_slowdown_logic))
     ((ConfigOptionFloats,             cooling_perimeter_transition_distance))
-    ((ConfigOptionFloat,              default_acceleration))
+    ((ConfigOptionFloatOrPercent,     default_acceleration))
     // Klipper speed mode of the filament: "Off", "Slow", "Normal" or "Fast" (doc section 22).
     ((ConfigOptionStrings,            klipper_speed_mode))
     ((ConfigOptionInts,               disable_fan_first_layers))
@@ -1126,6 +1132,12 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionBool,               wiping_volumes_use_custom_matrix))
     ((ConfigOptionFloat,              z_offset))
 )
+
+// Fork: default_acceleration in mm/s², also when it is a percentage of the Klipper max accel (klipper_max_accel).
+inline double default_acceleration_value(const PrintConfig &config)
+{
+    return config.default_acceleration.get_abs_value(config.klipper_max_accel.value);
+}
 
 PRINT_CONFIG_CLASS_DERIVED_DEFINE0(
     FullPrintConfig,

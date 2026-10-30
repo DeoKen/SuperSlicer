@@ -200,3 +200,24 @@ TEST_CASE("Stock feature accelerations in % of the default acceleration", "[Feat
     };
     CHECK(moves(gcode) == moves(Test::slice({ TestMesh::overhang }, mm)));
 }
+
+TEST_CASE("Default acceleration in % of the Klipper max accel", "[FeatureAccel]") {
+    // 50 % of a 10000 mm/s² max_accel = the 5000 of base_config(); the accelerations in % of the default one follow it.
+    DynamicPrintConfig pct = base_config();
+    pct.set_deserialize_strict({ { "klipper_max_accel", "10000" }, { "default_acceleration", "50%" },
+                                 { "perimeter_acceleration", "60%" }, { "travel_acceleration", "160%" } });
+    CHECK(default_acceleration_value(PrintConfig::defaults()) == 0.);
+    const std::string gcode  = Test::slice({ TestMesh::overhang }, pct);
+    const auto        accels = by_type(walk_gcode(gcode));
+    check_type(accels, support,     5000);  // the default acceleration
+    check_type(accels, "Perimeter", 3000);
+    CHECK(gcode.find("\nM204 S8000") != std::string::npos);
+    // The same G-code as with the default acceleration in mm/s² (only the settings block differs).
+    DynamicPrintConfig mm = base_config();
+    mm.set_deserialize_strict({ { "klipper_max_accel", "10000" }, { "perimeter_acceleration", "60%" }, { "travel_acceleration", "160%" } });
+    const auto moves = [](const std::string &g) {
+        const size_t begin = g.find('\n') + 1;
+        return g.substr(begin, g.find("; prusaslicer_config = begin") - begin);
+    };
+    CHECK(moves(gcode) == moves(Test::slice({ TestMesh::overhang }, mm)));
+}

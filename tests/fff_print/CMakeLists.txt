@@ -20,6 +20,7 @@ add_executable(${_TEST_NAME}_tests
 	test_bed_keep_out.cpp
 	test_feature_accel.cpp
 	test_fan_mover.cpp
+	test_scarf_near_overhangs.cpp
 	test_aux_fan.cpp
 	test_infill_direction.cpp
 	test_feature_gcode.cpp
@@ -31,6 +32,9 @@ add_executable(${_TEST_NAME}_tests
 	test_brim_ss.cpp
 	test_brim_paint.cpp
 	test_klipper_limits.cpp
+	test_preview_values.cpp
+	test_overhangs_cut.cpp
+	test_floating_holes.cpp
 	test_layer_placeholders.cpp
 	test_small_area_flow.cpp
 	test_dynamic_overhang.cpp

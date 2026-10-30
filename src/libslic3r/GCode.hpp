@@ -317,7 +317,7 @@ private:
     // Per region G-code (SuperSlicer), when a region starts to print.
     std::string region_gcode(const PrintRegion &region);
     // An acceleration setting in mm/s², or in % of the default acceleration.
-    double acceleration(const ConfigOptionFloatOrPercent &opt) const { return opt.get_abs_value(m_config.default_acceleration.value); }
+    double acceleration(const ConfigOptionFloatOrPercent &opt) const { return opt.get_abs_value(default_acceleration_value(m_config)); }
     std::string extrude_infill_ranges(
         const std::vector<InfillRange> &infill_ranges,
         const std::string &commment

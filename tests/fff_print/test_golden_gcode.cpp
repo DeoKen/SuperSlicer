@@ -30,7 +30,7 @@ const std::vector<std::string> added_config_keys {
     "bed_keep_out_zones",
     "gap_fill_acceleration", "support_material_acceleration", "support_material_interface_acceleration",
     "ironing_acceleration", "brim_acceleration", "brim_speed",
-    "fan_speedup_time", "fan_speedup_overhangs",
+    "fan_speedup_time", "fan_speedup_overhangs", "fan_slowdown_min_time",
     "feature_gcode",
     "small_perimeter_min_length", "small_perimeter_max_length",
     "small_area_infill_flow_compensation",
@@ -46,6 +46,8 @@ const std::vector<std::string> added_config_keys {
     "thumbnails_end_file",
     "region_gcode",
     "overhangs_dynamic_", "overhangs_speed", "overhangs_graph_range", "overhangs_threshold", "overhangs_hysteresis",
+    "overhangs_max_slope", "overhangs_bridge_threshold", "floating_hole_bridges",
+    "scarf_seam_not_near_overhangs", "scarf_seam_overhang_distance",
 };
 
 // Config keys of stock PrusaSlicer removed by this fork, skipped in the reference files.
@@ -175,7 +177,7 @@ DynamicPrintConfig klipper_config()
 // Fork options that are on by default and change the output: turned off for the comparison with stock.
 DynamicPrintConfig with_stock_behaviour(DynamicPrintConfig config)
 {
-    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "0" }, { "overhangs_hysteresis", "0" } });
+    config.set_deserialize_strict({ { "internal_bridge_shortest_span", "0" }, { "overhangs_hysteresis", "0" }, { "fan_slowdown_min_time", "0" } });
     return config;
 }
 

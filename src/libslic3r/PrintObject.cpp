@@ -499,7 +499,7 @@ void PrintObject::generate_support_spots()
         if (!this->shared_regions()->generated_support_points.has_value()) {
             PrintTryCancel                cancel_func = m_print->make_try_cancel();
             SupportSpotsGenerator::Params params{this->print()->m_config.filament_type.values,
-                                                 float(this->print()->m_config.perimeter_acceleration.get_abs_value(this->print()->m_config.default_acceleration.value)),
+                                                 float(this->print()->m_config.perimeter_acceleration.get_abs_value(default_acceleration_value(this->print()->m_config))),
                                                  this->config().raft_layers.getInt(), this->config().brim_type.value,
                                                  float(this->config().brim_width.getFloat())};
             auto [supp_points, partial_objects] = SupportSpotsGenerator::full_search(this, cancel_func, params);
@@ -549,7 +549,7 @@ void PrintObject::estimate_curled_extrusions()
             // Estimate curling of support material and add it to the malformaition lines of each layer
             float                         support_flow_width = support_material_flow(this, this->config().layer_height).width();
             SupportSpotsGenerator::Params params{this->print()->m_config.filament_type.values,
-                                                 float(this->print()->m_config.perimeter_acceleration.get_abs_value(this->print()->m_config.default_acceleration.value)),
+                                                 float(this->print()->m_config.perimeter_acceleration.get_abs_value(default_acceleration_value(this->print()->m_config))),
                                                  this->config().raft_layers.getInt(), this->config().brim_type.value,
                                                  float(this->config().brim_width.getFloat())};
             SupportSpotsGenerator::estimate_supports_malformations(this->support_layers(), support_flow_width, params);
@@ -783,7 +783,10 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "support_material_contact_distance" 
             || opt_key == "xy_size_compensation"
             || opt_key == "hole_size_compensation"
-            || opt_key == "hole_size_threshold") {
+            || opt_key == "hole_size_threshold"
+            || opt_key == "overhangs_max_slope"
+            || opt_key == "overhangs_bridge_threshold"
+            || opt_key == "floating_hole_bridges") {
             steps.emplace_back(posSlice);
         } else if (opt_key == "support_material") {
             steps.emplace_back(posSupportMaterial);
@@ -937,6 +940,8 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "seam_notch_outer"
             || opt_key == "seam_notch_angle"
             || opt_key == "scarf_seam_only_on_smooth"
+            || opt_key == "scarf_seam_not_near_overhangs"
+            || opt_key == "scarf_seam_overhang_distance"
             || opt_key == "scarf_seam_start_height"
             || opt_key == "scarf_seam_entire_loop"
             || opt_key == "scarf_seam_length"

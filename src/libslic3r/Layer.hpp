@@ -193,6 +193,11 @@ public:
     ExPolygons 				lslices;
     std::vector<size_t>     lslice_indices_sorted_by_print_order;
     LayerSlices             lslices_ex;
+    // Fork (floating_hole_bridges, PrintObject::apply_floating_hole_bridges()): bridges over these areas run along the
+    // angle (radians, the direction of the lines), and the overhangs cut leaves the zones alone.
+    struct ForcedBridge { ExPolygons area; double angle; };
+    std::vector<ForcedBridge> forced_bridges;
+    ExPolygons              floating_hole_zones;
 
     size_t                  region_count() const { return m_regions.size(); }
     const LayerRegion*      get_region(int idx) const { return m_regions[idx]; }

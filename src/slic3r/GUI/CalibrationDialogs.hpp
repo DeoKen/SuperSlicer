@@ -41,7 +41,8 @@ public:
     CalibrationDialog(const wxString &title, const wxString &explanation);
 
 protected:
-    // Fields, in a two column grid under the explanation.
+    // Fields in a grid under the explanation, one label + field per row unless set_columns() was called first.
+    void        set_columns(int fields_per_row);
     wxComboBox* add_combo(const wxString &label, const wxString &tooltip, const std::vector<wxString> &choices, const wxString &value);
     // A number field, or a wide one (wide: file paths).
     wxTextCtrl* add_text(const wxString &label, const wxString &tooltip, const wxString &value, bool wide = false);
@@ -62,7 +63,11 @@ protected:
     static std::string  resource(const std::string &dir, const std::string &file);
 
 private:
-    wxFlexGridSizer *m_grid { nullptr };
+    void             add_label(const wxString &label);
+
+    wxString         m_explanation_text;
+    wxStaticText    *m_explanation { nullptr };
+    wxFlexGridSizer *m_grid        { nullptr };
 };
 
 } // namespace GUI

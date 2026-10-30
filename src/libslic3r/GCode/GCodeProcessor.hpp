@@ -608,6 +608,8 @@ namespace Slic3r {
         CpColor m_cp_color;
         bool m_use_volumetric_e;
         SeamsDetector m_seams_detector;
+        // Fork: inside a scarf joint ramp (external perimeter moves raising Z), seam markers at both ends of the ramp.
+        bool m_in_scarf_ramp{ false };
         OptionsZCorrector m_options_z_corrector;
         size_t m_last_default_color_id;
         float m_kissslicer_toolchange_time_correction;

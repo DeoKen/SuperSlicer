@@ -112,6 +112,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "klipper_speed_mode_gcode",
         "fan_speedup_time",
         "fan_speedup_overhangs",
+        "fan_slowdown_min_time",
         "auxiliary_fan_gcode",
         "additional_cooling_fan_speed",
         "bed_temperature",
