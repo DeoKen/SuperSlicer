@@ -186,6 +186,9 @@ TEST_CASE("Pressure calibration with Ellis' settings", "[PressureCalibration]") 
             std::set<int>                        bend_fans, first_layer_fans;
             double                               shortest_bend_path = 1e10;
             for (const PAExtrusion &e : extrusions) {
+                // The brim prints before the frame's per region G-code.
+                if (e.type == "Skirt/Brim")
+                    continue;
                 layers_of[e.value].insert(e.layer);
                 if (e.layer == 0)
                     first_layer_fans.insert(e.fan);
@@ -267,6 +270,49 @@ TEST_CASE("Pressure calibration frame without gap fill", "[PressureCalibration]"
                 CHECK(std::none_of(extrusions.begin(), extrusions.end(), [](const PAExtrusion &e) { return e.layer == 0 && e.type == "Gap fill"; }));
             }
         }
+}
+
+// A 5 mm brim on the outside of the frame (user 2026-11-01), whatever the brim settings of the print profile; none inside the
+// frame, none around Ellis' walls.
+TEST_CASE("Pressure calibration frame with an outer brim", "[PressureCalibration]") {
+    PressureCalibrationTest test;
+    test.values = pressure_calibration_values(0., 0.01, 0.005);
+    const PressureCalibrationSettings settings;
+    for (const char *brim_type : { "no_brim", "outer_and_inner" }) {
+        DYNAMIC_SECTION("print profile " << brim_type) {
+            DynamicPrintConfig config = test_config();
+            config.set_deserialize_strict({ { "brim_type", brim_type }, { "brim_width", "2" }, { "brim_separation", "1" },
+                                            { "brim_ears", "1" } });
+            const std::string gcode = slice_calibration(config, settings, { test });
+            // The first layer: the bounding boxes of the brim and of everything else.
+            BoundingBoxf brim, part;
+            std::string  type;
+            int          layer = -1;
+            GCodeReader  parser;
+            parser.parse_buffer(gcode, [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
+                if (line.raw().rfind(";LAYER_CHANGE", 0) == 0)
+                    ++ layer;
+                else if (line.raw().rfind(";TYPE:", 0) == 0)
+                    type = line.raw().substr(6);
+                else if (line.cmd_is("G1") && line.dist_E(self) > 0 && line.dist_XY(self) > 0) {
+                    if (type == "Skirt/Brim")
+                        CHECK(layer == 0);
+                    if (layer != 0)
+                        return;
+                    BoundingBoxf &box = type == "Skirt/Brim" ? brim : part;
+                    box.merge(Vec2d(self.x(), self.y()));
+                    box.merge(Vec2d(line.new_X(self), line.new_Y(self)));
+                }
+            });
+            REQUIRE(brim.defined);
+            REQUIRE(part.defined);
+            // Lines centred half a line from the outer edges: 5 mm out on every side, give or take a line width.
+            const Vec2d out_min = part.min - brim.min, out_max = brim.max - part.max;
+            INFO("brim beyond the frame " << out_min.transpose() << " / " << out_max.transpose());
+            for (double d : { out_min.x(), out_min.y(), out_max.x(), out_max.y() })
+                CHECK((d > PRESSURE_CALIBRATION_BRIM_WIDTH - 0.6 && d < PRESSURE_CALIBRATION_BRIM_WIDTH + 0.1));
+        }
+    }
 }
 
 TEST_CASE("Pressure calibration with the extrusion role's settings (SuperSlicer)", "[PressureCalibration]") {
@@ -451,6 +497,215 @@ TEST_CASE("Pressure calibration settings", "[PressureCalibration]") {
     settings.first_layer_fan = 100;
     pressure_calibration_apply_settings(config, settings);
     CHECK(config.opt<ConfigOptionInts>("disable_fan_first_layers")->get_at(0) == 0);
+}
+
+TEST_CASE("Adaptive PA calibration defaults", "[AdaptivePACalibration]") {
+    DynamicPrintConfig config = test_config();
+    PressureCalibrationSettings settings;
+    settings.line_ratio = 100.;
+    pressure_calibration_apply_settings(config, settings);
+    // The user's Voron (2026-11-01): max accel 28000, slow 6000, fast 38000.
+    config.set_deserialize_strict({ { "perimeter_speed", "80" }, { "external_perimeter_speed", "50%" }, { "infill_speed", "120" },
+                                    { "solid_infill_speed", "150%" }, { "top_solid_infill_speed", "20" }, { "small_perimeter_speed", "30" },
+                                    { "klipper_max_accel", "28000" }, { "klipper_max_accel_slow", "6000" }, { "klipper_max_accel_fast", "38000" } });
+
+    SECTION("Speeds: small perimeter, fastest, halfway") {
+        CHECK(adaptive_pa_default_speeds(config, settings) == std::vector<double>{ 30., 105., 180. });
+    }
+    SECTION("Small perimeter speed in % of the perimeter speed") {
+        config.set_deserialize_strict({ { "small_perimeter_speed", "50%" } });
+        CHECK(adaptive_pa_default_speeds(config, settings) == std::vector<double>{ 40., 110., 180. });
+    }
+    SECTION("The fastest speed capped by the max volumetric speed") {
+        // 0.4 x 0.2 mm line: 0.0714 mm³/mm, 10 mm³/s = 140 mm/s.
+        config.set_deserialize_strict({ { "filament_max_volumetric_speed", "10" } });
+        CHECK(adaptive_pa_default_speeds(config, settings) == std::vector<double>{ 30., 85., 140. });
+    }
+    SECTION("All the speeds the same as the small perimeter speed: one") {
+        config.set_deserialize_strict({ { "perimeter_speed", "30" }, { "external_perimeter_speed", "30" }, { "infill_speed", "30" },
+                                        { "solid_infill_speed", "30" }, { "top_solid_infill_speed", "30" } });
+        CHECK(adaptive_pa_default_speeds(config, settings) == std::vector<double>{ 30. });
+    }
+    SECTION("Accelerations: 25 % of slow, the speed mode's (default acceleration 0), fast") {
+        config.set_deserialize_strict({ { "default_acceleration", "0" }, { "klipper_speed_mode", "Slow" } });
+        CHECK(adaptive_pa_speed_mode_accel(config) == 6000.);
+        CHECK(adaptive_pa_default_accelerations(config) == std::vector<double>{ 1500., 6000., 38000. });
+        config.set_deserialize_strict({ { "klipper_speed_mode", "Off" } });
+        CHECK(adaptive_pa_default_accelerations(config) == std::vector<double>{ 1500., 28000., 38000. });
+        config.set_deserialize_strict({ { "klipper_speed_mode", "Fast" } });
+        CHECK(adaptive_pa_default_accelerations(config) == std::vector<double>{ 1500., 38000. });
+    }
+    SECTION("Accelerations: the default acceleration when set, in mm/s² or % of the Klipper max accel") {
+        config.set_deserialize_strict({ { "default_acceleration", "6000" }, { "klipper_speed_mode", "Slow" } });
+        CHECK(adaptive_pa_default_accelerations(config) == std::vector<double>{ 1500., 6000., 38000. });
+        config.set_deserialize_strict({ { "default_acceleration", "50%" } });
+        CHECK(adaptive_pa_default_accelerations(config) == std::vector<double>{ 1500., 14000., 38000. });
+    }
+    SECTION("Slow and fast in % of the Klipper max accel") {
+        config.set_deserialize_strict({ { "default_acceleration", "0" }, { "klipper_max_accel", "10000" }, { "klipper_max_accel_slow", "80%" },
+                                        { "klipper_max_accel_fast", "120%" } });
+        CHECK(adaptive_pa_default_accelerations(config) == std::vector<double>{ 2000., 10000., 12000. });
+    }
+}
+
+TEST_CASE("Adaptive PA model per nozzle", "[AdaptivePACalibration]") {
+    const std::string model04 = "0.04,3.96,1500\n0.03,7.91,1500\n";
+    // Orca's lines before any header (pasted) stay.
+    std::string model = adaptive_pa_model_set_section("0.05,2,3000\n", 0.4, model04);
+    CHECK(model == "0.05,2,3000\n; nozzle 0.4\n" + model04);
+    model = adaptive_pa_model_set_section(model, 0.6, "0.06,5.2,1500\n");
+    CHECK(model == "0.05,2,3000\n; nozzle 0.4\n" + model04 + "; nozzle 0.6\n0.06,5.2,1500\n");
+    // Again for 0.4: only its section changes, moved to the end.
+    model = adaptive_pa_model_set_section(model, 0.4, "0.02,8,6000\n");
+    CHECK(model == "0.05,2,3000\n; nozzle 0.6\n0.06,5.2,1500\n; nozzle 0.4\n0.02,8,6000\n");
+    CHECK(adaptive_pa_model_section(model, 0.4) == "0.02,8,6000\n");
+    CHECK(adaptive_pa_model_section(model, 0.6) == "0.06,5.2,1500\n");
+    CHECK(adaptive_pa_model_section(model, 0.25).empty());
+    CHECK(adaptive_pa_model_set_section("", 0.25, "0.08,1,1500\n") == "; nozzle 0.25\n0.08,1,1500\n");
+    // Windows line ends in a pasted model.
+    CHECK(adaptive_pa_model_section("; nozzle 0.4\r\n0.04,3.96,1500\r\n", 0.4) == "0.04,3.96,1500\n");
+}
+
+TEST_CASE("Adaptive PA calibration flow and model", "[AdaptivePACalibration]") {
+    DynamicPrintConfig config = test_config();
+    PressureCalibrationSettings settings;
+    settings.line_ratio = 100.;
+    pressure_calibration_apply_settings(config, settings);
+    // 0.4 x 0.2 mm line: (0.4 - 0.2) * 0.2 + pi * 0.1² mm³/mm.
+    const double mm3_per_mm = 0.2 * 0.2 + M_PI * 0.01;
+
+    SECTION("Flow = speed x cross section") {
+        CHECK(adaptive_pa_effective_speed(config, settings, 100.) == 100.);
+        CHECK(std::abs(adaptive_pa_flow(config, settings, 100.) - 100. * mm3_per_mm) < 1e-6);
+    }
+    SECTION("Capped by the max volumetric speed, the lowest of print and filament") {
+        config.set_deserialize_strict({ { "max_volumetric_speed", "6" }, { "filament_max_volumetric_speed", "5" } });
+        CHECK(std::abs(adaptive_pa_effective_speed(config, settings, 100.) - 5. / mm3_per_mm) < 1e-3); // Flow: floats
+        CHECK(std::abs(adaptive_pa_flow(config, settings, 100.) - 5.) < 1e-6);
+        CHECK(adaptive_pa_effective_speed(config, settings, 50.) == 50.);
+    }
+    SECTION("Model lines as OrcaSlicer's, sorted by acceleration then flow") {
+        CHECK(adaptive_pa_model({ { 0.026, 7.912, 10000. }, { 0.04, 3.956, 3000. }, { 0.0333, 3.96, 10000. }, { 0.029, 7.91, 3000. } }) ==
+              "0.04,3.96,3000\n0.029,7.91,3000\n0.0333,3.96,10000\n0.026,7.91,10000\n");
+    }
+    SECTION("Tests kept between the calibration and the results") {
+        const std::vector<AdaptivePATest> tests { { 50., 2000., 3.5708, 0.4 }, { 120.5, 6000., 8.57, 0.6, 0.026, 7 } };
+        const std::vector<AdaptivePATest> back = adaptive_pa_tests_deserialize(adaptive_pa_tests_serialize(tests));
+        REQUIRE(back.size() == 2);
+        CHECK(back[1].speed == 120.5);
+        CHECK(back[1].acceleration == 6000.);
+        CHECK(back[0].flow == 3.5708);
+        CHECK(back[1].nozzle == 0.6);
+        CHECK(back[0].pa == -1.);
+        CHECK(back[1].pa == 0.026);
+        CHECK(back[0].id == -1);
+        CHECK(back[1].id == 7);
+        // Without the typed value (4 fields): none.
+        CHECK(adaptive_pa_tests_deserialize("50,2000,3.5,0.4").front().pa == -1.);
+        CHECK(adaptive_pa_tests_deserialize("").empty());
+    }
+}
+
+TEST_CASE("Adaptive PA calibration side length", "[AdaptivePACalibration]") {
+    DynamicPrintConfig config = test_config();
+    // Klipper's default minimum_cruise_ratio 0.5: accelerating and decelerating take speed² / acceleration, half of the side.
+    config.set_deserialize_strict({ { "klipper_minimum_cruise_ratio", "0.5" } });
+    CHECK(adaptive_pa_side_length(config, 300., 1500., 20.) == 120.);
+    CHECK(adaptive_pa_side_length(config, 300., 6000., 20.) == 30.);
+    CHECK(adaptive_pa_side_length(config, 165., 1500., 20.) == 37.);   // 36.3 rounded up
+    CHECK(adaptive_pa_side_length(config, 100., 38000., 20.) == 20.);  // at least the minimum
+    CHECK(adaptive_pa_side_length(config, 100., 0., 25.) == 25.);
+    // A higher minimum cruise ratio: Klipper keeps more of the move at the top speed, the side gets longer.
+    config.set_deserialize_strict({ { "klipper_minimum_cruise_ratio", "0.8" } });
+    CHECK(adaptive_pa_side_length(config, 300., 1500., 20.) == 300.);
+    // None: still half of the side at the speed.
+    config.set_deserialize_strict({ { "klipper_minimum_cruise_ratio", "0" } });
+    CHECK(adaptive_pa_side_length(config, 300., 1500., 20.) == 120.);
+}
+
+TEST_CASE("Adaptive PA calibration tests kept per acceleration", "[AdaptivePACalibration]") {
+    const std::vector<AdaptivePATest> kept { { 15., 6000., 1., 0.4, 0.03 }, { 100., 6000., 7., 0.4, 0.02 }, { 15., 1500., 1., 0.4, 0.035 } };
+    SECTION("Another acceleration: added, sorted by acceleration, the typed values kept") {
+        const std::vector<AdaptivePATest> out = adaptive_pa_tests_merge(kept, { { 15., 38000., 1., 0.4 }, { 100., 38000., 7., 0.4 } });
+        REQUIRE(out.size() == 5);
+        CHECK(out[0].acceleration == 1500.);
+        CHECK(out[1].acceleration == 6000.);
+        CHECK(out[1].pa == 0.03);
+        CHECK(out[2].speed == 100.);
+        CHECK(out[3].acceleration == 38000.);
+        CHECK(out[4].pa == -1.);
+    }
+    SECTION("The same acceleration again: replaced") {
+        const std::vector<AdaptivePATest> out = adaptive_pa_tests_merge(kept, { { 30., 6000., 2., 0.4 } });
+        REQUIRE(out.size() == 2);
+        CHECK(out[0].acceleration == 1500.);
+        CHECK(out[1].speed == 30.);
+    }
+    SECTION("Another nozzle: all replaced") {
+        const std::vector<AdaptivePATest> out = adaptive_pa_tests_merge(kept, { { 30., 1500., 3., 0.6 } });
+        REQUIRE(out.size() == 1);
+        CHECK(out[0].nozzle == 0.6);
+    }
+}
+
+TEST_CASE("Adaptive PA calibration longer sides", "[AdaptivePACalibration]") {
+    // The longest wall of a layer above the first one, with the side length of the settings and twice as long for the test.
+    const auto longest_wall = [](double side_length) {
+        DynamicPrintConfig config = test_config();
+        PressureCalibrationSettings settings;
+        PressureCalibrationTest test;
+        test.values       = pressure_calibration_values(0., 0.01, 0.005);
+        test.speed        = 100.;
+        test.side_length  = side_length;
+        std::map<size_t, double> path_lengths;
+        const std::vector<PAExtrusion> extrusions = walk(slice_calibration(config, settings, { test }), &path_lengths);
+        double longest = 0.;
+        for (const PAExtrusion &e : extrusions)
+            if (e.layer >= 2)
+                longest = std::max(longest, path_lengths[e.path]);
+        return longest;
+    };
+    const double ellis  = longest_wall(0.);   // Ellis' 30 mm
+    const double longer = longest_wall(60.);
+    // Both arms 30 mm longer (the walls over the frame keep their extra length).
+    CHECK(std::abs(longer - ellis - 60.) < 1.);
+}
+
+TEST_CASE("Adaptive PA calibration test print", "[AdaptivePACalibration]") {
+    DynamicPrintConfig config = test_config();
+    PressureCalibrationSettings settings;
+    PressureCalibrationTest test;
+    test.values       = pressure_calibration_values(0., 0.01, 0.005);
+    test.speed        = 150.;
+    test.acceleration = 4000.;
+    int accel_commands = 0;
+    const std::string gcode = slice_calibration(config, settings, { test });
+    const std::vector<PAExtrusion> extrusions = walk(gcode, nullptr, &accel_commands);
+
+    // The walls at the test's speed (from the third layer only the walls print).
+    std::set<long> wall_speeds;
+    for (const PAExtrusion &e : extrusions)
+        if (e.layer >= 2)
+            wall_speeds.insert(std::lround(e.speed));
+    CHECK(wall_speeds == std::set<long>{ 150 });
+    // The test's acceleration before every wall's value, and no other acceleration command (no M204).
+    size_t walls = 0, with_accel = 0;
+    for (size_t pos = gcode.find(" wall "); pos != std::string::npos; pos = gcode.find(" wall ", pos + 1)) {
+        const size_t line = gcode.rfind('\n', pos) + 1;
+        if (gcode.compare(line, 29, "SET_PRESSURE_ADVANCE ADVANCE=") != 0)
+            continue;
+        ++ walls;
+        const size_t previous = gcode.rfind('\n', line - 2) + 1;
+        with_accel += gcode.compare(previous, 30, "SET_VELOCITY_LIMIT ACCEL=4000\n") == 0;
+    }
+    CHECK(walls > 0);
+    CHECK(with_accel == walls);
+    CHECK(gcode.find("M204") == std::string::npos);
+    CHECK(size_t(accel_commands) == walls);
+    // The summary with the speed, acceleration and flow of the test.
+    CHECK(gcode.find("; ### Adaptive pressure advance calibration") != std::string::npos);
+    CHECK(gcode.find(";  - Print speed: per test") != std::string::npos);
+    CHECK(gcode.find(";  - Speed 150 mm/s, acceleration 4000 mm/s^2, flow ") != std::string::npos);
 }
 
 // Like for like with Ellis' pattern (Calibration > Pressure advance pattern), with Ellis' defaults on both and the printer /

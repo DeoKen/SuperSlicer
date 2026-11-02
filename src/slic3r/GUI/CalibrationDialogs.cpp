@@ -4,7 +4,10 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <functional>
+#include <map>
 
+#include <wx/arrstr.h>
 #include <wx/button.h>
 #include <wx/checkbox.h>
 #include <wx/combobox.h>
@@ -90,10 +93,10 @@ wxTextCtrl* CalibrationDialog::add_text(const wxString &label, const wxString &t
     return text;
 }
 
-void CalibrationDialog::finish_layout()
+void CalibrationDialog::finish_layout(const wxString &ok_label)
 {
     auto *buttons  = new wxBoxSizer(wxHORIZONTAL);
-    auto *generate = new wxButton(this, wxID_OK, _L("Generate"));
+    auto *generate = new wxButton(this, wxID_OK, ok_label.empty() ? _L("Generate") : ok_label);
     auto *close    = new wxButton(this, wxID_CANCEL, _L("Close"));
     buttons->AddStretchSpacer();
     buttons->Add(generate, 0, wxRIGHT, em_unit());
@@ -443,6 +446,79 @@ private:
 // G-code, sliced in the plater.
 // ------------------------------------------------------------------------------------------------------------------------
 
+// Loads the tests in a new project (asks to save the current one), with the settings in the print and filament settings
+// (unsaved changes), and slices. edit_filament: more changes to the filament settings; first_id: the number of the first test
+// (on its frame). False if nothing was done.
+static bool load_pressure_calibration(wxWindow *parent, const std::vector<PressureCalibrationTest> &tests, const PressureCalibrationSettings &settings,
+                                      const std::function<void(DynamicPrintConfig&)> &edit_filament = {}, size_t first_id = 0)
+{
+    // The settings into the print and filament settings (unsaved changes), the print ones also as SuperSlicer changes them.
+    DynamicPrintConfig print    = wxGetApp().preset_bundle->prints.get_edited_preset().config;
+    DynamicPrintConfig filament = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
+    DynamicPrintConfig config   = current_config();
+    try {
+        pressure_calibration_apply_settings(print, settings);
+        pressure_calibration_apply_settings(filament, settings);
+        pressure_calibration_apply_settings(config, settings);
+    } catch (const std::exception &ex) {
+        show_error(parent, from_u8(ex.what()));
+        return false;
+    }
+    pressure_calibration_print_config(print);
+    pressure_calibration_print_config(config);
+    if (edit_filament)
+        edit_filament(filament);
+    const double nozzle = nozzle_diameter(config);
+    const bool   bends  = std::any_of(tests.begin(), tests.end(), [&settings](const PressureCalibrationTest &t) {
+        return pressure_calibration_wall_objects(settings, t) == 0; });
+    if (bends && pressure_calibration_bend_file(resources_dir(), nozzle).empty()) {
+        show_error(parent, format_wxstr(_L("There is no 90° bend model for a %1% mm nozzle (0.1 to 2.0 mm by 0.1 mm)."), nozzle));
+        return false;
+    }
+    if (! start_calibration_project())
+        return false;
+
+    Plater *plater = wxGetApp().plater();
+    Model  &model  = plater->model();
+    // Per test: the base (frame, numbers) and the objects of the walls of Ellis' chevrons, all from the base plate.
+    size_t nb_objects = 0;
+    for (const PressureCalibrationTest &t : tests)
+        nb_objects += 1 + pressure_calibration_wall_objects(settings, t);
+    std::vector<size_t> objs = plater->load_files(std::vector<std::string>(nb_objects, pressure_calibration_base_file(resources_dir())), true, false);
+    if (objs.size() != nb_objects)
+        return false;
+    bool slice = true;
+    std::vector<ModelObject*>              frames;
+    std::vector<std::vector<ModelObject*>> walls;
+    for (size_t id_item = 0, i = 0; id_item < tests.size(); ++ id_item) {
+        frames.emplace_back(model.objects[objs[i ++]]);
+        walls.emplace_back();
+        for (size_t k = 0; k < pressure_calibration_wall_objects(settings, tests[id_item]); ++ k)
+            walls.back().emplace_back(model.objects[objs[i ++]]);
+        if (! pressure_calibration_build(*frames.back(), config, settings, tests[id_item], first_id + id_item, resources_dir()))
+            slice = false;
+    }
+    // How the test was made, as comments at the start of the first layer (Ellis writes them at the top of his G-code).
+    CustomGCode::Info &custom = model.custom_gcode_per_print_z();
+    custom.mode = wxGetApp().extruders_edited_cnt() > 1 ? CustomGCode::MultiAsSingle : CustomGCode::SingleExtruder;
+    custom.gcodes.push_back({ settings.first_layer_height, CustomGCode::Custom, -1, "", pressure_calibration_summary(config, settings, tests) });
+
+    load_tab_config(Preset::TYPE_PRINT, print);
+    load_tab_config(Preset::TYPE_FILAMENT, filament);
+
+    // Arrange the frames while the objects of the walls are still the empty base plate, then the walls on their frame (same
+    // instance transformation, same coordinates). CheckAll: not sliced, so that the values can be typed in first.
+    finish_calibration_project(objs, true, false);
+    for (size_t id_item = 0; id_item < tests.size(); ++ id_item)
+        if (! walls[id_item].empty()) {
+            for (ModelObject *wall : walls[id_item])
+                wall->instances.front()->set_transformation(frames[id_item]->instances.front()->get_transformation());
+            pressure_calibration_build_walls(walls[id_item], config, settings, tests[id_item], first_id + id_item);
+        }
+    finish_calibration_project(objs, false, slice);
+    return true;
+}
+
 class CalibrationPressureDialog : public CalibrationDialog
 {
 public:
@@ -629,69 +705,7 @@ protected:
         settings.layers          = int(layers);
         settings.fan             = int(fan);
         settings.first_layer_fan = int(first_fan);
-        // The settings into the print and filament settings (unsaved changes), the print ones also as SuperSlicer changes them.
-        DynamicPrintConfig print    = wxGetApp().preset_bundle->prints.get_edited_preset().config;
-        DynamicPrintConfig filament = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
-        DynamicPrintConfig config   = current_config();
-        try {
-            pressure_calibration_apply_settings(print, settings);
-            pressure_calibration_apply_settings(filament, settings);
-            pressure_calibration_apply_settings(config, settings);
-        } catch (const std::exception &ex) {
-            show_error(this, from_u8(ex.what()));
-            return false;
-        }
-        pressure_calibration_print_config(print);
-        pressure_calibration_print_config(config);
-        const double nozzle = nozzle_diameter(config);
-        const bool   bends  = std::any_of(tests.begin(), tests.end(), [&settings](const PressureCalibrationTest &t) {
-            return pressure_calibration_wall_objects(settings, t) == 0; });
-        if (bends && pressure_calibration_bend_file(resources_dir(), nozzle).empty()) {
-            show_error(this, format_wxstr(_L("There is no 90° bend model for a %1% mm nozzle (0.1 to 2.0 mm by 0.1 mm)."), nozzle));
-            return false;
-        }
-        if (! start_calibration_project())
-            return false;
-
-        Plater *plater = wxGetApp().plater();
-        Model  &model  = plater->model();
-        // Per test: the base (frame, numbers) and the objects of the walls of Ellis' chevrons, all from the base plate.
-        size_t nb_objects = 0;
-        for (const PressureCalibrationTest &t : tests)
-            nb_objects += 1 + pressure_calibration_wall_objects(settings, t);
-        std::vector<size_t> objs = plater->load_files(std::vector<std::string>(nb_objects, pressure_calibration_base_file(resources_dir())), true, false);
-        if (objs.size() != nb_objects)
-            return false;
-        bool slice = true;
-        std::vector<ModelObject*>              frames;
-        std::vector<std::vector<ModelObject*>> walls;
-        for (size_t id_item = 0, i = 0; id_item < tests.size(); ++ id_item) {
-            frames.emplace_back(model.objects[objs[i ++]]);
-            walls.emplace_back();
-            for (size_t k = 0; k < pressure_calibration_wall_objects(settings, tests[id_item]); ++ k)
-                walls.back().emplace_back(model.objects[objs[i ++]]);
-            if (! pressure_calibration_build(*frames.back(), config, settings, tests[id_item], id_item, resources_dir()))
-                slice = false;
-        }
-        // How the test was made, as comments at the start of the first layer (Ellis writes them at the top of his G-code).
-        CustomGCode::Info &custom = model.custom_gcode_per_print_z();
-        custom.mode = wxGetApp().extruders_edited_cnt() > 1 ? CustomGCode::MultiAsSingle : CustomGCode::SingleExtruder;
-        custom.gcodes.push_back({ settings.first_layer_height, CustomGCode::Custom, -1, "", pressure_calibration_summary(config, settings, tests) });
-
-        load_tab_config(Preset::TYPE_PRINT, print);
-        load_tab_config(Preset::TYPE_FILAMENT, filament);
-
-        // Arrange the frames while the objects of the walls are still the empty base plate, then the walls on their frame (same
-        // instance transformation, same coordinates). CheckAll: not sliced, so that the values can be typed in first.
-        finish_calibration_project(objs, true, false);
-        for (size_t id_item = 0; id_item < tests.size(); ++ id_item)
-            if (! walls[id_item].empty()) {
-                for (ModelObject *wall : walls[id_item])
-                    wall->instances.front()->set_transformation(frames[id_item]->instances.front()->get_transformation());
-                pressure_calibration_build_walls(walls[id_item], config, settings, tests[id_item], id_item);
-            }
-        finish_calibration_project(objs, false, slice);
-        return true;
+        return load_pressure_calibration(this, tests, settings);
     }
 
 private:
@@ -702,6 +716,368 @@ private:
     wxComboBox      *m_nb_tests   { nullptr };
     wxBoxSizer      *m_rows_sizer { nullptr };
     std::vector<Row> m_rows;
+};
+
+// ------------------------------------------------------------------------------------------------------------------------
+// Adaptive pressure advance (OrcaSlicer's adaptive PA model): Ellis' chevrons per speed and acceleration, then the best value of
+// each test into the filament's adaptive_pressure_advance_model.
+// ------------------------------------------------------------------------------------------------------------------------
+
+// The tests of the calibrations of a filament (speed, acceleration, flow, nozzle, typed value) and the filament, for the results.
+static const char *ADAPTIVE_PA_TESTS_KEY    = "calibration_adaptive_pa_tests";
+static const char *ADAPTIVE_PA_FILAMENT_KEY = "calibration_adaptive_pa_filament";
+
+static wxString number_list(const std::vector<double> &values)
+{
+    wxString out;
+    for (double v : values)
+        out += (out.empty() ? "" : ", ") + wxString::FromCDouble(v);
+    return out;
+}
+
+// A list of numbers separated by commas, semicolons or spaces (a decimal point only). False and an error message if a value
+// isn't a number above 0.
+static bool parse_number_list(wxWindow *parent, const wxString &label, const wxString &text, std::vector<double> &values)
+{
+    values.clear();
+    wxString str = text;
+    str.Replace(";", " ");
+    str.Replace(",", " ");
+    for (wxString token : wxSplit(str, ' ', '\0')) {
+        token.Trim(true).Trim(false);
+        if (token.empty())
+            continue;
+        double value;
+        if (! token.ToCDouble(&value) || value <= 0.) {
+            show_error(parent, format_wxstr(_L("%1%: \"%2%\" is not a number above 0."), label, token));
+            return false;
+        }
+        values.emplace_back(value);
+    }
+    if (values.empty()) {
+        show_error(parent, format_wxstr(_L("%1%: at least one value."), label));
+        return false;
+    }
+    return true;
+}
+
+// The default accelerations with what they are (the drop-down of the calibration).
+static std::vector<wxString> adaptive_pa_acceleration_choices(const DynamicPrintConfig &config)
+{
+    const std::vector<double> accels = adaptive_pa_default_accelerations(config);
+    std::vector<wxString>     out;
+    for (double a : accels)
+        out.emplace_back(wxString::FromCDouble(a));
+    return out;
+}
+
+class CalibrationAdaptivePADialog : public CalibrationDialog
+{
+public:
+    CalibrationAdaptivePADialog()
+        : CalibrationDialog(_L("Adaptive pressure advance calibration"),
+            _L("Calibration for OrcaSlicer's adaptive pressure advance: the pressure calibration with Ellis' chevrons once per "
+               "speed, all at the acceleration selected below, each test with its number on the frame, numbered over the "
+               "accelerations of the drop-down (3 speeds: the first acceleration 0-2, the second 3-5, the third 6-8). Print one "
+               "calibration per acceleration (the model needs at least 2 speeds of each). Each wall prints at its test's speed with "
+               "SET_VELOCITY_LIMIT ACCEL= before it (the print settings write no acceleration); the filament end G-code sets the "
+               "acceleration back to the Klipper max accel of the filament's speed mode.\n"
+               "The sides of the chevrons of each test are long enough for half of each to print at the full speed (Klipper "
+               "minimum_cruise_ratio, Printer > Machine limits), at least the minimum side length.\n"
+               "Defaults: the small perimeter speed, the fastest speed of the print settings and halfway between; the accelerations "
+               "25 % of the slow speed mode's, the one the filament prints at and the fast speed mode's.\n"
+               "After printing: Calibration > Adaptive pressure advance results, type the best value of each test (it keeps the "
+               "tests of every acceleration printed for this filament and nozzle).\n"
+               "Klipper only. Generate puts Ellis' settings in the print and filament settings (unsaved changes)."))
+    {
+        const DynamicPrintConfig config = current_config();
+        const PressureCalibrationSettings ellis;
+        const auto number = [](double v) { return wxString::FromCDouble(v); };
+        // The layer heights of the print settings (user 2026-11-01: the flow at the layer height the nozzle prints at), not Ellis'.
+        PressureCalibrationSettings defaults = ellis;
+        defaults.line_ratio         = 100.;
+        defaults.layer_height       = config.opt_float("layer_height");
+        defaults.first_layer_height = config.get_abs_value("first_layer_height", defaults.layer_height);
+        set_columns(4);
+        // Around the user's 0.02 to 0.03 (2026-11-01), by 0.001 as OrcaSlicer recommends (user 2026-11-01).
+        m_start       = add_text(_L("Start value"), _L("Pressure advance of the first chevron (Ellis: 0)."), "0.01");
+        m_end         = add_text(_L("End value"), _L("Pressure advance of the last chevron (Ellis: 0.08). OrcaSlicer: high enough to show "
+                                                     "gaps at the corners of the slowest test."), "0.05");
+        m_step        = add_text(_L("Increment"), _L("Pressure advance difference between two chevrons (Ellis: 0.005, 0.001 to 0.002 for a "
+                                                     "fine pass; OrcaSlicer: 0.001)."), "0.001");
+        m_line_ratio  = add_text(_L("Line width (% of the nozzle)"), _L("Width of the chevrons. Ellis: match your thickest perimeter. The "
+                                                                        "flow of each test is computed with it."), number(100.));
+        m_layers      = add_text(_L("Layers"), _L("Height of the chevrons in layers, with the first one (Ellis: 4)."), number(ellis.layers));
+        m_walls       = add_text(_L("Walls"), _L("Number of walls (open lines) of each chevron (Ellis: 3)."), number(ellis.wall_count));
+        m_side        = add_text(_L("Minimum side length (mm)"), _L("The shortest side of a chevron (Ellis: 30). The sides of a test are "
+                                                                    "longer when its speed needs it at the acceleration."), "20");
+        m_spacing     = add_text(_L("Spacing (mm)"), _L("Gap between two chevrons (Ellis: 2)."), number(ellis.pattern_spacing));
+        m_first_speed = add_text(_L("First layer speed (mm/s)"), _L("First layer, and the numbers (Ellis: 30). Print settings."), number(ellis.first_layer_speed));
+        m_layer       = add_text(_L("Layer height (mm)"), _L("Default: the layer height of the print settings (Ellis: 0.2). The flow of each "
+                                                             "test is computed with it."), number(defaults.layer_height));
+        m_first_layer = add_text(_L("First layer height (mm)"), _L("Default: the first layer height of the print settings (Ellis: 0.25)."),
+                                 number(defaults.first_layer_height));
+        m_fan         = add_text(_L("Fan (%)"), _L("From the second layer (Ellis: 100). Filament settings."), number(ellis.fan));
+        m_first_fan   = add_text(_L("First layer fan (%)"), _L("Ellis: 0. 0 (off on the first layer) or the same as the fan."), number(ellis.first_layer_fan));
+
+        const int  em   = em_unit();
+        const auto line = [this, em](const wxString &label, wxWindow *field) {
+            auto *sizer = new wxBoxSizer(wxHORIZONTAL);
+            auto *text  = new wxStaticText(this, wxID_ANY, label);
+            text->SetMinSize(wxSize(14 * em, -1));
+            sizer->Add(text, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, em);
+            sizer->Add(field, 1, wxALIGN_CENTER_VERTICAL);
+            GetSizer()->Add(sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, em);
+        };
+        // The default speeds with the dialog's defaults: the max volumetric speed caps the fastest one.
+        DynamicPrintConfig defaults_config = config;
+        pressure_calibration_apply_settings(defaults_config, defaults);
+        m_speeds = new wxTextCtrl(this, wxID_ANY, number_list(adaptive_pa_default_speeds(defaults_config, defaults)), wxDefaultPosition, wxSize(30 * em, -1));
+        m_speeds->SetToolTip(_L("Comma-separated list of print speeds, one test each (OrcaSlicer: at least 3). Default: the small perimeter "
+                                "speed, the fastest speed of the print settings (limited by the max volumetric speed) and halfway between."));
+        line(_L("Speeds (mm/s)"), m_speeds);
+        const std::vector<wxString> accels = adaptive_pa_acceleration_choices(config);
+        m_accel = new wxComboBox(this, wxID_ANY, accels.front(), wxDefaultPosition, wxSize(12 * em, -1), int(accels.size()), accels.data(), wxCB_DROPDOWN);
+        m_accel->SetToolTip(_L("The acceleration of this calibration (one print per acceleration). The choices: 25 % of the Klipper max accel "
+                               "of the slow speed mode, the acceleration the filament prints at (the default acceleration, 0: the Klipper "
+                               "max accel of the filament's speed mode) and the Klipper max accel of the fast speed mode. A value can be typed."));
+        line(_L("Acceleration (mm/s²)"), m_accel);
+        // The tests of each acceleration already kept for the results.
+        m_kept = new wxStaticText(this, wxID_ANY, kept_text());
+        GetSizer()->Add(m_kept, 0, wxLEFT | wxRIGHT | wxTOP, em);
+        if (config.opt_enum<GCodeFlavor>("gcode_flavor") != gcfKlipper) {
+            auto *text = new wxStaticText(this, wxID_ANY, _L("Klipper only: select a Klipper printer."));
+            text->SetForegroundColour(*wxRED);
+            GetSizer()->Add(text, 0, wxALL, em);
+        }
+        finish_layout();
+    }
+
+protected:
+    // "Results kept: 1500, 6000 mm/s²" for this filament and nozzle.
+    static wxString kept_text()
+    {
+        const DynamicPrintConfig          config = current_config();
+        const std::vector<AdaptivePATest> kept   = adaptive_pa_tests_deserialize(wxGetApp().app_config->get(ADAPTIVE_PA_TESTS_KEY));
+        if (kept.empty() || wxGetApp().app_config->get(ADAPTIVE_PA_FILAMENT_KEY) != wxGetApp().preset_bundle->filaments.get_edited_preset().name ||
+            kept.front().nozzle != nozzle_diameter(config))
+            return _L("No calibration kept yet for this filament and nozzle.");
+        std::vector<double> accels;
+        for (const AdaptivePATest &t : kept)
+            if (accels.empty() || accels.back() != t.acceleration)
+                accels.emplace_back(t.acceleration);
+        return format_wxstr(_L("Calibrations kept for this filament and nozzle: %1% mm/s² (generating one again replaces it)."), number_list(accels));
+    }
+
+    bool generate() override
+    {
+        DynamicPrintConfig config = current_config();
+        if (config.opt_enum<GCodeFlavor>("gcode_flavor") != gcfKlipper) {
+            show_error(this, _L("Klipper only: select a Klipper printer."));
+            return false;
+        }
+        double start, end, increment;
+        if (! get_number(m_start, _L("Start value"), start) || ! get_number(m_end, _L("End value"), end) ||
+            ! get_number(m_step, _L("Increment"), increment))
+            return false;
+        if (increment <= 0. || end <= start) {
+            show_error(this, _L("The increment must be above 0 and the end value above the start value."));
+            return false;
+        }
+        const std::vector<double> values = pressure_calibration_values(start, end, increment);
+        if (values.size() > 100) {
+            show_error(this, format_wxstr(_L("%1% values: too many. Use a larger increment."), values.size()));
+            return false;
+        }
+        std::vector<double> speeds;
+        double              accel, min_side;
+        if (! parse_number_list(this, _L("Speeds (mm/s)"), m_speeds->GetValue(), speeds) || ! get_number(m_accel, _L("Acceleration (mm/s²)"), accel) ||
+            ! get_number(m_side, _L("Minimum side length (mm)"), min_side))
+            return false;
+        if (accel <= 0.) {
+            show_error(this, _L("The acceleration must be above 0."));
+            return false;
+        }
+        // The tests are numbered over the prints of the accelerations of the drop-down (user 2026-11-01: 0-8 with 3 speeds), so that
+        // every frame has its own number whatever the order of the prints: the first acceleration 0-2, the second 3-5... A typed
+        // acceleration comes after them. The frames are numbered with one digit.
+        const std::vector<wxString> choices = adaptive_pa_acceleration_choices(config);
+        size_t position = choices.size();
+        for (size_t i = 0; i < choices.size(); ++ i)
+            if (double v; choices[i].ToCDouble(&v) && std::abs(v - accel) < 0.5)
+                position = i;
+        const size_t first_id = position * speeds.size();
+        if (first_id + speeds.size() > 10) {
+            show_error(this, format_wxstr(_L("Tests %1% to %2%: the frames are numbered 0 to 9 over the accelerations of the drop-down. Use "
+                                             "fewer speeds (at most %3% with %4% accelerations)."), first_id, first_id + speeds.size() - 1,
+                                          10 / (choices.size() + (position == choices.size() ? 1 : 0)), choices.size() + (position == choices.size() ? 1 : 0)));
+            return false;
+        }
+
+        PressureCalibrationSettings settings;
+        double layers, fan, first_fan, wall_count;
+        if (! get_number(m_line_ratio, _L("Line width"), settings.line_ratio) || ! get_number(m_layers, _L("Layers"), layers) ||
+            ! get_number(m_first_speed, _L("First layer speed (mm/s)"), settings.first_layer_speed) ||
+            ! get_number(m_layer, _L("Layer height (mm)"), settings.layer_height) ||
+            ! get_number(m_first_layer, _L("First layer height (mm)"), settings.first_layer_height) ||
+            ! get_number(m_fan, _L("Fan (%)"), fan) || ! get_number(m_first_fan, _L("First layer fan (%)"), first_fan) ||
+            ! get_number(m_walls, _L("Walls"), wall_count) || ! get_number(m_spacing, _L("Spacing (mm)"), settings.pattern_spacing))
+            return false;
+        settings.wall_count      = int(wall_count);
+        settings.layers          = int(layers);
+        settings.fan             = int(fan);
+        settings.first_layer_fan = int(first_fan);
+        settings.side_length     = min_side;
+        // Each test sets its own acceleration and speed; the print settings write no acceleration command.
+        settings.speed           = speeds.front();
+        settings.acceleration    = 0.;
+        // The flow with the settings' layer height (the walls print at it above the first layer).
+        DynamicPrintConfig flow_config = config;
+        try {
+            pressure_calibration_apply_settings(flow_config, settings);
+        } catch (const std::exception &ex) {
+            show_error(this, from_u8(ex.what()));
+            return false;
+        }
+
+        // One test per speed, the sides of each long enough for its speed at the acceleration.
+        std::vector<PressureCalibrationTest> tests;
+        std::vector<AdaptivePATest>          print;
+        wxString                             capped;
+        for (double speed : speeds) {
+            const double effective = adaptive_pa_effective_speed(flow_config, settings, speed);
+            if (effective < speed - EPSILON)
+                capped += format_wxstr(_L("Test %1%: %2% mm/s prints at %3% mm/s\n"), first_id + tests.size(), speed, std::round(effective * 10.) / 10.);
+            PressureCalibrationTest test { start, values, "ExternalPerimeter", false, speed, accel,
+                                           adaptive_pa_side_length(flow_config, effective, accel, min_side) };
+            print.push_back({ effective, accel, adaptive_pa_flow(flow_config, settings, speed), nozzle_diameter(config), -1., int(first_id + print.size()) });
+            tests.emplace_back(std::move(test));
+        }
+        if (! capped.empty() &&
+            MessageDialog(this, _L("The max volumetric speed (print or filament settings) limits these tests:") + "\n" + capped + "\n" +
+                                _L("Their flow is the limited one. Continue?"), _L("Adaptive pressure advance calibration"),
+                          wxYES_NO | wxICON_WARNING).ShowModal() != wxID_YES)
+            return false;
+
+        // Back to the printer's acceleration at the end: the test's SET_VELOCITY_LIMIT would stay until Klipper restarts.
+        const std::string restore = "SET_VELOCITY_LIMIT ACCEL=" + std::to_string(std::lround(adaptive_pa_speed_mode_accel(config))) +
+                                    " ; adaptive pressure advance calibration: the printer's acceleration\n";
+        const std::string filament_name = wxGetApp().preset_bundle->filaments.get_edited_preset().name;
+        if (! load_pressure_calibration(this, tests, settings, [&restore](DynamicPrintConfig &filament) {
+                if (auto *opt = filament.option<ConfigOptionStrings>("end_filament_gcode"); opt != nullptr && ! opt->values.empty())
+                    for (std::string &gcode : opt->values)
+                        gcode = restore + gcode;
+            }, first_id))
+            return false;
+        // The tests of the other accelerations stay for the same filament (and nozzle, adaptive_pa_tests_merge()).
+        std::vector<AdaptivePATest> kept = adaptive_pa_tests_deserialize(wxGetApp().app_config->get(ADAPTIVE_PA_TESTS_KEY));
+        if (wxGetApp().app_config->get(ADAPTIVE_PA_FILAMENT_KEY) != filament_name)
+            kept.clear();
+        wxGetApp().app_config->set(ADAPTIVE_PA_TESTS_KEY, adaptive_pa_tests_serialize(adaptive_pa_tests_merge(kept, print)));
+        wxGetApp().app_config->set(ADAPTIVE_PA_FILAMENT_KEY, filament_name);
+        return true;
+    }
+
+private:
+    wxTextCtrl   *m_start { nullptr }, *m_end { nullptr }, *m_step { nullptr }, *m_line_ratio { nullptr }, *m_layers { nullptr };
+    wxTextCtrl   *m_walls { nullptr }, *m_side { nullptr }, *m_spacing { nullptr }, *m_first_speed { nullptr }, *m_layer { nullptr };
+    wxTextCtrl   *m_first_layer { nullptr }, *m_fan { nullptr }, *m_first_fan { nullptr }, *m_speeds { nullptr };
+    wxComboBox   *m_accel { nullptr };
+    wxStaticText *m_kept { nullptr };
+};
+
+class CalibrationAdaptivePAResultsDialog : public CalibrationDialog
+{
+public:
+    CalibrationAdaptivePAResultsDialog()
+        : CalibrationDialog(_L("Adaptive pressure advance results"),
+            format_wxstr(_L("The tests of the adaptive pressure advance calibrations of filament \"%1%\", nozzle %2% mm, one print per "
+                            "acceleration; the test numbers are the ones on the frames. Type the best value of each test: "
+                            "the sharpest corner without a bulge or a gap. Leave a test empty when you can't pick one value (usual at "
+                            "low speed and acceleration, where several values are good: OrcaSlicer then uses the value of the next "
+                            "faster test). Each acceleration needs values for at least 2 speeds. The best value should get lower as the "
+                            "flow and the acceleration get higher.\n"
+                            "Save keeps the values here (for the next print) and writes them with the flow and acceleration of each test "
+                            "into the filament's \"Adaptive pressure advance measurements\" (Filament > Advanced), in the section of the "
+                            "nozzle (the other nozzles' sections stay), as an unsaved change: select the filament you calibrated and "
+                            "revert the calibration's unsaved changes (fan, layer time cooling, end G-code) first, then save the "
+                            "filament after."),
+                         from_u8(wxGetApp().app_config->get(ADAPTIVE_PA_FILAMENT_KEY)), last_nozzle()))
+        , m_tests(adaptive_pa_tests_deserialize(wxGetApp().app_config->get(ADAPTIVE_PA_TESTS_KEY)))
+    {
+        if (m_tests.empty()) {
+            auto *text = new wxStaticText(this, wxID_ANY, _L("No calibration yet: Calibration > Adaptive pressure advance calibration first."));
+            text->SetForegroundColour(*wxRED);
+            GetSizer()->Add(text, 0, wxALL, em_unit());
+        }
+        // The number on the frame of the test.
+        for (size_t i = 0; i < m_tests.size(); ++ i) {
+            const AdaptivePATest &t = m_tests[i];
+            m_ids.emplace_back(t.id >= 0 ? size_t(t.id) : i);
+            m_values.emplace_back(add_text(format_wxstr(_L("Test %1%: %2% mm/s², %3% mm/s, flow %4% mm³/s"), m_ids.back(), t.acceleration,
+                                                        std::round(t.speed * 10.) / 10., std::round(t.flow * 100.) / 100.),
+                                           _L("The best pressure advance of this test, empty to leave it out."),
+                                           t.pa >= 0. ? wxString::FromCDouble(t.pa) : wxString()));
+        }
+        finish_layout(_L("Save to filament"));
+    }
+
+protected:
+    bool generate() override
+    {
+        std::vector<AdaptivePAPoint> points;
+        std::map<double, int>        per_accel;
+        for (size_t i = 0; i < m_tests.size(); ++ i) {
+            const wxString name = format_wxstr(_L("Test %1%"), m_ids[i]);
+            m_tests[i].pa = -1.;
+            if (m_values[i]->GetValue().Strip(wxString::both).empty())
+                continue;
+            double pa;
+            if (! get_number(m_values[i], name, pa))
+                return false;
+            if (pa < 0. || pa >= 2.) {
+                show_error(this, format_wxstr(_L("%1%: the pressure advance must be from 0 to 2."), name));
+                return false;
+            }
+            m_tests[i].pa = pa;
+            points.push_back({ pa, m_tests[i].flow, m_tests[i].acceleration });
+            ++ per_accel[m_tests[i].acceleration];
+        }
+        // The typed values stay for the results of the next print.
+        wxGetApp().app_config->set(ADAPTIVE_PA_TESTS_KEY, adaptive_pa_tests_serialize(m_tests));
+        if (points.empty()) {
+            show_error(this, _L("No value: type the best value of at least 2 tests."));
+            return false;
+        }
+        for (const auto &[accel, count] : per_accel)
+            if (count < 2) {
+                show_error(this, format_wxstr(_L("Acceleration %1% mm/s²: values for at least 2 speeds (or none), the model interpolates "
+                                                 "between the speeds of each acceleration."), accel));
+                return false;
+            }
+        DynamicPrintConfig filament = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
+        auto              *opt      = filament.option<ConfigOptionStrings>("adaptive_pressure_advance_model", true);
+        const std::string  model    = adaptive_pa_model_set_section(opt->values.empty() ? std::string() : opt->values.front(),
+                                                                    m_tests.front().nozzle, adaptive_pa_model(points));
+        opt->values.assign(std::max<size_t>(1, opt->values.size()), model);
+        load_tab_config(Preset::TYPE_FILAMENT, filament);
+        MessageDialog(this, format_wxstr(_L("Written into the filament \"%1%\" (unsaved change):"),
+                                         from_u8(wxGetApp().preset_bundle->filaments.get_edited_preset().name)) + "\n\n" + from_u8(model),
+                      _L("Adaptive pressure advance results"), wxOK | wxICON_INFORMATION).ShowModal();
+        return true;
+    }
+
+private:
+    // The nozzle of the kept calibrations (all their tests have the same one).
+    static double last_nozzle()
+    {
+        const std::vector<AdaptivePATest> tests = adaptive_pa_tests_deserialize(wxGetApp().app_config->get(ADAPTIVE_PA_TESTS_KEY));
+        return tests.empty() ? 0. : tests.front().nozzle;
+    }
+
+    std::vector<AdaptivePATest> m_tests;
+    std::vector<size_t>         m_ids;
+    std::vector<wxTextCtrl*>    m_values;
 };
 
 // ------------------------------------------------------------------------------------------------------------------------
@@ -943,11 +1319,13 @@ void show_calibration_dialog(CalibrationType type)
 {
     std::unique_ptr<CalibrationDialog> dlg;
     switch (type) {
-    case CalibrationType::Temperature:     dlg = std::make_unique<CalibrationTemperatureDialog>(); break;
-    case CalibrationType::PressureAdvance: dlg = std::make_unique<CalibrationPressureAdvanceDialog>(); break;
-    case CalibrationType::Pressure:        dlg = std::make_unique<CalibrationPressureDialog>(); break;
-    case CalibrationType::CaliFlower:      dlg = std::make_unique<CalibrationCaliFlowerDialog>(); break;
-    case CalibrationType::Ringing:         dlg = std::make_unique<CalibrationRingingDialog>(); break;
+    case CalibrationType::Temperature:       dlg = std::make_unique<CalibrationTemperatureDialog>(); break;
+    case CalibrationType::PressureAdvance:   dlg = std::make_unique<CalibrationPressureAdvanceDialog>(); break;
+    case CalibrationType::Pressure:          dlg = std::make_unique<CalibrationPressureDialog>(); break;
+    case CalibrationType::AdaptivePA:        dlg = std::make_unique<CalibrationAdaptivePADialog>(); break;
+    case CalibrationType::AdaptivePAResults: dlg = std::make_unique<CalibrationAdaptivePAResultsDialog>(); break;
+    case CalibrationType::CaliFlower:        dlg = std::make_unique<CalibrationCaliFlowerDialog>(); break;
+    case CalibrationType::Ringing:           dlg = std::make_unique<CalibrationRingingDialog>(); break;
     }
     dlg->ShowModal();
 }

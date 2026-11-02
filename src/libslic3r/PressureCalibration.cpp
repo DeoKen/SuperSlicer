@@ -4,8 +4,10 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <map>
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 
 #include "ClipperUtils.hpp"
@@ -198,6 +200,10 @@ static std::string num(double value)
 std::string pressure_calibration_object_name(const PressureCalibrationTest &test, size_t id_item)
 {
     std::string name = "PA test " + std::to_string(id_item) + " " + test.role;
+    if (test.speed > 0.)
+        name += " " + num(test.speed) + " mm/s";
+    if (test.acceleration > 0.)
+        name += " " + num(test.acceleration) + " mm/s2";
     if (! test.values.empty())
         name += " " + num(test.values.front()) + " - " + num(test.values.back()) +
                 (test.values.size() > 1 ? " by " + num(test.values[1] - test.values[0]) : std::string());
@@ -210,10 +216,14 @@ std::string pressure_calibration_summary(const DynamicPrintConfig &config, const
     const double nozzle = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
     std::string  out;
     const auto   line = [&out](const std::string &text) { out += "; " + text + "\n"; };
-    line("### Pressure calibration (SuperSlicer style, Calibration menu) ###");
+    // Adaptive pressure advance calibration: the speed and acceleration of each test below.
+    const bool speed_per_test = ! tests.empty() && std::all_of(tests.begin(), tests.end(), [](const PressureCalibrationTest &t) { return t.speed > 0.; });
+    const bool accel_per_test = std::any_of(tests.begin(), tests.end(), [](const PressureCalibrationTest &t) { return t.acceleration > 0.; });
+    line(accel_per_test ? "### Adaptive pressure advance calibration (Calibration menu) ###" :
+                          "### Pressure calibration (SuperSlicer style, Calibration menu) ###");
     line("Print settings (Ellis' defaults unless changed in the dialog):");
     if (s.ellis_bends) {
-        line(" - Print speed: " + num(s.speed) + " mm/s");
+        line(" - Print speed: " + (speed_per_test ? std::string("per test") : num(s.speed) + " mm/s"));
         line(" - Line width: " + num(s.line_ratio) + " % (" + num(nozzle * s.line_ratio / 100.) + " mm)");
         line(" - Layer count: " + std::to_string(s.layers));
         line(" - Wall count: " + std::to_string(s.wall_count) + " (open lines)");
@@ -225,7 +235,8 @@ std::string pressure_calibration_summary(const DynamicPrintConfig &config, const
     line(" - Layer height: " + num(s.layer_height) + " mm");
     line(" - First layer height: " + num(s.first_layer_height) + " mm");
     line(" - First layer printing speed: " + num(s.first_layer_speed) + " mm/s");
-    line(" - Acceleration: " + (s.acceleration > 0. ? num(s.acceleration) + " mm/s^2" : std::string("Disabled")));
+    line(" - Acceleration: " + (accel_per_test ? std::string("per test (SET_VELOCITY_LIMIT before each wall)") :
+                                s.acceleration > 0. ? num(s.acceleration) + " mm/s^2" : std::string("Disabled")));
     line(" - Fan speed: " + std::to_string(s.fan) + " %");
     line(" - First layer fan speed: " + std::to_string(s.first_layer_fan) + " %");
     line("Printer and filament: the presets (nozzle " + num(nozzle) + " mm, temperatures, retraction, travel speed).");
@@ -236,6 +247,12 @@ std::string pressure_calibration_summary(const DynamicPrintConfig &config, const
         for (double v : t.values)
             values += (values.empty() ? "" : ", ") + num(v);
         line(" - " + std::string(t.smooth_time ? "Smooth time" : "PA") + " values (" + std::to_string(t.values.size()) + "): " + values);
+        if (t.speed > 0. || t.acceleration > 0.) {
+            const double speed = t.speed > 0. ? t.speed : s.speed;
+            line(" - Speed " + num(adaptive_pa_effective_speed(config, s, speed)) + " mm/s, acceleration " +
+                 (t.acceleration > 0. ? num(t.acceleration) + " mm/s^2" : std::string("not set")) + ", flow " +
+                 num(std::round(adaptive_pa_flow(config, s, speed) * 100.) / 100.) + " mm^3/s");
+        }
     }
     return out;
 }
@@ -349,8 +366,11 @@ size_t pressure_calibration_wall_objects(const PressureCalibrationSettings &sett
 }
 
 void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, const DynamicPrintConfig &config,
-                                      const PressureCalibrationSettings &ps, const PressureCalibrationTest &test, size_t id_item)
+                                      const PressureCalibrationSettings &ps_in, const PressureCalibrationTest &test, size_t id_item)
 {
+    PressureCalibrationSettings ps = ps_in;
+    if (test.side_length > 0.)
+        ps.side_length = test.side_length;
     if (walls.size() != pressure_calibration_wall_objects(ps, test))
         throw Slic3r::RuntimeError("pressure_calibration_build_walls: wrong number of wall objects");
     const GCodeFlavor   flavor      = config.opt_enum<GCodeFlavor>("gcode_flavor");
@@ -376,18 +396,23 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
                                  z0 + first_layer, z0 + height));
             ModelVolume *wall = object->add_volume(TriangleMesh(std::move(its)));
             wall->name = "wall " + std::to_string(k + 1) + " " + num(test.values[j]);
-            wall->config.set_key_value("region_gcode", new ConfigOptionString(
+            // Adaptive PA calibration: the acceleration of the test before every wall (the print settings write none), so that each
+            // test prints at its own acceleration whatever printed before it.
+            const std::string accel = test.acceleration > 0. ?
+                "SET_VELOCITY_LIMIT ACCEL=" + std::to_string(std::lround(test.acceleration)) + "\n" : std::string();
+            wall->config.set_key_value("region_gcode", new ConfigOptionString(accel +
                 pressure_calibration_command(flavor, test.smooth_time) + std::to_string(test.values[j]) + " ; " + test.role +
                 " wall " + std::to_string(k + 1) + "\n"));
         }
         // One open line of the width per wall and layer, at the speed whatever the small perimeter settings.
+        const double speed = test.speed > 0. ? test.speed : ps.speed;
         ModelConfig &oc = object->config;
         oc.set_key_value("perimeter_generator",                new ConfigOptionEnum<PerimeterGeneratorType>(PerimeterGeneratorType::Arachne));
         oc.set_key_value("perimeters",                         new ConfigOptionInt(1));
         oc.set_key_value("perimeter_extrusion_width",          new ConfigOptionFloatOrPercent(chevrons.width, false));
         oc.set_key_value("external_perimeter_extrusion_width", new ConfigOptionFloatOrPercent(chevrons.width, false));
-        oc.set_key_value("perimeter_speed",                    new ConfigOptionFloat(ps.speed));
-        oc.set_key_value("external_perimeter_speed",           new ConfigOptionFloatOrPercent(ps.speed, false));
+        oc.set_key_value("perimeter_speed",                    new ConfigOptionFloat(speed));
+        oc.set_key_value("external_perimeter_speed",           new ConfigOptionFloatOrPercent(speed, false));
         oc.set_key_value("small_perimeter_speed",              new ConfigOptionFloatOrPercent(100., true));
         oc.set_key_value("thin_walls",                         new ConfigOptionBool(false));
         // The left arms above the first layer lie on the frame, another object: no overhang (bridge flow, overhang speed and fan,
@@ -415,6 +440,8 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
     // CheckAll: SuperSlicer's bends, one per extrusion role.
     PressureCalibrationSettings ps = ps_in;
     ps.ellis_bends = pressure_calibration_wall_objects(ps_in, test) > 0;
+    if (test.side_length > 0.)
+        ps.side_length = test.side_length;
     ModelObject *object = &base;
     const GCodeFlavor flavor = config.opt_enum<GCodeFlavor>("gcode_flavor");
     const double      nozzle = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
@@ -664,7 +691,12 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
     oc.set_key_value("bottom_fill_pattern",            new ConfigOptionEnum<InfillPattern>(ipMonotonic));
     oc.set_key_value("thin_walls",                     new ConfigOptionBool(true));
     oc.set_key_value("bottom_solid_layers",            new ConfigOptionInt(1));
-    oc.set_key_value("brim_width",                     new ConfigOptionFloat(0));
+    // Not in SuperSlicer: a 5 mm brim on the outside of the frame for adhesion, whatever the print settings (user 2026-11-01).
+    // The objects of Ellis' walls have none.
+    oc.set_key_value("brim_width",                     new ConfigOptionFloat(PRESSURE_CALIBRATION_BRIM_WIDTH));
+    oc.set_key_value("brim_type",                      new ConfigOptionEnum<BrimType>(btOuterOnly));
+    oc.set_key_value("brim_separation",                new ConfigOptionFloat(0));
+    oc.set_key_value("brim_ears",                      new ConfigOptionBool(false));
     oc.set_key_value("fill_density",                   new ConfigOptionPercent(0));
     oc.set_key_value("gap_fill_enabled",               new ConfigOptionBool(true));
     oc.set_key_value("top_one_perimeter_type",         new ConfigOptionEnum<TopOnePerimeterType>(TopOnePerimeterType::None));
@@ -700,6 +732,190 @@ void pressure_calibration_print_config(DynamicPrintConfig &print)
     print.set_key_value("complete_objects",          new ConfigOptionBool(false));
     print.set_key_value("elefant_foot_compensation", new ConfigOptionFloat(0));
     print.set_key_value("xy_size_compensation",      new ConfigOptionFloat(0));
+}
+
+// Sorted, rounded to whole numbers, without duplicates or values of 0.
+static std::vector<double> sorted_unique(std::vector<double> values)
+{
+    for (double &v : values)
+        v = std::round(v);
+    values.erase(std::remove_if(values.begin(), values.end(), [](double v) { return v <= 0.; }), values.end());
+    std::sort(values.begin(), values.end());
+    values.erase(std::unique(values.begin(), values.end()), values.end());
+    return values;
+}
+
+std::vector<double> adaptive_pa_default_speeds(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings)
+{
+    const auto speed = [&config](const char *key) { return config.has(key) ? config.get_abs_value(key) : 0.; };
+    // 0: autospeed, no fixed speed to test.
+    const double high = adaptive_pa_effective_speed(config, settings, std::max({ speed("external_perimeter_speed"), speed("perimeter_speed"),
+        speed("infill_speed"), speed("solid_infill_speed"), speed("top_solid_infill_speed") }));
+    const double low  = std::min(speed("small_perimeter_speed"), high);
+    return sorted_unique(low > 0. ? std::vector<double>{ low, (low + high) / 2., high } : std::vector<double>{ high });
+}
+
+double adaptive_pa_speed_mode_accel(const DynamicPrintConfig &config)
+{
+    const double normal = config.opt_float("klipper_max_accel");
+    const auto  *modes  = config.option<ConfigOptionStrings>("klipper_speed_mode");
+    const std::string mode = modes != nullptr && ! modes->values.empty() ? modes->get_at(0) : std::string();
+    const char  *key    = boost::iequals(mode, "slow") ? "klipper_max_accel_slow" : boost::iequals(mode, "fast") ? "klipper_max_accel_fast" : nullptr;
+    const auto  *opt    = key != nullptr ? config.option<ConfigOptionFloatOrPercent>(key) : nullptr;
+    return opt != nullptr ? opt->get_abs_value(normal) : normal;
+}
+
+std::vector<double> adaptive_pa_default_accelerations(const DynamicPrintConfig &config)
+{
+    const double normal  = config.opt_float("klipper_max_accel");
+    const auto   mode    = [&config, normal](const char *key) {
+        const auto *opt = config.option<ConfigOptionFloatOrPercent>(key);
+        return opt != nullptr ? opt->get_abs_value(normal) : normal;
+    };
+    const double printed = config.get_abs_value("default_acceleration");
+    return sorted_unique({ 0.25 * mode("klipper_max_accel_slow"), printed > 0. ? printed : adaptive_pa_speed_mode_accel(config),
+                           mode("klipper_max_accel_fast") });
+}
+
+double adaptive_pa_side_length(const DynamicPrintConfig &config, double speed, double acceleration, double min_side)
+{
+    if (acceleration <= 0.)
+        return min_side;
+    const double cruise   = config.has("klipper_minimum_cruise_ratio") ? config.opt_float("klipper_minimum_cruise_ratio") : 0.5;
+    // The fraction of a side spent accelerating and decelerating: at most half, less with a higher minimum_cruise_ratio.
+    const double fraction = std::clamp(1. - cruise, 0.01, 0.5);
+    // Rounded up, but not for a floating point excess (1 - 0.8 is not exactly 0.2).
+    return std::max(min_side, std::ceil(speed * speed / (acceleration * fraction) - 1e-6));
+}
+
+// The cross section of a wall of the chevrons (mm³/mm).
+static double adaptive_pa_mm3_per_mm(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings)
+{
+    const double nozzle = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
+    return Flow(float(nozzle * settings.line_ratio / 100.), float(config.opt_float("layer_height")), float(nozzle)).mm3_per_mm();
+}
+
+double adaptive_pa_effective_speed(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings, double speed)
+{
+    const double mm3_per_mm = adaptive_pa_mm3_per_mm(config, settings);
+    for (double cap : { config.has("max_volumetric_speed") ? config.opt_float("max_volumetric_speed") : 0.,
+                        config.has("filament_max_volumetric_speed") ? config.opt<ConfigOptionFloats>("filament_max_volumetric_speed")->get_at(0) : 0. })
+        if (cap > 0. && mm3_per_mm > 0.)
+            speed = std::min(speed, cap / mm3_per_mm);
+    return speed;
+}
+
+double adaptive_pa_flow(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings, double speed)
+{
+    return adaptive_pa_effective_speed(config, settings, speed) * adaptive_pa_mm3_per_mm(config, settings);
+}
+
+std::string adaptive_pa_model(std::vector<AdaptivePAPoint> points)
+{
+    std::sort(points.begin(), points.end(), [](const AdaptivePAPoint &a, const AdaptivePAPoint &b) {
+        return a.acceleration < b.acceleration || (a.acceleration == b.acceleration && a.flow < b.flow); });
+    std::string out;
+    char        buf[128];
+    for (const AdaptivePAPoint &p : points) {
+        snprintf(buf, sizeof(buf), "%g,%.2f,%ld\n", std::round(p.pa * 10000.) / 10000., p.flow, std::lround(p.acceleration));
+        out += buf;
+    }
+    return out;
+}
+
+std::string adaptive_pa_nozzle_header(double nozzle)
+{
+    return "; nozzle " + num(nozzle);
+}
+
+// The model as lines, and the index of the header of the nozzle's section (lines.size() if none) and of the line after it.
+static std::vector<std::string> model_lines(const std::string &model, double nozzle, size_t &begin, size_t &end)
+{
+    std::vector<std::string> lines;
+    size_t start = 0;
+    while (start < model.size()) {
+        size_t eol = model.find('\n', start);
+        if (eol == std::string::npos)
+            eol = model.size();
+        std::string line = model.substr(start, eol - start);
+        if (! line.empty() && line.back() == '\r')
+            line.pop_back();
+        lines.emplace_back(std::move(line));
+        start = eol + 1;
+    }
+    const std::string header = adaptive_pa_nozzle_header(nozzle);
+    begin = end = lines.size();
+    for (size_t i = 0; i < lines.size(); ++ i)
+        if (lines[i] == header) {
+            begin = i;
+            for (end = i + 1; end < lines.size() && lines[end].rfind("; nozzle ", 0) != 0; ++ end) ;
+            break;
+        }
+    return lines;
+}
+
+std::string adaptive_pa_model_section(const std::string &model, double nozzle)
+{
+    size_t begin, end;
+    const std::vector<std::string> lines = model_lines(model, nozzle, begin, end);
+    std::string out;
+    for (size_t i = begin + 1; i < end; ++ i)
+        if (! lines[i].empty())
+            out += lines[i] + "\n";
+    return out;
+}
+
+std::string adaptive_pa_model_set_section(const std::string &model, double nozzle, const std::string &new_lines)
+{
+    size_t begin, end;
+    std::vector<std::string> lines = model_lines(model, nozzle, begin, end);
+    // Without the old section and the empty lines at the end.
+    lines.erase(lines.begin() + begin, lines.begin() + end);
+    while (! lines.empty() && lines.back().empty())
+        lines.pop_back();
+    std::string out;
+    for (const std::string &line : lines)
+        out += line + "\n";
+    out += adaptive_pa_nozzle_header(nozzle) + "\n" + new_lines;
+    return out;
+}
+
+std::string adaptive_pa_tests_serialize(const std::vector<AdaptivePATest> &tests)
+{
+    std::string out;
+    for (const AdaptivePATest &t : tests)
+        out += (out.empty() ? "" : ";") + num(t.speed) + "," + num(t.acceleration) + "," + num(t.flow) + "," + num(t.nozzle) + "," + num(t.pa) +
+               "," + std::to_string(t.id);
+    return out;
+}
+
+std::vector<AdaptivePATest> adaptive_pa_tests_deserialize(const std::string &text)
+{
+    std::vector<AdaptivePATest> out;
+    size_t start = 0;
+    while (start < text.size()) {
+        size_t end = text.find(';', start);
+        if (end == std::string::npos)
+            end = text.size();
+        AdaptivePATest t;
+        if (sscanf(text.substr(start, end - start).c_str(), "%lf,%lf,%lf,%lf,%lf,%d", &t.speed, &t.acceleration, &t.flow, &t.nozzle, &t.pa, &t.id) >= 4)
+            out.emplace_back(t);
+        start = end + 1;
+    }
+    return out;
+}
+
+std::vector<AdaptivePATest> adaptive_pa_tests_merge(const std::vector<AdaptivePATest> &kept, const std::vector<AdaptivePATest> &print)
+{
+    if (print.empty())
+        return kept;
+    std::vector<AdaptivePATest> out;
+    for (const AdaptivePATest &t : kept)
+        if (t.nozzle == print.front().nozzle && t.acceleration != print.front().acceleration)
+            out.emplace_back(t);
+    out.insert(out.end(), print.begin(), print.end());
+    std::stable_sort(out.begin(), out.end(), [](const AdaptivePATest &a, const AdaptivePATest &b) { return a.acceleration < b.acceleration; });
+    return out;
 }
 
 } // namespace Slic3r

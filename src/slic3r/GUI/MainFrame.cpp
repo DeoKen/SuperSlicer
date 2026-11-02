@@ -1759,6 +1759,14 @@ void MainFrame::init_menubar_as_editor()
         _L("Create SuperSlicer's pressure advance test print with Ellis' chevrons, each with its own value, sliced in the plater."),
         [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::Pressure); }, "", nullptr,
         [this]() { return plater()->printer_technology() == ptFFF; }, this);
+    append_menu_item(calibrationMenu, wxID_ANY, _L("&Adaptive pressure advance calibration") + dots,
+        _L("Create Ellis' chevrons at several speeds and accelerations (Klipper) to measure OrcaSlicer's adaptive pressure advance model."),
+        [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::AdaptivePA); }, "", nullptr,
+        [this]() { return plater()->printer_technology() == ptFFF; }, this);
+    append_menu_item(calibrationMenu, wxID_ANY, _L("Adaptive pressure advance res&ults") + dots,
+        _L("Type the best value of each test of the last adaptive pressure advance calibration: written into the filament settings."),
+        [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::AdaptivePAResults); }, "", nullptr,
+        [this]() { return plater()->printer_technology() == ptFFF; }, this);
     calibrationMenu->AppendSeparator();
     append_menu_item(calibrationMenu, wxID_ANY, _L("&Filament shrinkage calibration") + dots, _L("Load your CaliFlower model to measure the filament shrinkage."),
         [](wxCommandEvent&) { show_calibration_dialog(CalibrationType::CaliFlower); }, "", nullptr,

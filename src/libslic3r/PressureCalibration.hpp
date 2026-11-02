@@ -16,6 +16,9 @@ namespace Slic3r {
 class ModelObject;
 class ModelVolume;
 
+// The brim on the outside of the frame of every pressure calibration (mm; user 2026-11-01).
+constexpr double PRESSURE_CALIBRATION_BRIM_WIDTH = 5.;
+
 // One test (one row of the dialog).
 struct PressureCalibrationTest
 {
@@ -24,6 +27,12 @@ struct PressureCalibrationTest
     // One of pressure_calibration_roles() or "CheckAll".
     std::string         role        { "ExternalPerimeter" };
     bool                smooth_time { false };
+    // Adaptive pressure advance calibration (Ellis' chevrons only): the speed of the walls (0: the settings' speed), the
+    // acceleration set with SET_VELOCITY_LIMIT ACCEL= before each wall (0: no command) and the length of a side of the chevrons
+    // (0: the settings' side_length).
+    double              speed        { 0. };
+    double              acceleration { 0. };
+    double              side_length  { 0. };
 };
 
 // The print settings of the calibration, Ellis' defaults (his tool's DEFAULT_SETTINGS, pressure_linear_advance.js), so that it
@@ -52,7 +61,7 @@ struct PressureCalibrationSettings
 // layer when first_layer_fan is 0). Throws Slic3r::RuntimeError for invalid settings.
 void pressure_calibration_apply_settings(DynamicPrintConfig &config, const PressureCalibrationSettings &settings);
 
-// The settings and the values of the tests as G-code comments (as Ellis writes them at the top of his G-code), for a custom
+// The settings and the values (and speed, acceleration, flow) of the tests as G-code comments (as Ellis writes them at the top of his G-code), for a custom
 // G-code on the first layer, so that the G-code and the preview show how the test was made.
 std::string pressure_calibration_summary(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings,
                                          const std::vector<PressureCalibrationTest> &tests);
@@ -97,6 +106,69 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
 
 // The print settings SuperSlicer changes for the calibration.
 void pressure_calibration_print_config(DynamicPrintConfig &print);
+
+// Adaptive pressure advance calibration (OrcaSlicer's adaptive PA model, adaptive_pressure_advance_model): Ellis' chevrons once
+// per speed and acceleration, Klipper only. Orca's recommendation: the external perimeter, perimeter and fastest infill speeds, at
+// the slowest and fastest print accelerations.
+
+// The default speeds (mm/s, sorted, without duplicates; user 2026-11-01): the small perimeter speed (the slowest walls), the fastest
+// speed of the print settings (perimeters, infill, solid infill, top solid infill) capped by the max volumetric speeds, and
+// halfway between them. config: with the settings applied.
+std::vector<double> adaptive_pa_default_speeds(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings);
+// Klipper's max accel of the filament's speed mode (klipper_max_accel_slow / _fast, else klipper_max_accel): what the printer
+// prints at without an acceleration command.
+double adaptive_pa_speed_mode_accel(const DynamicPrintConfig &config);
+// The default accelerations (mm/s², sorted, without duplicates; user 2026-11-01): 25 % of the Klipper max accel of the slow speed
+// mode, the acceleration the filament prints at (the default acceleration, 0: adaptive_pa_speed_mode_accel()) and the Klipper
+// max accel of the fast speed mode.
+std::vector<double> adaptive_pa_default_accelerations(const DynamicPrintConfig &config);
+
+// The length of a side of the chevrons (mm) for a test at speed and acceleration, so that at least half of each side prints at
+// the speed: the acceleration and deceleration take speed² / acceleration, and Klipper's minimum_cruise_ratio
+// (klipper_minimum_cruise_ratio) keeps that fraction of a move at the top speed. At least min_side, rounded up to 1 mm.
+double adaptive_pa_side_length(const DynamicPrintConfig &config, double speed, double acceleration, double min_side);
+
+// The speed the walls of the chevrons print at (mm/s): speed capped by the max volumetric speeds (print and filament), as the
+// G-code generator does. config: with the settings applied.
+double adaptive_pa_effective_speed(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings, double speed);
+// The volumetric flow of the walls at speed (mm³/s), the effective speed times the cross section of a line of the settings'
+// width and layer height. This is the flow the adaptive PA model takes.
+double adaptive_pa_flow(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings, double speed);
+
+// One measurement of the model: the best pressure advance at a flow (mm³/s) and acceleration (mm/s²).
+struct AdaptivePAPoint
+{
+    double pa;
+    double flow;
+    double acceleration;
+};
+// The model text, one "PA,flow,acceleration" line per point (Orca's format), sorted by acceleration and flow.
+std::string adaptive_pa_model(std::vector<AdaptivePAPoint> points);
+
+// The model of a filament holds one section per nozzle diameter (user 2026-11-01: the filaments are shared by the 0.25 to 0.6 mm
+// nozzles), each headed by "; nozzle <diameter>" with Orca's lines under it. Lines before the first header belong to no nozzle.
+std::string adaptive_pa_nozzle_header(double nozzle);
+// The lines of the section of a nozzle, empty if there is none.
+std::string adaptive_pa_model_section(const std::string &model, double nozzle);
+// The model with the section of a nozzle replaced by lines (added at the end if it had none), the other sections as they were.
+std::string adaptive_pa_model_set_section(const std::string &model, double nozzle, const std::string &lines);
+
+// The tests of the calibration (speed, acceleration, flow, nozzle, the best value typed in the results, -1: none, and the number on
+// its frame, -1: unknown), kept between the calibration prints (one per acceleration) and the results, as text.
+struct AdaptivePATest
+{
+    double speed;
+    double acceleration;
+    double flow;
+    double nozzle;
+    double pa { -1. };
+    int    id { -1 };
+};
+std::string                 adaptive_pa_tests_serialize(const std::vector<AdaptivePATest> &tests);
+std::vector<AdaptivePATest> adaptive_pa_tests_deserialize(const std::string &text);
+// The kept tests with the tests of one print (all of one acceleration) instead of the kept ones of that acceleration, sorted by
+// acceleration (the order of the prints' test numbers kept); all the kept ones replaced if they are for another nozzle.
+std::vector<AdaptivePATest> adaptive_pa_tests_merge(const std::vector<AdaptivePATest> &kept, const std::vector<AdaptivePATest> &print);
 
 } // namespace Slic3r
 

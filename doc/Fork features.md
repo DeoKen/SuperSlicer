@@ -61,6 +61,7 @@ Contents:
 37. [Stock bug fixes](#37-stock-bug-fixes)
 38. [Per region G-code](#38-per-region-g-code)
 40. [The other form of a value or percentage next to the field](#40-the-other-form-of-a-value-or-percentage-next-to-the-field)
+45. [Adaptive pressure advance calibration](#45-adaptive-pressure-advance-calibration)
 25. [Testing](#testing)
 
 ---
@@ -1336,8 +1337,9 @@ without the per-part accelerations (see below).
   - Frame on the first layer, as Ellis' anchor frame: borders of SuperSlicer's 4 first layer lines, without SuperSlicer's
     extra (line width - spacing) on Ellis' frame: with it PrusaSlicer printed a 0.11 mm line of gap fill in the middle of every
     border on the user's profile (0.4 mm lines, 0.25 mm first layer; 2026-10-26). (A "Frame lines" field
-    of 1-50 lines, 2026-10-25, was removed the same day: the wider borders printed inconsistently; the user adds a brim for
-    adhesion). Sized from the chevrons / bends and the numbers, so it follows the number of values, the right side a solid
+    of 1-50 lines, 2026-10-25, was removed the same day: the wider borders printed inconsistently.) For adhesion a 5 mm
+    brim on the outside of the frame (user 2026-11-01; object settings: outer brim only, no gap, no ears, whatever the print
+    profile's brim settings; none inside the frame or around the walls), on every pressure calibration (also the adaptive one). Sized from the chevrons / bends and the numbers, so it follows the number of values, the right side a solid
     tab under the numbers, with the test number, 2 mm between the numbers and both edges of the tab (SuperSlicer: a nozzle
     on the inner side, none on the outer one; user 2026-10-25: the tab was too small). Around Ellis' chevrons the frame is
     one solid part (`frame`, the outer rectangle without the inner one). On the first layer the left border and the tab
@@ -1364,7 +1366,7 @@ without the per-part accelerations (see below).
   - The object's per region G-code sets the first layer value for the base, borders and numbers on all their layers (the
     numbers are two layers high; SuperSlicer sets it on the first layer only, so their second layer printed with the last
     bend's value, Ellis prints the numbers with the start value). Object settings as SuperSlicer: monotonic bottom, thin
-    walls, 1 bottom / 0 top layers, no brim, 0% infill, gap fill, no single perimeter on top / first layer, rear seam; and,
+    walls, 1 bottom / 0 top layers, a 5 mm outer brim (not in SuperSlicer, see above), 0% infill, gap fill, no single perimeter on top / first layer, rear seam; and,
     not in SuperSlicer, classic perimeters (Arachne widened the inner loop and added a tiny loop with its own retract /
     travel 1 mm from the corner of every bend). Print settings as SuperSlicer: no avoid crossing perimeters, no sequential
     printing, no elephant foot / XY size compensation. Arranged, then sliced (CheckAll is not sliced: one bend per role, the
@@ -1412,7 +1414,8 @@ the settings written into a config, the first layer fan refused unless 0 or the 
 solid ring around the chevrons, on the first layer the ends of the lines half a line width into the left border and the tab,
 above it the left arms to its outer edge and the right ones a border width into the tab, short of the numbers, one piece with the walls, the numbers on the tab 2 mm from both its edges (also with SuperSlicer's bends);
 fewer than 2 values refused; no gap fill in the frame with 0.4 mm lines, a 0.2 / 0.25 / 0.3 mm first layer and 2 or 4
-perimeters); the like for
+perimeters; the 5 mm brim on the first layer only, 5 mm out on every side of the frame, also with a print profile without
+brim or with an inner brim, gap and ears); the like for
 like comparison with Ellis: `fff_print_tests "[.PACompare]"` with `PA_CMP_INI` (print|filament|printer .ini) and
 `PA_CMP_OUT` (folder) writes both G-codes, `python Stuff/compare_pa.py <ellis> <superslicer>` compares them; `fff_print_tests "[PAPattern]"` (one pattern per value and reset, header / start G-code placeholders /
 temperatures / speed mode / settings block, extrusions on the bed and E from the cross section, read by the G-code
@@ -1992,6 +1995,92 @@ countersink's hole (left floating by the cut) gets bridge layers from 5.2 mm, an
 the test draws the layers 3.8 to 6 mm there (slices, extrusions by role). Manual: slice `Stuff/overhang_test.stl` with the
 user's profile and the option on, look at the bridge layers in the preview (Feature type) above the counterbores and the
 Y 70 row; with it off, the warning.
+
+## 45. Adaptive pressure advance calibration
+
+**What it does.** Measures the data for OrcaSlicer's adaptive pressure advance (Orca: the pressure advance needed gets
+lower as the volumetric flow and the acceleration get higher; a model of measured points gives the value for each
+feature). Step 1 of the port (user, 2026-11-01): the calibration and the model setting. The model is not used in the G-code
+yet: the adaptive pressure advance itself is the next step. Klipper only.
+
+- **Calibration > Adaptive pressure advance calibration**: the pressure calibration with Ellis' chevrons (section 30) once
+  per speed, all at one acceleration chosen in a drop-down: one print per acceleration (user, 2026-11-01; a complete set of
+  speeds for each acceleration, which the model needs). Fields: start / end / increment of the values, default 0.01 / 0.05 /
+  0.001 (41 chevrons around the user's 0.02 to 0.03, a frame about 140 mm long; the 0.001 increment as Orca recommends, user
+  2026-11-01; Ellis: 0.001 to 0.002 for a fine pass after a coarse one, his tool's default 0 / 0.08 / 0.005), Ellis' settings (line width 100 % of the nozzle, layers, walls,
+  spacing, first layer speed, fan), the minimum side length (default 20 mm, Ellis 30), the layer and first layer height of
+  the print settings (user, 2026-11-01: the flow at the layer height the nozzle prints at; Ellis: 0.2 / 0.25), the speeds and
+  the acceleration:
+  - Speeds (mm/s), default (user, 2026-11-01; Orca's own rule, the external perimeter / perimeter / fastest infill speeds,
+    gave a single speed with the user's profiles): the small perimeter speed (the slowest walls), the fastest speed of the
+    print settings (perimeter, external perimeter, infill, solid infill, top solid infill) capped by the max volumetric speeds,
+    and halfway between, rounded, `adaptive_pa_default_speeds()`. E.g. `.2 .4voron - slow`: 15, 58, 100; `.2 .4voron`: 30,
+    165, 300. Orca recommends 50 to 200-250 mm/s; the user keeps 15 to 300 with the sides made long enough (below).
+  - Acceleration (mm/s²), a drop-down (a value can be typed) of 25 % of the Klipper max accel of the Slow speed mode, the
+    acceleration the filament prints at (the default acceleration, 0: the Klipper max accel of the filament's speed mode,
+    `adaptive_pa_speed_mode_accel()`) and the Klipper max accel of the Fast speed mode, `adaptive_pa_default_accelerations()`.
+    The user's Voron: 1500, 6000 (Slow filaments) or 28000 (Normal), 38000. Orca: not above the acceleration the input
+    shaper calibration recommends (the smoothing rounds the corners); the user keeps the Fast one (2026-11-01).
+  - Test numbers over the prints (user, 2026-11-01): the first acceleration of the drop-down 0-2, the second 3-5, the third
+    6-8 (with 3 speeds), whatever the order of the prints; a typed acceleration comes after them. The frames are numbered 0-9
+    with one digit, so at most 10 numbers.
+  - The side length of each test (`adaptive_pa_side_length()`, user 2026-11-01: "adjust the test lengths so it matters"):
+    long enough for at least half of each side to print at the test's speed: accelerating and decelerating take speed² /
+    acceleration, and Klipper's `minimum_cruise_ratio` (`klipper_minimum_cruise_ratio`, Printer > Machine limits, the user's
+    0.5) keeps that fraction of a move at the top speed, so the side is speed² / (acceleration x min(1 - ratio, 0.5)), at least
+    the minimum, rounded up. With Ellis' 30 mm sides a 300 mm/s test at 1500 mm/s² only reached about 150 mm/s and its flow
+    would have been wrong. E.g. 300 mm/s at 1500: 120 mm, at 6000: 30 mm; 15 to 100 mm/s at 28000 or more: 20 mm. The frame
+    grows with the chevrons.
+  - Each wall prints at its test's speed (object setting of the wall objects) with `SET_VELOCITY_LIMIT ACCEL=<acceleration>`
+    before its `SET_PRESSURE_ADVANCE` in its per region G-code (section 38); the print settings write no acceleration (default
+    acceleration 0). The filament end G-code (unsaved change) starts with `SET_VELOCITY_LIMIT ACCEL=<Klipper max accel of the
+    filament's speed mode>` so the printer gets its acceleration back (Klipper keeps the last `SET_VELOCITY_LIMIT` until a
+    restart).
+  - The flow of a test: the speed, capped by the max volumetric speeds (print and filament) as the G-code generator does,
+    times the cross section of a wall (`Flow(width, layer height)`: the line width and layer height of the dialog). A test
+    that is capped is listed before Generate (continue or cancel); its flow is the capped one.
+  - The object names and the summary at the start of the first layer show the speed, acceleration and flow of each test
+    (`; - Speed 150 mm/s, acceleration 4000 mm/s^2, flow 10.71 mm^3/s`).
+  - The tests (speed, acceleration, flow, nozzle, typed value, number) and the filament are kept in PrusaSlicer.ini
+    (`calibration_adaptive_pa_tests`, `calibration_adaptive_pa_filament`): a print replaces the kept tests of its acceleration
+    and keeps the others (`adaptive_pa_tests_merge()`); another filament or nozzle starts over. The dialog lists the
+    accelerations kept.
+- **Calibration > Adaptive pressure advance results**: one field per kept test, sorted by acceleration ("Test 4: 6000 mm/s²,
+  58 mm/s, flow 4.14 mm³/s"); type the best value of each, or leave it empty when no value is clearly better (Orca: usual at
+  low flow and acceleration, where several values are good; its model then uses the value of the lowest flow measured, as it
+  clamps instead of extrapolating, so an empty slow test takes the next faster test's value). Each acceleration needs at
+  least 2 values (Orca's model interpolates over the flow per acceleration and ignores an acceleration with one point). "Save
+  to filament" keeps the typed values for the next print's results and writes the section of the calibrated nozzle in
+  `adaptive_pressure_advance_model` of the selected filament (the other nozzles' sections stay) as an unsaved change, then
+  shows the result. Select the calibrated filament and revert the calibration's unsaved changes first, then save the filament.
+- Chart of the default tests with the user's profiles: `Stuff/Adaptive PA calibration tests.html` (not in the repository).
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `adaptive_pressure_advance_model` | Filament > Advanced > Adaptive pressure advance (per filament) | empty | Orca's name and line format: one `PA,flow,acceleration` line per measurement, e.g. `0.04,3.96,3000`, in one section per nozzle diameter headed `; nozzle 0.4` (user, 2026-11-01: the filaments are shared by the 0.25 to 0.6 mm nozzles; Orca has no nozzle check). Lines before the first header belong to no nozzle (e.g. pasted from Orca). Not used by the G-code yet. |
+
+**How it works.** `libslic3r/PressureCalibration.cpp`: `PressureCalibrationTest::speed` / `acceleration` / `side_length` (0 =
+as before, so the pressure calibration is unchanged), `adaptive_pa_*()` (default speeds / accelerations, side length,
+effective speed, flow, kept tests, model
+lines sorted by acceleration then flow, PA rounded to 4 decimals, flow to 2; `adaptive_pa_model_section()` /
+`adaptive_pa_model_set_section()` for the nozzle sections). GUI: `CalibrationAdaptivePADialog` and
+`CalibrationAdaptivePAResultsDialog` in `GUI/CalibrationDialogs.cpp`; the loading of the pressure calibration is shared
+(`load_pressure_calibration()`). Klipper (checked in `klippy/kinematics/extruder.py`, 0cee841): `SET_PRESSURE_ADVANCE
+ADVANCE=` takes effect at the queued move without a pause, unless the smoothing changes, which includes switching between 0
+and a value (then it flushes the move queue): relevant for the adaptive PA step.
+
+**How to test.** `fff_print_tests "[AdaptivePACalibration]"`: default speeds (small perimeter speed in mm/s and in %, the
+fastest of the % speeds, capped by the max volumetric speed, one value when all are the same), default accelerations (the
+user's Voron with the speed mode Slow / Off / Fast, the default acceleration in mm/s² and %, slow / fast in %), the nozzle
+sections (added, replaced, others kept, pasted lines kept, CRLF), the side length (minimum_cruise_ratio 0.5 / 0.8 / 0, the
+minimum, no rounding up of a floating point excess), the kept tests per acceleration (added, replaced, another nozzle),
+flow = speed x cross section and capped by the lower max volumetric speed, model lines, the tests kept as text with the
+typed value and number; a sliced test with 60 mm sides: the longest wall 60 mm longer than with Ellis' 30 mm; a sliced test at 150 mm/s and 4000 mm/s²: the walls at 150 mm/s from the third
+layer, `SET_VELOCITY_LIMIT ACCEL=4000` right before every wall's value, no `M204`, the summary. Manual: Calibration >
+Adaptive pressure advance calibration with the user's print profile: the speeds and the acceleration drop-down as above,
+Generate with each acceleration: frames numbered 0-2 / 3-5 / 6-8, the fast tests at low acceleration with longer chevrons, Preview: G-code panel shows the acceleration and value before each wall,
+Filament > Custom G-code: the end G-code starts with the restore; Calibration > Adaptive pressure advance results: type
+values, Save: Filament > Advanced shows the lines.
 
 ---
 

@@ -526,7 +526,7 @@ static std::vector<std::string> s_Preset_filament_options {
     "temperature", "idle_temperature", "first_layer_temperature", "bed_temperature", "first_layer_bed_temperature", "fan_always_on", "cooling", "cooling_slowdown_logic", "klipper_speed_mode",
     "cooling_perimeter_transition_distance", "min_fan_speed",
     "max_fan_speed", "bridge_fan_speed", "internal_bridge_fan_speed", "additional_cooling_fan_speed", "default_fan_speed", "perimeter_fan_speed", "external_perimeter_fan_speed", "overhangs_fan_speed", "infill_fan_speed", "solid_infill_fan_speed", "top_fan_speed", "gap_fill_fan_speed", "support_material_fan_speed", "support_material_interface_fan_speed", "disable_fan_first_layers", "full_fan_speed_layer", "fan_below_layer_time", "slowdown_below_layer_time", "min_print_speed",
-    "custom_parameters_filament", "start_filament_gcode", "end_filament_gcode", "enable_dynamic_fan_speeds", "chamber_temperature", "chamber_minimal_temperature",
+    "custom_parameters_filament", "adaptive_pressure_advance_model", "start_filament_gcode", "end_filament_gcode", "enable_dynamic_fan_speeds", "chamber_temperature", "chamber_minimal_temperature",
     "overhangs_dynamic_fan_speed",
     // Retract overrides
     "filament_retract_length", "filament_retract_lift", "filament_retract_lift_above", "filament_retract_lift_below", "filament_retract_speed", "filament_deretract_speed", "filament_retract_restart_extra", "filament_retract_before_travel",

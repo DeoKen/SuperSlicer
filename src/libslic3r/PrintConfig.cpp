@@ -4016,6 +4016,20 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionStrings { "" });
 
+    // OrcaSlicer's adaptive pressure advance model (same name and format), filled by Calibration > Adaptive pressure advance.
+    def = this->add("adaptive_pressure_advance_model", coStrings);
+    def->label = L("Adaptive pressure advance measurements");
+    def->tooltip = L("Sets of pressure advance (PA) values and the volumetric flow speeds (mm³/s) and accelerations (mm/s²) they "
+                     "were measured at, separated by a comma, one set per line, as in OrcaSlicer. For example\n"
+                     "0.04,3.96,3000\n0.033,3.96,10000\n0.029,7.91,3000\n0.026,7.91,10000\n\n"
+                     "Calibration > Adaptive pressure advance prints the test (Ellis' chevrons at several speeds and accelerations) "
+                     "and, from the best value of each test, writes these lines.");
+    def->multiline = true;
+    def->full_width = true;
+    def->height = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionStrings { "" });
+
     def = this->add("start_filament_gcode", coStrings);
     def->label = L("Start G-code");
     def->tooltip = L("This start procedure is inserted at the beginning, after any printer start gcode (and "

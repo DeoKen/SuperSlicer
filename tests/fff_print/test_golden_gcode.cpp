@@ -48,6 +48,7 @@ const std::vector<std::string> added_config_keys {
     "overhangs_dynamic_", "overhangs_speed", "overhangs_graph_range", "overhangs_threshold", "overhangs_hysteresis",
     "overhangs_max_slope", "overhangs_bridge_threshold", "floating_hole_bridges",
     "scarf_seam_not_near_overhangs", "scarf_seam_overhang_distance",
+    "adaptive_pressure_advance_model",
 };
 
 // Config keys of stock PrusaSlicer removed by this fork, skipped in the reference files.

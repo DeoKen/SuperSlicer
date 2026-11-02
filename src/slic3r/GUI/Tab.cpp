@@ -2613,6 +2613,10 @@ void TabFilament::build()
         optgroup = page->new_optgroup(L("Shrinkage compensation"));
         append_labelled_line(optgroup, L("Shrinkage compensation"), { { "filament_shrinkage_compensation_xy", L("XY") }, { "filament_shrinkage_compensation_z", L("Z") } });
 
+        // Filled by Calibration > Adaptive pressure advance (results).
+        optgroup = page->new_optgroup(L("Adaptive pressure advance"));
+        optgroup->append_single_option_line("adaptive_pressure_advance_model");
+
         optgroup = page->new_optgroup(L("Wipe tower parameters"));
         optgroup->append_single_option_line("filament_minimal_purge_on_wipe_tower");
 

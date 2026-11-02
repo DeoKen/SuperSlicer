@@ -26,6 +26,9 @@ enum class CalibrationType {
     Temperature,
     PressureAdvance,
     Pressure,
+    // Adaptive pressure advance: the test print, and the results into the filament settings.
+    AdaptivePA,
+    AdaptivePAResults,
     CaliFlower,
     Ringing,
 };
@@ -46,8 +49,8 @@ protected:
     wxComboBox* add_combo(const wxString &label, const wxString &tooltip, const std::vector<wxString> &choices, const wxString &value);
     // A number field, or a wide one (wide: file paths).
     wxTextCtrl* add_text(const wxString &label, const wxString &tooltip, const wxString &value, bool wide = false);
-    // Call at the end of the derived constructor.
-    void        finish_layout();
+    // Call at the end of the derived constructor. ok_label: the label of the button that calls generate(), empty: "Generate".
+    void        finish_layout(const wxString &ok_label = wxEmptyString);
     // Value of a combo box or a text field, also with a decimal comma; false and an error message if it isn't a number.
     bool        get_number(wxWindow *field, const wxString &label, double &value);
 

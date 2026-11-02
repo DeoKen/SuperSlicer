@@ -972,6 +972,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,      seam_gap_distance))
     ((ConfigOptionString,              custom_parameters_printer))
     ((ConfigOptionString,              start_gcode))
+    ((ConfigOptionStrings,             adaptive_pressure_advance_model))
     ((ConfigOptionStrings,             start_filament_gcode))
     ((ConfigOptionStrings,             custom_parameters_filament))
     ((ConfigOptionBool,                single_extruder_multi_material))

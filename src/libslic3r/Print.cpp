@@ -222,6 +222,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "standby_temperature_delta",
         "start_gcode",
         "start_filament_gcode",
+        "adaptive_pressure_advance_model",
         "custom_parameters_filament",
         "custom_parameters_printer",
         "toolchange_gcode",
