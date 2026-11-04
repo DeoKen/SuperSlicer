@@ -2000,8 +2000,8 @@ Y 70 row; with it off, the warning.
 
 **What it does.** Measures the data for OrcaSlicer's adaptive pressure advance (Orca: the pressure advance needed gets
 lower as the volumetric flow and the acceleration get higher; a model of measured points gives the value for each
-feature). Step 1 of the port (user, 2026-11-01): the calibration and the model setting. The model is not used in the G-code
-yet: the adaptive pressure advance itself is the next step. Klipper only.
+feature). Step 1 of the port (user, 2026-11-01): the calibration and the model setting; the G-code uses the model since step 2
+(section 46). Klipper only.
 
 - **Calibration > Adaptive pressure advance calibration**: the pressure calibration with Ellis' chevrons (section 30) once
   per speed, all at one acceleration chosen in a drop-down: one print per acceleration (user, 2026-11-01; a complete set of
@@ -2054,10 +2054,12 @@ yet: the adaptive pressure advance itself is the next step. Klipper only.
   `adaptive_pressure_advance_model` of the selected filament (the other nozzles' sections stay) as an unsaved change, then
   shows the result. Select the calibrated filament and revert the calibration's unsaved changes first, then save the filament.
 - Chart of the default tests with the user's profiles: `Stuff/Adaptive PA calibration tests.html` (not in the repository).
+- Both calibrations (this one and the pressure calibration, section 30) turn the filament's pressure advance and adaptive
+  pressure advance (section 46) off as unsaved changes: the tests set their own values.
 
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
-| `adaptive_pressure_advance_model` | Filament > Advanced > Adaptive pressure advance (per filament) | empty | Orca's name and line format: one `PA,flow,acceleration` line per measurement, e.g. `0.04,3.96,3000`, in one section per nozzle diameter headed `; nozzle 0.4` (user, 2026-11-01: the filaments are shared by the 0.25 to 0.6 mm nozzles; Orca has no nozzle check). Lines before the first header belong to no nozzle (e.g. pasted from Orca). Not used by the G-code yet. |
+| `adaptive_pressure_advance_model` | Filament > Advanced > Adaptive pressure advance (per filament) | empty | Orca's name and line format: one `PA,flow,acceleration` line per measurement, e.g. `0.04,3.96,3000`, in one section per nozzle diameter headed `; nozzle 0.4` (user, 2026-11-01: the filaments are shared by the 0.25 to 0.6 mm nozzles; Orca has no nozzle check). Lines before the first header belong to no nozzle (e.g. pasted from Orca). Used by the adaptive pressure advance (section 46). |
 
 **How it works.** `libslic3r/PressureCalibration.cpp`: `PressureCalibrationTest::speed` / `acceleration` / `side_length` (0 =
 as before, so the pressure calibration is unchanged), `adaptive_pa_*()` (default speeds / accelerations, side length,
@@ -2081,6 +2083,63 @@ Adaptive pressure advance calibration with the user's print profile: the speeds 
 Generate with each acceleration: frames numbered 0-2 / 3-5 / 6-8, the fast tests at low acceleration with longer chevrons, Preview: G-code panel shows the acceleration and value before each wall,
 Filament > Custom G-code: the end G-code starts with the restore; Calibration > Adaptive pressure advance results: type
 values, Save: Filament > Advanced shows the lines.
+
+## 46. Pressure advance and adaptive pressure advance
+
+**What it does.** OrcaSlicer's pressure advance options (same names and meaning; read in OrcaSlicer b5517b6). Klipper only.
+- Pressure advance per filament: `SET_PRESSURE_ADVANCE ADVANCE=<value>` after the filament start G-code, at the start of the
+  print and at every tool change (as Orca), so it wins over a `SET_PRESSURE_ADVANCE` in the filament start G-code (user,
+  2026-11-02).
+- Adaptive pressure advance (Orca, user 2026-11-01): the pressure advance needed gets lower as the volumetric flow and the
+  acceleration get higher. For every extrusion entity (a loop, a path, each infill line) and at every role change inside one,
+  the value comes from the measurements of section 45 at the flow it really prints at and its acceleration, and is written
+  before its first extrusion when it changes. The main model only (user, 2026-11-01): no Orca "static pressure advance for
+  bridges" nor "adaptive pressure advance within features".
+  - Flow = the cross section (mm³/mm, averaged over the length of the entity as Orca) x the fastest speed of the entity up to
+    the next travel, read from the G-code after the cooling slowdown (a slowed down layer gets the value of its lower flow).
+    An overhang perimeter: the lower of the current and the next speed (Orca).
+  - Acceleration = the one the print settings write for it (first layer, per feature...); default acceleration 0 (no
+    acceleration commands): the Klipper max accel of the filament's speed mode (section 22), as the calibration. It is only
+    used to pick the value: no acceleration command is written.
+  - The model as Orca's: per measured acceleration a PCHIP curve over the flow (accelerations with a single point ignored),
+    then a PCHIP over the accelerations; outside of the measurements the nearest measured value (no extrapolation); rounded to
+    3 decimals. Points with the same flow and acceleration are averaged (Orca would divide by 0).
+  - The measurements of the printer's nozzle (`; nozzle 0.4` section), else the lines before the first section (e.g. pasted
+    from Orca) (user, 2026-11-02). None, or a wrong line: a slicing warning and the pressure advance value only.
+  - Never 0 in the middle of the print (Klipper flushes its move queue when the smoothing switches between 0 and a value,
+    section 45): a 0 from the model gives the pressure advance value instead (nothing when that is 0 too).
+  - Not in spiral vase mode (Orca); the calibrations turn both options off as unsaved changes (section 45).
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `enable_pressure_advance` | Filament > Advanced > Pressure advance, "Enable" (per filament) | off | Write the pressure advance value (off: nothing is written, the printer keeps its own value) |
+| `pressure_advance` | same line, "Value" | 0.02 (Orca) | The value (s); with adaptive pressure advance the value at tool changes and the fallback |
+| `adaptive_pressure_advance` | Filament > Advanced > Pressure advance | off | Adaptive pressure advance; needs `enable_pressure_advance` |
+| `adaptive_pressure_advance_model` | same group | empty | The measurements (section 45) |
+
+Defaults off: G-code as stock. `pressure_advance` was an ignored obsolete key of PrusaSlicer (old Slic3r); it is read again.
+
+**How it works.** `GCodeGenerator::_extrude()` writes Orca's tag `; PA_CHANGE:T<extruder> MM3MM:<cross section> ACCEL:<acceleration>
+BR:<bridge> RC:<role change> OV:<overhang perimeter>` right before the speed of the first extrusion of each entity
+(`extrude_smooth_path()` sets the average cross section) and at a role change. `GCode/AdaptivePA.cpp` (`AdaptivePAProcessor`, a
+filter of the layer pipeline after the cooling buffer and the fan mover, as Orca) looks ahead for the speed (Orca's rules:
+`G1 F` lines and the F of the travel when the cooling buffer dropped the extrusion's own; up to the first travel after an
+extrusion, a wipe, or the next tag with a role change; arcs count as extrusions) and replaces the tag by `SET_PRESSURE_ADVANCE`
+when the value changes. It reads every `SET_PRESSURE_ADVANCE` of the G-code (tool changes, custom G-code), so it knows the
+printer's value (instead of Orca's `resetPreviousPA()`). With "Verbose G-code" the tags stay and a `; APA speed ..., flow ...,
+acceleration ..., PA ...` line follows each. The static value: `filament_pressure_advance()` in `set_extruder()`.
+
+**How to test.** `fff_print_tests "[AdaptivePA]"`: PCHIP against values computed by hand with Orca's formulas, monotone, the
+same flow averaged; the model (over flow, over acceleration, clamped, rounded, one acceleration, a single point ignored,
+headers / empty lines / spaces / Orca's zero placeholder skipped, errors); the model lines of a nozzle; the processor (per
+island, only changes, the fastest speed up to the travel, arcs, the travel's feedrate, the acceleration, `SET_PRESSURE_ADVANCE`
+of the G-code known, state kept between layers, never 0, overhang perimeter, comments); sliced: off = no command, the value once
+after the filament start G-code, nothing for Marlin, slow walls / fast infill get the two values, a cooling slowdown changes
+the infill's value, the acceleration (speed mode Slow 50 %, per feature), no measurements for the nozzle, spiral vase. Manual
+(done 2026-11-02 with `.2 .4voron - slow` / `Voron_v2_350_Rapido 0.4 AWD` / `ABS-Sparta3D-slow` and a test model): the G-code
+equals the one without pressure advance except the `SET_PRESSURE_ADVANCE` lines; values 0.022 to 0.03 by feature. In the
+app: Filament > Advanced > Pressure advance, the value and the adaptive option greyed while "Enable" is off; Preview, G-code
+panel: `SET_PRESSURE_ADVANCE` before the features.
 
 ---
 

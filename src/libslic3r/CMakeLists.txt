@@ -231,6 +231,8 @@ set(SLIC3R_SOURCES
     GCode/PressureAdvancePattern.cpp
     GCode/PressureAdvancePattern.hpp
     GCode/FanMover.cpp
+    GCode/AdaptivePA.cpp
+    GCode/AdaptivePA.hpp
     GCode/FanMover.hpp
     GCode/SmallAreaFlowCompensation.cpp
     GCode/SmallAreaFlowCompensation.hpp

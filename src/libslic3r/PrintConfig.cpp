@@ -4016,6 +4016,37 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionStrings { "" });
 
+    // OrcaSlicer's pressure advance options (same names and meaning), Klipper only (doc section 46).
+    def = this->add("enable_pressure_advance", coBools);
+    def->label = L("Enable pressure advance");
+    def->tooltip = L("Writes SET_PRESSURE_ADVANCE with the value below after the filament start G-code (at the start of the print and at "
+                     "every tool change), so it wins over a value set there. Klipper only. Off: nothing is written, the printer keeps "
+                     "the value of its config or of the start G-code.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBools { false });
+
+    def = this->add("pressure_advance", coFloats);
+    def->label = L("Pressure advance");
+    def->tooltip = L("Klipper's pressure advance (s). With adaptive pressure advance: the value for the tool changes and the fallback "
+                     "when the measurements give no value.");
+    def->sidetext = L("s");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloats { 0.02 });
+
+    def = this->add("adaptive_pressure_advance", coBools);
+    def->label = L("Enable adaptive pressure advance");
+    def->tooltip = L("As in OrcaSlicer: the pressure advance needed gets lower as the volumetric flow and the acceleration get higher. "
+                     "For every feature (and every island of it) the value is taken from the measurements below, at the flow the "
+                     "feature really prints at (its cross section times its speed after the cooling slowdown) and at its acceleration "
+                     "(the print settings' one; default acceleration 0: the Klipper max accel of the filament's speed mode). Between "
+                     "the measured points the value is interpolated, outside of them the nearest measured value is used. "
+                     "Uses the measurements of the printer's nozzle (\"; nozzle 0.4\" section), else the lines before the first "
+                     "section. Needs pressure advance enabled. Not in spiral vase mode.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBools { false });
+
     // OrcaSlicer's adaptive pressure advance model (same name and format), filled by Calibration > Adaptive pressure advance.
     def = this->add("adaptive_pressure_advance_model", coStrings);
     def->label = L("Adaptive pressure advance measurements");
@@ -6102,7 +6133,7 @@ static std::set<std::string> PrintConfigDef_ignore = {
     "standby_temperature", "scale", "rotate", "duplicate", "duplicate_grid",
     "start_perimeters_at_concave_points", "start_perimeters_at_non_overhang", "randomize_start",
     "seal_position", "vibration_limit", "bed_size",
-    "print_center", "g0", "threads", "pressure_advance", "wipe_tower_per_color_wipe",
+    "print_center", "g0", "threads", "wipe_tower_per_color_wipe",
     "serial_port", "serial_speed",
     // Introduced in some PrusaSlicer 2.3.1 alpha, later renamed or removed.
     "fuzzy_skin_perimeter_mode", "fuzzy_skin_shape",

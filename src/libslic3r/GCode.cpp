@@ -30,6 +30,7 @@
 #include "ExtrusionEntity.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "libslic3r/GCode/LabelObjects.hpp"
+#include "libslic3r/PressureCalibration.hpp"
 #include "libslic3r/GCode/PrintExtents.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
 #include "libslic3r/GCode/WipeTower.hpp"
@@ -1030,6 +1031,23 @@ static const char* klipper_speed_mode_letter(const std::string &mode)
     return boost::iequals(mode, "slow") ? "S" : boost::iequals(mode, "normal") ? "N" : boost::iequals(mode, "fast") ? "F" : "";
 }
 
+// Fork: the acceleration Klipper prints at without acceleration commands (default acceleration 0): the max accel of the speed
+// mode of the first extruder's filament (doc section 22), for the adaptive pressure advance (doc section 46).
+static double klipper_speed_mode_accel(const PrintConfig &config)
+{
+    const std::string &mode   = config.klipper_speed_mode.get_at(0);
+    const double       normal = config.klipper_max_accel.value;
+    return boost::iequals(mode, "slow") ? config.klipper_max_accel_slow.get_abs_value(normal) :
+           boost::iequals(mode, "fast") ? config.klipper_max_accel_fast.get_abs_value(normal) : normal;
+}
+
+// Fork: SET_PRESSURE_ADVANCE of the filament after its start G-code (doc section 46), empty when pressure advance is off.
+static std::string filament_pressure_advance(const PrintConfig &config, unsigned int extruder_id)
+{
+    return config.gcode_flavor.value == gcfKlipper && config.enable_pressure_advance.get_at(extruder_id) ?
+        AdaptivePAProcessor::set_pressure_advance(config.pressure_advance.get_at(extruder_id)) : std::string();
+}
+
 // Fork: seam placer kept in the Print between G-code exports.
 struct SeamPlacerCache
 {
@@ -1185,6 +1203,39 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
         m_fan_mover = make_unique<FanMover>(print.config().gcode_flavor.value, float(print.config().fan_speedup_time.value),
                                             print.config().use_relative_e_distances.value, print.config().fan_speedup_overhangs.value,
                                             float(print.config().fan_slowdown_min_time.value));
+
+    // Adaptive pressure advance (doc section 46): Klipper, not in spiral vase mode (as OrcaSlicer).
+    m_adaptive_pa.reset();
+    m_adaptive_pa_mm3_per_mm  = 0.;
+    m_adaptive_pa_tag_pending = false;
+    m_adaptive_pa_last_role   = GCodeExtrusionRole::None;
+    if (const PrintConfig &config = print.config(); config.gcode_flavor.value == gcfKlipper && ! config.spiral_vase.value) {
+        std::vector<AdaptivePAProcessor::Extruder> extruders(config.nozzle_diameter.size());
+        const std::vector<unsigned int>            used = print.extruders();
+        bool                                       any  = false;
+        for (size_t i = 0; i < extruders.size(); ++ i) {
+            if (! config.enable_pressure_advance.get_at(i))
+                continue;
+            extruders[i].static_pa = config.pressure_advance.get_at(i);
+            if (! config.adaptive_pressure_advance.get_at(i))
+                continue;
+            const double nozzle = config.nozzle_diameter.get_at(i);
+            std::string  error  = extruders[i].model.parse(adaptive_pa_model_for_nozzle(config.adaptive_pressure_advance_model.get_at(i), nozzle));
+            if (error.empty() && ! extruders[i].model.valid())
+                error = Slic3r::format(_u8L("no measurements for the %1% mm nozzle"), nozzle);
+            if (! error.empty()) {
+                if (std::find(used.begin(), used.end(), unsigned(i)) != used.end())
+                    print.active_step_add_warning(PrintStateBase::WarningLevel::NON_CRITICAL,
+                        Slic3r::format(_u8L("Adaptive pressure advance of extruder %1%: %2%. Its pressure advance stays %3%."),
+                                       i + 1, error, extruders[i].static_pa));
+                continue;
+            }
+            extruders[i].adaptive = true;
+            any = true;
+        }
+        if (any)
+            m_adaptive_pa = std::make_unique<AdaptivePAProcessor>(std::move(extruders), config.gcode_comments.value);
+    }
 
     if (print.config().avoid_crossing_curled_overhangs){
         this->m_avoid_crossing_curled_overhangs.init_bed_shape(get_bed_shape(print.config()));
@@ -1838,6 +1889,11 @@ void GCodeGenerator::process_layers(
             // Whole layers: the fan commands are not moved into the previous layer (as in SuperSlicer).
             return fan_mover->process_gcode(s, true);
         });
+    // Adaptive pressure advance (doc section 46), after the cooling buffer and the fan mover as in OrcaSlicer.
+    const auto adaptive_pa = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
+        [adaptive_pa = this->m_adaptive_pa.get()](std::string s) -> std::string {
+            return adaptive_pa->process_layer(std::move(s));
+        });
     const auto find_replace = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
         [find_replace = this->m_find_replace.get()](std::string s) -> std::string {
             return find_replace->process_layer(std::move(s));
@@ -1855,6 +1911,8 @@ void GCodeGenerator::process_layers(
     tbb::filter<LayerResult, std::string> pipeline_to_string = cooling;
     if (m_fan_mover)
         pipeline_to_string = pipeline_to_string & fan_mover;
+    if (m_adaptive_pa)
+        pipeline_to_string = pipeline_to_string & adaptive_pa;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
@@ -1938,6 +1996,11 @@ void GCodeGenerator::process_layers(
             // Whole layers: the fan commands are not moved into the previous layer (as in SuperSlicer).
             return fan_mover->process_gcode(s, true);
         });
+    // Adaptive pressure advance (doc section 46), after the cooling buffer and the fan mover as in OrcaSlicer.
+    const auto adaptive_pa = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
+        [adaptive_pa = this->m_adaptive_pa.get()](std::string s) -> std::string {
+            return adaptive_pa->process_layer(std::move(s));
+        });
     const auto find_replace = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
         [find_replace = this->m_find_replace.get()](std::string s) -> std::string {
             return find_replace->process_layer(std::move(s));
@@ -1955,6 +2018,8 @@ void GCodeGenerator::process_layers(
     tbb::filter<LayerResult, std::string> pipeline_to_string = cooling;
     if (m_fan_mover)
         pipeline_to_string = pipeline_to_string & fan_mover;
+    if (m_adaptive_pa)
+        pipeline_to_string = pipeline_to_string & adaptive_pa;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
@@ -3729,6 +3794,19 @@ std::string GCodeGenerator::extrude_smooth_path(
 ) {
     std::string gcode;
 
+    // Adaptive pressure advance (doc section 46): a tag before the first extrusion with the cross section averaged over the
+    // length of the path (OrcaSlicer: over a loop / multi-path).
+    if (m_adaptive_pa) {
+        double length = 0., volume = 0.;
+        for (const GCode::SmoothPathElement &el : smooth_path) {
+            const double l = Geometry::ArcWelder::path_length<double>(el.path);
+            length += l;
+            volume += l * el.path_attributes.mm3_per_mm;
+        }
+        m_adaptive_pa_mm3_per_mm  = length > 0. ? volume / length : 0.;
+        m_adaptive_pa_tag_pending = true;
+    }
+
     // Extrude along the smooth path.
     GCodeExtrusionRole last_fan_role  = GCodeExtrusionRole::None;
     EmitModifiers      emit_modifiers = EmitModifiers::create_with_disabled_emits();
@@ -4128,6 +4206,8 @@ std::string GCodeGenerator::_extrude(
     }
 
     // adjust acceleration
+    // The acceleration the path prints at, for the adaptive pressure advance.
+    double print_acceleration = 0.;
     if (default_acceleration_value(m_config) > 0) {
         // mm/s² or % of the default acceleration.
         double acceleration;
@@ -4155,7 +4235,10 @@ std::string GCodeGenerator::_extrude(
             acceleration = default_acceleration_value(m_config);
         }
         gcode += m_writer.set_print_acceleration((unsigned int)floor(acceleration + 0.5));
-    }
+        print_acceleration = floor(acceleration + 0.5);
+    } else
+        // No acceleration commands: Klipper's max accel (of the speed mode).
+        print_acceleration = klipper_speed_mode_accel(m_config);
 
     // calculate extrusion length per distance unit
     double e_per_mm = m_writer.extruder()->e_per_mm3() * path_attr.mm3_per_mm;
@@ -4296,6 +4379,22 @@ std::string GCodeGenerator::_extrude(
                 cooling_marker_setspeed_comments += ";_INTERNAL_PERIMETER" + std::to_string(*path_attr.perimeter_index);
             }
         }
+    }
+
+    // Adaptive pressure advance (doc section 46), as OrcaSlicer: a tag at the first extrusion of an entity and at a role change in
+    // it, right before its speed, replaced by SET_PRESSURE_ADVANCE (when the value changes) by AdaptivePAProcessor.
+    if (m_adaptive_pa && m_adaptive_pa->adaptive(m_writer.extruder()->id())) {
+        const GCodeExtrusionRole role        = extrusion_role_to_gcode_extrusion_role(path_attr.role);
+        const bool               role_change = role != m_adaptive_pa_last_role;
+        if (m_adaptive_pa_tag_pending || role_change) {
+            const double mm3_per_mm = m_adaptive_pa_mm3_per_mm > 0. ? m_adaptive_pa_mm3_per_mm : path_attr.mm3_per_mm;
+            // Not for an extrusion without flow.
+            if (mm3_per_mm > 0.)
+                gcode += AdaptivePAProcessor::tag(m_writer.extruder()->id(), mm3_per_mm, (unsigned int)std::max(0., print_acceleration),
+                                                  path_attr.role.is_bridge(), role_change, path_attr.role.is_bridge() && path_attr.role.is_perimeter());
+            m_adaptive_pa_last_role = role;
+        }
+        m_adaptive_pa_tag_pending = false;
     }
 
     // F is mm per minute.
@@ -4677,6 +4776,7 @@ std::string GCodeGenerator::set_extruder(unsigned int extruder_id, double print_
             check_add_eol(gcode);
         }
         gcode += m_writer.toolchange(extruder_id);
+        gcode += filament_pressure_advance(m_config, extruder_id);
         return gcode;
     }
 
@@ -4781,6 +4881,7 @@ std::string GCodeGenerator::set_extruder(unsigned int extruder_id, double print_
         gcode += this->placeholder_parser_process("start_filament_gcode", start_filament_gcode, extruder_id, &config);
         check_add_eol(gcode);
     }
+    gcode += filament_pressure_advance(m_config, extruder_id);
     // Set the new extruder to the operating temperature.
     if (m_ooze_prevention.enable)
         gcode += m_ooze_prevention.post_toolchange(*this);

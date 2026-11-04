@@ -2613,8 +2613,10 @@ void TabFilament::build()
         optgroup = page->new_optgroup(L("Shrinkage compensation"));
         append_labelled_line(optgroup, L("Shrinkage compensation"), { { "filament_shrinkage_compensation_xy", L("XY") }, { "filament_shrinkage_compensation_z", L("Z") } });
 
-        // Filled by Calibration > Adaptive pressure advance (results).
-        optgroup = page->new_optgroup(L("Adaptive pressure advance"));
+        // Pressure advance (doc section 46); the model is filled by Calibration > Adaptive pressure advance (results).
+        optgroup = page->new_optgroup(L("Pressure advance"));
+        append_labelled_line(optgroup, L("Pressure advance"), { { "enable_pressure_advance", L("Enable") }, { "pressure_advance", L("Value") } });
+        optgroup->append_single_option_line("adaptive_pressure_advance");
         optgroup->append_single_option_line("adaptive_pressure_advance_model");
 
         optgroup = page->new_optgroup(L("Wipe tower parameters"));
@@ -2789,6 +2791,11 @@ void TabFilament::toggle_options()
         bool multitool_ramming = m_config->opt_bool("filament_multitool_ramming", 0);
         toggle_option("filament_multitool_ramming_volume", multitool_ramming);
         toggle_option("filament_multitool_ramming_flow", multitool_ramming);
+
+        // Pressure advance (doc section 46): the value and the adaptive one need pressure advance enabled.
+        const bool pressure_advance = m_config->opt_bool("enable_pressure_advance", 0);
+        toggle_option("pressure_advance", pressure_advance);
+        toggle_option("adaptive_pressure_advance", pressure_advance);
     }
 
     if (m_active_page->title() == "Filament Overrides")

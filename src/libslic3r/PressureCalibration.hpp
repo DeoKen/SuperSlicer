@@ -150,6 +150,8 @@ std::string adaptive_pa_model(std::vector<AdaptivePAPoint> points);
 std::string adaptive_pa_nozzle_header(double nozzle);
 // The lines of the section of a nozzle, empty if there is none.
 std::string adaptive_pa_model_section(const std::string &model, double nozzle);
+// The model lines the G-code uses for a nozzle (doc section 46): its section, else the lines before the first section.
+std::string adaptive_pa_model_for_nozzle(const std::string &model, double nozzle);
 // The model with the section of a nozzle replaced by lines (added at the end if it had none), the other sections as they were.
 std::string adaptive_pa_model_set_section(const std::string &model, double nozzle, const std::string &lines);
 

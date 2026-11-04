@@ -26,6 +26,7 @@
 #include "PrintConfig.hpp"
 #include "Geometry/ArcWelder.hpp"
 #include "libslic3r/GCode/AvoidCrossingPerimeters.hpp"
+#include "libslic3r/GCode/AdaptivePA.hpp"
 #include "libslic3r/GCode/CoolingBuffer.hpp"
 #include "libslic3r/GCode/FindReplace.hpp"
 #include "libslic3r/GCode/GCodeWriter.hpp"
@@ -486,6 +487,13 @@ private:
     std::unique_ptr<GCodeFindReplace>   m_find_replace;
     std::unique_ptr<PressureEqualizer>  m_pressure_equalizer;
     std::unique_ptr<FanMover>           m_fan_mover;
+    // Adaptive pressure advance (doc section 46): null when no extruder uses it.
+    std::unique_ptr<AdaptivePAProcessor> m_adaptive_pa;
+    // Cross section averaged over the extrusion entity being extruded (OrcaSlicer: over a loop / multi-path), 0: none.
+    double                              m_adaptive_pa_mm3_per_mm { 0. };
+    // A PA_CHANGE tag is due before the first extrusion of the entity.
+    bool                                m_adaptive_pa_tag_pending { false };
+    GCodeExtrusionRole                  m_adaptive_pa_last_role { GCodeExtrusionRole::None };
     // Auxiliary fan (auxiliary_fan_gcode) off, empty if the printer has no auxiliary fan.
     std::string                         m_aux_fan_off_gcode;
     std::unique_ptr<GCode::WipeTowerIntegration> m_wipe_tower;

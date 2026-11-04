@@ -468,6 +468,11 @@ static bool load_pressure_calibration(wxWindow *parent, const std::vector<Pressu
     pressure_calibration_print_config(config);
     if (edit_filament)
         edit_filament(filament);
+    // The tests set their own pressure advance (per region G-code): no pressure advance of the filament (doc section 46).
+    for (const char *key : { "enable_pressure_advance", "adaptive_pressure_advance" }) {
+        auto *opt = filament.option<ConfigOptionBools>(key, true);
+        opt->values.assign(std::max<size_t>(1, opt->values.size()), 0);
+    }
     const double nozzle = nozzle_diameter(config);
     const bool   bends  = std::any_of(tests.begin(), tests.end(), [&settings](const PressureCalibrationTest &t) {
         return pressure_calibration_wall_objects(settings, t) == 0; });

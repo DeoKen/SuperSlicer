@@ -865,6 +865,23 @@ std::string adaptive_pa_model_section(const std::string &model, double nozzle)
     return out;
 }
 
+std::string adaptive_pa_model_for_nozzle(const std::string &model, double nozzle)
+{
+    if (std::string section = adaptive_pa_model_section(model, nozzle); ! section.empty())
+        return section;
+    // The lines before the first section (e.g. pasted from OrcaSlicer).
+    size_t begin, end;
+    const std::vector<std::string> lines = model_lines(model, nozzle, begin, end);
+    std::string out;
+    for (const std::string &line : lines) {
+        if (line.rfind("; nozzle ", 0) == 0)
+            break;
+        if (! line.empty())
+            out += line + "\n";
+    }
+    return out;
+}
+
 std::string adaptive_pa_model_set_section(const std::string &model, double nozzle, const std::string &new_lines)
 {
     size_t begin, end;
