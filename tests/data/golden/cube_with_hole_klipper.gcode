@@ -7264,6 +7264,7 @@ M84     ; disable motors
 ; use_firmware_retraction = 0
 ; use_relative_e_distances = 1
 ; use_volumetric_e = 0
+; used_filament_compensation = 1
 ; variable_layer_height = 1
 ; wall_distribution_count = 1
 ; wall_transition_angle = 10
