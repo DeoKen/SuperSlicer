@@ -514,18 +514,11 @@ static bool load_pressure_calibration(wxWindow *parent, const std::vector<Pressu
         if (! pressure_calibration_build(*frames.back(), config, settings, tests[id_item], id_of(id_item), resources_dir()))
             slice = false;
     }
-    // How the test was made, as comments at the start of the first layer (Ellis writes them at the top of his G-code).
-    CustomGCode::Info &custom = model.custom_gcode_per_print_z();
-    custom.mode = wxGetApp().extruders_edited_cnt() > 1 ? CustomGCode::MultiAsSingle : CustomGCode::SingleExtruder;
-    custom.gcodes.push_back({ settings.first_layer_height, CustomGCode::Custom, -1, "", pressure_calibration_summary(config, settings, tests) });
-
-    load_tab_config(Preset::TYPE_PRINT, print);
-    load_tab_config(Preset::TYPE_FILAMENT, filament);
-
-    // Arrange the frames while the objects of the walls are still the empty base plate, then the walls on their frame (same
-    // instance transformation, same coordinates). CheckAll: not sliced, so that the values can be typed in first.
-    if (placements != nullptr && placements->size() == tests.size()) {
-        // Each frame on its bed, turned if so, its outline's minimum corner at its place (user 2026-11-05: as many per plate as possible).
+    const bool placed = placements != nullptr && placements->size() == tests.size();
+    if (placed) {
+        // Each frame on its bed, turned if so, its outline's minimum corner at its place (user 2026-11-05: as many per plate as
+        // possible), then the walls on their frame, all before the plater hears of any change: it must never slice the objects
+        // of the walls while they are only the base plate (an object without layers crashed the overhangs cut, 2026-11-05).
         const BoundingBoxf bed(config.opt<ConfigOptionPoints>("bed_shape")->values);
         for (size_t id_item = 0; id_item < tests.size(); ++ id_item) {
             const CalibrationPlacement &place = (*placements)[id_item];
@@ -538,21 +531,36 @@ static bool load_pressure_calibration(wxWindow *parent, const std::vector<Pressu
             const Vec2d         target = bed.min + place.position + to_2d(s_multiple_beds.get_bed_translation(place.bed));
             inst->set_offset(inst->get_offset() + Vec3d(target.x() - bb.min.x(), target.y() - bb.min.y(), 0.));
             frames[id_item]->invalidate_bounding_box();
-        }
-        finish_calibration_project(objs, false, false);
-    } else
-        finish_calibration_project(objs, true, false);
-    for (size_t id_item = 0; id_item < tests.size(); ++ id_item)
-        if (! walls[id_item].empty()) {
             for (ModelObject *wall : walls[id_item])
-                wall->instances.front()->set_transformation(frames[id_item]->instances.front()->get_transformation());
-            pressure_calibration_build_walls(walls[id_item], config, settings, tests[id_item], id_of(id_item));
+                wall->instances.front()->set_transformation(inst->get_transformation());
+            if (! walls[id_item].empty())
+                pressure_calibration_build_walls(walls[id_item], config, settings, tests[id_item], id_of(id_item));
         }
-    if (placements != nullptr) {
-        // The beds of the plater from where the objects are.
+    }
+    // How the test was made, as comments at the start of the first layer (Ellis writes them at the top of his G-code).
+    CustomGCode::Info &custom = model.custom_gcode_per_print_z();
+    custom.mode = wxGetApp().extruders_edited_cnt() > 1 ? CustomGCode::MultiAsSingle : CustomGCode::SingleExtruder;
+    custom.gcodes.push_back({ settings.first_layer_height, CustomGCode::Custom, -1, "", pressure_calibration_summary(config, settings, tests) });
+
+    load_tab_config(Preset::TYPE_PRINT, print);
+    load_tab_config(Preset::TYPE_FILAMENT, filament);
+
+    if (placed) {
         Plater *p = wxGetApp().plater();
+        finish_calibration_project(objs, false, false);
+        // The beds of the plater from where the objects are.
         s_multiple_beds.update_shown_beds(p->model(), p->build_volume());
         p->canvas3D()->check_volumes_outside_state();
+    } else {
+        // Arrange the frames while the objects of the walls are still the empty base plate, then the walls on their frame (same
+        // instance transformation, same coordinates). CheckAll: not sliced, so that the values can be typed in first.
+        finish_calibration_project(objs, true, false);
+        for (size_t id_item = 0; id_item < tests.size(); ++ id_item)
+            if (! walls[id_item].empty()) {
+                for (ModelObject *wall : walls[id_item])
+                    wall->instances.front()->set_transformation(frames[id_item]->instances.front()->get_transformation());
+                pressure_calibration_build_walls(walls[id_item], config, settings, tests[id_item], id_of(id_item));
+            }
     }
     finish_calibration_project(objs, false, slice);
     return true;

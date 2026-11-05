@@ -1923,7 +1923,7 @@ also drives the normal bridges, so it is left unchanged); SuperSlicer's bridge m
 values are converted to -1 (G-code settings import, `build/convert_ss_bundle.py`); the user's SuperSlicer profile has
 the defaults (0, disabled, 2).
 
-**How to test.** `fff_print_tests "[OverhangsCut]"`: `tests/data/wall_round_hole.obj` (30 x 10 x 30 mm wall, 12 mm hole):
+**How to test.** `fff_print_tests "[OverhangsCut]"` (also: an object that slices to nothing gets PrusaSlicer's "No layers were detected", it crashed the cut before 2026-11-05, see below): `tests/data/wall_round_hole.obj` (30 x 10 x 30 mm wall, 12 mm hole):
 without the cut the top closes by more than 0.6 mm per layer, at 50 % (0.2 mm) by at most 0.4 mm (both sides) with a flat
 bridge over 3 mm wide; bridge max length 0 cuts to the top; the options don't change anything while the slope is 0.
 `tests/data/screw_holes.obj` (the screw hole block of `Stuff/overhang_test.py`, written by
@@ -2047,7 +2047,10 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     (one plate) packed. The preview draws the label of a frame, or only its number when the label is wider, and a colour legend
     of the accelerations. The frames go on the
     plater's beds (`s_multiple_beds`, at most 9); print them one after another. Frame sizes from
-    `pressure_calibration_frame_size()` (the frame as built, without loading the number parts). With the user's `.2 .4voron`,
+    `pressure_calibration_frame_size()` (the frame as built, without loading the number parts). The frames are placed and their
+    walls built before the plater hears of any change (2026-11-05: generating the 1500 test crashed: background slicing started
+    on the objects of the walls while they were still the bare base plate, an object without layers, and the overhangs cut
+    (section 43) read the first layer of the emptied layer list; the cut now skips an object without layers). With the user's `.2 .4voron`,
     `ABS-Sparta3D-slow` and Voron (keep-out zones in the front corners), 30 / 165 / 300 mm/s: 1500 alone or 1500 + 6000 on one
     plate, the four accelerations on two. A live estimate under the fields: tests and plates, the frame size and the larger
     ones (e.g. 1500 @ 300 mm/s), the max volumetric speed limits, and the plates drawn with every frame labelled.

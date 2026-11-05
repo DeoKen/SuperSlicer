@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -253,4 +254,16 @@ TEST_CASE("Overhangs cut: off by default, the slices are unchanged", "[Overhangs
     REQUIRE(a.size() == b.size());
     for (size_t i = 0; i < a.size(); ++ i)
         CHECK(a[i].width == b[i].width);
+}
+
+TEST_CASE("Overhangs cut: an object that slices to nothing", "[OverhangsCut]") {
+    // The base plate the adaptive PA calibration builds its objects on (0.3 x 0.3 x 0.025 mm): no layer. slice_volumes() deleted
+    // the empty layers and the cut read the first one of the emptied vector (crash, 2026-11-05).
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_deserialize_strict({ { "layer_height", "0.2" }, { "first_layer_height", "0.2" }, { "overhangs_max_slope", "50%" } });
+    // PrusaSlicer's own error for it, not a crash.
+    Print print;
+    Model model;
+    Test::init_print({ TriangleMesh(its_make_cube(0.3, 0.3, 0.025)) }, print, model, config);
+    CHECK_THROWS_WITH(print.process(), Catch::Matchers::ContainsSubstring("No layers were detected"));
 }

@@ -1133,3 +1133,30 @@ TEST_CASE("Adaptive PA calibration layout of real profiles", "[.APALayout]") {
         f << out[i].bed << " " << out[i].position.x() << " " << out[i].position.y() << " " << size.x() << " " << size.y() << " " << labels[i] << "\n";
     }
 }
+
+// Slices adaptive PA calibration tests with real profiles, one test at a time: APA_PROFILES = printer|filament|print .ini,
+// APA_ACCEL, APA_SPEEDS = "30,165,300". Not run by ctest.
+TEST_CASE("Adaptive PA calibration sliced with real profiles", "[.APASlice]") {
+    std::vector<std::string> files, speed_text;
+    boost::split(files, std::string(std::getenv("APA_PROFILES")), boost::is_any_of("|"));
+    boost::split(speed_text, std::string(std::getenv("APA_SPEEDS")), boost::is_any_of(","));
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    for (const std::string &f : files)
+        config.load(f, ForwardCompatibilitySubstitutionRule::Enable);
+    PressureCalibrationSettings settings;
+    settings.line_ratio         = 100.;
+    settings.layer_height       = config.opt_float("layer_height");
+    settings.first_layer_height = config.get_abs_value("first_layer_height", settings.layer_height);
+    for (size_t k = 0; k < speed_text.size(); ++ k) {
+        DynamicPrintConfig c = config;
+        pressure_calibration_apply_settings(c, settings);
+        PressureCalibrationTest test;
+        test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
+        test.speed        = std::atof(speed_text[k].c_str());
+        test.acceleration = std::atof(std::getenv("APA_ACCEL"));
+        test.side_length  = adaptive_pa_side_length(c, adaptive_pa_effective_speed(c, settings, test.speed), test.acceleration, 20.);
+        WARN("test " << k + 1 << " speed " << test.speed << " side " << test.side_length);
+        const std::string gcode = slice_calibration(config, settings, { test }, k + 1);
+        CHECK(! gcode.empty());
+    }
+}

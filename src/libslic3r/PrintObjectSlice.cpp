@@ -746,7 +746,9 @@ bool PrintObject::apply_overhangs_cut()
     bool enabled = false;
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id)
         enabled |= enlargement_of(this->printing_region(region_id)) > 0;
-    if (! enabled)
+    // An object that sliced to nothing has no layers: slice_volumes() deleted its empty layers, and front() of the emptied vector
+    // read a deleted layer (crash slicing the adaptive PA calibration, 2026-11-05: an object of the walls before they were built).
+    if (! enabled || m_layers.empty())
         return false;
 
     // The layer below as sliced, before its cut.
