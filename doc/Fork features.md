@@ -682,6 +682,19 @@ segment after the first layer has E × factor(length), everything else unchanged
 top surface is not changed. Manually: enable it, slice a part with small solid areas and look at the volumetric flow
 rate view.
 
+**Background and tuning (2026-11-05).** Neither Moss' repository nor OrcaSlicer gives a tuning procedure or explains the
+default curve; Moss points to Teaching Tech's tester (not readable here). The default curve is exactly
+`factor = L / (L + 0.25)` (L in mm; all points to 4 decimals, only 10 mm is forced to 1 where the formula gives 0.976):
+a constant excess of about 0.25 mm of line per line, so it is the line ends that over-extrude. Likely sources (not
+verified by a print): `infill_overlap` (PrusaSlicer default 25 %) grows every fill area, solid infill included, into the
+perimeters (`PerimeterGenerator.cpp`), about 0.1 mm per end with 0.4 mm lines; and the turn at each line end. So the
+curve can be tuned as one number c. Test print (not in the repository): `Stuff/SAFC test/SAFC c test.3mf`, 7 pieces with
+c = 0 (off) / 0.1 / 0.15 / 0.2 / 0.25 / 0.3 / 0.4 (1 to 7 label posts), each with strips whose top layer lines are
+0.5 / 1 / 1.5 / 2 / 3 / 5 / 10 mm long (solid infill along the strips' width, not rotating; strip width = L + 0.936 mm
+with `.2 .4voron - slow`; `safc_test.py`, `build_3mf.py`, `measure.py` beside it). Per strip length, the smoothest piece
+gives c for that length. PrusaSlicer itself has no such feature: request #12790 got no developer answer and was turned
+into a discussion in 2026-10.
+
 ---
 
 ## 18. No chamber temperature commands for Klipper
