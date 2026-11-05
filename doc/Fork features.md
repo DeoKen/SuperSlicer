@@ -689,7 +689,7 @@ a constant excess of about 0.25 mm of line per line, so it is the line ends that
 verified by a print): `infill_overlap` (PrusaSlicer default 25 %) grows every fill area, solid infill included, into the
 perimeters (`PerimeterGenerator.cpp`), about 0.1 mm per end with 0.4 mm lines; and the turn at each line end. So the
 curve can be tuned as one number c. Test print (not in the repository): `Stuff/SAFC test/SAFC c test.3mf`, 7 pieces with
-c = 0 (off) / 0.1 / 0.15 / 0.2 / 0.25 / 0.3 / 0.4 (1 to 7 label posts), each with strips whose top layer lines are
+c = 0 (off) / 0.1 / 0.15 / 0.2 / 0.25 / 0.3 / 0.4 (labelled `OFF`, `.1` ... `.4`), each on a one-layer backing with strips whose top layer lines are
 0.5 / 1 / 1.5 / 2 / 3 / 5 / 10 mm long (solid infill along the strips' width, not rotating; strip width = L + 0.936 mm
 with `.2 .4voron - slow`; `safc_test.py`, `build_3mf.py`, `measure.py` beside it). Per strip length, the smoothest piece
 gives c for that length. PrusaSlicer itself has no such feature: request #12790 got no developer answer and was turned
