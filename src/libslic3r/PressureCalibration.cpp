@@ -943,10 +943,74 @@ std::vector<AdaptivePATest> adaptive_pa_tests_merge(const std::vector<AdaptivePA
         return kept;
     std::vector<AdaptivePATest> out;
     for (const AdaptivePATest &t : kept)
-        if (t.nozzle == print.front().nozzle && t.acceleration != print.front().acceleration)
+        if (std::abs(t.nozzle - print.front().nozzle) > EPSILON || std::abs(t.acceleration - print.front().acceleration) >= 0.5)
             out.emplace_back(t);
     out.insert(out.end(), print.begin(), print.end());
-    std::stable_sort(out.begin(), out.end(), [](const AdaptivePATest &a, const AdaptivePATest &b) { return a.acceleration < b.acceleration; });
+    std::stable_sort(out.begin(), out.end(), [](const AdaptivePATest &a, const AdaptivePATest &b) {
+        return a.nozzle < b.nozzle - EPSILON || (std::abs(a.nozzle - b.nozzle) <= EPSILON && a.acceleration < b.acceleration); });
+    return out;
+}
+
+std::vector<AdaptivePATest> adaptive_pa_tests_from_model(const std::vector<AdaptivePATest> &kept, const std::string &model, double nozzle)
+{
+    std::vector<AdaptivePATest> out;
+    const std::string section = adaptive_pa_model_section(model, nozzle);
+    size_t start = 0;
+    while (start < section.size()) {
+        size_t end = section.find('\n', start);
+        if (end == std::string::npos)
+            end = section.size();
+        const std::string line = section.substr(start, end - start);
+        start = end + 1;
+        AdaptivePATest t { 0., 0., 0., nozzle };
+        if (line.empty() || line[0] == ';' || sscanf(line.c_str(), "%lf , %lf , %lf", &t.pa, &t.flow, &t.acceleration) != 3 || t.acceleration <= 0.)
+            continue;
+        if (adaptive_pa_calibration_tests(kept, nozzle, t.acceleration).empty())
+            out.emplace_back(t);
+    }
+    std::stable_sort(out.begin(), out.end(), [](const AdaptivePATest &a, const AdaptivePATest &b) {
+        return a.acceleration < b.acceleration || (a.acceleration == b.acceleration && a.flow < b.flow); });
+    return out;
+}
+
+std::vector<AdaptivePAPrintAcceleration> adaptive_pa_print_accelerations(const DynamicPrintConfig &config)
+{
+    std::vector<AdaptivePAPrintAcceleration> out;
+    const auto add = [&out](const std::string &feature, double acceleration) {
+        acceleration = std::round(acceleration);
+        auto it = std::find_if(out.begin(), out.end(), [acceleration](const AdaptivePAPrintAcceleration &a) { return a.acceleration == acceleration; });
+        if (it == out.end())
+            out.push_back({ acceleration, { feature } });
+        else
+            it->features.emplace_back(feature);
+    };
+    const double normal = config.has("klipper_max_accel") ? config.opt_float("klipper_max_accel") : 0.;
+    const double def    = config.has("default_acceleration") ? config.get_abs_value("default_acceleration", normal) : 0.;
+    if (def <= 0.) {
+        add("all features (no acceleration commands: the Klipper max accel of the filament's speed mode)", adaptive_pa_speed_mode_accel(config));
+        return out;
+    }
+    // The first setting above 0 of the chain (percentages of the default acceleration), else the default acceleration, as
+    // GCodeGenerator::_extrude() and feature_acceleration().
+    const auto chain = [&config, def](std::initializer_list<const char*> keys) {
+        for (const char *key : keys)
+            if (config.has(key))
+                if (const double a = config.get_abs_value(key, def); a > 0.)
+                    return a;
+        return def;
+    };
+    add("first layer",       chain({ "first_layer_acceleration" }));
+    add("outer wall",        chain({ "external_perimeter_acceleration", "perimeter_acceleration" }));
+    add("walls",             chain({ "perimeter_acceleration" }));
+    add("top surface",       chain({ "top_solid_infill_acceleration", "solid_infill_acceleration", "infill_acceleration" }));
+    add("solid infill",      chain({ "solid_infill_acceleration", "infill_acceleration" }));
+    add("infill",            chain({ "infill_acceleration" }));
+    add("bridges",           chain({ "bridge_acceleration", "solid_infill_acceleration", "infill_acceleration" }));
+    add("internal bridges",  chain({ "internal_bridge_acceleration", "bridge_acceleration", "solid_infill_acceleration", "infill_acceleration" }));
+    add("gap fill",          chain({ "gap_fill_acceleration" }));
+    add("support",           chain({ "support_material_acceleration" }));
+    add("support interface", chain({ "support_material_interface_acceleration", "support_material_acceleration" }));
+    std::sort(out.begin(), out.end(), [](const AdaptivePAPrintAcceleration &a, const AdaptivePAPrintAcceleration &b) { return a.acceleration < b.acceleration; });
     return out;
 }
 
@@ -1021,6 +1085,40 @@ std::vector<AdaptivePAPoint> adaptive_pa_results(std::vector<AdaptivePATest> &ke
         if (std::abs(kept[i].nozzle - nozzle) < EPSILON)
             kept[i].pa = new_pa[i];
     return points;
+}
+
+std::vector<std::string> adaptive_pa_results_warnings(const std::vector<AdaptivePATest> &kept, double nozzle)
+{
+    std::vector<std::string> out;
+    const std::vector<double> accels = adaptive_pa_calibration_accelerations(kept, nozzle);
+    // The number of a test on its frame.
+    const auto number = [&kept, nozzle](size_t i) {
+        const std::vector<size_t> tests = adaptive_pa_calibration_tests(kept, nozzle, kept[i].acceleration);
+        return size_t(std::find(tests.begin(), tests.end(), i) - tests.begin()) + 1;
+    };
+    const auto name = [&kept, &number](size_t i) {
+        return format(_u8L("%1% mm/s² test %2% (%3%)"), num(kept[i].acceleration), number(i), num(kept[i].pa));
+    };
+    for (double accel : accels) {
+        // In the order of the flows, the ones with a value.
+        std::vector<size_t> tests;
+        for (size_t i : adaptive_pa_calibration_tests(kept, nozzle, accel))
+            if (kept[i].pa >= 0.)
+                tests.emplace_back(i);
+        std::stable_sort(tests.begin(), tests.end(), [&kept](size_t a, size_t b) { return kept[a].flow < kept[b].flow; });
+        for (size_t j = 1; j < tests.size(); ++ j)
+            if (kept[tests[j]].pa > kept[tests[j - 1]].pa + EPSILON && kept[tests[j]].flow > kept[tests[j - 1]].flow + EPSILON)
+                out.emplace_back(format(_u8L("%1% is higher than %2%, which prints slower."), name(tests[j]), name(tests[j - 1])));
+    }
+    // The same speed at a higher acceleration.
+    for (size_t a = 0; a < accels.size(); ++ a)
+        for (size_t b = a + 1; b < accels.size(); ++ b)
+            for (size_t i : adaptive_pa_calibration_tests(kept, nozzle, accels[a]))
+                for (size_t k : adaptive_pa_calibration_tests(kept, nozzle, accels[b]))
+                    if (kept[i].pa >= 0. && kept[k].pa >= 0. && kept[i].speed > 0. && std::abs(kept[i].speed - kept[k].speed) < 0.5 &&
+                        kept[k].pa > kept[i].pa + EPSILON)
+                        out.emplace_back(format(_u8L("%1% is higher than %2%, which has a lower acceleration."), name(k), name(i)));
+    return out;
 }
 
 } // namespace Slic3r

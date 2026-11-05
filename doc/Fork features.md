@@ -2056,19 +2056,28 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     that is capped is listed before Generate (continue or cancel); its flow is the capped one.
   - The object names and the summary at the start of the first layer show the speed, acceleration and flow of each test
     (`; - Speed 150 mm/s, acceleration 4000 mm/s^2, flow 10.71 mm^3/s`).
-  - The tests (speed, acceleration, flow, nozzle, typed value, number) and the filament are kept in PrusaSlicer.ini
-    (`calibration_adaptive_pa_tests`, `calibration_adaptive_pa_filament`): a print replaces the kept tests of its acceleration
-    and keeps the others (`adaptive_pa_tests_merge()`); another filament or nozzle starts over. The dialog lists the
-    accelerations kept.
-- **Calibration > Adaptive pressure advance results** (user, 2026-11-05): a large "Nozzle 0.4 mm" header (the nozzle of the kept
-  calibrations), the filament and the accelerations printed, red warnings when the selected filament or the printer's nozzle
-  is not the calibrated one. One row per print: the acceleration, fields 1, 2, 3 (more when that print had more tests) and
+  - The tests (speed, acceleration, flow, nozzle, typed value, number) are kept per filament (user, 2026-11-05) in PrusaSlicer.ini,
+    section `[adaptive_pa_calibrations]`, one key per filament preset name: a print replaces the kept tests of its nozzle and
+    acceleration and keeps the others, other nozzles included (`adaptive_pa_tests_merge()`). Before 2026-11-05 one filament only
+    (`calibration_adaptive_pa_tests`, `calibration_adaptive_pa_filament`; moved into the section the first time). The dialog
+    lists the accelerations kept for the selected filament and nozzle.
+- **Calibration > Adaptive pressure advance results** (user, 2026-11-05): for the selected filament and the printer's nozzle, a large
+  "Nozzle 0.4 mm" header, the filament and the accelerations calibrated. One row per print: the acceleration, fields 1, 2, 3 (more when that print had more tests) and
   Remove; under them the speed and flow of each test once the acceleration matches a kept print. A row per kept acceleration
   with the values typed before; "Add acceleration" adds an empty row. Save matches each row to its print
   (`adaptive_pa_results()`: the flows of tests 1, 2, 3 of that acceleration and nozzle) and sorts the model; errors for an
   acceleration without a print, a test number the print didn't have, two rows with one acceleration, a single value. Prints made
   before 2026-11-05 have frames numbered over the accelerations (e.g. 3, 4, 5): fields 1, 2, 3 are the same tests in that
-  order. Type the best value of each, or leave it empty when no value is clearly better (Orca: usual at
+  order. Accelerations in the filament's measurements (its section of the nozzle) without kept tests, e.g. calibrated on another
+  computer, get a row too (`adaptive_pa_tests_from_model()`: the flows of its lines, no speed, "from the filament's
+  measurements"). Save warns, and asks before writing, when a value goes against Orca's rule (lower with a higher speed or
+  acceleration): higher than a slower test of its acceleration, or than the test of the same speed at a lower acceleration
+  (`adaptive_pa_results_warnings()`; a misread chevron). Under the rows: "Accelerations your print profiles use with this
+  printer and filament", per print profile (visible, compatible, allowed by the filament's `compatible_prints`) its
+  accelerations with their features (`adaptive_pa_print_accelerations()`, as `GCodeGenerator::_extrude()` resolves them; default
+  acceleration 0: the Klipper max accel of the filament's speed mode) marked calibrated / between calibrated ones / below or
+  above them (the nearest calibrated one's values). E.g. with ABS-Sparta3D-slow: `- slow` 6000; `- slow pfa` 800 outer wall,
+  1600 walls / top / gap fill / first layer, 3900 solid / bridges / support, 6000 infill. Type the best value of each, or leave it empty when no value is clearly better (Orca: usual at
   low flow and acceleration, where several values are good; its model then uses the value of the lowest flow measured, as it
   clamps instead of extrapolating, so an empty slow test takes the next faster test's value). Each acceleration needs at
   least 2 values (Orca's model interpolates over the flow per acceleration and ignores an acceleration with one point). "Save

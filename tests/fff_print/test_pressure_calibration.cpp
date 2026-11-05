@@ -641,10 +641,17 @@ TEST_CASE("Adaptive PA calibration tests kept per acceleration", "[AdaptivePACal
         CHECK(out[0].acceleration == 1500.);
         CHECK(out[1].speed == 30.);
     }
-    SECTION("Another nozzle: all replaced") {
+    SECTION("Another nozzle: added, the other nozzle's tests kept (per filament, user 2026-11-05)") {
         const std::vector<AdaptivePATest> out = adaptive_pa_tests_merge(kept, { { 30., 1500., 3., 0.6 } });
-        REQUIRE(out.size() == 1);
-        CHECK(out[0].nozzle == 0.6);
+        REQUIRE(out.size() == 4);
+        CHECK(out[0].nozzle == 0.4);
+        CHECK(out[0].acceleration == 1500.);
+        CHECK(out[3].nozzle == 0.6);
+        // The same acceleration of the other nozzle again: only that one replaced.
+        const std::vector<AdaptivePATest> again = adaptive_pa_tests_merge(out, { { 40., 1500., 4., 0.6 } });
+        REQUIRE(again.size() == 4);
+        CHECK(again[3].speed == 40.);
+        CHECK(again[0].speed == 15.);
     }
 }
 
@@ -847,5 +854,114 @@ TEST_CASE("Adaptive PA results", "[AdaptivePACalibration]") {
         CHECK(adaptive_pa_results(kept, 0.4, { { 6000., { -1., -1. } } }, error).empty());
         CHECK(error.find("No value") == 0);
         CHECK(kept[3].pa == 0.04);
+    }
+}
+
+TEST_CASE("Adaptive PA results from the filament's measurements", "[AdaptivePACalibration]") {
+    // The 0.4 section: 6000 (kept) and 1500 (not kept); the 0.6 section ignored.
+    const std::string model = "; nozzle 0.4\n0.03,1.20,6000\n0.025,7.20,6000\n0.031,4.1,1500\n0.035, 1.1, 1500\n; nozzle 0.6\n0.05,2,6000\n";
+    const std::vector<AdaptivePATest> kept { { 15., 6000., 1.2, 0.4 }, { 100., 6000., 7.2, 0.4 } };
+    SECTION("Only the accelerations without kept tests, in the order of the flows") {
+        const std::vector<AdaptivePATest> out = adaptive_pa_tests_from_model(kept, model, 0.4);
+        REQUIRE(out.size() == 2);
+        CHECK(out[0].acceleration == 1500.);
+        CHECK(out[0].flow == 1.1);
+        CHECK(out[0].pa == 0.035);
+        CHECK(out[0].speed == 0.);
+        CHECK(out[1].flow == 4.1);
+        CHECK(out[1].nozzle == 0.4);
+    }
+    SECTION("Nothing kept: all the lines of the nozzle; usable as kept tests for the results") {
+        std::vector<AdaptivePATest> all = adaptive_pa_tests_from_model({}, model, 0.4);
+        REQUIRE(all.size() == 4);
+        CHECK(adaptive_pa_calibration_accelerations(all, 0.4) == std::vector<double>{ 1500., 6000. });
+        std::string error;
+        CHECK(adaptive_pa_results(all, 0.4, { { 6000., { 0.031, 0.026 } } }, error).size() == 2);
+        CHECK(error.empty());
+    }
+    SECTION("No section of the nozzle: none") {
+        CHECK(adaptive_pa_tests_from_model({}, model, 0.5).empty());
+        CHECK(adaptive_pa_tests_from_model({}, "", 0.4).empty());
+    }
+}
+
+TEST_CASE("Adaptive PA accelerations of a print profile", "[AdaptivePACalibration]") {
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_deserialize_strict({ { "gcode_flavor", "klipper" }, { "klipper_max_accel", "28000" }, { "klipper_max_accel_slow", "6000" },
+                                    { "klipper_speed_mode", "Slow" } });
+    SECTION("Default acceleration 0: the Klipper max accel of the filament's speed mode") {
+        config.set_deserialize_strict({ { "default_acceleration", "0" } });
+        const std::vector<AdaptivePAPrintAcceleration> out = adaptive_pa_print_accelerations(config);
+        REQUIRE(out.size() == 1);
+        CHECK(out[0].acceleration == 6000.);
+    }
+    SECTION("The user's .2 .4voron - slow pfa") {
+        config.set_deserialize_strict({ { "default_acceleration", "6000" }, { "external_perimeter_acceleration", "800" },
+            { "perimeter_acceleration", "1600" }, { "top_solid_infill_acceleration", "1600" }, { "solid_infill_acceleration", "3900" },
+            { "infill_acceleration", "6000" }, { "bridge_acceleration", "3900" }, { "internal_bridge_acceleration", "3900" },
+            { "gap_fill_acceleration", "1600" }, { "first_layer_acceleration", "1600" }, { "support_material_acceleration", "3900" },
+            { "support_material_interface_acceleration", "3900" } });
+        const std::vector<AdaptivePAPrintAcceleration> out = adaptive_pa_print_accelerations(config);
+        REQUIRE(out.size() == 4);
+        CHECK(out[0].acceleration == 800.);
+        CHECK(out[0].features == std::vector<std::string>{ "outer wall" });
+        CHECK(out[1].acceleration == 1600.);
+        CHECK(out[1].features == std::vector<std::string>{ "first layer", "walls", "top surface", "gap fill" });
+        CHECK(out[2].acceleration == 3900.);
+        CHECK(out[3].acceleration == 6000.);
+        CHECK(out[3].features == std::vector<std::string>{ "infill" });
+    }
+    SECTION("Percentages of the default acceleration, 0 = the next setting of the chain") {
+        config.set_deserialize_strict({ { "default_acceleration", "100%" }, { "external_perimeter_acceleration", "15%" },
+            { "perimeter_acceleration", "25%" }, { "top_solid_infill_acceleration", "0" }, { "solid_infill_acceleration", "65%" },
+            { "infill_acceleration", "0" }, { "bridge_acceleration", "0" }, { "internal_bridge_acceleration", "0" },
+            { "gap_fill_acceleration", "0" }, { "first_layer_acceleration", "0" }, { "support_material_acceleration", "0" },
+            { "support_material_interface_acceleration", "0" } });
+        const std::vector<AdaptivePAPrintAcceleration> out = adaptive_pa_print_accelerations(config);
+        REQUIRE(out.size() == 4);
+        CHECK(out[0].acceleration == 4200.);    // outer wall, 15 % of 28000
+        CHECK(out[1].acceleration == 7000.);    // walls
+        CHECK(out[2].acceleration == 18200.);   // top surface = solid infill, bridges = solid infill
+        CHECK(std::find(out[2].features.begin(), out[2].features.end(), "top surface") != out[2].features.end());
+        CHECK(std::find(out[2].features.begin(), out[2].features.end(), "internal bridges") != out[2].features.end());
+        CHECK(out[3].acceleration == 28000.);   // infill, first layer, gap fill, support: the default acceleration
+    }
+}
+
+TEST_CASE("Adaptive PA results warnings", "[AdaptivePACalibration]") {
+    std::vector<AdaptivePATest> kept {
+        { 15., 1500., 1.1, 0.4, 0.03 }, { 58., 1500., 4.1, 0.4, 0.03 }, { 100., 1500., 7.1, 0.4, 0.031 },
+        { 15., 6000., 1.2, 0.4, 0.03 }, { 58., 6000., 4.2, 0.4, 0.032 }, { 100., 6000., 7.2, 0.4, 0.025 } };
+    const std::vector<std::string> warnings = adaptive_pa_results_warnings(kept, 0.4);
+    REQUIRE(warnings.size() == 3);
+    CHECK(warnings[0] == "1500 mm/s² test 3 (0.031) is higher than 1500 mm/s² test 2 (0.03), which prints slower.");
+    CHECK(warnings[1] == "6000 mm/s² test 2 (0.032) is higher than 6000 mm/s² test 1 (0.03), which prints slower.");
+    CHECK(warnings[2] == "6000 mm/s² test 2 (0.032) is higher than 1500 mm/s² test 2 (0.03), which has a lower acceleration.");
+    // Falling values, an empty test skipped: none.
+    kept[1].pa = -1.;
+    kept[2].pa = 0.028;
+    kept[4].pa = 0.027;
+    CHECK(adaptive_pa_results_warnings(kept, 0.4).empty());
+}
+
+// Prints the accelerations adaptive_pa_print_accelerations() finds for real profiles: APA_PROFILES = printer|filament|print[|print...]
+// .ini files. Not run by ctest.
+TEST_CASE("Adaptive PA accelerations of real profiles", "[.APAProfiles]") {
+    const char *env = std::getenv("APA_PROFILES");
+    REQUIRE(env != nullptr);
+    std::vector<std::string> files;
+    boost::split(files, std::string(env), boost::is_any_of("|"));
+    REQUIRE(files.size() >= 3);
+    for (size_t i = 2; i < files.size(); ++ i) {
+        DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+        for (const std::string &f : { files[0], files[1], files[i] })
+            config.load(f, ForwardCompatibilitySubstitutionRule::Enable);
+        std::string line = files[i] + ":";
+        for (const AdaptivePAPrintAcceleration &a : adaptive_pa_print_accelerations(config)) {
+            line += "\n    " + std::to_string(std::lround(a.acceleration)) + ":";
+            for (const std::string &feature : a.features)
+                line += " " + feature + ",";
+        }
+        WARN(line);
     }
 }

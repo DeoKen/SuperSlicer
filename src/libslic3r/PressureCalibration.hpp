@@ -168,9 +168,27 @@ struct AdaptivePATest
 };
 std::string                 adaptive_pa_tests_serialize(const std::vector<AdaptivePATest> &tests);
 std::vector<AdaptivePATest> adaptive_pa_tests_deserialize(const std::string &text);
-// The kept tests with the tests of one print (all of one acceleration) instead of the kept ones of that acceleration, sorted by
-// acceleration (the order of the prints' test numbers kept); all the kept ones replaced if they are for another nozzle.
+// The kept tests of a filament with the tests of one print (all of one nozzle and acceleration) instead of the kept ones of that
+// nozzle and acceleration, sorted by nozzle and acceleration (the order of the prints' test numbers kept); the other nozzles'
+// and accelerations' tests stay (user 2026-11-05: kept per filament, the filaments are shared by the nozzles).
 std::vector<AdaptivePATest> adaptive_pa_tests_merge(const std::vector<AdaptivePATest> &kept, const std::vector<AdaptivePATest> &print);
+
+// The measurements of a nozzle in a filament's adaptive_pressure_advance_model (its section, adaptive_pa_model_section()) as tests,
+// for the accelerations kept has no tests of (user 2026-11-05: the results dialog shows them when the kept tests are gone, e.g.
+// another computer): speed 0 (unknown), the flow, acceleration and value of each line, in the order of the flows.
+std::vector<AdaptivePATest> adaptive_pa_tests_from_model(const std::vector<AdaptivePATest> &kept, const std::string &model, double nozzle);
+
+// The accelerations the adaptive pressure advance uses for the features of a print (doc section 46; user 2026-11-05: shown in the
+// results so the calibrated accelerations can be checked against the print profiles). config: the full config with the print
+// preset. Default acceleration 0 (no acceleration commands): one entry, the Klipper max accel of the filament's speed mode.
+// Otherwise per feature its acceleration as GCodeGenerator::_extrude() resolves it (a percentage of the default acceleration,
+// 0 = the next setting of the chain, then the default acceleration). Sorted by acceleration, the features of each together.
+struct AdaptivePAPrintAcceleration
+{
+    double                   acceleration;
+    std::vector<std::string> features;
+};
+std::vector<AdaptivePAPrintAcceleration> adaptive_pa_print_accelerations(const DynamicPrintConfig &config);
 
 // The kept tests of one calibration print (a nozzle and an acceleration, within 0.5 mm/s²), as indices into kept in the order of
 // their frames: the test numbered 1 on its frame first (user 2026-11-05: each print numbers its tests 1, 2, 3... in the order of the
@@ -193,6 +211,11 @@ struct AdaptivePAResultRow
 // interpolates over the flow of each acceleration), a value is not from 0 to 2, or there is no value at all.
 std::vector<AdaptivePAPoint> adaptive_pa_results(std::vector<AdaptivePATest> &kept, double nozzle, const std::vector<AdaptivePAResultRow> &rows,
                                                  std::string &error);
+// The typed values of a nozzle (kept after adaptive_pa_results()) that go against OrcaSlicer's rule "the optimal pressure advance
+// value is less the faster you print and the higher the acceleration" (user 2026-11-05: a warning, a misread chevron): a test
+// with a higher value than a test of lower flow at the same acceleration, or than the test of the same speed at a lower
+// acceleration. One line each, empty if none.
+std::vector<std::string> adaptive_pa_results_warnings(const std::vector<AdaptivePATest> &kept, double nozzle);
 
 } // namespace Slic3r
 
