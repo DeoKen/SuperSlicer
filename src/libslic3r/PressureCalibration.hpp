@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "BoundingBox.hpp"
 #include "Point.hpp"
 #include "PrintConfig.hpp"
 
@@ -92,6 +93,28 @@ ModelVolume* calibration_add_part(ModelObject *object, const std::string &file, 
 // values are typed in).
 bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &config, const PressureCalibrationSettings &settings,
                                 const PressureCalibrationTest &test, size_t id_item, const std::string &resources_dir);
+
+// The size (mm, without the brim) of the frame of a test as pressure_calibration_build() makes it (Ellis' chevrons: the walls stay
+// inside it), without loading the parts from model files: for the layout of the calibration (user 2026-11-05).
+Vec2d pressure_calibration_frame_size(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings,
+                                      const PressureCalibrationTest &test, size_t id_item);
+
+// Where a frame goes (calibration_layout()): the bed (0, 1... as the plater's multiple beds), the minimum corner of the frame without
+// its brim in bed coordinates, and whether it is turned 90° (counter-clockwise).
+struct CalibrationPlacement
+{
+    int   bed { -1 };
+    Vec2d position { Vec2d::Zero() };
+    bool  turned { false };
+};
+// The frames (sizes without the brim) on as few beds as possible (user 2026-11-05: as many per plate as possible): each frame's brim
+// inside the bed with 1 mm to spare and clear of the keep-out zones (grown by their clearance); neighbouring frames share the brim
+// between them (one brim width apart) or, when that needs fewer beds, touch (no brim between them). turn: frames may be turned 90°
+// (the arms of Ellis' chevrons stay at ±45°, the same test). MaxRects (best short side fit) over many orders of the frames, the
+// largest first, seeded (the same input gives the same layout); the fewest beds, then the most frames on the first bed. Empty if a
+// frame fits on no bed or more than max_beds are needed.
+std::vector<CalibrationPlacement> calibration_layout(const std::vector<Vec2d> &sizes, const BoundingBoxf &bed, const std::vector<BoundingBoxf> &zones,
+                                                     double brim, bool turn, int max_beds);
 
 // The number of objects of the walls of Ellis' chevrons for a test: settings.wall_count, 0 with SuperSlicer's bends or CheckAll.
 // Each wall is an object of its own (wall k of every chevron, one part per chevron with its value as per region G-code):

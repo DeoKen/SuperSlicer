@@ -21,6 +21,7 @@
 #include "libslic3r/FileReader.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/GCodeReader.hpp"
+#include "libslic3r/GCode/BedKeepOut.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
@@ -774,9 +775,10 @@ TEST_CASE("Adaptive PA calibration preview", "[.APAPreview]") {
     PressureCalibrationSettings settings;
     PressureCalibrationTest test;
     test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
-    test.speed        = 100.;
-    test.acceleration = 28000.;
-    test.side_length  = 20.;
+    test.speed        = std::getenv("APA_PREVIEW_SPEED") ? std::atof(std::getenv("APA_PREVIEW_SPEED")) : 100.;
+    test.acceleration = std::getenv("APA_PREVIEW_ACCEL") ? std::atof(std::getenv("APA_PREVIEW_ACCEL")) : 28000.;
+    config.set_deserialize_strict({ { "klipper_minimum_cruise_ratio", "0.5" } });
+    test.side_length  = adaptive_pa_side_length(config, test.speed, test.acceleration, 20.);
     boost::nowide::ofstream(out) << slice_calibration(config, settings, { test }, 1);
 }
 
@@ -963,5 +965,169 @@ TEST_CASE("Adaptive PA accelerations of real profiles", "[.APAProfiles]") {
                 line += " " + feature + ",";
         }
         WARN(line);
+    }
+}
+
+// The bounding boxes of the objects of one adaptive PA test (frame and walls), to see what arrange and the bed check use. Not run by ctest.
+TEST_CASE("Adaptive PA calibration bounding boxes", "[.APABBox]") {
+    DynamicPrintConfig config = test_config();
+    config.set_deserialize_strict({ { "klipper_minimum_cruise_ratio", "0.5" } });
+    PressureCalibrationSettings settings;
+    settings.line_ratio = 100.;
+    pressure_calibration_apply_settings(config, settings);
+    pressure_calibration_print_config(config);
+    PressureCalibrationTest test;
+    test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
+    test.speed        = std::getenv("APA_PREVIEW_SPEED") ? std::atof(std::getenv("APA_PREVIEW_SPEED")) : 165.;
+    test.acceleration = 1500.;
+    test.side_length  = adaptive_pa_side_length(config, test.speed, test.acceleration, 20.);
+    Model model;
+    ModelObject *frame = load_base(model);
+    REQUIRE(pressure_calibration_build(*frame, config, settings, test, 1, resources()));
+    std::vector<ModelObject*> walls;
+    for (size_t k = 0; k < pressure_calibration_wall_objects(settings, test); ++ k)
+        walls.emplace_back(load_base(model));
+    pressure_calibration_build_walls(walls, config, settings, test, 1);
+    for (ModelObject *o : model.objects) {
+        o->invalidate_bounding_box();
+        const BoundingBoxf3 bb = o->instance_bounding_box(0);
+        std::string vols;
+        for (const ModelVolume *v : o->volumes) {
+            const BoundingBoxf3 vb = v->mesh().bounding_box().transformed(o->instances.front()->get_matrix() * v->get_matrix());
+            vols += "\n      " + v->name + ": x " + std::to_string(vb.min.x()) + " .. " + std::to_string(vb.max.x()) + "  y " +
+                    std::to_string(vb.min.y()) + " .. " + std::to_string(vb.max.y());
+        }
+        WARN(o->name << ": x " << bb.min.x() << " .. " << bb.max.x() << " (" << bb.size().x() << ")  y " << bb.min.y() << " .. "
+                     << bb.max.y() << " (" << bb.size().y() << ")" << (vols.size() < 2000 ? vols : std::string("\n      (many volumes)")));
+    }
+}
+
+TEST_CASE("Adaptive PA calibration frame size", "[AdaptivePACalibration]") {
+    // pressure_calibration_frame_size() (without the number parts) = the size of the frame built with them.
+    DynamicPrintConfig config = test_config();
+    config.set_deserialize_strict({ { "klipper_minimum_cruise_ratio", "0.5" } });
+    PressureCalibrationSettings settings;
+    settings.line_ratio = 100.;
+    pressure_calibration_apply_settings(config, settings);
+    pressure_calibration_print_config(config);
+    for (const double speed : { 30., 165., 300. }) {
+        PressureCalibrationTest test;
+        test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
+        test.speed        = speed;
+        test.acceleration = 1500.;
+        test.side_length  = adaptive_pa_side_length(config, speed, 1500., 20.);
+        Model model;
+        ModelObject *frame = load_base(model);
+        REQUIRE(pressure_calibration_build(*frame, config, settings, test, 2, resources()));
+        frame->invalidate_bounding_box();
+        const Vec2d built = to_2d(frame->instance_bounding_box(0).size());
+        const Vec2d size  = pressure_calibration_frame_size(config, settings, test, 2);
+        CHECK(std::abs(size.x() - built.x()) < 0.01);
+        CHECK(std::abs(size.y() - built.y()) < 0.01);
+    }
+}
+
+TEST_CASE("Adaptive PA calibration layout", "[AdaptivePACalibration]") {
+    const BoundingBoxf bed(Vec2d(0., 0.), Vec2d(350., 350.));
+    const std::vector<BoundingBoxf> zones { BoundingBoxf(Vec2d(0., 0.), Vec2d(40., 40.)), BoundingBoxf(Vec2d(310., 0.), Vec2d(350., 40.)) };
+    const double brim = 5.;
+    // Every frame's brim inside the bed (1 mm to spare), clear of the zones (with their clearance), no two frames overlapping.
+    const auto check = [&](const std::vector<Vec2d> &sizes, const std::vector<CalibrationPlacement> &out, const std::vector<BoundingBoxf> &used_zones) {
+        REQUIRE(out.size() == sizes.size());
+        std::vector<std::pair<int, BoundingBoxf>> boxes;
+        for (size_t i = 0; i < out.size(); ++ i) {
+            const Vec2d size = out[i].turned ? Vec2d(sizes[i].y(), sizes[i].x()) : sizes[i];
+            const BoundingBoxf box(out[i].position, out[i].position + size);
+            CHECK(box.min.x() >= bed.min.x() + brim + 1. - EPSILON);
+            CHECK(box.min.y() >= bed.min.y() + brim + 1. - EPSILON);
+            CHECK(box.max.x() <= bed.max.x() - brim - 1. + EPSILON);
+            CHECK(box.max.y() <= bed.max.y() - brim - 1. + EPSILON);
+            for (const BoundingBoxf &z : used_zones) {
+                const double grow = 1. + brim + 1.;
+                CHECK((box.max.x() <= z.min.x() - grow + EPSILON || box.min.x() >= z.max.x() + grow - EPSILON ||
+                       box.max.y() <= z.min.y() - grow + EPSILON || box.min.y() >= z.max.y() + grow - EPSILON));
+            }
+            for (const auto &[b, other] : boxes)
+                if (b == out[i].bed)
+                    CHECK((box.max.x() <= other.min.x() + EPSILON || box.min.x() >= other.max.x() - EPSILON ||
+                           box.max.y() <= other.min.y() + EPSILON || box.min.y() >= other.max.y() - EPSILON));
+            boxes.emplace_back(out[i].bed, box);
+        }
+    };
+    const auto beds = [](const std::vector<CalibrationPlacement> &out) {
+        int n = 0;
+        for (const CalibrationPlacement &p : out)
+            n = std::max(n, p.bed + 1);
+        return n;
+    };
+    SECTION("The default 1500 test (30, 165, 300 mm/s) on one bed: PrusaSlicer's arrange needed two") {
+        const std::vector<Vec2d> sizes { { 53., 164. }, { 77., 176. }, { 192., 212. } };
+        const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, zones, brim, true, 9);
+        check(sizes, out, zones);
+        CHECK(beds(out) == 1);
+    }
+    SECTION("Ten standard frames on one bed, the same layout every time") {
+        const std::vector<Vec2d> sizes(10, Vec2d(53., 164.));
+        const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, {}, brim, true, 9);
+        check(sizes, out, {});
+        CHECK(beds(out) == 1);
+        const std::vector<CalibrationPlacement> again = calibration_layout(sizes, bed, {}, brim, true, 9);
+        for (size_t i = 0; i < out.size(); ++ i)
+            CHECK((out[i].position == again[i].position && out[i].turned == again[i].turned && out[i].bed == again[i].bed));
+    }
+    SECTION("More frames than fit: the next beds; never turned when not allowed") {
+        const std::vector<Vec2d> sizes(12, Vec2d(53., 164.));
+        const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, zones, brim, false, 9);
+        check(sizes, out, zones);
+        CHECK(beds(out) == 2);
+        for (const CalibrationPlacement &p : out)
+            CHECK(! p.turned);
+    }
+    SECTION("A frame larger than the bed, or more beds than allowed: none") {
+        CHECK(calibration_layout({ { 400., 100. } }, bed, {}, brim, true, 9).empty());
+        CHECK(calibration_layout(std::vector<Vec2d>(30, Vec2d(53., 164.)), bed, {}, brim, true, 2).empty());
+    }
+}
+
+// The layout of a calibration with real profiles: APA_PROFILES = printer|filament|print .ini, APA_ACCELS = "1500,6000",
+// APA_SPEEDS = "30,165,300". Writes "bed x y w h label" lines to APA_LAYOUT_OUT. Not run by ctest.
+TEST_CASE("Adaptive PA calibration layout of real profiles", "[.APALayout]") {
+    const char *env = std::getenv("APA_PROFILES");
+    REQUIRE(env != nullptr);
+    std::vector<std::string> files, accel_text, speed_text;
+    boost::split(files, std::string(env), boost::is_any_of("|"));
+    boost::split(accel_text, std::string(std::getenv("APA_ACCELS")), boost::is_any_of(","));
+    boost::split(speed_text, std::string(std::getenv("APA_SPEEDS")), boost::is_any_of(","));
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    for (const std::string &f : files)
+        config.load(f, ForwardCompatibilitySubstitutionRule::Enable);
+    PressureCalibrationSettings settings;
+    settings.line_ratio         = 100.;
+    settings.layer_height       = config.opt_float("layer_height");
+    settings.first_layer_height = config.get_abs_value("first_layer_height", settings.layer_height);
+    pressure_calibration_apply_settings(config, settings);
+    pressure_calibration_print_config(config);
+    std::vector<Vec2d> sizes;
+    std::vector<std::string> labels;
+    for (const std::string &a : accel_text)
+        for (size_t k = 0; k < speed_text.size(); ++ k) {
+            PressureCalibrationTest test;
+            test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
+            test.speed        = std::atof(speed_text[k].c_str());
+            test.acceleration = std::atof(a.c_str());
+            test.side_length  = adaptive_pa_side_length(config, adaptive_pa_effective_speed(config, settings, test.speed), test.acceleration, 20.);
+            sizes.emplace_back(pressure_calibration_frame_size(config, settings, test, k + 1));
+            labels.emplace_back(std::to_string(k + 1) + " " + a);
+        }
+    const BoundingBoxf bed(config.opt<ConfigOptionPoints>("bed_shape")->values);
+    const std::vector<BoundingBoxf> zones = BedKeepOut::parse(config.opt_string("bed_keep_out_zones"));
+    const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, zones, PRESSURE_CALIBRATION_BRIM_WIDTH, true, 9);
+    REQUIRE(out.size() == sizes.size());
+    boost::nowide::ofstream f(std::getenv("APA_LAYOUT_OUT"));
+    for (const BoundingBoxf &z : zones)
+        f << "zone " << z.min.x() << " " << z.min.y() << " " << z.size().x() << " " << z.size().y() << "\n";
+    for (size_t i = 0; i < out.size(); ++ i) {
+        const Vec2d size = out[i].turned ? Vec2d(sizes[i].y(), sizes[i].x()) : sizes[i];
+        f << out[i].bed << " " << out[i].position.x() << " " << out[i].position.y() << " " << size.x() << " " << size.y() << " " << labels[i] << "\n";
     }
 }

@@ -2030,9 +2030,21 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     print settings (perimeter, external perimeter, infill, solid infill, top solid infill) capped by the max volumetric speeds,
     and halfway between, rounded, `adaptive_pa_default_speeds()`. E.g. `.2 .4voron - slow`: 15, 58, 100; `.2 .4voron`: 30,
     165, 300. Orca recommends 50 to 200-250 mm/s; the user keeps 15 to 300 with the sides made long enough (below).
-  - Acceleration (mm/s²), a drop-down (a value can be typed) of 25 % of the Klipper max accel of the Slow speed mode, the
-    acceleration the filament prints at (the default acceleration, 0: the Klipper max accel of the filament's speed mode,
-    `adaptive_pa_speed_mode_accel()`) and the Klipper max accel of the Fast speed mode, `adaptive_pa_default_accelerations()`.
+  - Accelerations (mm/s², user 2026-11-05: several per print): a checkbox for each of 25 % of the Klipper max accel of the Slow
+    speed mode, the acceleration the filament prints at (the default acceleration, 0: the Klipper max accel of the filament's
+    speed mode, `adaptive_pa_speed_mode_accel()`; ticked by default) and the Klipper max accel of the Fast speed mode
+    (`adaptive_pa_default_accelerations()`), and "Other" with a comma-separated list. One test per speed and acceleration.
+  - Layout (user 2026-11-05: "as many on a plate as possible", "share the brim if you have to"): Generate places the frames
+    itself instead of PrusaSlicer's arrange (whose gap between objects sent test 3 of the default 1500 test to a second bed):
+    `calibration_layout()`, MaxRects (best short side fit) over 400 seeded orders, the largest first; the brim of every frame
+    1 mm inside the bed and clear of the keep-out zones (grown by their clearance); neighbouring frames one brim width apart
+    (the brim between them shared), or touching (no brim between them) when that needs fewer beds; "Turn frames 90° to fit
+    more on a plate" (default on; the arms stay at ±45°, one motor each on a CoreXY, the same test). The frames go on the
+    plater's beds (`s_multiple_beds`, at most 9); print them one after another. Frame sizes from
+    `pressure_calibration_frame_size()` (the frame as built, without loading the number parts). With the user's `.2 .4voron`,
+    `ABS-Sparta3D-slow` and Voron (keep-out zones in the front corners), 30 / 165 / 300 mm/s: 1500 alone or 1500 + 6000 on one
+    plate, the four accelerations on two. A live estimate under the fields: tests and plates, the frame size and the larger
+    ones (e.g. 1500 @ 300 mm/s), the max volumetric speed limits, and the plates drawn with every frame labelled.
     The user's Voron: 1500, 6000 (Slow filaments) or 28000 (Normal), 38000. Orca: not above the acceleration the input
     shaper calibration recommends (the smoothing rounds the corners); the user keeps the Fast one (2026-11-01).
   - The label of each frame (user, 2026-11-05): the test number, 1, 2, 3... in the order of the speeds (at most 9 speeds), and
@@ -2116,7 +2128,7 @@ Filament > Custom G-code: the end G-code starts with the restore; Calibration > 
 header, one row per print, Add acceleration / Remove, type values, Save: Filament > Advanced shows the lines sorted. Unit tests:
 the label (a number and an acceleration = 5 more digits, a number above 9), `adaptive_pa_results()` (rows in any order matched to
 the flows, empty tests and rows, the errors, kept values updated only on success, the other nozzle untouched). Preview of the
-frame: `fff_print_tests "[.APAPreview]"` with `APA_PREVIEW_OUT=<file.gcode>`.
+frame: `fff_print_tests "[.APAPreview]"` with `APA_PREVIEW_OUT=<file.gcode>`; frame size = the built frame, the layout (inside the bed, clear of the zones, no overlap, the default 1500 test on one bed, ten frames on one bed, the same layout every time, no turning when off, too large / too many beds: none); real profiles: `"[.APALayout]"` with `APA_PROFILES`, `APA_ACCELS`, `APA_SPEEDS`, `APA_LAYOUT_OUT`.
 
 ## 46. Pressure advance and adaptive pressure advance
 

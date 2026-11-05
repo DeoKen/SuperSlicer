@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <limits>
 #include <map>
+#include <random>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
@@ -15,6 +16,7 @@
 #include "FileReader.hpp"
 #include "Flow.hpp"
 #include "format.hpp"
+#include "GCode/BedKeepOut.hpp"
 #include "I18N.hpp"
 #include "Model.hpp"
 #include "Slicing.hpp"
@@ -435,9 +437,13 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
     }
 }
 
-bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &config, const PressureCalibrationSettings &ps_in,
-                                const PressureCalibrationTest &test, size_t id_item, const std::string &resources_dir)
+// add_parts false: the parts from model files (the numbers, SuperSlicer's bends and borders) are left out, for the size of the frame.
+static bool pressure_calibration_build_impl(ModelObject &base, const DynamicPrintConfig &config, const PressureCalibrationSettings &ps_in,
+                                            const PressureCalibrationTest &test, size_t id_item, const std::string &resources_dir, bool add_parts)
 {
+    const auto add_part = [add_parts](ModelObject *o, const std::string &file, const Vec3d &move, const Vec3d &scale) -> ModelVolume* {
+        return add_parts ? calibration_add_part(o, file, move, scale) : nullptr;
+    };
     // CheckAll: SuperSlicer's bends, one per extrusion role.
     PressureCalibrationSettings ps = ps_in;
     ps.ellis_bends = pressure_calibration_wall_objects(ps_in, test) > 0;
@@ -570,7 +576,7 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
         const double       width    = check_all && WIDTH_KEY.find(role) == WIDTH_KEY.end() ? default_width : settings.width;
         const double       speed    = settings.speed;
         const double       scale    = bend_scale(nozzle, width, bend_layer_height);
-        ModelVolume       *bend     = calibration_add_part(object, bend_file, Vec3d(x_offset_90_bend, bend_y_pos, z_90_bend_pos), Vec3d(scale, scale, z_scale_90_bend));
+        ModelVolume       *bend     = add_part(object, bend_file, Vec3d(x_offset_90_bend, bend_y_pos, z_90_bend_pos), Vec3d(scale, scale, z_scale_90_bend));
         bend_positions.emplace_back(x_offset_90_bend, bend_y_pos + y_offset, z_90_bend_pos);
         bend_y_pos = bend_positions.back().y() + width * 4. + nozzle * 4.;
         if (bend == nullptr)
@@ -646,13 +652,13 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
                 const double tb_border_x_pos   = (left_outer + right_outer) / 2.;
                 const double tb_total_width_mm = right_outer - left_outer;
                 const std::string border       = resource("pa_border.3mf");
-                calibration_add_part(object, border, Vec3d((left_outer + left_inner) / 2., center_y, z_others_pos),
+                add_part(object, border, Vec3d((left_outer + left_inner) / 2., center_y, z_others_pos),
                                      Vec3d(first_layer_border / initial_border_x, (total_height + first_layer_border) / initial_90_bend_y, z_scale_others));
-                calibration_add_part(object, border, Vec3d((box_right + right_outer) / 2., center_y, z_others_pos),
+                add_part(object, border, Vec3d((box_right + right_outer) / 2., center_y, z_others_pos),
                                      Vec3d((right_outer - box_right) / initial_border_x, (total_height + first_layer_border) / initial_90_bend_y, z_scale_others));
-                calibration_add_part(object, border, Vec3d(tb_border_x_pos, bottom_inner - first_layer_border / 2., z_others_pos),
+                add_part(object, border, Vec3d(tb_border_x_pos, bottom_inner - first_layer_border / 2., z_others_pos),
                                      Vec3d(tb_total_width_mm / initial_border_x, first_layer_border / initial_border_y, z_scale_others));
-                calibration_add_part(object, border, Vec3d(tb_border_x_pos, top_inner + first_layer_border / 2., z_others_pos),
+                add_part(object, border, Vec3d(tb_border_x_pos, top_inner + first_layer_border / 2., z_others_pos),
                                      Vec3d(tb_total_width_mm / initial_border_x, first_layer_border / initial_border_y, z_scale_others));
             }
             // The label centered under the values (a label of one digit: where the test number always was).
@@ -662,7 +668,7 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
                 const double label_y       = bend_first.y() - xy_scaled_90_bend_y / 2. + xy_scaled_number_y / 2.;
                 for (size_t j = 0; j < label.size(); ++ j)
                     if (std::isdigit(static_cast<unsigned char>(label[j])))
-                        calibration_add_part(object, resource(std::string(1, label[j]) + ".3mf"),
+                        add_part(object, resource(std::string(1, label[j]) + ".3mf"),
                                              Vec3d(center - label_width / 2. + xy_scaled_number_x / 2. + double(j) * number_step, label_y, z_scaled_model_height),
                                              Vec3d(xyz_scale * scale_role, xyz_scale * scale_role, z_scale_others * 2.));
             }
@@ -685,13 +691,13 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
                 const Vec3d  pos(point_xpos, ypos - xy_scaled_number_y / 2. + xy_scaled_point_y / 2., z_scaled_model_height);
                 // As wide as the strokes of the digits (0.4 of 2 mm), printed as they are (a thin wall). SuperSlicer's 0.6 mm was
                 // too wide for a thin wall and too narrow for a loop: PrusaSlicer left the point out (user 2026-10-25).
-                calibration_add_part(object, resource("point.3mf"), pos,
+                add_part(object, resource("point.3mf"), pos,
                                      Vec3d(0.4 / initial_point_xy * xyz_scale * scale_role, (xyz_scale + xyz_scale / 2.) * scale_role, z_scale_others * 2.));
                 number_positions.emplace_back(pos);
                 xpos -= xy_scaled_number_x / 2.;
             } else if (std::isdigit(static_cast<unsigned char>(value[j]))) {
                 const Vec3d pos(xpos, ypos, z_scaled_model_height);
-                calibration_add_part(object, resource(std::string(1, value[j]) + ".3mf"), pos,
+                add_part(object, resource(std::string(1, value[j]) + ".3mf"), pos,
                                      Vec3d(xyz_scale * scale_role, xyz_scale * scale_role, z_scale_others * 2.));
                 number_positions.emplace_back(pos);
                 xpos = number_positions.back().x();
@@ -739,6 +745,179 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
         object->layer_config_ranges[t_layer_height_range(first_layer_height, model_height + first_layer_height)] = range_config;
     }
     return ! check_all;
+}
+
+bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &config, const PressureCalibrationSettings &settings,
+                                const PressureCalibrationTest &test, size_t id_item, const std::string &resources_dir)
+{
+    return pressure_calibration_build_impl(base, config, settings, test, id_item, resources_dir, true);
+}
+
+Vec2d pressure_calibration_frame_size(const DynamicPrintConfig &config, const PressureCalibrationSettings &settings,
+                                      const PressureCalibrationTest &test, size_t id_item)
+{
+    Model        model;
+    ModelObject *object = model.add_object();
+    object->add_instance();
+    pressure_calibration_build_impl(*object, config, settings, test, id_item, std::string(), false);
+    if (object->volumes.empty())
+        return Vec2d::Zero();
+    object->invalidate_bounding_box();
+    return to_2d(object->instance_bounding_box(0).size());
+}
+
+// MaxRects bin of one bed: the free rectangles (maximal), split by every placed rectangle and keep-out zone.
+namespace {
+struct FreeRects
+{
+    std::vector<BoundingBoxf> free;
+
+    explicit FreeRects(const BoundingBoxf &area) { free.push_back(area); }
+
+    void occupy(const BoundingBoxf &r)
+    {
+        std::vector<BoundingBoxf> out;
+        for (const BoundingBoxf &f : free) {
+            if (r.min.x() >= f.max.x() - EPSILON || r.max.x() <= f.min.x() + EPSILON || r.min.y() >= f.max.y() - EPSILON || r.max.y() <= f.min.y() + EPSILON) {
+                out.push_back(f);
+                continue;
+            }
+            if (r.min.x() > f.min.x() + EPSILON) out.emplace_back(f.min, Vec2d(r.min.x(), f.max.y()));
+            if (r.max.x() < f.max.x() - EPSILON) out.emplace_back(Vec2d(r.max.x(), f.min.y()), f.max);
+            if (r.min.y() > f.min.y() + EPSILON) out.emplace_back(f.min, Vec2d(f.max.x(), r.min.y()));
+            if (r.max.y() < f.max.y() - EPSILON) out.emplace_back(Vec2d(f.min.x(), r.max.y()), f.max);
+        }
+        // Only the maximal ones (of two equal ones the first).
+        free.clear();
+        for (size_t i = 0; i < out.size(); ++ i) {
+            bool contained = false;
+            for (size_t j = 0; j < out.size() && ! contained; ++ j) {
+                if (i == j || ! out[j].contains(out[i].min) || ! out[j].contains(out[i].max))
+                    continue;
+                const bool equal = out[i].contains(out[j].min) && out[i].contains(out[j].max);
+                contained = ! equal || j < i;
+            }
+            if (! contained)
+                free.push_back(out[i]);
+        }
+    }
+
+    // Best short side fit: the free rectangle leaving the least on its shorter side, then on its longer side. False if none fits.
+    bool find(const Vec2d &size, Vec2d &position, double &score1, double &score2) const
+    {
+        bool found = false;
+        for (const BoundingBoxf &f : free) {
+            const Vec2d room = f.size() - size;
+            if (room.x() < -EPSILON || room.y() < -EPSILON)
+                continue;
+            const double s1 = std::min(room.x(), room.y()), s2 = std::max(room.x(), room.y());
+            if (! found || s1 < score1 - EPSILON || (s1 < score1 + EPSILON && s2 < score2 - EPSILON)) {
+                found    = true;
+                score1   = s1;
+                score2   = s2;
+                position = f.min;
+            }
+        }
+        return found;
+    }
+};
+
+struct CalibrationLayoutResult
+{
+    std::vector<CalibrationPlacement> placements;
+    size_t                            beds { 0 };
+    size_t                            first { 0 };
+};
+
+// One spacing: gap between the frames (without their brim).
+CalibrationLayoutResult calibration_layout_gap(const std::vector<Vec2d> &sizes, const BoundingBoxf &bed, const std::vector<BoundingBoxf> &zones,
+                                               double brim, double gap, bool turn, int max_beds)
+{
+    // The brim inside the bed with this much to spare, and clear of the zones grown by their clearance.
+    constexpr double margin = 1.;
+    CalibrationLayoutResult best;
+    // Each frame takes its size plus half the gap on every side; the area shrinks and the zones grow by the rest.
+    const double half = gap / 2.;
+    const BoundingBoxf area(bed.min + Vec2d::Constant(brim + margin - half), bed.max - Vec2d::Constant(brim + margin - half));
+    if (area.size().x() <= 0. || area.size().y() <= 0.)
+        return best;
+    std::vector<BoundingBoxf> obstacles;
+    for (const BoundingBoxf &z : zones) {
+        const double grow = BedKeepOut::CLEARANCE + brim + margin - half;
+        obstacles.emplace_back(z.min - Vec2d::Constant(grow), z.max + Vec2d::Constant(grow));
+    }
+    std::mt19937 rng(12345);
+    for (int attempt = 0; attempt < 400; ++ attempt) {
+        // The largest first; from the second attempt on, shuffled a little.
+        std::vector<std::pair<double, size_t>> order;
+        for (size_t i = 0; i < sizes.size(); ++ i)
+            order.emplace_back(std::max(sizes[i].x(), sizes[i].y()) * (attempt == 0 ? 1. : std::uniform_real_distribution<double>(0.75, 1.25)(rng)), i);
+        std::sort(order.begin(), order.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
+        std::vector<FreeRects>            beds;
+        std::vector<size_t>               count;
+        std::vector<CalibrationPlacement> out(sizes.size());
+        bool                              failed = false;
+        for (const auto &entry : order) {
+            const size_t i      = entry.second;
+            bool         placed = false;
+            for (size_t b = 0; ! placed; ++ b) {
+                if (b == beds.size()) {
+                    if (int(b) >= max_beds)
+                        break;
+                    beds.emplace_back(area);
+                    count.push_back(0);
+                    for (const BoundingBoxf &o : obstacles)
+                        beds.back().occupy(o);
+                }
+                Vec2d  pos, best_pos;
+                bool   best_turned = false, found = false;
+                double s1 = 0., s2 = 0., best1 = 0., best2 = 0.;
+                for (const bool turned : { false, true }) {
+                    if (turned && ! turn)
+                        continue;
+                    const Vec2d size = (turned ? Vec2d(sizes[i].y(), sizes[i].x()) : sizes[i]) + Vec2d::Constant(gap);
+                    if (beds[b].find(size, pos, s1, s2) && (! found || s1 < best1 - EPSILON || (s1 < best1 + EPSILON && s2 < best2 - EPSILON))) {
+                        found = true; best_pos = pos; best_turned = turned; best1 = s1; best2 = s2;
+                    }
+                }
+                if (! found) {
+                    if (count[b] == 0)
+                        break;   // fits on no empty bed
+                    continue;
+                }
+                const Vec2d size = (best_turned ? Vec2d(sizes[i].y(), sizes[i].x()) : sizes[i]) + Vec2d::Constant(gap);
+                beds[b].occupy(BoundingBoxf(best_pos, best_pos + size));
+                out[i] = { int(b), best_pos + Vec2d::Constant(half), best_turned };
+                ++ count[b];
+                placed = true;
+            }
+            if (! placed) {
+                failed = true;
+                break;
+            }
+        }
+        if (failed)
+            continue;
+        if (best.placements.empty() || beds.size() < best.beds || (beds.size() == best.beds && count.front() > best.first))
+            best = { out, beds.size(), count.front() };
+    }
+    return best;
+}
+} // namespace
+
+std::vector<CalibrationPlacement> calibration_layout(const std::vector<Vec2d> &sizes, const BoundingBoxf &bed, const std::vector<BoundingBoxf> &zones,
+                                                     double brim, bool turn, int max_beds)
+{
+    if (sizes.empty())
+        return {};
+    // Shared brims; frames touching (no brim between them) only if that needs fewer beds.
+    const CalibrationLayoutResult shared = calibration_layout_gap(sizes, bed, zones, brim, brim, turn, max_beds);
+    if (shared.beds == 1)
+        return shared.placements;
+    const CalibrationLayoutResult touching = calibration_layout_gap(sizes, bed, zones, brim, 0., turn, max_beds);
+    if (! touching.placements.empty() && (shared.placements.empty() || touching.beds < shared.beds))
+        return touching.placements;
+    return shared.placements;
 }
 
 void pressure_calibration_print_config(DynamicPrintConfig &print)
