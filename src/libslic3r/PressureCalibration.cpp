@@ -14,6 +14,7 @@
 #include "Exception.hpp"
 #include "FileReader.hpp"
 #include "Flow.hpp"
+#include "format.hpp"
 #include "I18N.hpp"
 #include "Model.hpp"
 #include "Slicing.hpp"
@@ -589,6 +590,12 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
             pressure_calibration_command(flavor, test.smooth_time) + std::to_string(test.values[nb]) + " ; " + settings.comment + "\n"));
     }
 
+    // The label of the test, on the row under the values: its number, and with an acceleration (adaptive PA calibration, user
+    // 2026-11-05) the acceleration after a blank, e.g. "1 28000". Characters one step apart, as the digits of the values.
+    const double      number_step = xy_scaled_number_x + nozzle;
+    const std::string label       = std::to_string(id_item) + (test.acceleration > 0. ? " " + std::to_string(std::lround(test.acceleration)) : std::string());
+    const double      label_width = double(label.size() - 1) * number_step + xy_scaled_number_x;
+
     // The values (every second bend), the borders and the number of the test.
     std::vector<Vec3d> number_positions;
     for (size_t nb = 0; nb < count && ! check_all; ++ nb) {
@@ -604,7 +611,8 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
             const Vec3d  number_first = number_positions.front();
             const Vec3d  number_mid   = number_positions[number_positions.size() / 2];
             const Vec3d  number_last  = number_positions.back();
-            const double numbers_total_width  = (number_last.x() + xy_scaled_number_x / 2.) - (number_first.x() - xy_scaled_number_x / 2.);
+            // The tab as wide as the values or the label, whichever is wider.
+            const double numbers_total_width  = std::max((number_last.x() + xy_scaled_number_x / 2.) - (number_first.x() - xy_scaled_number_x / 2.), label_width);
             const double total_height         = (bend_last.y() + xy_scaled_90_bend_y / 2.) - (bend_first.y() - xy_scaled_90_bend_y / 2.);
             const double box_left             = bend_mid.x() - xy_scaled_90_bend_x / 2.;
             const double box_right            = bend_mid.x() + xy_scaled_90_bend_x / 2.;
@@ -647,10 +655,17 @@ bool pressure_calibration_build(ModelObject &base, const DynamicPrintConfig &con
                 calibration_add_part(object, border, Vec3d(tb_border_x_pos, top_inner + first_layer_border / 2., z_others_pos),
                                      Vec3d(tb_total_width_mm / initial_border_x, first_layer_border / initial_border_y, z_scale_others));
             }
-            if (id_item < 10)
-                calibration_add_part(object, resource(std::to_string(id_item) + ".3mf"),
-                                     Vec3d(number_mid.x(), bend_first.y() - xy_scaled_90_bend_y / 2. + xy_scaled_number_y / 2., z_scaled_model_height),
-                                     Vec3d(xyz_scale * scale_role, xyz_scale * scale_role, z_scale_others * 2.));
+            // The label centered under the values (a label of one digit: where the test number always was).
+            {
+                const double values_center = (number_first.x() + number_last.x()) / 2.;
+                const double center        = label.size() == 1 ? number_mid.x() : values_center;
+                const double label_y       = bend_first.y() - xy_scaled_90_bend_y / 2. + xy_scaled_number_y / 2.;
+                for (size_t j = 0; j < label.size(); ++ j)
+                    if (std::isdigit(static_cast<unsigned char>(label[j])))
+                        calibration_add_part(object, resource(std::string(1, label[j]) + ".3mf"),
+                                             Vec3d(center - label_width / 2. + xy_scaled_number_x / 2. + double(j) * number_step, label_y, z_scaled_model_height),
+                                             Vec3d(xyz_scale * scale_role, xyz_scale * scale_role, z_scale_others * 2.));
+            }
         }
         if (nb % 2 == 1)
             continue;
@@ -933,6 +948,79 @@ std::vector<AdaptivePATest> adaptive_pa_tests_merge(const std::vector<AdaptivePA
     out.insert(out.end(), print.begin(), print.end());
     std::stable_sort(out.begin(), out.end(), [](const AdaptivePATest &a, const AdaptivePATest &b) { return a.acceleration < b.acceleration; });
     return out;
+}
+
+std::vector<size_t> adaptive_pa_calibration_tests(const std::vector<AdaptivePATest> &kept, double nozzle, double acceleration)
+{
+    std::vector<size_t> out;
+    for (size_t i = 0; i < kept.size(); ++ i)
+        if (std::abs(kept[i].nozzle - nozzle) < EPSILON && std::abs(kept[i].acceleration - acceleration) < 0.5)
+            out.emplace_back(i);
+    return out;
+}
+
+std::vector<double> adaptive_pa_calibration_accelerations(const std::vector<AdaptivePATest> &kept, double nozzle)
+{
+    std::vector<double> out;
+    for (const AdaptivePATest &t : kept)
+        if (std::abs(t.nozzle - nozzle) < EPSILON &&
+            std::none_of(out.begin(), out.end(), [&t](double a) { return std::abs(a - t.acceleration) < 0.5; }))
+            out.emplace_back(t.acceleration);
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+std::vector<AdaptivePAPoint> adaptive_pa_results(std::vector<AdaptivePATest> &kept, double nozzle, const std::vector<AdaptivePAResultRow> &rows,
+                                                 std::string &error)
+{
+    error.clear();
+    std::vector<AdaptivePAPoint> points;
+    std::vector<double>          new_pa(kept.size(), -1.);
+    std::vector<double>          seen;
+    for (const AdaptivePAResultRow &row : rows) {
+        const std::string accel = num(row.acceleration);
+        if (std::any_of(seen.begin(), seen.end(), [&row](double a) { return std::abs(a - row.acceleration) < 0.5; })) {
+            error = format(_u8L("%1% mm/s²: two rows with this acceleration."), accel);
+            return {};
+        }
+        seen.emplace_back(row.acceleration);
+        const std::vector<size_t> tests = adaptive_pa_calibration_tests(kept, nozzle, row.acceleration);
+        size_t values = 0;
+        for (size_t k = 0; k < row.pa.size(); ++ k) {
+            if (row.pa[k] < 0.)
+                continue;
+            if (tests.empty()) {
+                error = format(_u8L("%1% mm/s²: no calibration printed at this acceleration with the %2% mm nozzle (Calibration > Adaptive "
+                                    "pressure advance calibration), the flows of its tests are unknown."), accel, num(nozzle));
+                return {};
+            }
+            if (k >= tests.size()) {
+                error = format(_u8L("%1% mm/s²: test %2% doesn't exist, that print had %3% tests."), accel, k + 1, tests.size());
+                return {};
+            }
+            if (row.pa[k] >= 2.) {
+                error = format(_u8L("%1% mm/s², test %2%: the pressure advance must be from 0 to 2."), accel, k + 1);
+                return {};
+            }
+            const AdaptivePATest &t = kept[tests[k]];
+            points.push_back({ row.pa[k], t.flow, t.acceleration });
+            new_pa[tests[k]] = row.pa[k];
+            ++ values;
+        }
+        if (values == 1) {
+            error = format(_u8L("%1% mm/s²: values for at least 2 tests (or none), the model interpolates between the speeds of each "
+                                "acceleration."), accel);
+            return {};
+        }
+    }
+    if (points.empty()) {
+        error = _u8L("No value: type the best value of at least 2 tests.");
+        return {};
+    }
+    for (size_t i = 0; i < kept.size(); ++ i)
+        if (std::abs(kept[i].nozzle - nozzle) < EPSILON)
+            kept[i].pa = new_pa[i];
+    return points;
 }
 
 } // namespace Slic3r

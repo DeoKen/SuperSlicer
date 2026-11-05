@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <deque>
 #include <functional>
 #include <map>
 
@@ -12,7 +13,9 @@
 #include <wx/checkbox.h>
 #include <wx/combobox.h>
 #include <wx/filedlg.h>
+#include <wx/panel.h>
 #include <wx/sizer.h>
+#include <wx/settings.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 
@@ -782,17 +785,17 @@ public:
     CalibrationAdaptivePADialog()
         : CalibrationDialog(_L("Adaptive pressure advance calibration"),
             _L("Calibration for OrcaSlicer's adaptive pressure advance: the pressure calibration with Ellis' chevrons once per "
-               "speed, all at the acceleration selected below, each test with its number on the frame, numbered over the "
-               "accelerations of the drop-down (3 speeds: the first acceleration 0-2, the second 3-5, the third 6-8). Print one "
-               "calibration per acceleration (the model needs at least 2 speeds of each). Each wall prints at its test's speed with "
+               "speed, all at the acceleration selected below. Each frame shows its test number (1, 2, 3... in the order of the "
+               "speeds) and the acceleration, e.g. \"1 28000\". Print one calibration per acceleration (the model needs at least "
+               "2 speeds of each). Each wall prints at its test's speed with "
                "SET_VELOCITY_LIMIT ACCEL= before it (the print settings write no acceleration); the filament end G-code sets the "
                "acceleration back to the Klipper max accel of the filament's speed mode.\n"
                "The sides of the chevrons of each test are long enough for half of each to print at the full speed (Klipper "
                "minimum_cruise_ratio, Printer > Machine limits), at least the minimum side length.\n"
                "Defaults: the small perimeter speed, the fastest speed of the print settings and halfway between; the accelerations "
                "25 % of the slow speed mode's, the one the filament prints at and the fast speed mode's.\n"
-               "After printing: Calibration > Adaptive pressure advance results, type the best value of each test (it keeps the "
-               "tests of every acceleration printed for this filament and nozzle).\n"
+               "After printing: Calibration > Adaptive pressure advance results, type the acceleration and the best value of "
+               "tests 1, 2, 3 (it keeps the tests of every acceleration printed for this filament and nozzle).\n"
                "Klipper only. Generate puts Ellis' settings in the print and filament settings (unsaved changes)."))
     {
         const DynamicPrintConfig config = current_config();
@@ -903,19 +906,11 @@ protected:
             show_error(this, _L("The acceleration must be above 0."));
             return false;
         }
-        // The tests are numbered over the prints of the accelerations of the drop-down (user 2026-11-01: 0-8 with 3 speeds), so that
-        // every frame has its own number whatever the order of the prints: the first acceleration 0-2, the second 3-5... A typed
-        // acceleration comes after them. The frames are numbered with one digit.
-        const std::vector<wxString> choices = adaptive_pa_acceleration_choices(config);
-        size_t position = choices.size();
-        for (size_t i = 0; i < choices.size(); ++ i)
-            if (double v; choices[i].ToCDouble(&v) && std::abs(v - accel) < 0.5)
-                position = i;
-        const size_t first_id = position * speeds.size();
-        if (first_id + speeds.size() > 10) {
-            show_error(this, format_wxstr(_L("Tests %1% to %2%: the frames are numbered 0 to 9 over the accelerations of the drop-down. Use "
-                                             "fewer speeds (at most %3% with %4% accelerations)."), first_id, first_id + speeds.size() - 1,
-                                          10 / (choices.size() + (position == choices.size() ? 1 : 0)), choices.size() + (position == choices.size() ? 1 : 0)));
+        // Each print numbers its tests 1, 2, 3... in the order of the speeds, with the acceleration beside the number on the frame
+        // (user 2026-11-05; before: numbered 0-9 over the accelerations of the drop-down, a typed one had no room).
+        const size_t first_id = 1;
+        if (speeds.size() > 9) {
+            show_error(this, _L("At most 9 speeds per calibration."));
             return false;
         }
 
@@ -991,79 +986,121 @@ private:
     wxStaticText *m_kept { nullptr };
 };
 
+// The results (user 2026-11-05): per row the acceleration of a calibration print (on its frames) and the best value of its tests 1, 2,
+// 3...; the flows come from the kept tests (adaptive_pa_results()). "Add acceleration" adds a row, each row can be removed.
 class CalibrationAdaptivePAResultsDialog : public CalibrationDialog
 {
 public:
     CalibrationAdaptivePAResultsDialog()
         : CalibrationDialog(_L("Adaptive pressure advance results"),
-            format_wxstr(_L("The tests of the adaptive pressure advance calibrations of filament \"%1%\", nozzle %2% mm, one print per "
-                            "acceleration; the test numbers are the ones on the frames. Type the best value of each test: "
-                            "the sharpest corner without a bulge or a gap. Leave a test empty when you can't pick one value (usual at "
-                            "low speed and acceleration, where several values are good: OrcaSlicer then uses the value of the next "
-                            "faster test). Each acceleration needs values for at least 2 speeds. The best value should get lower as the "
-                            "flow and the acceleration get higher.\n"
-                            "Save keeps the values here (for the next print) and writes them with the flow and acceleration of each test "
-                            "into the filament's \"Adaptive pressure advance measurements\" (Filament > Advanced), in the section of the "
-                            "nozzle (the other nozzles' sections stay), as an unsaved change: select the filament you calibrated and "
-                            "revert the calibration's unsaved changes (fan, layer time cooling, end G-code) first, then save the "
-                            "filament after."),
-                         from_u8(wxGetApp().app_config->get(ADAPTIVE_PA_FILAMENT_KEY)), last_nozzle()))
-        , m_tests(adaptive_pa_tests_deserialize(wxGetApp().app_config->get(ADAPTIVE_PA_TESTS_KEY)))
+            _L("Per calibration print: type its acceleration (on its frames, after the test number) and the best value of each "
+               "test, numbered 1, 2, 3 on the frames: the sharpest corner without a bulge or a gap. Leave a test empty when no "
+               "value is clearly better (usual at low speed and acceleration, where several values are good: OrcaSlicer then "
+               "uses the value of the next faster test). Each acceleration needs values for at least 2 tests. The best value "
+               "should get lower as the speed and the acceleration get higher. \"Add acceleration\" for another print.\n"
+               "Save sorts the values with the flow of each test into the filament's \"Adaptive pressure advance measurements\" "
+               "(Filament > Advanced), in the section of this nozzle (the other nozzles' sections stay), as an unsaved change: "
+               "select the filament you calibrated and revert the calibration's unsaved changes (fan, layer time cooling, end "
+               "G-code) first, then save the filament after."))
+        , m_kept(adaptive_pa_tests_deserialize(wxGetApp().app_config->get(ADAPTIVE_PA_TESTS_KEY)))
     {
-        if (m_tests.empty()) {
-            auto *text = new wxStaticText(this, wxID_ANY, _L("No calibration yet: Calibration > Adaptive pressure advance calibration first."));
-            text->SetForegroundColour(*wxRED);
-            GetSizer()->Add(text, 0, wxALL, em_unit());
+        const int                em       = em_unit();
+        const DynamicPrintConfig config   = current_config();
+        const std::string        filament = wxGetApp().app_config->get(ADAPTIVE_PA_FILAMENT_KEY);
+        // The nozzle of the kept calibrations (all have the same one), else the printer's.
+        m_nozzle = m_kept.empty() ? nozzle_diameter(config) : m_kept.front().nozzle;
+
+        // A large header with the nozzle, above the explanation.
+        auto *header = new wxStaticText(this, wxID_ANY, format_wxstr(_L("Nozzle %1% mm"), m_nozzle));
+        wxFont font  = header->GetFont().Bold();
+        font.SetPointSize(int(std::lround(font.GetPointSize() * 1.8)));
+        header->SetFont(font);
+        GetSizer()->Insert(0, header, 0, wxLEFT | wxRIGHT | wxTOP, em);
+        auto *sub = new wxStaticText(this, wxID_ANY, m_kept.empty() ? _L("No calibration printed yet: Calibration > Adaptive pressure advance "
+                                                                         "calibration first.") :
+                                                     format_wxstr(_L("Filament \"%1%\", calibrations printed at %2% mm/s²"), from_u8(filament),
+                                                                  number_list(adaptive_pa_calibration_accelerations(m_kept, m_nozzle))));
+        GetSizer()->Insert(1, sub, 0, wxLEFT | wxRIGHT, em);
+        size_t pos = 2;
+        const auto warning = [this, em, &pos](const wxString &text) {
+            auto *w = new wxStaticText(this, wxID_ANY, text);
+            w->SetForegroundColour(*wxRED);
+            GetSizer()->Insert(pos ++, w, 0, wxLEFT | wxRIGHT | wxTOP, em);
+        };
+        if (! m_kept.empty() && filament != wxGetApp().preset_bundle->filaments.get_edited_preset().name)
+            warning(format_wxstr(_L("The selected filament is \"%1%\": Save writes into it. Select \"%2%\" first."),
+                                 from_u8(wxGetApp().preset_bundle->filaments.get_edited_preset().name), from_u8(filament)));
+        if (! m_kept.empty() && std::abs(nozzle_diameter(config) - m_nozzle) > EPSILON)
+            warning(format_wxstr(_L("The selected printer has a %1% mm nozzle; these calibrations are for the %2% mm nozzle."),
+                                 nozzle_diameter(config), m_nozzle));
+
+        m_rows = new wxBoxSizer(wxVERTICAL);
+        GetSizer()->Add(m_rows, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, em);
+        // One row per kept calibration with the values typed before, else an empty row.
+        for (double accel : adaptive_pa_calibration_accelerations(m_kept, m_nozzle)) {
+            std::vector<double> pa;
+            for (size_t i : adaptive_pa_calibration_tests(m_kept, m_nozzle, accel))
+                pa.emplace_back(m_kept[i].pa);
+            add_row(accel, pa);
         }
-        // The number on the frame of the test.
-        for (size_t i = 0; i < m_tests.size(); ++ i) {
-            const AdaptivePATest &t = m_tests[i];
-            m_ids.emplace_back(t.id >= 0 ? size_t(t.id) : i);
-            m_values.emplace_back(add_text(format_wxstr(_L("Test %1%: %2% mm/s², %3% mm/s, flow %4% mm³/s"), m_ids.back(), t.acceleration,
-                                                        std::round(t.speed * 10.) / 10., std::round(t.flow * 100.) / 100.),
-                                           _L("The best pressure advance of this test, empty to leave it out."),
-                                           t.pa >= 0. ? wxString::FromCDouble(t.pa) : wxString()));
-        }
+        if (m_rows_data.empty())
+            add_row(0., {});
+        auto *add = new wxButton(this, wxID_ANY, _L("Add acceleration"));
+        add->SetToolTip(_L("Another row for the results of another calibration print (another acceleration)."));
+        add->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { add_row(0., {}); relayout(); });
+        GetSizer()->Add(add, 0, wxLEFT | wxTOP, em);
         finish_layout(_L("Save to filament"));
     }
 
 protected:
     bool generate() override
     {
-        std::vector<AdaptivePAPoint> points;
-        std::map<double, int>        per_accel;
-        for (size_t i = 0; i < m_tests.size(); ++ i) {
-            const wxString name = format_wxstr(_L("Test %1%"), m_ids[i]);
-            m_tests[i].pa = -1.;
-            if (m_values[i]->GetValue().Strip(wxString::both).empty())
+        std::vector<AdaptivePAResultRow> rows;
+        for (const Row &row : m_rows_data) {
+            const wxString accel_text = row.accel->GetValue().Strip(wxString::both);
+            bool any_value = false;
+            for (wxTextCtrl *v : row.values)
+                any_value |= ! v->GetValue().Strip(wxString::both).empty();
+            if (accel_text.empty()) {
+                if (any_value) {
+                    show_error(this, _L("A row with values has no acceleration."));
+                    return false;
+                }
                 continue;
-            double pa;
-            if (! get_number(m_values[i], name, pa))
+            }
+            AdaptivePAResultRow r;
+            if (! get_number(row.accel, _L("Acceleration (mm/s²)"), r.acceleration))
                 return false;
-            if (pa < 0. || pa >= 2.) {
-                show_error(this, format_wxstr(_L("%1%: the pressure advance must be from 0 to 2."), name));
+            if (r.acceleration <= 0.) {
+                show_error(this, _L("The acceleration must be above 0."));
                 return false;
             }
-            m_tests[i].pa = pa;
-            points.push_back({ pa, m_tests[i].flow, m_tests[i].acceleration });
-            ++ per_accel[m_tests[i].acceleration];
+            for (size_t k = 0; k < row.values.size(); ++ k) {
+                double pa = -1.;
+                if (! row.values[k]->GetValue().Strip(wxString::both).empty()) {
+                    if (! get_number(row.values[k], format_wxstr(_L("%1% mm/s², test %2%"), r.acceleration, k + 1), pa))
+                        return false;
+                    if (pa < 0.) {
+                        show_error(this, format_wxstr(_L("%1% mm/s², test %2%: the pressure advance must be from 0 to 2."), r.acceleration, k + 1));
+                        return false;
+                    }
+                }
+                r.pa.emplace_back(pa);
+            }
+            rows.emplace_back(std::move(r));
         }
-        // The typed values stay for the results of the next print.
-        wxGetApp().app_config->set(ADAPTIVE_PA_TESTS_KEY, adaptive_pa_tests_serialize(m_tests));
+        std::string                        error;
+        const std::vector<AdaptivePAPoint> points = adaptive_pa_results(m_kept, m_nozzle, rows, error);
         if (points.empty()) {
-            show_error(this, _L("No value: type the best value of at least 2 tests."));
+            show_error(this, from_u8(error));
             return false;
         }
-        for (const auto &[accel, count] : per_accel)
-            if (count < 2) {
-                show_error(this, format_wxstr(_L("Acceleration %1% mm/s²: values for at least 2 speeds (or none), the model interpolates "
-                                                 "between the speeds of each acceleration."), accel));
-                return false;
-            }
+        // The typed values stay for the next time.
+        wxGetApp().app_config->set(ADAPTIVE_PA_TESTS_KEY, adaptive_pa_tests_serialize(m_kept));
         DynamicPrintConfig filament = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
         auto              *opt      = filament.option<ConfigOptionStrings>("adaptive_pressure_advance_model", true);
-        const std::string  model    = adaptive_pa_model_set_section(opt->values.empty() ? std::string() : opt->values.front(),
-                                                                    m_tests.front().nozzle, adaptive_pa_model(points));
+        const std::string  model    = adaptive_pa_model_set_section(opt->values.empty() ? std::string() : opt->values.front(), m_nozzle,
+                                                                    adaptive_pa_model(points));
         opt->values.assign(std::max<size_t>(1, opt->values.size()), model);
         load_tab_config(Preset::TYPE_FILAMENT, filament);
         MessageDialog(this, format_wxstr(_L("Written into the filament \"%1%\" (unsaved change):"),
@@ -1073,16 +1110,129 @@ protected:
     }
 
 private:
-    // The nozzle of the kept calibrations (all their tests have the same one).
-    static double last_nozzle()
+    struct Row
     {
-        const std::vector<AdaptivePATest> tests = adaptive_pa_tests_deserialize(wxGetApp().app_config->get(ADAPTIVE_PA_TESTS_KEY));
-        return tests.empty() ? 0. : tests.front().nozzle;
+        wxPanel                 *panel { nullptr };
+        wxTextCtrl              *accel { nullptr };
+        std::vector<wxTextCtrl*> values;
+        wxBoxSizer              *fields { nullptr };
+        wxStaticText            *info { nullptr };
+    };
+
+    // A row: the acceleration, the values of tests 1, 2, 3 (more when its print had more tests), Remove, and under them the speed
+    // and flow of each test of the print.
+    void add_row(double accel, const std::vector<double> &pa)
+    {
+        const int em    = em_unit();
+        auto     *panel = new wxPanel(this);
+        panel->SetFont(GetFont());
+        auto *sizer  = new wxBoxSizer(wxVERTICAL);
+        auto *fields = new wxBoxSizer(wxHORIZONTAL);
+        Row   row;
+        row.panel  = panel;
+        row.fields = fields;
+        fields->Add(new wxStaticText(panel, wxID_ANY, _L("Acceleration (mm/s²)")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, em / 2);
+        row.accel = new wxTextCtrl(panel, wxID_ANY, accel > 0. ? wxString::FromCDouble(accel) : wxString(), wxDefaultPosition, wxSize(8 * em, -1));
+        row.accel->SetToolTip(_L("The acceleration of the calibration print, on its frames after the test number."));
+        fields->Add(row.accel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, em);
+        auto *remove = new wxButton(panel, wxID_ANY, _L("Remove"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+        remove->SetToolTip(_L("Remove this row: its values are not written (the calibration print stays kept)."));
+        fields->Add(remove, 0, wxALIGN_CENTER_VERTICAL);
+        row.info = new wxStaticText(panel, wxID_ANY, wxEmptyString);
+        row.info->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+        sizer->Add(fields, 0, wxTOP, em / 2);
+        sizer->Add(row.info, 0, wxTOP, em / 4);
+        panel->SetSizer(sizer);
+        m_rows->Add(panel, 0, wxEXPAND);
+        m_rows_data.emplace_back(std::move(row));
+        Row &r = m_rows_data.back();
+        ensure_fields(r, std::max<size_t>(3, pa.size()));
+        for (size_t k = 0; k < pa.size(); ++ k)
+            if (pa[k] >= 0.)
+                r.values[k]->SetValue(wxString::FromCDouble(pa[k]));
+        update_info(r);
+        r.accel->Bind(wxEVT_TEXT, [this, panel](wxCommandEvent &) {
+            if (Row *row = find_row(panel)) {
+                update_info(*row);
+                relayout();
+            }
+        });
+        remove->Bind(wxEVT_BUTTON, [this, panel](wxCommandEvent &) {
+            // After the button's event: the button is destroyed with its row.
+            CallAfter([this, panel]() {
+                m_rows_data.erase(std::remove_if(m_rows_data.begin(), m_rows_data.end(), [panel](const Row &r) { return r.panel == panel; }),
+                                  m_rows_data.end());
+                m_rows->Detach(panel);
+                panel->Destroy();
+                relayout();
+            });
+        });
+        wxGetApp().UpdateDarkUI(panel);
     }
 
-    std::vector<AdaptivePATest> m_tests;
-    std::vector<size_t>         m_ids;
-    std::vector<wxTextCtrl*>    m_values;
+    // At least count value fields, added before Remove.
+    void ensure_fields(Row &row, size_t count)
+    {
+        const int em = em_unit();
+        while (row.values.size() < count) {
+            const size_t k     = row.values.size();
+            auto        *label = new wxStaticText(row.panel, wxID_ANY, wxString::Format("%d", int(k + 1)));
+            auto        *value = new wxTextCtrl(row.panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(6 * em, -1));
+            value->SetToolTip(format_wxstr(_L("The best pressure advance of test %1% (the number on its frame), empty to leave it out."), k + 1));
+            // Before the Remove button (the last item).
+            const size_t at = row.fields->GetItemCount() - 1;
+            row.fields->Insert(at, label, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, em / 2);
+            row.fields->Insert(at + 1, value, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, em);
+            row.values.emplace_back(value);
+        }
+    }
+
+    // Under the fields: the speed and flow of each test of the print of the typed acceleration; more fields if it had more tests.
+    void update_info(Row &row)
+    {
+        double   accel = 0.;
+        wxString text  = row.accel->GetValue();
+        text.Replace(",", ".");
+        text.Trim(true).Trim(false);
+        if (text.empty() || ! text.ToCDouble(&accel) || accel <= 0.) {
+            row.info->SetLabel(text.empty() ? wxString() : _L("Not a number."));
+            return;
+        }
+        const std::vector<size_t> tests = adaptive_pa_calibration_tests(m_kept, m_nozzle, accel);
+        if (tests.empty()) {
+            row.info->SetLabel(format_wxstr(_L("No calibration printed at %1% mm/s² for this nozzle."), accel));
+            return;
+        }
+        ensure_fields(row, tests.size());
+        wxString info;
+        for (size_t k = 0; k < tests.size(); ++ k) {
+            const AdaptivePATest &t = m_kept[tests[k]];
+            info += (info.empty() ? "" : "    ") + format_wxstr(_L("%1%: %2% mm/s, %3% mm³/s"), k + 1, std::round(t.speed * 10.) / 10.,
+                                                               std::round(t.flow * 100.) / 100.);
+        }
+        row.info->SetLabel(info);
+    }
+
+    Row* find_row(wxPanel *panel)
+    {
+        for (Row &r : m_rows_data)
+            if (r.panel == panel)
+                return &r;
+        return nullptr;
+    }
+
+    void relayout()
+    {
+        Layout();
+        GetSizer()->SetSizeHints(this);
+        Fit();
+    }
+
+    std::vector<AdaptivePATest> m_kept;
+    double                      m_nozzle { 0. };
+    wxBoxSizer                 *m_rows { nullptr };
+    // A deque: the bound handlers find their row by its panel, the rows don't move when one is added.
+    std::deque<Row>             m_rows_data;
 };
 
 // ------------------------------------------------------------------------------------------------------------------------

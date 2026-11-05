@@ -172,6 +172,28 @@ std::vector<AdaptivePATest> adaptive_pa_tests_deserialize(const std::string &tex
 // acceleration (the order of the prints' test numbers kept); all the kept ones replaced if they are for another nozzle.
 std::vector<AdaptivePATest> adaptive_pa_tests_merge(const std::vector<AdaptivePATest> &kept, const std::vector<AdaptivePATest> &print);
 
+// The kept tests of one calibration print (a nozzle and an acceleration, within 0.5 mm/s²), as indices into kept in the order of
+// their frames: the test numbered 1 on its frame first (user 2026-11-05: each print numbers its tests 1, 2, 3... in the order of the
+// speeds typed; the kept tests of an acceleration keep that order).
+std::vector<size_t> adaptive_pa_calibration_tests(const std::vector<AdaptivePATest> &kept, double nozzle, double acceleration);
+// The accelerations of the kept calibrations of a nozzle, sorted.
+std::vector<double> adaptive_pa_calibration_accelerations(const std::vector<AdaptivePATest> &kept, double nozzle);
+
+// One row of the results: an acceleration and the best value of the tests numbered 1, 2, 3... on the frames of its print
+// (pa[k] for test k + 1, -1: empty).
+struct AdaptivePAResultRow
+{
+    double              acceleration;
+    std::vector<double> pa;
+};
+// The model points of the results (user 2026-11-05: the user types the acceleration and the values, the flows come from the kept
+// tests): each row's values with the flow and acceleration of its tests. The typed values go into kept (pa of the tests of the
+// nozzle, -1 for the ones without a value). Empty with error set when: a row's acceleration has no kept calibration for the nozzle,
+// a value is for a test number the print didn't have, two rows have the same acceleration, a row has a single value (the model
+// interpolates over the flow of each acceleration), a value is not from 0 to 2, or there is no value at all.
+std::vector<AdaptivePAPoint> adaptive_pa_results(std::vector<AdaptivePATest> &kept, double nozzle, const std::vector<AdaptivePAResultRow> &rows,
+                                                 std::string &error);
+
 } // namespace Slic3r
 
 #endif // slic3r_PressureCalibration_hpp_

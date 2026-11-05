@@ -58,18 +58,18 @@ ModelObject* load_base(Model &model)
 }
 
 std::string slice_calibration(const DynamicPrintConfig &config_in, const PressureCalibrationSettings &settings,
-                              const std::vector<PressureCalibrationTest> &tests)
+                              const std::vector<PressureCalibrationTest> &tests, size_t first_id = 0)
 {
     DynamicPrintConfig config = config_in;
     pressure_calibration_apply_settings(config, settings);
     pressure_calibration_print_config(config);
     Model model;
     for (size_t id_item = 0; id_item < tests.size(); ++ id_item) {
-        REQUIRE(pressure_calibration_build(*load_base(model), config, settings, tests[id_item], id_item, resources()));
+        REQUIRE(pressure_calibration_build(*load_base(model), config, settings, tests[id_item], first_id + id_item, resources()));
         std::vector<ModelObject*> walls;
         for (size_t k = 0; k < pressure_calibration_wall_objects(settings, tests[id_item]); ++ k)
             walls.emplace_back(load_base(model));
-        pressure_calibration_build_walls(walls, config, settings, tests[id_item], id_item);
+        pressure_calibration_build_walls(walls, config, settings, tests[id_item], first_id + id_item);
     }
     model.custom_gcode_per_print_z().mode = CustomGCode::SingleExtruder;
     model.custom_gcode_per_print_z().gcodes.push_back({ settings.first_layer_height, CustomGCode::Custom, -1, "",
@@ -756,4 +756,96 @@ TEST_CASE("Pressure calibration vs Ellis' pattern", "[.PACompare]") {
     };
     write("pa_superslicer.gcode", slice_calibration(config, settings, { test }));
     write("pa_ellis.gcode", pressure_advance_pattern_gcode(ellis_config, ellis));
+}
+
+// Writes the G-code of an adaptive PA calibration test (speed 100, acceleration 28000, test number 1) to APA_PREVIEW_OUT, to look
+// at the frame and its labels. Not run by ctest.
+TEST_CASE("Adaptive PA calibration preview", "[.APAPreview]") {
+    const char *out = std::getenv("APA_PREVIEW_OUT");
+    REQUIRE(out != nullptr);
+    DynamicPrintConfig config = test_config();
+    PressureCalibrationSettings settings;
+    PressureCalibrationTest test;
+    test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
+    test.speed        = 100.;
+    test.acceleration = 28000.;
+    test.side_length  = 20.;
+    boost::nowide::ofstream(out) << slice_calibration(config, settings, { test }, 1);
+}
+
+TEST_CASE("Adaptive PA calibration label: test number and acceleration", "[AdaptivePACalibration]") {
+    // The frame of a test: its number, and with an acceleration the acceleration beside it (user 2026-11-05): "1 28000" = 5 more digits.
+    DynamicPrintConfig config = test_config();
+    PressureCalibrationSettings settings;
+    pressure_calibration_apply_settings(config, settings);
+    pressure_calibration_print_config(config);
+    const auto parts = [&config, &settings](double acceleration, size_t id) {
+        PressureCalibrationTest test;
+        test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
+        test.speed        = 100.;
+        test.acceleration = acceleration;
+        Model model;
+        ModelObject *base = load_base(model);
+        const size_t before = base->volumes.size();
+        REQUIRE(pressure_calibration_build(*base, config, settings, test, id, resources()));
+        return base->volumes.size() - before;
+    };
+    CHECK(parts(28000., 1) == parts(0., 1) + 5);
+    CHECK(parts(1500., 2) == parts(0., 2) + 4);
+    // A number above 9 is printed too (it wasn't before).
+    CHECK(parts(0., 12) == parts(0., 1) + 1);
+    // Sliced: the walls at the test's acceleration.
+    PressureCalibrationTest test;
+    test.values       = pressure_calibration_values(0.01, 0.03, 0.005);
+    test.speed        = 100.;
+    test.acceleration = 28000.;
+    CHECK(slice_calibration(test_config(), settings, { test }, 1).find("SET_VELOCITY_LIMIT ACCEL=28000") != std::string::npos);
+}
+
+TEST_CASE("Adaptive PA results", "[AdaptivePACalibration]") {
+    // Two prints of the 0.4 nozzle (1500 and 6000, 3 tests each in the order of their frames) and one of the 0.6 nozzle.
+    const std::vector<AdaptivePATest> kept_in {
+        { 15., 1500., 1.1, 0.4 }, { 58., 1500., 4.1, 0.4 }, { 100., 1500., 7.1, 0.4 },
+        { 15., 6000., 1.2, 0.4, 0.04 }, { 58., 6000., 4.2, 0.4 }, { 100., 6000., 7.2, 0.4 },
+        { 20., 6000., 2.0, 0.6, 0.05 } };
+    std::vector<AdaptivePATest> kept = kept_in;
+    std::string error;
+    SECTION("Calibrations of a nozzle") {
+        CHECK(adaptive_pa_calibration_accelerations(kept, 0.4) == std::vector<double>{ 1500., 6000. });
+        CHECK(adaptive_pa_calibration_accelerations(kept, 0.6) == std::vector<double>{ 6000. });
+        CHECK(adaptive_pa_calibration_tests(kept, 0.4, 6000.) == std::vector<size_t>{ 3, 4, 5 });
+        CHECK(adaptive_pa_calibration_tests(kept, 0.4, 6000.3) == std::vector<size_t>{ 3, 4, 5 });
+        CHECK(adaptive_pa_calibration_tests(kept, 0.4, 28000.).empty());
+    }
+    SECTION("Values matched to the flows of the tests, the rows in any order") {
+        const std::vector<AdaptivePAPoint> points = adaptive_pa_results(kept, 0.4,
+            { { 6000., { 0.03, 0.028, 0.025 } }, { 1500., { -1., 0.033, 0.031 } } }, error);
+        CHECK(error.empty());
+        REQUIRE(points.size() == 5);
+        CHECK(adaptive_pa_model(points) == "0.033,4.10,1500\n0.031,7.10,1500\n0.03,1.20,6000\n0.028,4.20,6000\n0.025,7.20,6000\n");
+        // The typed values kept, the empty one -1, the other nozzle untouched.
+        CHECK(kept[0].pa == -1.);
+        CHECK(kept[1].pa == 0.033);
+        CHECK(kept[3].pa == 0.03);
+        CHECK(kept[6].pa == 0.05);
+    }
+    SECTION("A row without values is left out, its kept values cleared") {
+        CHECK(adaptive_pa_results(kept, 0.4, { { 1500., { 0.033, 0.031, -1. } }, { 6000., { -1., -1., -1. } } }, error).size() == 2);
+        CHECK(kept[3].pa == -1.);
+    }
+    SECTION("Errors, kept unchanged") {
+        CHECK(adaptive_pa_results(kept, 0.4, { { 28000., { 0.02, 0.018 } } }, error).empty());
+        CHECK(error.find("28000 mm/s²: no calibration printed") == 0);
+        CHECK(adaptive_pa_results(kept, 0.4, { { 6000., { 0.03, 0.028, 0.025, 0.02 } } }, error).empty());
+        CHECK(error.find("test 4 doesn't exist, that print had 3 tests") != std::string::npos);
+        CHECK(adaptive_pa_results(kept, 0.4, { { 6000., { 0.03, -1., -1. } } }, error).empty());
+        CHECK(error.find("at least 2 tests") != std::string::npos);
+        CHECK(adaptive_pa_results(kept, 0.4, { { 6000., { 0.03, 0.02 } }, { 6000., { 0.03, 0.02 } } }, error).empty());
+        CHECK(error.find("two rows") != std::string::npos);
+        CHECK(adaptive_pa_results(kept, 0.4, { { 6000., { 0.03, 2.5 } } }, error).empty());
+        CHECK(error.find("from 0 to 2") != std::string::npos);
+        CHECK(adaptive_pa_results(kept, 0.4, { { 6000., { -1., -1. } } }, error).empty());
+        CHECK(error.find("No value") == 0);
+        CHECK(kept[3].pa == 0.04);
+    }
 }

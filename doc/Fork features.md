@@ -2035,9 +2035,10 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     `adaptive_pa_speed_mode_accel()`) and the Klipper max accel of the Fast speed mode, `adaptive_pa_default_accelerations()`.
     The user's Voron: 1500, 6000 (Slow filaments) or 28000 (Normal), 38000. Orca: not above the acceleration the input
     shaper calibration recommends (the smoothing rounds the corners); the user keeps the Fast one (2026-11-01).
-  - Test numbers over the prints (user, 2026-11-01): the first acceleration of the drop-down 0-2, the second 3-5, the third
-    6-8 (with 3 speeds), whatever the order of the prints; a typed acceleration comes after them. The frames are numbered 0-9
-    with one digit, so at most 10 numbers.
+  - The label of each frame (user, 2026-11-05): the test number, 1, 2, 3... in the order of the speeds (at most 9 speeds), and
+    the acceleration after a blank, e.g. `1 28000`, on the row under the values (the tab gets wider if the label is wider than
+    the values). Before: numbered 0-9 over the accelerations of the drop-down, so a typed acceleration (e.g. 28000 with a Slow
+    filament, whose drop-down is 1500 / 6000 / 38000) was refused for lack of numbers.
   - The side length of each test (`adaptive_pa_side_length()`, user 2026-11-01: "adjust the test lengths so it matters"):
     long enough for at least half of each side to print at the test's speed: accelerating and decelerating take speed² /
     acceleration, and Klipper's `minimum_cruise_ratio` (`klipper_minimum_cruise_ratio`, Printer > Machine limits, the user's
@@ -2059,8 +2060,15 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     (`calibration_adaptive_pa_tests`, `calibration_adaptive_pa_filament`): a print replaces the kept tests of its acceleration
     and keeps the others (`adaptive_pa_tests_merge()`); another filament or nozzle starts over. The dialog lists the
     accelerations kept.
-- **Calibration > Adaptive pressure advance results**: one field per kept test, sorted by acceleration ("Test 4: 6000 mm/s²,
-  58 mm/s, flow 4.14 mm³/s"); type the best value of each, or leave it empty when no value is clearly better (Orca: usual at
+- **Calibration > Adaptive pressure advance results** (user, 2026-11-05): a large "Nozzle 0.4 mm" header (the nozzle of the kept
+  calibrations), the filament and the accelerations printed, red warnings when the selected filament or the printer's nozzle
+  is not the calibrated one. One row per print: the acceleration, fields 1, 2, 3 (more when that print had more tests) and
+  Remove; under them the speed and flow of each test once the acceleration matches a kept print. A row per kept acceleration
+  with the values typed before; "Add acceleration" adds an empty row. Save matches each row to its print
+  (`adaptive_pa_results()`: the flows of tests 1, 2, 3 of that acceleration and nozzle) and sorts the model; errors for an
+  acceleration without a print, a test number the print didn't have, two rows with one acceleration, a single value. Prints made
+  before 2026-11-05 have frames numbered over the accelerations (e.g. 3, 4, 5): fields 1, 2, 3 are the same tests in that
+  order. Type the best value of each, or leave it empty when no value is clearly better (Orca: usual at
   low flow and acceleration, where several values are good; its model then uses the value of the lowest flow measured, as it
   clamps instead of extrapolating, so an empty slow test takes the next faster test's value). Each acceleration needs at
   least 2 values (Orca's model interpolates over the flow per acceleration and ignores an acceleration with one point). "Save
@@ -2094,9 +2102,12 @@ flow = speed x cross section and capped by the lower max volumetric speed, model
 typed value and number; a sliced test with 60 mm sides: the longest wall 60 mm longer than with Ellis' 30 mm; a sliced test at 150 mm/s and 4000 mm/s²: the walls at 150 mm/s from the third
 layer, `SET_VELOCITY_LIMIT ACCEL=4000` right before every wall's value, no `M204`, the summary. Manual: Calibration >
 Adaptive pressure advance calibration with the user's print profile: the speeds and the acceleration drop-down as above,
-Generate with each acceleration: frames numbered 0-2 / 3-5 / 6-8, the fast tests at low acceleration with longer chevrons, Preview: G-code panel shows the acceleration and value before each wall,
-Filament > Custom G-code: the end G-code starts with the restore; Calibration > Adaptive pressure advance results: type
-values, Save: Filament > Advanced shows the lines.
+Generate with each acceleration: frames labelled `1 <acceleration>`, `2 <acceleration>`..., a typed 28000 accepted, the fast tests at low acceleration with longer chevrons, Preview: G-code panel shows the acceleration and value before each wall,
+Filament > Custom G-code: the end G-code starts with the restore; Calibration > Adaptive pressure advance results: the nozzle
+header, one row per print, Add acceleration / Remove, type values, Save: Filament > Advanced shows the lines sorted. Unit tests:
+the label (a number and an acceleration = 5 more digits, a number above 9), `adaptive_pa_results()` (rows in any order matched to
+the flows, empty tests and rows, the errors, kept values updated only on success, the other nozzle untouched). Preview of the
+frame: `fff_print_tests "[.APAPreview]"` with `APA_PREVIEW_OUT=<file.gcode>`.
 
 ## 46. Pressure advance and adaptive pressure advance
 
