@@ -2083,7 +2083,13 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     (`calibration_adaptive_pa_tests`, `calibration_adaptive_pa_filament`; moved into the section the first time). The dialog
     lists the accelerations kept for the selected filament and nozzle.
 - **Calibration > Adaptive pressure advance results** (user, 2026-11-05): for the selected filament and the printer's nozzle, a large
-  "Nozzle 0.4 mm" header, the filament and the accelerations calibrated. One row per print: the acceleration, fields 1, 2, 3 (more when that print had more tests) and
+  "Nozzle 0.4 mm" header, the filament and the accelerations calibrated. Under it "Reading the chevrons" (user 2026-11-05: what
+  to look for and how to break ties, with pictures): three drawings of a chevron corner (`resources/icons/pa_corner_low.svg`,
+  `_good.svg`, `_high.svg`): too low = a bulge or blob at the corner, right = sharp and square, too high = a gap, a thin or
+  rounded corner, a divot after it; the rules from Ellis' Print Tuning Guide (the sharpest corner with the fewest gaps, bulges
+  and divots, "as if you held a square against it"; ties: lean higher, a tiny gap on the sharpest corner is fine; no clean
+  corner or gaps and bulges together: the extruder) and OrcaSlicer (at low speed and acceleration many values are right: leave
+  the test empty). The print profiles' accelerations scroll when the list is long. One row per print: the acceleration, fields 1, 2, 3 (more when that print had more tests) and
   Remove; under them the speed and flow of each test once the acceleration matches a kept print. A row per kept acceleration
   with the values typed before; "Add acceleration" adds an empty row. Save matches each row to its print
   (`adaptive_pa_results()`: the flows of tests 1, 2, 3 of that acceleration and nozzle) and sorts the model; errors for an

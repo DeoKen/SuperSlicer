@@ -16,7 +16,10 @@
 #include <wx/filedlg.h>
 #include <wx/panel.h>
 #include <wx/sizer.h>
+#include <wx/scrolwin.h>
 #include <wx/settings.h>
+#include <wx/statbmp.h>
+#include <wx/statbox.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/wrapsizer.h>
@@ -45,6 +48,7 @@
 #include "Plater.hpp"
 #include "Tab.hpp"
 #include "format.hpp"
+#include "wxExtensions.hpp"
 #include "../Utils/Process.hpp"
 
 namespace Slic3r {
@@ -1345,6 +1349,39 @@ public:
                                 format_wxstr(_L("Measurements saved in the filament for this nozzle (what slicing uses): %1% mm/s²."), number_list(measured))));
         GetSizer()->Insert(1, sub, 0, wxLEFT | wxRIGHT, em);
 
+        // How to read the chevrons (user 2026-11-05: "what to look for when choosing a value and how to break tiebreakers", with
+        // pictures). From Ellis' Print Tuning Guide (pattern method, introduction) and OrcaSlicer's adaptive PA wiki.
+        {
+            auto *box = new wxStaticBoxSizer(wxVERTICAL, this, _L("Reading the chevrons"));
+            auto *pictures = new wxBoxSizer(wxHORIZONTAL);
+            const auto picture = [this, em, pictures](const std::string &icon, const wxString &caption) {
+                auto *col = new wxBoxSizer(wxVERTICAL);
+                ScalableBitmap bmp(this, icon, 12 * em, 10 * em);
+                col->Add(new wxStaticBitmap(this, wxID_ANY, bmp.bmp()), 0, wxALIGN_CENTER_HORIZONTAL);
+                auto *text = new wxStaticText(this, wxID_ANY, caption, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER_HORIZONTAL);
+                text->Wrap(13 * em);
+                col->Add(text, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP, em / 4);
+                pictures->Add(col, 0, wxRIGHT, 2 * em);
+            };
+            picture("pa_corner_low", _L("Too low: a bulge or blob at the corner (the nozzle slows down for the corner while the "
+                                        "pressure is still high)."));
+            picture("pa_corner_good", _L("Right: a sharp, square corner, the lines the same width all the way."));
+            picture("pa_corner_high", _L("Too high: a gap, a thin or rounded corner, a divot where the line starts again."));
+            box->Add(pictures, 0, wxALL, em / 2);
+            auto *rules = new wxStaticText(this, wxID_ANY,
+                _L("Look at the corners (the tips) of all three lines of each chevron and pick the sharpest corner with the fewest "
+                   "gaps, bulges and divots, as if you held a square against it (Ellis). Every second chevron has its value "
+                   "printed; the one between is halfway. Perfect is rare: pick the closest.") + "\n" +
+                _L("Several look the same: lean to the higher value; the sharpest corner is still the one to take with a tiny gap "
+                   "(Ellis). At low speed and acceleration many values look right, and then they all are (OrcaSlicer): leave the "
+                   "test empty, the model uses the next faster test's value. The best value should get lower from test 1 to test "
+                   "3 and at higher accelerations.") + "\n" +
+                _L("No clean corner at all, or gaps and bulges together: an extruder problem, not pressure advance (Ellis)."));
+            rules->Wrap(40 * em);
+            box->Add(rules, 0, wxALL, em / 2);
+            GetSizer()->Insert(2, box, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, em);
+        }
+
         m_rows = new wxBoxSizer(wxVERTICAL);
         GetSizer()->Add(m_rows, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, em);
         // One row per calibrated acceleration with the values typed before, else an empty row.
@@ -1365,8 +1402,17 @@ public:
         auto *profiles_title = new wxStaticText(this, wxID_ANY, _L("Accelerations your print profiles use with this printer and filament"));
         profiles_title->SetFont(profiles_title->GetFont().Bold());
         GetSizer()->Add(profiles_title, 0, wxLEFT | wxRIGHT | wxTOP, em);
-        auto *profiles = new wxStaticText(this, wxID_ANY, profiles_text(config, measured));
-        GetSizer()->Add(profiles, 0, wxLEFT | wxRIGHT | wxTOP, em / 2);
+        // Scrolled when long (many print profiles), so the dialog stays on the screen.
+        auto *scroll   = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL);
+        auto *profiles = new wxStaticText(scroll, wxID_ANY, profiles_text(config, measured));
+        auto *inner    = new wxBoxSizer(wxVERTICAL);
+        inner->Add(profiles, 0, wxALL, em / 4);
+        scroll->SetSizer(inner);
+        scroll->SetScrollRate(0, em);
+        const wxSize text_size = inner->CalcMin();
+        scroll->SetMinSize(wxSize(text_size.x + 3 * em, std::min(text_size.y, 14 * GetCharHeight())));
+        wxGetApp().UpdateDarkUI(scroll);
+        GetSizer()->Add(scroll, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, em / 2);
         finish_layout(_L("Save to filament"));
     }
 
