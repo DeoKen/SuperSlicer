@@ -18,7 +18,6 @@
 #include <wx/sizer.h>
 #include <wx/scrolwin.h>
 #include <wx/settings.h>
-#include <wx/statbmp.h>
 #include <wx/statbox.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
@@ -48,7 +47,6 @@
 #include "Plater.hpp"
 #include "Tab.hpp"
 #include "format.hpp"
-#include "wxExtensions.hpp"
 #include "../Utils/Process.hpp"
 
 namespace Slic3r {
@@ -1349,26 +1347,15 @@ public:
                                 format_wxstr(_L("Measurements saved in the filament for this nozzle (what slicing uses): %1% mm/s²."), number_list(measured))));
         GetSizer()->Insert(1, sub, 0, wxLEFT | wxRIGHT, em);
 
-        // How to read the chevrons (user 2026-11-05: "what to look for when choosing a value and how to break tiebreakers", with
-        // pictures). From Ellis' Print Tuning Guide (pattern method, introduction) and OrcaSlicer's adaptive PA wiki.
+        // How to read the chevrons (user 2026-11-05: "what to look for when choosing a value and how to break tiebreakers"; the
+        // drawings were removed the same day, too exaggerated). From Ellis' Print Tuning Guide (pattern method, introduction) and
+        // OrcaSlicer's adaptive PA wiki.
         {
             auto *box = new wxStaticBoxSizer(wxVERTICAL, this, _L("Reading the chevrons"));
-            auto *pictures = new wxBoxSizer(wxHORIZONTAL);
-            const auto picture = [this, em, pictures](const std::string &icon, const wxString &caption) {
-                auto *col = new wxBoxSizer(wxVERTICAL);
-                ScalableBitmap bmp(this, icon, 12 * em, 10 * em);
-                col->Add(new wxStaticBitmap(this, wxID_ANY, bmp.bmp()), 0, wxALIGN_CENTER_HORIZONTAL);
-                auto *text = new wxStaticText(this, wxID_ANY, caption, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER_HORIZONTAL);
-                text->Wrap(13 * em);
-                col->Add(text, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP, em / 4);
-                pictures->Add(col, 0, wxRIGHT, 2 * em);
-            };
-            picture("pa_corner_low", _L("Too low: a bulge or blob at the corner (the nozzle slows down for the corner while the "
-                                        "pressure is still high)."));
-            picture("pa_corner_good", _L("Right: a sharp, square corner, the lines the same width all the way."));
-            picture("pa_corner_high", _L("Too high: a gap, a thin or rounded corner, a divot where the line starts again."));
-            box->Add(pictures, 0, wxALL, em / 2);
             auto *rules = new wxStaticText(this, wxID_ANY,
+                _L("Too low: a bulge or blob at the corner (the nozzle slows down for the corner while the pressure is still "
+                   "high). Right: a sharp, square corner, the lines the same width all the way. Too high: a gap, a thin or rounded "
+                   "corner, a divot where the line starts again.") + "\n" +
                 _L("Look at the corners (the tips) of all three lines of each chevron and pick the sharpest corner with the fewest "
                    "gaps, bulges and divots, as if you held a square against it (Ellis). Every second chevron has its value "
                    "printed; the one between is halfway. Perfect is rare: pick the closest.") + "\n" +

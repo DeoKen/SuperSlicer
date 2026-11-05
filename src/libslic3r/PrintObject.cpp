@@ -730,6 +730,8 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "brim_ears_pattern"
             || opt_key == "brim_per_object") {
             invalidated |= m_print->invalidate_step(psSkirtBrim);
+        } else if (opt_key == "calibration_print_group") {
+            invalidated |= m_print->invalidate_step(psGCodeExport);
         } else if (
                opt_key == "perimeters"
             || opt_key == "extra_perimeters"

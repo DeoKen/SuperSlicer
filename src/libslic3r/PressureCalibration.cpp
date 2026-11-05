@@ -405,7 +405,7 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
                 "SET_VELOCITY_LIMIT ACCEL=" + std::to_string(std::lround(test.acceleration)) + "\n" : std::string();
             wall->config.set_key_value("region_gcode", new ConfigOptionString(accel +
                 pressure_calibration_command(flavor, test.smooth_time) + std::to_string(test.values[j]) + " ; " + test.role +
-                " wall " + std::to_string(k + 1) + "\n"));
+                " walls\n"));
         }
         // One open line of the width per wall and layer, at the speed whatever the small perimeter settings.
         const double speed = test.speed > 0. ? test.speed : ps.speed;
@@ -426,6 +426,9 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
         oc.set_key_value("top_solid_layers",                   new ConfigOptionInt(0));
         oc.set_key_value("bottom_solid_layers",                new ConfigOptionInt(0));
         oc.set_key_value("brim_width",                         new ConfigOptionFloat(0));
+        // The walls of this test island by island, each chevron's walls together (Ellis' and OrcaSlicer's order, user 2026-11-05).
+        // One number per test: the acceleration and the test number.
+        oc.set_key_value("calibration_print_group", new ConfigOptionInt(int(std::lround(test.acceleration)) * 100 + int(id_item) + 1));
         // PrusaSlicer's default Arachne settings: with a small minimum bead width (the user's 40 %, filter deviation 5 %) Arachne
         // splits the slightly thicker inside of the corner into two thin beads: the line stops before the corner, travels
         // and a blob is printed at the corner on its own (found on the user's profile, 2026-10-23).

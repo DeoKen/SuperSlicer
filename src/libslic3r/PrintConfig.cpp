@@ -3197,6 +3197,17 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(-1));
 
+    // Fork: the objects of one pressure calibration test (Ellis' walls, one object per wall) print island by island: each
+    // chevron's walls together after one pressure advance command, as Ellis' and OrcaSlicer's patterns (doc section 45). Set by
+    // the calibrations only, not in the GUI.
+    def = this->add("calibration_print_group", coInt);
+    def->label = L("Calibration print group");
+    def->tooltip = L("Objects with the same number above 0 are printed island by island on each layer (the walls of a pressure "
+                   "calibration test, one chevron after the other). Set by the calibrations.");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionInt(0));
+
     // Fork: sacrificial bridge layers under a hole floating over a void (a screw hole above a counterbore).
     def = this->add("floating_hole_bridges", coBool);
     def->label = L("Support floating holes");

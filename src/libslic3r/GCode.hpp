@@ -330,6 +330,11 @@ private:
         const bool is_first
     );
 
+    // Fork: printing a calibration print group (calibration_print_group): a per region G-code the same as the last one is left
+    // out (the walls of one chevron: one pressure advance command, as Ellis' and OrcaSlicer's patterns).
+    bool        m_calibration_group_printing { false };
+    std::string m_last_region_gcode;
+
     std::string extrude_slices(
         const InstanceToPrint &print_instance,
         const ObjectLayerToPrint &layer_to_print,

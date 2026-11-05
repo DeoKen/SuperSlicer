@@ -3208,7 +3208,79 @@ LayerResult GCodeGenerator::process_layer(
         }
 
         // Extrude normal extrusions.
+        // Fork: the objects of a calibration print group (calibration_print_group, the walls of a pressure calibration test, one
+        // object per wall) island by island: each island of the first object, then the nearest island of each other object of the
+        // group, so that each chevron's walls print together (Ellis' and OrcaSlicer's order, doc section 45).
+        std::vector<bool> printed_in_group(instances_to_print.size(), false);
         for (std::size_t i{0}; i < instances_to_print.size(); ++i) {
+            const int group = instances_to_print[i].print_object.config().calibration_print_group.value;
+            if (group <= 0 || printed_in_group[i] || ! extruder_extrusions.normal_extrusions[i].support_extrusions.empty())
+                continue;
+            std::vector<std::size_t> members;
+            for (std::size_t j{i}; j < instances_to_print.size(); ++j)
+                if (instances_to_print[j].print_object.config().calibration_print_group.value == group &&
+                    extruder_extrusions.normal_extrusions[j].support_extrusions.empty())
+                    members.push_back(j);
+            if (members.size() < 2)
+                continue;
+            // The centre of each island (bed coordinates).
+            const auto island_center = [&](std::size_t j, const SliceExtrusions &slice) {
+                BoundingBox bbox;
+                for (const GCode::ExtrusionOrder::IslandExtrusions &island : slice.common_extrusions)
+                    for (const GCode::ExtrusionOrder::Perimeter &perimeter : island.perimeters)
+                        for (const GCode::SmoothPathElement &element : perimeter.smooth_path)
+                            for (const Geometry::ArcWelder::Segment &segment : element.path)
+                                bbox.merge(segment.point);
+                return bbox.defined ? Vec2d(bbox.center().cast<double>() + extruder_extrusions.normal_extrusions[j].instance_offset.cast<double>()) :
+                                      Vec2d(std::numeric_limits<double>::max(), 0.);
+            };
+            std::vector<std::vector<Vec2d>> centers(members.size());
+            std::vector<std::vector<bool>>  used(members.size());
+            for (std::size_t m = 0; m < members.size(); ++m) {
+                for (const SliceExtrusions &slice : extruder_extrusions.normal_extrusions[members[m]].slices_extrusions)
+                    centers[m].push_back(island_center(members[m], slice));
+                used[m].assign(centers[m].size(), false);
+            }
+            std::vector<std::pair<std::size_t, std::size_t>> order;   // (member, island)
+            const auto take = [&](std::size_t m, std::size_t s) { used[m][s] = true; order.emplace_back(m, s); };
+            for (std::size_t s = 0; s < centers.front().size(); ++s) {
+                take(0, s);
+                for (std::size_t m = 1; m < members.size(); ++m) {
+                    std::size_t best = std::size_t(-1);
+                    double      best_d2 = std::numeric_limits<double>::max();
+                    for (std::size_t t = 0; t < centers[m].size(); ++t)
+                        if (! used[m][t]) {
+                            const double d2 = (centers[m][t] - centers.front()[s]).squaredNorm();
+                            if (d2 < best_d2) { best_d2 = d2; best = t; }
+                        }
+                    if (best != std::size_t(-1))
+                        take(m, best);
+                }
+            }
+            for (std::size_t m = 1; m < members.size(); ++m)
+                for (std::size_t t = 0; t < centers[m].size(); ++t)
+                    if (! used[m][t])
+                        take(m, t);
+            std::size_t current = std::size_t(-1);
+            m_calibration_group_printing = true;
+            m_last_region_gcode.clear();
+            for (const auto &[m, s] : order) {
+                const std::size_t       j{members[m]};
+                const InstanceToPrint &instance{instances_to_print[j]};
+                if (j != current) {
+                    this->initialize_instance(instance, layers[instance.object_layer_to_print_id], j == 0 && current == std::size_t(-1));
+                    current = j;
+                }
+                gcode += this->extrude_slices(instance, layers[instance.object_layer_to_print_id],
+                                              { extruder_extrusions.normal_extrusions[j].slices_extrusions[s] });
+            }
+            m_calibration_group_printing = false;
+            for (const std::size_t j : members)
+                printed_in_group[j] = true;
+        }
+        for (std::size_t i{0}; i < instances_to_print.size(); ++i) {
+            if (printed_in_group[i])
+                continue;
             const InstanceToPrint &instance{instances_to_print[i]};
             using GCode::ExtrusionOrder::SupportPath;
             const std::vector<SupportPath> &support_extrusions{extruder_extrusions.normal_extrusions[i].support_extrusions};
@@ -3886,6 +3958,11 @@ std::string GCodeGenerator::region_gcode(const PrintRegion &region)
     std::string gcode = this->placeholder_parser_process("region_gcode", region_gcode, m_writer.extruder()->id(), &config);
     if (! gcode.empty() && gcode.back() != '\n')
         gcode += '\n';
+    if (m_calibration_group_printing) {
+        if (gcode == m_last_region_gcode)
+            return {};
+        m_last_region_gcode = gcode;
+    }
     return gcode;
 }
 

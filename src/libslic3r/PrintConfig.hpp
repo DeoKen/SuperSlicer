@@ -658,6 +658,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,               brim_ears_max_angle))
     ((ConfigOptionFloat,               brim_ears_detection_length))
     ((ConfigOptionEnum<InfillPattern>, brim_ears_pattern))
+    // Fork: set by the pressure calibrations only (doc section 45).
+    ((ConfigOptionInt,                 calibration_print_group))
     ((ConfigOptionBool,                brim_per_object))
     ((ConfigOptionBool,                dont_support_bridges))
     ((ConfigOptionFloat,               elefant_foot_compensation))

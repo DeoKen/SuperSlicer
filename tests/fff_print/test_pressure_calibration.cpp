@@ -698,7 +698,7 @@ TEST_CASE("Adaptive PA calibration test print", "[AdaptivePACalibration]") {
     CHECK(wall_speeds == std::set<long>{ 150 });
     // The test's acceleration before every wall's value, and no other acceleration command (no M204).
     size_t walls = 0, with_accel = 0;
-    for (size_t pos = gcode.find(" wall "); pos != std::string::npos; pos = gcode.find(" wall ", pos + 1)) {
+    for (size_t pos = gcode.find(" walls\n"); pos != std::string::npos; pos = gcode.find(" walls\n", pos + 1)) {
         const size_t line = gcode.rfind('\n', pos) + 1;
         if (gcode.compare(line, 29, "SET_PRESSURE_ADVANCE ADVANCE=") != 0)
             continue;
@@ -1158,5 +1158,54 @@ TEST_CASE("Adaptive PA calibration sliced with real profiles", "[.APASlice]") {
         WARN("test " << k + 1 << " speed " << test.speed << " side " << test.side_length);
         const std::string gcode = slice_calibration(config, settings, { test }, k + 1);
         CHECK(! gcode.empty());
+    }
+}
+
+TEST_CASE("Pressure calibration: each chevron's walls together, one pressure advance command each", "[AdaptivePACalibration]") {
+    // Ellis' and OrcaSlicer's order (user 2026-11-05): per layer, per chevron one SET_PRESSURE_ADVANCE, then all its walls; before,
+    // wall 1 of every chevron, then wall 2... with a command before every wall.
+    DynamicPrintConfig config = test_config();
+    PressureCalibrationSettings settings;
+    PressureCalibrationTest test;
+    test.values       = pressure_calibration_values(0.01, 0.015, 0.001);   // 6 chevrons
+    test.speed        = 100.;
+    test.acceleration = 4000.;
+    const std::string gcode = slice_calibration(config, settings, { test }, 1);
+    // Per layer above the first: the pressure advance commands and the value of each wall path, in G-code order.
+    std::map<int, std::vector<std::string>> commands, paths;
+    int         layer = -1;
+    std::string value;
+    bool        in_path = false;
+    GCodeReader parser;
+    parser.parse_buffer(gcode, [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
+        const std::string &raw = line.raw();
+        if (raw.rfind(";LAYER_CHANGE", 0) == 0)
+            ++ layer;
+        else if (raw.rfind("SET_PRESSURE_ADVANCE ADVANCE=", 0) == 0) {
+            value = raw.substr(29, raw.find(' ', 29) - 29);
+            if (raw.find(" walls") != std::string::npos)
+                commands[layer].push_back(value);
+        } else if ((line.cmd_is("G1") || line.cmd_is("G2") || line.cmd_is("G3")) && line.dist_E(self) > 0 && line.dist_XY(self) > 0) {
+            if (! in_path)
+                paths[layer].push_back(value);
+            in_path = true;
+        } else if (line.cmd_is("G1") && (line.dist_XY(self) > 0 || line.dist_E(self) < 0))
+            in_path = false;
+    });
+    for (int l = 2; l < 4; ++ l) {
+        INFO("layer " << l);
+        // One command per chevron, each value once.
+        REQUIRE(commands[l].size() == test.values.size());
+        CHECK(std::set<std::string>(commands[l].begin(), commands[l].end()).size() == test.values.size());
+        // The wall paths in runs of the walls of one chevron (3 walls), each value in one run.
+        std::vector<std::pair<std::string, int>> runs;
+        for (const std::string &v : paths[l])
+            if (runs.empty() || runs.back().first != v)
+                runs.push_back({ v, 1 });
+            else
+                ++ runs.back().second;
+        CHECK(runs.size() == test.values.size());
+        for (const auto &[v, n] : runs)
+            CHECK(n == settings.wall_count);
     }
 }

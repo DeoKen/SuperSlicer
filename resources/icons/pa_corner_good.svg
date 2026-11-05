@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 170" width="200" height="170">
-  <!-- Pressure advance right: the three walls of a chevron meet in sharp corners, the lines the same width all the way. -->
-  <rect x="0" y="0" width="200" height="170" rx="10" fill="#2b2f36"/>
-  <g fill="none" stroke="#ed6b21" stroke-width="12" stroke-linejoin="miter" stroke-miterlimit="10" stroke-linecap="butt">
-    <polyline points="28,58 100,130 172,58"/>
-    <polyline points="28,34 100,106 172,34"/>
-    <polyline points="28,10 100,82 172,10"/>
-  </g>
-</svg>

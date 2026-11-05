@@ -2056,6 +2056,15 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     ones (e.g. 1500 @ 300 mm/s), the max volumetric speed limits, and the plates drawn with every frame labelled.
     The user's Voron: 1500, 6000 (Slow filaments) or 28000 (Normal), 38000. Orca: not above the acceleration the input
     shaper calibration recommends (the smoothing rounds the corners); the user keeps the Fast one (2026-11-01).
+  - Print order (user 2026-11-05, "draw all 3 lines of a chevron first"): on each layer each chevron's walls together after one
+    `SET_PRESSURE_ADVANCE` (and `SET_VELOCITY_LIMIT`), as Ellis' generator and OrcaSlicer's (`calib.cpp`,
+    `generate_custom_gcodes`): 41 commands per layer for 41 chevrons instead of 123 (wall 1 of every chevron, then wall 2...).
+    The walls are one object each (Ellis' lines overlap a little and overlapping parts of one object clip each other); the
+    hidden object setting `calibration_print_group` (set by the calibrations only, one number per test) makes
+    `GCodeGenerator::process_layer()` print the objects of a group island by island: each island of the first object, then
+    the nearest island of each other one. The walls of a chevron have the same per region G-code and, inside a group, a
+    per region G-code the same as the last one is left out. Objects without a group print as before (golden test: the new
+    key is skipped).
   - The label of each frame (user, 2026-11-05): the test number, 1, 2, 3... in the order of the speeds (at most 9 speeds), and
     the acceleration after a blank, e.g. `1 28000`, on the row under the values (the tab gets wider if the label is wider than
     the values). Before: numbered 0-9 over the accelerations of the drop-down, so a typed acceleration (e.g. 28000 with a Slow
@@ -2084,9 +2093,8 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     lists the accelerations kept for the selected filament and nozzle.
 - **Calibration > Adaptive pressure advance results** (user, 2026-11-05): for the selected filament and the printer's nozzle, a large
   "Nozzle 0.4 mm" header, the filament and the accelerations calibrated. Under it "Reading the chevrons" (user 2026-11-05: what
-  to look for and how to break ties, with pictures): three drawings of a chevron corner (`resources/icons/pa_corner_low.svg`,
-  `_good.svg`, `_high.svg`): too low = a bulge or blob at the corner, right = sharp and square, too high = a gap, a thin or
-  rounded corner, a divot after it; the rules from Ellis' Print Tuning Guide (the sharpest corner with the fewest gaps, bulges
+  to look for and how to break ties; drawings were tried and removed the same day, too exaggerated): too low = a bulge or blob
+  at the corner, right = sharp and square, too high = a gap, a thin or rounded corner, a divot after it; the rules from Ellis' Print Tuning Guide (the sharpest corner with the fewest gaps, bulges
   and divots, "as if you held a square against it"; ties: lean higher, a tiny gap on the sharpest corner is fine; no clean
   corner or gaps and bulges together: the extruder) and OrcaSlicer (at low speed and acceleration many values are right: leave
   the test empty). The print profiles' accelerations scroll when the list is long. One row per print: the acceleration, fields 1, 2, 3 (more when that print had more tests) and
