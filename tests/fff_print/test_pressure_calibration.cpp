@@ -1109,6 +1109,7 @@ TEST_CASE("Adaptive PA calibration layout of real profiles", "[.APALayout]") {
     pressure_calibration_print_config(config);
     std::vector<Vec2d> sizes;
     std::vector<std::string> labels;
+    std::vector<int> groups;
     for (const std::string &a : accel_text)
         for (size_t k = 0; k < speed_text.size(); ++ k) {
             PressureCalibrationTest test;
@@ -1118,10 +1119,11 @@ TEST_CASE("Adaptive PA calibration layout of real profiles", "[.APALayout]") {
             test.side_length  = adaptive_pa_side_length(config, adaptive_pa_effective_speed(config, settings, test.speed), test.acceleration, 20.);
             sizes.emplace_back(pressure_calibration_frame_size(config, settings, test, k + 1));
             labels.emplace_back(std::to_string(k + 1) + " " + a);
+            groups.push_back(int(&a - &accel_text.front()));
         }
     const BoundingBoxf bed(config.opt<ConfigOptionPoints>("bed_shape")->values);
     const std::vector<BoundingBoxf> zones = BedKeepOut::parse(config.opt_string("bed_keep_out_zones"));
-    const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, zones, PRESSURE_CALIBRATION_BRIM_WIDTH, true, 9);
+    const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, zones, PRESSURE_CALIBRATION_BRIM_WIDTH, true, 9, groups);
     REQUIRE(out.size() == sizes.size());
     boost::nowide::ofstream f(std::getenv("APA_LAYOUT_OUT"));
     for (const BoundingBoxf &z : zones)

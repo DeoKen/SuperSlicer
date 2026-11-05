@@ -868,7 +868,8 @@ static bool quiet_number_list(const wxString &text, std::vector<double> &values)
 class CalibrationPlatesPreview : public wxPanel
 {
 public:
-    struct Frame { BoundingBoxf box; wxString label; int color; };
+    // label: "test acceleration"; number: the test number alone, drawn when the label is wider than the frame.
+    struct Frame { BoundingBoxf box; wxString label; wxString number; int color; double acceleration; };
 
     CalibrationPlatesPreview(wxWindow *parent) : wxPanel(parent, wxID_ANY)
     {
@@ -881,8 +882,9 @@ public:
         m_bed   = bed;
         m_zones = zones;
         m_beds  = std::move(beds);
-        const int side = 16 * wxGetApp().em_unit();
-        SetMinSize(wxSize(m_beds.empty() ? 1 : int(m_beds.size()) * (side + side / 10), m_beds.empty() ? 1 : side + 2 * wxGetApp().em_unit()));
+        const int side = 20 * wxGetApp().em_unit();
+        SetMinSize(wxSize(m_beds.empty() ? 1 : std::max(int(m_beds.size()) * (side + side / 10), 30 * wxGetApp().em_unit()),
+                          m_beds.empty() ? 1 : side + 4 * wxGetApp().em_unit()));
         Refresh();
     }
 
@@ -892,7 +894,7 @@ private:
         wxAutoBufferedPaintDC dc(this);
         dc.SetBackground(wxBrush(GetParent()->GetBackgroundColour()));
         dc.Clear();
-        const int    side  = 16 * wxGetApp().em_unit();
+        const int    side  = 20 * wxGetApp().em_unit();
         const double scale = side / std::max(m_bed.size().x(), m_bed.size().y());
         static const wxColour colors[] = { wxColour(237, 107, 33), wxColour(60, 141, 188), wxColour(90, 164, 105), wxColour(181, 101, 29),
                                            wxColour(150, 90, 190) };
@@ -918,11 +920,28 @@ private:
                 dc.SetBrush(wxBrush(wxColour(col.Red() / 3, col.Green() / 3, col.Blue() / 3)));
                 dc.DrawRectangle(a.x, a.y, std::max(1, c.x - a.x), std::max(1, c.y - a.y));
                 dc.SetTextForeground(*wxWHITE);
-                const wxSize ts = dc.GetTextExtent(f.label);
-                dc.DrawText(f.label, (a.x + c.x - ts.x) / 2, c.y - ts.y - 2);
+                const wxString text = dc.GetTextExtent(f.label).x <= c.x - a.x - 2 ? f.label : f.number;
+                const wxSize   ts   = dc.GetTextExtent(text);
+                dc.DrawText(text, (a.x + c.x - ts.x) / 2, c.y - ts.y - 2);
             }
             dc.SetTextForeground(GetForegroundColour());
             dc.DrawText(format_wxstr(_L("Plate %1%: %2% frames"), b + 1, m_beds[b].size()), x0, y0 + side + 2);
+        }
+        // The colour of each acceleration.
+        std::map<int, double> legend;
+        for (const std::vector<Frame> &bed : m_beds)
+            for (const Frame &f : bed)
+                legend[f.color] = f.acceleration;
+        int x = 0;
+        const int y = side + 2 + dc.GetCharHeight() + 2;
+        for (const auto &[color, accel] : legend) {
+            const wxColour col = colors[color % 5];
+            dc.SetPen(wxPen(col));
+            dc.SetBrush(wxBrush(col));
+            dc.DrawRectangle(x, y + 2, dc.GetCharHeight() - 4, dc.GetCharHeight() - 4);
+            const wxString text = wxString::FromCDouble(accel) + from_u8(" mm/s²");
+            dc.DrawText(text, x + dc.GetCharHeight(), y);
+            x += dc.GetCharHeight() + dc.GetTextExtent(text).x + 2 * wxGetApp().em_unit();
         }
     }
 
@@ -1164,7 +1183,10 @@ protected:
             }
         plan.bed   = BoundingBoxf(config.opt<ConfigOptionPoints>("bed_shape")->values);
         plan.zones = config.has("bed_keep_out_zones") ? BedKeepOut::parse(config.opt_string("bed_keep_out_zones")) : std::vector<BoundingBoxf>();
-        plan.layout = calibration_layout(plan.sizes, plan.bed, plan.zones, PRESSURE_CALIBRATION_BRIM_WIDTH, m_turn->GetValue(), int(MAX_NUMBER_OF_BEDS));
+        std::vector<int> groups;
+        for (const PressureCalibrationTest &t : plan.tests)
+            groups.push_back(int(std::find_if(plan.accels.begin(), plan.accels.end(), [&t](double a) { return std::abs(a - t.acceleration) < 0.5; }) - plan.accels.begin()));
+        plan.layout = calibration_layout(plan.sizes, plan.bed, plan.zones, PRESSURE_CALIBRATION_BRIM_WIDTH, m_turn->GetValue(), int(MAX_NUMBER_OF_BEDS), groups);
         if (plan.layout.empty()) {
             error = format_wxstr(_L("The frames don't fit on %1% beds, or a frame is larger than the bed: fewer tests, a lower speed or a "
                                     "higher acceleration."), MAX_NUMBER_OF_BEDS);
@@ -1205,7 +1227,8 @@ protected:
                 const CalibrationPlacement &p = plan.layout[i];
                 const Vec2d size = p.turned ? Vec2d(plan.sizes[i].y(), plan.sizes[i].x()) : plan.sizes[i];
                 const int color = int(std::find_if(plan.accels.begin(), plan.accels.end(), [&](double a) { return std::abs(a - plan.tests[i].acceleration) < 0.5; }) - plan.accels.begin());
-                frames[p.bed].push_back({ BoundingBoxf(p.position, p.position + size), wxString::Format("%d %ld", int(plan.ids[i]), std::lround(plan.tests[i].acceleration)), color });
+                frames[p.bed].push_back({ BoundingBoxf(p.position, p.position + size), wxString::Format("%d %ld", int(plan.ids[i]), std::lround(plan.tests[i].acceleration)),
+                                          wxString::Format("%d", int(plan.ids[i])), color, plan.tests[i].acceleration });
             }
             m_preview->set(plan.bed, plan.zones, std::move(frames));
         }
@@ -1298,7 +1321,8 @@ public:
             const std::vector<AdaptivePATest> from_model = adaptive_pa_tests_from_model(m_kept, model, m_nozzle);
             m_kept.insert(m_kept.end(), from_model.begin(), from_model.end());
         }
-        const std::vector<double> accels = adaptive_pa_calibration_accelerations(m_kept, m_nozzle);
+        const std::vector<double> accels   = adaptive_pa_calibration_accelerations(m_kept, m_nozzle);
+        const std::vector<double> measured = measured_accelerations();
 
         // A large header with the nozzle, above the explanation.
         auto *header = new wxStaticText(this, wxID_ANY, format_wxstr(_L("Nozzle %1% mm"), m_nozzle));
@@ -1308,7 +1332,9 @@ public:
         GetSizer()->Insert(0, header, 0, wxLEFT | wxRIGHT | wxTOP, em);
         auto *sub = new wxStaticText(this, wxID_ANY, format_wxstr(_L("Filament \"%1%\": %2%"), from_u8(m_filament), accels.empty() ?
             _L("no calibration printed yet with this nozzle (Calibration > Adaptive pressure advance calibration).") :
-            format_wxstr(_L("calibrated at %1% mm/s²."), number_list(accels))));
+            format_wxstr(_L("printed at %1% mm/s²."), number_list(accels))) + "\n" +
+            (measured.empty() ? _L("No measurements saved in the filament for this nozzle yet: nothing is calibrated.") :
+                                format_wxstr(_L("Measurements saved in the filament for this nozzle (what slicing uses): %1% mm/s²."), number_list(measured))));
         GetSizer()->Insert(1, sub, 0, wxLEFT | wxRIGHT, em);
 
         m_rows = new wxBoxSizer(wxVERTICAL);
@@ -1331,9 +1357,22 @@ public:
         auto *profiles_title = new wxStaticText(this, wxID_ANY, _L("Accelerations your print profiles use with this printer and filament"));
         profiles_title->SetFont(profiles_title->GetFont().Bold());
         GetSizer()->Add(profiles_title, 0, wxLEFT | wxRIGHT | wxTOP, em);
-        auto *profiles = new wxStaticText(this, wxID_ANY, profiles_text(config, accels));
+        auto *profiles = new wxStaticText(this, wxID_ANY, profiles_text(config, measured));
         GetSizer()->Add(profiles, 0, wxLEFT | wxRIGHT | wxTOP, em / 2);
         finish_layout(_L("Save to filament"));
+    }
+
+    // The accelerations of the selected filament's saved measurements for this nozzle, as the G-code reads them (its section, else
+    // the lines before the first section).
+    std::vector<double> measured_accelerations() const
+    {
+        const auto *opt = wxGetApp().preset_bundle->filaments.get_edited_preset().config.option<ConfigOptionStrings>("adaptive_pressure_advance_model");
+        if (opt == nullptr || opt->values.empty())
+            return {};
+        const std::string lines = adaptive_pa_model_for_nozzle(opt->values.front(), m_nozzle);
+        if (lines.empty())
+            return {};
+        return adaptive_pa_calibration_accelerations(adaptive_pa_tests_from_model({}, adaptive_pa_nozzle_header(m_nozzle) + "\n" + lines, m_nozzle), m_nozzle);
     }
 
     // Per print preset (visible, compatible with the printer, allowed by the filament's compatible_prints): its accelerations with
@@ -1366,7 +1405,7 @@ public:
                 else
                     note = std::any_of(calibrated.begin(), calibrated.end(), [&a](double c) { return std::abs(c - a.acceleration) < 0.5; }) ?
                            _L("calibrated") : _L("between calibrated ones");
-                line += "\n      " + wxString::FromCDouble(a.acceleration) + " mm/s²: " + features + "  [" + note + "]";
+                line += "\n      " + wxString::FromCDouble(a.acceleration) + from_u8(" mm/s²: ") + features + "  [" + note + "]";
             }
             out += (out.empty() ? "" : "\n") + from_u8(preset.name) + ":" + line;
         }

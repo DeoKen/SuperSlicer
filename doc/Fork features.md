@@ -2039,7 +2039,13 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     `calibration_layout()`, MaxRects (best short side fit) over 400 seeded orders, the largest first; the brim of every frame
     1 mm inside the bed and clear of the keep-out zones (grown by their clearance); neighbouring frames one brim width apart
     (the brim between them shared), or touching (no brim between them) when that needs fewer beds; "Turn frames 90° to fit
-    more on a plate" (default on; the arms stay at ±45°, one motor each on a CoreXY, the same test). The frames go on the
+    more on a plate" (default on; the arms stay at ±45°, one motor each on a CoreXY, the same test). Of the layouts with the
+    fewest beds the tidiest (user 2026-11-05: "on a single accel test they should still be organized nicely"): rows in test
+    order (1, 2, 3), a row per acceleration if they fit, else rows of all, all upright, else all turned, the rows from the front
+    edge or above the keep-out zones; only when no row layout fits on that many beds the packed one; each bed's frames centred.
+    E.g. 28000 at 30 / 165 / 300: a row of three upright frames in the middle; 1500: one row 1-2-3 above the zones; 1500 + 6000
+    (one plate) packed. The preview draws the label of a frame, or only its number when the label is wider, and a colour legend
+    of the accelerations. The frames go on the
     plater's beds (`s_multiple_beds`, at most 9); print them one after another. Frame sizes from
     `pressure_calibration_frame_size()` (the frame as built, without loading the number parts). With the user's `.2 .4voron`,
     `ABS-Sparta3D-slow` and Voron (keep-out zones in the front corners), 30 / 165 / 300 mm/s: 1500 alone or 1500 + 6000 on one
@@ -2088,7 +2094,9 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
   printer and filament", per print profile (visible, compatible, allowed by the filament's `compatible_prints`) its
   accelerations with their features (`adaptive_pa_print_accelerations()`, as `GCodeGenerator::_extrude()` resolves them; default
   acceleration 0: the Klipper max accel of the filament's speed mode) marked calibrated / between calibrated ones / below or
-  above them (the nearest calibrated one's values). E.g. with ABS-Sparta3D-slow: `- slow` 6000; `- slow pfa` 800 outer wall,
+  above them (the nearest calibrated one's values) / not calibrated. Calibrated = the accelerations of the filament's saved
+  measurements for the nozzle (what slicing uses; its section, else the lines before the first section), not the prints made
+  (user 2026-11-05: "nothing is calibrated yet"); the header shows both, "printed at" and the saved measurements. E.g. with ABS-Sparta3D-slow: `- slow` 6000; `- slow pfa` 800 outer wall,
   1600 walls / top / gap fill / first layer, 3900 solid / bridges / support, 6000 infill. Type the best value of each, or leave it empty when no value is clearly better (Orca: usual at
   low flow and acceleration, where several values are good; its model then uses the value of the lowest flow measured, as it
   clamps instead of extrapolating, so an empty slow test takes the next faster test's value). Each acceleration needs at

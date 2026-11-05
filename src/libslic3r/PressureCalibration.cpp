@@ -905,19 +905,180 @@ CalibrationLayoutResult calibration_layout_gap(const std::vector<Vec2d> &sizes, 
 }
 } // namespace
 
+// The area the frames (with half the gap around each) must stay in and the zones they must stay out of (grown the same way).
+static void calibration_layout_area(const BoundingBoxf &bed, const std::vector<BoundingBoxf> &zones, double brim, double gap,
+                                    BoundingBoxf &area, std::vector<BoundingBoxf> &obstacles)
+{
+    constexpr double margin = 1.;
+    const double half = gap / 2.;
+    area = BoundingBoxf(bed.min + Vec2d::Constant(brim + margin - half), bed.max - Vec2d::Constant(brim + margin - half));
+    obstacles.clear();
+    for (const BoundingBoxf &z : zones) {
+        const double grow = BedKeepOut::CLEARANCE + brim + margin - half;
+        obstacles.emplace_back(z.min - Vec2d::Constant(grow), z.max + Vec2d::Constant(grow));
+    }
+}
+
+static bool overlaps(const BoundingBoxf &a, const BoundingBoxf &b)
+{
+    return a.min.x() < b.max.x() - EPSILON && a.max.x() > b.min.x() + EPSILON && a.min.y() < b.max.y() - EPSILON && a.max.y() > b.min.y() + EPSILON;
+}
+
+// Tidy rows (user 2026-11-05: "on a single accel test they should still be organized nicely"): the frames in their order (the
+// tests 1, 2, 3 of each acceleration), all upright or all turned, left to right, a new row when the bed is full or (per_group) at
+// every new group (acceleration), a new bed when the rows are; past the zones.
+static CalibrationLayoutResult calibration_layout_rows(const std::vector<Vec2d> &sizes, const std::vector<int> &groups, const BoundingBoxf &bed,
+                                                       const std::vector<BoundingBoxf> &zones, double brim, double gap, bool turned,
+                                                       bool per_group, bool above_zones, int max_beds)
+{
+    BoundingBoxf              area;
+    std::vector<BoundingBoxf> obstacles;
+    calibration_layout_area(bed, zones, brim, gap, area, obstacles);
+    // above_zones: the rows start above the zones at the front edge (the first row not squeezed between them).
+    double first_y = area.min.y();
+    if (above_zones)
+        for (const BoundingBoxf &o : obstacles)
+            if (o.min.y() <= area.min.y() + EPSILON)
+                first_y = std::max(first_y, o.max.y());
+    CalibrationLayoutResult out;
+    out.placements.resize(sizes.size());
+    int    b = 0;
+    double row_y = first_y, row_x = area.min.x(), row_h = 0.;
+    size_t on_bed = 0;
+    std::vector<size_t> count(1, 0);
+    for (size_t i = 0; i < sizes.size(); ++ i) {
+        const Vec2d size = (turned ? Vec2d(sizes[i].y(), sizes[i].x()) : sizes[i]) + Vec2d::Constant(gap);
+        if (size.x() > area.size().x() + EPSILON || size.y() > area.size().y() + EPSILON)
+            return {};
+        if (per_group && i > 0 && ! groups.empty() && groups[i] != groups[i - 1] && row_h > 0.) {
+            row_y += row_h; row_x = area.min.x(); row_h = 0.;
+        }
+        for (int guard = 0;; ++ guard) {
+            if (guard > 1000)
+                return {};
+            double x = row_x;
+            // Past the zones in the way.
+            for (bool moved = true; moved;) {
+                moved = false;
+                for (const BoundingBoxf &o : obstacles)
+                    if (overlaps(BoundingBoxf(Vec2d(x, row_y), Vec2d(x, row_y) + size), o)) {
+                        x     = o.max.x();
+                        moved = true;
+                    }
+            }
+            if (x + size.x() <= area.max.x() + EPSILON && row_y + size.y() <= area.max.y() + EPSILON) {
+                out.placements[i] = { b, Vec2d(x, row_y) + Vec2d::Constant(gap / 2.), turned };
+                row_x = x + size.x();
+                row_h = std::max(row_h, size.y());
+                ++ count[b];
+                ++ on_bed;
+                break;
+            }
+            if (row_h > 0.) {
+                // The next row.
+                row_y += row_h; row_x = area.min.x(); row_h = 0.;
+            } else if (row_x > area.min.x() + EPSILON || row_y + size.y() > area.max.y() + EPSILON) {
+                // An empty row too short: the next bed.
+                if (on_bed == 0 || b + 1 >= max_beds)
+                    return {};
+                ++ b; count.push_back(0); on_bed = 0;
+                row_y = first_y; row_x = area.min.x(); row_h = 0.;
+            } else {
+                // A zone takes the whole row: above it.
+                double above = row_y;
+                for (const BoundingBoxf &o : obstacles)
+                    if (o.min.y() < row_y + size.y() - EPSILON && o.max.y() > row_y + EPSILON)
+                        above = std::max(above, o.max.y());
+                if (above <= row_y + EPSILON) {
+                    if (on_bed == 0 || b + 1 >= max_beds)
+                        return {};
+                    ++ b; count.push_back(0); on_bed = 0;
+                    row_y = first_y; row_x = area.min.x(); row_h = 0.;
+                } else
+                    row_y = above;
+            }
+        }
+    }
+    out.beds  = count.size();
+    out.first = count.front();
+    return out;
+}
+
+// Each bed's frames moved together to the middle of the bed when they stay inside it and clear of the zones (else only along x, or
+// only along y, or not at all).
+static void calibration_layout_center(CalibrationLayoutResult &layout, const std::vector<Vec2d> &sizes, const BoundingBoxf &bed,
+                                      const std::vector<BoundingBoxf> &zones, double brim, double gap)
+{
+    BoundingBoxf              area;
+    std::vector<BoundingBoxf> obstacles;
+    calibration_layout_area(bed, zones, brim, gap, area, obstacles);
+    for (int b = 0; b < int(layout.beds); ++ b) {
+        std::vector<BoundingBoxf> boxes;
+        std::vector<size_t>       idx;
+        BoundingBoxf              all;
+        for (size_t i = 0; i < layout.placements.size(); ++ i)
+            if (layout.placements[i].bed == b) {
+                const CalibrationPlacement &p = layout.placements[i];
+                const Vec2d size = (p.turned ? Vec2d(sizes[i].y(), sizes[i].x()) : sizes[i]) + Vec2d::Constant(gap);
+                boxes.emplace_back(p.position - Vec2d::Constant(gap / 2.), p.position - Vec2d::Constant(gap / 2.) + size);
+                idx.push_back(i);
+                all.merge(boxes.back());
+            }
+        if (boxes.empty())
+            continue;
+        const Vec2d delta = area.center() - all.center();
+        for (const Vec2d &d : { delta, Vec2d(delta.x(), 0.), Vec2d(0., delta.y()) }) {
+            bool ok = true;
+            for (const BoundingBoxf &box : boxes) {
+                const BoundingBoxf moved(box.min + d, box.max + d);
+                if (moved.min.x() < area.min.x() - EPSILON || moved.min.y() < area.min.y() - EPSILON ||
+                    moved.max.x() > area.max.x() + EPSILON || moved.max.y() > area.max.y() + EPSILON ||
+                    std::any_of(obstacles.begin(), obstacles.end(), [&moved](const BoundingBoxf &o) { return overlaps(moved, o); }))
+                    ok = false;
+            }
+            if (ok) {
+                for (size_t i : idx)
+                    layout.placements[i].position += d;
+                break;
+            }
+        }
+    }
+}
+
 std::vector<CalibrationPlacement> calibration_layout(const std::vector<Vec2d> &sizes, const BoundingBoxf &bed, const std::vector<BoundingBoxf> &zones,
-                                                     double brim, bool turn, int max_beds)
+                                                     double brim, bool turn, int max_beds, const std::vector<int> &groups)
 {
     if (sizes.empty())
         return {};
-    // Shared brims; frames touching (no brim between them) only if that needs fewer beds.
-    const CalibrationLayoutResult shared = calibration_layout_gap(sizes, bed, zones, brim, brim, turn, max_beds);
-    if (shared.beds == 1)
-        return shared.placements;
-    const CalibrationLayoutResult touching = calibration_layout_gap(sizes, bed, zones, brim, 0., turn, max_beds);
-    if (! touching.placements.empty() && (shared.placements.empty() || touching.beds < shared.beds))
-        return touching.placements;
-    return shared.placements;
+    // The fewest beds: MaxRects with shared brims, or with the frames touching (no brim between them).
+    const CalibrationLayoutResult shared   = calibration_layout_gap(sizes, bed, zones, brim, brim, turn, max_beds);
+    const CalibrationLayoutResult touching = shared.beds == 1 ? CalibrationLayoutResult() :
+                                             calibration_layout_gap(sizes, bed, zones, brim, 0., turn, max_beds);
+    size_t fewest = shared.placements.empty() ? std::numeric_limits<size_t>::max() : shared.beds;
+    if (! touching.placements.empty())
+        fewest = std::min(fewest, touching.beds);
+    if (fewest == std::numeric_limits<size_t>::max())
+        return {};
+    // The tidiest layout with that many beds: rows per acceleration, then rows of all; upright, then turned; shared brims first.
+    for (const double gap : { brim, 0. }) {
+        for (const bool per_group : { true, false })
+            for (const bool turned : { false, true })
+                for (const bool above_zones : { false, true }) {
+                    if ((turned && ! turn) || (above_zones && zones.empty()))
+                        continue;
+                    CalibrationLayoutResult rows = calibration_layout_rows(sizes, groups, bed, zones, brim, gap, turned, per_group, above_zones, max_beds);
+                    if (! rows.placements.empty() && rows.beds <= fewest) {
+                        calibration_layout_center(rows, sizes, bed, zones, brim, gap);
+                        return rows.placements;
+                    }
+                }
+        CalibrationLayoutResult packed = gap == brim ? shared : touching;
+        if (! packed.placements.empty() && packed.beds == fewest) {
+            calibration_layout_center(packed, sizes, bed, zones, brim, gap);
+            return packed.placements;
+        }
+    }
+    return {};
 }
 
 void pressure_calibration_print_config(DynamicPrintConfig &print)
