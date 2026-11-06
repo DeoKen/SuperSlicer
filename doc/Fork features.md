@@ -2062,7 +2062,10 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     The walls are one object each (Ellis' lines overlap a little and overlapping parts of one object clip each other); the
     hidden object setting `calibration_print_group` (set by the calibrations only, one number per test) makes
     `GCodeGenerator::process_layer()` print the objects of a group island by island: each island of the first object, then
-    the nearest island of each other one. The walls of a chevron have the same per region G-code and, inside a group, a
+    the nearest island of each other one. The islands of the first object are taken in a row along the axis they spread on
+    (the chevrons stand along Y: the lowest value first), the same direction on every layer (user 2026-11-06: PrusaSlicer's
+    island order, chained from the first point of each outline, skipped chevrons and came back to them; alternating the
+    direction per layer was not used, it would give the chevrons at the ends uneven cooling times). The walls of a chevron have the same per region G-code and, inside a group, a
     per region G-code the same as the last one is left out. Objects without a group print as before (golden test: the new
     key is skipped).
   - The label of each frame (user, 2026-11-05): the test number, 1, 2, 3... in the order of the speeds (at most 9 speeds), and
@@ -2146,7 +2149,10 @@ sections (added, replaced, others kept, pasted lines kept, CRLF), the side lengt
 minimum, no rounding up of a floating point excess), the kept tests per acceleration (added, replaced, another nozzle),
 flow = speed x cross section and capped by the lower max volumetric speed, model lines, the tests kept as text with the
 typed value and number; a sliced test with 60 mm sides: the longest wall 60 mm longer than with Ellis' 30 mm; a sliced test at 150 mm/s and 4000 mm/s²: the walls at 150 mm/s from the third
-layer, `SET_VELOCITY_LIMIT ACCEL=4000` right before every wall's value, no `M204`, the summary. Manual: Calibration >
+layer, `SET_VELOCITY_LIMIT ACCEL=4000` right before every wall's value, no `M204`, the summary; the print order with 6 and 41
+chevrons, on every layer: one command per chevron in the order of the values, each chevron's walls together right after its
+value, the chevrons one after the other along the row (fails with the island order before 2026-11-06). Manual:
+Preview of a pressure calibration, the legend's sequential slider on a layer: the chevrons one after the other, front to back. Then: Calibration >
 Adaptive pressure advance calibration with the user's print profile: the speeds and the acceleration drop-down as above,
 Generate with each acceleration: frames labelled `1 <acceleration>`, `2 <acceleration>`..., a typed 28000 accepted, the fast tests at low acceleration with longer chevrons, Preview: G-code panel shows the acceleration and value before each wall,
 Filament > Custom G-code: the end G-code starts with the restore; Calibration > Adaptive pressure advance results: the nozzle

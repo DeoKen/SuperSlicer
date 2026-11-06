@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -1163,49 +1164,82 @@ TEST_CASE("Adaptive PA calibration sliced with real profiles", "[.APASlice]") {
 
 TEST_CASE("Pressure calibration: each chevron's walls together, one pressure advance command each", "[AdaptivePACalibration]") {
     // Ellis' and OrcaSlicer's order (user 2026-11-05): per layer, per chevron one SET_PRESSURE_ADVANCE, then all its walls; before,
-    // wall 1 of every chevron, then wall 2... with a command before every wall.
+    // wall 1 of every chevron, then wall 2... with a command before every wall. The chevrons in a row, the lowest value first, on
+    // every layer (user 2026-11-06: PrusaSlicer's island order skipped chevrons and came back), each with its own value.
+    const int    count = GENERATE(6, 41);
+    const double last  = 0.01 + 0.001 * (count - 1);
+    INFO(count << " chevrons");
     DynamicPrintConfig config = test_config();
+    config.set_key_value("gcode_label_objects", new ConfigOptionEnum<LabelObjectsStyle>(LabelObjectsStyle::Octoprint));
     PressureCalibrationSettings settings;
     PressureCalibrationTest test;
-    test.values       = pressure_calibration_values(0.01, 0.015, 0.001);   // 6 chevrons
+    test.values       = pressure_calibration_values(0.01, last, 0.001);
     test.speed        = 100.;
     test.acceleration = 4000.;
+    REQUIRE(test.values.size() == size_t(count));
     const std::string gcode = slice_calibration(config, settings, { test }, 1);
-    // Per layer above the first: the pressure advance commands and the value of each wall path, in G-code order.
-    std::map<int, std::vector<std::string>> commands, paths;
-    int         layer = -1;
+    // Per layer: the pressure advance commands of the walls, and each wall path (value, centre), in G-code order.
+    struct Path { std::string value; Vec2d sum { Vec2d::Zero() }; int n { 0 }; Vec2d center() const { return sum / double(n); } };
+    std::map<int, std::vector<std::string>> commands;
+    std::map<int, std::vector<Path>>        paths;
+    int         layer   = -1;
     std::string value;
     bool        in_path = false;
+    bool        in_wall = false;
     GCodeReader parser;
     parser.parse_buffer(gcode, [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
         const std::string &raw = line.raw();
         if (raw.rfind(";LAYER_CHANGE", 0) == 0)
             ++ layer;
+        else if (raw.rfind("; printing object ", 0) == 0)
+            in_wall = raw.find(" id:0 ") == std::string::npos;   // object 0: the base (frame, numbers); the walls after it
+        else if (raw.rfind("; stop printing object", 0) == 0)
+            in_wall = false;
         else if (raw.rfind("SET_PRESSURE_ADVANCE ADVANCE=", 0) == 0) {
             value = raw.substr(29, raw.find(' ', 29) - 29);
             if (raw.find(" walls") != std::string::npos)
                 commands[layer].push_back(value);
         } else if ((line.cmd_is("G1") || line.cmd_is("G2") || line.cmd_is("G3")) && line.dist_E(self) > 0 && line.dist_XY(self) > 0) {
-            if (! in_path)
-                paths[layer].push_back(value);
-            in_path = true;
+            if (in_wall) {
+                if (! in_path)
+                    paths[layer].push_back({ value });
+                paths[layer].back().sum += Vec2d(line.new_X(self), line.new_Y(self));
+                ++ paths[layer].back().n;
+                in_path = true;
+            }
         } else if (line.cmd_is("G1") && (line.dist_XY(self) > 0 || line.dist_E(self) < 0))
             in_path = false;
     });
-    for (int l = 2; l < 4; ++ l) {
+    REQUIRE(layer >= 3);
+    for (int l = 0; l <= layer; ++ l) {
+        if (commands[l].empty())
+            continue;
         INFO("layer " << l);
-        // One command per chevron, each value once.
+        // One command per chevron, in the order of the values (the lowest first).
         REQUIRE(commands[l].size() == test.values.size());
-        CHECK(std::set<std::string>(commands[l].begin(), commands[l].end()).size() == test.values.size());
-        // The wall paths in runs of the walls of one chevron (3 walls), each value in one run.
-        std::vector<std::pair<std::string, int>> runs;
-        for (const std::string &v : paths[l])
-            if (runs.empty() || runs.back().first != v)
-                runs.push_back({ v, 1 });
-            else
-                ++ runs.back().second;
-        CHECK(runs.size() == test.values.size());
-        for (const auto &[v, n] : runs)
-            CHECK(n == settings.wall_count);
+        for (size_t j = 0; j < test.values.size(); ++ j)
+            CHECK(commands[l][j] == std::to_string(test.values[j]));
+        // The wall paths in runs of the walls of one chevron, one run per value in the same order; the runs one after the
+        // other along the row (the chevrons are stacked along Y, the lowest value at the front): each chevron's walls print
+        // with the value of that chevron.
+        std::vector<std::pair<std::string, std::vector<Vec2d>>> runs;
+        for (const Path &p : paths[l]) {
+            if (runs.empty() || runs.back().first != p.value)
+                runs.push_back({ p.value, {} });
+            runs.back().second.push_back(p.center());
+        }
+        REQUIRE(runs.size() == test.values.size());
+        double last_y = -std::numeric_limits<double>::max();
+        for (size_t j = 0; j < runs.size(); ++ j) {
+            INFO("chevron " << j);
+            CHECK(runs[j].first == std::to_string(test.values[j]));
+            CHECK(runs[j].second.size() == size_t(settings.wall_count));
+            Vec2d c = Vec2d::Zero();
+            for (const Vec2d &p : runs[j].second)
+                c += p;
+            c /= double(runs[j].second.size());
+            CHECK(c.y() > last_y);
+            last_y = c.y();
+        }
     }
 }

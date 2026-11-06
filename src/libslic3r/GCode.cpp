@@ -3210,7 +3210,10 @@ LayerResult GCodeGenerator::process_layer(
         // Extrude normal extrusions.
         // Fork: the objects of a calibration print group (calibration_print_group, the walls of a pressure calibration test, one
         // object per wall) island by island: each island of the first object, then the nearest island of each other object of the
-        // group, so that each chevron's walls print together (Ellis' and OrcaSlicer's order, doc section 45).
+        // group, so that each chevron's walls print together (Ellis' and OrcaSlicer's order, doc section 45). The islands of the
+        // first object in a row along the axis they spread on, the same direction on every layer (user 2026-11-06: PrusaSlicer's
+        // island order, chained from the first point of each outline, skipped chevrons and came back; alternating the direction
+        // per layer would give the chevrons at the ends uneven cooling times).
         std::vector<bool> printed_in_group(instances_to_print.size(), false);
         for (std::size_t i{0}; i < instances_to_print.size(); ++i) {
             const int group = instances_to_print[i].print_object.config().calibration_print_group.value;
@@ -3243,7 +3246,23 @@ LayerResult GCodeGenerator::process_layer(
             }
             std::vector<std::pair<std::size_t, std::size_t>> order;   // (member, island)
             const auto take = [&](std::size_t m, std::size_t s) { used[m][s] = true; order.emplace_back(m, s); };
-            for (std::size_t s = 0; s < centers.front().size(); ++s) {
+            std::vector<std::size_t> row;   // islands of the first object, along the row; those without perimeters last
+            BoundingBoxf             row_box;
+            for (std::size_t s = 0; s < centers.front().size(); ++s)
+                if (centers.front()[s].x() != std::numeric_limits<double>::max()) {
+                    row.push_back(s);
+                    row_box.merge(centers.front()[s]);
+                }
+            const int axis  = row_box.defined && row_box.size().x() > row_box.size().y() ? 0 : 1;
+            const int other = 1 - axis;
+            std::sort(row.begin(), row.end(), [&](std::size_t a, std::size_t b) {
+                const Vec2d &pa = centers.front()[a], &pb = centers.front()[b];
+                return pa[axis] < pb[axis] || (pa[axis] == pb[axis] && pa[other] < pb[other]);
+            });
+            for (std::size_t s = 0; s < centers.front().size(); ++s)
+                if (centers.front()[s].x() == std::numeric_limits<double>::max())
+                    row.push_back(s);
+            for (const std::size_t s : row) {
                 take(0, s);
                 for (std::size_t m = 1; m < members.size(); ++m) {
                     std::size_t best = std::size_t(-1);
