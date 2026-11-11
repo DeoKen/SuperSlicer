@@ -642,6 +642,9 @@ struct Plater::priv
     // The project path the G-code is named after: with the name kept by an opened project autosave / backup
     // (Model::output_filename_base), if any.
     fs::path output_project_path() const;
+    // The default G-code path: after the project, else after the kept name (Model::output_filename_base, e.g. set by the adaptive
+    // PA calibration), else after the first printable object.
+    std::string default_output_filepath();
     // The name the G-code is named after ({input_filename_base}): the kept one, else the project's, else the first
     // printable object's (as PrintBase::update_object_placeholders()).
     std::string output_filename_base() const;
@@ -3905,6 +3908,14 @@ fs::path Plater::priv::output_project_path() const
     return path;
 }
 
+std::string Plater::priv::default_output_filepath()
+{
+    const fs::path project = output_project_path();
+    if (project.empty() && ! model.output_filename_base.empty())
+        return background_process.output_filepath_for_name(model.output_filename_base);
+    return background_process.output_filepath_for_project(project);
+}
+
 // Without the additions of the output file name template that the name already ends with (a name made from a G-code
 // name: a project copy saved before the name was kept, or a project saved under its G-code's name). With
 // "{input_filename_base}_[filament_preset]_SuperSlicer", "Body1_ABS_SuperSlicer_ABS_SuperSlicer" gives "Body1".
@@ -6097,7 +6108,7 @@ std::optional<fs::path> Plater::get_default_output_file() {
             return std::nullopt;
         }
         const std::string path{
-            this->p->background_process.output_filepath_for_project(this->p->output_project_path())
+            this->p->default_output_filepath()
         };
         return fs::path(Slic3r::fold_utf8_to_ascii(path));
     } catch (const Slic3r::PlaceholderParserError &ex) {
@@ -7075,7 +7086,7 @@ std::string Plater::get_upload_filename()
         unsigned int state = this->p->update_restart_background_process(false, false);
         if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
             return {};
-        default_output_file = this->p->background_process.output_filepath_for_project(this->p->output_project_path());
+        default_output_file = this->p->default_output_filepath();
     }
     catch (const Slic3r::PlaceholderParserError& ex) {
         // Show the error with monospaced font.
@@ -7105,7 +7116,7 @@ void Plater::send_gcode_inner(DynamicPrintConfig* physical_printer_config)
         unsigned int state = this->p->update_restart_background_process(false, false);
         if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
             return;
-        default_output_file = this->p->background_process.output_filepath_for_project(this->p->output_project_path());
+        default_output_file = this->p->default_output_filepath();
     } catch (const Slic3r::PlaceholderParserError& ex) {
         // Show the error with monospaced font.
         show_error(this, ex.what(), true);

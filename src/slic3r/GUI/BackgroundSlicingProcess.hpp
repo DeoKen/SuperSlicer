@@ -121,6 +121,8 @@ public:
     // Take the project path (if provided), extract the name of the project, run it through the macro processor and save it next to the project file.
     // If the project_path is empty, just run output_filepath().
 	std::string 		output_filepath_for_project(const boost::filesystem::path &project_path);
+	// Named after filename_base (with the additions of the output file name template).
+	std::string 		output_filepath_for_name(const std::string &filename_base) { return m_print->output_filepath("", filename_base); }
 
 	// Start the background processing. Returns false if the background processing was already running.
 	bool start();

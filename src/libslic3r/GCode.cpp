@@ -3214,6 +3214,46 @@ LayerResult GCodeGenerator::process_layer(
         // first object in a row along the axis they spread on, the same direction on every layer (user 2026-11-06: PrusaSlicer's
         // island order, chained from the first point of each outline, skipped chevrons and came back; alternating the direction
         // per layer would give the chevrons at the ends uneven cooling times).
+        // The objects outside the groups (the frames) print first: on the first layer the ends of the walls are laid against the
+        // frame already on the bed, not free on the bed with the frame printed against them afterwards (user 2026-11-07: the ends
+        // lifted).
+        std::vector<bool> in_group(instances_to_print.size(), false);
+        for (std::size_t i{0}; i < instances_to_print.size(); ++i) {
+            const int group = instances_to_print[i].print_object.config().calibration_print_group.value;
+            if (group <= 0 || ! extruder_extrusions.normal_extrusions[i].support_extrusions.empty())
+                continue;
+            std::size_t members = 0;
+            for (std::size_t j{0}; j < instances_to_print.size(); ++j)
+                if (instances_to_print[j].print_object.config().calibration_print_group.value == group &&
+                    extruder_extrusions.normal_extrusions[j].support_extrusions.empty())
+                    ++ members;
+            in_group[i] = members >= 2;
+        }
+        const auto print_normal = [&](std::size_t i) {
+            const InstanceToPrint &instance{instances_to_print[i]};
+            using GCode::ExtrusionOrder::SupportPath;
+            const std::vector<SupportPath> &support_extrusions{extruder_extrusions.normal_extrusions[i].support_extrusions};
+            const ObjectLayerToPrint &layer_to_print{layers[instance.object_layer_to_print_id]};
+            const std::vector<SliceExtrusions> &slices_extrusions{extruder_extrusions.normal_extrusions[i].slices_extrusions};
+
+            if (support_extrusions.empty() && is_empty(slices_extrusions)) {
+                return;
+            }
+            this->initialize_instance(instance, layers[instance.object_layer_to_print_id], i == 0);
+
+            if (!support_extrusions.empty()) {
+                m_layer = layer_to_print.support_layer;
+                m_object_layer_over_raft = false;
+                gcode += this->extrude_support(support_extrusions);
+            }
+
+            gcode += this->extrude_slices(
+                instance, layer_to_print, slices_extrusions
+            );
+        };
+        for (std::size_t i{0}; i < instances_to_print.size(); ++i)
+            if (! in_group[i])
+                print_normal(i);
         std::vector<bool> printed_in_group(instances_to_print.size(), false);
         for (std::size_t i{0}; i < instances_to_print.size(); ++i) {
             const int group = instances_to_print[i].print_object.config().calibration_print_group.value;
@@ -3297,30 +3337,10 @@ LayerResult GCodeGenerator::process_layer(
             for (const std::size_t j : members)
                 printed_in_group[j] = true;
         }
-        for (std::size_t i{0}; i < instances_to_print.size(); ++i) {
-            if (printed_in_group[i])
-                continue;
-            const InstanceToPrint &instance{instances_to_print[i]};
-            using GCode::ExtrusionOrder::SupportPath;
-            const std::vector<SupportPath> &support_extrusions{extruder_extrusions.normal_extrusions[i].support_extrusions};
-            const ObjectLayerToPrint &layer_to_print{layers[instance.object_layer_to_print_id]};
-            const std::vector<SliceExtrusions> &slices_extrusions{extruder_extrusions.normal_extrusions[i].slices_extrusions};
-
-            if (support_extrusions.empty() && is_empty(slices_extrusions)) {
-                continue;
-            }
-            this->initialize_instance(instance, layers[instance.object_layer_to_print_id], i == 0);
-
-            if (!support_extrusions.empty()) {
-                m_layer = layer_to_print.support_layer;
-                m_object_layer_over_raft = false;
-                gcode += this->extrude_support(support_extrusions);
-            }
-
-            gcode += this->extrude_slices(
-                instance, layer_to_print, slices_extrusions
-            );
-        }
+        // Safety net: a group member the group loop did not print (none expected).
+        for (std::size_t i{0}; i < instances_to_print.size(); ++i)
+            if (in_group[i] && ! printed_in_group[i])
+                print_normal(i);
         this->set_origin(0.0, 0.0);
     }
 

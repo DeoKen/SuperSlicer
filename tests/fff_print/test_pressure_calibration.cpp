@@ -168,7 +168,8 @@ TEST_CASE("Pressure calibration with Ellis' settings", "[PressureCalibration]") 
     for (const char *generator : { "classic", "arachne" }) {
         DYNAMIC_SECTION(generator) {
             DynamicPrintConfig config = test_config();
-            config.set_deserialize_strict({ { "perimeter_generator", generator } });
+            // The user's overhangs cut (35 %, 2026-11-07): it cut the arms above the first layer back to the first layer's.
+            config.set_deserialize_strict({ { "perimeter_generator", generator }, { "overhangs_max_slope", "35%" } });
             std::map<size_t, double> path_lengths;
             int                      accel_commands = 0;
             const std::string        gcode          = slice_calibration(config, settings, { test });
@@ -180,6 +181,16 @@ TEST_CASE("Pressure calibration with Ellis' settings", "[PressureCalibration]") 
             CHECK(summary < gcode.find(";TYPE:", gcode.find(";LAYER_CHANGE")));
             CHECK(gcode.find(";  - Print speed: 100 mm/s") != std::string::npos);
             CHECK(gcode.find(";  - PA values (3): 0, 0.005, 0.01") != std::string::npos);
+            // The frame (its solid infill the last of it) prints before the walls on the first layer: the ends of the walls are laid
+            // against it (user 2026-11-07: printed after them, the ends lifted).
+            {
+                const size_t layer1 = gcode.find(";LAYER_CHANGE");
+                const size_t layer2 = gcode.find(";LAYER_CHANGE", layer1 + 1);
+                const size_t infill = gcode.find(";TYPE:Solid infill", layer1);
+                const size_t walls  = gcode.find(" walls\n", layer1);
+                REQUIRE(infill < layer2);
+                CHECK(infill < walls);
+            }
 
             std::map<std::string, std::set<int>> layers_of;
             std::map<std::string, size_t>        bend_types;
@@ -343,7 +354,7 @@ TEST_CASE("Pressure calibration with the extrusion role's settings (SuperSlicer)
 }
 
 // The frame follows the number of chevrons: one solid part on the first layer around them (a ring), the tab of the numbers on
-// the right with 2 mm between the numbers and its edges. On the first layer the ends of the lines reach half a line width into
+// the right with 2 mm between the numbers and its edges. On the first layer the ends of the lines reach a line width into
 // the frame; above it the left arms run over the whole left border to its outer edge, the right ones as far into the tab (over
 // its perimeters, short of the numbers). With the walls the frame is one piece (closed). SuperSlicer's frame was open with an even number of bends.
 TEST_CASE("Pressure calibration frame for any number of bends", "[PressureCalibration]") {
@@ -410,14 +421,15 @@ TEST_CASE("Pressure calibration frame for any number of bends", "[PressureCalibr
             const BoundingBox inner = frame_first_layer.front().holes.front().bounding_box();
             const BoundingBox first = get_extents(walls_first_layer), second = get_extents(walls_second_layer);
             const double      line  = config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0) * settings.line_ratio / 100.;
-            // First layer: the ends of the lines half a line width into the left border and the tab. Above: the left arms to the outer
+            // First layer: the ends of the lines a line width into the left border and the tab (half before 2026-11-07). Above: the left arms to the outer
             // edge of the frame, the right ones a border width into the tab.
-            CHECK(std::abs(unscaled(inner.min.x()) - (unscaled(first.min.x()) + line / 2.)) < eps);
-            CHECK(std::abs(unscaled(inner.max.x()) - (unscaled(first.max.x()) - line / 2.)) < eps);
+            CHECK(std::abs(unscaled(inner.min.x()) - (unscaled(first.min.x()) + line)) < eps);
+            CHECK(std::abs(unscaled(inner.max.x()) - (unscaled(first.max.x()) - line)) < eps);
             CHECK(std::abs(unscaled(second.min.x()) - fb.min.x()) < eps);
             const double border = unscaled(inner.min.x()) - fb.min.x();
             CHECK(std::abs(unscaled(second.max.x()) - (unscaled(inner.max.x()) + border)) < eps);
-            const double box_right = unscaled(first.max.x());
+            // The right edge of the box of the chevrons (the first layer reaches half a line width beyond it).
+            const double box_right = unscaled(first.max.x()) - line / 2.;
             CHECK(unscaled(second.max.x()) < box_right + margin);
             // The first layer of the chevrons between the top and bottom borders; above it inside the frame (the left arm of the
             // last one over the corner of the frame); the chevrons not overlapping each other.
@@ -445,7 +457,9 @@ TEST_CASE("Pressure calibration frame for any number of bends", "[PressureCalibr
                 numbers_max_x = std::max(numbers_max_x, numbers[i].max.x());
             }
             CHECK(std::abs(numbers_min_x - (box_right + margin)) < eps);
-            CHECK(std::abs(numbers_max_x - (fb.max.x() - margin)) < eps);
+            // On the outer edge at least a border and half a nozzle (the next frame's left border may lie over it).
+            const double outer_margin = std::max(margin, border + config.opt<ConfigOptionFloats>("nozzle_diameter")->get_at(0) / 2.);
+            CHECK(std::abs(numbers_max_x - (fb.max.x() - outer_margin)) < eps);
         }
     }
     SECTION("SuperSlicer's bends: 4 borders, 2 mm around the numbers") {
@@ -774,6 +788,17 @@ TEST_CASE("Adaptive PA calibration preview", "[.APAPreview]") {
     REQUIRE(out != nullptr);
     DynamicPrintConfig config = test_config();
     PressureCalibrationSettings settings;
+    // With APA_PROFILES = printer|filament|print .ini: those profiles, as the dialog (line width 100 %, the print's layer heights).
+    if (const char *profiles = std::getenv("APA_PROFILES"); profiles != nullptr) {
+        std::vector<std::string> files;
+        boost::split(files, std::string(profiles), boost::is_any_of("|"));
+        config = DynamicPrintConfig::full_print_config();
+        for (const std::string &f : files)
+            config.load(f, ForwardCompatibilitySubstitutionRule::Enable);
+        settings.line_ratio         = 100.;
+        settings.layer_height       = config.opt_float("layer_height");
+        settings.first_layer_height = config.get_abs_value("first_layer_height", settings.layer_height);
+    }
     PressureCalibrationTest test;
     test.values       = pressure_calibration_values(0.01, 0.05, 0.001);
     test.speed        = std::getenv("APA_PREVIEW_SPEED") ? std::atof(std::getenv("APA_PREVIEW_SPEED")) : 100.;
@@ -810,6 +835,105 @@ TEST_CASE("Adaptive PA calibration label: test number and acceleration", "[Adapt
     test.speed        = 100.;
     test.acceleration = 28000.;
     CHECK(slice_calibration(test_config(), settings, { test }, 1).find("SET_VELOCITY_LIMIT ACCEL=28000") != std::string::npos);
+}
+
+// User 2026-11-07: the values with 4 decimals without the leading 0; the objects of a test with an acceleration named after it, then
+// the test number.
+TEST_CASE("Pressure calibration engraved values and object names", "[PressureCalibration]") {
+    CHECK(pressure_calibration_engraved_value(0.0225) == ".0225");
+    CHECK(pressure_calibration_engraved_value(0.02) == ".0200");
+    CHECK(pressure_calibration_engraved_value(0.) == ".0000");
+    CHECK(pressure_calibration_engraved_value(0.00125) == ".0013");
+    CHECK(pressure_calibration_engraved_value(1.) == "1.0000");
+    PressureCalibrationTest test;
+    test.values = pressure_calibration_values(0.01, 0.05, 0.001);
+    CHECK(pressure_calibration_object_name(test, 3).rfind("PA test 3 ExternalPerimeter", 0) == 0);
+    test.speed        = 300.;
+    test.acceleration = 1500.;
+    CHECK(pressure_calibration_object_name(test, 3).rfind("1500 3 PA test ExternalPerimeter 300 mm/s", 0) == 0);
+    CHECK(pressure_calibration_object_name(test, 3).find("mm/s2") == std::string::npos);
+}
+
+// User 2026-11-07: neighbouring frames share a border (and the brim), the chevrons still apart. The tab of the left frame under the
+// left border of the right one: the border prints once, both frames stay a ring (a brim never runs between the chevrons).
+TEST_CASE("Adaptive PA calibration frames share a border", "[AdaptivePACalibration]") {
+    DynamicPrintConfig config = test_config();
+    PressureCalibrationSettings settings;
+    pressure_calibration_apply_settings(config, settings);
+    pressure_calibration_print_config(config);
+    PressureCalibrationTest test;
+    test.values       = pressure_calibration_values(0.01, 0.05, 0.005);
+    test.speed        = 100.;
+    test.acceleration = 1500.;
+    const double border = pressure_calibration_frame_border(config);
+    REQUIRE(border > 1.);
+    const auto footprint = [](const ModelObject *o) {
+        for (const ModelVolume *v : o->volumes)
+            if (v->name == "frame") {
+                MeshSlicingParamsEx params;
+                params.trafo = o->instances.front()->get_matrix() * v->get_matrix();
+                const BoundingBoxf3 bb = v->mesh().transformed_bounding_box(params.trafo);
+                return slice_mesh_ex(v->mesh().its, { float(bb.center().z()) }, params).front();
+            }
+        return ExPolygons();
+    };
+    for (const bool turned : { false, true }) {
+        DYNAMIC_SECTION((turned ? "turned" : "upright")) {
+            Model model;
+            std::vector<ModelObject*> frames;
+            for (size_t id = 1; id <= 3; ++ id) {
+                ModelObject *o = load_base(model);
+                REQUIRE(pressure_calibration_build(*o, config, settings, test, id, resources()));
+                frames.push_back(o);
+            }
+            const Vec2d size = pressure_calibration_frame_size(config, settings, test, 1);
+            if (! turned) {
+                // The layout: a row, each frame over the next by a border.
+                const std::vector<CalibrationPlacement> out = calibration_layout({ size, size, size }, BoundingBoxf(Vec2d(0., 0.), Vec2d(350., 350.)),
+                                                                                 {}, 5., true, 1, {}, border);
+                REQUIRE(out.size() == 3);
+                for (size_t i = 0; i < 3; ++ i) {
+                    CHECK(! out[i].turned);
+                    if (i > 0) {
+                        CHECK(std::abs(out[i].position.x() - (out[i - 1].position.x() + size.x() - border)) < EPSILON);
+                        CHECK(std::abs(out[i].position.y() - out[i - 1].position.y()) < EPSILON);
+                    }
+                }
+            }
+            // Placed as the dialog does: along their x (turned: along y), a border over each other.
+            for (size_t i = 0; i < 3; ++ i) {
+                ModelInstance *inst = frames[i]->instances.front();
+                Geometry::Transformation trafo = inst->get_transformation();
+                trafo.set_rotation(Vec3d(0., 0., turned ? 0.5 * PI : 0.));
+                inst->set_transformation(trafo);
+                frames[i]->invalidate_bounding_box();
+                const BoundingBoxf3 bb = frames[i]->instance_bounding_box(0);
+                const double step   = double(i) * (size.x() - border);
+                const Vec2d  target = turned ? Vec2d(10., 10. + step) : Vec2d(10. + step, 10.);
+                inst->set_offset(inst->get_offset() + Vec3d(target.x() - bb.min.x(), target.y() - bb.min.y(), 0.));
+                frames[i]->invalidate_bounding_box();
+            }
+            ExPolygons before;
+            for (const ModelObject *o : frames)
+                append(before, footprint(o));
+            pressure_calibration_share_borders(frames);
+            ExPolygons all;
+            for (size_t i = 0; i < 3; ++ i) {
+                const ExPolygons f = footprint(frames[i]);
+                INFO("frame " << i);
+                REQUIRE(f.size() == 1);
+                CHECK(f.front().holes.size() == 1);
+                for (size_t j = 0; j < i; ++ j)
+                    CHECK(area(intersection_ex(f, footprint(frames[j]))) < scaled<double>(0.01));
+                append(all, f);
+            }
+            // One piece around three holes (closing the slicing round-off between them), as large as before.
+            const ExPolygons merged = union_ex(offset_ex(all, scaled<float>(0.001)));
+            REQUIRE(merged.size() == 1);
+            CHECK(merged.front().holes.size() == 3);
+            CHECK(std::abs(area(merged) - area(union_ex(offset_ex(before, scaled<float>(0.001))))) < scaled<double>(0.5) * scaled<double>(1.));
+        }
+    }
 }
 
 TEST_CASE("Adaptive PA results", "[AdaptivePACalibration]") {
@@ -1124,7 +1248,8 @@ TEST_CASE("Adaptive PA calibration layout of real profiles", "[.APALayout]") {
         }
     const BoundingBoxf bed(config.opt<ConfigOptionPoints>("bed_shape")->values);
     const std::vector<BoundingBoxf> zones = BedKeepOut::parse(config.opt_string("bed_keep_out_zones"));
-    const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, zones, PRESSURE_CALIBRATION_BRIM_WIDTH, true, 9, groups);
+    const std::vector<CalibrationPlacement> out = calibration_layout(sizes, bed, zones, PRESSURE_CALIBRATION_BRIM_WIDTH, true, 9, groups,
+                                                                     pressure_calibration_frame_border(config));
     REQUIRE(out.size() == sizes.size());
     boost::nowide::ofstream f(std::getenv("APA_LAYOUT_OUT"));
     for (const BoundingBoxf &z : zones)

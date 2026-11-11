@@ -1359,7 +1359,12 @@ without the per-part accelerations (see below).
     one solid part (`frame`, the outer rectangle without the inner one). On the first layer the left border and the tab
     reach half a line width into the chevrons, anchoring the ends of the lines: 0.13 mm overlap
     with the frame's lines on the user's profile, as Ellis' pattern (0.132 mm; a whole line width gave 0.36 mm, touching
-    only left the lines 0.09 mm short; user 2026-10-25: "Maybe half a line width instead"). Above
+    only left the lines 0.09 mm short; user 2026-10-25: "Maybe half a line width instead"). Since 2026-11-07 the first layer
+    of the walls reaches a whole line width into the frame, both ends (the slicer picks the direction of each line): on the
+    print the starts of the lines, after the travel, stopped short of the left border (user 2026-11-07, adaptive PA 165 mm/s
+    test), although the viewer showed them touching: the start point was 0.08 mm outside the border's inner edge (the viewer
+    draws the line's width around it, the nozzle lays nothing behind a start). Now it is 0.12 mm inside it, on the border's
+    innermost line. Above
     the first layer (no frame there) the left arm of every wall runs on over the whole left border to its outer edge, cut
     there square to it, printed on the frame; the right arms run as far (a border width) into the tab, over its perimeters,
     cut square there too, short of the numbers 2 mm from the chevrons (user 2026-10-26: the right side did not reach onto
@@ -1369,11 +1374,15 @@ without the per-part accelerations (see below).
     mm + 2 x 1.4 x (the border width - half a line width) long (63.4 mm on the user's profile; the left border is as wide as the
     others: half a line wider, it printed a line of gap fill). The objects of the walls have `overhangs` and dynamic
     overhang speeds off: the frame under the arms is another object, so PrusaSlicer printed that piece as an overhang
-    (bridge flow, overhang speed and fan, with the previous chevron's value). With SuperSlicer's bends: 4 borders (`pa_border.3mf`), the left
+    (bridge flow, overhang speed and fan, with the previous chevron's value). They also have `overhangs_max_slope` 0: the
+    overhangs cut of the print settings (the user's 35 %) cut the arms above the first layer back to the first layer's, so they
+    never ran over the frame (found 2026-11-07). With SuperSlicer's bends: 4 borders (`pa_border.3mf`), the left
     one reaching a little into the bends. At least 2 values. SuperSlicer centred the sides on the middle bend: with an even number of values
     the frame was open (sides short at one end, the bottom border apart); here they are centred between the first and the
     last (2026-10-23). `base_plate.3mf` is a 0.3 mm placeholder under the first layer that doesn't print. Every second
-    value engraved next to its chevron / bend with the digit / point models (6 decimals, as SuperSlicer; the point as wide
+    value engraved next to its chevron / bend with the digit / point models (4 decimals without the leading 0, `.0225`,
+    `pressure_calibration_engraved_value()`, user 2026-11-07: SuperSlicer's 6 decimals, `0.022500`, were hard to read;
+    rounded to 4 decimals; the tab follows the narrower numbers; the point as wide
     as the strokes of the digits, so it prints as they do: SuperSlicer's 0.6 mm was too wide for a thin wall and too narrow
     for a loop, PrusaSlicer left it out, 2026-10-25); with Ellis'
     settings the numbers' second layer at the first layer speed (object perimeter speeds), as Ellis.
@@ -1425,7 +1434,7 @@ with the first layer value, per layer 3 walls of each chevron as open external p
 wide but on the few corner moves, whatever the generator, small perimeter or layer time settings, fan 0 then 100 %, no
 acceleration command; with the extrusion role: 5 layers at the role's speed;
 the settings written into a config, the first layer fan refused unless 0 or the fan; no overhang perimeters; the frame for 2 to 30 values: a
-solid ring around the chevrons, on the first layer the ends of the lines half a line width into the left border and the tab,
+solid ring around the chevrons, on the first layer the ends of the lines a line width into the left border and the tab,
 above it the left arms to its outer edge and the right ones a border width into the tab, short of the numbers, one piece with the walls, the numbers on the tab 2 mm from both its edges (also with SuperSlicer's bends);
 fewer than 2 values refused; no gap fill in the frame with 0.4 mm lines, a 0.2 / 0.25 / 0.3 mm first layer and 2 or 4
 perimeters; the 5 mm brim on the first layer only, 5 mm out on every side of the frame, also with a print profile without
@@ -2037,8 +2046,14 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
   - Layout (user 2026-11-05: "as many on a plate as possible", "share the brim if you have to"): Generate places the frames
     itself instead of PrusaSlicer's arrange (whose gap between objects sent test 3 of the default 1500 test to a second bed):
     `calibration_layout()`, MaxRects (best short side fit) over 400 seeded orders, the largest first; the brim of every frame
-    1 mm inside the bed and clear of the keep-out zones (grown by their clearance); neighbouring frames one brim width apart
-    (the brim between them shared), or touching (no brim between them) when that needs fewer beds; "Turn frames 90° to fit
+    1 mm inside the bed and clear of the keep-out zones (grown by their clearance); no brim between the frames (user
+    2026-11-07: "share the frame", the chevrons still apart; before: one brim width apart, the brim reaching the bed edge). In
+    the row layouts the frames side by side along their own x share a border: the left border of one lies over the outer edge
+    of the tab of the other (the layout overlaps them by a border, `pressure_calibration_frame_border()`), and
+    `pressure_calibration_share_borders()` cuts it from the tab, so it prints once and each frame stays a ring (cut from the
+    left border instead, the frame would be open and its brim would run between the chevrons); the numbers keep at least a
+    border and half a nozzle from the tab's outer edge. The rows touch (a top and a bottom border, which can't be cut). The
+    packed layout has the frames touching; "Turn frames 90° to fit
     more on a plate" (default on; the arms stay at ±45°, one motor each on a CoreXY, the same test). Of the layouts with the
     fewest beds the tidiest (user 2026-11-05: "on a single accel test they should still be organized nicely"): rows in test
     order (1, 2, 3), a row per acceleration if they fit, else rows of all, all upright, else all turned, the rows from the front
@@ -2067,7 +2082,8 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     island order, chained from the first point of each outline, skipped chevrons and came back to them; alternating the
     direction per layer was not used, it would give the chevrons at the ends uneven cooling times). The walls of a chevron have the same per region G-code and, inside a group, a
     per region G-code the same as the last one is left out. Objects without a group print as before (golden test: the new
-    key is skipped).
+    key is skipped) On a layer with groups, the objects without a group (the frames) print first (user 2026-11-07: printed after all the
+    chevrons, the ends of the first layer's lines lay free on the bed and lifted).
   - The label of each frame (user, 2026-11-05): the test number, 1, 2, 3... in the order of the speeds (at most 9 speeds), and
     the acceleration after a blank, e.g. `1 28000`, on the row under the values (the tab gets wider if the label is wider than
     the values). Before: numbered 0-9 over the accelerations of the drop-down, so a typed acceleration (e.g. 28000 with a Slow
@@ -2088,7 +2104,11 @@ feature). Step 1 of the port (user, 2026-11-01): the calibration and the model s
     times the cross section of a wall (`Flow(width, layer height)`: the line width and layer height of the dialog). A test
     that is capped is listed before Generate (continue or cancel); its flow is the capped one.
   - The object names and the summary at the start of the first layer show the speed, acceleration and flow of each test
-    (`; - Speed 150 mm/s, acceleration 4000 mm/s^2, flow 10.71 mm^3/s`).
+    (`; - Speed 150 mm/s, acceleration 4000 mm/s^2, flow 10.71 mm^3/s`). The object names start with the acceleration and the
+    test number (user 2026-11-07, to pick the objects to exclude at a glance): `1500 3 PA test ExternalPerimeter 300 mm/s ...
+    frame` / `... wall 1`. The G-code is named after the accelerations: `1500 6000 adaptive PA` plus the additions of the output
+    file name template (`Model::output_filename_base`, section 25, now also used without a project file; before, the name came
+    from the first object's name, cut at its `/` in `mm/s`).
   - The tests (speed, acceleration, flow, nozzle, typed value, number) are kept per filament (user, 2026-11-05) in PrusaSlicer.ini,
     section `[adaptive_pa_calibrations]`, one key per filament preset name: a print replaces the kept tests of its nozzle and
     acceleration and keeps the others, other nozzles included (`adaptive_pa_tests_merge()`). Before 2026-11-05 one filament only

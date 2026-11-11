@@ -538,6 +538,8 @@ static bool load_pressure_calibration(wxWindow *parent, const std::vector<Pressu
             if (! walls[id_item].empty())
                 pressure_calibration_build_walls(walls[id_item], config, settings, tests[id_item], id_of(id_item));
         }
+        // Neighbouring frames laid over each other by a border: printed once (user 2026-11-07).
+        pressure_calibration_share_borders(frames);
     }
     // How the test was made, as comments at the start of the first layer (Ellis writes them at the top of his G-code).
     CustomGCode::Info &custom = model.custom_gcode_per_print_z();
@@ -1196,7 +1198,8 @@ protected:
         std::vector<int> groups;
         for (const PressureCalibrationTest &t : plan.tests)
             groups.push_back(int(std::find_if(plan.accels.begin(), plan.accels.end(), [&t](double a) { return std::abs(a - t.acceleration) < 0.5; }) - plan.accels.begin()));
-        plan.layout = calibration_layout(plan.sizes, plan.bed, plan.zones, PRESSURE_CALIBRATION_BRIM_WIDTH, m_turn->GetValue(), int(MAX_NUMBER_OF_BEDS), groups);
+        plan.layout = calibration_layout(plan.sizes, plan.bed, plan.zones, PRESSURE_CALIBRATION_BRIM_WIDTH, m_turn->GetValue(), int(MAX_NUMBER_OF_BEDS), groups,
+                                         pressure_calibration_frame_border(plan.config));
         if (plan.layout.empty()) {
             error = format_wxstr(_L("The frames don't fit on %1% beds, or a frame is larger than the bed: fewer tests, a lower speed or a "
                                     "higher acceleration."), MAX_NUMBER_OF_BEDS);
@@ -1278,6 +1281,14 @@ protected:
                         gcode = restore + gcode;
             }, plan.ids, &plan.layout))
             return false;
+        // The G-code named after the accelerations (user 2026-11-07): "1500 6000 adaptive PA" and the additions of the output
+        // file name template.
+        {
+            std::string name;
+            for (double accel : plan.accels)
+                name += std::to_string(std::lround(accel)) + " ";
+            wxGetApp().plater()->model().output_filename_base = name + "adaptive PA";
+        }
         // Kept per filament, per acceleration; the other accelerations and nozzles stay (adaptive_pa_tests_merge()).
         std::vector<AdaptivePATest> kept = adaptive_pa_kept(filament_name);
         for (double accel : plan.accels) {
