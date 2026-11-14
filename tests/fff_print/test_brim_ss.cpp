@@ -158,6 +158,52 @@ TEST_CASE("Brim ears: only at the sharp corners", "[BrimSS]") {
     }
 }
 
+// Brim loops clipped by the ear discs (or a paint-on brim zone) used to end in a 0.2 mm piece at a sharp angle, or leave
+// tiny pieces at the edge of the disc: printed, the nozzle turned sharply on the fresh line and pulled it off the bed.
+TEST_CASE("Brim ears: no short sharp end pieces", "[BrimSS]") {
+    for (const TestMesh m : { TestMesh::cube_20x20x20, TestMesh::V, TestMesh::L }) {
+        const Sliced ears = slice_brim({ Test::mesh(m) }, config_with({ { "brim_ears", true }, { "brim_ears_pattern", "concentric" },
+                                                                        { "brim_ears_max_angle", 135 }, { "brim_width", 8 } }));
+        REQUIRE(! ears.parsed.moves.empty());
+        const std::vector<BrimMove> &mv = ears.parsed.moves;
+        auto len   = [&](size_t i) { return (mv[i].to - mv[i].from).norm(); };
+        auto sharp = [&](size_t a, size_t b) {
+            const Vec2d u = (mv[a].to - mv[a].from).normalized(), v = (mv[b].to - mv[b].from).normalized();
+            return u.dot(v) < 0.5;
+        };
+        for (const std::vector<size_t> &run : ears.parsed.runs) {
+            double l = 0;
+            for (size_t i : run)
+                l += len(i);
+            INFO("mesh " << int(m) << ", brim run starting at G-code line " << mv[run.front()].line << ", length " << l);
+            CHECK(l >= 1. - EPSILON);
+            if (run.size() >= 2) {
+                CHECK(! (len(run.front()) < 0.5 && sharp(run[0], run[1])));
+                CHECK(! (len(run.back()) < 0.5 && sharp(run[run.size() - 2], run.back())));
+            }
+        }
+    }
+}
+
+// The clipped brim loops used to be printed ring by ring, every ring visiting all the ears (hundreds of travels over the
+// fresh brim). Each ear is now printed completely before the next one.
+TEST_CASE("Brim ears: one ear after the other", "[BrimSS]") {
+    const Sliced ears = slice_brim({ cube() }, config_with({ { "brim_ears", true }, { "brim_ears_pattern", "concentric" } }));
+    REQUIRE(! ears.parsed.runs.empty());
+    const BoundingBoxf &box = ears.boxes.front();
+    auto corner = [&](const Vec2d &p) { return int(p.x() > box.center().x()) + 2 * int(p.y() > box.center().y()); };
+    int changes = 0;
+    std::set<int> seen;
+    for (size_t r = 0; r < ears.parsed.runs.size(); ++ r) {
+        const int c = corner(ears.parsed.moves[ears.parsed.runs[r].front()].from);
+        if (r > 0 && c != corner(ears.parsed.moves[ears.parsed.runs[r - 1].back()].to))
+            ++ changes;
+        seen.insert(c);
+    }
+    CHECK(seen.size() == 4);
+    CHECK(changes == 3);
+}
+
 TEST_CASE("Brim ears: max angle", "[BrimSS]") {
     // A cube has 90° corners: no ear below 90°, ears above.
     CHECK(slice_brim({ cube() }, config_with({ { "brim_ears", true }, { "brim_ears_max_angle", 0 } })).parsed.moves.empty());

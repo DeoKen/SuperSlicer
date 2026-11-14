@@ -454,9 +454,21 @@ includes the gap). Brim inside holes (`brim_inside_holes`) is not ported.
   instance is printed for the first time.
 - Limitation: the inner brim (`brim_type` = inner / outer and inner) of an object with `brim_per_object` stays with the
   plate brim, printed at the start.
+- Clipped brim lines (fork fix, 2026-11-14; ears, paint-on brim, brims cut by other objects): a loop cut just past one
+  of its corners used to keep a ~0.2 mm end piece at a sharp angle, and a loop grazing the edge of the area a tiny
+  piece. Printed, the nozzle turned sharply on the fresh line (then wiped back over it) and pulled it off the bed.
+  `remove_brim_stubs()` removes end pieces shorter than two line spacings that turn more than 60°, and drops open
+  pieces shorter than 1 mm. Closed loops are untouched, so a plain brim is unchanged.
+- Order of clipped brim lines (fork fix, 2026-11-14): the pieces came ring by ring, so every ring jumped between all the
+  separate brim areas of the plate (ears, painted zones): on a real plate 659 travels (18 m, each with a wipe, no
+  Z-hop) over the fresh brim. `order_brim_pieces_by_area()` prints each separate part of the brim area completely
+  (rings in the same order as before), then the nearest next part: 182 travels (1.7 m) on that plate. Brims made of
+  whole loops only keep the stock order.
 
 **How to test.** `fff_print_tests "[BrimSS]"`: ears only near the corners of a cube for both patterns, all four corners,
-less brim than a full brim; max angle 0 / 80° gives no brim on a cube and 100° gives ears; two close objects get
+less brim than a full brim; no brim run shorter than 1 mm or ending in a short sharp piece (cube, V, L with ears);
+the four ears of a cube printed one after the other (3 changes of ear);
+max angle 0 / 80° gives no brim on a cube and 100° gives ears; two close objects get
 merged brim loops with the plate brim but not with brim per object; with sequential printing, the second object's
 brim is printed after the first object; ears and per object together. Manually: slice a part with sharp corners with
 ears on and look at the first layer in the preview; place two parts a few mm apart with a wide brim and compare brim

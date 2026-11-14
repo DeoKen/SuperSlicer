@@ -588,6 +588,109 @@ static std::vector<InnerBrimExPolygons> inner_brim_area(const Print             
     return brim_area_out;
 }
 
+// Brim loops clipped by the brim area (ears, paint-on brim, other objects) (fork): a loop cut just past one of its corners
+// keeps a short end piece at a sharp angle, and a loop grazing the edge of the area leaves a tiny piece. Printed, the nozzle
+// turns sharply on the fresh line (then wipes back over it) and pulls it off the bed. Remove such end pieces (shorter than
+// two lines, turning more than 60 degrees) and drop the open pieces left shorter than 1 mm. Closed loops are not touched.
+static void remove_brim_stubs(Polylines &polylines, const double spacing)
+{
+    const double max_stub   = 2. * spacing;
+    const double min_length = scaled<double>(1.);
+    const double cos_sharp  = 0.5; // cos(60 degrees)
+    auto sharp = [cos_sharp](const Point &a, const Point &b, const Point &c) {
+        const Vec2d v1 = (b - a).cast<double>(), v2 = (c - b).cast<double>();
+        const double n = v1.norm() * v2.norm();
+        return n > 0. && v1.dot(v2) < cos_sharp * n;
+    };
+    for (Polyline &pl : polylines) {
+        if (pl.size() < 2 || pl.first_point() == pl.last_point())
+            continue;
+        Points &pts = pl.points;
+        while (pts.size() > 2 && (pts[pts.size() - 1] - pts[pts.size() - 2]).cast<double>().norm() < max_stub &&
+               sharp(pts[pts.size() - 3], pts[pts.size() - 2], pts.back()))
+            pts.pop_back();
+        size_t first = 0;
+        while (pts.size() - first > 2 && (pts[first + 1] - pts[first]).cast<double>().norm() < max_stub &&
+               sharp(pts[first], pts[first + 1], pts[first + 2]))
+            ++ first;
+        if (first > 0)
+            pts.erase(pts.begin(), pts.begin() + first);
+    }
+    polylines.erase(std::remove_if(polylines.begin(), polylines.end(), [min_length](const Polyline &pl) {
+        return pl.size() < 2 || (pl.first_point() != pl.last_point() && pl.length() < min_length);
+    }), polylines.end());
+}
+
+// Brim loops clipped into pieces (ears, paint-on brim, brims cut by other objects) (fork): the pieces come ring by ring,
+// so every ring jumped between all the separate brim areas of the plate, hundreds of travels (and wipes) over the fresh
+// brim. Print each separate part of the brim area completely (its rings in the same order as before), then go to the
+// nearest next one. Brims made of whole loops only (no clipping) keep the stock order.
+static void order_brim_pieces_by_area(Polylines &pieces, const ExPolygons &area)
+{
+    if (area.size() < 2 || std::none_of(pieces.begin(), pieces.end(), [](const Polyline &pl) { return pl.size() >= 2 && pl.first_point() != pl.last_point(); }))
+        return;
+    std::vector<BoundingBox> bboxes;
+    bboxes.reserve(area.size());
+    for (const ExPolygon &ex : area)
+        bboxes.emplace_back(get_extents(ex.contour));
+    // A point inside the piece: an inner vertex, or the middle of a single segment (the ends lie on the area boundary).
+    auto inner_point = [](const Polyline &pl) {
+        return pl.size() > 2 ? pl.points[pl.size() / 2] : Point((pl.points.front() + pl.points.back()) / 2);
+    };
+    std::vector<std::vector<size_t>> groups(area.size() + 1); // the last one: pieces not found in any part (kept last)
+    std::vector<size_t>              group_order;            // groups by their first piece
+    for (size_t i = 0; i < pieces.size(); ++ i) {
+        size_t g = area.size();
+        if (! pieces[i].empty()) {
+            const Point pt = inner_point(pieces[i]);
+            for (size_t j = 0; j < area.size(); ++ j)
+                if (bboxes[j].contains(pt) && area[j].contains(pt)) {
+                    g = j;
+                    break;
+                }
+        }
+        if (groups[g].empty())
+            group_order.emplace_back(g);
+        groups[g].emplace_back(i);
+    }
+    // Start with the part of the first piece, then the nearest part from the end of the previous one.
+    std::vector<bool> done(groups.size(), false);
+    Polylines         out;
+    out.reserve(pieces.size());
+    size_t            g = group_order.front();
+    for (;;) {
+        done[g] = true;
+        for (size_t i : groups[g])
+            out.emplace_back(std::move(pieces[i]));
+        const Point last = out.back().empty() ? Point(0, 0) : out.back().last_point();
+        size_t      next = size_t(-1);
+        double      best = std::numeric_limits<double>::max();
+        for (size_t c : group_order)
+            if (! done[c] && c != area.size()) {
+                const Polyline &first = pieces[groups[c].front()];
+                if (first.empty())
+                    continue;
+                const double d = std::min((first.first_point() - last).cast<double>().squaredNorm(), (first.last_point() - last).cast<double>().squaredNorm());
+                if (d < best) {
+                    best = d;
+                    next = c;
+                }
+            }
+        if (next == size_t(-1))
+            break;
+        g = next;
+    }
+    if (! done[area.size()])
+        for (size_t i : groups[area.size()])
+            out.emplace_back(std::move(pieces[i]));
+    // Parts whose first piece was empty (none in practice): keep their pieces too.
+    for (size_t c : group_order)
+        if (! done[c] && c != area.size())
+            for (size_t i : groups[c])
+                out.emplace_back(std::move(pieces[i]));
+    pieces = std::move(out);
+}
+
 // Flip orientation of open polylines to minimize travel distance.
 static void optimize_polylines_by_reversing(Polylines *polylines)
 {
@@ -781,9 +884,11 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
             Polylines              loops_pl = to_polylines(loops);
             loops_pl_by_levels.assign(loops_pl.size(), Polylines());
             tbb::parallel_for(tbb::blocked_range<size_t>(0, loops_pl.size()),
-                [&loops_pl_by_levels, &loops_pl, &area](const tbb::blocked_range<size_t> &range) {
+                [&loops_pl_by_levels, &loops_pl, &area, &flow](const tbb::blocked_range<size_t> &range) {
                     for (size_t i = range.begin(); i < range.end(); ++i) {
-                        loops_pl_by_levels[i] = chain_polylines(intersection_pl({ std::move(loops_pl[i]) }, area));
+                        Polylines pieces = intersection_pl({ std::move(loops_pl[i]) }, area);
+                        remove_brim_stubs(pieces, double(flow.scaled_spacing()));
+                        loops_pl_by_levels[i] = chain_polylines(std::move(pieces));
                     }
                 });
         }
@@ -793,6 +898,7 @@ ExtrusionEntityCollection make_brim(const Print &print, PrintTryCancel try_cance
         for (Polylines &polylines : loops_pl_by_levels)
             append(all_loops, std::move(polylines));
         loops_pl_by_levels.clear();
+        order_brim_pieces_by_area(all_loops, area_ex);
 
         // Flip orientation of open polylines to minimize travel distance.
         optimize_polylines_by_reversing(&all_loops);
