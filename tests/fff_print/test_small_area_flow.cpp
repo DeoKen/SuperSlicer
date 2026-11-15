@@ -108,29 +108,139 @@ std::string slice_cube(bool enabled, const std::string &top_pattern = "monotonic
 
 } // namespace
 
-TEST_CASE("Small area flow compensation in the G-code", "[SmallAreaFlow]") {
+// Flow factors by line length (SmallAreaFlowModel::line_factors()).
+TEST_CASE("Small area flow model: factor by line, not by segment", "[SmallAreaFlow]") {
     const auto model = SmallAreaFlowModel::parse(default_model);
     REQUIRE(model.has_value());
+    auto factors = [&model](const std::vector<Vec2d> &pts, double width = 0.45) {
+        std::vector<double> len;
+        for (size_t i = 1; i < pts.size(); ++ i)
+            len.push_back((pts[i] - pts[i - 1]).norm());
+        return model->line_factors(pts, len, width);
+    };
+    SECTION("a straight line cut into short segments gets the factor of its whole length") {
+        std::vector<Vec2d> pts;
+        for (int i = 0; i <= 8; ++ i)
+            pts.emplace_back(0.25 * i, 0.);   // 2 mm in 0.25 mm pieces
+        for (double f : factors(pts))
+            CHECK(f == Approx(model->factor(2.)));
+    }
+    SECTION("a curved line of short segments (gentle turns) is one line") {
+        std::vector<Vec2d> pts{ Vec2d(0., 0.) };
+        for (int i = 1; i <= 40; ++ i) {
+            const double a = 0.1 * i;   // ~5.7 degrees per 0.5 mm segment: 20 mm long
+            pts.push_back(pts.back() + 0.5 * Vec2d(std::cos(a), std::sin(a)));
+        }
+        for (double f : factors(pts))
+            CHECK(f == 1.);              // 20 mm >= the last point of the curve (10 mm)
+    }
+    SECTION("zig-zag: lines get their own length's factor, the links along the wall follow the lines") {
+        // 3 mm lines along X joined by 0.4 mm links along Y.
+        std::vector<Vec2d> pts{ Vec2d(0., 0.), Vec2d(3., 0.), Vec2d(3., 0.4), Vec2d(0., 0.4), Vec2d(0., 0.8), Vec2d(3., 0.8) };
+        const std::vector<double> f = factors(pts);
+        REQUIRE(f.size() == 5);
+        for (double v : f)
+            CHECK(v == Approx(model->factor(3.)));
+        CHECK(model->factor(0.4) < model->factor(3.) - 0.2);  // the link would have got much less on its own
+    }
+    SECTION("a link between lines of different lengths gets the mean of their factors") {
+        std::vector<Vec2d> pts{ Vec2d(0., 0.), Vec2d(1., 0.), Vec2d(1., 0.4), Vec2d(-4., 0.4) };
+        const std::vector<double> f = factors(pts);
+        CHECK(f[0] == Approx(model->factor(1.)));
+        CHECK(f[1] == Approx(0.5 * (model->factor(1.) + model->factor(5.))));
+        CHECK(f[2] == Approx(model->factor(5.)));
+    }
+    SECTION("a short piece longer than 3 widths, or not shorter than its neighbours, keeps its own factor") {
+        // 1.5 mm piece between 3 mm lines, width 0.45 (3 widths = 1.35 mm): it is a line of its own.
+        std::vector<Vec2d> pts{ Vec2d(0., 0.), Vec2d(3., 0.), Vec2d(3., 1.5), Vec2d(0., 1.5) };
+        CHECK(factors(pts)[1] == Approx(model->factor(1.5)));
+        // 0.3 mm piece between 0.25 mm pieces: not shorter than its neighbours, so a line of its own.
+        std::vector<Vec2d> pts2{ Vec2d(0., 0.), Vec2d(0.25, 0.), Vec2d(0.25, 0.3), Vec2d(0., 0.3) };
+        CHECK(factors(pts2)[1] == Approx(model->factor(0.3)));
+        // A strip 0.5 mm wide: 0.5 mm lines, the 0.4 mm link follows them.
+        std::vector<Vec2d> pts3{ Vec2d(0., 0.), Vec2d(0.5, 0.), Vec2d(0.5, 0.4), Vec2d(0., 0.4) };
+        for (double f : factors(pts3))
+            CHECK(f == Approx(model->factor(0.5)));
+    }
+}
+
+TEST_CASE("Small area flow compensation in the G-code", "[SmallAreaFlow]") {
+    // 20 mm cube, solid lines at 45 degrees: the lines of 10 mm and more are not changed, nor the links between two
+    // of them (they used to be reduced as 0.5 mm lines); the short lines in the corners are reduced.
     const std::vector<Move> off = moves_of(slice_cube(false));
     const std::vector<Move> on  = moves_of(slice_cube(true));
-    // Same moves, only the amounts of extrusion differ.
     REQUIRE(off.size() == on.size());
-    int compensated = 0;
+    int long_links = 0, reduced = 0;
     for (size_t i = 0; i < off.size(); ++ i) {
         INFO(off[i].line << "  vs  " << on[i].line);
         REQUIRE(off[i].type == on[i].type);
         const bool applies = off[i].layer > 0 && (off[i].type == "Solid infill" || off[i].type == "Top solid infill");
-        if (applies) {
-            const double expected = off[i].e * model->factor(off[i].length);
-            CHECK(on[i].e == Approx(expected).margin(2e-5));
-            if (on[i].e < off[i].e - 1e-4)
-                ++ compensated;
-        } else {
+        if (! applies) {
             CHECK(on[i].e == off[i].e);
+            continue;
+        }
+        CHECK(on[i].e <= off[i].e + 2e-5);
+        if (on[i].e < off[i].e - 1e-4)
+            ++ reduced;
+        if (off[i].length >= 10.)
+            CHECK(on[i].e == Approx(off[i].e).margin(2e-5));
+        else if (off[i].length < 1. && i > 0 && i + 1 < off.size() && off[i - 1].length >= 10. && off[i + 1].length >= 10. &&
+                 off[i - 1].type == off[i].type && off[i + 1].type == off[i].type) {
+            CHECK(on[i].e == Approx(off[i].e).margin(2e-5));
+            ++ long_links;
         }
     }
-    // The short connections between the solid infill lines are reduced; the 20 mm lines are not.
-    CHECK(compensated > 0);
+    CHECK(long_links > 0);
+    CHECK(reduced > 0);
+}
+
+TEST_CASE("Small area flow compensation in the G-code: narrow part", "[SmallAreaFlow]") {
+    const auto model = SmallAreaFlowModel::parse(default_model);
+    REQUIRE(model.has_value());
+    // 4 x 20 x 5 mm, one perimeter, solid lines along X (about 3 mm) and Y (about 19 mm).
+    auto slice_narrow = [](bool enabled) {
+        auto config = DynamicPrintConfig::full_print_config_with({
+            { "gcode_flavor",                                  "klipper" },
+            { "use_relative_e_distances",                      1 },
+            { "layer_gcode",                                   "G92 E0" },
+            { "perimeters",                                    1 },
+            { "fill_angle",                                    0 },
+            { "small_area_infill_flow_compensation",           enabled ? 1 : 0 },
+            { "small_area_infill_flow_compensation_model",     default_model },
+        });
+        return Test::slice({ mesh(TestMesh::cube_20x20x20, Vec3d::Zero(), Vec3d(0.2, 1., 0.25)) }, config);
+    };
+    const std::vector<Move> off = moves_of(slice_narrow(false));
+    const std::vector<Move> on  = moves_of(slice_narrow(true));
+    REQUIRE(off.size() == on.size());
+    int lines = 0, links = 0;
+    for (size_t i = 0; i < off.size(); ++ i) {
+        INFO(off[i].line << "  vs  " << on[i].line);
+        REQUIRE(off[i].type == on[i].type);
+        const bool applies = off[i].layer > 0 && (off[i].type == "Solid infill" || off[i].type == "Top solid infill");
+        if (! applies) {
+            CHECK(on[i].e == off[i].e);
+            continue;
+        }
+        const double ratio = on[i].e / off[i].e;
+        CHECK(ratio <= 1. + 1e-3);
+        if (off[i].length > 2.) {
+            // A whole straight line: the factor of its length.
+            CHECK(ratio == Approx(model->factor(off[i].length)).margin(2e-3));
+            ++ lines;
+        } else if (off[i].length < 0.6 && i > 0 && i + 1 < off.size() && off[i - 1].length > 2. && off[i + 1].length > 2. &&
+                   off[i - 1].type == off[i].type && off[i + 1].type == off[i].type) {
+            // A link between two lines: their factors (the mean, or a neighbour's when it joins that line at a gentle
+            // turn), much more than the factor of its own length.
+            const double f1 = model->factor(off[i - 1].length), f2 = model->factor(off[i + 1].length);
+            CHECK(ratio >= std::min(f1, f2) - 2e-3);
+            CHECK(ratio <= std::max(f1, f2) + 2e-3);
+            CHECK(ratio > model->factor(off[i].length) + 0.1);
+            ++ links;
+        }
+    }
+    CHECK(lines > 0);
+    CHECK(links > 0);
 }
 
 TEST_CASE("Small area flow compensation: top surfaces with a curved pattern are not changed", "[SmallAreaFlow]") {

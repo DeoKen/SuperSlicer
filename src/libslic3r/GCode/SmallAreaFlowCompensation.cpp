@@ -1,6 +1,7 @@
 #include "SmallAreaFlowCompensation.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 #include <boost/algorithm/string/split.hpp>
@@ -112,6 +113,60 @@ std::string SmallAreaFlowModel::to_text(const std::vector<Point> &points)
         out += float_to_string_decimal_point(points[i].length) + "," + float_to_string_decimal_point(points[i].factor);
     }
     return out;
+}
+
+std::vector<double> SmallAreaFlowModel::line_factors(const std::vector<Vec2d> &pts, const std::vector<double> &seg_len, const double width) const
+{
+    const size_t n = seg_len.size();
+    assert(pts.size() == n + 1);
+    std::vector<double> factors(n, 1.);
+    if (n == 0)
+        return factors;
+    // Lines: [first segment, last segment], split where the direction turns by more than 60 degrees.
+    std::vector<std::pair<size_t, size_t>> lines;
+    std::vector<double>                    line_len;
+    const double cos_sharp = 0.5;
+    Vec2d  last_dir = Vec2d::Zero();
+    size_t start    = 0;
+    double len      = 0.;
+    for (size_t i = 0; i < n; ++ i) {
+        const Vec2d  d  = pts[i + 1] - pts[i];
+        const double dn = d.norm();
+        if (dn > 1e-9) {
+            const Vec2d dir = d / dn;
+            if (last_dir != Vec2d::Zero() && last_dir.dot(dir) < cos_sharp) {
+                lines.emplace_back(start, i - 1);
+                line_len.emplace_back(len);
+                start = i;
+                len   = 0.;
+            }
+            last_dir = dir;
+        }
+        len += seg_len[i];
+    }
+    lines.emplace_back(start, n - 1);
+    line_len.emplace_back(len);
+
+    std::vector<double> line_factor(lines.size());
+    for (size_t l = 0; l < lines.size(); ++ l)
+        line_factor[l] = this->factor(line_len[l]);
+    // Connections: shorter than 3 widths and than the lines next to them -> mean factor of those lines.
+    const double link_max = 3. * width;
+    if (lines.size() > 1)
+        for (size_t l = 0; l < lines.size(); ++ l) {
+            if (line_len[l] >= link_max)
+                continue;
+            const bool has_prev = l > 0, has_next = l + 1 < lines.size();
+            if ((has_prev && line_len[l - 1] <= line_len[l]) || (has_next && line_len[l + 1] <= line_len[l]))
+                continue;
+            const double f_prev = has_prev ? this->factor(line_len[l - 1]) : 0.;
+            const double f_next = has_next ? this->factor(line_len[l + 1]) : 0.;
+            line_factor[l] = has_prev && has_next ? 0.5 * (f_prev + f_next) : has_prev ? f_prev : f_next;
+        }
+    for (size_t l = 0; l < lines.size(); ++ l)
+        for (size_t i = lines[l].first; i <= lines[l].second; ++ i)
+            factors[i] = line_factor[l];
+    return factors;
 }
 
 } // namespace Slic3r

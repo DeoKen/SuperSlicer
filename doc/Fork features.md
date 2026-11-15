@@ -657,13 +657,21 @@ against `;Z:`, `layer_num+1` against the count of `;LAYER_CHANGE`, and the total
 ## 17. Small area flow compensation
 
 **What it does.** Reduces the flow of short solid infill lines, which come out over-extruded in small areas (ported from
-SuperSlicer 2.7.63 / OrcaSlicer, after Alexander Moss' Small-Area-Flow-Comp script). Every straight segment of solid
-infill and top solid infill gets its extrusion multiplied by a flow factor read from a curve of segment length → factor.
-Segments longer than the last point (10 mm by default) are not changed. Not applied on the first layer (adhesion,
+SuperSlicer 2.7.63 / OrcaSlicer, after Alexander Moss' Small-Area-Flow-Comp script). Solid infill and top solid infill
+get their extrusion multiplied by a flow factor read from a curve of **line length** → factor. Lines longer than the last
+point (10 mm by default) are not changed.
+**By line, not by segment (fork, 2026-11-15; SuperSlicer and OrcaSlicer use the segment):** a path is split into lines
+where it turns by more than 60 degrees, and every segment gets the factor of its line's whole length. So a long curved
+line made of many tiny segments (PrusaSlicer's narrow solid areas, arc-like boundaries) is one long line and is not
+starved, and a short connection between two lines (shorter than 3 extrusion widths and than the lines next to it, e.g. the
+link along the wall between two zig-zag lines) gets the mean factor of those lines instead of the factor of its own
+0.3-0.6 mm. Found on a shopping cart key (2026-11-15): with c 1.25 per segment its solid infill got 74 % on average (17 %
+of the length in sub-1 mm segments at 30-36 %, 85 % of which belonged to lines of 10 mm and more) and printed streaky,
+while a key with long straight lines was perfect. Not applied on the first layer (adhesion,
 as SuperSlicer), nor on top surfaces whose pattern is not rectilinear, aligned rectilinear, monotonic or monotonic lines
 (curved patterns are made of many short segments, as OrcaSlicer). Internal solid infill is PrusaSlicer's "ensuring"
 straight line pattern and is always included. The short connections between solid infill lines are reduced too (same
-in SuperSlicer and OrcaSlicer).
+in SuperSlicer and OrcaSlicer; here they follow their lines, see above).
 
 | Setting | Where | Default |
 |---|---|---|
@@ -683,15 +691,20 @@ Profile converter: SuperSlicer's graph value (`[!]0:10:2:0x0:0.2x0.44:…`, `!` 
 `!`) and the same points.
 
 **How it works.** `GCode/SmallAreaFlowCompensation.cpp` parses and checks the text and interpolates (shared with the
-dialog `GUI/SmallAreaFlowDialog.cpp`). `GCodeGenerator::_extrude()` multiplies the E of each line and arc segment by
-the factor of its length (G-code coordinates); `small_area_flow_model()` decides per extrusion (role, first layer,
+dialog `GUI/SmallAreaFlowDialog.cpp`); `SmallAreaFlowModel::line_factors()` splits a path into lines and gives each
+segment its line's factor. `GCodeGenerator::_extrude()` computes those factors once per path (G-code coordinates, arcs
+by their length) and multiplies the E of each line and arc segment by its factor; `small_area_flow_model()` decides per extrusion (role, first layer,
 top pattern from the region config) and caches the parsed model. `Print::validate()` checks the model of every region
 with the switch on.
 
 **How to test.** `fff_print_tests "[SmallAreaFlow]"`: the curve (through the points, monotonic, 1 beyond the last
-point, text round trip), invalid models refused, and a cube sliced with and without: same moves, every solid / top solid
-segment after the first layer has E × factor(length), everything else unchanged, some segments reduced; a concentric
-top surface is not changed. Manually: enable it, slice a part with small solid areas and look at the volumetric flow
+point, text round trip), invalid models refused; line factors (a straight line cut into pieces and a curved line of short
+segments get their whole length's factor, zig-zag links follow their lines, a link between lines of different lengths
+gets the mean, a piece longer than 3 widths or not shorter than its neighbours keeps its own); a 20 mm cube sliced with
+and without: same moves, everything but solid / top solid after the first layer unchanged, lines of 10 mm and more and
+the links between them unchanged, the short corner lines reduced; a 4 x 20 mm part: each 3 mm line gets factor(its
+length), each link between two lines gets their factors, not its own; a concentric top surface is not changed.
+Print: `Stuff/SAFC line test/` (V2 shopping cart key on / off and the dollar key, G-code sliced with the new code). Manually: enable it, slice a part with small solid areas and look at the volumetric flow
 rate view.
 
 **Background and tuning (2026-11-05).** Neither Moss' repository nor OrcaSlicer gives a tuning procedure or explains the
@@ -704,7 +717,12 @@ curve can be tuned as one number c. Test print (not in the repository): `Stuff/S
 c = 0 (off) / 0.1 / 0.15 / 0.2 / 0.25 / 0.3 / 0.4 (labelled `OFF`, `.1` ... `.4`), each on a one-layer backing with strips whose top layer lines are
 0.5 / 1 / 1.5 / 2 / 3 / 5 / 10 mm long (solid infill along the strips' width, not rotating; strip width = L + 0.936 mm
 with `.2 .4voron - slow`; `safc_test.py`, `build_3mf.py`, `measure.py` beside it). Per strip length, the smoothest piece
-gives c for that length. PrusaSlicer itself has no such feature: request #12790 got no developer answer and was turned
+gives c for that length. That test (and the 2026-11-08 print) printed every layer in the same direction, so the lines
+stacked and the tops were rough; `Stuff/SAFC test 2/` version 2 and `Stuff/SAFC test 3/` use real-part layers (5 bottom,
+sparse, 5 top, solid layers turning 90 degrees, top layer across the strips): infill_overlap 0 / 10 / 25 % without
+compensation looked the same (the overlap is not the cause), and c 1.25 was chosen for PLA with the 0.4 nozzle
+(2026-11-15, per-segment code). With the per-line code the shopping cart key test (`Stuff/SAFC line test/`) was flat but
+a touch under-extruded at c 1.25, so the user's profiles use c 1.0 (curve L/(L+1) at 0.2-30 mm, then 50,1). PrusaSlicer itself has no such feature: request #12790 got no developer answer and was turned
 into a discussion in 2026-10.
 
 ---

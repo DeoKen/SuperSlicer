@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "libslic3r/Point.hpp"
+
 namespace Slic3r {
 
 // Small area flow compensation (SuperSlicer / OrcaSlicer, after Alexander Moss' Small-Area-Flow-Comp script):
@@ -26,6 +28,13 @@ public:
     double factor(double length) const;
 
     const std::vector<Point>& points() const { return m_points; }
+
+    // Flow factor per segment of a path, by LINE length instead of segment length: the path (points in mm) is split
+    // into lines where it turns by more than 60 degrees, so a curved line made of many short segments counts as one
+    // line, and each segment gets the factor of its line's length. A short connection between two lines (shorter than
+    // 3 x width and than the lines next to it, e.g. the link along the wall between two zig-zag lines) gets the mean
+    // factor of its neighbours. seg_len[i] is the length of segment pts[i] -> pts[i + 1] (an arc's length for arcs).
+    std::vector<double> line_factors(const std::vector<Vec2d> &pts, const std::vector<double> &seg_len, double width) const;
 
     // Text form of the points, one "length,factor" pair per line.
     static std::string to_text(const std::vector<Point> &points);
