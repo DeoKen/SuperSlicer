@@ -56,6 +56,7 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 
@@ -1842,8 +1843,29 @@ void TabPrint::build()
                         update_changed_ui();
                     }
                 });
+                // c of the formula L / (L + c): typing it writes the curve; greyed out while the curve is not the formula.
+                auto *c_label = new wxStaticText(parent, wxID_ANY, _L("Formula L / (L + c), c:"));
+                c_label->SetFont(wxGetApp().normal_font());
+                wxGetApp().UpdateDarkUI(c_label);
+                m_safc_c_ctrl = new wxTextCtrl(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(7 * wxGetApp().em_unit(), -1), wxTE_PROCESS_ENTER);
+                m_safc_c_ctrl->SetFont(wxGetApp().normal_font());
+                wxGetApp().UpdateDarkUI(m_safc_c_ctrl);
+                const wxString c_tooltip = _L("Flow factor = L / (L + c) for a line of length L (mm): c is the extra material at the line "
+                    "ends, as a length of line. Entering c writes the model: 0,0, then the formula at 0.2 to 30 mm (4 decimals), then 50,1. "
+                    "Greyed out when the model doesn't follow the formula (edited points or graph); enter a model that does to use it again.");
+                c_label->SetToolTip(c_tooltip);
+                m_safc_c_ctrl->SetToolTip(c_tooltip);
+                m_safc_c_ctrl->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent&) { apply_safc_c_field(); });
+                m_safc_c_ctrl->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent &evt) { apply_safc_c_field(); evt.Skip(); });
+                auto *c_unit = new wxStaticText(parent, wxID_ANY, _L("mm"));
+                c_unit->SetFont(wxGetApp().normal_font());
+                wxGetApp().UpdateDarkUI(c_unit);
                 auto sizer = new wxBoxSizer(wxHORIZONTAL);
-                sizer->Add(graph_btn);
+                sizer->Add(graph_btn, 0, wxALIGN_CENTER_VERTICAL);
+                sizer->AddSpacer(2 * wxGetApp().em_unit());
+                sizer->Add(c_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, wxGetApp().em_unit() / 2);
+                sizer->Add(m_safc_c_ctrl, 0, wxALIGN_CENTER_VERTICAL);
+                sizer->Add(c_unit, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, wxGetApp().em_unit() / 2);
                 return sizer;
             };
             optgroup->append_line(graph_line);
@@ -2132,6 +2154,52 @@ void TabPrint::toggle_options()
     if (!m_active_page) return;
 
     m_config_manipulation.toggle_print_fff_options(m_config);
+    update_safc_c_field();
+}
+
+void TabPrint::update_safc_c_field()
+{
+    if (m_safc_c_ctrl == nullptr || m_config->option("small_area_infill_flow_compensation_model") == nullptr)
+        return;
+    const std::optional<double> c = SmallAreaFlowModel::c_of_text(m_config->opt_string("small_area_infill_flow_compensation_model"));
+    const wxString text = c ? from_u8(float_to_string_decimal_point(*c)) : wxString();
+    if (m_safc_c_ctrl->GetValue() != text)
+        m_safc_c_ctrl->ChangeValue(text);
+    // Also off where the model itself is greyed out (compensation off, no solid infill).
+    Field *model_field = get_field("small_area_infill_flow_compensation_model");
+    m_safc_c_ctrl->Enable(c.has_value() && (model_field == nullptr || model_field->getWindow()->IsEnabled()));
+}
+
+void TabPrint::apply_safc_c_field()
+{
+    if (m_safc_c_ctrl == nullptr || ! m_safc_c_ctrl->IsEnabled())
+        return;
+    std::string str = into_u8(m_safc_c_ctrl->GetValue());
+    std::replace(str.begin(), str.end(), ',', '.');
+    boost::trim(str);
+    size_t pos = 0;
+    double c = 0.;
+    try { c = string_to_double_decimal_point(str, &pos); } catch (...) { pos = 0; }
+    const std::string old_model = m_config->opt_string("small_area_infill_flow_compensation_model");
+    const std::optional<double> old_c = SmallAreaFlowModel::c_of_text(old_model);
+    if (str.empty() || pos != str.size() || ! std::isfinite(c) || c < SmallAreaFlowModel::c_min || c > SmallAreaFlowModel::c_max) {
+        update_safc_c_field();
+        // After the focus change is over (the field may be losing the focus right now).
+        const wxString msg = format_wxstr(_L("Small area flow compensation: c must be a number from %1% to %2% mm."),
+            SmallAreaFlowModel::c_min, SmallAreaFlowModel::c_max);
+        wxGetApp().CallAfter([this, msg]() { show_error(this, msg); });
+        return;
+    }
+    const std::string model = SmallAreaFlowModel::text_for_c(c);
+    // Unchanged c (also leaving the field): keep the text as it is, even with other lengths than ours.
+    if (old_c && std::abs(*old_c - c) < 1e-9)
+        return;
+    if (! SmallAreaFlowModel::parse(model)) {
+        update_safc_c_field();
+        return;
+    }
+    load_key_value("small_area_infill_flow_compensation_model", model);
+    update_changed_ui();
 }
 
 void TabPrint::update()
@@ -2182,6 +2250,7 @@ void TabPrint::clear_pages()
     m_top_bottom_shell_thickness_explanation = nullptr;
     m_overhang_angle_preview = nullptr;
     m_overhang_cut_preview = nullptr;
+    m_safc_c_ctrl = nullptr;
     m_post_process_explanation = nullptr;
 
     m_del_all_substitutions_btn = nullptr;

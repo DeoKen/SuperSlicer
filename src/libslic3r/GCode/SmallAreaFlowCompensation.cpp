@@ -115,6 +115,59 @@ std::string SmallAreaFlowModel::to_text(const std::vector<Point> &points)
     return out;
 }
 
+std::string SmallAreaFlowModel::text_for_c(double c)
+{
+    std::string out = "0,0";
+    for (double l : { 0.2, 0.4, 0.6, 0.8, 1., 1.5, 2., 3., 5., 10., 20., 30. })
+        out += "\n" + float_to_string_decimal_point(l) + "," + float_to_string_decimal_point(l / (l + c), 4);
+    return out + "\n50,1";
+}
+
+std::optional<double> SmallAreaFlowModel::c_of_text(const std::string &text)
+{
+    const std::optional<SmallAreaFlowModel> model = parse(text);
+    if (! model)
+        return std::nullopt;
+    const std::vector<Point> &p = model->points();
+    // Decimals written for each factor (as parse() splits the text), so a curve written to 2 decimals is compared to 2.
+    std::vector<int> decimals;
+    {
+        std::vector<std::string> lines;
+        boost::split(lines, text, boost::is_any_of("\n;"));
+        for (std::string line : lines) {
+            boost::trim(line);
+            if (line.empty())
+                continue;
+            std::string factor_str = line.substr(line.find(',') + 1);
+            boost::trim(factor_str);
+            const size_t dot = factor_str.find('.');
+            decimals.emplace_back(dot == std::string::npos ? 0 : int(factor_str.size() - dot - 1));
+        }
+    }
+    if (decimals.size() != p.size() || p.size() < 3 || p.front().factor != 0.)
+        return std::nullopt;
+    // c from each point in between, the median as the estimate.
+    std::vector<double> cs;
+    for (size_t i = 1; i + 1 < p.size(); ++ i) {
+        if (p[i].factor <= 0.)
+            return std::nullopt;
+        cs.emplace_back(p[i].length * (1. - p[i].factor) / p[i].factor);
+    }
+    std::sort(cs.begin(), cs.end());
+    const double estimate = cs[cs.size() / 2];
+    for (double step : { 0.01, 0.001, 0.0001 }) {
+        const double c = std::round(estimate / step) * step;
+        if (c < c_min - 1e-9 || c > c_max + 1e-9)
+            continue;
+        bool fits = true;
+        for (size_t i = 1; fits && i + 1 < p.size(); ++ i)
+            fits = std::abs(p[i].factor - p[i].length / (p[i].length + c)) <= 0.5 * std::pow(10., - decimals[i]) + 1e-9;
+        if (fits)
+            return c;
+    }
+    return std::nullopt;
+}
+
 std::vector<double> SmallAreaFlowModel::line_factors(const std::vector<Vec2d> &pts, const std::vector<double> &seg_len, const double width) const
 {
     const size_t n = seg_len.size();

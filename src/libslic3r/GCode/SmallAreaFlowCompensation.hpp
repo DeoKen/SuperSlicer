@@ -39,6 +39,18 @@ public:
     // Text form of the points, one "length,factor" pair per line.
     static std::string to_text(const std::vector<Point> &points);
 
+    // The one-number model factor = L / (L + c) (c in mm: the excess of material per line, as a length of line).
+    // Range of c accepted by the GUI field.
+    static constexpr double c_min = 0.01;
+    static constexpr double c_max = 10.;
+    // Model text for c: 0,0, then L / (L + c) to 4 decimals at 0.2 0.4 0.6 0.8 1 1.5 2 3 5 10 20 30 mm, then 50,1.
+    static std::string text_for_c(double c);
+    // The c of a model text that follows the formula: every point between the first and the last one equals
+    // L / (L + c) to the decimals written in the text, the first point is 0,0 (the last one is the cut-off to 1 and may
+    // be anywhere). c is rounded to 2, 3 or 4 decimals (the coarsest that fits). Nothing if the text is not a valid
+    // model, has no point in between, or any point drifts from the formula.
+    static std::optional<double> c_of_text(const std::string &text);
+
 private:
     std::vector<Point>  m_points;
     std::vector<double> m_slopes;   // PCHIP derivative at each point

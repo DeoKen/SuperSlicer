@@ -3853,7 +3853,8 @@ void PrintConfigDef::init_fff_params()
     def->full_width = true;
     def->height = 10;
     def->mode = comExpert;
-    def->set_default_value(new ConfigOptionString("0,0\n0.2,0.44\n0.4,0.61\n0.6,0.7\n0.8,0.76\n1.5,0.86\n2,0.89\n3,0.92\n5,0.95\n10,1"));
+    // L / (L + 1) (the GUI's c field at c = 1, SmallAreaFlowModel::text_for_c(1.)); SuperSlicer's curve was about c = 0.25 up to 10 mm.
+    def->set_default_value(new ConfigOptionString("0,0\n0.2,0.1667\n0.4,0.2857\n0.6,0.3750\n0.8,0.4444\n1,0.5000\n1.5,0.6000\n2,0.6667\n3,0.7500\n5,0.8333\n10,0.9091\n20,0.9524\n30,0.9677\n50,1"));
 
     def = this->add("small_perimeter_min_length", coFloatOrPercent);
     def->label = L("Min length");

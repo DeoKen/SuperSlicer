@@ -55,6 +55,38 @@ TEST_CASE("Small area flow model: invalid models are refused", "[SmallAreaFlow]"
     }
 }
 
+TEST_CASE("Small area flow model: c field", "[SmallAreaFlow]") {
+    // The user's profiles (c 1.0) are exactly what the c field writes.
+    const std::string c1 = "0,0\n0.2,0.1667\n0.4,0.2857\n0.6,0.3750\n0.8,0.4444\n1,0.5000\n1.5,0.6000\n2,0.6667\n3,0.7500\n"
+                           "5,0.8333\n10,0.9091\n20,0.9524\n30,0.9677\n50,1";
+    CHECK(SmallAreaFlowModel::text_for_c(1.) == c1);
+    // The setting's default is that curve.
+    CHECK(DynamicPrintConfig::full_print_config().opt_string("small_area_infill_flow_compensation_model") == c1);
+    REQUIRE(SmallAreaFlowModel::c_of_text(c1).has_value());
+    CHECK(*SmallAreaFlowModel::c_of_text(c1) == Approx(1.));
+    // Round trip over the range, every text a valid model.
+    for (double c : { SmallAreaFlowModel::c_min, 0.05, 0.15, 0.25, 0.333, 1.25, 2.5, 7.1234, SmallAreaFlowModel::c_max }) {
+        INFO(c);
+        const std::string text = SmallAreaFlowModel::text_for_c(c);
+        CHECK(SmallAreaFlowModel::parse(text).has_value());
+        auto back = SmallAreaFlowModel::c_of_text(text);
+        REQUIRE(back.has_value());
+        // The same curve back (a large c with 4 decimals may come back rounded: it writes the same text).
+        CHECK(SmallAreaFlowModel::text_for_c(*back) == text);
+        CHECK(*back == Approx(c).margin(0.001));
+    }
+    // Other lengths following the formula are recognised; fewer decimals are compared to their own precision.
+    CHECK(SmallAreaFlowModel::c_of_text("0,0\n0.5,0.6667\n2,0.8889\n10,1").has_value());
+    CHECK(SmallAreaFlowModel::c_of_text("0,0\n1,0.5\n3,0.75\n10,1").has_value());
+    // Drift from the formula (one point moved by 0.001 as a drag in the graph does), the stock curve (not the formula
+    // to its 2 decimals), invalid text, no point in between, first factor not 0: no c.
+    CHECK(! SmallAreaFlowModel::c_of_text("0,0\n0.2,0.1667\n0.4,0.2857\n0.6,0.3760\n0.8,0.4444\n1,0.5000\n50,1").has_value());
+    CHECK(! SmallAreaFlowModel::c_of_text(default_model).has_value());
+    CHECK(! SmallAreaFlowModel::c_of_text("abc").has_value());
+    CHECK(! SmallAreaFlowModel::c_of_text("0,0\n10,1").has_value());
+    CHECK(! SmallAreaFlowModel::c_of_text("0,0.1\n1,0.5\n10,1").has_value());
+}
+
 namespace {
 
 struct Move { std::string type; int layer; double length; double e; std::string line; };

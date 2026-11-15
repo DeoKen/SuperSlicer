@@ -676,13 +676,20 @@ in SuperSlicer and OrcaSlicer; here they follow their lines, see above).
 | Setting | Where | Default |
 |---|---|---|
 | `small_area_infill_flow_compensation` | Print > Infill > Small area flow compensation (per object / modifier) | off |
-| `small_area_infill_flow_compensation_model` | same, text, one `length, factor` pair per line (mm, 0-1) | SuperSlicer's curve: `0,0` `0.2,0.44` `0.4,0.61` `0.6,0.7` `0.8,0.76` `1.5,0.86` `2,0.89` `3,0.92` `5,0.95` `10,1` |
+| `small_area_infill_flow_compensation_model` | same, text, one `length, factor` pair per line (mm, 0-1) | L / (L + 1), as the c field writes for c = 1 (user, 2026-11-15): `0,0` `0.2,0.1667` ... `30,0.9677` `50,1`. Was SuperSlicer's curve `0,0` `0.2,0.44` `0.4,0.61` `0.6,0.7` `0.8,0.76` `1.5,0.86` `2,0.89` `3,0.92` `5,0.95` `10,1` (about c 0.25) |
 
 Rules (as OrcaSlicer; slicing refuses a model breaking them, with a message): at least 2 points, first length 0, lengths
 and factors strictly increasing, factors not negative, last factor 1. The curve between the points is OrcaSlicer's
 PCHIP (smooth, never overshoots between the points). **"Edit graph…"** opens a dialog with the curve as used for
 slicing and the points as text: drag a point to move it, double click to add one, right click to remove one; the text
 and the graph update each other, OK writes the text back into the setting.
+
+**"Formula L / (L + c), c: … mm"** (same row as "Edit graph…", GUI only, not saved): entering c (0.01-10 mm; Enter or
+leaving the field) writes the model `0,0`, then L / (L + c) to 4 decimals at 0.2 0.4 0.6 0.8 1 1.5 2 3 5 10 20 30 mm,
+then `50,1` (c 1.0 = the user's profiles). The field shows the c of the current model when every point between the
+first (`0,0`) and the last one is the formula to the decimals written (other lengths too); otherwise (a point dragged in
+the graph, the text edited off the formula, the stock curve) it is empty and greyed out, and comes back when the model
+follows the formula again. Also greyed out while the model itself is. Entering the c already shown changes nothing.
 
 G-code viewer: the "Width" view shows the planned width (`;WIDTH:` lines) and does not change; the "Volumetric flow
 rate" and "Actual volumetric flow rate" views and the hover info show the reduced segments.
@@ -698,7 +705,9 @@ top pattern from the region config) and caches the parsed model. `Print::validat
 with the switch on.
 
 **How to test.** `fff_print_tests "[SmallAreaFlow]"`: the curve (through the points, monotonic, 1 beyond the last
-point, text round trip), invalid models refused; line factors (a straight line cut into pieces and a curved line of short
+point, text round trip), invalid models refused; the c field (`text_for_c()` / `c_of_text()` round trip over the
+range, c 1.0 = the profiles' text, other lengths and fewer decimals recognised, a dragged point, the stock curve and
+invalid texts give no c); line factors (a straight line cut into pieces and a curved line of short
 segments get their whole length's factor, zig-zag links follow their lines, a link between lines of different lengths
 gets the mean, a piece longer than 3 widths or not shorter than its neighbours keeps its own); a 20 mm cube sliced with
 and without: same moves, everything but solid / top solid after the first layer unchanged, lines of 10 mm and more and

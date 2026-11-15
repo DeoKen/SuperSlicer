@@ -458,6 +458,10 @@ private:
 	ogStaticText*	m_recommended_thin_wall_thickness_description_line = nullptr;
 	OverhangAnglePreview* m_overhang_angle_preview = nullptr;
 	OverhangCutPreview*   m_overhang_cut_preview = nullptr;
+	// Small area flow compensation: c of the formula L / (L + c), enabled only while the model follows the formula.
+	wxTextCtrl*		m_safc_c_ctrl = nullptr;
+	void			update_safc_c_field();
+	void			apply_safc_c_field();
 	ogStaticText*	m_top_bottom_shell_thickness_explanation = nullptr;
 	ogStaticText*	m_post_process_explanation = nullptr;
 	ScalableButton* m_del_all_substitutions_btn{nullptr};
