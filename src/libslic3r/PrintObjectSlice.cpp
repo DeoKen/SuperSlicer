@@ -659,6 +659,26 @@ ExPolygons overhangs_cut_bridge_coverage(const ExPolygon &area, const ExPolygons
         // Anchored on two separate pieces, i.e. it crosses the unsupported area.
         if (intersection_ln(Lines{ line }, anchor_polys).size() < 2)
             continue;
+        // And it reaches away from the support: a line across the inside of a curve touches the same curved wall at both
+        // ends and stays close to it (its middle at most the sagitta away, a small part of its length); a bridge across
+        // a gap has its middle half the gap away (user, 2026-11-15: such chords on a slot were kept as bridges in random
+        // pieces).
+        {
+            const Lines over = intersection_ln(Lines{ line }, area_polys);
+            const Line *longest = nullptr;
+            for (const Line &l : over)
+                if (longest == nullptr || l.length() > longest->length())
+                    longest = &l;
+            if (longest != nullptr) {
+                const Point mid = longest->midpoint();
+                double dist = std::numeric_limits<double>::max();
+                for (const Polygon &anchor : anchor_polys)
+                    for (const Line &edge : anchor.lines())
+                        dist = std::min(dist, edge.distance_to(mid));
+                if (dist < 0.25 * longest->length())
+                    continue;
+            }
+        }
         if (max_length > 0) {
             double over = 0;
             for (const Line &l : intersection_ln(Lines{ line }, area_polys))
@@ -700,6 +720,64 @@ ExPolygons overhangs_cut_bridge_coverage(const ExPolygon &area, const ExPolygons
     return intersection_ex(covered, ExPolygons{ area });
 }
 
+// Flat faces of the model (user, 2026-11-15): where the model's own outline jumps out in one layer after a wall that didn't
+// move, the model has a horizontal face there (a groove ceiling, a ledge, a tunnel ceiling, a mushroom top): nothing to
+// make steeper, it is left as sliced. Decided on the model's slices only (this layer, the one below and the one under it),
+// per piece of the model's overhang:
+// - pieces not wider than twice the slope are left to the cut (the first step of a curve, a little past the slope);
+// - a ring around a hole that closes in the layer above is a step of a dome, a slope;
+// - the step of the layer below next to the piece (its area there per length of the piece's edge on the layer below) is
+//   compared to the piece's own step (area per that length): flat if the layer below moved by less than the slope, or by
+//   less than a third of this step (a slope ending in a flat ceiling: the ceiling is flat);
+// - a piece touching nothing below is left as sliced as well (cutting it would remove it).
+// A flat piece is kept with the material next to it that the cut removed below (cut back slope under the ceiling), within
+// twice the piece's step: else the ceiling would float off the cut slope.
+ExPolygons overhangs_cut_flat_faces(const ExPolygons &uncut, const ExPolygons &lower_uncut, const ExPolygons &lower2_uncut,
+    const ExPolygons &lower_cut, const ExPolygons *upper, coord_t enlargement, coord_t spacing)
+{
+    ExPolygons out;
+    const ExPolygons overhang = diff_ex(uncut, lower_uncut, ApplySafetyOffset::Yes);
+    if (overhang.empty())
+        return out;
+    const Polygons   step_below  = diff(lower_uncut, lower2_uncut, ApplySafetyOffset::Yes);
+    const Polygons   lower_grown = offset(lower_uncut, float(scale_(0.01)));
+    const ExPolygons lag         = diff_ex(intersection(uncut, lower_uncut), lower_cut, ApplySafetyOffset::Yes);
+    for (const ExPolygon &piece : overhang) {
+        if (offset_ex(piece, - float(enlargement)).empty())
+            continue;
+        {
+            // Only the holes empty in this layer (a dome's opening; a ring around a column has the column in its hole).
+            ExPolygon open_holes(piece.contour);
+            for (const Polygon &hole : piece.holes) {
+                Polygon inside = hole;
+                inside.make_counter_clockwise();
+                const Polygons shrunk = offset(inside, -float(scale_(0.02)));
+                if (! shrunk.empty() && Slic3r::area(intersection(shrunk, to_polygons(uncut))) < 0.5 * Slic3r::area(shrunk))
+                    open_holes.holes.push_back(hole);
+            }
+            if (overhangs_cut_around_closing_hole(open_holes, upper, spacing))
+                continue;
+        }
+        double attached = 0;
+        for (const Polyline &pl : intersection_pl(to_polylines(piece), lower_grown))
+            attached += pl.length();
+        const double step = attached > 0 ? piece.area() / attached : std::numeric_limits<double>::max();
+        if (attached > 0) {
+            const double reach      = std::min(step, double(scale_(10.)));
+            const double step_lower = Slic3r::area(intersection(offset(piece, float(std::max(reach, double(spacing)))), step_below)) / attached;
+            if (step_lower >= std::max(double(enlargement), step / 3.))
+                continue;
+        }
+        out.push_back(piece);
+        const Polygons near_piece = offset(piece, float(scale_(0.01)));
+        const Polygons reach      = offset(piece, float(std::max(2. * std::min(step, double(scale_(10.))), double(spacing))));
+        for (const ExPolygon &l : lag)
+            if (! intersection(to_polygons(l), near_piece).empty())
+                append(out, intersection_ex(ExPolygons{ l }, reach));
+    }
+    return union_ex(out);
+}
+
 // The same outlines in the same order with the same first points whatever the order of the input: the layers come out of
 // the parallel slicing in an order that changes from run to run, the clipper results of the cut followed it, and the
 // G-code changed between two exports of the same plate (the stock slices don't go through clipper here).
@@ -720,6 +798,177 @@ void overhangs_cut_canonical(ExPolygons &expolygons)
     std::sort(expolygons.begin(), expolygons.end(), [&less](const ExPolygon &a, const ExPolygon &b) {
         return ! b.contour.points.empty() && (a.contour.points.empty() || less(a.contour.points.front(), b.contour.points.front()));
     });
+}
+
+// Where the cut may act (user, 2026-11-16: "overhangs max slope should only apply to holes"; a 45 degree chamfer under a box
+// hanging off a wall was cut, it is a regular overhang). Decided on the model's own slices (`model`, all layers as sliced),
+// per layer the area (a little grown) where the layer may be cut:
+// - horizontal holes and arch tunnels: an overhang of the model (past the slope) whose front, the empty space it grows
+//   into, is a gap of the layer narrower than 2 r (filled by a closing of radius r, r 1..32 mm) that the model closes over
+//   within 2 r + 1 mm of height (the gap at least 95 % material in one of the layers above): the gap and the overhang;
+// - domes: an enclosed hole of the layer below that the layer narrows all around (3/4 of its edge or more) and that
+//   narrows faster and faster up its run of narrowing layers (largest step at least 1.5 x the median; the last step of a
+//   run of 3 or more, which only reaches the hole above, left out): the hole. A countersink (constant step, a cone) and a
+//   counterbore (one step) are not domes.
+// Everything else (chamfers, ledges, flared columns, fillets, slots that stay open) is printed as sliced.
+std::vector<ExPolygons> overhangs_cut_hole_zones(const std::vector<ExPolygons> &model, const std::vector<double> &print_z,
+    coord_t enlargement, coord_t nozzle, const std::function<void()> &throw_if_canceled)
+{
+    const size_t n = model.size();
+    std::vector<ExPolygons> zones(n);
+    if (n < 2)
+        return zones;
+    const double tiny_area = scale_(0.1) * scale_(0.1);
+
+    // Domes. Holes of every layer (counterclockwise), the hole of the next layer each one narrows into (largest overlap,
+    // -1: closed), the step and whether the narrowing goes all around.
+    struct Hole { Polygon poly; double area; double perimeter; BoundingBox bbox; int next = -1; double step = 0; bool narrowing = false; };
+    std::vector<std::vector<Hole>> holes(n);
+    for (size_t i = 0; i < n; ++ i)
+        for (const ExPolygon &island : model[i])
+            for (const Polygon &h : island.holes) {
+                Hole hole;
+                hole.poly = h;
+                hole.poly.make_counter_clockwise();
+                hole.area      = hole.poly.area();
+                hole.perimeter = hole.poly.length();
+                hole.bbox      = get_extents(hole.poly);
+                if (hole.area > tiny_area && hole.perimeter > 0)
+                    holes[i].emplace_back(std::move(hole));
+            }
+    for (size_t i = 0; i + 1 < n; ++ i) {
+        throw_if_canceled();
+        const Polygons upper_shrunk = offset(model[i + 1], - float(scale_(0.01)));
+        for (Hole &hole : holes[i]) {
+            double best = 0;
+            for (size_t k = 0; k < holes[i + 1].size(); ++ k) {
+                const Hole &up = holes[i + 1][k];
+                if (! up.bbox.overlap(hole.bbox))
+                    continue;
+                const double overlap = Slic3r::area(intersection(Polygons{ hole.poly }, Polygons{ up.poly }));
+                if (overlap > best) {
+                    best      = overlap;
+                    hole.next = int(k);
+                }
+            }
+            const double next_area = hole.next < 0 ? 0. : holes[i + 1][hole.next].area;
+            hole.step = (hole.area - next_area) / hole.perimeter;
+            if (hole.step > scale_(0.01)) {
+                double covered = 0;
+                for (const Polyline &pl : intersection_pl(Polylines{ to_polyline(hole.poly) }, upper_shrunk))
+                    covered += pl.length();
+                hole.narrowing = covered >= 0.75 * hole.perimeter;
+            }
+        }
+    }
+    {
+        // Runs of narrowing layers, followed from their first layer.
+        std::vector<std::vector<bool>> reached(n);
+        for (size_t i = 0; i < n; ++ i)
+            reached[i].assign(holes[i].size(), false);
+        for (size_t i = 0; i + 1 < n; ++ i)
+            for (size_t k = 0; k < holes[i].size(); ++ k) {
+                if (reached[i][k] || ! holes[i][k].narrowing)
+                    continue;
+                std::vector<std::pair<size_t, size_t>> run;
+                for (size_t li = i, lk = k; li + 1 < n && holes[li][lk].narrowing; ) {
+                    reached[li][lk] = true;
+                    run.emplace_back(li, lk);
+                    if (holes[li][lk].next < 0)
+                        break;
+                    lk = size_t(holes[li][lk].next);
+                    ++ li;
+                }
+                std::vector<double> steps;
+                for (size_t r = 0; r < run.size(); ++ r)
+                    if (r + 1 < run.size() || run.size() < 3)
+                        steps.push_back(holes[run[r].first][run[r].second].step);
+                if (steps.size() < 2)
+                    continue;
+                std::vector<double> sorted = steps;
+                std::sort(sorted.begin(), sorted.end());
+                const double median = sorted.size() % 2 ? sorted[sorted.size() / 2] : 0.5 * (sorted[sorted.size() / 2 - 1] + sorted[sorted.size() / 2]);
+                if (sorted.back() < 1.5 * median)
+                    continue;
+                for (const auto &[li, lk] : run)
+                    append(zones[li + 1], offset_ex(ExPolygon(holes[li][lk].poly), float(nozzle)));
+            }
+    }
+
+    // Horizontal holes and arches. From points along the front edge of the overhang (every mm), straight out across the
+    // empty space to the material on the other side (at most 64 mm): the model must close over the middle of that line
+    // within its length + 1 mm of height (a round or 45 degree arch closes within half its width). Half of the front's
+    // length or more: a hole; the overhang and the lines across the gap are the zone. (A closing of the layer's outline
+    // leaked out of the open ends of a tunnel and never closed: the lower half of arches wasn't cut.)
+    const coord_t max_gap = scaled<coord_t>(64.);
+    for (size_t i = 1; i < n; ++ i) {
+        throw_if_canceled();
+        const Polygons   lower_grown = offset(model[i - 1], float(enlargement + scale_(0.01)));
+        const ExPolygons pieces      = diff_ex(model[i], offset(model[i - 1], float(enlargement)));
+        const Polygons   material    = to_polygons(model[i]);
+        for (const ExPolygon &piece : pieces) {
+            if (piece.area() < tiny_area)
+                continue;
+            double  front_length = 0, closing_length = 0;
+            Polygons across;
+            Polygon contour = piece.contour;
+            contour.make_counter_clockwise();
+            for (const Line &edge : contour.lines()) {
+                const double length = edge.length();
+                if (length < SCALED_EPSILON)
+                    continue;
+                const Vec2d d = (edge.b - edge.a).cast<double>() / length;
+                // Outward normal of a counterclockwise contour.
+                const Vec2d normal(d.y(), - d.x());
+                const int samples = std::max(1, int(length / scale_(1.)));
+                for (int s = 0; s < samples; ++ s) {
+                    const Vec2d p = edge.a.cast<double>() + d * (length * (s + 0.5) / samples);
+                    // Front edges only: away from the layer below.
+                    if (contains(lower_grown, Point(p.cast<coord_t>()), true))
+                        continue;
+                    const double step = length / samples;
+                    front_length += step;
+                    const Point from((p + normal * double(scale_(0.05))).cast<coord_t>());
+                    const Point to((p + normal * double(max_gap)).cast<coord_t>());
+                    double hit = -1;
+                    for (const Line &l : intersection_ln(Lines{ Line(from, to) }, material)) {
+                        const double t = std::min((l.a - from).cast<double>().norm(), (l.b - from).cast<double>().norm());
+                        if (hit < 0 || t < hit)
+                            hit = t;
+                    }
+                    if (hit <= 0)
+                        continue;
+                    const Point  middle((from.cast<double>() + normal * (0.5 * hit)).cast<coord_t>());
+                    const double width_mm = unscale<double>(hit);
+                    bool closes = false;
+                    for (size_t j = i + 1; j < n && print_z[j] - print_z[i] <= width_mm + 1. + EPSILON; ++ j)
+                        if (expolygons_contain(model[j], middle)) {
+                            closes = true;
+                            break;
+                        }
+                    if (closes) {
+                        closing_length += step;
+                        const Point end((from.cast<double>() + normal * hit).cast<coord_t>());
+                        const Vec2d  side = d * (0.5 * step + double(nozzle));
+                        Polygon band(Points{ Point((p - side).cast<coord_t>()), Point((p + side).cast<coord_t>()),
+                                             Point((end.cast<double>() + side).cast<coord_t>()), Point((end.cast<double>() - side).cast<coord_t>()) });
+                        band.make_counter_clockwise();
+                        across.emplace_back(std::move(band));
+                    }
+                }
+            }
+            // At least 1 mm of it: raised lettering 0.4 mm off a wall has tiny arches inside its letters (user, 2026-11-16:
+            // leave those alone).
+            if (front_length > 0 && closing_length >= 0.5 * front_length && closing_length >= scale_(1.)) {
+                append(zones[i], offset_ex(piece, float(nozzle)));
+                append(zones[i], union_ex(across));
+            }
+        }
+    }
+    for (ExPolygons &zone : zones)
+        if (! zone.empty())
+            zone = union_ex(zone);
+    return zones;
 }
 
 } // namespace
@@ -751,8 +1000,26 @@ bool PrintObject::apply_overhangs_cut()
     if (! enabled || m_layers.empty())
         return false;
 
-    // The layer below as sliced, before its cut.
-    ExPolygons lower_uncut = m_layers.front()->lslices;
+    // Where the cut may act: holes only (overhangs_cut_hole_zones()), from the model's own slices.
+    std::vector<ExPolygons> hole_zones;
+    {
+        coord_t max_enlargement = 0;
+        for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id)
+            max_enlargement = std::max(max_enlargement, enlargement_of(this->printing_region(region_id)));
+        std::vector<ExPolygons> model;
+        std::vector<double>     print_z;
+        model.reserve(m_layers.size());
+        print_z.reserve(m_layers.size());
+        for (const Layer *layer : m_layers) {
+            model.push_back(layer->lslices);
+            print_z.push_back(layer->print_z);
+        }
+        hole_zones = overhangs_cut_hole_zones(model, print_z, max_enlargement, max_nozzle, [this]() { m_print->throw_if_canceled(); });
+    }
+
+    // The layer below as sliced, before its cut, and the one under it (for the first layer: the same, no step).
+    ExPolygons lower_uncut  = m_layers.front()->lslices;
+    ExPolygons lower2_uncut = lower_uncut;
     for (size_t layer_id = 1; layer_id < m_layers.size(); ++ layer_id) {
         m_print->throw_if_canceled();
         Layer       *layer       = m_layers[layer_id];
@@ -761,6 +1028,25 @@ bool PrintObject::apply_overhangs_cut()
         ExPolygons uncut = layer->lslices;
         // Where the cut removed material of the layer below.
         const Polygons lower_cut_away = diff(lower_uncut, lower_layer->lslices);
+        // The holes of this layer, and where the cut is still behind the model below (it catches up by the slope).
+        Polygons zone = to_polygons(hole_zones[layer_id]);
+        if (! lower_cut_away.empty()) {
+            // Without the slivers of rounding where the layer below was left as sliced; with the whole unsupported pieces
+            // of this layer touching it (the top of a hole the cut hasn't closed yet: its middle too).
+            const Polygons owed = offset(opening(lower_cut_away, float(scale_(0.02))), float(2 * max_nozzle));
+            if (! owed.empty()) {
+                Polygons grown = owed;
+                for (const ExPolygon &piece : diff_ex(uncut, lower_layer->lslices, ApplySafetyOffset::Yes))
+                    if (! intersection(to_polygons(piece), owed).empty())
+                        append(grown, offset(piece, float(max_nozzle)));
+                zone = union_(zone, grown);
+            }
+        }
+        if (zone.empty()) {
+            lower2_uncut = std::move(lower_uncut);
+            lower_uncut  = std::move(uncut);
+            continue;
+        }
         const ExPolygons supported_area = intersection_ex(layer->lslices, lower_layer->lslices);
         for (LayerRegion *layerm : layer->m_regions) {
             const PrintRegionConfig &config      = layerm->region().config();
@@ -771,14 +1057,23 @@ bool PrintObject::apply_overhangs_cut()
             const double     max_bridge    = config.overhangs_bridge_threshold.value > 0 ? scale_(config.overhangs_bridge_threshold.value) : 0.;
             const bool       bridges       = config.overhangs_bridge_threshold.value != 0;
             const ExPolygons region_slices = to_expolygons(layerm->slices().surfaces);
+            const ExPolygons *upper_slices = layer_id + 1 < m_layers.size() ? &m_layers[layer_id + 1]->lslices : nullptr;
+            // Flat faces of the model: as sliced (with or without bridges, they are not slopes).
+            const ExPolygons flat_faces = intersection_ex(region_slices,
+                overhangs_cut_flat_faces(uncut, lower_uncut, lower2_uncut, lower_layer->lslices, upper_slices, enlargement, spacing));
             ExPolygons bridged_area;
             if (bridges) {
                 const ExPolygons unsupported = diff_ex(region_slices, lower_layer->lslices, ApplySafetyOffset::Yes);
                 if (! unsupported.empty()) {
-                    const ExPolygons *upper_slices = layer_id + 1 < m_layers.size() ? &m_layers[layer_id + 1]->lslices : nullptr;
                     // Rings around an opening that closes further up are slopes, decided on the whole ring: the filter below
                     // breaks a thin ring into arcs, which have no hole any more and were bridged by chords (flat sides).
-                    // Holes of the layer that stay open (a screw hole):
+                    // Holes of the layer that stay open (a screw hole) and float: at least half of the hole's edge over
+                    // nothing in the layer below. A hole opening on a supported floor is not one (user, 2026-11-16: the
+                    // curved floor of a pocket on Raiser.stl opened into the strip the cut still owed under a 45 degree
+                    // chamfer, and the whole strip was kept in one layer as a bridge with overhang perimeters).
+                    // The layer below grown by a quarter of a line width: a hole edge right on the edge of the layer below
+                    // (a pocket's wall going straight up) is supported, not over air.
+                    const Polygons lower_touch = offset(lower_layer->lslices, 0.25f * float(spacing));
                     Polygons open_holes;
                     for (const ExPolygon &island : region_slices)
                         for (const Polygon &hole : island.holes) {
@@ -786,7 +1081,12 @@ bool PrintObject::apply_overhangs_cut()
                             inside.make_counter_clockwise();
                             ExPolygon around(offset(inside, float(spacing)).front());
                             around.holes.push_back(hole);
-                            if (! overhangs_cut_around_closing_hole(around, upper_slices, spacing))
+                            if (overhangs_cut_around_closing_hole(around, upper_slices, spacing))
+                                continue;
+                            double floating = 0;
+                            for (const Polyline &pl : diff_pl(Polylines{ to_polyline(inside) }, lower_touch))
+                                floating += pl.length();
+                            if (floating >= 0.5 * inside.length())
                                 open_holes.push_back(inside);
                         }
                     const Polygons near_open_hole = offset(open_holes, float(spacing));
@@ -840,6 +1140,8 @@ bool PrintObject::apply_overhangs_cut()
                         }
                     }
                     for (const ExPolygon &expoly : unsupported) {
+                        if (! flat_faces.empty() && diff_ex(ExPolygons{ expoly }, flat_faces).empty())
+                            continue;
                         if (overhangs_cut_around_closing_hole(expoly, upper_slices, spacing))
                             continue;
                         if (! slope_rings.empty() && ! intersection(to_polygons(expoly), near_open_hole).empty() &&
@@ -862,6 +1164,8 @@ bool PrintObject::apply_overhangs_cut()
                     bridged_area = union_ex(bridged_area);
                 }
             }
+            if (! flat_faces.empty())
+                bridged_area = union_ex(bridged_area, flat_faces);
 
             // Supported area grown by the slope.
             ExPolygons enlarged_support = offset_ex(supported_area, float(enlargement), ClipperLib::jtRound, round_tolerance);
@@ -884,6 +1188,8 @@ bool PrintObject::apply_overhangs_cut()
             append(enlarged_support, min_enlarged);
             enlarged_support = union_ex(enlarged_support);
             ExPolygons cut = intersection_ex(region_slices, enlarged_support);
+            // Outside the holes: as sliced.
+            cut = union_ex(cut, diff_ex(region_slices, zone));
             // Floating hole bridge layers (apply_floating_hole_bridges()) are kept as they are.
             if (! layer->floating_hole_zones.empty())
                 cut = union_ex(cut, intersection_ex(region_slices, layer->floating_hole_zones));
@@ -893,7 +1199,8 @@ bool PrintObject::apply_overhangs_cut()
         }
         if (modified)
             layer->make_slices();
-        lower_uncut = std::move(uncut);
+        lower2_uncut = std::move(lower_uncut);
+        lower_uncut  = std::move(uncut);
     }
     return true;
 }

@@ -1908,6 +1908,9 @@ top of the holes: no fade along the wall; Actual speed still ramps.
 each layer is cut back where it would stick out past the layer below by more than the max slope. A round horizontal
 hole gets steep sides and a short flat bridge on top instead of a top that closes with ever longer overhangs (left: model,
 right: cut, as in the SuperSlicer release notes). Areas that can be bridged are not cut. The printed part is smaller than the model there (the cut only removes material: a hole can end a layer higher).
+**Holes only** (user, 2026-11-16; unlike SuperSlicer, which cuts every overhang): horizontal holes, arch tunnels (round
+or pointed) and domes. Every other overhang (chamfers, ledges, flared columns, fillets, slots that stay open, a
+countersink) is printed as sliced, whatever the max slope.
 
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
@@ -1927,7 +1930,24 @@ and hole size compensations). Layer by layer from the bottom (each layer uses th
 area = layer ∩ layer below; for each region with a max slope, the unsupported part wider than a nozzle goes through
 PrusaSlicer's `BridgeDetector` (direction) and `overhangs_cut_bridge_coverage()` (lines at that direction, spaced by the
 bridge spacing, anchored on two separate pieces of the layer below, not longer than the bridge max length): that part
-is kept. Rules of our own, found on the user's screw hole block with their profile (25 %, 0.2 mm layers), 2026-10-28:
+is kept. Only inside the holes (`overhangs_cut_hole_zones()`, decided once per object on the model's own slices; outside
+them the layer is left as sliced):
+- a horizontal hole or arch: an overhang of the model past the slope where, from points along its front edge (every mm),
+  a line straight out across the empty space reaches the material on the other side within 64 mm, and the model closes
+  over the middle of that line within its length + 1 mm of height (a round or 45 degree arch closes within half its
+  width), on half of the front's length or more and on 1 mm or more (raised lettering 0.4 mm off a wall has tiny arches
+  inside its letters, left alone: user, 2026-11-16, `Raiser.stl`). The overhang and those lines are the zone. (First done with a closing
+  of the layer's outline, which leaked out of the open ends of a tunnel: only the top of arches was cut, user's
+  screenshot 2026-11-16.)
+- a dome: an enclosed hole of the layer below that the layer narrows all around (3/4 of its edge or more), in a run of
+  narrowing layers whose steps grow (largest at least 1.5 x the median, the last step of a run of 3 or more left out).
+  A countersink narrows by the same step every layer (a cone), a counterbore or a blind pocket in one step: not domes.
+- where the cut is still behind the model below (it catches up by the slope after the hole's top), with the whole
+  unsupported pieces of the layer touching that strip (the top of a hole the cut hasn't closed yet, its middle too).
+Before 2026-11-16 every overhang was cut, as in SuperSlicer: the user's `Raiser.stl` (a box hanging off a wall with a 45
+degree chamfer underneath) had its chamfer cut at 35 % and the strip the cut still owed put back in one layer as a
+bridge. Now its G-code is the same as with the cut off. Test: "a chamfer under a box hanging off a wall is not a hole".
+Rules of our own, found on the user's screw hole block with their profile (25 %, 0.2 mm layers), 2026-10-28:
 - The test lines are clipped half as far out as the anchors reach (their ends inside the anchors, not on the edge, where
   rounding rejected most of them) and to the material of the layer shrunk by as much, so a line passing over or grazing
   empty space of the layer (a screw hole, also when it splits the area in two) is not anchored: the edge of a bridged
@@ -1945,11 +1965,32 @@ is kept. Rules of our own, found on the user's screw hole block with their profi
   extension to the hole's tangents; the extension in `overhangs_cut_bridge_coverage()` is still there for other holes
   next to bridged areas). The floating holes found by section 44 are also marked on their ceiling layer
   (`Layer::floating_hole_zones`) and left as sliced, with the option on or off.
+  Only a hole that floats counts: at least half of its edge over nothing in the layer below (the layer below grown by a
+  quarter of a line width, so an edge right above the edge of the layer below, a pocket's wall going straight up, is
+  supported). Found on `Raiser.stl` (2026-11-16), before the cut was limited to holes: a pocket opening on its own floor
+  into the strip the cut still owed under a chamfer was taken for a floating hole.
 - A ring around an open hole that is near the support all around but touches it nowhere, with the layer below cut next
   to it (a dome closing faster than the slope follows it: the last ring around the hole) is left to the slope until it
   touches (then kept, above): printed as is it was a full loop of overhang perimeters, bridged its chords gave flat
   sides. "Touches": within a quarter of a line width (at half a line width the touch came at 0.22 mm, and the hole's
   outer perimeter, 0.2 mm off the edge, was overhang).
+
+- **Flat faces are left as sliced** (user, 2026-11-15, the groove ceiling of `Stuff/SideSupport_A.stl`, which the cut made
+  lopsided and polygonal to the top). Decided on the model's own slices (this layer, the one below, the one under it), per
+  piece of the model's overhang (`overhangs_cut_flat_faces()`): a piece is flat when the layer below did not move out next
+  to it by the slope or more, or moved by less than a third of this layer's step (a slope ending in a flat ceiling: the
+  ceiling is flat). Steps are measured as area per length of the piece's edge on the layer below. Not flat: pieces not
+  wider than twice the slope (the first step of a curve), a ring around a hole that is empty in this layer and closes in
+  the next one (a dome). A piece touching nothing below is kept too. A flat piece is kept with the material next to it
+  that the cut removed below (within twice its step), so a ceiling over a cut slope doesn't float. This works with or
+  without bridges (also with a bridge max length of 0). Examples: groove or tunnel ceiling, ledge, mushroom top,
+  counterbore ceiling; a slot with a flat groove on one wall and a slope on the other at the same height is decided per
+  piece. A 5 degree slope is a slope (its layers all move by the same large step): its first layer is kept, the rest cut.
+- **A bridge line must reach away from the support**: a line whose middle (of its longest part over the area) is closer
+  to the support than a quarter of that part's length is not a bridge. A straight line across the inside of a curved wall
+  touches the wall twice and was kept as a bridge, in random pieces per layer (the blue bits and purple wedges along the
+  slot of SideSupport_A; on a slot whose walls lean in, stray pieces past the slope). A bridge across a gap has its middle
+  half the gap away.
 
 SuperSlicer's third option, `overhangs_bridge_upper_layers` ("Consider upper bridges": leave empty, on the layers under
 a bridge, the area that bridge will cover, instead of growing overhangs into it), was ported, renamed "Look ahead for
@@ -1980,6 +2021,15 @@ threshold 0: for the counterbores M2..M8, no overhang below the ceiling, the cei
 around the hole), from there one hole of the model's size per layer and no overhang above the ceiling; for the domes,
 never an overhang perimeter, one hole per layer narrowing by at most the slope, the model's size from 2.5 mm above the
 dome (with the slope ring rule taken out, the domes fail).
+`tests/data/overhang_flat_cases.obj` (made by `Stuff/overhang_flat_test.py`, which also writes `Stuff/overhang_flat_test.stl`
+with the same 26 cases for slicing and printing), sliced with 0 and 35 %: groove (also turned 30 degrees), ledge, tunnel,
+mushroom, counterbore, staircase, blind pocket, ledge round a corner and a block starting in the air as sliced on every
+layer; since 2026-11-16 (holes only) also as sliced: 30 and 45 degree chamfers, 5 degree slope, a column flaring out, a
+U-slot whose walls lean in, slope then ledge, ledge then chamfer, fillet into a ceiling, the slot with a flat groove left
+and a slope right, and a countersink; a 60 degree slope not cut, a 0.25 mm lip trimmed on one layer at most; round and
+pointed arch tunnels cut. Pictures of every case and of SideSupport_A's slot, sliced with the user's `.2 .4voron` profile
+(grey = sliced without the cut): `Stuff/Overhangs cut cases/` (2026-11-15, from before "holes only": the chamfers and
+slopes shown cut there are now as sliced).
 Manual: `Stuff/overhang_test.stl` at 50 %: the 12 mm hole narrows by 0.40 mm per layer and closes with a 6.3 mm bridge
 (stock: up to 2.66 mm per layer, 1.3 mm last gap); overhang perimeter moves 606 -> 286. The user's plate slices in the
 same time (5.7 / 5.8 s). The model also has a 82.9 x 80 x 15 mm block (behind: the floating holes row of section 44 and a countersink) with screw holes M2 / M3 / M4 / M5 / M6 / M8

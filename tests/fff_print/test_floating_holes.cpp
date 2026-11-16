@@ -271,32 +271,27 @@ TEST_CASE("Floating holes: two slices give the same layers", "[FloatingHoles]") 
     }
 }
 
-TEST_CASE("Floating holes: a hole the overhangs cut leaves floating gets the bridge layers too", "[FloatingHoles]") {
-    // The countersink of the fourth row (Y 90, X 9: 10 mm into a 3.4 mm hole over 1 mm): the cut at 25 % widens its last
-    // steps, so the 3.4 mm hole starts over a void of about 9 mm.
+TEST_CASE("Floating holes: a countersink is not cut, its hole doesn't float", "[FloatingHoles]") {
+    // The countersink of the fourth row (Y 90, X 9: 10 mm into a 3.4 mm hole over 1 mm). Until 2026-11-16 the cut at 25 %
+    // widened its last steps, the 3.4 mm hole started over a void of about 9 mm and got the bridge layers. The cut is for
+    // holes, arches and domes only now (user: a countersink is a regular overhang): as sliced, nothing floats.
     const FloatingCase countersink{ "countersink", 9., 90., 4.6, 3.4, 0, 0 };
     {
         Sliced s;
         slice(s, { { "floating_hole_bridges", "1" }, { "overhangs_max_slope", "25%" } });
-        const PrintObject &object = *s.print.objects().front();
-        const std::vector<BridgeLayer> layers = bridge_layers(object, countersink);
-        REQUIRE(layers.size() >= 2);
-        CHECK(std::abs(layers.front().layer->print_z - 5.2) < 0.01);
-        for (size_t k = 1; k < layers.size(); ++ k)
-            CHECK(line_angle_diff(layers[k].angle, layers[0].angle + double(k) * PI / double(layers.size())) < 0.01);
+        CHECK(bridge_layers(*s.print.objects().front(), countersink).empty());
     }
     {
         Sliced s;
         slice(s, { { "overhangs_max_slope", "25%" } });
         const PrintObject &object = *s.print.objects().front();
-        CHECK(bridge_layers(object, countersink).empty());
         bool found = false;
         for (const auto &w : object.step_state_with_warnings(posSlice).warnings)
             if (w.message.find("floating hole") != std::string::npos) {
                 found = true;
                 INFO(w.message);
-                // The 10 of the model + the countersink's hole.
-                CHECK(w.message.rfind("11 floating hole(s)", 0) == 0);
+                // The 10 of the model, not the countersink's hole.
+                CHECK(w.message.rfind("10 floating hole(s)", 0) == 0);
             }
         CHECK(found);
     }

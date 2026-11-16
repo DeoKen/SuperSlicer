@@ -3173,10 +3173,11 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Overhangs max slope");
     def->full_label = L("Overhangs cut: max slope");
     def->category = L("Layers and Perimeters");
-    def->tooltip = L("Changes the shape of the model so that overhangs are printable: where a layer would stick out past the layer "
-                   "below by more than this, the layer is cut back. The top of a horizontal hole becomes steep sides with a "
-                   "short flat bridge. Areas that can be bridged are not cut (see \"Bridge max length\"). The printed part "
-                   "is smaller there than the model."
+    def->tooltip = L("Changes the shape of holes so that their tops are printable: in a horizontal hole, an arch tunnel or a "
+                   "dome, where a layer would stick out past the layer below by more than this, the layer is cut back. The "
+                   "top of a horizontal hole becomes steep sides with a short flat bridge. Other overhangs (chamfers, "
+                   "ledges, countersinks...) are printed as they are. Areas that can be bridged are not cut (see \"Bridge "
+                   "max length\"). The printed part is smaller there than the model."
                    "\nCan be in mm or a % of the nozzle diameter. 0 = off.");
     def->sidetext = L("mm or %");
     def->ratio_over = "nozzle_diameter";
