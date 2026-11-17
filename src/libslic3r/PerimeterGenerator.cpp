@@ -9,6 +9,7 @@
 
 #include <ankerl/unordered_dense.h>
 #include <algorithm>
+#include <optional>
 #include <cmath>
 #include <cassert>
 #include <cstdlib>
@@ -1174,6 +1175,72 @@ std::tuple<std::vector<ExtrusionPaths>, Polygons> generate_extra_perimeters_over
     return {extra_perims, diff(inset_overhang_area, inset_overhang_area_left_unfilled)};
 }
 
+// "Classic outer wall" (arachne_classic_outer_wall): the closed outer loops of Arachne with the normal width all around
+// get the points of the classic outer loop (the outline offset by half the external perimeter spacing, as the classic
+// generator), so the outer wall is the same on every layer of a vertical wall. Arachne reaches about the same line through
+// its skeleton, but with points placed differently on each layer (up to ~0.03 mm apart). Loops narrowed or widened
+// anywhere (thin walls, transitions) and open lines keep Arachne's points. The inside corners are rounded as Arachne does
+// (a pointed corner came up to 0.12 mm closer to Arachne's first inner wall).
+static void arachne_classic_outer_wall(Arachne::Perimeters &perimeters, const Polygons &outline, const coord_t ext_perimeter_spacing)
+{
+    if (perimeters.empty())
+        return;
+    const Polygons classic = offset(outline, -float(ext_perimeter_spacing / 2.), ClipperLib::jtRound, double(scaled<double>(0.005)));
+    if (classic.empty())
+        return;
+    std::vector<BoundingBox> classic_bboxes;
+    classic_bboxes.reserve(classic.size());
+    for (const Polygon &cp : classic)
+        classic_bboxes.emplace_back(get_extents(cp));
+    const double width_tolerance = 0.02 * double(ext_perimeter_spacing);
+    // Only to find the classic loop of an Arachne loop: loops of one island are at least a line width apart.
+    const double match_tolerance = 0.5 * double(ext_perimeter_spacing);
+    const double bbox_tolerance  = scaled<double>(1.);
+    for (Arachne::ExtrusionLine &el : perimeters.front()) {
+        if (el.inset_idx != 0 || ! el.is_closed || el.junctions.size() < 3)
+            continue;
+        if (std::any_of(el.junctions.begin(), el.junctions.end(), [&](const Arachne::ExtrusionJunction &j) {
+                return std::abs(double(j.w) - double(ext_perimeter_spacing)) > width_tolerance; }))
+            continue;
+        Polygon ap;
+        ap.points.reserve(el.junctions.size());
+        for (const Arachne::ExtrusionJunction &j : el.junctions)
+            ap.points.emplace_back(j.p);
+        if (ap.points.front() == ap.points.back())
+            ap.points.pop_back();
+        const BoundingBox abb = get_extents(ap);
+        const Polygon *match = nullptr;
+        std::optional<AABBTreeLines::LinesDistancer<Line>> arachne_lines;
+        for (size_t i = 0; i < classic.size() && match == nullptr; ++ i) {
+            const BoundingBox &cbb = classic_bboxes[i];
+            if ((cbb.min - abb.min).cast<double>().norm() > bbox_tolerance || (cbb.max - abb.max).cast<double>().norm() > bbox_tolerance)
+                continue;
+            if (! arachne_lines)
+                arachne_lines.emplace(ap.lines());
+            const AABBTreeLines::LinesDistancer<Line> classic_lines(classic[i].lines());
+            const bool close =
+                std::all_of(ap.points.begin(), ap.points.end(), [&](const Point &p) { return classic_lines.distance_from_lines<false>(p) <= match_tolerance; }) &&
+                std::all_of(classic[i].points.begin(), classic[i].points.end(), [&](const Point &p) { return arachne_lines->distance_from_lines<false>(p) <= match_tolerance; });
+            if (close)
+                match = &classic[i];
+        }
+        if (match == nullptr)
+            continue;
+        // Keep Arachne's direction (the perimeter order and the seam placer rely on it).
+        Polygon cp = *match;
+        if (cp.is_counter_clockwise() != ap.is_counter_clockwise())
+            cp.reverse();
+        const coord_t w               = el.junctions.front().w;
+        const size_t  perimeter_index = el.junctions.front().perimeter_index;
+        std::vector<Arachne::ExtrusionJunction> junctions;
+        junctions.reserve(cp.points.size() + 1);
+        for (const Point &p : cp.points)
+            junctions.emplace_back(p, w, perimeter_index);
+        junctions.emplace_back(cp.points.front(), w, perimeter_index);
+        el.junctions = std::move(junctions);
+    }
+}
+
 // Thanks, Cura developers, for implementing an algorithm for generating perimeters with variable width (Arachne) that is based on the paper
 // "A framework for adaptive width control of dense contour-parallel toolpaths in fused deposition modeling"
 void PerimeterGenerator::process_arachne(
@@ -1292,6 +1359,9 @@ void PerimeterGenerator::process_arachne(
             infill_contour = union_ex(no_single_perimeter_tool_paths.getInnerContour());
         }
     }
+
+    if (params.object_config.arachne_classic_outer_wall)
+        arachne_classic_outer_wall(perimeters, last_p, ext_perimeter_spacing);
 
     loop_number = int(perimeters.size()) - 1;
 

@@ -454,7 +454,7 @@ void pressure_calibration_build_walls(const std::vector<ModelObject*> &walls, co
         // splits the slightly thicker inside of the corner into two thin beads: the line stops before the corner, travels
         // and a blob is printed at the corner on its own (found on the user's profile, 2026-10-23).
         for (const char *key : { "min_bead_width", "min_feature_size", "wall_transition_length", "wall_transition_filter_deviation",
-                                 "wall_transition_angle", "wall_distribution_count" })
+                                 "wall_transition_angle", "wall_distribution_count", "arachne_classic_outer_wall" })
             oc.set_key_value(key, FullPrintConfig::defaults().option(key)->clone());
         object->name = pressure_calibration_object_name(test, id_item) + " wall " + std::to_string(k + 1);
         object->invalidate_bounding_box();

@@ -2030,6 +2030,7 @@ void TabPrint::build()
         append_labelled_line(optgroup, L("Wall transition"), { { "wall_transition_angle", L("Angle") }, { "wall_transition_filter_deviation", L("Distance margin") }, { "wall_transition_length", L("Length") } });
         optgroup->append_single_option_line("wall_distribution_count");
         append_labelled_line(optgroup, L("Minimum"), { { "min_bead_width", L("Bead width") }, { "min_feature_size", L("Feature size") } });
+        optgroup->append_single_option_line("arachne_classic_outer_wall");
 
         optgroup = page->new_optgroup(L("Custom parameters"), 0);
         auto option = optgroup->get_option("custom_parameters_print");

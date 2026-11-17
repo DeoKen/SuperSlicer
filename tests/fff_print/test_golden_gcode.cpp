@@ -50,6 +50,7 @@ const std::vector<std::string> added_config_keys {
     "scarf_seam_not_near_overhangs", "scarf_seam_overhang_distance",
     "adaptive_pressure_advance_model", "enable_pressure_advance", "pressure_advance", "adaptive_pressure_advance",
     "calibration_print_group",
+    "arachne_classic_outer_wall",
 };
 
 // Config keys of stock PrusaSlicer removed by this fork, skipped in the reference files.

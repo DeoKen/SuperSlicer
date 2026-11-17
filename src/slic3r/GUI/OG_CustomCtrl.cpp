@@ -858,13 +858,17 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
             if (field && field->has_undo_ui())
                 draw_act_bmps(dc, wxPoint(h_pos, v_pos), field->undo_to_sys_bitmap(), field->undo_bitmap(), field->blink(), bmp_rect_id++);
             h_pos += 3 * blinking_button_width;
-            const bool last = i + 1 == option_set.size();
-            h_pos += (last ? ctrl->field_width(opt, field) : cols[i].field) + ctrl->m_h_gap;
+            const bool    last    = i + 1 == option_set.size();
+            const wxCoord own     = ctrl->field_width(opt, field);
+            const wxCoord field_w = last ? own : cols[i].field;
             if (const wxCoord side = last ? ctrl->side_width(opt) : cols[i].side; side > 0) {
+                // The unit right after its own field, not after the widest field of the column (a combo box above);
+                // the column's room left of the next field goes to the text.
                 if (! opt.opt.sidetext.empty())
-                    draw_text(dc, wxPoint(h_pos, v_pos), ctrl->side_text(opt, false), nullptr, side);
+                    draw_text(dc, wxPoint(h_pos + own + ctrl->m_h_gap, v_pos), ctrl->side_text(opt, false), nullptr, side + std::max<wxCoord>(0, field_w - own));
                 h_pos += side + ctrl->m_h_gap;
             }
+            h_pos += field_w + ctrl->m_h_gap;
             h_pos += lround(0.6 * ctrl->m_em_unit);
         }
         return;

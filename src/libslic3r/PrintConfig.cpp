@@ -4915,6 +4915,17 @@ void PrintConfigDef::init_fff_params()
     def->min = 1;
     def->set_default_value(new ConfigOptionInt(1));
 
+    def = this->add("arachne_classic_outer_wall", coBool);
+    def->label = L("Classic outer wall");
+    def->category = L("Advanced");
+    def->tooltip  = L("Arachne: print the outer wall where the classic perimeter generator puts it, wherever it has its "
+                       "normal width all around a loop. Arachne places the points of the outer wall a little differently on "
+                       "each layer (up to about 0.03 mm), which can show as streaks on curved walls; the classic outer wall "
+                       "is the same on every layer. Loops that Arachne narrows or widens somewhere (thin walls, transitions) "
+                       "and the inner walls stay as Arachne makes them.");
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("min_feature_size", coFloatOrPercent);
     def->label = L("Minimum feature size");
     def->category = L("Advanced");

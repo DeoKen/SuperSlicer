@@ -18,6 +18,10 @@ class DynamicPrintConfig;
 // ratio_over, following chains of percentages; "nozzle_diameter": the first extruder.
 std::optional<double> percent_base_value(const DynamicPrintConfig &config, const std::string &opt_key);
 
+// Whether the percentage of opt_key has a known base (a ratio_over, an extrusion width, or one of the settings resolved
+// in code: seam gap and seam notch, Arachne widths, first layer / over bridge solid infill speeds).
+bool percent_has_base(const std::string &opt_key);
+
 // The other form of the value of opt_key: for a percentage its absolute value (percent = false), for an absolute value its
 // percentage of the base (percent = true). std::nullopt if the base is unknown or 0, or for an absolute 0 (auto / disabled).
 struct PercentValueHint { double value; bool percent; };

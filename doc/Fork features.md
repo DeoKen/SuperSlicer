@@ -63,6 +63,7 @@ Contents:
 38. [Per region G-code](#38-per-region-g-code)
 40. [The other form of a value or percentage next to the field](#40-the-other-form-of-a-value-or-percentage-next-to-the-field)
 45. [Adaptive pressure advance calibration](#45-adaptive-pressure-advance-calibration)
+47. [Arachne: classic outer wall](#47-arachne-classic-outer-wall)
 25. [Testing](#testing)
 
 ---
@@ -1814,13 +1815,21 @@ its absolute value, `[225%] mm or %  (0.45 mm)`; for an absolute value its perce
 for 0 (auto / disabled) or when the base is unknown or 0. Extrusion widths are a percentage of the layer height
 in PrusaSlicer (the first layer width: of the first layer height), not of the nozzle as in SuperSlicer: 100 % at 0.2 mm
 layers is 0.2 mm. The other settings follow their base, also chains (top solid infill speed % of solid infill speed % of
-infill speed); the accelerations: % of the default acceleration (section 4). It changes when the value is entered (Enter /
+infill speed); the accelerations: % of the default acceleration (section 4). Settings whose base is only in the code
+(2026-11-17, user): seam gap (and its filament override): % of the nozzle diameter; seam notch (section 10): % of the
+external perimeter width (0 = auto resolved as the slicer does: the extrusion width, then 1.125 x nozzle; Arachne varies
+the real width along the line, the hint uses the set width); Arachne min bead width / min feature size / wall transition
+length / filter deviation: % of the smallest nozzle; over bridge and first layer infill speeds: % of the solid infill
+speed. No hint where there is no fixed base: max detour (% of each travel), first layer speed (scales every speed). On a
+line of several fields the unit and hint follow their own field, not the widest field of the column (a combo box on
+another line); the next field keeps its column. It changes when the value is entered (Enter /
 leaving the field), when a setting it depends on is changed on the shown page, and when a page is shown or settings are
 loaded. (2026-10-24, user.)
 
 **How it works.** `percent_value_hint()` (`libslic3r/PercentValue.cpp`): the base of the setting's percentage
 (`percent_base_value()`: its `ratio_over`, resolved through chains; widths: the layer height, as
-`Flow::new_from_config_width()`; `nozzle_diameter` the first extruder), then value x base / 100 or value / base x 100.
+`Flow::new_from_config_width()`; `nozzle_diameter` the first extruder; settings without a ratio_over: the table
+`other_base_key()`, `percent_has_base()` tells the GUI), then value x base / 100 or value / base x 100.
 `ConfigOptionsGroup::update_value_hints()` (`OptionsGroup.cpp`) computes the texts with the presets' full config plus the
 group's config (object settings) from `reload_config()` and `on_change_OG()`; `Tab::on_value_change()` updates the groups
 of the shown page; `OG_CustomCtrl` draws the text after the unit, its column wide enough for "(0000 unit)" ("(00000 mm/s²)" for accelerations) so the layout
@@ -1828,6 +1837,8 @@ doesn't move when a value becomes a percentage (room for the wider of "(0000 uni
 
 **How to test.** `fff_print_tests "[PercentValue]"`. Manual (GUI): Print Settings > Advanced: extrusion width `225%` and
 Tab: `(0.45 mm)` with 0.2 mm layers, `0.45`: `(225 %)`; change the layer height on its page and come back: the value follows.
+Print Settings > Advanced with a 0.4 nozzle: seam gap `15%` shows `(0.06 mm)`, seam notch "Round holes" `0.04` with a
+0.4 external width shows `(10 %)`, its "mm or %" right after the field; Arachne group on the same page: min bead width `85%` shows `(0.34 mm)`.
 
 ---
 
@@ -2326,6 +2337,47 @@ the infill's value, the acceleration (speed mode Slow 50 %, per feature), no mea
 equals the one without pressure advance except the `SET_PRESSURE_ADVANCE` lines; values 0.022 to 0.03 by feature. In the
 app: Filament > Advanced > Pressure advance, the value and the adaptive option greyed while "Enable" is off; Preview, G-code
 panel: `SET_PRESSURE_ADVANCE` before the features.
+
+---
+
+## 47. Arachne: classic outer wall
+
+**What it does.** With the Arachne perimeter generator, the outer wall is printed where the classic generator puts it,
+wherever it has its normal width all around a loop. Arachne builds its walls from a skeleton of each layer and simplifies
+them with a fixed 0.025 mm allowance, so on curved walls the points of the outer wall land a little differently on every
+layer (up to about 0.03 mm between layers); this can show as streaks or a slightly uneven surface. The classic outer wall
+comes straight from the outline, so a vertical wall gets the same outer wall on every layer. Loops that Arachne narrows or
+widens anywhere (thin walls, transitions) and all inner walls stay as Arachne makes them, so its thin-wall handling is kept.
+(2026-11-17, user; found on a roller with curved pockets.)
+
+**Setting.** `arachne_classic_outer_wall` "Classic outer wall" (Print Settings > Advanced > Arachne perimeter generator,
+Expert, per object too): off by default (stock output). Greyed with the classic generator. Pressure calibration walls
+keep the default (off), like the other Arachne settings (section 30).
+
+**How it works.** `arachne_classic_outer_wall()` in `PerimeterGenerator.cpp`, called in `process_arachne()` after the
+walls are made (both Arachne passes of "single perimeter on top surfaces" included), before the wall order. The classic
+outer loops are the Arachne input outline offset by half the external perimeter spacing (the classic generator's outer
+wall: half the external width inside the slice), with rounded inside corners (`jtRound`, 0.005 mm): with pointed corners
+the outer wall came up to 0.12 mm closer to Arachne's first inner wall at the inside corners of the roller's pockets. Each
+closed outer Arachne line (`inset_idx` 0) whose junctions all have the external spacing (within 2 %) is matched to the
+classic loop with a bounding box within 1 mm and every point of each within half the external spacing of the other; its
+points are replaced by the classic loop's, in Arachne's direction (the wall order and the seam placer use it), with the
+same width. Open lines, narrowed or widened loops and unmatched loops are left alone.
+
+Measured (roller `Roller_stag`, `.2 .4voron - pfa`): outer wall movement between layers, 99 % of the points: Arachne 0.015
+mm, with this option 0.0012 mm (classic 0.001); largest 0.032 / 0.009 / 0.009 mm; spacing to the first inner wall
+unchanged (closest 0.297 mm, Arachne 0.299). Worst-case part `Stuff/arachne_wall_test.stl` (+ `.py`, `_measure.py`, `.txt`):
+tube / boss / cone as consistent as classic, straight and thin walls unchanged; a fin tapering in Z joined to a cylinder
+gets the classic outer wall while the fin is thicker than about 1 mm and Arachne's above, the wall shifting up to 0.034 mm
+at that layer. Alternatives tried and dropped: a finer Arachne simplification (0.005 mm: 99 % within 0.005 mm, largest
+0.019 mm, +7 % G-code), moving Arachne's points onto the offset outline (no gain: they are already there; the drift comes
+from where the points are, not their distance to the outline).
+
+**How to test.** `fff_print_tests "[ArachneClassicOuter]"`: a 180-facet cylinder, every layer's outer wall equal to the
+classic generator's within 0.001 mm (measured 0.000003; Arachne without the option: 0.020 mm away, checked > 0.005) and
+as consistent between layers as classic; a 0.7 mm wall (narrowed lines) identical to Arachne without the option; off by
+default. The golden test lists the key (default off = stock output). Manual: slice `Stuff/arachne_wall_test.stl` with Arachne, Arachne + this option and
+classic, run `python Stuff/arachne_wall_test_measure.py <the three G-codes>`: A/B/C close to classic with the option.
 
 ---
 

@@ -40,6 +40,7 @@ add_executable(${_TEST_NAME}_tests
 	test_small_area_flow.cpp
 	test_dynamic_overhang.cpp
 	test_overhang_hysteresis.cpp
+	test_arachne_classic_outer.cpp
 	test_gcode_settings_import.cpp
 	test_pa_pattern.cpp
 	test_region_gcode.cpp

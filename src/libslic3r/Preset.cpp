@@ -510,7 +510,7 @@ static std::vector<std::string> s_Preset_print_options {
     "wipe_tower_width", "wipe_tower_cone_angle", "wipe_tower_brim_width", "wipe_tower_bridging", "single_extruder_multi_material_priming", "mmu_segmented_region_max_width",
     "mmu_segmented_region_interlocking_depth", "wipe_tower_extruder", "wipe_tower_no_sparse_layers", "wipe_tower_extra_flow", "wipe_tower_extra_spacing", "compatible_printers", "compatible_printers_condition", "inherits",
     "perimeter_generator", "wall_transition_length", "wall_transition_filter_deviation", "wall_transition_angle",
-    "wall_distribution_count", "min_feature_size", "min_bead_width",
+    "wall_distribution_count", "min_feature_size", "min_bead_width", "arachne_classic_outer_wall",
     "top_one_perimeter_type", "only_one_perimeter_first_layer",
     "automatic_extrusion_widths", "automatic_infill_combination", "automatic_infill_combination_max_layer_height",
     "bed_temperature_extruder", "interlocking_beam", "interlocking_orientation", "interlocking_beam_layer_count", "interlocking_depth", "interlocking_boundary_avoidance", "interlocking_beam_width",

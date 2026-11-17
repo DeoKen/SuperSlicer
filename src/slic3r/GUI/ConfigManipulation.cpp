@@ -431,6 +431,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
     toggle_field("wall_distribution_count", have_arachne);
     toggle_field("min_feature_size", have_arachne);
     toggle_field("min_bead_width", have_arachne);
+    toggle_field("arachne_classic_outer_wall", have_arachne);
     toggle_field("thin_walls", !have_arachne);
 
     toggle_field("scarf_seam_placement", !has_spiral_vase);

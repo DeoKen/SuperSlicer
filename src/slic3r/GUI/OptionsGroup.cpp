@@ -865,7 +865,7 @@ void ConfigOptionsGroup::reload_config()
 bool OptionsGroup::can_have_value_hint(const ConfigOptionDef &def)
 {
 	return (def.type == coFloatOrPercent || def.type == coFloatsOrPercents) && ! percent_value_unit(def).empty() &&
-		   (! def.ratio_over.empty() || boost::ends_with(def.opt_key, "extrusion_width"));
+		   percent_has_base(def.opt_key);
 }
 
 void ConfigOptionsGroup::update_value_hints()

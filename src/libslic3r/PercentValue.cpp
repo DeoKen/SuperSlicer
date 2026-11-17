@@ -2,7 +2,12 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 
+#include "Flow.hpp"
 #include "PrintConfig.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <map>
 
 namespace Slic3r {
 
@@ -24,15 +29,60 @@ static std::optional<std::pair<double, bool>> value_or_percent(const ConfigOptio
 
 static std::optional<double> absolute_value(const DynamicPrintConfig &config, const std::string &key, int depth);
 
+// Bases of settings without a ratio_over, as the slicer resolves their percentages. Two pseudo keys:
+// "@min_nozzle_diameter" (Arachne, WallToolPaths: the smallest nozzle) and "@external_perimeter_width" (seam notch: the
+// width of the external perimeter, its 0 = auto resolved as Flow::extrusion_width()).
+static const char* other_base_key(const std::string &key)
+{
+    static const std::map<std::string, const char*> bases = {
+        { "seam_gap_distance",                "nozzle_diameter" },            // GCode.cpp get_seam_gap_distance_value()
+        { "filament_seam_gap_distance",       "nozzle_diameter" },
+        { "seam_notch_all",                   "@external_perimeter_width" },  // GCode.cpp seam_notch()
+        { "seam_notch_inner",                 "@external_perimeter_width" },
+        { "seam_notch_outer",                 "@external_perimeter_width" },
+        { "min_bead_width",                   "@min_nozzle_diameter" },
+        { "min_feature_size",                 "@min_nozzle_diameter" },
+        { "wall_transition_length",           "@min_nozzle_diameter" },
+        { "wall_transition_filter_deviation", "@min_nozzle_diameter" },
+        { "over_bridge_speed",                "solid_infill_speed" },         // GCode.cpp _extrude()
+        { "first_layer_infill_speed",         "solid_infill_speed" },
+    };
+    auto it = bases.find(key);
+    return it == bases.end() ? nullptr : it->second;
+}
+
 static std::optional<double> base_value(const DynamicPrintConfig &config, const std::string &key, int depth)
 {
     std::string base_key;
     if (boost::ends_with(key, "extrusion_width"))
         // Flow::new_from_config_width(): a percentage of the layer height.
         base_key = key == "first_layer_extrusion_width" ? "first_layer_height" : "layer_height";
+    else if (const char *other = other_base_key(key); other != nullptr)
+        base_key = other;
     else if (const ConfigOptionDef *def = print_config_def.get(key); def != nullptr)
         base_key = def->ratio_over;
+    if (base_key == "@min_nozzle_diameter") {
+        const auto *nozzles = config.option<ConfigOptionFloats>("nozzle_diameter");
+        if (nozzles == nullptr || nozzles->empty())
+            return std::nullopt;
+        return *std::min_element(nozzles->values.begin(), nozzles->values.end());
+    }
+    if (base_key == "@external_perimeter_width") {
+        try {
+            return Flow::extrusion_width("external_perimeter_extrusion_width", config);
+        } catch (const std::exception &) {
+            return std::nullopt;
+        }
+    }
     return base_key.empty() ? std::nullopt : absolute_value(config, base_key, depth + 1);
+}
+
+bool percent_has_base(const std::string &opt_key)
+{
+    if (boost::ends_with(opt_key, "extrusion_width") || other_base_key(opt_key) != nullptr)
+        return true;
+    const ConfigOptionDef *def = print_config_def.get(opt_key);
+    return def != nullptr && ! def->ratio_over.empty();
 }
 
 // Any number setting as an absolute value (a percentage resolved over its base), std::nullopt if unknown.
@@ -69,7 +119,8 @@ std::optional<double> percent_base_value(const DynamicPrintConfig &config, const
 std::optional<PercentValueHint> percent_value_hint(const DynamicPrintConfig &config, const std::string &opt_key)
 {
     const std::optional<std::pair<double, bool>> v = value_or_percent(config.option(opt_key));
-    if (! v || (! v->second && v->first == 0.))
+    // nil (a filament override not set): no hint.
+    if (! v || std::isnan(v->first) || (! v->second && v->first == 0.))
         return std::nullopt;
     const std::optional<double> base = percent_base_value(config, opt_key);
     if (! base || *base <= 0.)
